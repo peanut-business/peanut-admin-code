@@ -16,6 +16,6 @@ The Apache-2.0 change applies to repository source from the commit that
 introduced this NOTICE. Existing immutable tags and GitHub Releases retain the
 license files published with those artifacts.
 
-Project: https://github.com/peanut-business/peanut-admin
+Project: https://github.com/peanut-business/peanut-admin-code
 Third-party notices: THIRD_PARTY_NOTICES.md
 Machine-readable SBOM: RELEASE_SBOM.spdx.json

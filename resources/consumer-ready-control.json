@@ -32,7 +32,7 @@
   },
   "remote": {
     "name": "origin",
-    "repository": "peanut-business/peanut-admin"
+    "repository": "peanut-business/peanut-admin-code"
   },
   "p0e": {
     "database_resource_id": "peanut-admin-p0e-mysql84-gate"

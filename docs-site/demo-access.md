@@ -6,7 +6,7 @@ description: Peanut Admin v3.0.14 的 Platform、共享管理端与 Tenant 绑�
 # 在线演示
 
 以下入口运行在可丢弃的 `production-candidate` 体验实例，基础源码来自正式
-[`v3.0.14`](https://github.com/peanut-business/peanut-admin/releases/tag/v3.0.14)，并叠加可追溯、只包含演示 seed
+[`v3.0.14`](https://github.com/peanut-business/peanut-admin-code/releases/tag/v3.0.14)，并叠加可追溯、只包含演示 seed
 和部署回执接线的 overlay。overlay 有独立 commit 与 SHA-256，不会被冒充为正式 Release 源码。
 它用于体验产品，不承载真实业务数据，也不代表你的生产环境已经完成部署或 Provider 资格。
 

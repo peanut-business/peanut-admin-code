@@ -9,8 +9,8 @@ H5/小程序、Tenant 隔离和实例内平台管理。开发锁或准备检查�
 [当前多租户演示](https://pa-admin.007345.xyz/admin/) ·
 [演示账号与入口](https://peanut-admin-doc.007345.xyz/demo-access) ·
 [文档中心](https://peanut-admin-doc.007345.xyz) ·
-[3.0.14 Release](https://github.com/peanut-business/peanut-admin/releases/tag/v3.0.14) ·
-[1.x 历史 Release](https://github.com/peanut-business/peanut-admin/releases/tag/v1.1.5) ·
+[3.0.14 Release](https://github.com/peanut-business/peanut-admin-code/releases/tag/v3.0.14) ·
+[1.x 历史 Release](https://github.com/peanut-business/peanut-admin-code/releases/tag/v1.1.5) ·
 [更新日志](CHANGELOG.md)
 
 ## 当前版本能力
@@ -55,8 +55,8 @@ H5/小程序、Tenant 隔离和实例内平台管理。开发锁或准备检查�
 package identity 或继续开发业务代码时，才从固定 tag 运行创建器：
 
 ```bash
-git clone --branch vX.Y.Z --depth 1 git@github.com:peanut-business/peanut-admin.git
-cd peanut-admin
+git clone --branch vX.Y.Z --depth 1 git@github.com:peanut-business/peanut-admin-code.git
+cd peanut-admin-code
 php scripts/create-app \
   --name="Acme Console" \
   --slug=acme-console \
@@ -189,9 +189,9 @@ npx wrangler pages deploy .vitepress/dist --project-name=peanut-admin-docs --bra
 
 ## 版本与许可证
 
-当前正式源码版本为 [`v3.0.14`](https://github.com/peanut-business/peanut-admin/releases/tag/v3.0.14)。
+当前正式源码版本为 [`v3.0.14`](https://github.com/peanut-business/peanut-admin-code/releases/tag/v3.0.14)。
 它提供双 Edition fresh install 和从 3.0.13 开始的同 Edition 升级包，但不提供 1.x 数据库或脚手架原地升级；最后一个已封存的 1.x 历史版本是
-[`v1.1.5`](https://github.com/peanut-business/peanut-admin/releases/tag/v1.1.5)。源码发布、演示部署与
+[`v1.1.5`](https://github.com/peanut-business/peanut-admin-code/releases/tag/v1.1.5)。源码发布、演示部署与
 业务生产部署是三类独立证据；本仓公开演示不代表任何第三方业务生产环境已部署。
 
 Peanut Admin 当前源码自开源许可变更提交起采用 Apache-2.0；既有不可变 tag 与 GitHub Release

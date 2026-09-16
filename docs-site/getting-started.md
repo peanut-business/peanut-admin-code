@@ -18,7 +18,7 @@ description: 先选择 Edition，再从正式安装包完成校验、配置、�
 
 ## 2. 下载所选 Edition 的正式安装包
 
-正式版本号和下载附件以 [GitHub Releases](https://github.com/peanut-business/peanut-admin/releases) 页面为准。本文使用 `vX.Y.Z` 作为明确占位符；它不是一个可直接下载的版本。正式包发布后，安装包、外部 manifest 和 `SHA256SUMS` 会随 Release 附件提供。
+正式版本号和下载附件以 [GitHub Releases](https://github.com/peanut-business/peanut-admin-code/releases) 页面为准。本文使用 `vX.Y.Z` 作为明确占位符；它不是一个可直接下载的版本。正式包发布后，安装包、外部 manifest 和 `SHA256SUMS` 会随 Release 附件提供。
 
 ### Standalone
 
@@ -34,7 +34,7 @@ SHA256SUMS
 
 ```bash
 gh release download vX.Y.Z \
-  --repo peanut-business/peanut-admin \
+  --repo peanut-business/peanut-admin-code \
   --pattern 'peanut-admin-X.Y.Z-standalone.tar.gz' \
   --pattern 'peanut-admin-X.Y.Z-standalone.tar.gz.manifest.json' \
   --pattern 'SHA256SUMS'
@@ -54,7 +54,7 @@ SHA256SUMS
 
 ```bash
 gh release download vX.Y.Z \
-  --repo peanut-business/peanut-admin \
+  --repo peanut-business/peanut-admin-code \
   --pattern 'peanut-admin-X.Y.Z-multi-tenant.tar.gz' \
   --pattern 'peanut-admin-X.Y.Z-multi-tenant.tar.gz.manifest.json' \
   --pattern 'SHA256SUMS'
@@ -144,8 +144,8 @@ php server/database/install.php
 核心开发者才需要从固定源码 Release checkout 安装依赖并启动本地开发栈。该路径与普通用户的正式安装包消费路径分开：
 
 ```bash
-git clone https://github.com/peanut-business/peanut-admin.git
-cd peanut-admin
+git clone https://github.com/peanut-business/peanut-admin-code.git
+cd peanut-admin-code
 cp .env.example .env
 cp server/.env.example server/.env
 chmod 600 .env server/.env

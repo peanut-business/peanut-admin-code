@@ -52,7 +52,7 @@ fresh clone 与尚未连接 Runtime 的静态构建需要确定性默认值。�
 | `slogan` | 登录页、关于页、官网可复用产品定位 | 中性、可替换，不含环境或商业承诺 |
 | `copyright` | 管理端、PC、H5 页脚的纯文本版权 | 不含固定年份；年份由视图生成 |
 | `official_url` | 应用内官网入口 | 仓库默认空，由正式部署显式提供，避免把验收域名固化进模板 |
-| `github_url` | 应用内源码入口 | 默认 `https://github.com/peanut-business/peanut-admin` |
+| `github_url` | 应用内源码入口 | 默认 `https://github.com/peanut-business/peanut-admin-code` |
 
 `copyright.config` 继续只拥有 ICP 等备案展示项，不再承担产品版权文案；旧 `logo/favicon/copyright/icp` 网站字段不得重新加入兼容层。所有 URL/图片读取和保存继续经过现有 URL mapper。端级 fallback、字段长度、URL scheme 白名单和完整批量写都由 `WebsiteConfigService` 唯一实现。
 

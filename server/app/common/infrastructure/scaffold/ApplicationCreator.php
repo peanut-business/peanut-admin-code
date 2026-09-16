@@ -587,7 +587,7 @@ final class ApplicationCreator
     private function textTransform(string $content, array $parameters, string $path): string
     {
         $content = str_replace(
-            ['Peanut Admin', 'peanut-business/peanut-admin', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
+            ['Peanut Admin', 'peanut-business/peanut-admin-code', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
             [$parameters['PRODUCT_NAME'], $parameters['PACKAGE_IDENTITY'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
             $content
         );
@@ -650,7 +650,7 @@ final class ApplicationCreator
     private function packageTransform(string $content, array $parameters, string $path): string
     {
         $content = str_replace(
-            ['peanut-business/peanut-admin', 'peanut-admin-web', 'peanut-admin-pc', 'peanut-admin-uniapp', 'peanut-admin-docs'],
+            ['peanut-business/peanut-admin-code', 'peanut-admin-web', 'peanut-admin-pc', 'peanut-admin-uniapp', 'peanut-admin-docs'],
             [$parameters['PACKAGE_IDENTITY'], $parameters['SLUG'] . '-web', $parameters['SLUG'] . '-pc', $parameters['SLUG'] . '-uniapp', $parameters['SLUG'] . '-docs'],
             $this->textTransform($content, $parameters, 'package')
         );

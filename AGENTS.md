@@ -1,6 +1,6 @@
 # Peanut Admin — Bootstrap
 
-Repository: `peanut-business/peanut-admin`. Integration: `dev`; stable: `main`.
+Repository: `peanut-business/peanut-admin-code`. Integration: `dev`; stable: `main`.
 Product name: Peanut Admin; PC package: `peanut-admin-pc`.
 
 ## Load only the current task inputs

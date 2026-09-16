@@ -20,7 +20,7 @@ description: 为同一 Edition 完成预检查、备份、冲突计划、迁移�
 | Standalone | `peanut-admin-X.Y.Z-standalone-upgrade.tar.gz` | 同一 Standalone 应用在 Release 声明的版本范围内升级 |
 | Multi-tenant | `peanut-admin-X.Y.Z-multi-tenant-upgrade.tar.gz` | 同一 Multi-tenant 应用在 Release 声明的版本范围内升级 |
 
-`X.Y.Z` 是版本占位符，正式版本和附件以 [GitHub Releases](https://github.com/peanut-business/peanut-admin/releases) 页面为准。完整安装包用于新建空环境，不能覆盖已有应用；另一个 Edition 的升级包也不能使用。Standalone 与 Multi-tenant 的转换不是普通版本升级，必须另行设计数据迁移、停机和回滚方案。
+`X.Y.Z` 是版本占位符，正式版本和附件以 [GitHub Releases](https://github.com/peanut-business/peanut-admin-code/releases) 页面为准。完整安装包用于新建空环境，不能覆盖已有应用；另一个 Edition 的升级包也不能使用。Standalone 与 Multi-tenant 的转换不是普通版本升级，必须另行设计数据迁移、停机和回滚方案。
 
 升级包的 manifest 会声明 Edition、源版本范围、目标版本、完整 migration chain、受管文件和恢复边界。源版本不在范围内、降级、跨大版本、Edition 不匹配或迁移链不完整时，必须停止；不要把版本号改到计划文件里绕过检查。
 
@@ -30,7 +30,7 @@ description: 为同一 Edition 完成预检查、备份、冲突计划、迁移�
 
 ```bash
 gh release download vX.Y.Z \
-  --repo peanut-business/peanut-admin \
+  --repo peanut-business/peanut-admin-code \
   --pattern 'peanut-admin-X.Y.Z-standalone-upgrade.tar.gz' \
   --pattern 'peanut-admin-X.Y.Z-standalone-upgrade.tar.gz.manifest.json' \
   --pattern 'SHA256SUMS.upgrades'

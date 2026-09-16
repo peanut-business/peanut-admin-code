@@ -223,7 +223,7 @@ const rootPackage = {
   name: 'Peanut Admin',
   SPDXID: 'SPDXRef-Package-Peanut-Admin',
   versionInfo: releaseVersion,
-  downloadLocation: 'https://github.com/peanut-business/peanut-admin',
+  downloadLocation: 'https://github.com/peanut-business/peanut-admin-code',
   filesAnalyzed: false,
   licenseConcluded: 'Apache-2.0',
   licenseDeclared: 'Apache-2.0',
@@ -232,7 +232,7 @@ const rootPackage = {
   externalRefs: [{
     referenceCategory: 'PACKAGE-MANAGER',
     referenceType: 'purl',
-    referenceLocator: `pkg:github/peanut-business/peanut-admin@${releaseVersion}`,
+    referenceLocator: `pkg:github/peanut-business/peanut-admin-code@${releaseVersion}`,
   }],
 }
 
@@ -242,7 +242,7 @@ const sbom = {
   dataLicense: 'CC0-1.0',
   SPDXID: 'SPDXRef-DOCUMENT',
   name: `Peanut Admin ${releaseVersion} release dependency SBOM`,
-  documentNamespace: `https://github.com/peanut-business/peanut-admin/releases/tag/${releaseTag}/sbom`,
+  documentNamespace: `https://github.com/peanut-business/peanut-admin-code/releases/tag/${releaseTag}/sbom`,
   creationInfo: {
     created: `${releaseDate}T00:00:00Z`,
     creators: ['Organization: 花生科技', 'Tool: scripts/generate-release-legal.mjs'],
@@ -314,8 +314,8 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 | Arco Design Pro Vue | MIT | The initial management client used Arco Design Pro Vue material; applicable upstream MIT attribution is retained. Source: https://github.com/arco-design/arco-design-pro-vue |
 | LikeAdmin 1.9.4 | MIT | Used as the documented behavioral parity reference. This notice does not claim the application is a clean-room implementation. Source: https://github.com/likeadmin-likeshop/likeadmin_php |
 | ThinkPHP 8 | Apache-2.0 | Backend framework. Its upstream notice is also retained at \`server/LICENSE.txt\`. Source: https://github.com/top-think/framework |
-| \`peanut-admin/core\` | Apache-2.0 | Composer core package locked at ${corePhpVersion}. Source: https://github.com/peanut-opensource/peanut-admin-core-php |
-| \`@peanut-admin/admin\` | Apache-2.0 | npm core package locked at ${coreWebVersion} for Web, ${corePcVersion} for PC and ${coreUniappVersion} for UniApp. Source: https://github.com/peanut-opensource/peanut-admin-core |
+| \`peanut-admin/core\` | Apache-2.0 | Composer core package locked at ${corePhpVersion}. Source: https://github.com/peanut-business/peanut-admin-core-php |
+| \`@peanut-admin/admin\` | Apache-2.0 | npm core package locked at ${coreWebVersion} for Web, ${corePcVersion} for PC and ${coreUniappVersion} for UniApp. Source: https://github.com/peanut-business/peanut-admin-core-web |
 
 ## License handling
 

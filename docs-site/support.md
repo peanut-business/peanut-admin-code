@@ -25,7 +25,7 @@ description: 收集版本身份、脱敏诊断包和最小复现，并把普通�
 5. 只附脱敏后的终端片段或诊断包 SHA-256。删除绝对路径、账号、Tenant 数据、Cookie、token、
    密钥、数据库地址和原始请求头。
 
-提交入口：[创建普通 Issue](https://github.com/peanut-business/peanut-admin/issues/new)。先搜索已有
+提交入口：[创建普通 Issue](https://github.com/peanut-business/peanut-admin-code/issues/new)。先搜索已有
 Issue，避免把同一稳定错误码拆成多个报告。
 
 ## 下载脱敏诊断包
@@ -50,7 +50,7 @@ Issue，避免把同一稳定错误码拆成多个报告。
 
 ## 安全问题
 
-遵循仓库 [Security Policy](https://github.com/peanut-business/peanut-admin/security/policy)：
+遵循仓库 [Security Policy](https://github.com/peanut-business/peanut-admin-code/security/policy)：
 
 1. 如果 GitHub **Security → Report a vulnerability** 私密表单可用，通过该表单提交。
 2. 如果私密表单不可用，只创建标题为 `Security contact request` 的公开联系 Issue，内容仅含

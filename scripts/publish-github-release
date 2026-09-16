@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
-REPOSITORY="peanut-business/peanut-admin"
+REPOSITORY="peanut-business/peanut-admin-code"
 
 usage() {
   cat <<'EOF'

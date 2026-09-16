@@ -4,10 +4,10 @@
   "description": "Peanut Admin PC client",
   "private": true,
   "author": "花生科技",
-  "homepage": "https://github.com/peanut-business/peanut-admin",
+  "homepage": "https://github.com/peanut-business/peanut-admin-code",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/peanut-business/peanut-admin.git",
+    "url": "git+https://github.com/peanut-business/peanut-admin-code.git",
     "directory": "pc"
   },
   "license": "Apache-2.0",

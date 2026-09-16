@@ -1575,7 +1575,7 @@ SELECT @pa_default_tenant_id, 'website',
          'slogan', '连接管理端、PC 与移动端的中性应用基线',
          'copyright', '花生科技',
          'official_url', '',
-         'github_url', 'https://github.com/peanut-business/peanut-admin'
+         'github_url', 'https://github.com/peanut-business/peanut-admin-code'
        ),
        1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
 WHERE @pa_default_tenant_id IS NOT NULL;

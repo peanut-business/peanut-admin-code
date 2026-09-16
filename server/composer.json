@@ -1,5 +1,5 @@
 {
-    "name": "peanut-business/peanut-admin",
+    "name": "peanut-business/peanut-admin-code",
     "description": "Peanut Admin application backend",
     "type": "project",
     "keywords": [
@@ -8,11 +8,11 @@
         "thinkphp",
         "vue"
     ],
-    "homepage": "https://github.com/peanut-business/peanut-admin",
+    "homepage": "https://github.com/peanut-business/peanut-admin-code",
     "repositories": [
         {
             "type": "vcs",
-            "url": "https://github.com/peanut-opensource/peanut-admin-core-php.git"
+            "url": "https://github.com/peanut-business/peanut-admin-core-php.git"
         }
     ],
     "license": "Apache-2.0",
