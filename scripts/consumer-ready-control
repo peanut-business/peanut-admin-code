@@ -182,7 +182,6 @@ def preflight(args: argparse.Namespace) -> int:
     fixture = read_json(policy_path(policy, "authorities", "qualification_fixture"))
     resources = read_json(policy_path(policy, "authorities", "project_resources"))
     p0e_resources = read_json(policy_path(policy, "authorities", "p0e_resources"))
-    ledger = read_json(policy_path(policy, "authorities", "capability_ledger"))
 
     metadata_v2 = (
         metadata.get("schema_version") == 2
@@ -287,13 +286,6 @@ def preflight(args: argparse.Namespace) -> int:
         report.check("VERSION_IDENTITY_ALIGNED", version_values == expected_values,
                      json.dumps(version_values, sort_keys=True),
                      "align release-versions, metadata, inventory and P0-E fixture before sealing")
-    summary = str(ledger.get("overall", {}).get("summary", ""))
-    if args.phase == "prepare" and target_version not in summary:
-        report.warn("CAPABILITY_LEDGER_TARGET_PENDING", f"target={target_version}")
-    else:
-        report.check("CAPABILITY_LEDGER_NAMES_TARGET", target_version in summary,
-                     f"target_present={target_version in summary}",
-                     "describe the target version in the authoritative capability ledger")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     if args.phase == "prepare" and f"## [{target_version}]" not in changelog:
         report.warn("CHANGELOG_TARGET_PENDING", f"section=## [{target_version}]")

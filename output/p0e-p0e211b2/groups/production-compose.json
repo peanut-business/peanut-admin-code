@@ -1,9 +1,0 @@
-{
-  "schema_version": 1,
-  "compose_project": "peanut-p0e-p0e211b2",
-  "candidate": "146954edd6e25bed6813ec020b26077a959d55c8",
-  "application_root": "/Users/xing/.cache/peanut-admin/p0e-p0e211b2/generated-application",
-  "mode": "standalone",
-  "health_url": "http://127.0.0.1:20190/healthz",
-  "status": "passed"
-}

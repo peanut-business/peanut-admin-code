@@ -74,21 +74,15 @@ services:
 
   docs:
     image: node:20.19.4-bookworm-slim
-    working_dir: /workspace/docs-site
-    command: ["sh", "-c", "test -x node_modules/.bin/vitepress || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); node scripts/sync-legal-assets.mjs; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
+    working_dir: /workspace/peanut-admin-project/docs-site
+    command: ["sh", "-c", "corepack enable && corepack prepare pnpm@9.15.6 --activate; test -x node_modules/.bin/vitepress || pnpm install --frozen-lockfile; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
     environment:
       <<: *node-environment
       PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
     volumes:
-      - ../docs-site:/workspace/docs-site
+      - ../../peanut-admin-project:/workspace/peanut-admin-project
       - ../.local/container-client.env:/run/peanut/client.env:ro
-      - ../LICENSE:/workspace/LICENSE:ro
-      - ../NOTICE:/workspace/NOTICE:ro
-      - ../THIRD_PARTY_NOTICES.md:/workspace/THIRD_PARTY_NOTICES.md:ro
-      - ../RELEASE_SBOM.spdx.json:/workspace/RELEASE_SBOM.spdx.json:ro
-      - ../CHANGELOG.md:/workspace/CHANGELOG.md:ro
-      - ../RELEASE_METADATA.json:/workspace/RELEASE_METADATA.json:ro
-      - docs-node-modules:/workspace/docs-site/node_modules
+      - docs-node-modules:/workspace/peanut-admin-project/docs-site/node_modules
     ports:
       - "127.0.0.1:${DOCS_PORT:?set the registered docs port}:4173"
 

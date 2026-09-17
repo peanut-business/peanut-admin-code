@@ -14,8 +14,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-REGISTER = ROOT / "docs/product-status/tpq-issue-register.json"
-OWNERSHIP = ROOT / "docs/product-status/tpq-data-ownership.json"
+REGISTER = ROOT / "resources/architecture/tpq-issue-register.json"
+OWNERSHIP = ROOT / "resources/architecture/tpq-data-ownership.json"
 
 RULE_OWNERS = {
     "global_scope_bypass": ("TPQ07", "Sol"),

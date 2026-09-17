@@ -2,7 +2,12 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-SPEC="$ROOT_DIR/docs/api/openapi.yaml"
+if [[ -n "${PEANUT_ADMIN_PROJECT_ROOT+x}" ]]; then
+  PROJECT_ROOT="$PEANUT_ADMIN_PROJECT_ROOT"
+else
+  PROJECT_ROOT="$(CDPATH= cd -- "$ROOT_DIR/../peanut-admin-project" 2>/dev/null && pwd || true)"
+fi
+SPEC="$PROJECT_ROOT/docs/api/openapi.yaml"
 GENERATED="$ROOT_DIR/web/src/generated/openapi.d.ts"
 TMP_DIR="$(mktemp -d /private/tmp/peanut-openapi-check.XXXXXX)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -11,7 +16,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 [[ -f "$GENERATED" ]] || { printf 'check-openapi: missing generated types %s\n' "$GENERATED" >&2; exit 1; }
 pnpm --dir "$ROOT_DIR/web" exec openapi-typescript "$SPEC" --output "$TMP_DIR/openapi.d.ts" >/dev/null
 cmp -s "$TMP_DIR/openapi.d.ts" "$GENERATED" || {
-  printf '%s\n' 'check-openapi: generated types are stale; run pnpm --dir web exec openapi-typescript docs/api/openapi.yaml --output web/src/generated/openapi.d.ts' >&2
+  printf '%s\n' 'check-openapi: generated types are stale; run from the Peanut workspace with peanut-admin-project checked out, then regenerate web/src/generated/openapi.d.ts from peanut-admin-project/docs/api/openapi.yaml' >&2
   exit 1
 }
 printf 'OPENAPI-CHECK-001 passed\n'

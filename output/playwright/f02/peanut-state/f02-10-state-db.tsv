@@ -1,4 +1,0 @@
-case	record_id	order_id	record_status	log_count	log_statuses	result
-processing_O04	1	4	0	1	0	request rejected; record/log unchanged
-isolated_success_O08	2	8	1	1	1	request rejected; record/log unchanged while isolated
-isolated_success_O08_restored	2	8	2	1	2	restored to original seeded failure state

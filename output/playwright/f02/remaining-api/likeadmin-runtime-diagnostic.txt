@@ -1,7 +1,0 @@
-The correctly parsed token was still rejected by the LikeAdmin login middleware.
-
-One read-only diagnostic attempted to reload the existing refund page and capture the page's own Axios request headers plus response. The page did not issue a finance.refund/record request within the 5-second wait window, so Playwright returned:
-
-TimeoutError: page.waitForResponse: Timeout 5000ms exceeded while waiting for event "response"
-
-No further request or diagnostic was made after this timeout.

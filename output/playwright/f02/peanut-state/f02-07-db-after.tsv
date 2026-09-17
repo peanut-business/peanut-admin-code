@@ -1,6 +1,0 @@
-section	id	user_id	status	amount/detail	result
-order	7	23	refund_status=1	70.70	started once
-member	23	23	-	user_money=129.30;balance=129.30;total_recharge_amount=129.30	deducted exactly 70.70 once from 200.00
-record	4	23	refund_status=2	order_id=7;refund_amount=70.70	exactly one
-log	4	23	refund_status=2	record_id=4;refund_amount=70.70	exactly one
-balance_log	11	23	change_type=101;action=2	change_amount=70.70;left_amount=129.30;source_sn=F0226080101O07	exactly one

@@ -71,8 +71,8 @@ try {
     $stableSmuggling['transitions'][0]['actions'][] = [
         'id' => 'unexpected-action',
         'kind' => 'manual-action',
-        'artifact' => 'docs/core-upgrade-compatibility.md',
-        'sha256' => hash_file('sha256', $root . '/docs/core-upgrade-compatibility.md'),
+        'artifact' => 'server/tests/fixtures/core-upgrade-compatibility/manual-action.txt',
+        'sha256' => hash_file('sha256', $root . '/server/tests/fixtures/core-upgrade-compatibility/manual-action.txt'),
     ];
     $stableSmugglingPath = $temporary . '/stable-smuggling.json';
     combinedPolicyWrite($stableSmugglingPath, $stableSmuggling);
@@ -87,8 +87,8 @@ try {
     $machineReadable['transitions'][0]['actions'][] = [
         'id' => 'upgrade-instructions',
         'kind' => 'manual-action',
-        'artifact' => 'docs/core-upgrade-compatibility.md',
-        'sha256' => hash_file('sha256', $root . '/docs/core-upgrade-compatibility.md'),
+        'artifact' => 'server/tests/fixtures/core-upgrade-compatibility/manual-action.txt',
+        'sha256' => hash_file('sha256', $root . '/server/tests/fixtures/core-upgrade-compatibility/manual-action.txt'),
     ];
     $machineReadablePath = $temporary . '/machine-readable.json';
     combinedPolicyWrite($machineReadablePath, $machineReadable);

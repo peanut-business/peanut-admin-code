@@ -31,3 +31,6 @@ web/.claude/
 # Ad-hoc comparison screenshots (not referenced by docs)
 /likeadmin-dept-list.png
 /peanut-dept-list.png
+
+# Runtime/test output is not repository source
+/output/

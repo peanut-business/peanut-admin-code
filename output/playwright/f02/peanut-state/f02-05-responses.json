@@ -1,7 +1,0 @@
-[
-  {"case":"missing","http_status":200,"body":{"code":40000,"msg":"参数缺失","data":null}},
-  {"case":"not_found","http_status":200,"body":{"code":40000,"msg":"充值订单不存在","data":null}},
-  {"case":"unpaid_O01","http_status":200,"body":{"code":40000,"msg":"当前订单不可退款","data":null}},
-  {"case":"started_O04","http_status":200,"body":{"code":40000,"msg":"订单已发起退款,退款失败请到退款记录重新退款","data":null}},
-  {"case":"insufficient_O05","http_status":200,"body":{"code":40000,"msg":"退款失败:用户余额已不足退款金额","data":null}}
-]

@@ -15,7 +15,7 @@ SOURCE_SUFFIXES = {".php", ".py", ".sh", ".ts", ".js", ".mjs", ".yml", ".yaml"}
 
 
 def active_sources() -> list[Path]:
-    roots = ["scripts", "server", "web/config", "platform", "pc", "uniapp", "docs-site", "deploy", ".github/workflows"]
+    roots = ["scripts", "server", "web/config", "platform", "pc", "uniapp", "deploy", ".github/workflows"]
     files: list[Path] = []
     for root in roots:
         for path in (ROOT / root).rglob("*"):
@@ -99,8 +99,7 @@ def frontend_contract(errors: list[str]) -> None:
         "web/.env.example", "web/.env.development", "web/.env.production",
         "web/.env.standalone", "web/.env.multi-tenant", "platform/.env.example",
         "platform/.env.production", "pc/.env.example", "pc/.env.production",
-        "uniapp/.env.example", "uniapp/.env.production", "docs-site/.env.example",
-        "docs-site/.env.production",
+        "uniapp/.env.example", "uniapp/.env.production",
     ]
     for relative in required:
         if not (ROOT / relative).is_file():

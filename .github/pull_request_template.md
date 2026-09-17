@@ -9,13 +9,8 @@
 - 固定候选与证据：<!-- 完整 commit/tree、CI run、报告或不可变 Release；尚未完成则明确写 pending -->
 - 尚缺 Gate / blocker：<!-- 没有则写 none；不得用本栏弱化原验收条件 -->
 
-如果本 PR 改变阶段状态、公共身份、完成边界或下一关键路径，请同步更新
-`docs/product-status/capability-ledger.json`，然后运行：
-
-```bash
-php scripts/check-product-capability-ledger --write
-php scripts/check-product-capability-ledger
-```
+如果本 PR 改变阶段状态、公共身份、完成边界或下一关键路径，请在同一工作区的
+`peanut-admin-project` 更新权威 Capability Ledger / 项目状态，并运行该仓的项目级文档与状态检查。
 
 ## 验证
 

@@ -177,8 +177,6 @@ if (options.staticOnly && options.editionManifests.length === 0 && !options.rele
     pending.push(`sealed scaffold v${target}`)
   }
   if (!(readFileSync('CHANGELOG.md', 'utf8')).includes(`## [${target}]`)) pending.push(`CHANGELOG ${target} section`)
-  const ledger = readJson('docs/product-status/capability-ledger.json')
-  if (!String(ledger.overall?.summary ?? '').includes(target)) pending.push(`capability ledger ${target} summary`)
 
   if (developmentFailures.length) {
     console.error('check-release-consistency: FAIL development working-tree')
@@ -206,13 +204,11 @@ let commit = ''
 let tree = ''
 let metadataText = ''
 let versionContractText = ''
-let ledgerText = ''
 let inventoryText = ''
 let scaffoldText = ''
 let fixtureText = ''
 let metadata = null
 let versionContract = null
-let ledger = null
 let inventory = null
 let scaffold = null
 let fixture = null
@@ -242,11 +238,9 @@ try {
   }
   metadataText = show('RELEASE_METADATA.json')
   versionContractText = show('release-versions.json')
-  ledgerText = show('docs/product-status/capability-ledger.json')
   inventoryText = show('scaffold/application-template-inventory.json')
   metadata = JSON.parse(metadataText)
   versionContract = JSON.parse(versionContractText)
-  ledger = JSON.parse(ledgerText)
   inventory = JSON.parse(inventoryText)
   version = metadata.schema_version === 2 && metadata.protocol === 'peanut.release-metadata.v2'
     ? (metadata.instance_version ?? metadata.source_product_version ?? '')
@@ -378,14 +372,6 @@ if (scaffold && inventory && fixture) {
       failures.push(`scaffold source inventory is unreadable: ${error.message}`)
     }
   }
-}
-
-if (ledger && commit) {
-  const baseline = ledger.facts_baseline ?? {}
-  if (!/^[0-9a-f]{40}$/.test(baseline.commit ?? '') || !gitSucceeds(['merge-base', '--is-ancestor', baseline.commit, commit])) {
-    failures.push(`capability ledger baseline ${baseline.commit ?? 'missing'} is not an ancestor of candidate ${commit}`)
-  }
-  if (!(ledger.overall?.summary ?? '').includes(version)) failures.push(`capability ledger overall summary does not describe ${version}`)
 }
 
 if (options.staticOnly) {
@@ -522,7 +508,6 @@ if (options.writeLock) {
     inputs: {
       release_metadata_sha256: sha256(metadataText),
       version_contract_sha256: sha256(versionContractText),
-      capability_ledger_sha256: sha256(ledgerText),
       application_template_inventory_sha256: sha256(inventoryText),
       scaffold_manifest_sha256: sha256(scaffoldText),
       p0e_fixture_sha256: sha256(fixtureText),

@@ -1,9 +1,0 @@
-{
-  "token_source": "JSON.parse(localStorage.like_admin_token).value",
-  "requests": [
-    {"name":"export_1","http_status":200,"body":{"code":-1,"show":1,"msg":"登录超时，请重新登录","data":[]}},
-    {"name":"start_only","http_status":200,"body":{"code":-1,"show":1,"msg":"登录超时，请重新登录","data":[]}},
-    {"name":"end_only","http_status":200,"body":{"code":-1,"show":1,"msg":"登录超时，请重新登录","data":[]}}
-  ],
-  "accepted_as_business_evidence": false
-}

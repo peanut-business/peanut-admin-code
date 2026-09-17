@@ -17,7 +17,6 @@ const manifestTargets = [
   'web/src/generated/brand.json',
   'pc/generated/brand.json',
   'uniapp/src/generated/brand.json',
-  'docs-site/generated/brand.json',
 ]
 const assetNames = [
   'favicon.svg',
@@ -33,7 +32,6 @@ const assetTargets = [
   'web/public/brand',
   'pc/public/brand',
   'uniapp/src/static/brand',
-  'docs-site/public/brand',
 ]
 
 async function sync(target, content) {

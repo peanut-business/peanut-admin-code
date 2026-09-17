@@ -124,7 +124,6 @@ try {
         'platform/package-lock.json',
         'pc/package-lock.json',
         'uniapp/package-lock.json',
-        'docs-site/pnpm-lock.yaml',
     ] as $lockPath) {
         $digest = hash_file('sha256', $source . '/' . $lockPath);
         if (!is_string($digest)) {

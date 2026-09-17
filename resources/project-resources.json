@@ -5,7 +5,7 @@
     "owner": "Peanut Admin maintainers",
     "source": "this versioned file",
     "resource_observation_policy": "validate this registry against the live resource before each stateful operation",
-    "credentials_policy": "private production credentials use references only; owner-authorized disposable-demo account identifiers may be public and are documented in docs-site/demo-access.md, while passwords remain in controlled handoff and are never stored in Git",
+    "credentials_policy": "private production credentials use references only; owner-authorized disposable-demo account identifiers may be public and are documented in repo://peanut-admin-project/docs-site/demo-access.md, while passwords remain in controlled handoff and are never stored in Git",
     "local_port_policy": "registered values are defaults; PEANUT_LOCAL_ENV_FILE or .local/stack.env is the per-clone runtime source and existing overrides are preserved"
   },
   "resources": {
@@ -13,7 +13,10 @@
       {
         "stable_resource_id": "peanut-admin-docs-cloudflare-pages-cli",
         "purpose": "authenticated public documentation build upload and immutable Pages deployment verification",
-        "environments": ["development", "production"],
+        "environments": [
+          "development",
+          "production"
+        ],
         "owner": "Peanut Admin documentation owner",
         "host": "api.cloudflare.com",
         "port": 443,
@@ -35,7 +38,9 @@
       {
         "stable_resource_id": "peanut-admin-host-php-development",
         "purpose": "default daily development API runtime",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin project",
         "host": "macbookpro-arm64",
         "bind_address": "0.0.0.0",
@@ -58,7 +63,9 @@
       {
         "stable_resource_id": "peanut-admin-host-composer-development",
         "purpose": "locked PHP dependency installation for daily development",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin project",
         "host": "macbookpro-arm64",
         "port": null,
@@ -82,7 +89,9 @@
       {
         "stable_resource_id": "peanut-admin-python3-development",
         "purpose": "run repository-owned deterministic registry, governance and environment scripts",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin project",
         "host": "macbookpro-arm64",
         "port": null,
@@ -103,7 +112,9 @@
       {
         "stable_resource_id": "peanut-admin-rich-text-module-toolchain",
         "purpose": "official.rich-text Module dependency resolution, build and focused browser check",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin official.rich-text Module owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -124,7 +135,9 @@
       {
         "stable_resource_id": "peanut-admin-rich-text-module-chromium",
         "purpose": "single real-browser focused check for official.rich-text inside the registered Admin web application",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin official.rich-text Module lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -145,7 +158,9 @@
       {
         "stable_resource_id": "peanut-admin-rich-text-module-pnpm-store",
         "purpose": "isolated dependency cache for official.rich-text dependency verification through the Admin web lock",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin official.rich-text Module owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -165,7 +180,9 @@
       {
         "stable_resource_id": "peanut-admin-host-node24-npm-development",
         "purpose": "locked Platform dependency installation and local static verification",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin project",
         "host": "macbookpro-arm64",
         "port": null,
@@ -187,7 +204,9 @@
       {
         "stable_resource_id": "peanut-admin-docs-site-node24-pnpm-development",
         "purpose": "locked public documentation dependency installation and build for the application deployment-upgrade documentation projection",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin application deployment-upgrade documentation owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -199,7 +218,7 @@
         "node_command": "node",
         "pnpm_command": "corepack pnpm",
         "credential_ref": null,
-        "data_source": "docs-site/package.json and docs-site/pnpm-lock.yaml",
+        "data_source": "repo://peanut-admin-project/docs-site/package.json and repo://peanut-admin-project/docs-site/pnpm-lock.yaml",
         "freshness_requirement": "before use the PATH-selected Node reports v24.13.0, Corepack resolves pnpm 9.15.6 and the docs-site lock remains frozen",
         "health_check": "node --version reports v24.13.0 and corepack pnpm --version reports 9.15.6",
         "fallback": "none",
@@ -209,7 +228,9 @@
       {
         "stable_resource_id": "peanut-admin-docs-site-pnpm-cache-development",
         "purpose": "exclusive pnpm content store for the application deployment-upgrade documentation build",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin application deployment-upgrade documentation lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -219,7 +240,7 @@
         "service_type": "pnpm content-addressable dependency cache",
         "version": "pnpm 9.15.6 store",
         "credential_ref": null,
-        "data_source": "public packages fixed by docs-site/pnpm-lock.yaml",
+        "data_source": "public packages fixed by repo://peanut-admin-project/docs-site/pnpm-lock.yaml",
         "freshness_requirement": "the exact cache path is absent before claim or owned by the active documentation lease; installation uses --frozen-lockfile",
         "health_check": "the exact cache path is absent before first use and remains inside the active lease",
         "fallback": "none",
@@ -229,7 +250,9 @@
       {
         "stable_resource_id": "peanut-admin-generated-application-upgrade-build-development",
         "purpose": "lease-owned build, immutable A/B release and paired file-backup output for one generated Standalone application deployment-upgrade proof",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin generated-application upgrade Development lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -253,7 +276,9 @@
       {
         "stable_resource_id": "peanut-admin-core-alpha11-pnpm-store",
         "purpose": "offline pnpm dependency content store for the fixed Peanut Admin Core Alpha.11 candidate",
-        "environments": ["qualification"],
+        "environments": [
+          "qualification"
+        ],
         "owner": "Peanut Admin Core Alpha.11 qualification lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -273,7 +298,9 @@
       {
         "stable_resource_id": "peanut-admin-core-alpha11-composer-cache",
         "purpose": "Composer distribution cache for generated Starter dependency installation during the fixed Peanut Admin Core Alpha.11 qualification",
-        "environments": ["qualification"],
+        "environments": [
+          "qualification"
+        ],
         "owner": "Peanut Admin Core Alpha.11 qualification lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -293,7 +320,9 @@
       {
         "stable_resource_id": "peanut-admin-core-php83-cli",
         "purpose": "exact PHP CLI for the fixed Peanut Admin Core aggregate qualification",
-        "environments": ["qualification"],
+        "environments": [
+          "qualification"
+        ],
         "owner": "Peanut Admin Core qualification lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -314,7 +343,9 @@
       {
         "stable_resource_id": "peanut-admin-core-composer-2.10.2-cli",
         "purpose": "exact Composer toolchain for Core Alpha.11 lock generation, aggregate qualification and package projection",
-        "environments": ["qualification"],
+        "environments": [
+          "qualification"
+        ],
         "owner": "Peanut Admin Core Alpha.11 qualification lease owner",
         "host": "getcomposer.org",
         "port": 443,
@@ -336,7 +367,9 @@
       {
         "stable_resource_id": "peanut-admin-core-node24-pnpm11-cli",
         "purpose": "exact Node and project-resolved pnpm toolchain for Core Alpha.11 qualification",
-        "environments": ["qualification"],
+        "environments": [
+          "qualification"
+        ],
         "owner": "Peanut Admin Core Alpha.11 qualification lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -356,7 +389,9 @@
       {
         "stable_resource_id": "peanut-admin-core-ripgrep15-cli",
         "purpose": "required negative-pattern scanner for Core architecture, OpenAPI and repository qualification scripts",
-        "environments": ["qualification"],
+        "environments": [
+          "qualification"
+        ],
         "owner": "Peanut Admin Core Alpha.11 qualification lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -376,7 +411,9 @@
       {
         "stable_resource_id": "peanut-admin-core-docker29-cli",
         "purpose": "exact Docker Desktop CLI used by the fixed Peanut Admin Core aggregate qualification",
-        "environments": ["qualification"],
+        "environments": [
+          "qualification"
+        ],
         "owner": "Peanut Admin Core qualification lease owner",
         "host": "macbookpro-arm64",
         "port": null,
@@ -397,7 +434,9 @@
       {
         "stable_resource_id": "peanut-admin-production-upgrade-control-worker",
         "purpose": "trusted deployment-control worker for one fixed in-application production upgrade task",
-        "environments": ["production"],
+        "environments": [
+          "production"
+        ],
         "owner": "Peanut Admin production deployment owner",
         "source": "PC42 owner-approved deployment-control boundary",
         "host": "macbookpro-arm64",
@@ -428,7 +467,9 @@
       {
         "stable_resource_id": "peanut-admin-production-module-delivery-worker",
         "purpose": "trusted deployment-control worker and immutable request/package inbox for one Module package update, retire or purge task",
-        "environments": ["production"],
+        "environments": [
+          "production"
+        ],
         "owner": "Peanut Admin production deployment owner",
         "source": "CR12 consumer Module lifecycle contract",
         "host": "macbookpro-arm64",
@@ -537,7 +578,9 @@
       {
         "stable_resource_id": "peanut-admin-consumer-upgrade-mysql84-remote-admin-cli",
         "purpose": "lease-bound CR03 synthetic database creation, dump, restore and exact cleanup",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin CR03 consumer-upgrade lease owner; consumes the registered mac-14 MySQL allocation",
         "host": "mac-14",
         "port": null,
@@ -694,7 +737,9 @@
       {
         "stable_resource_id": "peanut-admin-consumer-upgrade-mysql84-gate",
         "purpose": "isolated disposable formal-v3.0.14 Standalone and Multi-tenant application upgrade and recovery qualification",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin CR03 consumer-upgrade lease owner; remote host mac-14",
         "runtime_resource_id": "peanut-admin-mysql84-development",
         "service_type": "mysql",
@@ -705,12 +750,17 @@
         "namespace": "peanut_admin_development_cr03_<run_id>_",
         "run_id_pattern": "^[a-z0-9]{1,11}$",
         "database_name_max_length": 64,
-        "allowed_scenarios": ["standalone_upgrade", "multi_tenant_upgrade"],
+        "allowed_scenarios": [
+          "standalone_upgrade",
+          "multi_tenant_upgrade"
+        ],
         "upstream_endpoint": {
           "endpoint_id": "peanut-admin-consumer-upgrade-mysql84-gate-host-direct",
           "host": "192.168.192.2",
           "port": 20183,
-          "consumers": ["host"],
+          "consumers": [
+            "host"
+          ],
           "network_scope": "private direct-link LAN"
         },
         "container_endpoint": null,
@@ -840,7 +890,9 @@
       {
         "stable_resource_id": "peanut-admin-generated-application-upgrade-author-mysql84-development",
         "purpose": "isolated authoring database used to adopt and build a private Package 2.0 into generated application B without mutating the running A database",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin generated-application upgrade Development lease owner; remote host mac-14",
         "runtime_resource_id": "peanut-admin-mysql84-development",
         "service_type": "mysql",
@@ -849,12 +901,16 @@
         "database": "peanut_admin_development_appupgrade_author01",
         "schema": "pa_ table prefix",
         "namespace": "peanut_admin_development_appupgrade_author01",
-        "deployment_modes": ["standalone"],
+        "deployment_modes": [
+          "standalone"
+        ],
         "upstream_endpoint": {
           "endpoint_id": "peanut-admin-generated-application-upgrade-author-host-direct",
           "host": "192.168.192.2",
           "port": 20183,
-          "consumers": ["host"],
+          "consumers": [
+            "host"
+          ],
           "network_scope": "private direct-link LAN"
         },
         "container_endpoint": null,
@@ -877,7 +933,9 @@
       {
         "stable_resource_id": "peanut-admin-generated-application-upgrade-runtime-mysql84-development",
         "purpose": "isolated persistent runtime database for a real generated application A to B update with business, Module opening and RBAC preservation",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin generated-application upgrade Development lease owner; remote host mac-14",
         "runtime_resource_id": "peanut-admin-mysql84-development",
         "service_type": "mysql",
@@ -886,12 +944,16 @@
         "database": "peanut_admin_development_appupgrade_runtime01",
         "schema": "pa_ table prefix",
         "namespace": "peanut_admin_development_appupgrade_runtime01",
-        "deployment_modes": ["standalone"],
+        "deployment_modes": [
+          "standalone"
+        ],
         "upstream_endpoint": {
           "endpoint_id": "peanut-admin-generated-application-upgrade-runtime-host-direct",
           "host": "192.168.192.2",
           "port": 20183,
-          "consumers": ["host"],
+          "consumers": [
+            "host"
+          ],
           "network_scope": "private direct-link LAN"
         },
         "container_endpoint": null,
@@ -914,7 +976,9 @@
       {
         "stable_resource_id": "peanut-admin-application-upgrade-rbac-mysql84-development",
         "purpose": "isolated database for the existing Admin RBAC Tenant-isolation check affected by the application upgrade permission-registration fix",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "Peanut Admin application-upgrade RBAC verification lease owner; remote host mac-14",
         "runtime_resource_id": "peanut-admin-mysql84-development",
         "service_type": "mysql",
@@ -923,12 +987,16 @@
         "database": "peanut_admin_development_appupgrade_rbac01",
         "schema": "pa_ table prefix",
         "namespace": "peanut_admin_development_appupgrade_rbac01",
-        "deployment_modes": ["multi-tenant"],
+        "deployment_modes": [
+          "multi-tenant"
+        ],
         "upstream_endpoint": {
           "endpoint_id": "peanut-admin-application-upgrade-rbac-host-direct",
           "host": "192.168.192.2",
           "port": 20183,
-          "consumers": ["host"],
+          "consumers": [
+            "host"
+          ],
           "network_scope": "private direct-link LAN"
         },
         "container_endpoint": null,
@@ -1984,7 +2052,9 @@
       {
         "stable_resource_id": "peanut-admin-rich-text-module-npm-registry",
         "purpose": "resolve exact Tiptap, Yjs, Hocuspocus and DOMPurify packages frozen by the Admin web lock plus the fixed Playwright CLI used by its focused browser check",
-        "environments": ["development"],
+        "environments": [
+          "development"
+        ],
         "owner": "npm public registry; Peanut Admin official.rich-text Module lease owner",
         "host": "registry.npmjs.org",
         "port": 443,
@@ -2176,7 +2246,7 @@
         "service_type": "SSH-managed Docker Compose production deployment",
         "credential_ref": "operator-local SSH configuration for alias oracle3; deployment secrets remain in oracle3:/www/docker/peanut-admin/server/.env",
         "application_admin_login": "admin@peanut-admin.007345.xyz",
-        "application_admin_credential_ref": "docs-site/demo-access.md is authoritative for the owner-authorized demo login; macOS Keychain service peanut-admin-production-admin account admin is a secondary legacy handoff reference and may be stale",
+        "application_admin_credential_ref": "repo://peanut-admin-project/docs-site/demo-access.md is authoritative for the owner-authorized demo login; macOS Keychain service peanut-admin-production-admin account admin is a secondary legacy handoff reference and may be stale",
         "public_demo_access": {
           "stable_access_id": "peanut-admin-public-demo-standalone-admin",
           "classification": "owner-authorized public account identifier for the disposable production demo; password is not versioned",
@@ -2264,11 +2334,11 @@
         "namespace": "peanut-admin-production-candidate",
         "service_type": "SSH-managed Docker Compose production experience deployment",
         "credential_ref": "operator-local SSH configuration for alias oracle3; deployment secrets remain in oracle3:/www/docker/peanut-admin-candidate/server/.env",
-        "application_credential_ref": "docs-site/demo-access.md is authoritative for current owner-authorized demo logins; the root-owned oracle3 environment file contains installation inputs and other deployment secrets but is not current-password authority",
+        "application_credential_ref": "repo://peanut-admin-project/docs-site/demo-access.md is authoritative for current owner-authorized demo logins; the root-owned oracle3 environment file contains installation inputs and other deployment secrets but is not current-password authority",
         "bootstrap_admin_login": "admin@pa-demo.example",
-        "bootstrap_admin_credential_ref": "docs-site/demo-access.md; oracle3:/www/docker/peanut-admin-candidate/server/.env key ADMIN_INITIAL_PASSWORD is an installation input and may be stale after database password rotation",
+        "bootstrap_admin_credential_ref": "repo://peanut-admin-project/docs-site/demo-access.md; oracle3:/www/docker/peanut-admin-candidate/server/.env key ADMIN_INITIAL_PASSWORD is an installation input and may be stale after database password rotation",
         "platform_operator_login": "platform@pa-demo.example",
-        "platform_operator_credential_ref": "docs-site/demo-access.md; oracle3:/www/docker/peanut-admin-candidate/server/.env key PLATFORM_INITIAL_PASSWORD is an installation input and may be stale after database password rotation",
+        "platform_operator_credential_ref": "repo://peanut-admin-project/docs-site/demo-access.md; oracle3:/www/docker/peanut-admin-candidate/server/.env key PLATFORM_INITIAL_PASSWORD is an installation input and may be stale after database password rotation",
         "public_demo_access_resource_id": "peanut-admin-production-candidate-domains",
         "demo_instance": true,
         "fresh_install_only": true,
@@ -2529,7 +2599,7 @@
         "credential_ref": "operator-managed Cloudflare Pages control-plane; no deployment token in Git",
         "data_source": "reviewed docs-site projection from commit 25e96a3b5e05cc5f17618782acf9072490c34d3e; published historical source remains v3.0.14; new coordinated version policy is not a 3.1.0 release claim",
         "current_deployment_url": "https://1f6d0a93.peanut-admin-docs.pages.dev",
-        "deployment_receipt": "docs/maintenance/fact-audit-2026-09-09/docs-deployment-receipt.json",
+        "deployment_receipt": "repo://peanut-admin-project/docs/maintenance/fact-audit-2026-09-09/docs-deployment-receipt.json",
         "verified_at": "2026-09-09",
         "freshness_requirement": "verify the published docs site after each production release and keep its link visible in the application",
         "health_check": {
@@ -2634,7 +2704,9 @@
         {
           "stable_resource_id": "peanut-admin-consumer-upgrade-local-storage",
           "purpose": "CR03 Local driver upload/read/delete qualification in each lease-owned generated instance",
-          "environments": ["local-production-preview"],
+          "environments": [
+            "local-production-preview"
+          ],
           "owner": "Peanut Admin CR03 consumer-upgrade lease owner",
           "host": "local filesystem",
           "port": null,
@@ -2655,15 +2727,24 @@
         {
           "stable_resource_id": "peanut-admin-local-private-storage-development",
           "purpose": "worktree-local private Storage output for TaskImportExportHostTest XLSX verification only",
-          "environments": ["development"],
+          "environments": [
+            "development"
+          ],
           "owner": "S5-C01 executor 01a08cf3-c0a3-7370-b18f-34c9d65a1847",
-          "host": "local filesystem", "port": null, "database": null, "schema": null,
+          "host": "local filesystem",
+          "port": null,
+          "database": null,
+          "schema": null,
           "namespace": "/Users/xing/.codex/worktrees/80f6/peanut-admin/server/private/storage",
-          "service_type": "Core LocalStorageDriver", "version": "current Core local driver and plugins.lock identity",
-          "credential_ref": "not applicable", "data_source": "Gate-created random XLSX object only",
+          "service_type": "Core LocalStorageDriver",
+          "version": "current Core local driver and plugins.lock identity",
+          "credential_ref": "not applicable",
+          "data_source": "Gate-created random XLSX object only",
           "freshness_requirement": "after lease, verify active export.xlsx route is local/private and path is private/storage without printing secrets",
           "health_check": "directory exists and exact Gate object_key is created then removed by TaskImportExportHostTest",
-          "fallback": "none", "lifecycle": "per-Gate", "cleanup_responsibility": "current lease owner removes only exact random file_key/object_key and temporary output; preserve failure recovery point",
+          "fallback": "none",
+          "lifecycle": "per-Gate",
+          "cleanup_responsibility": "current lease owner removes only exact random file_key/object_key and temporary output; preserve failure recovery point",
           "backup_responsibility": "not applicable"
         },
         {

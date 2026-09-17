@@ -1,4 +1,0 @@
-[
-  {"case":"processing_O04","http_status":200,"body":{"code":40000,"msg":"退款正在处理中，请勿重复操作","data":null}},
-  {"case":"isolated_success_O08","http_status":200,"body":{"code":40000,"msg":"该退款记录已退款成功","data":null}}
-]

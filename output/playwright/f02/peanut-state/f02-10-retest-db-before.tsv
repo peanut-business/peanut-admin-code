@@ -1,6 +1,0 @@
-section	id	status	amount/detail
-order	7	pay_status=1;refund_status=1	order_amount=70.70;sn=F0226080101O07
-member	23	-	user_money=129.30;balance=129.30;total_recharge_amount=129.30
-record	4	refund_status=2	order_id=7;user_id=23;refund_amount=70.70
-logs	4,7,8	count=3	first_id=4;last_id=8
-balance_logs	11	count=1	change_amount=70.70;left_amount=129.30

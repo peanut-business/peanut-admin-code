@@ -39,8 +39,7 @@
     "web/pnpm-lock.yaml": "267b5104148c054207029fa30cca965a8faaccfb83596a6f91fb78d76505147d",
     "platform/package-lock.json": "a4498bac1446dc2541830ccad8505737d11dc8d67e46e975058c8f93c59919ec",
     "pc/package-lock.json": "6c84bc2e5bbe030d232625be158398b9ce477ba0a0e7859b198d497f1e8238d9",
-    "uniapp/package-lock.json": "6157e264bb64ccf4b58dae9dad122ae69b1533a8bb260dd3681cb7e849ab3236",
-    "docs-site/pnpm-lock.yaml": "afcbc2c01975027ff3e92cedb413eb8d492cc46f813b295c2f890d8016b726c6"
+    "uniapp/package-lock.json": "6157e264bb64ccf4b58dae9dad122ae69b1533a8bb260dd3681cb7e849ab3236"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",

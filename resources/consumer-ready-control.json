@@ -3,23 +3,28 @@
   "protocol": "peanut.consumer-ready-control.v1",
   "project_id": "peanut-admin",
   "mode": "minimal-read-only-preflight",
-  "supported_commands": ["preflight"],
-  "phases": ["prepare", "seal", "qualify", "release"],
+  "supported_commands": [
+    "preflight"
+  ],
+  "phases": [
+    "prepare",
+    "seal",
+    "qualify",
+    "release"
+  ],
   "authorities": {
-    "rule_metadata": "docs/document-registry.json#/rules",
-    "rule_metadata_schema": "docs/rule-metadata.schema.json",
-    "control_state_schema": "docs/control-state.schema.json",
     "version_contract": "release-versions.json",
     "release_metadata": "RELEASE_METADATA.json",
     "application_inventory": "scaffold/application-template-inventory.json",
     "qualification_fixture": "server/tests/fixtures/p0e-runtime-qualification/matrix.json",
     "project_resources": "resources/project-resources.json",
-    "p0e_resources": "resources/p0e-runtime-qualification.json",
-    "capability_ledger": "docs/product-status/capability-ledger.json"
+    "p0e_resources": "resources/p0e-runtime-qualification.json"
   },
   "static_validation": {
-    "rules": ["scripts/docs-governance", "check", "--rules"],
-    "release_identity": ["scripts/check-release-consistency", "--static-only"],
+    "release_identity": [
+      "scripts/check-release-consistency",
+      "--static-only"
+    ],
     "scope": "local-read-only; does not claim resources, qualify a candidate, create a lock or publish"
   },
   "commands": {
