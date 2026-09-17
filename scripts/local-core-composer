@@ -34,10 +34,14 @@ if [[ "$ACTION" != manifest ]]; then
         || die '--backend-env must have mode 0600 and one hard link'
 fi
 command -v "$COMPOSER_BIN" >/dev/null 2>&1 || die "Composer is unavailable: $COMPOSER_BIN"
-[[ -d "$CORE_DIR/packages/php" ]] || die "core checkout not found: $CORE_DIR/packages/php"
-
 CORE_DIR="$(CDPATH= cd -- "$CORE_DIR" && pwd)"
-CORE_PACKAGE_DIR="$CORE_DIR/packages/php"
+if [[ -f "$CORE_DIR/composer.json" ]]; then
+    CORE_PACKAGE_DIR="$CORE_DIR"
+elif [[ -f "$CORE_DIR/packages/php/composer.json" ]]; then
+    CORE_PACKAGE_DIR="$CORE_DIR/packages/php"
+else
+    die "core checkout not found: expected $CORE_DIR/composer.json or $CORE_DIR/packages/php/composer.json"
+fi
 mkdir -p "$LOCAL_COMPOSER_DIR"
 
 required_version="$(php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["require"]["peanut-admin/core"] ?? "";' "$SERVER_DIR/composer.json")"

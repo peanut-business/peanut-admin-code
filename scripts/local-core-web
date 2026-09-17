@@ -25,10 +25,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 [[ "$CORE_DIR" == /* ]] || die '--core-dir must be an absolute path'
-CORE_PACKAGE_DIR="$CORE_DIR/packages/web"
+CORE_DIR="$(CDPATH= cd -- "$CORE_DIR" && pwd)"
+if [[ -f "$CORE_DIR/package.json" ]]; then
+    CORE_PACKAGE_DIR="$CORE_DIR"
+elif [[ -f "$CORE_DIR/packages/web/package.json" ]]; then
+    CORE_PACKAGE_DIR="$CORE_DIR/packages/web"
+else
+    die "core Web checkout not found: expected $CORE_DIR/package.json or $CORE_DIR/packages/web/package.json"
+fi
 [[ -d "$WEB_DIR" ]] || die "application Web directory is missing: $WEB_DIR"
 [[ -f "$WEB_DIR/package.json" ]] || die "application Web manifest is missing: $WEB_DIR/package.json"
-[[ -f "$CORE_PACKAGE_DIR/package.json" ]] || die "core Web package is missing: $CORE_PACKAGE_DIR/package.json"
 
 CORE_PACKAGE_DIR="$(CDPATH= cd -- "$CORE_PACKAGE_DIR" && pwd)"
 required_version="$(node -e 'const manifest = require(process.argv[1]); process.stdout.write(manifest.dependencies?.["@peanut-admin/admin"] ?? "")' "$WEB_DIR/package.json")"
@@ -44,8 +50,11 @@ link_application_peer() {
     installed_package="$(cd "$WEB_DIR" && node -e 'const path = require("path"); process.stdout.write(path.dirname(require.resolve(process.argv[1] + "/package.json")))' "$package")"
     [[ -d "$installed_package" ]] || die "application peer package is missing: $package"
     mkdir -p "$(dirname "$peer_target")"
-    if [[ -e "$peer_target" || -L "$peer_target" ]]; then
-        [[ -L "$peer_target" ]] || die "refusing to replace a non-symlink peer path: $peer_target"
+    if [[ -e "$peer_target" && ! -L "$peer_target" ]]; then
+        [[ -d "$peer_target" ]] || die "local core peer path is not a directory: $peer_target"
+        return 0
+    fi
+    if [[ -L "$peer_target" ]]; then
         rm -f "$peer_target"
     fi
     ln -s "$installed_package" "$peer_target"
@@ -55,7 +64,7 @@ assert_application_peer() {
     local package="$1"
     local peer_target="$CORE_PACKAGE_DIR/node_modules/$package"
 
-    [[ -L "$peer_target" ]] || die "local core peer package is not linked: $peer_target"
+    [[ -d "$peer_target" || -L "$peer_target" ]] || die "local core peer package is unavailable: $peer_target"
 }
 
 case "$ACTION" in
