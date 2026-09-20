@@ -16,11 +16,15 @@ if (($argv[1] ?? '') === '--request') {
     $_SERVER['SCRIPT_FILENAME'] = $serverRoot . '/public/index.php';
     $app = new think\App($serverRoot);
     $app->setRuntimePath($input['runtime']);
+    $headers = ['host' => $input['host'], 'authorization' => $input['token'] === '' ? '' : 'Bearer ' . $input['token'], 'accept' => 'application/json', 'x-request-id' => $input['request_id']];
+    if ($input['user_agent'] !== null) {
+        $headers['user-agent'] = $input['user_agent'];
+    }
     $request = new app\Request();
     $request->setMethod($input['method'])->setPathinfo($input['path'])
         ->setUrl('/' . $input['path'])->setBaseUrl('/' . $input['path'])
         ->withServer(['REMOTE_ADDR' => '127.0.0.1', 'REQUEST_METHOD' => $input['method'], 'HTTP_HOST' => $input['host'], 'SCRIPT_NAME' => '/index.php'])
-        ->withHeader(['host' => $input['host'], 'authorization' => $input['token'] === '' ? '' : 'Bearer ' . $input['token'], 'accept' => 'application/json', 'user-agent' => 'Peanut Backend Stabilization HTTP Fixture', 'x-request-id' => $input['request_id']])
+        ->withHeader($headers)
         ->withGet($input['method'] === 'GET' ? $input['params'] : [])
         ->withPost($input['method'] === 'GET' ? [] : $input['params']);
     $response = $app->http->run($request);
@@ -43,7 +47,14 @@ function httpExpect(bool $condition, string $message): void
         echo 'FAIL ' . $message . "\n";
     }
 }
-function stabilizationHttp(string $method, string $path, array $params = [], string $token = '', string $host = 'alpha.d03.test'): array
+function stabilizationHttp(
+    string $method,
+    string $path,
+    array $params = [],
+    string $token = '',
+    string $host = 'alpha.d03.test',
+    ?string $userAgent = 'Peanut Backend Stabilization HTTP Fixture',
+): array
 {
     global $requests, $runtime;
     $requests++;
@@ -52,7 +63,7 @@ function stabilizationHttp(string $method, string $path, array $params = [], str
     $environment['PEANUT_SERVER_ENV_FILE'] = IsolatedBackendEnvironment::required('PEANUT_SERVER_ENV_FILE');
     $process = proc_open([PHP_BINARY, __FILE__, '--request'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $environment);
     if (!is_resource($process)) throw new RuntimeException('HTTP worker could not start');
-    fwrite($pipes[0], json_encode(['method' => $method, 'path' => $path, 'params' => $params, 'token' => $token, 'host' => $host, 'request_id' => 'stabilization-http-' . $requests, 'runtime' => $runtime], JSON_THROW_ON_ERROR));
+    fwrite($pipes[0], json_encode(['method' => $method, 'path' => $path, 'params' => $params, 'token' => $token, 'host' => $host, 'user_agent' => $userAgent, 'request_id' => 'stabilization-http-' . $requests, 'runtime' => $runtime], JSON_THROW_ON_ERROR));
     fclose($pipes[0]);
     $stdout = stream_get_contents($pipes[1]);
     $stderr = stream_get_contents($pipes[2]);
@@ -81,12 +92,15 @@ function seedHttpCode(PDO $pdo, string $scene, string $mobile, string $code): in
     return (int)$pdo->lastInsertId();
 }
 
-$host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = IsolatedBackendEnvironment::required('DB_PORT');
+$resource = IsolatedBackendEnvironment::requireRegisteredDatabase(
+    dirname($serverRoot) . '/resources/project-resources.json',
+    'peanut-admin-deep-convergence-a1-ua-mysql84',
+);
+$host = (string)$resource['host'];
+$port = (int)$resource['port'];
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
-if (IsolatedBackendEnvironment::required('PEANUT_DATABASE_RESOURCE_ID') !== 'peanut-admin-backend-stabilization-mysql84') throw new RuntimeException('Registered stabilization database required');
-$database = 'peanut_stabilization_d03';
+$database = (string)$resource['database'];
 $created = false;
 $runtime = sys_get_temp_dir() . '/peanut-stabilization-http-' . bin2hex(random_bytes(8)) . '/';
 mkdir($runtime, 0700);
@@ -173,8 +187,11 @@ try {
         httpSuccess(stabilizationHttp('POST','adminapi/admin/delete',['id'=>$member],$alpha), 'D03 member leave');
     }
     httpSuccess(stabilizationHttp('GET','adminapi/admin/self',[],$alpha), 'D03 self query');
-    httpSuccess(stabilizationHttp('POST','adminapi/admin/editSelf',['nickname'=>'HTTP Self','password_old'=>'D03HttpPassword2026','password'=>'D03HttpChanged2026','password_confirm'=>'D03HttpChanged2026'],$alpha), 'D03 self profile and password');
-    httpExpect(stabilizationHttp('GET','adminapi/role/lists',[],$alpha)['status'] === 403, 'D03 HTTP password change did not invalidate session');
+    httpSuccess(stabilizationHttp('POST','adminapi/admin/editSelf',['nickname'=>'HTTP Self No UA','password_old'=>'D03HttpPassword2026','password'=>'D03HttpChangedNoUa2026','password_confirm'=>'D03HttpChangedNoUa2026'],$alpha,'alpha.d03.test',null), 'D03 self profile and password without User-Agent');
+    httpExpect(stabilizationHttp('GET','adminapi/role/lists',[],$alpha)['status'] === 403, 'D03 HTTP password change without User-Agent did not invalidate session');
+    $alphaWithUserAgent = $auth->login('alpha-http@example.test','D03HttpChangedNoUa2026','alpha','127.0.0.1','D03 HTTP','d03-http-login-a-with-ua')->tokens->access->expose();
+    httpSuccess(stabilizationHttp('POST','adminapi/admin/editSelf',['nickname'=>'HTTP Self','password_old'=>'D03HttpChangedNoUa2026','password'=>'D03HttpChanged2026','password_confirm'=>'D03HttpChanged2026'],$alphaWithUserAgent), 'D03 self profile and password with User-Agent');
+    httpExpect(stabilizationHttp('GET','adminapi/role/lists',[],$alphaWithUserAgent)['status'] === 403, 'D03 HTTP password change with User-Agent did not invalidate session');
     httpExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE actor_tenant_member_id=501 AND actor_account_id=1501 AND event_type='tenant.role.created'")->fetchColumn() > 0, 'D03 HTTP write lost trusted audit identity');
     // 取消 beta 的单项权限，原会话必须经授权修订重新判定，不可绕过权限中间件。
     $pdo->exec("DELETE rp FROM pa_role_permission rp JOIN pa_permission p ON p.id=rp.permission_id WHERE rp.tenant_id=202 AND p.`key`='role/add'");

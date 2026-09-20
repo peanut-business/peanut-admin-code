@@ -657,6 +657,31 @@
         "backup_responsibility": "not applicable: synthetic disposable data only"
       },
       {
+        "stable_resource_id": "peanut-admin-deep-convergence-a1-ua-mysql84",
+        "purpose": "A1 R1 isolated real-HTTP regression for missing and present User-Agent password changes with session revocation",
+        "environments": ["development-test"],
+        "owner": "deep-convergence-a1-20260921",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20317,
+        "container_name": "peanut-admin-deep-convergence-a1-ua-mysql84",
+        "database": "peanut_deep_a1_ua_d03",
+        "schema": "pa_ table prefix",
+        "namespace": "exclusive container with image-created anonymous /var/lib/mysql volume; no host bind or shared volume",
+        "credential_ref": "active worktree server/.env.ua-runtime (mode 0600; generated synthetic credentials; never committed)",
+        "data_source": "empty MySQL instance plus current source schemas and test-owned synthetic fixtures",
+        "freshness_requirement": "container, port, database and credential file absent before lease; verify the immutable 8.4.10 image, empty instance and fixed application/Core identities before the focused HTTP run",
+        "health_check": "docker inspect named container state and immutable image; PDO SELECT VERSION(); require peanut_deep_a1_ua_d03 absent before test setup",
+        "fallback": "none",
+        "lifecycle": "single A1 R1 User-Agent regression batch; retained under the active lease for later A1 slices until the main controller performs final cleanup",
+        "claim_precondition": "project-resource-lease covers this stable resource ID, exact container, port, database namespace, worktree and evidence directory before start",
+        "cleanup_responsibility": "deep-convergence-a1-20260921 main controller removes only this container, its exclusive anonymous volume, generated credential file and lease after all authorized A1 slices finish",
+        "backup_responsibility": "not applicable: synthetic disposable data only",
+        "failure_retention_policy": "on failure preserve this exact container, anonymous volume, credential file and evidence under the active lease for the single focused diagnosis"
+      },
+      {
         "stable_resource_id": "peanut-admin-mysql84-development",
         "purpose": "shared development and local production-mode preview database",
         "environments": [

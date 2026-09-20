@@ -116,6 +116,43 @@ final class IsolatedBackendEnvironment
         return $value;
     }
 
+    /** @return array<string,mixed> */
+    public static function requireRegisteredDatabase(string $registryPath, string $stableResourceId): array
+    {
+        if (!is_file($registryPath) || is_link($registryPath)) {
+            throw new RuntimeException('ISOLATED_BACKEND_RESOURCE_REGISTRY_INVALID');
+        }
+        $registry = json_decode((string)file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
+        $databases = $registry['resources']['databases'] ?? null;
+        if (!is_array($databases)) {
+            throw new RuntimeException('ISOLATED_BACKEND_DATABASE_REGISTRY_INVALID');
+        }
+        $matches = array_values(array_filter(
+            $databases,
+            static fn (mixed $resource): bool => is_array($resource)
+                && ($resource['stable_resource_id'] ?? null) === $stableResourceId,
+        ));
+        if (count($matches) !== 1) {
+            throw new RuntimeException('ISOLATED_BACKEND_DATABASE_RESOURCE_INVALID');
+        }
+        $resource = $matches[0];
+        $host = $resource['host'] ?? null;
+        $port = $resource['port'] ?? null;
+        $database = $resource['database'] ?? null;
+        if (!is_string($host) || $host === ''
+            || !is_int($port) || $port < 1 || $port > 65535
+            || !is_string($database) || preg_match('/^[a-z0-9_]+$/D', $database) !== 1) {
+            throw new RuntimeException('ISOLATED_BACKEND_DATABASE_RESOURCE_ENDPOINT_INVALID');
+        }
+        if (!hash_equals($stableResourceId, self::required('PEANUT_DATABASE_RESOURCE_ID'))
+            || !hash_equals($host, self::required('DB_HOST'))
+            || (int)self::required('DB_PORT') !== $port
+            || !hash_equals($database, self::required('DB_NAME'))) {
+            throw new RuntimeException('ISOLATED_BACKEND_DATABASE_RESOURCE_MISMATCH');
+        }
+        return $resource;
+    }
+
     public static function cleanup(): void
     {
         foreach (array_reverse(self::$paths) as $path) {

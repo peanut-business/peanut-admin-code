@@ -42,7 +42,7 @@ class AdminController extends BaseAdminController
             $this->adminId,
             $params,
             $this->request->ip(),
-            $this->request->header('User-Agent'),
+            $this->request->header('User-Agent', ''),
         );
         return $this->success('操作成功');
     }
