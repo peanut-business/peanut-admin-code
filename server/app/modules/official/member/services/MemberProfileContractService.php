@@ -8,6 +8,7 @@ use app\modules\official\member\model\MemberTag;
 use app\modules\official\member\model\MemberTagRelation;
 use app\common\exception\BusinessException;
 use app\modules\official\member\contracts\MemberProfileCommands;
+use app\common\validate\MemberProfileSelfFieldValidate;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use app\common\support\PositiveIds;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -68,9 +69,12 @@ final class MemberProfileContractService implements MemberProfileCommands
 
     public function updateSelfField(AuthenticatedMemberContext|TenantContext $context, int $memberId, string $field, mixed $value): void
     {
-        if (Member::where([])->where('id', $memberId)->update([$field => $value]) !== 1) {
-            throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
+        if ($context instanceof AuthenticatedMemberContext && $context->memberId !== $memberId) {
+            throw BusinessException::forbidden('MEMBER_PROFILE_SELF_FORBIDDEN', '只能修改自己的资料');
         }
+        $value = MemberProfileSelfFieldValidate::normalize($field, $value);
+        // 模型保存可区分「不存在」和「值未变化」：重复提交清空请求仍应成功。
+        $this->member($context, $memberId)->save([$field => $value]);
     }
 
     public function completeOAuthProfile(

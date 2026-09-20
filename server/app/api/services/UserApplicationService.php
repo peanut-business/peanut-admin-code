@@ -8,6 +8,7 @@ use app\modules\official\article\contracts\PublicArticleQueries;
 use app\modules\official\member\contracts\MemberIdentityCommands;
 use app\modules\official\member\contracts\MemberProfileCommands;
 use app\modules\official\member\contracts\MemberQueries;
+use app\common\validate\MemberProfileSelfFieldValidate;
 use app\common\exception\BusinessException;
 use app\common\enum\notice\NoticeSceneEnum;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
@@ -75,19 +76,14 @@ class UserApplicationService
      */
     public function setInfo(AuthenticatedMemberContext $context, int $memberId, array $params): bool
     {
-        $allowed = ['nickname', 'avatar', 'sex', 'birthday', 'email'];
-            $field   = $params['field'] ?? '';
+        $field = $params['field'] ?? '';
+        // 在调用文件服务前校验原始值，避免数组被字符串化后绕过头像类型合同。
+        $value = MemberProfileSelfFieldValidate::normalize($field, $params['value'] ?? null, false);
+        if ($field === 'avatar') {
+            $value = $this->files->setTenantFileUrl($context, $value);
+        }
 
-            if (!in_array($field, $allowed, true)) {
-                throw BusinessException::invalid('MEMBER_PROFILE_FIELD_UNSUPPORTED', '不支持修改该字段');
-            }
-
-            $value = $params['value'];
-            if ($field === 'avatar') {
-                $value = $this->files->setTenantFileUrl($context, (string) $value);
-            }
-
-            $this->memberProfiles->updateSelfField($context, $memberId, $field, $value);
+        $this->memberProfiles->updateSelfField($context, $memberId, $field, $value);
         return true;
     }
 
