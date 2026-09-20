@@ -633,6 +633,30 @@
     ],
     "databases": [
       {
+        "stable_resource_id": "peanut-admin-backend-stabilization-mysql84",
+        "purpose": "D01-D04 isolated backend regression with synthetic data only",
+        "environments": ["development-test"],
+        "owner": "backend-stabilization-20260920 task",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20277,
+        "container_name": "peanut-backend-stabilization-20260920",
+        "database": "peanut_stabilization_d01, peanut_stabilization_d02, peanut_stabilization_d03; test-owned ephemeral schemas only",
+        "schema": "pa_ table prefix",
+        "namespace": "exclusive temporary container writable layer; no host or persistent volume mount",
+        "credential_ref": "active worktree server/.env.stabilization (mode 0600; generated synthetic credentials)",
+        "data_source": "empty MySQL instance plus current source schemas and test-owned synthetic fixtures",
+        "freshness_requirement": "container and port absent before lease; verify 8.4.10, empty test schemas, and fixed Core source before tests",
+        "health_check": "docker inspect named container state; PDO SELECT VERSION(), SELECT DATABASE(); test schema absence before setup",
+        "fallback": "none",
+        "lifecycle": "single D01-D04 batch; not a shared development or qualification database",
+        "claim_precondition": "project-resource-lease covers container, port, database namespace, worktree and output directory before start",
+        "cleanup_responsibility": "backend-stabilization-20260920 owner removes only this container and generated credential files after receipts; retains failed fixture evidence until diagnosis",
+        "backup_responsibility": "not applicable: synthetic disposable data only"
+      },
+      {
         "stable_resource_id": "peanut-admin-mysql84-development",
         "purpose": "shared development and local production-mode preview database",
         "environments": [

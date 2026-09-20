@@ -91,11 +91,15 @@ final class IsolatedBackendEnvironment
             unset($_ENV[$key], $_ENV['PHP_' . $key], $_SERVER[$key], $_SERVER['PHP_' . $key]);
         }
 
-        $environmentLoaded = function_exists('peanutLoadBackendEnvironment');
-        require_once $serverRoot . '/bootstrap/environment.php';
-        if ($environmentLoaded) {
-            peanutLoadBackendEnvironment();
+        // 生产 bootstrap 每个进程只加载一次；测试切换到刚写入的独立文件时，
+        // 复用同一键名／值校验器重新应用配置，不能清空后再调用其一次性入口。
+        $isolatedValues = parse_ini_file($path, false, INI_SCANNER_RAW);
+        if (!is_array($isolatedValues)) {
+            throw new RuntimeException('ISOLATED_BACKEND_ENVIRONMENT_PARSE_FAILED');
         }
+        peanutApplyEnvironmentFile($isolatedValues, peanutBackendEnvironmentKeys(), 'BACKEND');
+        $_ENV['ENV_NAME'] = 'test-' . substr(basename($path), strlen('.env.test-'));
+        $_SERVER['ENV_NAME'] = $_ENV['ENV_NAME'];
 
         return $path;
     }
