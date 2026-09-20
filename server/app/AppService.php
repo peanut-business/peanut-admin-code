@@ -668,7 +668,12 @@ class AppService extends Service
 
     private function platformIdentifierHmacKey(): string
     {
-        return trim((string)Config::get('platform_auth.identifier_hmac_key', ''));
+        $key = trim((string)Config::get('platform_auth.identifier_hmac_key', ''));
+        // 平台认证标识依赖专用 HMAC 密钥；缺失或过短时必须在装配边界拒绝。
+        if (strlen($key) < 32) {
+            throw new \DomainException('PLATFORM_AUTH_CONFIGURATION_UNAVAILABLE');
+        }
+        return $key;
     }
 
     /** @return list<string> */
