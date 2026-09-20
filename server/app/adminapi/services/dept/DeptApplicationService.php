@@ -53,9 +53,9 @@ final class DeptApplicationService
 
     public function add(TenantContext $context, array $params): bool
     {
-        $department = $this->service()->create($context->tenantId, self::code($params), (string)$params['name'],
-                (int)$params['pid'] > 0 ? (int)$params['pid'] : null, (int)($params['sort'] ?? 0),
-                $context->memberId, $context->accountId, $context->requestId);
+        // 写命令传递认证上下文，禁止由请求参数拼接租户或操作者身份。
+        $department = $this->service()->create($context, self::code($params), (string)$params['name'],
+                (int)$params['pid'] > 0 ? (int)$params['pid'] : null, (int)($params['sort'] ?? 0));
             if ((int)$params['status'] === 0) $this->runtime->setStatus($department, 0);
         return true;
     }
@@ -64,14 +64,12 @@ final class DeptApplicationService
     {
         $service = $this->service();
             $current = $service->get($context->tenantId, (int)$params['id']);
-            $updated = $service->update($context->tenantId, (int)$params['id'], (string)$current['code'],
-                (string)$params['name'], (int)($params['sort'] ?? 0), (int)$current['revision'],
-                $context->memberId, $context->accountId, $context->requestId);
+            $updated = $service->update($context, (int)$params['id'], (string)$current['code'],
+                (string)$params['name'], (int)($params['sort'] ?? 0), (int)$current['revision']);
             $parent = (int)$params['pid'] > 0 ? (int)$params['pid'] : null;
             $currentParent = $updated['parent_id'] === null ? null : (int)$updated['parent_id'];
             if ($parent !== $currentParent) {
-                $updated = $service->move($context->tenantId, (int)$params['id'], $parent, (int)$updated['revision'],
-                    $context->memberId, $context->accountId, $context->requestId);
+                $updated = $service->move($context, (int)$params['id'], $parent, (int)$updated['revision']);
             }
             $this->runtime->setStatus($updated, (int)$params['status']);
         return true;
@@ -80,7 +78,7 @@ final class DeptApplicationService
     public function delete(TenantContext $context, int $id): bool
     {
         $service = $this->service(); $row = $service->get($context->tenantId, $id);
-            $service->archive($context->tenantId, $id, (int)$row['revision'], $context->memberId, $context->accountId, $context->requestId);
+            $service->archive($context, $id, (int)$row['revision']);
         return true;
     }
 

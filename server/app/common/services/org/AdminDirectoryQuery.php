@@ -28,7 +28,8 @@ final readonly class AdminDirectoryQuery
             ->field([
                 'member.id', 'member.account_id', 'member.display_name', 'member.primary_department_id', 'member.status',
                 'member.created_at', 'member.updated_at', 'account.avatar_uri', 'account.last_login_at',
-                'username' => 'credential.identifier_normalized', 'department_name' => 'department.name',
+                // ThinkORM 数组字段以表达式为键、响应别名为值，保持原查询输出合同。
+                'credential.identifier_normalized' => 'username', 'department.name' => 'department_name',
             ])
             ->fieldRaw("GROUP_CONCAT(DISTINCT role.id ORDER BY role.id SEPARATOR ',') AS role_ids")
             ->fieldRaw("GROUP_CONCAT(DISTINCT role.name ORDER BY role.`key` SEPARATOR '/') AS role_name")

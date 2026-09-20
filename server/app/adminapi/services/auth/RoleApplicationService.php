@@ -44,12 +44,12 @@ final class RoleApplicationService
     public function add(TenantContext $context, array $params): bool
     {
         $service = $this->service();
-            $role = $service->create($context->tenantId, 'application.admin.' . bin2hex(random_bytes(8)),
-                (string)$params['name'], (string)($params['desc'] ?? ''), $context->memberId, $context->accountId, $context->requestId);
+            // Core 写命令以已认证的租户上下文记录操作者、审计与授权修订。
+            $role = $service->create($context, 'application.admin.' . bin2hex(random_bytes(8)),
+                (string)$params['name'], (string)($params['desc'] ?? ''));
             $keys = $this->runtime->permissionKeys($context->tenantId, self::menuIds($params));
             if ($keys !== []) {
-                $service->replacePermissions($context->tenantId, (int)$role['id'], $keys, (int)$role['revision'],
-                    $context->memberId, $context->accountId, $context->requestId);
+                $service->replacePermissions($context, (int)$role['id'], $keys, (int)$role['revision']);
             }
         return true;
     }
@@ -58,11 +58,11 @@ final class RoleApplicationService
     {
         $service = $this->service();
             $current = $service->get($context->tenantId, (int)$params['id']);
-            $role = $service->update($context->tenantId, (int)$params['id'], (string)$params['name'],
-                (string)($params['desc'] ?? ''), (int)$current['revision'], $context->memberId, $context->accountId, $context->requestId);
+            $role = $service->update($context, (int)$params['id'], (string)$params['name'],
+                (string)($params['desc'] ?? ''), (int)$current['revision']);
             if (array_key_exists('menu_id', $params) || array_key_exists('menu_ids', $params)) {
-                $service->replacePermissions($context->tenantId, (int)$params['id'], $this->runtime->permissionKeys($context->tenantId, self::menuIds($params)),
-                    (int)$role['revision'], $context->memberId, $context->accountId, $context->requestId);
+                $service->replacePermissions($context, (int)$params['id'], $this->runtime->permissionKeys($context->tenantId, self::menuIds($params)),
+                    (int)$role['revision']);
             }
         return true;
     }
@@ -71,7 +71,7 @@ final class RoleApplicationService
     {
         $service = $this->service();
             $role = $service->get($context->tenantId, $id);
-            $service->archive($context->tenantId, $id, (int)$role['revision'], $context->memberId, $context->accountId, $context->requestId);
+            $service->archive($context, $id, (int)$role['revision']);
         return true;
     }
 

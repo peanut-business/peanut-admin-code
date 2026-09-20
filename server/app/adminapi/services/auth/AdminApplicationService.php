@@ -110,16 +110,13 @@ final class AdminApplicationService
             $department = self::firstId($params['dept_id'] ?? []);
             $service = $this->tenantAdmins->members();
             $service->createAdministrator(
-                $context->tenantId,
+                $context,
                 (string)$params['account'],
                 (string)$params['name'],
                 (string)$params['password'],
                 $department,
                 $roles,
                 (int)$params['disable'] === 0,
-                $context->memberId,
-                $context->accountId,
-                $context->requestId,
             );
             return true;
         } catch (\Throwable $e) {
@@ -142,16 +139,13 @@ final class AdminApplicationService
             $service = $this->tenantAdmins->members();
             $member = $service->get($context->tenantId, (int)$params['id']);
             $service->updateAdministrator(
-                $context->tenantId,
+                $context,
                 (int)$member['id'],
                 (string)$params['name'],
                 self::firstId($params['dept_id'] ?? []),
                 $roles,
                 (int)$params['disable'] === 0,
                 (int)$member['revision'],
-                $context->memberId,
-                $context->accountId,
-                $context->requestId,
             );
             return true;
         } catch (\Throwable $e) {
@@ -168,12 +162,9 @@ final class AdminApplicationService
             $service = $this->tenantAdmins->members();
             $member = $service->get($context->tenantId, $id);
             $service->leave(
-                $context->tenantId,
+                $context,
                 $id,
                 (int)$member['revision'],
-                $context->memberId,
-                $context->accountId,
-                $context->requestId,
             );
             return true;
         } catch (\Throwable $e) {
@@ -208,27 +199,20 @@ final class AdminApplicationService
                 throw new \DomainException('TENANT_ADMIN_PRINCIPAL_INVALID');
             }
             $service = $this->tenantAdmins->selfService();
-            $profile = $service->profile($context->tenantId, $memberId, $context->accountId);
+            $profile = $service->profile($context);
             $service->updateProfile(
-                $context->tenantId,
-                $memberId,
-                $context->accountId,
+                $context,
                 (string)($params['name'] ?? $params['nickname'] ?? $profile['display_name']),
                 array_key_exists('avatar', $params) ? (string)$params['avatar'] : ($profile['avatar_uri'] ?? null),
-                $context->requestId,
             );
             if (!empty($params['password'])) {
                 $this->tenantAdmins->assertPasswordChangeAllowed($context->accountId);
                 $service->changePassword(
-                    $context->tenantId,
-                    $memberId,
-                    $context->accountId,
-                    $context->sessionKey,
+                    $context,
                     (string)($params['password_old'] ?? ''),
                     (string)$params['password'],
                     $ip,
                     $userAgent,
-                    $context->requestId,
                 );
             }
             return true;
@@ -277,9 +261,9 @@ final class AdminApplicationService
     private static function transitionStatus(MemberAdminService $service, TenantContext $context, array $member, int $disable): void
     {
         if ($disable === 1 && $member['status'] === 'active') {
-            $service->suspend($context->tenantId, (int)$member['id'], (int)$member['revision'], $context->memberId, $context->accountId, $context->requestId);
+            $service->suspend($context, (int)$member['id'], (int)$member['revision']);
         } elseif ($disable === 0 && in_array($member['status'], ['pending', 'suspended'], true)) {
-            $service->activate($context->tenantId, (int)$member['id'], (int)$member['revision'], $context->memberId, $context->accountId, $context->requestId);
+            $service->activate($context, (int)$member['id'], (int)$member['revision']);
         }
     }
 
