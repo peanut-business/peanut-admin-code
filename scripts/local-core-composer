@@ -45,12 +45,18 @@ fi
 mkdir -p "$LOCAL_COMPOSER_DIR"
 
 required_version="$(php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["require"]["peanut-admin/core"] ?? "";' "$SERVER_DIR/composer.json")"
-core_version="$(php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["version"] ?? "";' "$CORE_PACKAGE_DIR/composer.json")"
 [[ -n "$required_version" ]] || die 'server/composer.json does not pin peanut-admin/core'
-[[ "$required_version" == "$core_version" ]] || die "version mismatch: application requires $required_version, local core declares $core_version"
+core_name="$(php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["name"] ?? "";' "$CORE_PACKAGE_DIR/composer.json")"
+[[ "$core_name" == peanut-admin/core ]] || die 'selected checkout is not peanut-admin/core'
+# The development path package uses its actual Git branch identity. Do not
+# disguise an unpublished checkout as the production lock version or an alias.
+core_branch="$(git -C "$CORE_PACKAGE_DIR" symbolic-ref --quiet --short HEAD)" \
+    || die 'local development requires a named Core branch; use the locked package for detached candidates'
+core_requirement="dev-$core_branch"
 
 php -r '
 $source = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
+$source["require"]["peanut-admin/core"] = $argv[6];
 $source["repositories"] = array_merge([
     [
         "type" => "path",
@@ -64,7 +70,7 @@ file_put_contents(
     $argv[4],
     json_encode($source, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL
 );
-' "$SERVER_DIR/composer.json" "$CORE_PACKAGE_DIR" "$SERVER_DIR/vendor" "$LOCAL_COMPOSER" "$SERVER_DIR/app"
+' "$SERVER_DIR/composer.json" "$CORE_PACKAGE_DIR" "$SERVER_DIR/vendor" "$LOCAL_COMPOSER" "$SERVER_DIR/app" "$core_requirement"
 
 run_composer() {
     local tool_environment
@@ -102,16 +108,16 @@ case "$ACTION" in
         preserve_application_lock
         trap restore_application_lock EXIT
         cp "$SERVER_DIR/composer.lock" "$LOCAL_LOCK"
-        run_composer update peanut-admin/core --with-dependencies --no-progress --prefer-source
+        run_composer update peanut-admin/core --no-scripts --no-progress --prefer-source
         ;;
     update|refresh)
         preserve_application_lock
         trap restore_application_lock EXIT
         cp "$SERVER_DIR/composer.lock" "$LOCAL_LOCK"
-        run_composer update peanut-admin/core --with-dependencies --no-progress --prefer-source
+        run_composer update peanut-admin/core --no-scripts --no-progress --prefer-source
         ;;
     autoload)
-        run_composer dump-autoload
+        run_composer dump-autoload --no-scripts
         ;;
     manifest)
         printf '%s\n' "$LOCAL_COMPOSER"
