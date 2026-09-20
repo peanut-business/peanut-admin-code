@@ -7,11 +7,17 @@ use think\App;
 use app\common\execution\CurrentExecutionContext;
 
 use app\api\services\LoginApplicationService;
+use app\api\services\VerificationAttemptRateLimiter;
 use app\common\exception\BusinessException;
 
 class LoginController extends BaseApiController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly LoginApplicationService $login)
+    public function __construct(
+        App $app,
+        CurrentExecutionContext $executionContext,
+        private readonly LoginApplicationService $login,
+        private readonly VerificationAttemptRateLimiter $verificationAttempts,
+    )
     {
         parent::__construct($app, $executionContext);
     }
@@ -64,11 +70,17 @@ class LoginController extends BaseApiController
             throw BusinessException::invalid('MEMBER_MOBILE_LOGIN_INVALID', '手机号或验证码格式不正确');
         }
 
-        return $this->data($this->login->mobileLogin(
-            $this->publicTenantContext('notice.verification.verify'),
-            $params,
-            $this->request->ip(),
-        ));
+        $context = $this->publicTenantContext('notice.verification.verify');
+        $source = $this->request->ip();
+        $this->verificationAttempts->assertAllowed($context, 'login_code', $params['mobile'], $source);
+        try {
+            return $this->data($this->login->mobileLogin($context, $params, $source));
+        } catch (BusinessException $exception) {
+            if ($exception->errorCode === 'MEMBER_VERIFICATION_REJECTED') {
+                $this->verificationAttempts->recordFailure($context, 'login_code', $params['mobile'], $source);
+            }
+            throw $exception;
+        }
     }
 
     /** 手机号验证码找回密码 */
@@ -84,10 +96,17 @@ class LoginController extends BaseApiController
             throw BusinessException::invalid('MEMBER_PASSWORD_RESET_INVALID', '手机号、验证码或新密码格式不正确');
         }
 
-        $this->login->resetPassword(
-            $this->publicTenantContext('notice.verification.verify'),
-            $params
-        );
+        $context = $this->publicTenantContext('notice.verification.verify');
+        $source = $this->request->ip();
+        $this->verificationAttempts->assertAllowed($context, 'reset_password', $params['mobile'], $source);
+        try {
+            $this->login->resetPassword($context, $params);
+        } catch (BusinessException $exception) {
+            if ($exception->errorCode === 'MEMBER_VERIFICATION_REJECTED') {
+                $this->verificationAttempts->recordFailure($context, 'reset_password', $params['mobile'], $source);
+            }
+            throw $exception;
+        }
         return $this->success('密码已重置');
     }
 

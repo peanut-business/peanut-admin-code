@@ -77,6 +77,12 @@ final readonly class ModuleExecutionBoundary
                     $execution->member,
                     $operation,
                 ),
+            // 公开入口已由 Host 绑定建立受限系统身份，仍经过相同的模块部署和租户许可校验。
+            $execution instanceof ConsumerExecutionContext
+                && $execution->publicTenant !== null => ModuleExecutionContext::system(
+                    $moduleKey,
+                    $execution->publicTenant,
+                ),
             $execution instanceof SystemExecutionContext => ModuleExecutionContext::system(
                     $moduleKey,
                     $execution->system,

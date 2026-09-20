@@ -40,6 +40,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(NoticeSmsSender::class),
                 $app->make(CurrentExecutionContext::class),
                 (string)Config::get('peanut.environment', '') === 'development',
+                (int)Config::get('notification.verification.max_failed_attempts', VerificationCodeService::DEFAULT_MAX_FAILED_ATTEMPTS),
             ),
             NotificationCommands::class => NotificationApplicationService::class,
             NotificationBootstrapCommands::class => NotificationBootstrapService::class,

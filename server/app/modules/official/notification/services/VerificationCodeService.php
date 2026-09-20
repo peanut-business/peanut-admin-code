@@ -23,6 +23,7 @@ use PeanutAdmin\NotificationSms\Sms\NoticeSmsSender;
  */
 class VerificationCodeService
 {
+    public const DEFAULT_MAX_FAILED_ATTEMPTS = 5;
     private const SEND_INTERVAL = 60;
     private const VALID_PERIOD = 300;
 
@@ -30,6 +31,7 @@ class VerificationCodeService
         private readonly NoticeSmsSender $sender,
         private readonly CurrentExecutionContext $executionContext,
         private readonly bool $developmentMode,
+        private readonly int $maxFailedAttempts = self::DEFAULT_MAX_FAILED_ATTEMPTS,
     ) {
     }
 
@@ -172,13 +174,17 @@ class VerificationCodeService
                 return new VerificationResult(false, '验证码不存在或已使用');
             }
 
-            $log->check_count = (int) $log->check_count + 1;
+            // 已耗尽的验证码不能再被正确核验；必须重新发送生成新记录。
+            if ((int)$log->check_count >= $this->maxFailedAttempts()) {
+                return new VerificationResult(false, '验证码验证次数已达上限');
+            }
             if ((int) $log->send_time < time() - self::VALID_PERIOD) {
-                $log->save();
                 return new VerificationResult(false, '验证码已过期');
             }
 
             if (!VerificationCodeSecret::matches($code, (string)$log->verify_code_hash)) {
+                // 先提交失败计数，再由调用方抛出业务异常；调用方不得用可回滚外层事务包住核验。
+                $log->check_count = (int)$log->check_count + 1;
                 $log->save();
                 return new VerificationResult(false, '验证码不正确');
             }
@@ -188,6 +194,11 @@ class VerificationCodeService
             $log->save();
             return new VerificationResult(true);
         });
+    }
+
+    private function maxFailedAttempts(): int
+    {
+        return max(1, $this->maxFailedAttempts);
     }
 
     /**
