@@ -35,7 +35,8 @@ class CheckTokenMiddleware
         }
 
         try {
-            $memberId = $this->tokens->parseToken($token);
+            $verifiedToken = $this->tokens->parseSessionToken($token);
+            $memberId = $verifiedToken['member_id'];
         } catch (\UnexpectedValueException) {
             throw \app\common\http\ApiProblem::fromEnvelope('登录超时，请重新登录', null, 40100);
         }
@@ -46,6 +47,7 @@ class CheckTokenMiddleware
                 $memberId,
                 $token,
                 $requestId,
+                $verifiedToken['tenant_id'],
             );
         } catch (\Throwable) {
             throw \app\common\http\ApiProblem::fromEnvelope('租户上下文不可用', null, 40300);

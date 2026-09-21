@@ -15,14 +15,19 @@ final class MemberApiTenantContextResolver
     ) {
     }
 
-    public function resolve(int $memberId, string $token, string $requestId): AuthenticatedMemberContext
+    public function resolve(
+        int $memberId,
+        string $token,
+        string $requestId,
+        int $verifiedTenantId,
+    ): AuthenticatedMemberContext
     {
-        if ($memberId < 1 || $token === '' || $requestId === '') {
+        if ($memberId < 1 || $token === '' || $requestId === '' || $verifiedTenantId < 1) {
             throw new \DomainException('MEMBER_TENANT_CONTEXT_UNAVAILABLE');
         }
 
         $tenantId = $this->members->tenantId($memberId);
-        if ($tenantId === null) {
+        if ($tenantId === null || $tenantId !== $verifiedTenantId) {
             throw new \DomainException('MEMBER_TENANT_CONTEXT_UNAVAILABLE');
         }
         if (Db::name('tenant')->where('id', $tenantId)->where('status', 'active')->value('id') === null) {

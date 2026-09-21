@@ -1,8 +1,65 @@
 {
-  "schema_version":1,"key":"official.member","name":"Member CRM","description":"Tenant-owned customer profiles, tags, balances and member sessions.","version":"1.0.0","kernel_constraint":"^1.0","license":"Apache-2.0",
-  "php_package":"peanut-business/official-member","web_package":"@peanut-admin/official-member","dependencies":[{"module_key":"official.file","version":"^1.0"}],
-  "backend":{"provider":"app\\modules\\official\\member\\ModuleProvider","migrations":"database/migrations","menus":"resources/menus.json","permissions":"resources/permissions.json","setting_definitions":"resources/setting-definitions.json"},
-  "frontend":{"entry":"web/src/modules/official-member/contribution.ts"},
-  "database":{"owned_tables":["pa_member","pa_member_balance_log","pa_member_tag","pa_member_tag_relation"]},"contracts":{"exports":["app\\modules\\official\\member\\contracts\\MemberAdministration","app\\modules\\official\\member\\contracts\\MemberQueries","app\\modules\\official\\member\\contracts\\MemberBalanceCommands","app\\modules\\official\\member\\contracts\\MemberProfileCommands","app\\modules\\official\\member\\contracts\\MemberIdentityCommands","app\\modules\\official\\member\\contracts\\MemberTagCommands","app\\modules\\official\\member\\contracts\\dto\\MemberBalanceMutation","app\\modules\\official\\member\\contracts\\dto\\MemberBalanceSnapshot","app\\modules\\official\\member\\contracts\\dto\\MemberIdentitySnapshot","app\\modules\\official\\member\\contracts\\MemberSubjectLookup"],"events":[]},
-  "tenant":{"enableable":true,"disable_behavior":"reject_new_operations","requires":["official.file"]}
+  "schema_version": 1,
+  "key": "official.member",
+  "name": "Member CRM",
+  "description": "Tenant-owned customer profiles, tags, balances and member sessions.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-member",
+  "web_package": "@peanut-admin/official-member",
+  "dependencies": [
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    }
+  ],
+  "backend": {
+    "provider": "app\\modules\\official\\member\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json",
+    "setting_definitions": "resources/setting-definitions.json"
+  },
+  "frontend": {
+    "entry": "web/src/modules/official-member/contribution.ts"
+  },
+  "database": {
+    "owned_tables": [
+      "pa_member",
+      "pa_member_balance_log",
+      "pa_member_tag",
+      "pa_member_tag_relation",
+      "pa_member_session"
+    ]
+  },
+  "contracts": {
+    "exports": [
+      "app\\modules\\official\\member\\contracts\\MemberAdministration",
+      "app\\modules\\official\\member\\contracts\\MemberQueries",
+      "app\\modules\\official\\member\\contracts\\MemberBalanceCommands",
+      "app\\modules\\official\\member\\contracts\\MemberProfileCommands",
+      "app\\modules\\official\\member\\contracts\\MemberIdentityCommands",
+      "app\\modules\\official\\member\\contracts\\MemberTagCommands",
+      "app\\modules\\official\\member\\contracts\\dto\\MemberBalanceMutation",
+      "app\\modules\\official\\member\\contracts\\dto\\MemberBalanceSnapshot",
+      "app\\modules\\official\\member\\contracts\\dto\\MemberIdentitySnapshot",
+      "app\\modules\\official\\member\\contracts\\MemberSubjectLookup",
+      "app\\modules\\official\\member\\contracts\\MemberSessions",
+      "app\\modules\\official\\member\\contracts\\dto\\MemberSessionGrant",
+      "app\\modules\\official\\member\\contracts\\dto\\MemberSessionSubject"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": true,
+    "disable_behavior": "reject_new_operations",
+    "requires": [
+      "official.file"
+    ]
+  }
 }

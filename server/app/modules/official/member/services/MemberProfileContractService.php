@@ -8,14 +8,20 @@ use app\modules\official\member\model\MemberTag;
 use app\modules\official\member\model\MemberTagRelation;
 use app\common\exception\BusinessException;
 use app\modules\official\member\contracts\MemberProfileCommands;
+use app\modules\official\member\contracts\MemberSessions;
 use app\common\validate\MemberProfileSelfFieldValidate;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use app\common\support\PositiveIds;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
+use think\facade\Db;
 
 final class MemberProfileContractService implements MemberProfileCommands
 {
+    public function __construct(private readonly ?MemberSessions $sessions = null)
+    {
+    }
+
     public function createAdminMember(TenantContext $context, array $profile, array $tagIds): void
     {
         $member = Member::create([
@@ -33,28 +39,43 @@ final class MemberProfileContractService implements MemberProfileCommands
 
     public function updateAdminMember(TenantContext $context, int $memberId, array $profile, ?array $tagIds): void
     {
-        $member = $this->member($context, $memberId);
-        $data = [];
-        foreach (['nickname', 'avatar', 'mobile', 'email', 'birthday'] as $field) {
-            if (array_key_exists($field, $profile)) {
-                $data[$field] = $profile[$field];
+        // 管理端整档更新也必须使停用／修订／会话撤销原子完成，不能依赖外层碰巧有事务。
+        Db::transaction(function () use ($context, $memberId, $profile, $tagIds): void {
+            $disabled = array_key_exists('status', $profile) && (int)$profile['status'] === 0;
+            $sessions = $disabled ? $this->sessions() : null;
+            $member = $this->member($context, $memberId, $disabled);
+            $data = [];
+            foreach (['nickname', 'avatar', 'mobile', 'email', 'birthday'] as $field) {
+                if (array_key_exists($field, $profile)) {
+                    $data[$field] = $profile[$field];
+                }
             }
-        }
-        foreach (['sex', 'status'] as $field) {
-            if (array_key_exists($field, $profile)) {
-                $data[$field] = (int)$profile[$field];
+            foreach (['sex', 'status'] as $field) {
+                if (array_key_exists($field, $profile)) {
+                    $data[$field] = (int)$profile[$field];
+                }
             }
-        }
-        if ($data !== []) {
-            $member->save($data);
-        }
-        if ($tagIds !== null) {
-            $this->replaceTags($context, $memberId, $tagIds);
-        }
+            if ($disabled) {
+                $data['session_revision'] = (int)$member->getData('session_revision') + 1;
+            }
+            if ($data !== []) {
+                $member->save($data);
+            }
+            if ($disabled) {
+                $sessions->revokeAll($context->tenantId, $memberId, 'member_disabled', time());
+            }
+            if ($tagIds !== null) {
+                $this->replaceTags($context, $memberId, $tagIds);
+            }
+        });
     }
 
     public function updateAdminField(TenantContext $context, int $memberId, string $field, mixed $value): void
     {
+        if ($field === 'status' && (int)$value === 0) {
+            $this->disableMember($context, $memberId);
+            return;
+        }
         if (Member::where([])->where('id', $memberId)->update([$field => $value]) !== 1) {
             throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
         }
@@ -62,6 +83,10 @@ final class MemberProfileContractService implements MemberProfileCommands
 
     public function updateStatus(TenantContext $context, int $memberId, int $status): void
     {
+        if ($status === 0) {
+            $this->disableMember($context, $memberId);
+            return;
+        }
         if (Member::where([])->where('id', $memberId)->update(['status' => $status]) !== 1) {
             throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
         }
@@ -129,12 +154,37 @@ final class MemberProfileContractService implements MemberProfileCommands
         }
     }
 
-    private function member(AuthenticatedMemberContext|TenantContext|TenantSystemContext $context, int $memberId): object
+    private function member(
+        AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
+        int $memberId,
+        bool $forUpdate = false,
+    ): object
     {
-        $member = Member::where([])->where('id', $memberId)->findOrEmpty();
+        $query = Member::where([])->where('id', $memberId);
+        if ($forUpdate) {
+            $query->lock(true);
+        }
+        $member = $query->findOrEmpty();
         if ($member->isEmpty()) {
             throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
         }
         return $member;
+    }
+
+    private function disableMember(TenantContext $context, int $memberId): void
+    {
+        $sessions = $this->sessions();
+        Db::transaction(function () use ($context, $memberId, $sessions): void {
+            $member = $this->member($context, $memberId, true);
+            $member->status = 0;
+            $member->session_revision = (int)$member->getData('session_revision') + 1;
+            $member->save();
+            $sessions->revokeAll($context->tenantId, $memberId, 'member_disabled', time());
+        });
+    }
+
+    private function sessions(): MemberSessions
+    {
+        return $this->sessions ?? throw new \LogicException('MEMBER_SESSIONS_UNAVAILABLE');
     }
 }

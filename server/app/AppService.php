@@ -254,6 +254,7 @@ class AppService extends Service
         $this->app->bind(UserTokenService::class, fn(): UserTokenService => new UserTokenService(
             (string)Config::get('jwt.secret', ''),
             (int)Config::get('jwt.expire', 0),
+            $this->app->make(\app\modules\official\member\contracts\MemberSessions::class),
         ));
     }
 

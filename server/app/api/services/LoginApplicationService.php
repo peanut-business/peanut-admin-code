@@ -147,9 +147,10 @@ class LoginApplicationService
         return $avatar !== '' ? $avatar : $this->defaultAvatar;
     }
 
-    /** 退出（JWT 无状态，客户端丢弃 token 即可） */
-    public function logout(): bool
+    /** 仅撤销当前会员端会话；同账号其他终端保持在线。 */
+    public function logout(string $token): bool
     {
+        $this->tokens->revokeToken($token);
         return true;
     }
 }

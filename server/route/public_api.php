@@ -29,7 +29,9 @@ Route::get('index/config',  [ApiIndexController::class, 'config'])
 Route::get('index/policy',  [ApiIndexController::class, 'policy'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.decoration.public-read', '', 'decoration.config');
 
-Route::post('login/logout',   [ApiLoginController::class, 'logout']);
+// 会员退出是已认证会话的撤销，不再把它登记为无认证的空操作。
+Route::post('login/logout', [ApiLoginController::class, 'logout'])
+    ->middleware(CheckTokenMiddleware::class);
 
 Route::get('article/cate',    [ApiArticleController::class, 'cate'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.cate');

@@ -6,13 +6,19 @@ namespace app\modules\official\member\services;
 use app\modules\official\member\model\Member;
 use app\modules\official\member\contracts\dto\MemberIdentitySnapshot;
 use app\modules\official\member\contracts\MemberIdentityCommands;
+use app\modules\official\member\contracts\MemberSessions;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
+use think\facade\Db;
 
 /** Owns member credential creation, verification, and identity snapshots within one Tenant. */
 final class MemberIdentityContractService implements MemberIdentityCommands
 {
+    public function __construct(private readonly ?MemberSessions $sessions = null)
+    {
+    }
+
     public function register(TenantSystemContext $context, string $account, string $password, string $avatar): void
     {
         if (Member::where([])->where('account', $account)->count() > 0) {
@@ -86,12 +92,17 @@ final class MemberIdentityContractService implements MemberIdentityCommands
         string $mobile,
         string $password,
     ): void {
-        $member = Member::where([])->where('mobile', $mobile)->findOrEmpty();
-        if ($member->isEmpty()) {
-            throw new \runtimeException('手机号未绑定账号');
-        }
-        $member->password = $this->passwordHash($password);
-        $member->save();
+        $sessions = $this->sessions();
+        Db::transaction(function () use ($context, $mobile, $password, $sessions): void {
+            $member = Member::where([])->where('mobile', $mobile)->lock(true)->findOrEmpty();
+            if ($member->isEmpty()) {
+                throw new \runtimeException('手机号未绑定账号');
+            }
+            $member->password = $this->passwordHash($password);
+            $member->session_revision = (int)$member->getData('session_revision') + 1;
+            $member->save();
+            $sessions->revokeAll($context->tenantId, (int)$member->id, 'password_reset', time());
+        });
     }
 
     public function assertMobileBound(TenantContext|TenantSystemContext $context, string $mobile): void
@@ -114,15 +125,23 @@ final class MemberIdentityContractService implements MemberIdentityCommands
 
     public function changePassword(AuthenticatedMemberContext $context, int $memberId, string $oldPassword, string $newPassword): void
     {
-        $member = Member::where([])->where('id', $memberId)->findOrEmpty();
-        if ($member->isEmpty()) {
-            throw new \runtimeException('用户不存在');
+        if ($context->memberId !== $memberId) {
+            throw new \runtimeException('只能修改自己的密码');
         }
-        if (!$this->passwordMatches((string)$member->password, $oldPassword)) {
-            throw new \runtimeException('原密码错误');
-        }
-        $member->password = $this->passwordHash($newPassword);
-        $member->save();
+        $sessions = $this->sessions();
+        Db::transaction(function () use ($context, $memberId, $oldPassword, $newPassword, $sessions): void {
+            $member = Member::where([])->where('id', $memberId)->lock(true)->findOrEmpty();
+            if ($member->isEmpty()) {
+                throw new \runtimeException('用户不存在');
+            }
+            if (!$this->passwordMatches((string)$member->password, $oldPassword)) {
+                throw new \runtimeException('原密码错误');
+            }
+            $member->password = $this->passwordHash($newPassword);
+            $member->session_revision = (int)$member->getData('session_revision') + 1;
+            $member->save();
+            $sessions->revokeAll($context->tenantId, $memberId, 'password_change', time());
+        });
     }
 
     public function bindVerifiedMobile(AuthenticatedMemberContext|TenantContext|TenantSystemContext $context, int $memberId, string $mobile): void
@@ -179,6 +198,11 @@ final class MemberIdentityContractService implements MemberIdentityCommands
             return false;
         }
         return hash_equals($hash, md5(md5($password) . $salt));
+    }
+
+    private function sessions(): MemberSessions
+    {
+        return $this->sessions ?? throw new \LogicException('MEMBER_SESSIONS_UNAVAILABLE');
     }
 
     /** Creates the only supported hash format for new or changed member passwords. */

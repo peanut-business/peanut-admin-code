@@ -2,13 +2,42 @@
 declare(strict_types=1);
 
 use app\api\middleware\CheckTokenMiddleware;
-use app\api\service\UserTokenService;
+use app\api\services\UserTokenService;
+use app\modules\official\member\contracts\MemberSessions;
+use app\modules\official\member\contracts\dto\MemberSessionGrant;
+use Firebase\JWT\Key;
 use Firebase\JWT\JWT;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
+// 本组验证JWT和Bearer协议；真实持久化由独立数据库回归负责。
+$sessions = new class implements MemberSessions {
+    private array $grants = [];
+    public function issue(int $memberId, int $issuedAt, int $expiresAt): MemberSessionGrant
+    {
+        $key = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        return $this->grants[$key] = new MemberSessionGrant($key, 31, $memberId, 1, $issuedAt, $expiresAt);
+    }
+    public function verify(string $key, int $tenant, int $member, int $revision, int $issued, int $expires, int $now): void
+    {
+        $grant = $this->grants[$key] ?? null;
+        if ($grant === null || [$tenant,$member,$revision,$issued,$expires] !== [$grant->tenantId,$grant->memberId,$grant->sessionRevision,$grant->issuedAt,$grant->expiresAt]
+            || $issued > $now || $expires <= $now) throw new UnexpectedValueException('SESSION_INVALID');
+    }
+    public function revokeCurrent(string $key, int $tenant, int $member, int $revision, int $issued, int $expires, int $now): void
+    {
+        $this->verify($key,$tenant,$member,$revision,$issued,$expires,$now);
+        unset($this->grants[$key]);
+    }
+    public function revokeAll(int $tenant, int $member, string $reason, int $now): void
+    {
+        foreach ($this->grants as $key => $grant) if ($grant->tenantId === $tenant && $grant->memberId === $member) unset($this->grants[$key]);
+    }
+};
+
 function jwtExpect(bool $condition, string $message): void
 {
+    $GLOBALS['jwt_assertions'] = ($GLOBALS['jwt_assertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -16,6 +45,7 @@ function jwtExpect(bool $condition, string $message): void
 
 function jwtExpectThrows(callable $operation, string $message): void
 {
+    $GLOBALS['jwt_assertions'] = ($GLOBALS['jwt_assertions'] ?? 0) + 1;
     try {
         $operation();
     } catch (Throwable) {
@@ -26,6 +56,7 @@ function jwtExpectThrows(callable $operation, string $message): void
 
 function jwtExpectInvalidToken(callable $operation, string $message): void
 {
+    $GLOBALS['jwt_assertions'] = ($GLOBALS['jwt_assertions'] ?? 0) + 1;
     try {
         $operation();
     } catch (UnexpectedValueException) {
@@ -37,16 +68,7 @@ function jwtExpectInvalidToken(callable $operation, string $message): void
 /** @param array<string,mixed> $overrides */
 function jwtToken(string $secret, array $overrides = [], string $algorithm = 'HS256'): string
 {
-    $now = time();
-    $payload = array_merge([
-        'iss' => 'peanut-admin',
-        'aud' => 'peanut-admin-member-api',
-        'sub' => 'member:17',
-        'iat' => $now,
-        'nbf' => $now,
-        'exp' => $now + 7200,
-        'member_id' => 17,
-    ], $overrides);
+    $payload = array_merge($GLOBALS['jwt_valid_claims'], $overrides);
     foreach ($payload as $claim => $value) {
         if ($value === null) {
             unset($payload[$claim]);
@@ -56,21 +78,22 @@ function jwtToken(string $secret, array $overrides = [], string $algorithm = 'HS
 }
 
 jwtExpectThrows(
-    static fn(): UserTokenService => new UserTokenService('', 7200),
+    static fn(): UserTokenService => new UserTokenService('', 7200, $sessions),
     'member JWT signing accepted a missing secret',
 );
 jwtExpectThrows(
-    static fn(): UserTokenService => new UserTokenService(str_repeat('s', 31), 7200),
+    static fn(): UserTokenService => new UserTokenService(str_repeat('s', 31), 7200, $sessions),
     'member JWT signing accepted a secret shorter than 32 bytes',
 );
 
 $secret = str_repeat('s', 64);
 jwtExpectThrows(
-    static fn(): UserTokenService => new UserTokenService($secret, 0),
+    static fn(): UserTokenService => new UserTokenService($secret, 0, $sessions),
     'member JWT signing accepted an invalid expiry',
 );
-$tokens = new UserTokenService($secret, 7200);
+$tokens = new UserTokenService($secret, 7200, $sessions);
 $issued = $tokens->createToken(17);
+$GLOBALS['jwt_valid_claims'] = (array)JWT::decode($issued, new Key($secret, 'HS256'));
 jwtExpect($tokens->parseToken($issued) === 17, 'member JWT round trip failed');
 jwtExpectThrows(
     static fn(): string => $tokens->createToken(0),
@@ -78,6 +101,11 @@ jwtExpectThrows(
 );
 
 $invalidClaims = [
+    'missing sid' => ['sid' => null],
+    'missing tenant' => ['tenant_id' => null],
+    'foreign tenant' => ['tenant_id' => 32],
+    'missing revision' => ['rev' => null],
+    'wrong revision' => ['rev' => 2],
     'missing iss' => ['iss' => null],
     'wrong iss type' => ['iss' => 1],
     'wrong aud' => ['aud' => 'another-api'],
@@ -107,6 +135,9 @@ jwtExpectInvalidToken(
     static fn(): int => $tokens->parseToken(jwtToken($secret, [], 'HS512')),
     'member JWT accepted a non-HS256 algorithm',
 );
+
+$tokens->revokeToken($issued);
+jwtExpectInvalidToken(static fn(): int => $tokens->parseToken($issued), 'logged-out token remained valid');
 
 $bearerParser = new ReflectionMethod(CheckTokenMiddleware::class, 'bearerToken');
 $compactToken = 'abc.DEF_123.xyz-789';
@@ -146,4 +177,4 @@ jwtExpect(
     'JWT configuration supplies a default secret',
 );
 
-echo "Member JWT contract passed\n";
+echo "Member JWT contract passed: " . $GLOBALS['jwt_assertions'] . " assertions\n";

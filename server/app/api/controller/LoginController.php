@@ -113,7 +113,20 @@ class LoginController extends BaseApiController
     /** 退出登录 */
     public function logout()
     {
-        $this->login->logout();
+        $authorization = (string)$this->request->header('Authorization', '');
+        $token = preg_match(
+            '/^Bearer +([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/iD',
+            $authorization,
+            $matches,
+        ) === 1 ? $matches[1] : '';
+        if ($token === '') {
+            throw \app\common\http\ApiProblem::fromEnvelope('请求缺少 token', null, 40100);
+        }
+        try {
+            $this->login->logout($token);
+        } catch (\UnexpectedValueException) {
+            throw \app\common\http\ApiProblem::fromEnvelope('登录超时，请重新登录', null, 40100);
+        }
         return $this->success('退出成功');
     }
 }
