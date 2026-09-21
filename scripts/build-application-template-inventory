@@ -248,10 +248,9 @@ function adapterKind(string $path): ?string
 /** @return list<string> */
 function profilesForPath(string $path): array
 {
-    if (str_starts_with($path, 'platform/')
-        || str_starts_with($path, 'docs-site/')
-        || str_starts_with($path, 'server/app/platform/')
-        || $path === 'server/route/platform.php') {
+    // 已装配的官方模块包含运营端贡献；任何 profile 都不能丢失其声明的源码或宿主。
+    // 是否构建/暴露运营入口仍由 EditionProjector 决定，不靠删除依赖文件实现。
+    if (str_starts_with($path, 'docs-site/')) {
         return ['full'];
     }
     if (str_starts_with($path, 'pc/') || str_starts_with($path, 'uniapp/')) {

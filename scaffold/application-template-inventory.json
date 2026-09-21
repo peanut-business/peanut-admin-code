@@ -1265,6 +1265,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f6aa29d42b62de7a954608032e2f99ba433a2bb9e98a15fb92a3dbe5e55f0bb5"
@@ -1277,6 +1279,8 @@
             "transform": "copy",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "4d948f3fbe78254434d7ec3d621a0e6dc6c9bc568299941ff2d86766fa605b92"
@@ -1289,6 +1293,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5aa6c09c935719075ebb9b0a406876573b5dab6db373f5225db5bd18f80e643b"
@@ -1301,6 +1307,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "a7511261f5e55be002bfb6950a2e18a29ba68eceafda424fe42a8f9f731f22d7"
@@ -1313,6 +1321,8 @@
             "transform": "package",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "81739d07846aaf0205256ee10e28a7f50497d4460a9a9032032f3543c8d10623"
@@ -1325,6 +1335,8 @@
             "transform": "package",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5bc9e98a79a333478114fa7f729e8ea8d4a6d3f944cc98ed97a87773f7aa2a21"
@@ -1337,6 +1349,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "bf08cc98ad27db75776eca0c39d03387b17175f401fc8e599c1ab03c454bb56e"
@@ -1349,6 +1363,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "810dd8d54f4c1f529b635fc1216ae39ad24938044e4defc1be905a5735156831"
@@ -1361,6 +1377,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "abef95818a1b1e27ee428ea91d5f7f4ad67555572de1bd751ea7067c34fd931f"
@@ -1373,6 +1391,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "2b84a7c5ce89f480dbb2d2c663d4d4eeecae7d38e5cdded8225529a4c4279f2b"
@@ -1385,6 +1405,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "d2765c0610d6d92b186823066c10d1628ec5c0b1830615b6e6208e69a5027e9e"
@@ -1397,6 +1419,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "c270c1fa870321183f892b1ad4f09bfbf952d4380b20bb622c9cf10246b88400"
@@ -1409,6 +1433,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "881934aa2195fc8be567af8fd78ecf495eb41841d3c69a693a2421db6ed64fe9"
@@ -1421,6 +1447,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "847de004e77791d016840d7c6a9f27e80ae955ee67822c80a9b222d6db6874eb"
@@ -1433,6 +1461,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "01dde59c4710539e24fe7ba836021993979b490b12709607132178859697405d"
@@ -1445,6 +1475,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ed7cd109c5b8d3270a3286f3141e4091418d79983452edec2e00b7a57b95405f"
@@ -1457,6 +1489,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "51049ce63920dbac02a0c37385166d91c457f1b514fbc00ff069de094d887539"
@@ -1469,6 +1503,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "67a29ee9f1819a45a723cccd4820a3351a8deef5bd4063327f7623d9eacd297b"
@@ -1481,6 +1517,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "263243f39093ef14565c35cd7606430e9114df23aeec011b101e9622e13e9ca4"
@@ -1493,6 +1531,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "88f7708c17fe91374f9e92c04c81f0c85cce9d9036e630e54937b8afd7072874"
@@ -1505,6 +1545,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "3c569bc13ce9a8236a6e67e3f77b435697ead61f74d358291c85782ddc6f9e78"
@@ -1517,6 +1559,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "da5e2304f41730b9042f2f663dce962415370bfd9a3966d7015d2e5aafe38bcb"
@@ -1529,6 +1573,8 @@
             "transform": "package",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "44ffc36a0e57c05a97c1cdda7723b3bc920659d8331d7aa7b31e714d929bf998"
@@ -1541,6 +1587,8 @@
             "transform": "copy",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
@@ -1553,6 +1601,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "a9a9c8d557b5dc2baec644d60b4edc905db290334bd267f62d72660a233ff851"
@@ -1565,6 +1615,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ac4ff25e56f0d24bc401f7b11eec2cb998d79c8ab27026438b437a8b806b6771"
@@ -1577,6 +1629,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ee449b09487ac6ba7685453288e344cf8fb9a59a5ead1350b0134b07e4d6c677"
@@ -1589,6 +1643,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "022062f447fc9ac8c054afd18b2a8430b3631984ccad5547ee4fa72e8118257d"
@@ -1601,6 +1657,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "c7cc6c80ffb527b0d27edced99f6669652ef88ab096e05ac093e54c434a58f54"
@@ -1613,6 +1671,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "3fe4e570e3acde487697391ebcc1b74b67eb32fcc9712b87780d6ddc5b245af0"
@@ -1625,6 +1685,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "48086bffd170031df8e202bd92fafba1a68fcddaf20ebeaf60fb726ced395ee1"
@@ -1637,6 +1699,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "3e5bba3af190ef4f10bd12468ba5ac7ce2a91bf3f28dc40b1153a535ea6cea7e"
@@ -1649,6 +1713,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5adfaee6d0d0403ab01809166c2ef068e1e4759cf7c025311323aa4e247304d4"
@@ -1661,6 +1727,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "76dd5f5f9b287228db77d1d7c93cc04563e3e7302b5ee3a951053ad8bb5c2d86"
@@ -1673,6 +1741,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e08551c9d31e82fde02394154faab409e0da27de05bcdea0150923dfc2c0207a"
@@ -1685,6 +1755,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5d0547a3d7346835a48331bf159b11785e2e2ba092fd9b43bbd84d791daaa166"
@@ -1697,6 +1769,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e6544fec64ae890b86fb785814e1a9edadee1927ba4fb0d34d7badf2ff92209a"
@@ -1709,6 +1783,8 @@
             "transform": "copy",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "d2b1244cfb091dc7166b8512eac3a56d1af897237c446404666e5b552e8e9d9e"
@@ -19098,6 +19174,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "8113e9fc4ed4b6b960ec9e6f2b3a711fd7ed6e62418ef748b13913fd0318b96f"
@@ -19110,6 +19188,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7eaf4937bd2339c5119e9fcab3ae97b0d30aa0d21f4d1a5e605e1630ae4270d5"
@@ -19122,6 +19202,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f5556573557cae4d0af52d6a198011d56b4370f2ba516ca628c541eb193f73e2"
@@ -19134,6 +19216,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f94fc39d53c904f1fa62997c3a66b651e6d3b8b5d257bddc7cc38035a0162d3c"
@@ -19146,6 +19230,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "717c7a58c075527b90dc29eb9aec8d97b44070e636efec4cc4fbfe6d35817140"
@@ -19158,6 +19244,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "4221ce3c198d41975385c034cb9ec248c13653d467d4c6d5a0c3e3d58fb0c93f"
@@ -19170,6 +19258,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "d6afb26dd75fac5d9df2cf332a07fa85c7221adc7e5eb036056b6bd870695475"
@@ -19182,6 +19272,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "3619663942f45a45ad032f4baf06be4034c3148446d58942aab05d4d6fa671f6"
@@ -19194,6 +19286,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "d8c020b780737d42ab79178592c53febe63b85d4faef4d290c22813fccb69497"
@@ -19206,6 +19300,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "393adc497c69de3b25e3153873e4266f6ea54673cd016eecabacbb812a5d09c8"
@@ -19218,6 +19314,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "242ca57ba9187cc797f56ab73deae3c4d665699aafcf398b9f73add05f0fe0f1"
@@ -19230,6 +19328,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ac7fff186dce2f6002974387810cd1e9dceae950d35c10fd4568820a2888d588"
@@ -19242,6 +19342,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "8292fff1f0e7bdb6cbbaecb089729fdf89ad096c1c2d6d0661571de74fba7b20"
@@ -19254,6 +19356,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "22794af5d4e8c18e7bed46ab0c84811cecce70e625aaa5433cbc2cb522ff48de"
@@ -19266,6 +19370,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "077739d4fa3892dcb3bb3ac94aa74643ac4ad6d04d5d437bc64f47cea1789040"
@@ -19278,6 +19384,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7049f2acf20e79fc8d6d527901315240f384a65329e37ef7c5e6648dd62fcc99"
@@ -19290,6 +19398,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "c0eb9415e40bb5ab3673d6bc9abc23bbe737f47d1f0590413d76420f37970b21"
@@ -19302,6 +19412,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "8621dc66a5b98ac724dcaa5007346ccdd9ef32d0c6cad9ee3b0b07b97ef1193c"
@@ -19314,6 +19426,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "a9470c607b3eceb5f6bb0943804217307cc8c1daead4efb56ab8c45c8ebc0e19"
@@ -19326,6 +19440,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "fa08da25bf0e3a8221d40d0979f6beb8e9c22b2e9f314f965370fb28428f4b45"
@@ -19338,6 +19454,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "fffd689a02a7486a281ecbad3dc634294796a7bb45262e9954860bc7997b2bba"
@@ -19350,6 +19468,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "49d0452438a2f941fe4fb2a22109026a48a942f118b1107fa9148011686254b1"
@@ -19362,6 +19482,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "cfa9068a144f1a42a2710c55596594ae0c541d709a644e31259509a74392c535"
@@ -19374,6 +19496,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "03491e6c5e6d182f27eea63fffdf411496de5f52d5e4c72b4bdf950f9b016cb1"
@@ -19386,6 +19510,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7fd1c87db25752eeaf9227ff2d4cf9f0b2bbc5a1261da2a2f448ba6e363e6e66"
@@ -19398,6 +19524,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "68f01dfe4bb1068e524d3dfe7d6cebff5010c26f02833359e372e96d42cbef50"
@@ -19410,6 +19538,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "eb84776c7a2484cf4d1c2d004be4c4e19d17ee44d0239f3c4e46b8b6d4627ca4"
@@ -19422,6 +19552,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f289fb133f281b0468bea9c49642d65753d72f527b3e7370d25fbab3175a9d11"
@@ -19434,6 +19566,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "aa80b8840de2409a9288ed40d22266b153dfb1a86d7848f70e8f90404bf78f74"
@@ -19446,6 +19580,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5bf76d0c8499403a5344f3d47df95a549f31520fe9daf6e7129ef41342c5fb53"
@@ -19458,6 +19594,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "50192e00307271a55397564b09595182dc6cf790f7f21779a3a89c6154f0f5c8"
@@ -19470,6 +19608,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "29672e26997c1dc005358cda86a8a8c42177028bb089641b5682a25d4797005c"
@@ -19482,6 +19622,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "00a915c3e8bcc73b90d2aaec5786a7e60e6441a01ebfc9320eeea2083a339eb1"
@@ -19494,6 +19636,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "d4bd1dfd0c61349b08a40af675a3d1d0b6f45721d91d2afe2a671192981a52c0"
@@ -19506,6 +19650,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "9108ac3645a9445aa5d0b442bae1d6cf9e218a2705ec126fcc944ff9fa15fd4a"
@@ -19518,6 +19664,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "819c69cc6de0f9f994a51603fcde9b31a1d5eeeb5381928d3425c47c77f92ec2"
@@ -19530,6 +19678,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "c74a0f57575c301ccaf7c97a4b36b5b2d9851b680a2eaf43e3f2ef6e5f8f2481"
@@ -19542,6 +19692,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "a3426732522c9a594724921aeea99acc92eda8d6ea06f6e25277124985afaabd"
@@ -19554,6 +19706,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "db5bfc7e93cedc297d90b83ba3f352141fece3dcfa5a18d4d648d63483b651b9"
@@ -19566,6 +19720,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "6829681b88b7417e71640d1e30d1a45ce1f02c00add4a17568a022f1d03629fe"
@@ -19578,6 +19734,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "306bac2baa43702feb6706c1c13ee3d63e97ad02eb080a1e6a857fd533893c7c"
@@ -19590,6 +19748,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7252458326b5d6684ef2e1c46f9feecfc291af5fbe60e7741c51ee1b9e875497"
@@ -19602,6 +19762,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e994ca37c7c7f849f13551e9e6ff8d939184a51e843bb7e15f986199ccda353f"
@@ -19614,6 +19776,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "0a165c98ab28ed717fbda335ad7c1450b9b4356ecea832eedddf5dbe7d344a6d"
@@ -19626,6 +19790,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "4d1338ffb60c555e23b8527742f01837122e286697b01b32456af9d8c0da06e0"
@@ -19638,6 +19804,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "919c09155ae6b722bd9164128eef4d9a154c0b0b0d767dafe89755f24df022cb"
@@ -19650,6 +19818,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "6e042b21a1ad47e1a3819334dcf4e33bf08a5e639ba3db9d7a7699c066f657b6"
@@ -19662,6 +19832,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e64272e7677785f8c44ef2b3c3d75f6fe4686fd53a470ba2faa1a8b9b3eef1eb"
@@ -19674,6 +19846,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7b3792dea1e83d183c4abc6e1d8e2d7e693ac711d17a06384cf37f05a458d4c2"
@@ -19686,6 +19860,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "d5dff64078f604ed6281ea54a82d52a4ebf30f1960fa803c894ed2ea0abe2648"
@@ -19698,6 +19874,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "19531269dd5f009c1178a79c3209d677590ddaee76d01fcabe8295efb4049723"
@@ -19710,6 +19888,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ba9c879f2693815dce4af383e3d80bb72bb03a01a356c88280b2fd849adf0c86"
@@ -19722,6 +19902,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "4c1afad8490f9a3adbc599a759aabb21134d652282c4f433b1185bd71fb181ab"
@@ -19734,6 +19916,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ce3b492b772ad188cb3b9d298a7d372565bfc9fa2b1c3b9388a98d754f75bb0e"
@@ -19746,6 +19930,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "0f869b03ef6183f1bacad8933ae5d9388687513ddf9242b7c5a6ab31e350bc53"
@@ -19758,6 +19944,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e0de2acb74392a020a0f39830a970a996bc18178a439a92d4f5f9442f5ead8b1"
@@ -19770,6 +19958,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e6dce3a400685ec3b0681ac6b23244a26db429af341c2bd8b962d2c1e135b5a8"
@@ -19782,6 +19972,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "4e80276b3895f77053bd4b0dd36b471e0d6024453a2f0227b3a9a3d92a1f7d9d"
@@ -19794,6 +19986,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f05b07a6bc498abf28827e2a83d6686092016a1a020a3262c1a70c32fc9a5324"
@@ -19806,6 +20000,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "1a435f5f51800d322a721e4c9f9db3ce83f1f25074c52777624231aa02c61acc"
@@ -19818,6 +20014,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "270ba6ea063ae2c3010ff90fadd2c6478af8f89c3ff4cb74380f2d6c4077e09d"
@@ -19830,6 +20028,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "298c77c8649705dab89189074e866c65709aee1b9b317faf5ebf23b26205b3e4"
@@ -19842,6 +20042,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "d0ef901dd01e529656b593a1a2366694b10288e221198aeb15fd5582b529c389"
@@ -19854,6 +20056,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "9073d8235eab9a1b6f2ff8753572dc1fc6704efa7d42be02f3653c96c1b58768"
@@ -19866,6 +20070,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "bbd74fb0de679ba454eda80be6cff45ba135029a93f1cb47c4a0ab50cfd60407"
@@ -19878,6 +20084,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ecf18c807e2c201cf474f247cc7dc14fa9f68473de8c63dcfaa9eb0af5c41638"
@@ -19890,6 +20098,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "36e2f1e9bdd744c4e70867e9436b30568d5fb335e0bc0a0edc62f44df2afff55"
@@ -19902,6 +20112,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "9256f7e98287ee31eddb841ef7e648c8606c922a40f29953ddc21f4a32e36e27"
@@ -19914,6 +20126,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7daec5df42a66cca4048f54be2c6c591b2df48708c88ab92430093e50030f6d3"
@@ -19926,6 +20140,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "423225ead78cc8ce3e4ebe5fb35650acd8f0bfd5c3c1845ae0036068ae51f661"
@@ -19938,6 +20154,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7ca75989e77ad1adfb8216ab5cc0c2569e80b5e5fe70e9bbcc49c65bf914e51b"
@@ -19950,6 +20168,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "2b91c7540824080ca963f0ac011ba7fb28626bb9b0c9113aad17eff7c4c5ebda"
@@ -19962,6 +20182,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "4589ece49dd29f8c086a1889f05ebbd378820f53e498a939df0bf96512099131"
@@ -19974,6 +20196,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ea6f408668487e600ccb79e3b281688043dc11377d8ee4728556beb8fdacfe92"
@@ -19986,6 +20210,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "4837f98b18136a76be3f2050d76a52087e408a64ed5a5e671c99d08af9d430e6"
@@ -19998,6 +20224,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "7439ea1014792f263654a07c2bc3f531aca574eeaabfa9436b4c3cf972eb75c9"
@@ -20010,6 +20238,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f2bcbda4d5a7146f761c68c5ae614997aaa86c0e4247a293d4a01b0a6f9732f3"
@@ -20022,6 +20252,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "ed22a0f99afd757953adfcef90231fa248ac47965db9822f40f9f96289bb5718"
@@ -20034,6 +20266,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "53450f84c474d19dd3e1937719036346d25532aebc502d2aabfd4f528575d4c1"
@@ -20046,6 +20280,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5321ad45c9086b4e3d2d22909190d3ecc3a6de632ad5e07a054d6a9c28cb9afc"
@@ -20058,6 +20294,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "0f589d83c8bf565466b328f89401318dfbab5be27100b6e6231c2bc599d7bf7a"
@@ -20070,6 +20308,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e36643bfa0b1b906251a275864485230fe1706209e02bb6be21751c1518ab623"
@@ -20082,6 +20322,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "950317c3d299e7556ba7d316a3dd7c8dd3df0a60a82188420bcff1386143b62a"
@@ -20094,6 +20336,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "504cd94eccbbb08e71306778505a5591cb6ed814e76d21711cd5b340210ef2c2"
@@ -20106,6 +20350,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f493835dec95fe7c724782f612bb6e24e108e6b64baf38343879e7dd5f490091"
@@ -20118,6 +20364,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "79c046c0a4eeac61e4bdfd11b3ae84af71360eade6fcbd11c267b3795e188d58"
@@ -20130,6 +20378,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "13fc29779bbd52c25ac6bac28c100638a1290416dbbf66526fe1385011fdd0dd"
@@ -20142,6 +20392,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "566c022129a05febb99f153eaf32758ab00ba5ec91d50cab49f96c5098e90021"
@@ -20154,6 +20406,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "3c16c7040e5aab84ae77f3f4d477a7c607354ce6f4c79d31b490704c950168c6"
@@ -20166,6 +20420,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "e4479cc14c8b676a3178c1800b334537823162c42e154eef26a1797324e2c299"
@@ -20178,6 +20434,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5bbb06397082f72b3e9cde1a59ee9eb4fbcc009228805a6653b8e35059c7f808"
@@ -20190,6 +20448,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "6e696f496e5a0d1a46e3f0300093800f6ee7ea67c9d49f6b3fac0e5cf94afec8"
@@ -20202,6 +20462,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "f4474478f1fd6c931c84261666daa8450b926dcfcea709f950d43c5a4966197d"
@@ -20214,6 +20476,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "bdc58ef196142c8013434376feb848625ca781b9b2e4eb79fbd4d85331ba80b5"
@@ -20226,6 +20490,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "983f450d735363206885fc4d2b8e7969dc8ef62ae7b51b7d63e1b62fc5fbf488"
@@ -20238,6 +20504,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "9c8858fd1d978ea4d05e6766b64505d04b9d1db27eb5fc90bd2005249fc70d12"
@@ -20250,6 +20518,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "b0732ca18e724976e9f0729ff0a1fa8a041a24e098eff1055bed4938a8f6a5ae"
@@ -20262,6 +20532,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "1c9b6808fe359eb975ef63730e597922f8cbc07e0c1398d34365d0abf3889bff"
@@ -20274,6 +20546,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "de399bcbe906dd17a2c923adbc3562d82fd089ef44ff26bc3e8e949a5aaee6c3"
@@ -20286,6 +20560,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "274cae2b0a1db70796590c905ebafe77e7ee4a9ceb70e3b99a38074001b19656"
@@ -20298,6 +20574,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "6fa3d2ee6b739b039843114f310b581c6afc1ccb0c327db8a26079241ea620d8"
@@ -20310,6 +20588,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "9aa694f8278ecf23dc6e0eca25ff32fabbb5c2d18ab920b53fd56deb6f03e62a"
@@ -22252,6 +22532,8 @@
             "transform": "text",
             "mode": 420,
             "profiles": [
+                "minimal",
+                "standard",
                 "full"
             ],
             "source_sha256": "5826065b3e089ca1ede6975f9abe60ebd1f05d8c013fad42063250ff01af3b82"

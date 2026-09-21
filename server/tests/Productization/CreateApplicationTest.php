@@ -212,6 +212,10 @@ try {
         ($standardManifest['application']['profile'] ?? null) === 'standard',
         'ApplicationCreator must retain standard as the implicit profile'
     );
+    foreach (['platform/src/modules/official-ops/contribution.ts', 'server/route/platform.php'] as $requiredHostPath) {
+        createApplicationExpect(is_file($standardTarget . '/' . $requiredHostPath),
+            'standard profile omitted a selected Module contribution or multi-tenant Host: ' . $requiredHostPath);
+    }
     $creator = new ApplicationCreator($root, $inventoryPath, $identity, $releasePath);
     $first = $temporary . '/first';
     $second = $temporary . '/second';
