@@ -497,13 +497,33 @@ try {
     createApplicationExpect(!str_contains((string)file_get_contents($first . '/server/database/init.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
     createApplicationExpect((string)json_decode((string)file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
     createApplicationExpect(is_file($first . '/server/config/peanut.php') && is_file($first . '/web/src/peanut.overrides.ts'), 'stable Host override entries must be preserved');
+    $sourceComposerLock = json_decode((string)file_get_contents($root . '/server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
     foreach (createApplicationFiles($first) as $path) {
         $absolute = $first . '/' . $path;
         if (filesize($absolute) > 5_000_000) continue;
         $content = file_get_contents($absolute);
         if (!is_string($content)) continue;
-        createApplicationExpect(!str_contains($content, 'Peanut Admin'), 'source application brand leaked into ' . $path);
-        createApplicationExpect(!str_contains($content, '花生科技'), 'source company brand leaked into ' . $path);
+        $applicationContent = $content;
+        if ($path === 'server/composer.lock'
+            || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/server/composer.lock') {
+            $generatedComposerLock = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+            // 上游包描述、作者和许可属于依赖身份，不随应用改名。先核原样保留，再检查应用字段。
+            foreach (['packages', 'packages-dev'] as $dependencyGroup) {
+                createApplicationExpect(($generatedComposerLock[$dependencyGroup] ?? []) === ($sourceComposerLock[$dependencyGroup] ?? []),
+                    'generated Composer lock changed upstream dependency metadata: ' . $path);
+                unset($generatedComposerLock[$dependencyGroup]);
+            }
+            $applicationContent = json_encode($generatedComposerLock, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        }
+        $upstreamLicense = 'web/src/modules/official-file/optional-runtime/LICENSE';
+        if ($path === $upstreamLicense
+            || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/' . $upstreamLicense) {
+            createApplicationExpect($content === (string)file_get_contents($root . '/' . $upstreamLicense),
+                'application generation changed upstream license attribution: ' . $path);
+            $applicationContent = '';
+        }
+        createApplicationExpect(!str_contains($applicationContent, 'Peanut Admin'), 'source application brand leaked into ' . $path);
+        createApplicationExpect(!str_contains($applicationContent, '花生科技'), 'source company brand leaked into ' . $path);
         createApplicationExpect(!str_contains($content, '/Users/xing'), 'personal path leaked into ' . $path);
         createApplicationExpect(!str_contains($content, '192.168.192.2'), 'source infrastructure leaked into ' . $path);
         createApplicationExpect(!str_contains($content, 'peanut-admin.007345.xyz'), 'source production domain leaked into ' . $path);
