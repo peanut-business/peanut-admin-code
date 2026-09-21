@@ -4,13 +4,17 @@ declare(strict_types=1);
 namespace app\common\infrastructure\scaffold;
 
 use app\common\value\scaffold\EditionProfile;
+use app\common\value\scaffold\ScaffoldManifest;
 use app\common\value\scaffold\VersionContract;
+use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use RuntimeException;
 
 require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
 require_once dirname(__DIR__, 2) . '/value/scaffold/EditionProfile.php';
+require_once dirname(__DIR__, 2) . '/value/scaffold/ScaffoldManifest.php';
+require_once dirname(__DIR__, 2) . '/validation/scaffold/ScaffoldPathGuard.php';
 require_once __DIR__ . '/EditionProjector.php';
 require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginArtifactToolException.php';
 require_once dirname(__DIR__, 3) . '/platform/value/plugin/ModuleFrontendLayout.php';

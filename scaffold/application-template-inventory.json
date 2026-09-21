@@ -506,97 +506,6 @@
             "source_sha256": "ed2bef0d00f95f84e3af4bd76eab58a3fb26b0f1a9a1e1afe8b71c5a1b414d2c"
         },
         {
-            "path": "evidence/r6-api-generation/README.md",
-            "target": "evidence/r6-api-generation/README.md",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "evidence/r6-api-generation/receipt.json",
-            "target": "evidence/r6-api-generation/receipt.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "evidence/r6-api-generation/sdk-consumer-migration.md",
-            "target": "evidence/r6-api-generation/sdk-consumer-migration.md",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "evidence/task-notifications-map.json",
-            "target": "evidence/task-notifications-map.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "evidence/ua-runtime-20260921/container-id.txt",
-            "target": "evidence/ua-runtime-20260921/container-id.txt",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "evidence/ua-runtime-20260921/identity.txt",
-            "target": "evidence/ua-runtime-20260921/identity.txt",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "evidence/ua-runtime-20260921/lease.txt",
-            "target": "evidence/ua-runtime-20260921/lease.txt",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
             "target": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
             "classification": "managed",
@@ -6187,7 +6096,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb98f4925721b0bb8c0342c4726cd51c018dfe772e4e542ab6fcef97c08ec3fb"
+            "source_sha256": "738d90f5a7d32edd3fa4a1a46a776300e57586bccbf9f924369da15eff5c1df5"
         },
         {
             "path": "server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php",
