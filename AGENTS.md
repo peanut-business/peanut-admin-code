@@ -1,19 +1,15 @@
-# Peanut Admin code repository bootstrap
+# peanut-admin-code development entry
 
-This repository contains the Peanut Admin product application implementation.
-
-The authoritative project rules, architecture, plans, product status, release governance and documentation live in the sibling repository `peanut-business/peanut-admin-project`.
-
-For normal development, use the workspace layout where `peanut-admin-project` and `peanut-admin-code` are checked out side by side. Read `../peanut-admin-project/AGENTS.md` before changing this repository.
-
-Branch policy: develop and integrate on `dev`; use feature/fix/refactor branches only as temporary work branches merged back into `dev`; `main` is release-only and accepts changes from `dev` through the release process.
+Application composition, official/business modules, client pages and product delivery. Core mechanisms and private project documentation do not belong here.
 
 ## Mandatory documented rules
 
-Before source edits, resolve the actual authorized Project checkout and read its `AGENTS.md`, `project-rules/document-execution.md`, `project-rules/execution.md` and `project-rules/rule-index.json`; read the source sections applicable to the write set. A linked worktree is not necessarily adjacent to Project: verify the common Git directory/workspace mapping rather than blindly using `../`.
+Resolve the actual authorized peanut-admin-project checkout; worktrees need Git common-dir/workspace mapping, not a guessed ../ path. Read its AGENTS, project-rules/document-execution.md, execution.md and applicable indexed sections. Missing authoritative rules means report and safe read-only inspection, not guessed implementation.
 
-Run the Project `scripts/docs-governance check` and `plan` entry, map the applicable rules to the task, and verify the final receipt as described there. Do not copy private rules into this repository. If Project is unavailable, report it and limit work to safe read-only inspection rather than guessing requirements.
+Use Project `python3 scripts/docs-governance check`; optional `read --areas <areas>` locates sources. State relevant rules, changes, actual tests and untested items in the task/commit. No mandatory JSON reading attestations or self-certified compliance receipts. Real behavior is verified by tests and review, not metadata.
 
-An effective rule that seems incorrect or conflicts with implementation must be reported to the user BEFORE changing its meaning or implementing a conflicting result. Pause only affected work; never weaken tests or rewrite requirements to make code appear compliant. `reviewed_not_rejected` is not implementation approval. Cleanup candidates require the user's specific confirmation. Existing authorized low-risk implementation work remains allowed within effective rules.
+Effective rules suspected wrong must be reported to the user BEFORE changing them or implementing conflicting behavior. Pause affected work only. APP-R01—APP-R17 remain reviewed but not approved as a group; declaration-style xxClass is a design, not an existing resolver.
 
-Current declaration-style `xxClass` proposals do not by themselves prove a runtime resolver exists. Preserve verified Controller, namespace and isolation behavior until a corresponding implementation slice is authorized and validated.
+User authorized confirmed obsolete/duplicate documentation and unused one-time tool cleanup after useful rules/open issues are absorbed. Delete originals and dead links, not history/redirect stubs. Preserve licenses, database migrations, live test fixtures, customer data and others' worktrees. Never weaken tests to hide regressions.
+
+Develop on isolated worktrees, integrate validated slices to dev without force and verify remote refs. main, tags, formal packages, production and customer data require separate authorization. Do not copy private Project rules into public repositories. Documentation-only commits do not require repinning runtime dependencies or unrelated product tests.

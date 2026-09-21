@@ -2450,20 +2450,6 @@
             ]
         },
         {
-            "path": "scripts/migrate-module-namespaces",
-            "target": "scripts/migrate-module-namespaces",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "040fac03fe320dd187d81d455a51a348683a8c83570a89b04504b0a74daa4f9c"
-        },
-        {
             "path": "scripts/ops-backup-worker",
             "target": "scripts/ops-backup-worker",
             "classification": "managed",
@@ -21281,20 +21267,6 @@
                 "full"
             ],
             "source_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-        },
-        {
-            "path": "server/resources/module-namespace-migration/README.md",
-            "target": "server/resources/module-namespace-migration/README.md",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "186b0d8bb7ac3765641cb383a9f22073899bbad6761bd2dc0859daaab4fd75fe"
         },
         {
             "path": "server/resources/module-scaffold/backend/Contract/ModuleCommands.php.stub",
