@@ -4,5 +4,8 @@
   {"key":"official.import-export.result.download","type":"api","name":"下载导出文件","risk_level":"sensitive"},
   {"key":"official.import-export.configuration.export","type":"action","name":"Export configuration package","risk_level":"sensitive"},
   {"key":"official.import-export.configuration.dry-run","type":"api","name":"Preview configuration package","risk_level":"normal"},
-  {"key":"official.import-export.configuration.apply","type":"action","name":"Apply configuration package","risk_level":"critical"}
+  {"key":"official.import-export.configuration.apply","type":"action","name":"Apply configuration package","risk_level":"critical"},
+  {"key":"official.import-export.operations.read","type":"api","name":"View import and export operations","risk_level":"normal"},
+  {"key":"official.import-export.operations.create","type":"action","name":"Create import and export operations","risk_level":"sensitive"},
+  {"key":"official.import-export.operations.cancel","type":"action","name":"Cancel import and export operations","risk_level":"sensitive"}
 ]

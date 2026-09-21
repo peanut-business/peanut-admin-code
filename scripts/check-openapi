@@ -9,11 +9,30 @@ else
 fi
 SPEC="$PROJECT_ROOT/docs/api/openapi.yaml"
 GENERATED="$ROOT_DIR/web/src/generated/openapi.d.ts"
+CATALOG="$ROOT_DIR/server/generated/api-catalog.json"
+CONTRACT="$ROOT_DIR/server/app/api/metadata/contracts/openapi.json"
 TMP_DIR="$(mktemp -d /private/tmp/peanut-openapi-check.XXXXXX)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+[[ -f "$CONTRACT" ]] || { printf 'check-openapi: missing structured contract %s\n' "$CONTRACT" >&2; exit 1; }
 [[ -f "$SPEC" ]] || { printf 'check-openapi: missing %s\n' "$SPEC" >&2; exit 1; }
 [[ -f "$GENERATED" ]] || { printf 'check-openapi: missing generated types %s\n' "$GENERATED" >&2; exit 1; }
+[[ -f "$CATALOG" ]] || { printf 'check-openapi: missing generated catalog %s\n' "$CATALOG" >&2; exit 1; }
+fingerprint() {
+  {
+    shasum -a 256 "$SPEC" "$GENERATED" "$CATALOG"
+    find "$ROOT_DIR/web/src/modules" -path '*/generated/openapi.ts' -type f -print0 \
+      | sort -z \
+      | xargs -0 shasum -a 256
+  } | shasum -a 256 | awk '{print $1}'
+}
+BEFORE="$(fingerprint)"
+php "$ROOT_DIR/scripts/generate-api-contracts.php" "--project-root=$PROJECT_ROOT" >/dev/null
+AFTER="$(fingerprint)"
+if [[ "$BEFORE" != "$AFTER" ]]; then
+  printf '%s\n' 'check-openapi: generated API artifacts were stale before regeneration' >&2
+  exit 1
+fi
 pnpm --dir "$ROOT_DIR/web" exec openapi-typescript "$SPEC" --output "$TMP_DIR/openapi.d.ts" >/dev/null
 cmp -s "$TMP_DIR/openapi.d.ts" "$GENERATED" || {
   printf '%s\n' 'check-openapi: generated types are stale; run from the Peanut workspace with peanut-admin-project checked out, then regenerate web/src/generated/openapi.d.ts from peanut-admin-project/docs/api/openapi.yaml' >&2

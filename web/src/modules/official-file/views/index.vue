@@ -3,6 +3,11 @@
     <Breadcrumb :items="['menu.system', 'menu.system.file']" />
     <el-card class="general-card">
       <template #header>{{ $t('menu.system.file') }}</template>
+      <div class="asset-selector-link">
+        <el-button @click="$router.push({ name: 'official.file.assets' })">
+          Image asset selector
+        </el-button>
+      </div>
       <el-tabs v-model="activeType" type="card" @change="onTypeChange">
         <el-tab-pane :name="10" :label="$t('systemFile.tab.image')" />
         <el-tab-pane :name="20" :label="$t('systemFile.tab.video')" />
@@ -553,6 +558,12 @@
 
   .body {
     margin-top: 8px;
+  }
+
+  .asset-selector-link {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
   }
 
   .cate-panel {

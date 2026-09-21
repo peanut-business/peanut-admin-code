@@ -7,7 +7,7 @@ use app\modules\official\payment\model\RefundLog;
 use app\modules\official\payment\model\RefundRecord;
 use app\common\http\PageResult;
 use app\common\exception\BusinessException;
-use app\common\services\fileService;
+use app\modules\official\file\contracts\FileReferences;
 use app\common\support\PaginationInput;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
@@ -16,7 +16,7 @@ class RefundApplicationService
 {
     private const PAGE_SIZE_MAX = 25000;
 
-    public function __construct(private readonly FileService $files)
+    public function __construct(private readonly FileReferences $files)
     {
     }
 

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "key": "official.settings",
+  "name": "Settings",
+  "description": "Deployment, tenant and target-scoped settings with tenant website configuration.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-settings",
+  "web_package": "@peanut-admin/official-settings",
+  "dependencies": [
+    {"module_key": "official.identity", "version": "4.0.0-dev"},
+    {"module_key": "official.file", "version": "^1.0"}
+  ],
+  "backend": {
+    "provider": "app\\modules\\official\\settings\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json",
+    "setting_definitions": "resources/setting-definitions.json"
+  },
+  "frontend": {"entry": "web/src/modules/official-settings/contribution.ts"},
+  "database": {
+    "owned_tables": [
+      "pa_setting_definition",
+      "pa_setting_deployment_value",
+      "pa_setting_tenant_value",
+      "pa_setting_target_value",
+      "pa_tenant_setting"
+    ]
+  },
+  "contracts": {
+    "exports": [
+      "app\\modules\\official\\settings\\contracts\\TenantSettingsCommands",
+      "app\\modules\\official\\settings\\contracts\\TenantSettingsQuery",
+      "app\\modules\\official\\settings\\contracts\\TenantApplicationSettings",
+      "app\\modules\\official\\settings\\contracts\\DeploymentSettingsTransfer",
+      "app\\modules\\official\\settings\\contracts\\DeploymentSettingsTransferException"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": true,
+    "disable_behavior": "reject_new_operations",
+    "requires": ["official.file"]
+  }
+}

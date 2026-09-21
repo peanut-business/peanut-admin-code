@@ -2,8 +2,8 @@ import {
   ClientRequestError,
   createClient,
   type ClientDecodeResult,
-} from '@peanut-admin/admin/client'
-import { createUniAppClientTransport } from '@peanut-admin/admin/client/uniapp'
+} from '@peanut-admin/client'
+import { createUniAppClientTransport } from '@peanut-admin/uniapp'
 import { useUserStore } from '@/store/user'
 
 const configuredBaseUrl = import.meta.env.VITE_APP_BASE_URL || ''

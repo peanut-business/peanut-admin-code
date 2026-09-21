@@ -22,7 +22,7 @@ final class PluginPackageSourcePromoter
         $this->assertPath($this->state);
         $this->assertPath($this->root . '/.local/module-staging');
         $this->assertPath($this->root . '/plugins.lock');
-        foreach (['plugins', 'server/app/modules', 'web/src/modules'] as $relative) {
+        foreach (['plugins', 'server/app/modules', 'web/src/modules', 'platform/src/modules', 'pc/modules', 'uniapp/src/modules'] as $relative) {
             $path = $this->root . '/' . $relative;
             $this->assertPath($path);
             if (!is_dir($path)) continue;
@@ -60,7 +60,7 @@ final class PluginPackageSourcePromoter
         $scopes = [dirname($package->manifestRelative)];
         foreach ($package->modules as $module) {
             $scopes[] = $module['backend_relative'];
-            if ($module['frontend_relative'] !== null) $scopes[] = $module['frontend_relative'];
+            foreach ($module['frontend_contributions'] as $contribution) $scopes[] = $contribution['root'];
         }
         $scopes = array_values(array_unique($scopes));
         sort($scopes, SORT_STRING);
@@ -176,7 +176,7 @@ final class PluginPackageSourcePromoter
     /** Only canonical Module-owned directories can be changed, including when replaying a journal. */
     private function target(string $scope): string
     {
-        if (preg_match('#^(?:plugins/[a-z][a-z0-9.-]*|server/app/modules/[a-z][a-z0-9-]*/[a-z][a-z0-9_]*|web/src/modules/[a-z][a-z0-9-]*)$#D', $scope) !== 1) {
+        if (preg_match('#^(?:plugins/[a-z][a-z0-9.-]*|server/app/modules/[a-z][a-z0-9-]*/[a-z][a-z0-9_]*|(?:web/src|platform/src|pc|uniapp/src)/modules/[a-z][a-z0-9-]*)$#D', $scope) !== 1) {
             throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package scope is invalid.');
         }
         $path = $this->root . '/' . $scope;

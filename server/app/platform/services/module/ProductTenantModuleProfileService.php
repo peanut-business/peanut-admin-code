@@ -129,6 +129,19 @@ final readonly class ProductTenantModuleProfileService
         ): array {
             $tenants = $this->tenants($definition['tenant_codes']);
             $selected = $definition['modules'];
+            foreach ($registry->compiled()->moduleKeys() as $moduleKey) {
+                if (!$registry->isRequiredTenantFoundation($moduleKey)) {
+                    continue;
+                }
+                try {
+                    $registry->requireInstalled($moduleKey);
+                    $selected[] = $moduleKey;
+                } catch (ModuleException $exception) {
+                    if ($exception->errorCode !== 'MODULE_NOT_INSTALLED') {
+                        throw $exception;
+                    }
+                }
+            }
             if ($additive) {
                 // The locked default Tenant row serializes profile changes; count only still-effective dependencies.
                 foreach ($registry->compiled()->modules as $manifest) {
@@ -141,6 +154,10 @@ final readonly class ProductTenantModuleProfileService
             foreach ($tenants as $tenant) {
                 foreach ($moduleKeys as $moduleKey) {
                     if ($additive && !in_array($moduleKey, $definition['modules'], true)) continue;
+                    if ($registry->isRequiredTenantFoundation($moduleKey)) {
+                        $registry->requireInstalled($moduleKey);
+                        continue;
+                    }
                     $before = $repository->tenantModule((int)$tenant['id'], $moduleKey);
                     if ($additive && $before?->isEffective($now)) continue;
                     $manager->enable(

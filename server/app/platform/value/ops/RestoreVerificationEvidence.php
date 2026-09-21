@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\platform\value\ops;
 
-use app\platform\infrastructure\ops\PairedBackupProvider;
+use app\modules\official\ops\infrastructure\PairedBackupProvider;
 use DateTimeImmutable;
 use DateTimeZone;
 use RuntimeException;

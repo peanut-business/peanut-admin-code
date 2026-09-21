@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use app\modules\official\task\controller\CrontabController;
+use app\modules\official\task\controller\TaskJobController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
@@ -20,6 +21,12 @@ Route::group(function (): void {
     Route::post('official.task.edit', [CrontabController::class, 'edit']);
     Route::post('official.task.delete', [CrontabController::class, 'delete']);
     Route::post('official.task.operate', [CrontabController::class, 'operate']);
+    Route::get('api/v1/tasks/jobs', [TaskJobController::class, 'index'])
+        ->option(['peanut_permission' => 'official.task.jobs.read']);
+    Route::post('api/v1/tasks/jobs/:jobKey/cancel', [TaskJobController::class, 'cancel'])
+        ->option(['peanut_permission' => 'official.task.jobs.manage']);
+    Route::post('api/v1/tasks/jobs/:jobKey/retry', [TaskJobController::class, 'retry'])
+        ->option(['peanut_permission' => 'official.task.jobs.manage']);
 })->middleware(LoginMiddleware::class)
     ->middleware(OfficialModuleMiddleware::class, 'official.task', 'http.admin')
     ->middleware(AuthMiddleware::class)

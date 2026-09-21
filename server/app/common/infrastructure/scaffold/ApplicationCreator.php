@@ -9,14 +9,15 @@ use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use RuntimeException;
 
-require_once __DIR__ . '/VersionContract.php';
-require_once __DIR__ . '/EditionProfile.php';
+require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
+require_once dirname(__DIR__, 2) . '/value/scaffold/EditionProfile.php';
 require_once __DIR__ . '/EditionProjector.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginArtifactToolException.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginArtifactWriter.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginLifecycleException.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginDescriptor.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginLockResolver.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginArtifactToolException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/plugin/ModuleFrontendLayout.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginArtifactWriter.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginLifecycleException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/plugin/PluginDescriptor.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginLockResolver.php';
 
 final class ApplicationCreator
 {
@@ -828,7 +829,7 @@ PHP;
             'docs-site/architecture/official-module-qualification.md' => "# Official module qualification\n\nA module is usable only when its Plugin artifact is installed, the Tenant has the module enabled, and the current TenantMember has the required RBAC/data permission. Each module owns its schema and public contracts; it must not read or write another module's private tables.\n\nBefore declaring a module available, add its Tenant isolation, disabled-module and authorization checks. External providers such as payment, notifications and OAuth require their own production configuration and verification.\n",
             'docs-site/capabilities.md' => "# Capability catalogue\n\nCore defaults are identity, Tenant membership, RBAC, audit, fresh installation, Module lifecycle and the Admin Shell. Files, notifications, OAuth, payment, member CRM, tasks, import/export and content are optional application capabilities, not an excuse to bypass Tenant isolation.\n\nProduct-specific domains such as Party, Store, Warehouse, Supplier relationship, Product, Pricing, Inventory, Procurement and Trade belong in this application's Modules. Add only the domains this product owns, with their data owner, public contract and acceptance tests.\n",
             'docs-site/guide/development.md', 'docs/peanut-admin-development-guide.md' => "# Development guide\n\nCore owns generic identity, tenancy and authorization contracts. This application owns routes, product settings, pages and business Runtime. A Module owns its tables, use cases, permissions, menu contributions and public DTO/command contracts.\n\nDevelop a vertical slice through route, controller, application service and Module contract. Supply TenantContext from trusted middleware; never accept a client-supplied Tenant ID as authorization. Add a normal Tenant A case and a denied Tenant B case before enabling the Module.\n",
-            'docs-site/guide/module-development.md', 'docs/plugin-module-development.md' => "# Module development\n\nPlace an application Module under `server/app/modules/<Vendor>/<Module>/` with Domain, Application, Contracts, Infrastructure, Database, Resources and Tests. Put the matching management contribution in `web/src/modules/<module>/`.\n\nExpose commands and read-only DTOs from `Contracts`; callers must not join or mutate another Module's private tables. Plugin install, TenantModule enablement and member RBAC are separate gates. Document the Module's owner Tenant, migrations, menu/permission keys and cross-Tenant denial cases.\n",
+            'docs-site/guide/module-development.md', 'docs/plugin-module-development.md' => "# Module development\n\nPlace an application Module under `server/app/modules/<Vendor>/<Module>/` with Domain, Application, Contracts, Infrastructure, Database, Resources and Tests. Declare real client contributions in `frontend.clients`; their canonical roots are `web/src/modules`, `platform/src/modules`, `pc/modules` and `uniapp/src/modules`. The legacy `frontend.entry` remains the admin-web form. Each declared contribution needs its own `contribution.ts` and `package.json`; omit clients that have no Module-owned entry.\n\nExpose commands and read-only DTOs from `Contracts`; callers must not join or mutate another Module's private tables. Plugin install, TenantModule enablement and member RBAC are separate gates. Document the Module's owner Tenant, migrations, menu/permission keys and cross-Tenant denial cases.\n",
             'docs/peanut-admin-user-manual.md' => "# Administrator manual\n\nThis page is the product owner’s operating manual. Document the application's enabled Modules, its roles, approval and data-scope rules, and the support path for tenant owners. Do not document product-only fields as Peanut Core behavior.\n",
             'docs-site/releases.md' => "# Releases\n\nCreate application releases from immutable application commits. Regenerate legal metadata and dependency inventory for each release.\n",
             'docs-site/legal.md' => "# Legal\n\nReview the generated root legal files before redistribution. Dependency changes require a refreshed SBOM and third-party notices.\n",
@@ -841,6 +842,22 @@ PHP;
     private function releaseMetadata(array $parameters): string
     {
         $versions = $this->versionContract();
+        if ($versions->isV3()) {
+            return json_encode([
+                'schema_version' => 3,
+                'protocol' => 'peanut.release-metadata.v3',
+                'product' => $parameters['PRODUCT_NAME'],
+                'application_identity' => $parameters['PACKAGE_IDENTITY'],
+                'source_product_version' => $versions->sourceProductVersion(),
+                'instance_version' => $parameters['APPLICATION_VERSION'],
+                'status' => 'generated-application-baseline',
+                'release_policy' => 'replace this metadata from an immutable application release candidate before publishing',
+                'public_runtime_dependencies' => [
+                    'composer' => $versions->corePhpPackage(),
+                    'npm' => $versions->coreWebIdentity(),
+                ],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        }
         if ($versions->isV2()) {
             return json_encode([
                 'schema_version' => 2,
@@ -876,6 +893,18 @@ PHP;
     private function versionContractDocument(array $parameters): string
     {
         $versions = $this->versionContract();
+        if ($versions->isV3()) {
+            return json_encode([
+                'schema_version' => 3,
+                'protocol' => 'peanut.release-versions.v3',
+                'source_product_version' => $versions->sourceProductVersion(),
+                'instance_version' => $parameters['APPLICATION_VERSION'],
+                'scaffold_template' => $versions->scaffoldTemplate(),
+                'generated_instance_default' => $versions->generatedInstanceDefault(),
+                'core_php' => $versions->corePhpPackage(),
+                'core_web' => $versions->coreWebIdentity(),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        }
         if ($versions->isV2()) {
             return json_encode([
                 'schema_version' => 2,
@@ -1069,9 +1098,9 @@ PHP;
             throw new RuntimeException('CREATE_APP_PLUGIN_SET_EMPTY');
         }
 
-        // create-app is intentionally PHP/Git-only. The Writer still owns the
-        // canonical bytes, while the dependency-free Resolver verifies the
-        // completed derived artifacts without requiring Composer installation.
+        // create-app runs from the tool repository with its Composer dependencies
+        // installed. The canonical Writer uses Core Module identity/layout classes;
+        // generated applications receive only the completed derived artifacts.
         $writer = new PluginArtifactWriter($stage . '/server', false);
         $rewritten = [];
         foreach ($manifestPaths as $directoryKey => $path) {

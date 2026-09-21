@@ -50,6 +50,73 @@ node -e 'JSON.parse(require("fs").readFileSync(process.argv[1]));' "$APP_DIR/REL
 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1]));' "$APP_DIR/plugins.lock"
 node -e 'JSON.parse(require("fs").readFileSync(process.argv[1]));' "$APP_DIR/release-versions.json"
 
+if jq -e '.schema_version == 3 and .protocol == "peanut.release-versions.v3"' "$APP_DIR/release-versions.json" >/dev/null; then
+  php -r '
+$contract = json_decode((string)file_get_contents($argv[1]), true, 64, JSON_THROW_ON_ERROR);
+$composer = json_decode((string)file_get_contents($argv[2]), true, 512, JSON_THROW_ON_ERROR);
+$declared = json_decode((string)file_get_contents($argv[3]), true, 64, JSON_THROW_ON_ERROR)["require"]["peanut-admin/core"] ?? null;
+$matches = array_values(array_filter($composer["packages"] ?? [], static fn(array $p): bool => ($p["name"] ?? null) === "peanut-admin/core"));
+$expected = $contract["core_php"] ?? null;
+if (count($matches) !== 1 || !is_array($expected) || $declared !== $expected["constraint"]
+    || ($matches[0]["version"] ?? null) !== $expected["resolved_version"]
+    || ($matches[0]["source"]["type"] ?? null) !== $expected["source_type"]
+    || ($matches[0]["source"]["url"] ?? null) !== $expected["source_url"]
+    || ($matches[0]["source"]["reference"] ?? null) !== $expected["source_reference"]
+    || (($matches[0]["dist"]["reference"] ?? $expected["source_reference"]) !== $expected["source_reference"])) {
+    fwrite(STDERR, "PHP Core manifest/lock/version-contract identity mismatch\n"); exit(2);
+}
+' "$APP_DIR/release-versions.json" "$APP_DIR/server/composer.lock" "$APP_DIR/server/composer.json" \
+    || die 'PHP Core manifest/lock/version-contract identity mismatch'
+
+  while IFS=$'\t' read -r package archive expected_sha; do
+    [[ -f "$APP_DIR/$archive" && ! -L "$APP_DIR/$archive" ]] || die "$package candidate archive is missing: $archive"
+    actual_sha="$(shasum -a 256 "$APP_DIR/$archive" | awk '{print $1}')"
+    [[ "$actual_sha" == "$expected_sha" ]] || die "$package candidate archive hash differs from release-versions.json"
+  done < <(jq -r '.core_web.packages | to_entries[] | [.key,.value.archive,.value.sha256] | @tsv' "$APP_DIR/release-versions.json")
+
+  node - "$APP_DIR" <<'NODE' || exit $?
+const { readFileSync, realpathSync } = require('fs')
+const { join } = require('path')
+const root = process.argv[2]
+const fail = message => { process.stderr.write(`scaffold-doctor: ${message}\n`); process.exit(1) }
+const read = path => JSON.parse(readFileSync(path, 'utf8'))
+const versions = read(join(root, 'release-versions.json'))
+const expected = versions.core_web?.packages ?? {}
+const clients = {
+  web: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
+  platform: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
+  pc: ['@peanut-admin/client', '@peanut-admin/nuxt'],
+  uniapp: ['@peanut-admin/client', '@peanut-admin/uniapp'],
+}
+for (const [client, packages] of Object.entries(clients)) {
+  const manifest = read(join(root, client, 'package.json'))
+  for (const name of packages) {
+    const specifier = manifest.dependencies?.[name]
+    if (specifier !== `file:../${expected[name]?.archive}`) fail(`${client} does not declare the fixed local candidate for ${name}`)
+    let installed
+    try { installed = read(join(root, client, 'node_modules', ...name.split('/'), 'package.json')) }
+    catch { fail(`${client} has not installed ${name}`) }
+    if (installed.name !== name || installed.version !== expected[name]?.version) fail(`${client} ${name} identity does not match release-versions.json`)
+  }
+}
+NODE
+
+  if [[ "$LOCAL_CORE_MODE" == 1 ]]; then
+    while IFS=$'\t' read -r package version; do
+      package_dir="${package#@peanut-admin/}"
+      actual="$(jq -r '.version // empty' "$CORE_DIR/packages/$package_dir/package.json")"
+      [[ "$actual" == "$version" ]] || die "local Core Web identity mismatch: $package expected=$version actual=$actual"
+    done < <(jq -r '.core_web.packages | to_entries[] | [.key,.value.version] | @tsv' "$APP_DIR/release-versions.json")
+  fi
+
+  RESIDUE_PATTERN='/Users/[^[:space:]]+/peanut-admin|peanut-admin\.007345\.xyz'
+  if rg -n --hidden --glob '!**/server/vendor/**' --glob '!**/node_modules/**' --glob '!**/scripts/scaffold-doctor' --glob '!**/.peanut/**' "$RESIDUE_PATTERN" "$APP_DIR" >/dev/null 2>&1; then
+    die 'source project absolute path or Peanut Admin domain residue detected'
+  fi
+  printf 'scaffold-doctor: OK resource=%s app=%s scope=php,four-clients mode=%s\n' "$RESOURCE_ID" "$APP_DIR" "$([[ "$LOCAL_CORE_MODE" == 1 ]] && printf local-core-development || printf fixed-candidate)"
+  exit 0
+fi
+
 required_php="$(jq -r '.require["peanut-admin/core"] // empty' "$APP_DIR/server/composer.json")"
 required_web="$(node -e 'const m=require(process.argv[1]); process.stdout.write(m.dependencies?.["@peanut-admin/admin"] ?? "")' "$APP_DIR/web/package.json")"
 [[ -n "$required_php" ]] || die 'PHP Core direct dependency is missing from server/composer.json'

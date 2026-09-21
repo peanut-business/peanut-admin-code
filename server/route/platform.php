@@ -7,11 +7,11 @@ use app\platform\controller\PlatformTenantBoundaryController;
 use app\platform\controller\PlatformTenantController;
 use app\platform\controller\PlatformTenantModuleController;
 use app\platform\controller\PlatformControlPlaneQueryController;
-use app\platform\controller\PlatformStorageController;
 use app\platform\controller\PlatformOpsController;
 use app\platform\controller\PlatformTenantInvitationController;
 use app\platform\controller\PlatformTenantEntryBindingController;
 use app\platform\controller\PlatformModuleLifecycleController;
+use app\platform\controller\PlatformDeveloperCenterController;
 use app\platform\http\middleware\PlatformLoginMiddleware;
 use app\platform\http\middleware\PlatformHostMiddleware;
 use app\platform\http\middleware\PlatformPermissionMiddleware;
@@ -75,6 +75,9 @@ Route::get('instance-tools/modules', [PlatformModuleLifecycleController::class, 
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.module.read')
     ->middleware(PlatformInstanceToolMiddleware::class);
+Route::get('developer-center/catalog', [PlatformDeveloperCenterController::class, 'catalog'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.module.read');
 Route::post('instance-tools/modules/create', [PlatformModuleLifecycleController::class, 'create'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.module.create')
@@ -101,9 +104,6 @@ Route::get('tenant-entry-bindings', [PlatformTenantEntryBindingController::class
 Route::post('tenant-entry-bindings/enable', [PlatformTenantEntryBindingController::class, 'enable'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.tenant.update');
-Route::get('infrastructure/storage', [PlatformStorageController::class, 'snapshot'])
-    ->middleware(PlatformLoginMiddleware::class)
-    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read');
 Route::get('v1/ops/status', [PlatformOpsController::class, 'status'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read');
@@ -152,21 +152,6 @@ Route::get('v1/ops/backups', [PlatformOpsController::class, 'backups'])
 Route::get('v1/ops/tasks/:task_key', [PlatformOpsController::class, 'task'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read');
-Route::post('infrastructure/storage/account', [PlatformStorageController::class, 'createAccount'])
-    ->middleware(PlatformLoginMiddleware::class)
-    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.maintenance.manage');
-Route::post('infrastructure/storage/account/update', [PlatformStorageController::class, 'updateAccount'])
-    ->middleware(PlatformLoginMiddleware::class)
-    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.maintenance.manage');
-Route::post('infrastructure/storage/space', [PlatformStorageController::class, 'createSpace'])
-    ->middleware(PlatformLoginMiddleware::class)
-    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.maintenance.manage');
-Route::post('infrastructure/storage/space/update', [PlatformStorageController::class, 'updateSpace'])
-    ->middleware(PlatformLoginMiddleware::class)
-    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.maintenance.manage');
-Route::post('infrastructure/storage/route', [PlatformStorageController::class, 'setRoute'])
-    ->middleware(PlatformLoginMiddleware::class)
-    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.maintenance.manage');
 Route::post('tenant-entry-bindings/disable', [PlatformTenantEntryBindingController::class, 'disable'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.tenant.update');

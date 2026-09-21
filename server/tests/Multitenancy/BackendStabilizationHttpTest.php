@@ -7,7 +7,7 @@ require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use PeanutAdmin\Kernel\Auth\TenantAuthService;
-use PeanutAdmin\NotificationSms\Application\VerificationCodeSecret;
+use app\modules\official\notification\delivery\Application\VerificationCodeSecret;
 
 $serverRoot = dirname(__DIR__, 2);
 if (($argv[1] ?? '') === '--request') {

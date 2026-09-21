@@ -11,18 +11,18 @@ use app\common\infrastructure\async\ModuleAwareTaskHandler;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\common\services\org\AdminDirectoryQuery;
+use app\modules\official\identity\contracts\AdminDirectoryQuery;
 use app\common\services\CrontabCommandService;
 use Closure;
 use PeanutAdmin\Kernel\Async\JobHandlerAdapter;
 use PeanutAdmin\Kernel\Async\TrustedEnvelopeCodec;
-use PeanutAdmin\TaskJob\Application\TaskJobService;
-use PeanutAdmin\TaskJob\Execution\LocalWorker;
-use PeanutAdmin\TaskJob\Execution\TaskHandlerRegistry;
-use PeanutAdmin\TaskJob\persistence\TaskJobStore;
-use PeanutAdmin\TaskJob\Submission\TaskSubmissionProvider;
-use PeanutAdmin\TaskJob\Submission\TaskSubmissionRegistry;
-use PeanutAdmin\TaskJob\Submission\TrustedJobPublisher;
+use app\modules\official\task\contracts\TaskJobService;
+use app\modules\official\task\job\Execution\LocalWorker;
+use app\modules\official\task\contracts\TaskHandlerRegistry;
+use app\modules\official\task\job\Persistence\TaskJobStore;
+use app\modules\official\task\contracts\TaskSubmissionProvider;
+use app\modules\official\task\contracts\TaskSubmissionRegistry;
+use app\modules\official\task\contracts\TrustedJobPublisher;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 
 final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime

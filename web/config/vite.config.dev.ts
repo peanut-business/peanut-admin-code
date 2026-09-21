@@ -7,7 +7,10 @@ import { readClientEnvironment } from '../../scripts/client-environment';
 
 interface ModuleManifest {
   key?: unknown;
-  frontend?: { entry?: unknown };
+  frontend?: {
+    entry?: unknown;
+    clients?: { 'admin-web'?: { entry?: unknown } };
+  };
 }
 
 const moduleKeyPattern =
@@ -68,7 +71,14 @@ export function discoverAdminContributions(
         `Development Module path is not key-derived: ${manifest.key}`
       );
     }
-    const entry = manifest.frontend?.entry;
+    const legacyEntry = manifest.frontend?.entry;
+    const clientEntry = manifest.frontend?.clients?.['admin-web']?.entry;
+    if (legacyEntry !== undefined && clientEntry !== undefined) {
+      throw new Error(
+        `Development Module admin-web contribution is duplicated: ${manifest.key}`
+      );
+    }
+    const entry = legacyEntry ?? clientEntry;
     if (entry === undefined || entry === null) return;
     const expectedEntry = `web/src/modules/${manifest.key.replace(
       /\./g,

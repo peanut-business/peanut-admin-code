@@ -9,7 +9,7 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblemMapper;
 use app\common\infrastructure\runtime\OperationalLog;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
-use PeanutAdmin\OpsConsole\Logs\TenantDiagnosticAttributes;
+use app\modules\official\ops\domain\Logs\TenantDiagnosticAttributes;
 
 /**
  * 操作日志中间件（原生 TP 风格）

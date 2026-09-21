@@ -9,7 +9,7 @@ use app\common\support\PaginationInput;
 use app\common\enum\channel\OfficialAccountEnum;
 use app\modules\official\oauth\model\OfficialAccountReply;
 use think\facade\Db;
-use app\common\context\external\ExternalTenantContext;
+use app\modules\official\integration\contracts\ExternalTenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 

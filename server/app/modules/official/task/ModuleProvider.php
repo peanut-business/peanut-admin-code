@@ -11,16 +11,18 @@ use app\modules\official\task\contracts\TaskJobRuntime;
 use app\modules\official\task\contracts\TaskScheduler;
 use app\modules\official\task\contracts\TaskBootstrapCommands;
 use app\modules\official\task\contracts\TaskWorkerDefinition;
+use app\modules\official\task\contracts\TaskDiagnosticQuery;
+use app\modules\official\task\services\TaskDiagnosticService;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\common\services\org\AdminDirectoryQuery;
+use app\modules\official\identity\contracts\AdminDirectoryQuery;
 use app\common\services\CrontabCommandService;
 use Closure;
 use app\common\persistence\TenantPersistenceConfiguration;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use think\App;
-use PeanutAdmin\TaskJob\persistence\TaskJobStore;
+use app\modules\official\task\job\Persistence\TaskJobStore;
 
 final class ModuleProvider implements ModuleProviderContract
 {
@@ -78,6 +80,7 @@ final class ModuleProvider implements ModuleProviderContract
                 (int)$app->config->get('async.worker_limit', 25),
             ),
             TaskBootstrapCommands::class => TaskBootstrapService::class,
+            TaskDiagnosticQuery::class => TaskDiagnosticService::class,
             TaskScheduler::class => fn(App $app): TaskScheduler => $this->scheduler(
                 $app->make(TaskJobRuntime::class),
                 $app->make(CrontabSchedulerService::class),

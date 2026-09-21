@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace app\modules\official\task\contracts;
 
-use PeanutAdmin\TaskJob\Application\TaskJobService;
-use PeanutAdmin\TaskJob\Submission\TaskSubmissionProvider;
-use PeanutAdmin\TaskJob\Submission\TrustedJobPublisher;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 
 interface TaskJobRuntime

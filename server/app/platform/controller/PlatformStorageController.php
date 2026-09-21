@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\platform\controller;
 
 use app\common\execution\CurrentExecutionContext;
-use app\common\services\storage\StorageConfigurationService;
+use app\modules\official\file\contracts\StorageConfiguration;
 use app\platform\context\PlatformOperatorContext;
 use think\App;
 
@@ -13,7 +13,7 @@ final class PlatformStorageController extends BasePlatformController
     public function __construct(
         App $app,
         CurrentExecutionContext $execution,
-        private readonly StorageConfigurationService $storage,
+        private readonly StorageConfiguration $storage,
     ) {
         parent::__construct($app, $execution);
     }

@@ -5,10 +5,10 @@ namespace app\modules\official\oauth\services;
 
 use app\modules\official\oauth\contracts\OfficialAccountCallbacks;
 use app\common\exception\BusinessException;
-use app\common\services\fileService;
-use app\common\services\external\ExternalChannelBindingService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
-use PeanutAdmin\IntegrationSecurity\Wechat\OfficialAccountService;
+use app\modules\official\file\contracts\FileReferences;
+use app\modules\official\integration\contracts\ExternalChannelBindings;
+use app\modules\official\integration\contracts\ExternalProvider;
+use app\modules\official\oauth\infrastructure\WechatOfficialAccountService;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\facade\Db;
@@ -18,15 +18,15 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
     private const CONFIG_TYPE = 'oa_setting';
 
     public function __construct(
-        private readonly ExternalChannelBindingService $bindings,
-        private readonly FileService $files,
+        private readonly ExternalChannelBindings $bindings,
+        private readonly FileReferences $files,
         private readonly OfficialAccountReplyApplicationService $replies,
     ) {
     }
 
     public function verify(array $params, array $config): bool
     {
-        return OfficialAccountService::verifySignature(
+        return WechatOfficialAccountService::verifySignature(
             (string)($config['token'] ?? ''),
             (string)($params['timestamp'] ?? ''),
             (string)($params['nonce'] ?? ''),
@@ -37,7 +37,7 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
     public function handlePlain(TenantSystemContext $context, string $xml): string
     {
         try {
-            $message = OfficialAccountService::parsePlainMessage($xml);
+            $message = WechatOfficialAccountService::parsePlainMessage($xml);
         } catch (\runtimeException) {
             throw BusinessException::forbidden('OFFICIAL_ACCOUNT_MESSAGE_INVALID', 'callback rejected');
         }
@@ -45,12 +45,12 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
         if ($reply === null || trim((string)($reply['content'] ?? '')) === '') {
             return 'success';
         }
-        return OfficialAccountService::textReplyXml($message, (string)$reply['content']);
+        return WechatOfficialAccountService::textReplyXml($message, (string)$reply['content']);
     }
 
     public function getConfig(TenantContext $context, string $domain): array
     {
-        $stored = $this->bindings->config($context, ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK);
+        $stored = $this->bindings->config($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK);
         $qrCode = (string)($stored['qr_code'] ?? '');
         $secret = (string)($stored['app_secret'] ?? '');
         $domain = rtrim($domain, '/');
@@ -64,7 +64,7 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
             'app_secret' => $secret !== '' ? '******' : '',
             'app_secret_configured' => $secret !== '',
             'url' => $domain . '/api/wechat/official-account/callback/'
-                . $this->bindings->callbackKey($context, ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK),
+                . $this->bindings->callbackKey($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK),
             'token' => (string)($stored['token'] ?? ''),
             'business_domain' => $authority,
             'js_secure_domain' => $authority,
@@ -75,7 +75,7 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
 
     public function setConfig(TenantContext $context, array $params): bool
     {
-        $current = $this->bindings->config($context, ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK);
+        $current = $this->bindings->config($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK);
         $currentSecret = (string)($current['app_secret'] ?? '');
         $incomingSecret = trim((string)$params['app_secret']);
         $secret = $incomingSecret === '******' ? $currentSecret : $incomingSecret;
@@ -93,13 +93,13 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
         Db::transaction(function () use ($context, $data): void {
             $this->bindings->update(
                 $context,
-                ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK,
+                ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
                 $data,
                 $data['original_id'] !== '' ? $data['original_id'] : $data['app_id'],
             );
             $this->bindings->update(
                 $context,
-                ExternalTenantResolver::WECHAT_OFFICIAL_OAUTH,
+                ExternalProvider::WECHAT_OFFICIAL_OAUTH,
                 ['app_id' => $data['app_id'], 'app_secret' => $data['app_secret']],
                 $data['app_id'],
             );

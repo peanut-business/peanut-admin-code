@@ -34,7 +34,8 @@ function inventoryGitFiles(string $root): array
 function excluded(string $path): bool
 {
     // Repository delivery/editor settings do not belong to generated applications.
-    if (str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')) {
+    if (str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
+        || str_starts_with($path, 'evidence/')) {
         return true;
     }
     if (str_starts_with($path, 'server/tests/') && !in_array($path, [
@@ -110,8 +111,8 @@ function classification(string $path): string
         'server/app/common/contract/module/TenantModuleState.php',
         'server/app/common/persistence/AdvisoryLockExecution.php',
         'server/app/common/persistence/AdvisoryLockUnavailable.php',
-        'server/app/common/persistence/CoreTenantRepositoryFactory.php',
-        'server/app/platform/service/module/ThinkPhpModuleGovernanceProvider.php',
+        'server/app/common/persistence/TenantPersistenceConfiguration.php',
+        'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
         'server/app/platform/infrastructure/module/DeployedTenantModuleRegistry.php',
         'server/app/platform/services/module/ModuleQualificationQueryService.php',
         'server/app/platform/validation/module/OpisManifestSchemaValidator.php',
@@ -217,29 +218,23 @@ function adapterKind(string $path): ?string
 {
     return match ($path) {
         'server/app/common/policy/permission/RegisteredAdminPermissionPolicy.php',
-        'server/app/common/infrastructure/dict/ThinkPhpTenantDictionaryProvider.php',
-        'server/app/common/infrastructure/dict/ThinkPhpSystemDictionaryProvider.php',
-        'server/app/common/service/crontab/CrontabSchedulerService.php',
-        'server/app/common/service/crontab/CrontabTenantContext.php',
-        'server/app/common/service/crontab/CrontabTenantRepository.php',
-        'server/app/common/service/file/FileTenantRepository.php',
-        'server/app/common/infrastructure/config/TenantSettingWebsiteStore.php',
-        'server/app/common/service/export/AppFileMediaGateway.php',
+        'server/app/modules/official/reference_codes/infrastructure/ThinkPhpTenantDictionaryProvider.php',
+        'server/app/modules/official/reference_codes/infrastructure/ThinkPhpSystemDictionaryProvider.php',
+        'server/app/modules/official/task/services/CrontabSchedulerService.php',
+        'server/app/modules/official/settings/infrastructure/TenantSettingWebsiteStore.php',
+        'server/app/modules/official/import_export/infrastructure/file/AppFileMediaGateway.php',
         'server/app/common/infrastructure/notice/ApplicationNoticeSmsSender.php',
         'server/app/common/services/notice/NoticeChannelService.php',
         'server/app/common/context/notice/NoticeTenantContext.php',
-        'server/app/common/service/notice/NoticeTenantRepository.php',
-        'server/app/common/service/notice/VerificationCodeService.php',
-        'server/app/common/service/oauth/OAuthTenantRepository.php',
-        'server/app/common/infrastructure/org/OrgTenantRepository.php' => 'framework-adapter',
-        'server/app/common/infrastructure/config/BrandDefaults.php',
-        'server/app/common/services/config/WebsiteConfigService.php',
+        'server/app/modules/official/notification/services/VerificationCodeService.php' => 'framework-adapter',
+        'server/app/modules/official/settings/infrastructure/BrandDefaults.php',
+        'server/app/modules/official/settings/services/WebsiteConfigService.php',
         'server/app/common/infrastructure/crontab/CrontabTenantLock.php',
         'server/app/common/infrastructure/export/OperationLogExportProvider.php',
         'server/app/common/contract/notice/sms/SmsDriver.php',
         'server/app/common/infrastructure/notice/sms/AliyunSms.php',
         'server/app/common/infrastructure/notice/sms/TencentSms.php',
-        'server/app/common/services/oauth/OAuthBrowserCallbackService.php',
+        'server/app/modules/official/oauth/services/OAuthBrowserCallbackService.php',
         'server/app/common/infrastructure/oauth/WechatOAuthTransport.php',
         'web/src/core/tenant-session.ts',
         'web/src/core/runtime.ts' => 'application-provider',

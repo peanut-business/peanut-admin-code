@@ -143,6 +143,6 @@ expectOpsHost(
 );
 expectOpsHost(str_contains($logicSource, 'Db::transaction('), 'log clear must use a ThinkPHP transaction');
 expectOpsHost(str_contains($logicSource, "'log/clear'"), 'log clear must retain an audit tombstone');
-expectOpsHost(!str_contains($serviceSource, 'PeanutAdmin\\OpsConsole'), 'application log owner must not deep import core');
+expectOpsHost(!str_contains($serviceSource, 'app\\modules\\official\\ops\\domain'), 'application log owner must not deep import official.ops internals');
 
 echo "PB04-OPS-HOST-001 passed\n";

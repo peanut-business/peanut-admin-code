@@ -4,6 +4,7 @@ declare(strict_types=1);
 use app\modules\official\notification\controller\NoticeChannelController;
 use app\modules\official\notification\controller\NoticeLogController;
 use app\modules\official\notification\controller\NoticeSceneController;
+use app\modules\official\notification\controller\NotificationInboxController;
 use app\api\controller\SmsController as ApiSmsController;
 use app\api\middleware\PublicTenantModuleMiddleware;
 use app\adminapi\http\middleware\AuthMiddleware;
@@ -21,6 +22,12 @@ Route::group(function (): void {
     Route::get('official.notification.scene.list', [NoticeSceneController::class, 'lists']);
     Route::get('official.notification.scene.detail', [NoticeSceneController::class, 'detail']);
     Route::post('official.notification.scene.save', [NoticeSceneController::class, 'save']);
+    Route::get('api/v1/notifications', [NotificationInboxController::class, 'index'])
+        ->option(['peanut_permission' => 'official.notification.inbox.read']);
+    Route::post('api/v1/notifications/:messageKey/read', [NotificationInboxController::class, 'markRead'])
+        ->option(['peanut_permission' => 'official.notification.inbox.manage']);
+    Route::post('api/v1/notifications/bulk', [NotificationInboxController::class, 'bulk'])
+        ->option(['peanut_permission' => 'official.notification.inbox.manage']);
 })->middleware(LoginMiddleware::class)
     ->middleware(OfficialModuleMiddleware::class, 'official.notification', 'http.admin')
     ->middleware(AuthMiddleware::class)

@@ -31,11 +31,11 @@ final class ThinkPhpTestConnection
         return $connection;
     }
 
-    public static function moduleCatalogs(PDO $pdo): \app\platform\service\plugin\ModuleCatalogApplier
+    public static function moduleCatalogs(PDO $pdo): \app\platform\infrastructure\plugin\ModuleCatalogApplier
     {
         $connection = self::fromPdo($pdo);
-        return new \app\platform\service\plugin\ModuleCatalogApplier(
-            new \PeanutAdmin\Settings\Definition\SettingDefinitionSynchronizer(),
+        return new \app\platform\infrastructure\plugin\ModuleCatalogApplier(
+            new \app\modules\official\settings\Definition\SettingDefinitionSynchronizer(),
         );
     }
 }

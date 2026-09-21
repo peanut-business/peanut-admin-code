@@ -17,7 +17,7 @@ use app\common\contract\idempotency\IdempotencyResult;
 use app\common\http\PageResult;
 use app\common\exception\BusinessException;
 use app\common\persistence\AdvisoryLockUnavailable;
-use app\common\services\fileService;
+use app\modules\official\file\contracts\FileReferences;
 use app\common\value\Money;
 use app\common\infrastructure\payment\PaymentRetryLock;
 use app\common\contract\payment\RefundGatewayInterface;
@@ -38,7 +38,7 @@ class RechargeAdministrationService
         private readonly IdempotentCommandExecutor $refundIdempotency,
         private readonly PaymentRetryLock $retryLocks,
         private readonly PaymentServiceFactory $payments,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
         private readonly MemberBalanceCommands $memberBalances,
     ) {}
 

@@ -60,7 +60,7 @@
     Refresh,
     Switch,
   } from '@element-plus/icons-vue';
-  import type { ShellTab as TagProps } from '@peanut-admin/admin/shell';
+  import type { ShellTab as TagProps } from '@peanut-admin/ui-vue';
   import { useTabBarStore } from '@/store';
   import { DEFAULT_ROUTE_NAME, REDIRECT_ROUTE_NAME } from '@/router/constants';
 

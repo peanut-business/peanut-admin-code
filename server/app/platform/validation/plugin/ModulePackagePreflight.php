@@ -6,6 +6,7 @@ namespace app\platform\validation\plugin;
 use app\platform\exception\plugin\PluginPackageException;
 use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
+use app\platform\value\plugin\ModuleFrontendLayout;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
@@ -24,6 +25,7 @@ final readonly class ModulePackagePreflight
     /**
      * @return array{
      *   key:string,version:string,backend_relative:string,frontend_relative:?string,
+     *   frontend_contributions:list<array{client_key:string,entry:string,root:string}>,
      *   manifest:ManifestDocument,dependencies:list<array{module_key:string,version:string}>,owned_tables:list<string>
      * }
      */
@@ -47,40 +49,64 @@ final readonly class ModulePackagePreflight
         }
         $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : null;
         $canonicalBackend = [
-            'migrations' => 'database/migrations',
-            'menus' => 'resources/menus.json',
-            'permissions' => 'resources/permissions.json',
-            'setting_definitions' => 'resources/setting-definitions.json',
+            'migrations' => ['database/migrations', 'directory'],
+            'seeds' => ['database/seeds', 'directory'],
+            'menus' => ['resources/menus.json', 'file'],
+            'permissions' => ['resources/permissions.json', 'file'],
+            'protected_resources' => ['resources/protected-resources.json', 'file'],
+            'target_types' => ['resources/target-types.json', 'file'],
+            'data_conditions' => ['resources/data-conditions.json', 'file'],
+            'config_schema' => ['resources/config.schema.json', 'file'],
+            'setting_definitions' => ['resources/setting-definitions.json', 'file'],
+            'reference_code_sets' => ['resources/reference-code-sets.json', 'file'],
+            'system_actors' => ['resources/system-actors.json', 'file'],
         ];
         if ($backend === null || array_key_exists('routes', $backend)) {
             throw new PluginPackageException('MODULE_PACKAGE_MANIFEST_INVALID', 'Module backend.routes is prohibited.');
         }
-        foreach ($canonicalBackend as $field => $path) {
-            if (($backend[$field] ?? null) !== $path) {
+        foreach ($canonicalBackend as $field => [$path, $kind]) {
+            if (!array_key_exists($field, $backend)) {
+                continue;
+            }
+            if ($backend[$field] !== $path) {
                 throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', "Module backend.{$field} is not canonical.");
+            }
+            $absolute = $backendRoot . '/' . $path;
+            if (($kind === 'directory' && !is_dir($absolute)) || ($kind === 'file' && !is_file($absolute))) {
+                throw new PluginPackageException('MODULE_PACKAGE_PATH_MISSING', "Module backend.{$field} source is unavailable.");
             }
         }
         $provider = $backend['provider'] ?? null;
-        if (!is_string($provider) || !str_starts_with($provider, $this->layout->backendNamespace($key))
-            || !is_file($backendRoot . '/route/app.php')) {
-            throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module provider or route/app.php is not canonical.');
+        if (!is_string($provider) || !str_starts_with($provider, $this->layout->backendNamespace($key))) {
+            throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module provider namespace is not canonical.');
+        }
+        $route = $backendRoot . '/route/app.php';
+        if ((file_exists($route) || is_link($route)) && (!is_file($route) || is_link($route))) {
+            throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module route contribution is invalid.');
         }
 
         $frontend = is_array($manifest->data['frontend'] ?? null) ? $manifest->data['frontend'] : [];
-        $entry = $frontend['entry'] ?? null;
-        $frontendRelative = null;
-        if ($entry !== null) {
-            $expectedEntry = $this->layout->frontendRelativePath($key) . 'contribution.ts';
-            if (!is_string($entry) || $entry !== $expectedEntry) {
+        try {
+            $frontendContributions = ModuleFrontendLayout::contributions($frontend, $moduleKey);
+        } catch (\InvalidArgumentException $exception) {
+            throw new PluginPackageException('MODULE_PACKAGE_FRONTEND_ENTRY_MISMATCH', $exception->getMessage(), 0, $exception);
+        }
+        foreach ($frontendContributions as $contribution) {
+            $absoluteRoot = $this->projectRoot . '/' . $contribution['root'];
+            $absoluteEntry = $this->projectRoot . '/' . $contribution['entry'];
+            $package = $absoluteRoot . '/package.json';
+            if (!is_dir($absoluteRoot) || is_link($absoluteRoot)
+                || !is_file($absoluteEntry) || is_link($absoluteEntry)
+                || !is_file($package) || is_link($package)) {
                 throw new PluginPackageException(
-                    'MODULE_PACKAGE_FRONTEND_ENTRY_MISMATCH',
-                    'Module frontend.entry differs from the path derived from its key.'
+                    'MODULE_PACKAGE_FRONTEND_ENTRY_MISSING',
+                    'Module frontend contribution is incomplete: ' . $contribution['client_key'],
                 );
             }
-            if (!is_file($this->projectRoot . '/' . $expectedEntry)) {
-                throw new PluginPackageException('MODULE_PACKAGE_FRONTEND_ENTRY_MISSING', 'Module frontend entry is missing.');
-            }
-            $frontendRelative = rtrim($this->layout->frontendRelativePath($key), '/');
+        }
+        $frontendRelative = null;
+        foreach ($frontendContributions as $contribution) {
+            if ($contribution['client_key'] === 'admin-web') $frontendRelative = $contribution['root'];
         }
 
         $catalog = is_array($manifest->data['catalog'] ?? null) ? $manifest->data['catalog'] : [];
@@ -122,6 +148,7 @@ final readonly class ModulePackagePreflight
             'version' => (string)$manifest->data['version'],
             'backend_relative' => $backendRelative,
             'frontend_relative' => $frontendRelative,
+            'frontend_contributions' => $frontendContributions,
             'manifest' => $manifest,
             'dependencies' => $dependencies,
             'owned_tables' => array_values((array)($manifest->data['database']['owned_tables'] ?? [])),

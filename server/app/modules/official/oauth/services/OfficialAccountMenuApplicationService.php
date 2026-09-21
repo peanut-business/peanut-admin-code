@@ -3,16 +3,16 @@ declare(strict_types=1);
 
 namespace app\modules\official\oauth\services;
 
-use app\common\services\external\ExternalChannelBindingService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalChannelBindings;
+use app\modules\official\integration\contracts\ExternalProvider;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use PeanutAdmin\IntegrationSecurity\Wechat\OfficialAccountService;
+use app\modules\official\oauth\infrastructure\WechatOfficialAccountService;
 
 class OfficialAccountMenuApplicationService
 {
     public function __construct(
-        private readonly ExternalChannelBindingService $bindings,
-        private readonly OfficialAccountService $officialAccount,
+        private readonly ExternalChannelBindings $bindings,
+        private readonly WechatOfficialAccountService $officialAccount,
     ) {}
 
     public function detail(TenantContext $context): array
@@ -49,7 +49,7 @@ class OfficialAccountMenuApplicationService
         $config['menu'] = $menu;
         $this->bindings->update(
             $context,
-            ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK,
+            ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
             $config,
             (string)($config['original_id'] ?? $config['app_id'] ?? '')
         );
@@ -59,7 +59,7 @@ class OfficialAccountMenuApplicationService
     {
         return $this->bindings->config(
             $context,
-            ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK
+            ExternalProvider::WECHAT_OFFICIAL_CALLBACK
         );
     }
 }

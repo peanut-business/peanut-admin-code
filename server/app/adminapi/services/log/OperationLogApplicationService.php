@@ -5,7 +5,6 @@ namespace app\adminapi\services\log;
 
 use app\common\http\PageResult;
 use app\adminapi\services\OperationLogService;
-use app\common\services\FileService;
 use app\common\services\XlsxExportService;
 use app\common\model\log\OperationLog;
 use app\common\support\ExportPageInfo;

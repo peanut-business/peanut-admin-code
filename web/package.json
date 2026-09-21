@@ -1,7 +1,7 @@
 {
   "name": "peanut-admin-web",
   "description": "Peanut Admin management client",
-  "version": "3.1.1",
+  "version": "4.0.0-dev",
   "private": true,
   "author": "花生科技",
   "license": "Apache-2.0",
@@ -38,7 +38,8 @@
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
     "@hocuspocus/provider": "4.6.0",
-    "@peanut-admin/admin": "3.1.1",
+    "@peanut-admin/ui-vue": "file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
+    "@peanut-admin/vue": "file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
     "@tiptap/core": "3.30.5",
     "@tiptap/extension-collaboration": "3.30.5",
     "@tiptap/pm": "3.30.5",

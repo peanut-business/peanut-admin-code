@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\modules\official\file\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\modules\official\file\contracts\fileUploads;
+use app\modules\official\file\contracts\FileUploads;
 use app\modules\official\file\contracts\dto\UploadFile;
 use app\common\enum\fileEnum;
 use app\common\execution\CurrentExecutionContext;

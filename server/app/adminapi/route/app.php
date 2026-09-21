@@ -17,6 +17,9 @@ foreach ([
     'app/modules/official/member/route/app.php',
     'app/modules/official/task/route/app.php',
     'app/modules/official/import_export/route/app.php',
+    'app/modules/official/settings/route/app.php',
+    'app/modules/official/reference_codes/route/app.php',
+    'app/modules/official/integration/route/app.php',
 ] as $moduleRoute) {
     require $serverRoot . '/' . $moduleRoute;
 }

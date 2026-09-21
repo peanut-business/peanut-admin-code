@@ -1,11 +1,11 @@
 import type { RouteRecordRaw } from 'vue-router';
 
-import { evaluateRequiredPermissions } from '@peanut-admin/admin/core';
+import { evaluateRequiredPermissions } from '@peanut-admin/vue';
 import {
   allowsInstanceTools,
   deploymentMode,
   routesForDeployment,
-} from '@peanut-admin/admin/shell';
+} from '@peanut-admin/ui-vue';
 
 const exactEvaluator = (
   permissions: ReadonlySet<string>,

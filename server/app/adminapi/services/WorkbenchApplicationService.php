@@ -4,15 +4,15 @@ declare(strict_types=1);
 namespace app\adminapi\services;
 
 use app\common\services\authorization\AdminAuthorizationService;
-use app\common\services\FileService;
-use app\common\services\config\WebsiteConfigService;
+use app\modules\official\file\contracts\FileReferences;
+use app\modules\official\settings\services\WebsiteConfigService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 class WorkbenchApplicationService
 {
     public function __construct(
         private readonly AdminAuthorizationService $authorization,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
         private readonly WebsiteConfigService $website,
         private readonly string $projectVersion,
         private readonly string $projectBased,

@@ -5,11 +5,11 @@ namespace app\modules\official\import_export\services;
 
 use app\modules\official\task\contracts\TaskWorkerDefinition;
 use app\modules\official\import_export\infrastructure\authorization\AdminAsyncAuthorization;
-use PeanutAdmin\ImportExport\Application\ImportExportService;
-use PeanutAdmin\ImportExport\Execution\ImportExportTaskHandler;
+use app\modules\official\import_export\engine\Application\ImportExportService;
+use app\modules\official\import_export\engine\Execution\ImportExportTaskHandler;
 use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use PeanutAdmin\TaskJob\Execution\TaskHandler;
+use app\modules\official\task\contracts\TaskHandler;
 
 /** Import/Export owns its handler and authorization semantics; Task owns execution. */
 final readonly class ImportExportTaskWorkerDefinition implements TaskWorkerDefinition

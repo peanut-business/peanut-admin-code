@@ -1,0 +1,96 @@
+{
+    "schema_version": 1,
+    "key": "official.reference-codes",
+    "version": "1.0.0",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "474fef975521a2eb0cd4d00b00608f622ac931c79b754e160cb7367fa6d9e0b4"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "official.reference-codes",
+                    "version": "1.0.0",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "faaa1b62647f8dcdae67fc5dcbdbe0ee8ac37e7676094a2eafee9f6a932cf4dd"
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "official.reference-codes:20260921-adopt-reference-codes-schema",
+                                "sha256": "01809393f85e3945fc8832830ac45c5b17c542019b28ae30d3ebba2c990d01be"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/official-reference-codes",
+            "version": "1.0.0",
+            "sha256": "0f7f331ee659bf75335d06f8aa4a7af0ca5227ffb3e34eee884a01d5d28b8d8d"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/official-reference-codes",
+            "version": "1.0.0",
+            "integrity": "sha256-6WEYrmVhSoz0/zV37sLThUKBa02lxc5Qi5088kQ1zo8="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/official-reference-codes",
+            "version": "1.0.0",
+            "entry": "web/src/modules/official-reference-codes/contribution.ts",
+            "sha256": "aff2d45f8b52b9be9d8d455bb8c76639acffa6ec214edaed36389668e21aed78"
+        }
+    ],
+    "modules": [
+        {
+            "key": "official.reference-codes",
+            "root": "server/app/modules/official/reference_codes"
+        }
+    ]
+}

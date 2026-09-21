@@ -635,7 +635,9 @@
       {
         "stable_resource_id": "peanut-admin-backend-stabilization-mysql84",
         "purpose": "D01-D04 isolated backend regression with synthetic data only",
-        "environments": ["development-test"],
+        "environments": [
+          "development-test"
+        ],
         "owner": "backend-stabilization-20260920 task",
         "service_type": "mysql",
         "version": "8.4.10",
@@ -658,8 +660,10 @@
       },
       {
         "stable_resource_id": "peanut-admin-deep-convergence-a1-ua-mysql84",
-        "purpose": "A1 R1 isolated real-HTTP regression for missing and present User-Agent password changes with session revocation",
-        "environments": ["development-test"],
+        "purpose": "A1 isolated HTTP, module migration and synthetic upgrade verification; namespaces are independently leased",
+        "environments": [
+          "development-test"
+        ],
         "owner": "deep-convergence-a1-20260921",
         "service_type": "mysql",
         "version": "8.4.10",
@@ -672,14 +676,65 @@
         "namespace": "exclusive container with image-created anonymous /var/lib/mysql volume; no host bind or shared volume",
         "credential_ref": "active worktree server/.env.ua-runtime (mode 0600; generated synthetic credentials; never committed)",
         "data_source": "empty MySQL instance plus current source schemas and test-owned synthetic fixtures",
-        "freshness_requirement": "container, port, database and credential file absent before lease; verify the immutable 8.4.10 image, empty instance and fixed application/Core identities before the focused HTTP run",
-        "health_check": "docker inspect named container state and immutable image; PDO SELECT VERSION(); require peanut_deep_a1_ua_d03 absent before test setup",
+        "freshness_requirement": "Task-created synthetic data only; verify container image, health and namespace lease before each slice; previously used namespace is explicitly reset only by its owning test.",
+        "health_check": "docker inspect exact container and immutable image; PDO SELECT VERSION(); check the exact database belongs to the slice registered in synthetic_databases (or the original UA database).",
         "fallback": "none",
-        "lifecycle": "single A1 R1 User-Agent regression batch; retained under the active lease for later A1 slices until the main controller performs final cleanup",
+        "lifecycle": "ephemeral",
         "claim_precondition": "project-resource-lease covers this stable resource ID, exact container, port, database namespace, worktree and evidence directory before start",
         "cleanup_responsibility": "deep-convergence-a1-20260921 main controller removes only this container, its exclusive anonymous volume, generated credential file and lease after all authorized A1 slices finish",
         "backup_responsibility": "not applicable: synthetic disposable data only",
-        "failure_retention_policy": "on failure preserve this exact container, anonymous volume, credential file and evidence under the active lease for the single focused diagnosis"
+        "failure_retention_policy": "on failure preserve this exact container, anonymous volume, credential file and evidence under the active lease for the single focused diagnosis",
+        "synthetic_databases": {
+          "settings": [
+            "peanut_admin_p1_b03_settings_test"
+          ],
+          "reference_codes": [
+            "peanut_admin_p1_b04_reference_codes_test",
+            "peanut_deep_a1_dict"
+          ],
+          "iam": [
+            "peanut_admin_kernel_test",
+            "peanut_admin_mt02_org_a1_iam_r2",
+            "peanut_admin_scope_a1_iam_r4"
+          ],
+          "optional": [
+            "peanut_admin_p1_artifact_service_test",
+            "peanut_admin_p1_artifact_repository_test",
+            "peanut_admin_p1_entitlement_service_test",
+            "peanut_admin_p1_entitlement_repository_test",
+            "peanut_admin_p1_wf01_runtime_test",
+            "peanut_admin_p1_wf01_repository_test"
+          ],
+          "task_notifications": [
+            "peanut_admin_a1_task_notifications"
+          ],
+          "file": [
+            "peanut_admin_a1_file_test"
+          ],
+          "integration": [
+            "peanut_admin_a1_integration_test"
+          ],
+          "candidate_clean_install": [
+            "peanut_deep_a1_c001_standalone",
+            "peanut_deep_a1_c001_saas"
+          ]
+        },
+        "application_runtime": false,
+        "lifecycle_notes": "A1 development and fixed-candidate verification; main controller retains exclusive container lease and cleans only task-owned resources at completion.",
+        "lease_gate": "a1-r2-development-modules",
+        "deployment_modes": [
+          "standalone",
+          "multi-tenant"
+        ],
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-deep-convergence-a1-ua-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20317,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "task-owned loopback only"
+        }
       },
       {
         "stable_resource_id": "peanut-admin-mysql84-development",

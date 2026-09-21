@@ -8,16 +8,16 @@ use app\common\enum\CrontabEnum;
 use app\common\execution\ExecutionContextStore;
 use app\Modules\Official\Task\Model\Crontab;
 use app\common\services\XlsxExportService;
-use app\common\services\storage\StorageService;
+use app\modules\official\file\services\storage\StorageService;
 use app\Modules\Official\ImportExport\Application\TaskImportExportRuntime;
 use app\Modules\Official\ImportExport\Infrastructure\File\AppFileMediaGateway;
 use app\common\infrastructure\export\OperationLogExportProvider;
 use app\command\TenantTaskWorker;
-use PeanutAdmin\ImportExport\Application\ImportExportService;
+use app\modules\official\import_export\engine\Application\ImportExportService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
-use PeanutAdmin\TaskJob\Submission\TrustedJobPublisher;
+use app\modules\official\task\contracts\TrustedJobPublisher;
 use think\facade\Db;
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
@@ -76,9 +76,9 @@ $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(
 expectTaskHost(class_exists(TaskImportExportRuntime::class), 'application async Runtime is missing');
 expectTaskHost(!is_file($serverRoot . '/app/common/service/async/TaskImportExportRuntimeFactory.php'), 'retired static async Runtime factory was reintroduced');
 expectTaskHost(class_exists(TenantTaskWorker::class), 'Tenant worker command is missing');
-expectTaskHost(is_subclass_of(OperationLogExportProvider::class, \PeanutAdmin\ImportExport\Contract\DataProvider::class), 'operation-log export provider does not implement the Core contract');
-expectTaskHost(is_subclass_of(AppFileMediaGateway::class, \PeanutAdmin\ImportExport\File\FileMediaGateway::class), 'private file gateway does not implement the Core contract');
-expectTaskHost(class_exists(TrustedJobPublisher::class) && class_exists(ImportExportService::class), 'locked Core async contracts are unavailable');
+expectTaskHost(is_subclass_of(OperationLogExportProvider::class, \app\modules\official\import_export\engine\Contract\DataProvider::class), 'operation-log export provider does not implement the official import/export contract');
+expectTaskHost(is_subclass_of(AppFileMediaGateway::class, \app\modules\official\import_export\engine\File\FileMediaGateway::class), 'private file gateway does not implement the official import/export contract');
+expectTaskHost(class_exists(TrustedJobPublisher::class) && class_exists(ImportExportService::class), 'official async runtime classes are unavailable');
 
 $migrationSource = (string)file_get_contents($serverRoot . '/database/init.sql');
 expectTaskHost(str_contains($migrationSource, 'pa_task_job'), 'Task/Job schema is not owned by the application migration');
@@ -101,11 +101,22 @@ expectTaskHost(
 $taskRuntimeSource = (string)file_get_contents($serverRoot . '/app/Modules/Official/Task/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php');
 expectTaskHost(str_contains($taskRuntimeSource, 'TrustedJobPublisher'), 'official.task does not own trusted submission');
 expectTaskHost(str_contains($taskRuntimeSource, 'LocalWorker'), 'official.task does not own worker execution');
+$jobExecutionSource = (string)file_get_contents($serverRoot . '/app/modules/official/task/contracts/JobExecution.php');
+$workerSource = (string)file_get_contents($serverRoot . '/app/modules/official/task/job/Execution/LocalWorker.php');
+$csvRunnerSource = (string)file_get_contents($serverRoot . '/app/modules/official/import_export/engine/Execution/CsvOperationRunner.php');
+expectTaskHost(
+    str_contains($jobExecutionSource, 'function checkpoint()')
+        && str_contains($jobExecutionSource, 'function assertLeaseOwned()')
+        && str_contains($workerSource, '$execution->assertLeaseOwned()')
+        && str_contains($csvRunnerSource, '$execution->checkpoint()')
+        && str_contains($csvRunnerSource, '$execution->assertLeaseOwned()'),
+    'task lease renewal and stale-worker fencing are not exposed to batch handlers',
+);
 $gatewaySource = (string)file_get_contents($serverRoot . '/app/Modules/Official/ImportExport/Infrastructure/File/AppFileMediaGateway.php');
 expectTaskHost(!str_contains($gatewaySource, "'/public/"), 'private gateway writes below public/');
 expectTaskHost(
-    str_contains($gatewaySource, 'private StorageService $storage')
-        && !str_contains($gatewaySource, 'new StorageService(')
+    str_contains($gatewaySource, 'private FileStorage $storage')
+        && !str_contains($gatewaySource, 'new FileStorage(')
         && !str_contains($gatewaySource, 'PDO')
         && !str_contains($gatewaySource, 'pa_import_export_operation'),
     'private gateway does not use the injected Storage Runtime',
@@ -259,8 +270,8 @@ try {
         );
         expectTaskHost(!str_contains($source, 'new ZipArchive'), 'duplicate XLSX writer: ' . $relativePath);
         expectTaskHost(!str_contains($source, 'function createXlsx'), 'duplicate XLSX helper: ' . $relativePath);
-        expectTaskHost(!str_contains($source, 'PeanutAdmin\\TaskJob'), 'core TaskJob deep import: ' . $relativePath);
-        expectTaskHost(!str_contains($source, 'PeanutAdmin\\ImportExport'), 'core ImportExport deep import: ' . $relativePath);
+        expectTaskHost(!str_contains($source, 'app\\modules\\official\\task\\job'), 'official.task internal deep import: ' . $relativePath);
+        expectTaskHost(!str_contains($source, 'app\\modules\\official\\import_export\\engine'), 'official.import-export internal deep import: ' . $relativePath);
     }
 
     foreach ([
@@ -270,8 +281,8 @@ try {
         'app/adminapi/service/generator/GeneratorArchiveService.php',
     ] as $relativePath) {
         $source = (string)file_get_contents($serverRoot . '/' . $relativePath);
-        expectTaskHost(!str_contains($source, 'PeanutAdmin\\TaskJob'), 'core TaskJob deep import: ' . $relativePath);
-        expectTaskHost(!str_contains($source, 'PeanutAdmin\\ImportExport'), 'core ImportExport deep import: ' . $relativePath);
+        expectTaskHost(!str_contains($source, 'app\\modules\\official\\task\\job'), 'official.task internal deep import: ' . $relativePath);
+        expectTaskHost(!str_contains($source, 'app\\modules\\official\\import_export\\engine'), 'official.import-export internal deep import: ' . $relativePath);
     }
 } finally {
     if ($exportFileKey !== '') {

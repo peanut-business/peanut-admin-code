@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace app\adminapi\services\config;
 
-use app\common\services\FileService;
+use app\modules\official\file\contracts\FileReferences;
 use app\common\services\RichTextResourceService;
-use app\common\services\config\TenantApplicationSettingService;
-use app\common\services\config\WebsiteConfigService;
+use app\modules\official\settings\services\TenantApplicationSettingService;
+use app\modules\official\settings\services\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
@@ -14,7 +14,7 @@ class ConfigApplicationService
 {
     public function __construct(
         private readonly TenantApplicationSettingService $applicationSettings,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
         private readonly RichTextResourceService $richText,
         private readonly WebsiteConfigService $website,
         private readonly string $defaultAvatar,

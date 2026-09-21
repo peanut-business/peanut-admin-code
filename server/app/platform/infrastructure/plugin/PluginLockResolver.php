@@ -5,6 +5,7 @@ namespace app\platform\infrastructure\plugin;
 
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\value\plugin\PluginDescriptor;
+use app\platform\value\plugin\ModuleFrontendLayout;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
@@ -91,7 +92,7 @@ final class PluginLockResolver
             );
             $projectRoot = dirname($this->serverRoot);
             $moduleRoots = $this->resolveModuleRoots($entry['modules'] ?? null, $projectRoot);
-            $frontendRoots = $this->frontendRoots($moduleRoots, $projectRoot);
+            $frontendRoots = $this->frontendRoots($frontend, $moduleRoots, $projectRoot);
             $this->verifyPackageIdentities(
                 $composer,
                 $npm,
@@ -333,18 +334,37 @@ final class PluginLockResolver
         }
     }
 
-    /** @param array<string,string> $moduleRoots @return array<string,string> */
-    private function frontendRoots(array $moduleRoots, string $projectRoot): array
+    /** @param list<array<string,mixed>> $frontend @param array<string,string> $moduleRoots @return array<string,string> */
+    private function frontendRoots(array $frontend, array $moduleRoots, string $projectRoot): array
     {
         $roots = [];
-        foreach ($moduleRoots as $moduleKey => $_backendRoot) {
-            $roots[$moduleKey] = $this->absolutePathWithin(
-                'web/src/modules/' . str_replace('.', '-', $moduleKey),
+        foreach ($frontend as $identity) {
+            $clientKey = (string)$identity['client_key'];
+            try {
+                $clientRoot = ModuleFrontendLayout::clientRoot($clientKey);
+            } catch (\InvalidArgumentException $exception) {
+                throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', $exception->getMessage(), 0, $exception);
+            }
+            $relativeRoot = dirname((string)$identity['entry']);
+            $matchedModule = null;
+            foreach (array_keys($moduleRoots) as $moduleKey) {
+                $expected = $clientRoot . '/' . str_replace('.', '-', $moduleKey);
+                if ($relativeRoot === $expected && $identity['entry'] === $expected . '/contribution.ts') {
+                    $matchedModule = $moduleKey;
+                    break;
+                }
+            }
+            if ($matchedModule === null) {
+                throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', 'Frontend contribution is not key-derived from a Plugin Module.');
+            }
+            $roots[$clientKey . ':' . $matchedModule] = $this->absolutePathWithin(
+                $relativeRoot,
                 $projectRoot,
-                $projectRoot . '/web/src/modules',
+                $projectRoot . '/' . $clientRoot,
                 'PLUGIN_PATH_UNAVAILABLE'
             );
         }
+        ksort($roots, SORT_STRING);
         return $roots;
     }
 
@@ -424,7 +444,7 @@ final class PluginLockResolver
             if (isset($identity['sha256'])) {
                 $this->sha256($identity['sha256'], 'PLUGIN_IDENTITY_INVALID');
             }
-            $unique = (string)($identity['name'] ?? $identity['package'] ?? $identity['client_key'] ?? '');
+            $unique = (string)($identity['entry'] ?? $identity['name'] ?? $identity['package'] ?? $identity['client_key'] ?? '');
             if (isset($seen[$unique])) {
                 throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', "Duplicate {$kind} identity: {$unique}");
             }

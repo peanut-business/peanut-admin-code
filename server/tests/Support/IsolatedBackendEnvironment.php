@@ -144,10 +144,24 @@ final class IsolatedBackendEnvironment
             || !is_string($database) || preg_match('/^[a-z0-9_]+$/D', $database) !== 1) {
             throw new RuntimeException('ISOLATED_BACKEND_DATABASE_RESOURCE_ENDPOINT_INVALID');
         }
+        // A task-owned instance may register several exact synthetic databases.
+        // Never infer a namespace from a prefix or accept an unlisted database.
+        $registeredDatabases = [$database];
+        foreach (($resource['synthetic_databases'] ?? []) as $names) {
+            if (!is_array($names) || !array_is_list($names)) {
+                throw new RuntimeException('ISOLATED_BACKEND_DATABASE_RESOURCE_ENDPOINT_INVALID');
+            }
+            foreach ($names as $name) {
+                if (!is_string($name) || preg_match('/^[a-z0-9_]+$/D', $name) !== 1) {
+                    throw new RuntimeException('ISOLATED_BACKEND_DATABASE_RESOURCE_ENDPOINT_INVALID');
+                }
+                $registeredDatabases[] = $name;
+            }
+        }
         if (!hash_equals($stableResourceId, self::required('PEANUT_DATABASE_RESOURCE_ID'))
             || !hash_equals($host, self::required('DB_HOST'))
             || (int)self::required('DB_PORT') !== $port
-            || !hash_equals($database, self::required('DB_NAME'))) {
+            || !in_array(self::required('DB_NAME'), $registeredDatabases, true)) {
             throw new RuntimeException('ISOLATED_BACKEND_DATABASE_RESOURCE_MISMATCH');
         }
         return $resource;

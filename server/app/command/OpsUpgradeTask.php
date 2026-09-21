@@ -5,7 +5,7 @@ namespace app\command;
 
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\platform\infrastructure\ops\ThinkPhpUpgradeTaskExecutionService;
+use app\modules\official\ops\infrastructure\ThinkPhpUpgradeTaskExecutionService;
 use app\common\execution\ContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;

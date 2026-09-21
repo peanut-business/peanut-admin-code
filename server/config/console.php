@@ -19,6 +19,7 @@ return [
         'module:create'    => \app\command\ModuleCreate::class,
         'module:check'     => \app\command\ModuleCheck::class,
         'module:pack'      => \app\command\ModulePack::class,
+        'developer:center' => \app\command\DeveloperCenterCatalog::class,
         'bundle:pack'      => \app\command\BundlePack::class,
         'module:install-package' => \app\command\ModuleInstallPackage::class,
         'module:adopt-package' => \app\command\ModuleAdoptPackage::class,

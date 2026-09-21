@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "b47ad7f83f82c5c5bf34f788cc11028df751891190c7b016e694c269e8e55bcb"
+        "sha256": "4f1cf79ae390621cb07d69dbd6e8892218aad23e8efc9e42dc4fca2932a9c407"
     },
     "trust": {
         "channel": "bundled",
@@ -41,10 +41,23 @@
                     "key": "official.notification",
                     "version": "1.0.0",
                     "kernel_constraint": "^1.0",
-                    "dependencies": [],
+                    "dependencies": [
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
+                        },
+                        {
+                            "module_key": "official.integration",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.task",
+                            "version": "^1.0"
+                        }
+                    ],
                     "permissions": {
                         "path": "resources/permissions.json",
-                        "sha256": "efe0fb68acdf0a8efee4520f6a91ed0ce111c1a0aa1a6f8b4dd8a0fb5bb285d7"
+                        "sha256": "5c01e39b0d560b979a91fce5dfea460e0a45da593d4de1f888784c64736f7fc5"
                     },
                     "migrations": {
                         "reversibility": "verified-backup-required",
@@ -52,6 +65,10 @@
                             {
                                 "key": "official.notification:20260826-namespace-permission-keys",
                                 "sha256": "8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606"
+                            },
+                            {
+                                "key": "official.notification:20260921-adopt-notification-delivery-schema",
+                                "sha256": "eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb"
                             }
                         ]
                     }
@@ -63,7 +80,7 @@
         {
             "name": "peanut-business/official-notification",
             "version": "1.0.0",
-            "sha256": "935a073ada3bfce4de53e7a257d20b49d763af566f2e9ec2b19fd792fc862234"
+            "sha256": "85128ee960e8fb6fd1b70fc3a41e667ef131f590f3b76b45792585c1187912be"
         }
     ],
     "npm": [
@@ -79,7 +96,7 @@
             "package": "@peanut-admin/official-notification",
             "version": "1.0.0",
             "entry": "web/src/modules/official-notification/contribution.ts",
-            "sha256": "52e158e825221b241b0d76a3cdb0f60bad05fffe2e29513b9d8378f74c76e333"
+            "sha256": "dc792b969d929b2eef6a46793d99e5505d4224dfd8f571b464a7b8d699c276fb"
         }
     ],
     "modules": [

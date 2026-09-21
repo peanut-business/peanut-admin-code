@@ -12,7 +12,7 @@ use app\common\validate\MemberProfileSelfFieldValidate;
 use app\common\exception\BusinessException;
 use app\common\enum\notice\NoticeSceneEnum;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use app\common\services\FileService;
+use app\modules\official\file\contracts\FileReferences;
 use PeanutAdmin\Kernel\Module\ModuleException;
 
 class UserApplicationService
@@ -23,7 +23,7 @@ class UserApplicationService
         private readonly MemberProfileCommands $memberProfiles,
         private readonly VerificationCodeCommands $verificationCodes,
         private readonly PublicArticleQueries $articleCollections,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
     ) {
     }
 

@@ -22,20 +22,16 @@ use app\modules\official\import_export\infrastructure\configuration\CoreSettings
 use app\modules\official\import_export\infrastructure\configuration\ExternalBindingConfigurationAdapter;
 use app\modules\official\import_export\infrastructure\configuration\TenantModuleConfigurationAdapter;
 use app\modules\official\import_export\infrastructure\configuration\TenantSettingsConfigurationAdapter;
-use app\modules\official\import_export\infrastructure\configuration\UnavailableSecretProtector;
 use app\modules\official\import_export\infrastructure\file\AppFileMediaGateway;
 use app\modules\official\task\contracts\TaskJobRuntime;
-use PeanutAdmin\ImportExport\Application\ImportExportService;
-use PeanutAdmin\ImportExport\Contract\DataProviderRegistry;
-use PeanutAdmin\ImportExport\Execution\CsvOperationRunner;
-use PeanutAdmin\ImportExport\Execution\ImportExportTaskHandler;
-use PeanutAdmin\ImportExport\Execution\ImportExportTaskSubmissionProvider;
+use app\modules\official\import_export\engine\Application\ImportExportService;
+use app\modules\official\import_export\engine\Contract\DataProviderRegistry;
+use app\modules\official\import_export\engine\Execution\CsvOperationRunner;
+use app\modules\official\import_export\engine\Execution\ImportExportTaskHandler;
+use app\modules\official\import_export\engine\Execution\ImportExportTaskSubmissionProvider;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
-use PeanutAdmin\Settings\Application\SettingAdminService;
-use PeanutAdmin\Settings\Secret\SecretProtector;
-use PeanutAdmin\Settings\Secret\SodiumSecretProtector;
+use app\modules\official\settings\contracts\DeploymentSettingsTransfer;
 use think\App;
-use Throwable;
 
 final class ModuleProvider implements ModuleProviderContract
 {
@@ -51,7 +47,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $persistence = $app->make(TenantPersistenceConfiguration::class);
                 $tasks = $app->make(TaskJobRuntime::class);
                 return new ImportExportApplicationService(new ImportExportService(
-                    new \PeanutAdmin\ImportExport\persistence\ImportExportStore($persistence->mode, $persistence->instanceTenantId),
+                    new \app\modules\official\import_export\engine\Persistence\ImportExportStore($persistence->mode, $persistence->instanceTenantId),
                     new DataProviderRegistry([new OperationLogExportProvider()]),
                     $tasks->publisher(new ImportExportTaskSubmissionProvider()),
                     $tasks->jobs(),
@@ -61,20 +57,12 @@ final class ModuleProvider implements ModuleProviderContract
             ImportExportCommands::class => ImportExportApplicationService::class,
             ImportExportQueries::class => ImportExportApplicationService::class,
             ConfigurationTransferApplicationService::class => function (App $app): ConfigurationTransferApplicationService {
-                $persistence = $app->make(TenantPersistenceConfiguration::class);
                 return new ConfigurationTransferApplicationService(
                     [
                         $app->make(TenantSettingsConfigurationAdapter::class),
                         $app->make(TenantModuleConfigurationAdapter::class),
                         $app->make(ExternalBindingConfigurationAdapter::class),
-                        new CoreSettingsConfigurationAdapter(
-                            new SettingAdminService(
-                            $this->secretProtector($app),
-                                $persistence->mode,
-                                $persistence->instanceTenantId,
-                            ),
-                            $app->make(\app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider::class),
-                        ),
+                        new CoreSettingsConfigurationAdapter($app->make(DeploymentSettingsTransfer::class)),
                     ],
                     new ConfigurationPackageCodec(),
                     $app->make(AuditContractHost::class),
@@ -86,7 +74,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $persistence = $app->make(TenantPersistenceConfiguration::class);
                 return new ImportExportTaskWorkerDefinition(
                     new ImportExportTaskHandler(new CsvOperationRunner(
-                        new \PeanutAdmin\ImportExport\persistence\ImportExportStore($persistence->mode, $persistence->instanceTenantId),
+                        new \app\modules\official\import_export\engine\Persistence\ImportExportStore($persistence->mode, $persistence->instanceTenantId),
                         new DataProviderRegistry([new OperationLogExportProvider()]),
                         $app->make(AppFileMediaGateway::class),
                         $app->make(AuditContractHost::class),
@@ -98,17 +86,4 @@ final class ModuleProvider implements ModuleProviderContract
         ];
     }
 
-    private function secretProtector(App $app): SecretProtector
-    {
-        $encoded = trim((string)$app->config->get('peanut.settings_secrets.keys', ''));
-        $activeKeyId = trim((string)$app->config->get('peanut.settings_secrets.active_key_id', ''));
-        if ($encoded === '' || $activeKeyId === '') {
-            return new UnavailableSecretProtector();
-        }
-        try {
-            return SodiumSecretProtector::fromJson($encoded, $activeKeyId);
-        } catch (Throwable) {
-            return new UnavailableSecretProtector();
-        }
-    }
 }

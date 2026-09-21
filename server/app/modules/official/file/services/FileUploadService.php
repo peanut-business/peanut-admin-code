@@ -3,15 +3,19 @@ declare(strict_types=1);
 
 namespace app\modules\official\file\services;
 
-use app\modules\official\file\model\file;
-use app\modules\official\file\model\fileCate;
-use app\modules\official\file\contracts\fileUploads;
+use app\modules\official\file\model\File;
+use app\modules\official\file\model\FileCate;
+use app\modules\official\file\model\storage\FileImageAsset;
+use app\modules\official\file\contracts\FileUploads;
 use app\modules\official\file\contracts\dto\UploadFile;
 use app\common\enum\fileEnum;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use app\common\services\storage\StorageService;
+use app\modules\official\file\services\storage\StorageService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\FileMedia\Media\ImageMetadata;
+use PeanutAdmin\FileMedia\Media\ImageMetadataInspector;
+use think\facade\Db;
 
 final class FileUploadService implements FileUploads
 {
@@ -67,6 +71,9 @@ final class FileUploadService implements FileUploads
 
         $originName = $uploaded->originalName;
         $name = mb_substr((string)pathinfo($originName, PATHINFO_FILENAME), 0, 120) . '.' . $ext;
+        $imageMetadata = $type === FileEnum::IMAGE
+            ? (new ImageMetadataInspector(FileEnum::MAX_SIZE[FileEnum::IMAGE]))->inspect($uploaded->path)
+            : null;
         $purpose = match ($type) {
             FileEnum::IMAGE => 'material.image',
             FileEnum::VIDEO => 'material.video',
@@ -82,18 +89,37 @@ final class FileUploadService implements FileUploads
             $purpose,
             $uploaded->path,
             $name,
-            $uploaded->mediaType !== '' ? $uploaded->mediaType : 'application/octet-stream',
+            $imageMetadata instanceof ImageMetadata
+                ? $imageMetadata->mediaType
+                : ($uploaded->mediaType !== '' ? $uploaded->mediaType : 'application/octet-stream'),
         );
 
         try {
-            $file = File::create([
-                'cid' => $cid,
-                'source_id' => $sourceId,
-                'source' => $source,
-                'type' => $type,
-                'name' => $name,
-                'file_key' => $stored['file_key'],
-            ]);
+            $file = Db::transaction(function () use (
+                $cid, $sourceId, $source, $type, $name, $stored, $tenantId, $imageMetadata,
+            ): File {
+                $file = File::create([
+                    'cid' => $cid,
+                    'source_id' => $sourceId,
+                    'source' => $source,
+                    'type' => $type,
+                    'name' => $name,
+                    'file_key' => $stored['file_key'],
+                ]);
+                if ($imageMetadata instanceof ImageMetadata) {
+                    $now = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.v');
+                    FileImageAsset::create([
+                        'tenant_id' => $tenantId,
+                        'file_key' => $stored['file_key'],
+                        'width' => $imageMetadata->width,
+                        'height' => $imageMetadata->height,
+                        'media_type' => $imageMetadata->mediaType,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                }
+                return $file;
+            });
         } catch (\Throwable $exception) {
             $this->storage->delete($tenantId, $stored['file_key']);
             throw $exception;

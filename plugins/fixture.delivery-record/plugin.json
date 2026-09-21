@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "961c8f4975890e0172ab5ee370f2ac062dc70b4b43d099d18151e29ca9ce7961"
+        "sha256": "eede0b2a2cb773e59640bafe70587a86d61a5465447ea5e7b8bfa066a9cbf0c8"
     },
     "trust": {
         "channel": "bundled",
@@ -79,7 +79,7 @@
             "package": "@peanut-admin/fixture-delivery-record",
             "version": "1.0.0",
             "entry": "web/src/modules/fixture-delivery-record/contribution.ts",
-            "sha256": "ddb64b2c302b8e9dd6c31b6c0df61c311dcca21b1f6c4a29128e761ea5901a3c"
+            "sha256": "6c4a51c1387e98b207dc5de6d75c72a9778c777c0a9ed91376e4490110a9f5bb"
         }
     ],
     "modules": [

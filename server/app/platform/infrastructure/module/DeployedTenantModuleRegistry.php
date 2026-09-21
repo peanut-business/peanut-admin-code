@@ -30,7 +30,8 @@ final readonly class DeployedTenantModuleRegistry
                 || $key === ''
                 || isset($manifests[$key])
                 || !is_array($tenant)
-                || ($tenant['enableable'] ?? null) !== true) {
+                || (($tenant['enableable'] ?? null) !== true
+                    && !$compiled->isRequiredTenantFoundation($key))) {
                 throw new ModuleException(
                     'MODULE_MANIFEST_INVALID',
                     'The deployment registry contains an invalid Tenant Module manifest.'
@@ -74,6 +75,11 @@ final readonly class DeployedTenantModuleRegistry
     public function compiled(): CompiledModuleRegistry
     {
         return $this->compiled;
+    }
+
+    public function isRequiredTenantFoundation(string $moduleKey): bool
+    {
+        return $this->compiled->isRequiredTenantFoundation($moduleKey);
     }
 
     public function requireInstalled(string $moduleKey): ManifestDocument

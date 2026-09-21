@@ -15,8 +15,8 @@ use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use think\facade\Db;
-use PeanutAdmin\NotificationSms\Application\VerificationCodeSecret;
-use PeanutAdmin\NotificationSms\Sms\NoticeSmsSender;
+use app\modules\official\notification\delivery\Application\VerificationCodeSecret;
+use app\modules\official\notification\contracts\NoticeSmsSender;
 
 /**
  * 手机验证码发送与核验服务。

@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 namespace app\modules\official\oauth\infrastructure\persistence;
 
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBinding;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalTenantBinding;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use app\modules\official\integration\contracts\ExternalProvider;
 use app\modules\official\oauth\contracts\OAuthCallbackLocator;
 use app\modules\official\oauth\model\OAuthAttempt;
 use app\modules\official\oauth\model\OAuthCompletionTicket;
@@ -14,8 +15,8 @@ final class ThinkPhpOAuthCallbackLocator implements OAuthCallbackLocator
     public function locateState(string $provider, string $stateHash): array
     {
         $scene = match ($provider) {
-            ExternalTenantResolver::WECHAT_OFFICIAL_OAUTH => 'oa',
-            ExternalTenantResolver::WECHAT_OPEN_PLATFORM => 'open_pc',
+            ExternalProvider::WECHAT_OFFICIAL_OAUTH => 'oa',
+            ExternalProvider::WECHAT_OPEN_PLATFORM => 'open_pc',
             default => null,
         };
         if ($scene === null) {
@@ -47,9 +48,9 @@ final class ThinkPhpOAuthCallbackLocator implements OAuthCallbackLocator
                 ->whereNull('o.used_at')
                 ->where('o.expires_at', '>=', time())
                 ->whereIn('b.provider', [
-                    ExternalTenantResolver::WECHAT_MINI_PROGRAM,
-                    ExternalTenantResolver::WECHAT_OFFICIAL_OAUTH,
-                    ExternalTenantResolver::WECHAT_OPEN_PLATFORM,
+                    ExternalProvider::WECHAT_MINI_PROGRAM,
+                    ExternalProvider::WECHAT_OFFICIAL_OAUTH,
+                    ExternalProvider::WECHAT_OPEN_PLATFORM,
                 ])
                 ->limit(2)->select()->toArray()
         );

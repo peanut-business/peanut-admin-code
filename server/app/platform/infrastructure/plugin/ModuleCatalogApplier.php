@@ -12,9 +12,12 @@ use PeanutAdmin\Kernel\Menu\MenuCatalogSynchronizer;
 use PeanutAdmin\Kernel\Menu\ThinkPhpMenuCatalogRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
-use PeanutAdmin\Settings\Definition\SettingDefinitionLoader;
-use PeanutAdmin\Settings\Definition\SettingDefinitionRegistry;
-use PeanutAdmin\Settings\Definition\SettingDefinitionSynchronizer;
+use app\modules\official\settings\Definition\SettingDefinitionLoader;
+use app\modules\official\settings\Definition\SettingDefinitionRegistry;
+use app\modules\official\settings\Definition\SettingDefinitionSynchronizer;
+use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetLoader;
+use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetRegistry;
+use app\modules\official\reference_codes\Versioned\Persistence\ReferenceCodeStore;
 use think\facade\Db;
 
 /** The single application entry point for applying, retiring, and purging Module catalog contributions. */
@@ -24,7 +27,7 @@ final readonly class ModuleCatalogApplier
 
     /**
      * @param null|list<string> $moduleKeys Null applies the complete compiled registry; a list applies only that scope.
-     * @return array{operation:string,modules:list<string>,catalog_revision:string,changes:array{menus:int,permissions:int,settings:int}}
+     * @return array{operation:string,modules:list<string>,catalog_revision:string,changes:array{menus:int,permissions:int,settings:int,reference_codes:int}}
      */
     public function apply(CompiledModuleRegistry $registry, ?array $moduleKeys = null): array
     {
@@ -65,10 +68,26 @@ final readonly class ModuleCatalogApplier
                     : [];
                 $settings->registerModule($key, $definitions);
             }
+            $now = new DateTimeImmutable(
+                (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.v'),
+                new DateTimeZone('UTC'),
+            );
             $this->settings->synchronize(
                 $settings,
-                new DateTimeImmutable('now', new DateTimeZone('UTC')),
+                $now,
             );
+
+            $referenceCodes = new ReferenceCodeSetRegistry();
+            $referenceCodeLoader = new ReferenceCodeSetLoader();
+            foreach ($selected as $key => $manifest) {
+                $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : [];
+                $resource = $backend['reference_code_sets'] ?? null;
+                $definitions = is_string($resource)
+                    ? $referenceCodeLoader->load($key, $manifest->root . '/' . ltrim($resource, '/'))
+                    : [];
+                $referenceCodes->registerModule($key, $definitions);
+            }
+            (new ReferenceCodeStore())->synchronize($referenceCodes, $now);
 
             $mutations = new ModuleCatalogMutationRepository();
             $mutations->retireMissing($selected);
@@ -116,6 +135,10 @@ final readonly class ModuleCatalogApplier
             ->field('id,key,module_key,status,manifest_digest')->order('id')->select()->toArray();
         $rows['pa_setting_definition'] = Db::name('setting_definition')
             ->field('id,module_key,setting_key,status,revision,definition_digest')->order('id')->select()->toArray();
+        $rows['pa_reference_code_set'] = self::referenceCodeTableExists()
+            ? Db::name('reference_code_set')
+                ->field('id,module_key,set_key,lifecycle,revision,definition_digest')->order('id')->select()->toArray()
+            : [];
         return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
     }
 
@@ -159,14 +182,23 @@ final readonly class ModuleCatalogApplier
         );
     }
 
-    /** @param list<string> $moduleKeys @return array{menus:int,permissions:int,settings:int} */
+    /** @param list<string> $moduleKeys @return array{menus:int,permissions:int,settings:int,reference_codes:int} */
     private function activeCounts(array $moduleKeys): array
     {
-        if ($moduleKeys === []) return ['menus' => 0, 'permissions' => 0, 'settings' => 0];
+        if ($moduleKeys === []) return ['menus' => 0, 'permissions' => 0, 'settings' => 0, 'reference_codes' => 0];
         $counts = [];
         foreach (['menus' => 'pa_menu_definition', 'permissions' => 'pa_permission', 'settings' => 'pa_setting_definition'] as $name => $table) {
             $counts[$name] = (int)Db::table($table)->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
         }
+        $counts['reference_codes'] = self::referenceCodeTableExists()
+            ? (int)Db::table('pa_reference_code_set')
+                ->whereIn('module_key', $moduleKeys)->where('lifecycle', 'active')->count()
+            : 0;
         return $counts;
+    }
+
+    private static function referenceCodeTableExists(): bool
+    {
+        return Db::query("SHOW TABLES LIKE 'pa_reference_code_set'") !== [];
     }
 }

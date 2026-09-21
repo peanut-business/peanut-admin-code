@@ -4,9 +4,9 @@ declare(strict_types=1);
 namespace app\adminapi\services\auth;
 
 use app\common\exception\BusinessException;
-use app\common\services\FileService;
+use app\modules\official\file\contracts\FileReferences;
 use app\common\services\XlsxExportService;
-use app\common\services\org\AdminDirectoryQuery;
+use app\modules\official\identity\contracts\AdminDirectoryQuery;
 use PeanutAdmin\Kernel\Context\TenantContextRequirement;
 use app\common\runtime\org\TenantAdminRuntime;
 use app\common\support\ExportPageInfo;
@@ -25,7 +25,7 @@ final class AdminApplicationService
         private readonly XlsxExportService $xlsxExport,
         private readonly AdminDirectoryQuery $directory,
         private readonly TenantAdminRuntime $tenantAdmins,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
     ) {}
 
     public function normalizeInput(array $params): array

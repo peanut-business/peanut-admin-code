@@ -9,7 +9,8 @@ use app\common\execution\CurrentExecutionContext;
 use app\modules\official\payment\contracts\PaymentMethod;
 use app\modules\official\payment\contracts\RechargeCommands;
 use app\common\dto\payment\CallbackRequest;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use app\modules\official\integration\contracts\ExternalProvider;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\RequestTrace;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
@@ -23,7 +24,7 @@ class PaymentNotifyController extends BaseApiController
         private readonly RechargeCommands $recharges,
         private readonly ExecutionContextStore $executionContexts,
         private readonly ModuleExecutionBoundary $modules,
-        private readonly ExternalTenantResolver $externalTenants,
+        private readonly ExternalTenantResolutionService $externalTenants,
     )
     {
         parent::__construct($app, $executionContext);
@@ -36,7 +37,7 @@ class PaymentNotifyController extends BaseApiController
                 (array)$this->request->header()
             );
         $resolution = $this->externalTenants->verifiedCallback(
-                ExternalTenantResolver::WECHAT_PAYMENT,
+                ExternalProvider::WECHAT_PAYMENT,
                 (string)$this->request->route('binding'),
                 'payment.settle',
                 $this->operationId(),
@@ -63,7 +64,7 @@ class PaymentNotifyController extends BaseApiController
     {
         $request = new CallbackRequest('', [], $this->request->post());
         $resolution = $this->externalTenants->verifiedCallback(
-                ExternalTenantResolver::ALIPAY_PAYMENT,
+                ExternalProvider::ALIPAY_PAYMENT,
                 (string)$this->request->route('binding'),
                 'payment.settle',
                 $this->operationId(),

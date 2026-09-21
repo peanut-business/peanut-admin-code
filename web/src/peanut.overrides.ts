@@ -1,4 +1,4 @@
-import type { AdminOverride } from '@peanut-admin/admin/core';
+import type { AdminOverride } from '@peanut-admin/vue';
 
 /**
  * 应用对核心前端能力的唯一覆盖入口。

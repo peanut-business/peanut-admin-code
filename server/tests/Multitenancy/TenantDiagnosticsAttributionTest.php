@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
-use PeanutAdmin\OpsConsole\Logs\TenantDiagnosticAttributes;
+use app\modules\official\ops\domain\Logs\TenantDiagnosticAttributes;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 

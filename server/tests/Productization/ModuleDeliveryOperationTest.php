@@ -5,15 +5,16 @@ require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
-use app\platform\service\ops\DeploymentModuleRequestService;
-use app\common\service\audit\AuditContractHost;
-use app\platform\service\ops\ThinkPhpModuleOperationTaskExecutionService;
-use app\platform\service\ops\ThinkPhpMaintenanceWindowStore;
-use app\platform\service\ops\ThinkPhpOpsTaskDispatcher;
-use app\platform\service\ops\PairedBackupProvider;
-use PeanutAdmin\OpsConsole\Task\BackupRestoreProviderRegistry;
-use app\platform\service\ops\PlatformModuleOperationExecutionService;
-use app\platform\service\ops\PlatformOpsPermissionChecker;
+use app\modules\official\ops\services\DeploymentModuleRequestService;
+use app\common\services\audit\AuditContractHost;
+use app\modules\official\ops\infrastructure\ThinkPhpModuleOperationTaskExecutionService;
+use app\modules\official\ops\infrastructure\ThinkPhpMaintenanceWindowStore;
+use app\modules\official\ops\infrastructure\ThinkPhpOpsTaskDispatcher;
+use app\modules\official\ops\infrastructure\PairedBackupProvider;
+use app\modules\official\ops\domain\Task\BackupRestoreProviderRegistry;
+use app\modules\official\identity\identity\query\ThinkPhpPlatformOperatorIdentityQuery;
+use app\modules\official\ops\services\PlatformModuleOperationExecutionService;
+use app\modules\official\ops\infrastructure\authorization\PlatformOpsPermissionChecker;
 use app\platform\service\plugin\PluginPackageArchiveService;
 use app\platform\service\plugin\PluginPackageInstaller;
 use app\platform\service\plugin\PluginRuntimeGovernanceService;
@@ -255,6 +256,7 @@ try {
         $requests,
         new BackupRestoreProviderRegistry([new PairedBackupProvider()]),
         $runtime,
+        new ThinkPhpPlatformOperatorIdentityQuery(),
     );
     $claimed = $executor->claim();
     moduleDeliveryExpect(is_array($claimed) && ($claimed['current_step'] ?? null) === 'preflight', 'Module operation was not claimed');

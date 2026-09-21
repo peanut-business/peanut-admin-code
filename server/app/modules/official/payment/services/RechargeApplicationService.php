@@ -18,7 +18,7 @@ use app\common\execution\CurrentExecutionContext;
 use think\facade\Db;
 use app\common\value\Money;
 use app\common\services\audit\AuditContractHost;
-use app\common\context\external\ExternalTenantContext;
+use app\modules\official\integration\contracts\ExternalTenantContext;
 use app\modules\official\payment\contracts\PaymentChannelGrantCommands;
 use app\modules\official\payment\contracts\RechargeCommands;
 use app\modules\official\payment\contracts\RechargeQueries;

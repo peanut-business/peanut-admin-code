@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "key": "official.reference-codes",
+  "name": "Reference Codes",
+  "description": "Tenant dictionaries, deployment reference values and versioned reference-code definitions.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-reference-codes",
+  "web_package": "@peanut-admin/official-reference-codes",
+  "dependencies": [
+    {"module_key": "official.identity", "version": "4.0.0-dev"}
+  ],
+  "backend": {
+    "provider": "app\\modules\\official\\reference_codes\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json",
+    "reference_code_sets": "resources/reference-code-sets.json"
+  },
+  "frontend": {"entry": "web/src/modules/official-reference-codes/contribution.ts"},
+  "database": {
+    "owned_tables": [
+      "pa_dict_type",
+      "pa_dict_data",
+      "pa_system_dict_type",
+      "pa_system_dict_data",
+      "pa_reference_code_set",
+      "pa_reference_code_entry",
+      "pa_reference_code_entry_version"
+    ]
+  },
+  "contracts": {
+    "exports": [
+      "app\\modules\\official\\reference_codes\\contracts\\DictionaryQuery",
+      "app\\modules\\official\\reference_codes\\contracts\\TenantDictionaryCommands",
+      "app\\modules\\official\\reference_codes\\contracts\\SystemReferenceCodeQuery"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": true,
+    "disable_behavior": "reject_new_operations",
+    "requires": []
+  }
+}

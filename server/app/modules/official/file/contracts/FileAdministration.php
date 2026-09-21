@@ -10,6 +10,8 @@ interface FileAdministration
 {
     public function lists(array $params): PageResult;
 
+    public function imageAssets(array $params): PageResult;
+
     public function move(array $ids, int $cid): void;
 
     public function rename(int $id, string $name): void;

@@ -130,7 +130,8 @@ function pm01ModuleCompiler(string $schemaPath): ModuleRegistryCompiler
         [],
         new ModuleHostLayout('server/tests/Fixtures/PlatformTenantModule', 'Fixture', 'web/src/modules'),
         [...KernelSchema::tableNames(), ...AuthorizationSchema::tableNames(), ...ModuleSchema::tableNames()],
-        ['admin-web', 'platform-web']
+        ['admin-web', 'platform-web'],
+        [...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM],
     );
 }
 

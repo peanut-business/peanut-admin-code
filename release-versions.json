@@ -1,10 +1,53 @@
 {
-  "schema_version": 2,
-  "protocol": "peanut.release-versions.v2",
-  "source_product_version": "3.1.1",
+  "schema_version": 3,
+  "protocol": "peanut.release-versions.v3",
+  "source_product_version": "4.0.0-dev",
   "instance_version": null,
-  "scaffold_template": "3.1.1",
+  "scaffold_template": "4.0.0-dev",
   "generated_instance_default": "0.1.0",
-  "core_php": "3.1.1",
-  "core_web": "3.1.1"
+  "core_php": {
+    "package": "peanut-admin/core",
+    "constraint": "dev-dev#584f3f7033de95ebfd118e4737094cd8d1a06bc2",
+    "resolved_version": "dev-dev",
+    "source_type": "git",
+    "source_url": "https://github.com/peanut-business/peanut-admin-core-php.git",
+    "source_reference": "584f3f7033de95ebfd118e4737094cd8d1a06bc2"
+  },
+  "core_web": {
+    "source_type": "git",
+    "source_url": "https://github.com/peanut-business/peanut-admin-core-web.git",
+    "source_reference": "a8d79f20a5d3fc09cdd678ca48ab2485f8fcbae2",
+    "packages": {
+      "@peanut-admin/client": {
+        "version": "4.0.0-dev.0",
+        "archive": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
+        "sha256": "53be959861a597374a068d6ae999635d9ba8700534ade858b782fa3dfd1594b2"
+      },
+      "@peanut-admin/vue": {
+        "version": "4.0.0-dev.0",
+        "archive": "packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
+        "sha256": "b1a533b40d55e53aa5979b07b4f5e26d98d934c46f3247832a1e0ca0968e4265"
+      },
+      "@peanut-admin/ui-vue": {
+        "version": "4.0.0-dev.0",
+        "archive": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
+        "sha256": "431a557157b968f5e2e7569fc01505d8b083be5d0e5507ab80ebaf43e06d7aac"
+      },
+      "@peanut-admin/nuxt": {
+        "version": "4.0.0-dev.0",
+        "archive": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.0.tgz",
+        "sha256": "e88d678afbc54045a1a42f597085ae50c8149a89a6f035d88b68af1e90a15452"
+      },
+      "@peanut-admin/uniapp": {
+        "version": "4.0.0-dev.0",
+        "archive": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.0.tgz",
+        "sha256": "4a5a686701599f2af0edcbeb95c5ee58a6fac461164afcbe404ec19b54a95e95"
+      },
+      "@peanut-admin/testing": {
+        "version": "4.0.0-dev.0",
+        "archive": "packages/core-web/peanut-admin-testing-4.0.0-dev.0.tgz",
+        "sha256": "10ad9c9ba82e22ab9df3176972cb7858fdc30e145a8a411a7dd0f37f33a2e6d6"
+      }
+    }
+  }
 }

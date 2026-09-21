@@ -15,8 +15,9 @@ use app\common\infrastructure\payment\WechatPayGateway;
 use app\common\infrastructure\payment\WechatRefundGateway;
 use app\common\infrastructure\payment\CurlPaymentTransport;
 use app\common\contract\http\OutboundHttpTransport;
-use app\common\context\external\ExternalTenantContext;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalTenantContext;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use app\modules\official\integration\contracts\ExternalProvider;
 
 /** Peanut 自有支付边界工厂，不承载参考系统的路由或参数兼容。 */
 final class PaymentServiceFactory
@@ -25,7 +26,7 @@ final class PaymentServiceFactory
     private PaymentTransportInterface $transport;
 
     public function __construct(
-        private readonly ExternalTenantResolver $externalTenants,
+        private readonly ExternalTenantResolutionService $externalTenants,
         private readonly OutboundHttpTransport $httpTransport,
         array $config = [],
         ?PaymentTransportInterface $transport = null,
@@ -41,8 +42,8 @@ final class PaymentServiceFactory
         ?PaymentTransportInterface $transport = null,
     ): self {
         $provider = match (strtolower(trim($channel))) {
-            'wechat' => ExternalTenantResolver::WECHAT_PAYMENT,
-            'alipay' => ExternalTenantResolver::ALIPAY_PAYMENT,
+            'wechat' => ExternalProvider::WECHAT_PAYMENT,
+            'alipay' => ExternalProvider::ALIPAY_PAYMENT,
             default => throw new \RuntimeException('支付渠道不受支持'),
         };
         $binding = $this->externalTenants->bindingForTenant(ExternalTenantContext::tenantId($context), $provider);

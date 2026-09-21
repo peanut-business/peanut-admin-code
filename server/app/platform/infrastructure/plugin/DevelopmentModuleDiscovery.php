@@ -5,6 +5,7 @@ namespace app\platform\infrastructure\plugin;
 
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\validation\module\OpisManifestSchemaValidator;
+use app\platform\value\plugin\ModuleFrontendLayout;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
@@ -68,14 +69,21 @@ final readonly class DevelopmentModuleDiscovery
                 throw new PluginLifecycleException('MODULE_PATH_INVALID', 'Development Module key differs from its manifest path.');
             }
             $frontend = is_array($manifest->data['frontend'] ?? null) ? $manifest->data['frontend'] : [];
-            $frontendEntry = $frontend['entry'] ?? null;
-            if ($frontendEntry !== null) {
-                $expectedEntry = $layout->frontendRelativePath($key) . 'contribution.ts';
-                if (!is_string($frontendEntry) || $frontendEntry !== $expectedEntry) {
-                    throw new PluginLifecycleException('MODULE_PACKAGE_FRONTEND_ENTRY_MISMATCH', 'Development Module frontend.entry differs from its key.');
-                }
-                if (!is_file($this->projectRoot . '/' . $expectedEntry)) {
-                    throw new PluginLifecycleException('MODULE_PACKAGE_FRONTEND_ENTRY_MISSING', 'Development Module frontend entry is unavailable.');
+            try {
+                $contributions = ModuleFrontendLayout::contributions($frontend, $key->value());
+            } catch (\InvalidArgumentException $exception) {
+                throw new PluginLifecycleException('MODULE_PACKAGE_FRONTEND_ENTRY_MISMATCH', $exception->getMessage(), 0, $exception);
+            }
+            foreach ($contributions as $contribution) {
+                $entryPath = $this->projectRoot . '/' . $contribution['entry'];
+                $rootPath = $this->projectRoot . '/' . $contribution['root'];
+                if (!is_dir($rootPath) || is_link($rootPath)
+                    || !is_file($entryPath) || is_link($entryPath)
+                    || !is_file($rootPath . '/package.json') || is_link($rootPath . '/package.json')) {
+                    throw new PluginLifecycleException(
+                        'MODULE_PACKAGE_FRONTEND_ENTRY_MISSING',
+                        'Development Module frontend contribution is unavailable: ' . $contribution['client_key'],
+                    );
                 }
             }
             $manifests[$key->value()] = $actualRoot;

@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "9fd1279591688a55f294dee9b8425d930cde93b77dad2592bb2f909d6815329e"
+        "sha256": "ee5f5e45bf9fc60c973a069984a24b05125da569ed13d9f19170be74148474ee"
     },
     "trust": {
         "channel": "bundled",
@@ -50,8 +50,16 @@
                         "reversibility": "verified-backup-required",
                         "files": [
                             {
+                                "key": "official.file:20260823-unify-storage-service",
+                                "sha256": "f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4"
+                            },
+                            {
                                 "key": "official.file:20260826-namespace-permission-keys",
                                 "sha256": "fd7801e514efdde57945b9756e4303ea8685d02f07dfd86e7131b92ca28003f7"
+                            },
+                            {
+                                "key": "official.file:20260921020000_add_file_image_assets",
+                                "sha256": "826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4"
                             }
                         ]
                     }
@@ -63,7 +71,7 @@
         {
             "name": "peanut-business/official-file",
             "version": "1.0.0",
-            "sha256": "f3fc5061ed7a8255cd3ed19c89608d4ebe7c242af9e21b10d95ece719b276068"
+            "sha256": "b2ff82449efe6a22e49bb7156fe0f1558bb1ce5736fda9f6eb2a81cb8ee2795b"
         }
     ],
     "npm": [
@@ -79,7 +87,7 @@
             "package": "@peanut-admin/official-file",
             "version": "1.0.0",
             "entry": "web/src/modules/official-file/contribution.ts",
-            "sha256": "d1e6f282276cf5b0b22f2e92fbc1bd9333d5c4ad244f9aa75568431ec6830bc6"
+            "sha256": "3a5b16fe775dae7f3ead52fd4b5996cce8fa4e9459f7a2a6fb9b8ab5eac487c2"
         }
     ],
     "modules": [

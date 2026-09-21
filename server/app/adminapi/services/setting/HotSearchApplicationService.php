@@ -5,7 +5,7 @@ namespace app\adminapi\services\setting;
 
 use think\facade\Db;
 use app\common\model\setting\HotSearch;
-use app\common\services\config\TenantApplicationSettingService;
+use app\modules\official\settings\services\TenantApplicationSettingService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 /**

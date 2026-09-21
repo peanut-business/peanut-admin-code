@@ -42,7 +42,8 @@ $registry = (new ModuleRegistryCompiler(
     ['fixture.content.page'],
     new ModuleHostLayout('server/tests/Fixtures', 'Fixture', 'web/src/modules'),
     [...KernelSchema::tableNames(), ...AuthorizationSchema::tableNames(), ...ModuleSchema::tableNames()],
-    ['admin-web', 'platform-web']
+    ['admin-web', 'platform-web'],
+        [...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM],
 ))->compile([$document]);
 pm01ModuleHttpExpect($registry->moduleKeys() === ['fixture.content'], 'deployed Module did not compile');
 

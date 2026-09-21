@@ -9,8 +9,26 @@
   "php_package": "peanut-business/official-import-export",
   "web_package": "@peanut-admin/official-import-export",
   "dependencies": [
-    {"module_key": "official.file", "version": "^1.0"},
-    {"module_key": "official.task", "version": "^1.0"}
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.task",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.settings",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.integration",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    }
   ],
   "backend": {
     "provider": "app\\modules\\official\\import_export\\ModuleProvider",
@@ -23,7 +41,10 @@
     "entry": "web/src/modules/official-import-export/contribution.ts"
   },
   "database": {
-    "owned_tables": ["pa_import_export_operation", "pa_import_export_row_error"]
+    "owned_tables": [
+      "pa_import_export_operation",
+      "pa_import_export_row_error"
+    ]
   },
   "contracts": {
     "exports": [
@@ -38,6 +59,11 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": ["official.file", "official.task"]
+    "requires": [
+      "official.file",
+      "official.task",
+      "official.settings",
+      "official.integration"
+    ]
   }
 }

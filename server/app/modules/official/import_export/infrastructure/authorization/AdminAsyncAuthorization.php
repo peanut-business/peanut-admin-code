@@ -6,7 +6,7 @@ namespace app\modules\official\import_export\infrastructure\authorization;
 use DateTimeImmutable;
 use DateTimeZone;
 use app\common\services\authorization\AdminAuthorizationService;
-use PeanutAdmin\ImportExport\Application\ImportExportService;
+use app\modules\official\import_export\engine\Application\ImportExportService;
 use PeanutAdmin\Kernel\Async\AsyncAuthorizationRevalidator;
 use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
 use PeanutAdmin\Kernel\Auth\AuthException;

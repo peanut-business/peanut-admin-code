@@ -30,13 +30,14 @@ final class TenantModuleProfile extends ModuleContextualCommand
             if (!is_array($config)) {
                 throw new \RuntimeException('MODULE_REGISTRY_UNAVAILABLE');
             }
+            $governance = new ThinkPhpModuleGovernanceProvider(
+                dirname(__DIR__, 2),
+                $config,
+                $this->moduleCatalogs(),
+            );
             $result = (new ProductTenantModuleProfileService(
-                new ThinkPhpModuleRuntimeRepository(true),
-                new ThinkPhpModuleGovernanceProvider(
-                    dirname(__DIR__, 2),
-                    $config,
-                    $this->moduleCatalogs(),
-                ),
+                new ThinkPhpModuleRuntimeRepository($governance->registry()->compiled(), true),
+                $governance,
                 app(AuditContractHost::class),
             ))->apply(trim((string)$input->getArgument('profile')));
             $output->writeln((string)json_encode(

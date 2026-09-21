@@ -5,10 +5,11 @@ namespace app\modules\official\payment\infrastructure;
 
 use app\modules\official\payment\model\PaymentScene;
 use app\modules\official\payment\model\PaymentTenantChannelGrant;
-use app\common\context\external\ExternalTenantContext;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBinding;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBindingRepository;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalTenantContext;
+use app\modules\official\integration\contracts\ExternalTenantBinding;
+use app\modules\official\integration\contracts\ExternalTenantBindingRepository;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use app\modules\official\integration\contracts\ExternalProvider;
 use app\common\tenancy\PlatformTenantDataGateway;
 use app\modules\official\payment\contracts\PaymentChannelGrantCommands;
 use think\facade\Db;
@@ -23,8 +24,8 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
     public function providerForPayWay(int $payWay): string
     {
         return match ($payWay) {
-            PaymentScene::PAY_WAY_WECHAT => ExternalTenantResolver::WECHAT_PAYMENT,
-            PaymentScene::PAY_WAY_ALIPAY => ExternalTenantResolver::ALIPAY_PAYMENT,
+            PaymentScene::PAY_WAY_WECHAT => ExternalProvider::WECHAT_PAYMENT,
+            PaymentScene::PAY_WAY_ALIPAY => ExternalProvider::ALIPAY_PAYMENT,
             default => throw new \runtimeException('支付渠道不受支持'),
         };
     }

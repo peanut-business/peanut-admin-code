@@ -2,11 +2,11 @@ import {
   createAdminOverrideRegistry,
   permissionEvaluatorSlot,
   PERMISSION_EVALUATOR_OVERRIDE_KEY,
-} from '@peanut-admin/admin/core';
+} from '@peanut-admin/vue';
 import PEANUT_ADMIN_OVERRIDES from '@/peanut.overrides';
 
-export { PERMISSION_EVALUATOR_OVERRIDE_KEY } from '@peanut-admin/admin/core';
-export type { PermissionEvaluator } from '@peanut-admin/admin/core';
+export { PERMISSION_EVALUATOR_OVERRIDE_KEY } from '@peanut-admin/vue';
+export type { PermissionEvaluator } from '@peanut-admin/vue';
 
 const registry = createAdminOverrideRegistry({
   slots: [permissionEvaluatorSlot] as const,

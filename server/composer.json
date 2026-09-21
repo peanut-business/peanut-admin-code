@@ -32,19 +32,42 @@
         "qiniu/php-sdk": "^7.4",
         "aliyuncs/oss-sdk-php": "^2.4",
         "qcloud/cos-sdk-v5": "^2.5",
-        "peanut-admin/core": "dev-dev#cc66dbf06415d7d7b0e4e5aff6920b89cee4c57c",
+        "peanut-admin/core": "dev-dev#584f3f7033de95ebfd118e4737094cd8d1a06bc2",
         "symfony/html-sanitizer": "^7.3",
         "composer/semver": "^3.4",
         "opis/json-schema": "^2.6"
     },
     "require-dev": {
+        "phpunit/phpunit": "12.5.31",
         "topthink/think-dumper": "^1.0",
         "topthink/think-trace": "^2.0"
     },
     "autoload": {
         "psr-4": {
-            "app\\": "app"
-        }
+            "app\\": "app",
+            "PeanutAdmin\\ArtifactRevision\\": [
+                "app/modules/peanut/artifact_revision/src/"
+            ],
+            "PeanutAdmin\\DataPermission\\": [
+                "app/modules/official/identity/access/data-permission/"
+            ],
+            "PeanutAdmin\\EntitlementQuota\\": [
+                "app/modules/peanut/entitlement_quota/src/"
+            ],
+            "PeanutAdmin\\Kernel\\": [
+                "app/modules/official/identity/access/kernel/",
+                "app/modules/official/identity/audit/kernel/",
+                "app/modules/official/identity/identity/kernel/",
+                "app/modules/official/identity/organization/kernel/",
+                "app/modules/official/identity/tenancy/kernel/"
+            ],
+            "PeanutAdmin\\Workflow\\": [
+                "app/modules/peanut/workflow/src/"
+            ]
+        },
+        "classmap": [
+            "database/schema/"
+        ]
     },
     "config": {
         "preferred-install": "dist"
@@ -53,6 +76,23 @@
         "post-autoload-dump": [
             "@php think service:discover",
             "@php think vendor:publish"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PeanutAdmin\\Testing\\": [
+                "tests/CoreIntegration/testing/src/",
+                "vendor/peanut-admin/core/testing/src/"
+            ]
+        },
+        "classmap": [
+            "tests/CoreIntegration/",
+            "tests/Modules/",
+            "vendor/peanut-admin/core/kernel/tests/",
+            "vendor/peanut-admin/core/data-permission/tests/"
+        ],
+        "files": [
+            "tests/Support/ThinkPhpTestConnection.php"
         ]
     }
 }

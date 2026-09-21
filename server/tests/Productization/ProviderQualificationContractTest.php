@@ -8,8 +8,8 @@ use app\platform\service\provider\ProviderQualificationContributor;
 use app\platform\service\provider\ProviderQualificationEvidenceRepository;
 use app\platform\service\provider\ProviderQualificationSubject;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\OpsConsole\Application\OpsConsoleException;
-use PeanutAdmin\OpsConsole\Application\PlatformPermissionChecker;
+use app\modules\official\ops\domain\Application\OpsConsoleException;
+use app\modules\official\ops\domain\Application\PlatformPermissionChecker;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 $providerSource = dirname(__DIR__, 2) . '/app/platform/service/provider/';

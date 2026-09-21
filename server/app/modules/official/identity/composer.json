@@ -1,0 +1,24 @@
+{
+  "name": "peanut-business/official-identity",
+  "description": "Peanut Admin protected identity and access management module",
+  "type": "library",
+  "license": "Apache-2.0",
+  "require": {
+    "php": "^8.3",
+    "peanut-admin/core": "dev-dev"
+  },
+  "autoload": {
+    "psr-4": {
+      "app\\modules\\official\\identity\\": "./"
+    },
+    "classmap": [
+      "identity/kernel/",
+      "organization/kernel/",
+      "access/kernel/",
+      "access/data-permission/",
+      "tenancy/kernel/",
+      "audit/kernel/"
+    ]
+  },
+  "version": "4.0.0-dev"
+}

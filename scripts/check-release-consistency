@@ -99,8 +99,8 @@ const gitSucceeds = (command) => {
 }
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
 const versionCompare = (left, right) => {
-  const leftParts = left.split('.').map(Number)
-  const rightParts = right.split('.').map(Number)
+  const leftParts = left.split('-', 1)[0].split('.').map(Number)
+  const rightParts = right.split('-', 1)[0].split('.').map(Number)
   for (let index = 0; index < 3; index += 1) {
     if (leftParts[index] !== rightParts[index]) return leftParts[index] - rightParts[index]
   }
@@ -126,12 +126,28 @@ if (options.staticOnly && options.editionManifests.length === 0 && !options.rele
   const target = versions.source_product_version ?? ''
   const baseline = metadata.source_product_version ?? ''
   const stableVersion = /^\d+\.\d+\.\d+$/
-  if (versions.schema_version !== 2 || versions.protocol !== 'peanut.release-versions.v2'
-    || !stableVersion.test(target)
+  const strictSemver = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+  const currentV3 = versions.schema_version === 3 && versions.protocol === 'peanut.release-versions.v3'
+  const expectedWebPackages = ['@peanut-admin/client', '@peanut-admin/vue', '@peanut-admin/ui-vue', '@peanut-admin/nuxt', '@peanut-admin/uniapp', '@peanut-admin/testing']
+  const webPackages = versions.core_web?.packages ?? {}
+  const phpIdentity = versions.core_php ?? {}
+  if (!currentV3 || !strictSemver.test(target)
     || versions.instance_version !== null
     || versions.scaffold_template !== target
-    || versions.core_php !== target
-    || versions.core_web !== target) {
+    || phpIdentity.package !== 'peanut-admin/core'
+    || !/^dev-[A-Za-z0-9._-]+#[0-9a-f]{40}$/.test(phpIdentity.constraint ?? '')
+    || !/^dev-/.test(phpIdentity.resolved_version ?? '')
+    || phpIdentity.source_type !== 'git'
+    || !/^https:\/\//.test(phpIdentity.source_url ?? '')
+    || !/^[0-9a-f]{40}$/.test(phpIdentity.source_reference ?? '')
+    || !phpIdentity.constraint.endsWith(`#${phpIdentity.source_reference}`)
+    || JSON.stringify(Object.keys(webPackages)) !== JSON.stringify(expectedWebPackages)
+    || versions.core_web?.source_type !== 'git'
+    || !/^https:\/\//.test(versions.core_web?.source_url ?? '')
+    || !/^[0-9a-f]{40}$/.test(versions.core_web?.source_reference ?? '')
+    || Object.values(webPackages).some((identity) => !strictSemver.test(identity?.version ?? '')
+      || !/^packages\/core-web\/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$/.test(identity?.archive ?? '')
+      || !/^[0-9a-f]{64}$/.test(identity?.sha256 ?? ''))) {
     developmentFailures.push('development version contract is invalid')
   }
   if (metadata.schema_version !== 2 || metadata.protocol !== 'peanut.release-metadata.v2'
@@ -140,36 +156,31 @@ if (options.staticOnly && options.editionManifests.length === 0 && !options.rele
     developmentFailures.push('published release metadata is invalid or newer than the development target')
   }
 
-  const sourceVersions = {
-    composer: readJson('server/composer.json')?.require?.['peanut-admin/core'] ?? '',
-    ...Object.fromEntries(['web', 'platform', 'pc', 'uniapp'].map((client) => {
-      const manifest = readJson(`${client}/package.json`)
-      return [client, `${manifest.version ?? ''}|${manifest.dependencies?.['@peanut-admin/admin'] ?? ''}`]
-    })),
+  const sourceVersions = { composer: readJson('server/composer.json')?.require?.['peanut-admin/core'] ?? '' }
+  const requiredByClient = {
+    web: ['@peanut-admin/vue', '@peanut-admin/ui-vue'], platform: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
+    pc: ['@peanut-admin/client', '@peanut-admin/nuxt'], uniapp: ['@peanut-admin/client', '@peanut-admin/uniapp'],
   }
-  if (sourceVersions.composer !== target
-    || Object.values(sourceVersions).slice(1).some((identity) => identity !== `${target}|${target}`)) {
-    developmentFailures.push('development source manifests do not name the target product/Core version')
+  if (sourceVersions.composer !== phpIdentity.constraint) developmentFailures.push('Composer source manifest does not name the fixed PHP Core candidate')
+  for (const [client, packages] of Object.entries(requiredByClient)) {
+    const dependencies = readJson(`${client}/package.json`)?.dependencies ?? {}
+    if (packages.some((name) => dependencies[name] !== `file:../${webPackages[name]?.archive}`)) {
+      developmentFailures.push(`${client} does not declare its independent Core Web package identities`)
+    }
   }
 
   const composerLock = readJson('server/composer.lock')
-  const locked = {
-    composer: composerLock?.packages?.find((pkg) => pkg?.name === 'peanut-admin/core')?.version ?? '',
+  const lockedPhp = composerLock?.packages?.find((pkg) => pkg?.name === 'peanut-admin/core')
+  if (lockedPhp?.version !== phpIdentity.resolved_version || lockedPhp?.source?.type !== phpIdentity.source_type
+    || lockedPhp?.source?.url !== phpIdentity.source_url || lockedPhp?.source?.reference !== phpIdentity.source_reference) {
+    developmentFailures.push('Composer lock does not match the fixed PHP Core candidate')
   }
-  const webLock = readFileSync('web/pnpm-lock.yaml', 'utf8')
-    .match(/      '@peanut-admin\/admin':\n        specifier: ([^\n]+)\n        version: ([^\n(]+)/)
-  locked.web = webLock?.[2] ?? ''
-  for (const client of ['platform', 'pc', 'uniapp']) {
-    locked[client] = readJson(`${client}/package-lock.json`)
-      ?.packages?.['node_modules/@peanut-admin/admin']?.version ?? ''
+  for (const [name, identity] of Object.entries(webPackages)) {
+    try {
+      if (sha256(readFileSync(identity.archive)) !== identity.sha256) developmentFailures.push(`${name} candidate archive hash differs from release-versions.json`)
+    } catch (error) { developmentFailures.push(`${name} candidate archive is unreadable: ${error.message}`) }
   }
-  for (const [consumer, lockedVersion] of Object.entries(locked)) {
-    if (!stableVersion.test(lockedVersion) || versionCompare(lockedVersion, target) > 0) {
-      developmentFailures.push(`${consumer} Core lock is invalid for development target ${target}: ${lockedVersion || 'missing'}`)
-    } else if (lockedVersion !== target) {
-      pending.push(`${consumer} Core lock ${lockedVersion} -> ${target} after the real Core package is published`)
-    }
-  }
+  pending.push('four clean client installs and builds must qualify the fixed Core Web candidate tarballs')
   if (baseline !== target) pending.push(`release metadata ${baseline} -> ${target} during candidate sealing`)
   if (inventory.template_version !== target) pending.push(`application inventory -> ${target}`)
   if (fixture.target_release?.version !== target) pending.push(`P0-E fixture -> ${target}`)

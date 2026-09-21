@@ -34,17 +34,13 @@ if (preg_match('/^[a-f0-9]{40}$/D',$options['source-commit'])!==1 || !str_starts
 // not be rejected merely because the current template version is newer.
 if (!$check) {
     try {
-        $contract = json_decode((string)file_get_contents($root.'/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+        $contract = json_decode((string)file_get_contents($root . '/release-versions.json'), true, 64, JSON_THROW_ON_ERROR);
         $expected = $parser->normalize((string)($contract['source_product_version'] ?? ''));
-        if (($contract['schema_version'] ?? null) !== 2
-            || ($contract['protocol'] ?? null) !== 'peanut.release-versions.v2'
+        if (($contract['schema_version'] ?? null) !== 3
+            || ($contract['protocol'] ?? null) !== 'peanut.release-versions.v3'
             || !array_key_exists('instance_version', $contract)
             || $contract['instance_version'] !== null
             || ($contract['scaffold_template'] ?? null) !== ($contract['source_product_version'] ?? null)
-            || ($contract['core_php'] ?? null) !== ($contract['source_product_version'] ?? null)
-            || ($contract['core_web'] ?? null) !== ($contract['source_product_version'] ?? null)
-            || !is_string($contract['generated_instance_default'] ?? null)
-            || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $contract['generated_instance_default']) !== 1
             || !\Composer\Semver\Comparator::equalTo($actual, $expected)) {
             releaseUsage();
         }

@@ -9,7 +9,7 @@ use RuntimeException;
 
 final class EditionUpgradePackage
 {
-    private const VERSION = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D';
+    private const VERSION = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
     public const OWNERSHIP_ADOPTION_PATHS = [
         'server/app/AppService.php',
         'server/app/common/contract/module/ModuleGovernanceProvider.php',
@@ -20,7 +20,7 @@ final class EditionUpgradePackage
         'server/app/common/persistence/AdvisoryLockExecution.php',
         'server/app/common/persistence/AdvisoryLockUnavailable.php',
         'server/app/common/persistence/TenantPersistenceConfiguration.php',
-        'server/app/platform/service/module/ThinkPhpModuleGovernanceProvider.php',
+        'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
         'server/app/platform/infrastructure/module/DeployedTenantModuleRegistry.php',
         'server/app/platform/services/module/ModuleQualificationQueryService.php',
         'server/app/platform/validation/module/OpisManifestSchemaValidator.php',

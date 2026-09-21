@@ -11,7 +11,7 @@ use app\common\execution\SystemExecutionMetadata;
 use app\common\services\CrontabCommandService;
 use app\modules\official\task\model\Crontab;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\common\services\org\AdminDirectoryQuery;
+use app\modules\official\identity\contracts\AdminDirectoryQuery;
 use app\modules\official\task\contracts\TaskWorkerDefinition;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -24,11 +24,11 @@ use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Tenancy\ScheduledTenantContext;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
-use PeanutAdmin\TaskJob\Execution\JobExecution;
-use PeanutAdmin\TaskJob\Execution\RetryableTaskException;
-use PeanutAdmin\TaskJob\Execution\TaskHandler;
-use PeanutAdmin\TaskJob\Submission\TaskSubmission;
-use PeanutAdmin\TaskJob\Submission\TaskSubmissionProvider;
+use app\modules\official\task\contracts\JobExecution;
+use app\modules\official\task\contracts\RetryableTaskException;
+use app\modules\official\task\contracts\TaskHandler;
+use app\modules\official\task\contracts\TaskSubmission;
+use app\modules\official\task\contracts\TaskSubmissionProvider;
 
 /** The built-in Task definition for one claimed Crontab schedule window. */
 final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerDefinition, TaskHandler
@@ -122,6 +122,7 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
 
     public function handle(AuthorizedOperationContext $context, JobExecution $execution): void
     {
+        $execution->checkpoint();
         $scheduleId = self::positiveInt($execution->payload['schedule_id'] ?? null, 'CRONTAB_TASK_INVALID');
         $contextIdentity = trim((string)($execution->payload['context_identity'] ?? ''));
         self::assertContextIdentity($contextIdentity, $context->tenantContext->tenantId, $scheduleId);
@@ -158,6 +159,7 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
                 }
             });
         });
+        $execution->assertLeaseOwned();
     }
 
     private function authorizedContext(

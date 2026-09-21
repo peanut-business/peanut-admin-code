@@ -91,7 +91,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Delivers a ready Tenant-owned public or private file only while its Tenant is active. The signed application URL is short-lived, every request rechecks Tenant state, responses are no-store, and direct local or Provider object URLs are not part of the delivery contract. */
+        /** @description Delivers a ready Tenant-owned public or private file only while its Tenant is active. The application URL carries a short-lived single-use token, so links issued under the previous expires/signature contract are invalid. Every request rechecks Tenant state, responses are no-store, direct local or Provider object URLs are not part of the delivery contract, and existing file_key identities are unchanged. */
         get: operations["deliverTenantFile"];
         put?: never;
         post?: never;
@@ -117,7 +117,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/sms/send": {
+    "/api/sms/sendCode": {
         parameters: {
             query?: never;
             header?: never;
@@ -405,6 +405,439 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/api/v1/files/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listFileAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/import-export/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listImportExportOperations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/import-export/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitImportOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/import-export/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitExportOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/import-export/operations/{operationKey}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelImportExportOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/files/{fileKey}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadImportExportResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/machine-identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listIntegrationMachines"];
+        put?: never;
+        post: operations["createIntegrationMachine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/machine-identities/{identityKey}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotateIntegrationMachine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/machine-identities/{identityKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeIntegrationMachine"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listIntegrationWebhooks"];
+        put?: never;
+        post: operations["createIntegrationWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/webhooks/{endpointKey}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rotateIntegrationWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/webhooks/{endpointKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["disableIntegrationWebhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listIntegrationDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/deliveries/{deliveryKey}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listIntegrationDeliveryAttempts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listIntegrationSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/integration-security/sessions/{sessionKey}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeIntegrationSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listInboxNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/notifications/{messageKey}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markInboxNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/notifications/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkUpdateInboxNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/reference-code-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listReferenceCodeSets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/reference-code-sets/{moduleKey}/{setKey}/codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listReferenceCodes"];
+        put?: never;
+        post: operations["createReferenceCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/reference-code-sets/{moduleKey}/{setKey}/codes/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getReferenceCode"];
+        put: operations["replaceReferenceCode"];
+        post?: never;
+        delete: operations["retireReferenceCode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listModuleSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/settings/{moduleKey}/{settingKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Create requires If-None-Match: *; replacement requires a strong If-Match. Exactly one precondition is accepted. */
+        put: operations["replaceModuleSetting"];
+        post?: never;
+        delete: operations["unsetModuleSetting"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/tasks/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTaskJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/tasks/jobs/{jobKey}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelTaskJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/tasks/jobs/{jobKey}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retryTaskJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -443,7 +876,7 @@ export interface components {
         ConfigurationTransferRequest: {
             package: components["schemas"]["ConfigurationTransferPackage"] | string;
             secret_bindings: {
-                [key: string]: unknown;
+                [key: string]: string;
             };
             /** @enum {string} */
             conflict_policy: "abort" | "overwrite" | "skip";
@@ -477,7 +910,7 @@ export interface components {
         ConfigurationTransferEntry: {
             adapter: string;
             key: string;
-            value: unknown;
+            value: components["schemas"]["JsonValue"];
             secrets: components["schemas"]["ConfigurationTransferSecret"][];
         };
         ConfigurationTransferSecret: {
@@ -604,9 +1037,418 @@ export interface components {
             code?: number;
             show?: boolean;
             msg?: string;
-            data?: unknown;
+            data?: components["schemas"]["JsonValue"];
         } & {
             [key: string]: unknown;
+        };
+        /** @description JSON-compatible response or configuration value. */
+        JsonValue: (string | number | boolean | {
+            [key: string]: unknown;
+        } | (string | number | boolean | {
+            [key: string]: unknown;
+        })[]) | null;
+        FileImageVariant: {
+            variant_key: string;
+            file_key: string;
+            width: number;
+            height: number;
+            /** @enum {string} */
+            media_type: "image/jpeg" | "image/png";
+            delivery_uri: string | null;
+        };
+        FileAssetCandidate: {
+            id: number;
+            file_key: string;
+            original_name: string;
+            media_type: string;
+            width: number | null;
+            height: number | null;
+            preview_uri: string | null;
+            variants: components["schemas"]["FileImageVariant"][];
+        };
+        FileAssetListResponse: {
+            data: {
+                items: components["schemas"]["FileAssetCandidate"][];
+            };
+            meta: {
+                request_id: string;
+                page: number;
+                page_size: number;
+                total: number;
+            };
+        };
+        ImportExportOperation: {
+            operation_key: string;
+            provider_key: string;
+            /** @enum {string} */
+            direction: "import" | "export";
+            /** @enum {string} */
+            format: "csv";
+            /** @enum {string} */
+            status: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "cancelled" | "expired";
+            input_file_key: string | null;
+            result_file_key: string | null;
+            error_file_key: string | null;
+            task_job_key: string | null;
+            schema_revision: string;
+            mapping: {
+                [key: string]: string;
+            };
+            processed_rows: number;
+            accepted_rows: number;
+            rejected_rows: number;
+            total_rows: number;
+            revision: number;
+            last_error_code: string | null;
+            /** Format: date-time */
+            retention_until: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+        };
+        ImportOperationRequest: {
+            provider_key: string;
+            file_key: string;
+            mapping: {
+                [key: string]: string;
+            };
+        };
+        ExportOperationRequest: {
+            provider_key: string;
+        };
+        ImportExportMeta: {
+            request_id: string;
+        };
+        ImportExportOperationResponse: {
+            data: components["schemas"]["ImportExportOperation"];
+            meta: components["schemas"]["ImportExportMeta"];
+        };
+        ImportExportOperationListResponse: {
+            data: {
+                items: components["schemas"]["ImportExportOperation"][];
+            };
+            meta: components["schemas"]["ImportExportMeta"] & {
+                page: number;
+                page_size: number;
+                total: number;
+            };
+        };
+        IntegrationRequestMeta: {
+            request_id: string;
+        } & {
+            [key: string]: unknown;
+        };
+        IntegrationMachine: {
+            identity_key: string;
+            name: string;
+            scopes: string[];
+            /** @enum {string} */
+            status: "active" | "rotated" | "revoked";
+            token_prefix: string;
+            token_last_four: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: date-time */
+            last_used_at: string | null;
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        IntegrationWebhook: {
+            endpoint_key: string;
+            name: string;
+            /** Format: uri */
+            url: string;
+            events: string[];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        IntegrationSession: {
+            session_key: string;
+            client_key: string;
+            status: string;
+            current: boolean;
+            masked_ip: string | null;
+            user_agent_fingerprint: string | null;
+            /** Format: date-time */
+            issued_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            absolute_expires_at: string;
+            /** Format: date-time */
+            revoked_at: string | null;
+        };
+        IntegrationDelivery: {
+            [key: string]: unknown;
+        };
+        IntegrationAttempt: {
+            [key: string]: unknown;
+        };
+        IntegrationMachineResponse: {
+            data: components["schemas"]["IntegrationMachine"];
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationWebhookResponse: {
+            data: components["schemas"]["IntegrationWebhook"];
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationSessionResponse: {
+            data: components["schemas"]["IntegrationSession"];
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationMachineListResponse: {
+            data: {
+                items: components["schemas"]["IntegrationMachine"][];
+            };
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationWebhookListResponse: {
+            data: {
+                items: components["schemas"]["IntegrationWebhook"][];
+            };
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationSessionListResponse: {
+            data: {
+                items: components["schemas"]["IntegrationSession"][];
+            };
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationProvisionedMachineResponse: {
+            data: {
+                identity: components["schemas"]["IntegrationMachine"];
+                token: string;
+            };
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationProvisionedWebhookResponse: {
+            data: {
+                endpoint: components["schemas"]["IntegrationWebhook"];
+                signing_secret: string;
+            };
+            meta: components["schemas"]["IntegrationRequestMeta"];
+        };
+        IntegrationDeliveryListResponse: {
+            data: {
+                items: components["schemas"]["IntegrationDelivery"][];
+            };
+            meta: components["schemas"]["IntegrationRequestMeta"] & {
+                page: number;
+                page_size: number;
+                total: number;
+            };
+        };
+        IntegrationAttemptListResponse: {
+            data: {
+                items: components["schemas"]["IntegrationAttempt"][];
+            };
+            meta: components["schemas"]["IntegrationRequestMeta"] & {
+                page: number;
+                page_size: number;
+                total: number;
+            };
+        };
+        NotificationAttachment: {
+            file_key: string;
+            original_name: string;
+            media_type: string;
+            size_bytes: number;
+            sha256: string;
+        };
+        NotificationMessage: {
+            message_key: string;
+            template_key: string;
+            template_revision: number;
+            subject: string;
+            body: string;
+            /** @enum {string} */
+            status: "unread" | "read" | "archived";
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            read_at: string | null;
+            /** Format: date-time */
+            archived_at: string | null;
+            attachments: components["schemas"]["NotificationAttachment"][];
+        };
+        NotificationMeta: {
+            request_id: string;
+        };
+        NotificationResponse: {
+            data: components["schemas"]["NotificationMessage"];
+            meta: components["schemas"]["NotificationMeta"];
+        };
+        NotificationListResponse: {
+            data: {
+                items: components["schemas"]["NotificationMessage"][];
+            };
+            meta: components["schemas"]["NotificationMeta"] & {
+                page: number;
+                page_size: number;
+                total: number;
+            };
+        };
+        NotificationBulkResponse: {
+            data: {
+                changed: number;
+            };
+            meta: components["schemas"]["NotificationMeta"];
+        };
+        ReferenceCodeMetadata: {
+            [key: string]: (string | null) | number | boolean;
+        };
+        ReferenceCodeVersionRequest: {
+            label: string;
+            metadata: components["schemas"]["ReferenceCodeMetadata"];
+            /** @enum {string} */
+            status: "active" | "inactive";
+            sort_order: number;
+            /** Format: date-time */
+            effective_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+        };
+        ReferenceCodeCreateRequest: components["schemas"]["ReferenceCodeVersionRequest"] & {
+            code: string;
+        };
+        ReferenceCodeSetSummary: {
+            module_key: string;
+            set_key: string;
+            name: string;
+            description: string;
+            definition_revision: number;
+        };
+        ReferenceCodeEffectiveVersion: {
+            revision: number;
+            label: string;
+            metadata: components["schemas"]["ReferenceCodeMetadata"];
+            /** @enum {string} */
+            status: "active" | "inactive";
+            sort_order: number;
+            /** Format: date-time */
+            effective_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
+        };
+        ReferenceCodeEntry: {
+            module_key: string;
+            set_key: string;
+            code: string;
+            /** @enum {string} */
+            lifecycle: "active" | "retired";
+            revision: number;
+            etag: string;
+            effective: components["schemas"]["ReferenceCodeEffectiveVersion"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            retired_at: string | null;
+        };
+        ReferenceCodeMeta: {
+            request_id: string;
+        };
+        ReferenceCodeSetsResponse: {
+            data: {
+                items: components["schemas"]["ReferenceCodeSetSummary"][];
+            };
+            meta: components["schemas"]["ReferenceCodeMeta"];
+        };
+        ReferenceCodeEntryResponse: {
+            data: components["schemas"]["ReferenceCodeEntry"];
+            meta: components["schemas"]["ReferenceCodeMeta"];
+        };
+        ReferenceCodeListResponse: {
+            data: {
+                items: components["schemas"]["ReferenceCodeEntry"][];
+                /** Format: date-time */
+                as_of: string;
+                page: number;
+                page_size: number;
+                total: number;
+            };
+            meta: components["schemas"]["ReferenceCodeMeta"];
+        };
+        SettingValue: (string | number | boolean | {
+            [key: string]: components["schemas"]["SettingValue"];
+        } | components["schemas"]["SettingValue"][]) | null;
+        SettingSchema: {
+            type: ("array" | "boolean" | "integer" | "null" | "number" | "object" | "string") | ("array" | "boolean" | "integer" | "null" | "number" | "object" | "string")[];
+        } & {
+            [key: string]: unknown;
+        };
+        SettingRecord: {
+            module_key: string;
+            setting_key: string;
+            name: string;
+            description: string;
+            schema: components["schemas"]["SettingSchema"];
+            required: boolean;
+            secret: boolean;
+            configured: boolean;
+            /** @enum {string|null} */
+            source_scope: "deployment" | "tenant" | "default" | null;
+            value?: components["schemas"]["SettingValue"];
+            /** Format: date-time */
+            effective_at: string | null;
+            /** Format: date-time */
+            expires_at: string | null;
+            revision: string;
+            etag: string | null;
+        };
+        SettingsListResponse: {
+            data: {
+                items: components["schemas"]["SettingRecord"][];
+            };
+            request_id: string;
+        };
+        SettingRecordResponseBody: {
+            data: components["schemas"]["SettingRecord"];
+            request_id: string;
+        };
+        TaskJob: {
+            job_key: string;
+            task_type: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "dead" | "cancelled";
+            attempt_count: number;
+            max_attempts: number;
+            revision: number;
+            last_error_code: string | null;
+            /** Format: date-time */
+            available_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+        };
+        TaskJobResponse: {
+            data: components["schemas"]["TaskJob"];
+            meta: components["schemas"]["TaskRequestMeta"];
+        };
+        TaskJobListResponse: {
+            data: {
+                items: components["schemas"]["TaskJob"][];
+            };
+            meta: components["schemas"]["TaskRequestMeta"] & {
+                page: number;
+                page_size: number;
+                total: number;
+            };
+        };
+        TaskRequestMeta: {
+            request_id: string;
         };
     };
     responses: {
@@ -617,6 +1459,16 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ApiResponse"];
+            };
+        };
+        /** @description Updated tenant setting with the resulting strong ETag. */
+        SettingRecordResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["SettingRecordResponseBody"];
             };
         };
     };
@@ -719,8 +1571,7 @@ export interface operations {
             query: {
                 tenant_id: number;
                 file_key: string;
-                expires: number;
-                signature: string;
+                token: string;
             };
             header?: never;
             path?: never;
@@ -1119,6 +1970,1009 @@ export interface operations {
             401: components["responses"]["ApiResponse"];
             403: components["responses"]["ApiResponse"];
             404: components["responses"]["ApiResponse"];
+        };
+    };
+    listFileAssets: {
+        parameters: {
+            query?: {
+                cid?: number;
+                name?: string;
+                source?: 0 | 1;
+                page_no?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canonical Tenant image assets and derivatives. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileAssetListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    listImportExportOperations: {
+        parameters: {
+            query?: {
+                status?: "queued" | "running" | "cancel_requested" | "succeeded" | "failed" | "cancelled" | "expired";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful import/export response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportExportOperationListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    submitImportOperation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportOperationRequest"];
+            };
+        };
+        responses: {
+            /** @description Import operation accepted. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportExportOperationResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    submitExportOperation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportOperationRequest"];
+            };
+        };
+        responses: {
+            /** @description Export operation accepted. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportExportOperationResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    cancelImportExportOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                operationKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful import/export response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportExportOperationResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    downloadImportExportResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fileKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the short-lived tenant-scoped download URL. */
+            302: {
+                headers: {
+                    Location: string;
+                    "Cache-Control": "no-store";
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    listIntegrationMachines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationMachineListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    createIntegrationMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    scopes: string[];
+                    /** Format: date-time */
+                    expires_at?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful integration response. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationProvisionedMachineResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    rotateIntegrationMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identityKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationProvisionedMachineResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    revokeIntegrationMachine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identityKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationMachineResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    listIntegrationWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationWebhookListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+        };
+    };
+    createIntegrationWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uri */
+                    url: string;
+                    events: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful integration response. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationProvisionedWebhookResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    rotateIntegrationWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpointKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationProvisionedWebhookResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    disableIntegrationWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                endpointKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationWebhookResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    listIntegrationDeliveries: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationDeliveryListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    listIntegrationDeliveryAttempts: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                deliveryKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationAttemptListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    listIntegrationSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationSessionListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+        };
+    };
+    revokeIntegrationSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Successful integration response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationSessionResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    listInboxNotifications: {
+        parameters: {
+            query?: {
+                status?: "all" | "unread" | "read" | "archived";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    markInboxNotificationRead: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                messageKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    bulkUpdateInboxNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    message_keys: string[];
+                    /** @enum {string} */
+                    action: "read" | "archive";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationBulkResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    listReferenceCodeSets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registered reference-code sets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeSetsResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+        };
+    };
+    listReferenceCodes: {
+        parameters: {
+            query: {
+                as_of: string;
+                effective_status: "active" | "inactive" | "all";
+                include_retired: boolean;
+                page: number;
+                page_size: number;
+            };
+            header?: never;
+            path: {
+                moduleKey: string;
+                setKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reference-code snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    createReferenceCode: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "If-None-Match": "*";
+            };
+            path: {
+                moduleKey: string;
+                setKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Reference-code entry and strong ETag. */
+            200: {
+                headers: {
+                    ETag: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            412: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            428: components["responses"]["ApiResponse"];
+            500: components["responses"]["ApiResponse"];
+        };
+    };
+    getReferenceCode: {
+        parameters: {
+            query: {
+                as_of: string;
+            };
+            header?: never;
+            path: {
+                moduleKey: string;
+                setKey: string;
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reference-code entry and strong ETag. */
+            200: {
+                headers: {
+                    ETag: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    replaceReferenceCode: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                moduleKey: string;
+                setKey: string;
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description Reference-code entry and strong ETag. */
+            200: {
+                headers: {
+                    ETag: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            412: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            428: components["responses"]["ApiResponse"];
+            500: components["responses"]["ApiResponse"];
+        };
+    };
+    retireReferenceCode: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                moduleKey: string;
+                setKey: string;
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reference-code entry and strong ETag. */
+            200: {
+                headers: {
+                    ETag: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            412: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            428: components["responses"]["ApiResponse"];
+            500: components["responses"]["ApiResponse"];
+        };
+    };
+    listModuleSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tenant-visible setting definitions and effective values. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    replaceModuleSetting: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "If-Match"?: string;
+                "If-None-Match"?: "*";
+            };
+            path: {
+                moduleKey: string;
+                settingKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    value: components["schemas"]["SettingValue"];
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["SettingRecordResponse"];
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            412: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            428: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    unsetModuleSetting: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "If-Match": string;
+            };
+            path: {
+                moduleKey: string;
+                settingKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SettingRecordResponse"];
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            412: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            428: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    listTaskJobs: {
+        parameters: {
+            query?: {
+                status?: "queued" | "running" | "succeeded" | "dead" | "cancelled";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful task-job response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskJobListResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
+        };
+    };
+    cancelTaskJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful task-job response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskJobResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+        };
+    };
+    retryTaskJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jobKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful task-job response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskJobResponse"];
+                };
+            };
+            401: components["responses"]["ApiResponse"];
+            403: components["responses"]["ApiResponse"];
+            404: components["responses"]["ApiResponse"];
+            409: components["responses"]["ApiResponse"];
+            422: components["responses"]["ApiResponse"];
+            503: components["responses"]["ApiResponse"];
         };
     };
 }

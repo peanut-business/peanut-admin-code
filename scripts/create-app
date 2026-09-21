@@ -6,6 +6,9 @@ use app\common\infrastructure\scaffold\ApplicationCreator;
 use app\common\value\scaffold\ScaffoldManifest;
 
 $root = dirname(__DIR__);
+// This source-tool entry requires the repository's installed Composer dependencies;
+// load them at the public entry before ApplicationCreator rebuilds Plugin artifacts.
+require_once $root . '/server/vendor/autoload.php';
 require $root . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
 require $root . '/server/app/common/value/scaffold/ScaffoldManifest.php';
 require $root . '/server/app/common/value/scaffold/VersionContract.php';

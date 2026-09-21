@@ -5,5 +5,7 @@
   {"key":"official.task.add","type":"action","name":"新增定时任务","risk_level":"sensitive"},
   {"key":"official.task.edit","type":"action","name":"编辑定时任务","risk_level":"sensitive"},
   {"key":"official.task.delete","type":"action","name":"删除定时任务","risk_level":"critical"},
-  {"key":"official.task.operate","type":"action","name":"启停定时任务","risk_level":"critical"}
+  {"key":"official.task.operate","type":"action","name":"启停定时任务","risk_level":"critical"},
+  {"key":"official.task.jobs.read","type":"api","name":"查看任务执行队列","risk_level":"normal"},
+  {"key":"official.task.jobs.manage","type":"action","name":"取消或重试任务执行","risk_level":"sensitive"}
 ]

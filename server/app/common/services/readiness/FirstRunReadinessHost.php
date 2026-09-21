@@ -6,10 +6,10 @@ namespace app\common\services\readiness;
 use app\modules\official\notification\contracts\NotificationQueries;
 use app\common\security\ApplicationPasswordPolicy;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
-use app\common\infrastructure\config\BrandDefaults;
-use app\common\services\config\WebsiteConfigService;
+use app\modules\official\settings\infrastructure\BrandDefaults;
+use app\modules\official\settings\services\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use app\common\services\storage\StorageConfigurationService;
+use app\modules\official\file\contracts\StorageConfiguration;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\facade\Db;
 
@@ -24,7 +24,7 @@ final class FirstRunReadinessHost
     public function __construct(
         private readonly NotificationQueries $notifications,
         private readonly CoreTenantModuleAdminBridge $modules,
-        private readonly StorageConfigurationService $storage,
+        private readonly StorageConfiguration $storage,
         private readonly WebsiteConfigService $website,
     ) {
     }

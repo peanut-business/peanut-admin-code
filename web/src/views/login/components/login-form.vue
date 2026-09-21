@@ -76,7 +76,7 @@
   import { useBrandStore, useUserStore } from '@/store';
   import useLoading from '@/hooks/loading';
   import type { LoginData } from '@/api/user';
-  import type { TenantChoice } from '@peanut-admin/admin/core';
+  import type { TenantChoice } from '@peanut-admin/vue';
 
   const router = useRouter();
   const { t } = useI18n();

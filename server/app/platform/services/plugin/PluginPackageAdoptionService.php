@@ -70,9 +70,29 @@ final readonly class PluginPackageAdoptionService
                     $relative = $module['backend_relative'] . '/route/app.php';
                     if (isset($package->inventory[$relative])) $routes[] = $relative;
                     $composer = json_decode((string)file_get_contents($package->stageRoot . '/' . $module['backend_relative'] . '/composer.json'), true, 64, JSON_THROW_ON_ERROR);
-                    $npm = $module['frontend_relative'] === null ? [] : json_decode((string)file_get_contents($package->stageRoot . '/' . $module['frontend_relative'] . '/package.json'), true, 64, JSON_THROW_ON_ERROR);
+                    $npmDependencies = [];
+                    $npmPeerDependencies = [];
+                    foreach ($module['frontend_contributions'] as $contribution) {
+                        $npm = json_decode(
+                            (string)file_get_contents($package->stageRoot . '/' . $contribution['root'] . '/package.json'),
+                            true,
+                            64,
+                            JSON_THROW_ON_ERROR,
+                        );
+                        foreach (['dependencies' => &$npmDependencies, 'peerDependencies' => &$npmPeerDependencies] as $field => &$target) {
+                            foreach ((array)($npm[$field] ?? []) as $name => $constraint) {
+                                if (isset($target[$name]) && $target[$name] !== $constraint) {
+                                    throw new PluginPackageException('MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE', 'Frontend clients declare incompatible npm dependencies.');
+                                }
+                                $target[$name] = $constraint;
+                            }
+                        }
+                        unset($target);
+                    }
+                    ksort($npmDependencies, SORT_STRING);
+                    ksort($npmPeerDependencies, SORT_STRING);
                     $dependencies[$module['key']] = ['module' => $data['dependencies'] ?? [], 'tenant' => $data['tenant']['requires'] ?? [],
-                        'composer' => $composer['require'] ?? [], 'npm' => $npm['dependencies'] ?? [], 'npm_peer' => $npm['peerDependencies'] ?? []];
+                        'composer' => $composer['require'] ?? [], 'npm' => $npmDependencies, 'npm_peer' => $npmPeerDependencies];
                 }
                 sort($routes, SORT_STRING);
                 $next = is_file($lockPath) ? json_decode((string)file_get_contents($lockPath), true, 512, JSON_THROW_ON_ERROR) : ['schema_version' => 1, 'plugins' => []];

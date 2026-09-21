@@ -104,7 +104,10 @@ $host = IsolatedBackendEnvironment::required('DB_HOST');
 $port = (int)IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
-$runId = strtolower(bin2hex(random_bytes(6)));
+$runId = getenv('PEANUT_ORG_TEST_RUN_ID') ?: strtolower(bin2hex(random_bytes(6)));
+if (preg_match('/^[a-z0-9_]{1,32}$/D', $runId) !== 1) {
+    throw new RuntimeException('Invalid isolated organization test run ID.');
+}
 $adminPdo = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,

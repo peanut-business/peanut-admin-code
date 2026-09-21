@@ -3,280 +3,66 @@ declare(strict_types=1);
 
 namespace app\modules\official\import_export\infrastructure\configuration;
 
-use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
-use DateTimeImmutable;
-use DateTimeZone;
+use app\modules\official\settings\contracts\DeploymentSettingsTransfer;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Settings\Application\SettingAdminService;
-use PeanutAdmin\Settings\Application\SettingException;
-use PeanutAdmin\Settings\Definition\SettingDefinition;
-use PeanutAdmin\Settings\Definition\SettingDefinitionLoader;
-use PeanutAdmin\Settings\Definition\SettingDefinitionRegistry;
-use PeanutAdmin\Settings\Model\DeploymentSettingValue;
-use PeanutAdmin\Settings\Model\SettingDefinitionRecord;
 
-/** Transfers deployment-scoped values through the Core Settings contract. */
+/** Adapts the public Settings transfer contract to the import/export engine. */
 final readonly class CoreSettingsConfigurationAdapter implements ConfigurationTransferAdapter
 {
-    private ?SettingDefinitionRegistry $providedDefinitions;
-    public function __construct(
-        private SettingAdminService $settings,
-        private ThinkPhpModuleGovernanceProvider $moduleGovernance,
-        ?SettingDefinitionRegistry $definitions = null,
-    ) {
-        $this->providedDefinitions = $definitions;
-    }
+    public function __construct(private DeploymentSettingsTransfer $settings) {}
 
-    public function key(): string
-    {
-        return ConfigurationPackageCodec::ADAPTER_CORE_SETTINGS;
-    }
-
-    public function supportsCreate(): bool
-    {
-        return true;
-    }
+    public function key(): string { return ConfigurationPackageCodec::ADAPTER_CORE_SETTINGS; }
+    public function supportsCreate(): bool { return true; }
 
     public function export(TenantContext|PlatformContext $context): array
     {
-        $this->platformContext($context);
-        $definitions = $this->definitions();
-        if ($definitions === []) {
-            return [];
-        }
-
-        $entries = [];
-        foreach ($definitions as $definition) {
-            $row = $this->deploymentRow($definition);
-            if (!is_array($row)) {
-                continue;
-            }
-            $qualifiedKey = $definition->qualifiedKey();
-            $state = (string)($row['value_state'] ?? '');
-            if (!in_array($state, ['set', 'unset'], true)) {
-                throw new \runtimeException('TRANSFER_CORE_SETTING_INVALID');
-            }
-            $value = $definition->secret
-                ? $this->secretMarker($qualifiedKey, $state === 'set' ? 'configured' : 'unconfigured')
-                : ($state === 'set' ? $this->decodeValue($row['value_json'] ?? null) : null);
-            $entries[] = $definition->secret
-                ? $this->secretEntry($qualifiedKey, $value)
-                : ConfigurationTransferValue::entry($this->key(), $qualifiedKey, $value);
-        }
-
-        return $entries;
+        $platform = $this->platform($context);
+        return array_map(
+            fn(array $state): array => $this->entry($state),
+            array_values(array_filter($this->settings->snapshot($platform), static fn(array $state): bool => $state['exists'])),
+        );
     }
 
     public function current(TenantContext|PlatformContext $context, string $key): array
     {
-        $this->platformContext($context);
-        [$moduleKey, $settingKey] = $this->splitKey($key);
-        $definition = $this->definition($this->definitions(), $moduleKey, $settingKey);
-        if (!$definition->allows('deployment')) {
-            throw new \runtimeException('TRANSFER_CORE_SETTING_SCOPE_INVALID');
-        }
-
-        $row = $this->deploymentRow($definition);
-        if (!is_array($row)) {
-            return ['exists' => false, 'value' => null, 'revision' => null];
-        }
-        $state = (string)$row['value_state'];
-        if (!in_array($state, ['set', 'unset'], true)) {
-            throw new \runtimeException('TRANSFER_CORE_SETTING_INVALID');
-        }
-        $value = $definition->secret
-            ? $this->secretMarker($key, $state === 'set' ? 'configured' : 'unconfigured')
-            : ($state === 'set' ? $this->decodeValue($row['value_json'] ?? null) : null);
-
+        $state = $this->settings->current($this->platform($context), $key);
         return [
-            'exists' => true,
-            'value' => $definition->secret
-                ? $this->secretEntry($key, $value)['value']
-                : ConfigurationTransferValue::entry($this->key(), $key, $value)['value'],
-            'revision' => (int)($row['revision'] ?? 0),
+            'exists' => $state['exists'],
+            'value' => $state['exists'] ? $this->entry($state)['value'] : null,
+            'revision' => $state['revision'],
         ];
     }
 
-    public function apply(
-        TenantContext|PlatformContext $context,
-        string $key,
-        mixed $value,
-        array $entry,
-        ?int $revision,
-    ): void {
-        $platform = $this->platformContext($context);
-        [$moduleKey, $settingKey] = $this->splitKey($key);
-        $definition = $this->definition($this->definitions(), $moduleKey, $settingKey);
-        if (!$definition->allows('deployment')) {
-            throw new \runtimeException('TRANSFER_CORE_SETTING_SCOPE_INVALID');
-        }
-
-        $isUnsetSecret = $definition->secret
-            && SecretReferenceCodec::isMarker($entry['value'] ?? null)
+    public function apply(TenantContext|PlatformContext $context, string $key, mixed $value, array $entry, ?int $revision): void
+    {
+        $platform = $this->platform($context);
+        $state = $this->settings->current($platform, $key);
+        $unsetSecret = $state['secret'] && SecretReferenceCodec::isMarker($entry['value'] ?? null)
             && (($entry['value']['$secret']['state'] ?? null) === 'unconfigured');
-        $current = $this->current($platform, $key);
-        if ($isUnsetSecret || $value === null) {
-            if (!$current['exists'] || !is_int($revision)) {
-                return;
-            }
-            $this->settings->unsetDeployment(
-                $definition,
-                $platform->operatorId,
-                $this->now(),
-                self::etag($revision),
-            );
-            return;
-        }
-
-        try {
-            $definition->assertValue($value);
-            $this->settings->replaceDeployment(
-                $definition,
-                $value,
-                $platform->operatorId,
-                $this->now(),
-                null,
-                $current['exists'] && is_int($revision) ? self::etag($revision) : null,
-                $current['exists'] ? null : '*',
-            );
-        } catch (SettingException $exception) {
-            if ($exception->errorCode === 'SETTING_SECRET_UNAVAILABLE') {
-                throw new \runtimeException('TRANSFER_SECRET_PROTECTOR_UNAVAILABLE', 0, $exception);
-            }
-            throw $exception;
-        }
+        $this->settings->apply($platform, $key, $value, $unsetSecret || $value === null, $revision);
     }
 
-    /** @return ?array<string,mixed> */
-    private function deploymentRow(SettingDefinition $definition): ?array
+    /** @param array{key:string,exists:bool,secret:bool,configured:bool,value:mixed,revision:?int} $state */
+    private function entry(array $state): array
     {
-        $definitionRecord = SettingDefinitionRecord::where('module_key', $definition->moduleKey)
-            ->where('setting_key', $definition->key)
-            ->where('status', 'active')
-            ->find();
-        if (!$definitionRecord instanceof SettingDefinitionRecord
-            || !hash_equals((string) $definitionRecord->getAttr('definition_digest'), $definition->digest)) {
-            throw new \runtimeException('TRANSFER_CORE_SETTING_NOT_FOUND');
-        }
-        $value = DeploymentSettingValue::where('definition_id', (int) $definitionRecord->getAttr('id'))->find();
-
-        return $value instanceof DeploymentSettingValue ? $value->getData() : null;
-    }
-
-    /** @return list<SettingDefinition> */
-    private function definitions(): array
-    {
-        $registry = $this->providedDefinitions;
-        if (!$registry instanceof SettingDefinitionRegistry) {
-            try {
-                $compiled = $this->moduleGovernance->registry()->compiled();
-                $loader = new SettingDefinitionLoader();
-                $registry = new SettingDefinitionRegistry();
-                foreach ($compiled->modules as $manifest) {
-                    $moduleKey = (string)($manifest->data['key'] ?? '');
-                    $backend = is_array($manifest->data['backend'] ?? null)
-                        ? $manifest->data['backend']
-                        : [];
-                    $resource = $backend['setting_definitions'] ?? null;
-                    $loaded = is_string($resource)
-                        ? $loader->load($moduleKey, $manifest->root . '/' . ltrim($resource, '/'))
-                        : [];
-                    $registry->registerModule($moduleKey, $loaded);
-                }
-            } catch (\Throwable $exception) {
-                throw new \runtimeException('TRANSFER_CORE_SETTINGS_UNAVAILABLE', 0, $exception);
-            }
-        }
-
-        return array_values(array_filter(
-            $registry->all(),
-            static fn(SettingDefinition $definition): bool => $definition->allows('deployment'),
-        ));
-    }
-
-    /** @param list<SettingDefinition> $definitions */
-    private function definition(SettingDefinition|array $definitions, string $moduleKey, string $settingKey): SettingDefinition
-    {
-        if ($definitions instanceof SettingDefinition) {
-            return $definitions;
-        }
-        foreach ($definitions as $definition) {
-            if ($definition->moduleKey === $moduleKey && $definition->key === $settingKey) {
-                return $definition;
-            }
-        }
-        throw new \runtimeException('TRANSFER_CORE_SETTING_NOT_FOUND');
-    }
-
-    private function platformContext(TenantContext|PlatformContext $context): PlatformContext
-    {
-        if (!$context instanceof PlatformContext
-            || $context->accountId < 1
-            || $context->operatorId < 1
-            || $context->sessionKey === ''
-            || $context->clientKey === ''
-            || $context->requestId === '') {
-            throw new \runtimeException('TRANSFER_DEPLOYMENT_CONTEXT_INVALID');
-        }
-        return $context;
-    }
-
-    /** @return array{0:string,1:string} */
-    private function splitKey(string $key): array
-    {
-        $parts = explode(':', $key, 2);
-        if (count($parts) !== 2
-            || preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$/D', $parts[0]) !== 1
-            || preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D', $parts[1]) !== 1) {
-            throw new \runtimeException('TRANSFER_CORE_SETTING_INVALID');
-        }
-        return [$parts[0], $parts[1]];
-    }
-
-    private function decodeValue(mixed $encoded): mixed
-    {
-        try {
-            return json_decode((string)$encoded, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
-            throw new \runtimeException('TRANSFER_CORE_SETTING_INVALID');
-        }
-    }
-
-    /** @return array{\$secret:array{state:string,reference:string,shape:string}} */
-    private function secretMarker(string $key, string $state): array
-    {
+        if (!$state['secret']) return ConfigurationTransferValue::entry($this->key(), $state['key'], $state['value']);
         $references = [];
-        return SecretReferenceCodec::marker(
-            $state === 'configured' ? 'configured' : '',
-            ConfigurationTransferValue::referenceRoot($this->key(), $key),
+        $marker = SecretReferenceCodec::marker(
+            $state['configured'] ? 'configured' : '',
+            ConfigurationTransferValue::referenceRoot($this->key(), $state['key']),
             $references,
         );
-    }
-
-    /** @param array{\$secret:array{state:string,reference:string,shape:string}} $marker */
-    private function secretEntry(string $key, array $marker): array
-    {
-        $references = SecretReferenceCodec::references($marker);
         return [
-            'adapter' => $this->key(),
-            'key' => $key,
-            'value' => $marker,
-            'secrets' => $references,
+            'adapter' => $this->key(), 'key' => $state['key'], 'value' => $marker,
+            'secrets' => SecretReferenceCodec::references($marker),
         ];
     }
 
-    private function now(): DateTimeImmutable
+    private function platform(TenantContext|PlatformContext $context): PlatformContext
     {
-        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $microseconds = (int)$now->format('u');
-        return $microseconds % 1000 === 0
-            ? $now
-            : $now->modify('-' . ($microseconds % 1000) . ' microseconds');
-    }
-
-    private static function etag(int $revision): string
-    {
-        return '"rev-' . $revision . '"';
+        return $context instanceof PlatformContext
+            ? $context
+            : throw new \RuntimeException('TRANSFER_DEPLOYMENT_CONTEXT_INVALID');
     }
 }

@@ -6,7 +6,7 @@ use app\Modules\Official\File\Contracts\FileUploads;
 use app\Modules\Official\File\Contracts\Dto\UploadFile;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\common\value\storage\StoragePath;
+use app\modules\official\file\value\storage\StoragePath;
 use app\Modules\Official\File\Model\File;
 use app\Modules\Official\File\Model\FileCate;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -52,13 +52,18 @@ $host = IsolatedBackendEnvironment::required('DB_HOST');
 $port = (int)IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
-$runId = strtolower(bin2hex(random_bytes(5)));
-$database = 'peanut_admin_mt03_file_' . $runId;
+$runId = 'a1-file';
+$database = IsolatedBackendEnvironment::required('DB_NAME');
+expectFileTenant($database === 'peanut_admin_a1_file_test', 'registered File test database is required');
 $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+);
+expectFileTenant(
+    $admin->query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = " . $admin->quote($database))->fetchColumn() === false,
+    'registered File test database must not pre-exist',
 );
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 

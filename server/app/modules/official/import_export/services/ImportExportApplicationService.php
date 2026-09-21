@@ -7,7 +7,7 @@ use app\modules\official\import_export\contracts\dto\AsyncExportOperation;
 use app\modules\official\import_export\contracts\dto\CsvExportOperation;
 use app\modules\official\import_export\contracts\ImportExportCommands;
 use app\modules\official\import_export\contracts\ImportExportQueries;
-use PeanutAdmin\ImportExport\Application\ImportExportService;
+use app\modules\official\import_export\engine\Application\ImportExportService;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 
 final readonly class ImportExportApplicationService implements ImportExportCommands, ImportExportQueries
@@ -25,6 +25,51 @@ final readonly class ImportExportApplicationService implements ImportExportComma
             $operation->providerKey,
             $operation->idempotencyKey,
         ));
+    }
+
+    /** @param array<string,string> $mapping */
+    public function submitImport(
+        AuthorizedOperationContext $context,
+        string $providerKey,
+        string $fileKey,
+        array $mapping,
+        string $idempotencyKey,
+    ): AsyncExportOperation {
+        return $this->toOperation($this->service->submitImport(
+            $context,
+            $providerKey,
+            $fileKey,
+            $mapping,
+            $idempotencyKey,
+        ));
+    }
+
+    public function submitExport(
+        AuthorizedOperationContext $context,
+        string $providerKey,
+        string $idempotencyKey,
+    ): AsyncExportOperation {
+        return $this->toOperation($this->service->submitExport($context, $providerKey, $idempotencyKey));
+    }
+
+    /** @return array{items:list<AsyncExportOperation>,page:int,page_size:int,total:int} */
+    public function operations(AuthorizedOperationContext $context, string $status, int $page, int $pageSize): array
+    {
+        $result = $this->service->list($context, $status, $page, $pageSize);
+        return [
+            'items' => array_map(fn(object $item): AsyncExportOperation => $this->toOperation($item), $result['items']),
+            'page' => $result['page'],
+            'page_size' => $result['page_size'],
+            'total' => $result['total'],
+        ];
+    }
+
+    public function cancel(
+        AuthorizedOperationContext $context,
+        string $operationKey,
+        int $revision,
+    ): AsyncExportOperation {
+        return $this->toOperation($this->service->cancel($context, $operationKey, $revision));
     }
 
     public function operation(AuthorizedOperationContext $context, string $operationKey): AsyncExportOperation

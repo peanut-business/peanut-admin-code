@@ -16,7 +16,7 @@ interface ImportMetaEnv {
 declare const __PEANUT_INSTANCE_TOOLS_COMPILED__: boolean;
 
 declare module 'virtual:peanut-plugin-contributions' {
-  import type { PluginFrontendContribution } from '@peanut-admin/admin/core';
+  import type { PluginFrontendContribution } from '@peanut-admin/vue';
 
   const contributions: PluginFrontendContribution[];
   export default contributions;

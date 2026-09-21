@@ -1,98 +1,190 @@
 #!/usr/bin/env bash
-
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
-WEB_DIR="$ROOT_DIR/web"
+CANDIDATE_DIR="$ROOT_DIR/packages/core-web"
+ACTION="${1:-}"
+[[ -n "$ACTION" ]] || { printf 'usage: %s {install|status|link|link-status} [--client web|platform|pc|uniapp|all] [--core-dir /absolute/path]\n' "$0" >&2; exit 2; }
+shift
+
 CORE_DIR=""
-CORE_PACKAGE_DIR="$CORE_DIR/packages/web"
-TARGET_DIR="$WEB_DIR/node_modules/@peanut-admin"
-TARGET="$TARGET_DIR/admin"
-ACTION="${1:-link}"
-[ $# -gt 0 ] && shift
-PEER_PACKAGES=(element-plus pinia vue vue-router)
-
-die() {
-    printf 'local-core-web: %s\n' "$*" >&2
-    exit 1
-}
-
+CLIENT="all"
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --core-dir) [[ $# -ge 2 ]] || die '--core-dir requires a value'; CORE_DIR="$2"; shift 2 ;;
-        *) die "unsupported argument: $1" ;;
+        --core-dir) [[ $# -ge 2 ]] || { printf '%s\n' '--core-dir requires a value' >&2; exit 2; }; CORE_DIR="$2"; shift 2 ;;
+        --client) [[ $# -ge 2 ]] || { printf '%s\n' '--client requires a value' >&2; exit 2; }; CLIENT="$2"; shift 2 ;;
+        *) printf 'unsupported argument: %s\n' "$1" >&2; exit 2 ;;
     esac
 done
-[[ "$CORE_DIR" == /* ]] || die '--core-dir must be an absolute path'
-CORE_DIR="$(CDPATH= cd -- "$CORE_DIR" && pwd)"
-if [[ -f "$CORE_DIR/package.json" ]]; then
-    CORE_PACKAGE_DIR="$CORE_DIR"
-elif [[ -f "$CORE_DIR/packages/web/package.json" ]]; then
-    CORE_PACKAGE_DIR="$CORE_DIR/packages/web"
-else
-    die "core Web checkout not found: expected $CORE_DIR/package.json or $CORE_DIR/packages/web/package.json"
-fi
-[[ -d "$WEB_DIR" ]] || die "application Web directory is missing: $WEB_DIR"
-[[ -f "$WEB_DIR/package.json" ]] || die "application Web manifest is missing: $WEB_DIR/package.json"
 
-CORE_PACKAGE_DIR="$(CDPATH= cd -- "$CORE_PACKAGE_DIR" && pwd)"
-required_version="$(node -e 'const manifest = require(process.argv[1]); process.stdout.write(manifest.dependencies?.["@peanut-admin/admin"] ?? "")' "$WEB_DIR/package.json")"
-core_version="$(node -e 'const manifest = require(process.argv[1]); process.stdout.write(manifest.version ?? "")' "$CORE_PACKAGE_DIR/package.json")"
-[[ -n "$required_version" ]] || die 'web/package.json does not pin @peanut-admin/admin'
-[[ "$required_version" == "$core_version" ]] || die "version mismatch: application requires $required_version, local core declares $core_version"
+die() { printf 'local-core-web: %s\n' "$*" >&2; exit 1; }
+case "$CLIENT" in web|platform|pc|uniapp|all) ;; *) die "unsupported client: $CLIENT" ;; esac
+case "$ACTION" in install|status|link|link-status) ;; *) die 'action must be install, status, link, or link-status' ;; esac
+node -e 'const [major,minor]=process.versions.node.split(".").map(Number); if(major!==22||minor<12)process.exit(1)' \
+    || die "Node 22.12+ within major 22 is required; found $(node --version)"
 
-link_application_peer() {
-    local package="$1"
-    local installed_package
-    local peer_target="$CORE_PACKAGE_DIR/node_modules/$package"
+PACKAGES=(client vue ui-vue nuxt uniapp testing)
+packages_for_client() {
+    case "$1" in
+        web|platform) printf '%s\n' 'vue ui-vue' ;;
+        pc) printf '%s\n' 'client nuxt' ;;
+        uniapp) printf '%s\n' 'client uniapp' ;;
+    esac
+}
+selected_clients() { if [[ "$CLIENT" == all ]]; then printf '%s\n' web platform pc uniapp; else printf '%s\n' "$CLIENT"; fi; }
+candidate_name() { printf 'peanut-admin-%s-4.0.0-dev.0.tgz\n' "$1"; }
+candidate_path() { printf '%s/%s\n' "$CANDIDATE_DIR" "$(candidate_name "$1")"; }
+candidate_specifier() { printf 'file:../packages/core-web/%s\n' "$(candidate_name "$1")"; }
 
-    installed_package="$(cd "$WEB_DIR" && node -e 'const path = require("path"); process.stdout.write(path.dirname(require.resolve(process.argv[1] + "/package.json")))' "$package")"
-    [[ -d "$installed_package" ]] || die "application peer package is missing: $package"
-    mkdir -p "$(dirname "$peer_target")"
-    if [[ -e "$peer_target" && ! -L "$peer_target" ]]; then
-        [[ -d "$peer_target" ]] || die "local core peer path is not a directory: $peer_target"
-        return 0
-    fi
-    if [[ -L "$peer_target" ]]; then
-        rm -f "$peer_target"
-    fi
-    ln -s "$installed_package" "$peer_target"
+verify_package_manifest() {
+    local manifest="$1" package="$2"
+    node -e '
+const m=require(process.argv[1]), name=`@peanut-admin/${process.argv[2]}`
+if(m.name!==name||m.version!=="4.0.0-dev.0")process.exit(1)
+if(m.exports?.["."]?.import!=="./dist/index.js"||m.exports?.["."]?.types!=="./dist/index.d.ts")process.exit(1)
+' "$manifest" "$package" || die "invalid package identity or exports: $manifest"
 }
 
-assert_application_peer() {
-    local package="$1"
-    local peer_target="$CORE_PACKAGE_DIR/node_modules/$package"
+verify_candidates() {
+    local package archive manifest temporary
+    temporary="$(mktemp -d "${TMPDIR:-/tmp}/peanut-core-web-candidate.XXXXXX")"
+    for package in "${PACKAGES[@]}"; do
+        archive="$(candidate_path "$package")"
+        [[ -f "$archive" ]] || { rm -rf "$temporary"; die "missing candidate archive: $archive"; }
+        tar -tzf "$archive" > "$temporary/$package.files"
+        grep -Fxq 'package/LICENSE' "$temporary/$package.files" || { rm -rf "$temporary"; die "candidate has no LICENSE: $archive"; }
+        grep -Fxq 'package/dist/index.js' "$temporary/$package.files" || { rm -rf "$temporary"; die "candidate has no JS entry: $archive"; }
+        grep -Fxq 'package/dist/index.d.ts' "$temporary/$package.files" || { rm -rf "$temporary"; die "candidate has no declaration entry: $archive"; }
+        manifest="$temporary/$package.json"
+        tar -xOf "$archive" package/package.json > "$manifest"
+        verify_package_manifest "$manifest" "$package"
+    done
+    rm -rf "$temporary"
+}
 
-    [[ -d "$peer_target" || -L "$peer_target" ]] || die "local core peer package is unavailable: $peer_target"
+verify_candidate_declarations() {
+    local client package manifest declared expected lock
+    while IFS= read -r client; do
+        manifest="$ROOT_DIR/$client/package.json"
+        [[ -f "$manifest" ]] || die "missing client manifest: $manifest"
+        for package in $(packages_for_client "$client"); do
+            expected="$(candidate_specifier "$package")"
+            declared="$(node -e 'const m=require(process.argv[1]);process.stdout.write(m.dependencies?.[`@peanut-admin/${process.argv[2]}`]??"")' "$manifest" "$package")"
+            [[ "$declared" == "$expected" ]] || die "$client @peanut-admin/$package must declare candidate $expected; found $declared"
+            if [[ "$client" == web ]]; then
+                lock="$ROOT_DIR/web/pnpm-lock.yaml"
+                grep -Fq "specifier: $expected" "$lock" || die "web lock has no candidate specifier for @peanut-admin/$package"
+                grep -Fq "tarball: $expected" "$lock" || die "web lock has no candidate tarball for @peanut-admin/$package"
+            else
+                lock="$ROOT_DIR/$client/package-lock.json"
+                node -e '
+const l=require(process.argv[1]),n=`@peanut-admin/${process.argv[2]}`,e=process.argv[3]
+if(l.packages?.[""]?.dependencies?.[n]!==e||l.packages?.[`node_modules/${n}`]?.resolved!==e)process.exit(1)
+' "$lock" "$package" "$expected" || die "$client lock has no fixed candidate identity for @peanut-admin/$package"
+            fi
+        done
+    done < <(selected_clients)
+}
+
+verify_candidate_installed() {
+    local client package installed installed_root resolved node_modules_root temporary
+    temporary="$(mktemp -d "${TMPDIR:-/tmp}/peanut-core-web-installed.XXXXXX")"
+    while IFS= read -r client; do
+        for package in $(packages_for_client "$client"); do
+            installed="$ROOT_DIR/$client/node_modules/@peanut-admin/$package/package.json"
+            [[ -f "$installed" ]] || { rm -rf "$temporary"; die "$client has not installed @peanut-admin/$package"; }
+            installed_root="$(dirname "$installed")"
+            resolved="$(CDPATH= cd -- "$installed_root" && pwd -P)"
+            node_modules_root="$(CDPATH= cd -- "$ROOT_DIR/$client/node_modules" && pwd -P)"
+            case "$resolved" in "$node_modules_root"/*) ;; *) rm -rf "$temporary"; die "$client @peanut-admin/$package is a local source link, not the fixed candidate" ;; esac
+            tar -xOf "$(candidate_path "$package")" package/package.json > "$temporary/$package.json"
+            cmp -s "$temporary/$package.json" "$installed" || { rm -rf "$temporary"; die "$client installed @peanut-admin/$package does not match the fixed candidate archive"; }
+        done
+    done < <(selected_clients)
+    rm -rf "$temporary"
+}
+
+verify_source_packages() {
+    local package manifest
+    [[ "$CORE_DIR" == /* ]] || die 'link and link-status require an absolute --core-dir'
+    CORE_DIR="$(CDPATH= cd -- "$CORE_DIR" && pwd)"
+    [[ -f "$CORE_DIR/pnpm-workspace.yaml" ]] || die "core Web workspace is missing: $CORE_DIR/pnpm-workspace.yaml"
+    for package in "${PACKAGES[@]}"; do
+        manifest="$CORE_DIR/packages/$package/package.json"
+        [[ -f "$manifest" ]] || die "missing core Web package: $manifest"
+        verify_package_manifest "$manifest" "$package"
+    done
+}
+
+metadata_digest() {
+    local client
+    while IFS= read -r client; do
+        if [[ "$client" == web ]]; then
+            shasum -a 256 "$ROOT_DIR/$client/package.json" "$ROOT_DIR/$client/pnpm-lock.yaml"
+        else
+            shasum -a 256 "$ROOT_DIR/$client/package.json" "$ROOT_DIR/$client/package-lock.json"
+        fi
+    done < <(selected_clients)
+}
+
+link_sources() {
+    local before after client package
+    command -v pnpm >/dev/null 2>&1 || die 'pnpm is required for local source linking'
+    before="$(metadata_digest)"
+    (cd "$CORE_DIR" && pnpm install --frozen-lockfile && pnpm run build)
+    while IFS= read -r client; do
+        for package in $(packages_for_client "$client"); do
+            if [[ "$client" == web ]]; then
+                pnpm --dir "$ROOT_DIR/web" link "$CORE_DIR/packages/$package"
+            else
+                (cd "$ROOT_DIR/$client" && npm link "$CORE_DIR/packages/$package" --no-save --package-lock=false --ignore-scripts)
+            fi
+        done
+    done < <(selected_clients)
+    after="$(metadata_digest)"
+    [[ "$after" == "$before" ]] || die 'package manager changed a tracked client manifest or lock during local source linking'
+}
+
+verify_source_installed() {
+    local client package installed resolved expected
+    while IFS= read -r client; do
+        for package in $(packages_for_client "$client"); do
+            installed="$ROOT_DIR/$client/node_modules/@peanut-admin/$package"
+            [[ -d "$installed" ]] || die "$client has not linked @peanut-admin/$package"
+            resolved="$(CDPATH= cd -- "$installed" && pwd -P)"
+            expected="$(CDPATH= cd -- "$CORE_DIR/packages/$package" && pwd -P)"
+            [[ "$resolved" == "$expected" ]] || die "$client @peanut-admin/$package resolves to $resolved, expected local source $expected"
+        done
+    done < <(selected_clients)
+}
+
+candidate_set_sha256() {
+    local package
+    for package in "${PACKAGES[@]}"; do shasum -a 256 "$(candidate_path "$package")" | awk '{print $1}'; done | shasum -a 256 | awk '{print $1}'
 }
 
 case "$ACTION" in
-    link)
-        [[ -d "$WEB_DIR/node_modules" ]] || die "install application Web dependencies before linking: $WEB_DIR/node_modules is missing"
-        mkdir -p "$TARGET_DIR"
-        if [[ -e "$TARGET" || -L "$TARGET" ]]; then
-            [[ -L "$TARGET" ]] || die "refusing to replace a non-symlink package path: $TARGET"
-            rm -f "$TARGET"
+    install|status)
+        [[ -z "$CORE_DIR" ]] || die '--core-dir is only valid for link and link-status; candidate install/status use packages/core-web'
+        verify_candidates
+        verify_candidate_declarations
+        if [[ "$ACTION" == install ]]; then
+            while IFS= read -r client; do
+                case "$client" in
+                    web) (cd "$ROOT_DIR/web" && pnpm install --frozen-lockfile --ignore-scripts) ;;
+                    platform|pc|uniapp) (cd "$ROOT_DIR/$client" && npm ci --ignore-scripts) ;;
+                esac
+            done < <(selected_clients)
         fi
-        ln -s "$CORE_PACKAGE_DIR" "$TARGET"
-        for package in "${PEER_PACKAGES[@]}"; do
-            link_application_peer "$package"
-        done
+        verify_candidate_installed
+        printf 'local Core Web ready: mode=candidate client=%s node=%s candidate_set_sha256=%s\n' "$CLIENT" "$(node --version)" "$(candidate_set_sha256)"
         ;;
-    status)
-        [[ -L "$TARGET" ]] || die "local core Web package is not linked: $TARGET"
-        for package in "${PEER_PACKAGES[@]}"; do
-            assert_application_peer "$package"
-        done
-        ;;
-    *)
-        die 'usage: scripts/local-core-web {link|status} --core-dir /absolute/path'
+    link|link-status)
+        verify_source_packages
+        verify_candidate_declarations
+        [[ "$ACTION" == link-status ]] || link_sources
+        verify_source_installed
+        printf 'local Core Web ready: mode=local-source core=%s client=%s node=%s tracked_metadata=unchanged\n' "$CORE_DIR" "$CLIENT" "$(node --version)"
         ;;
 esac
-
-[[ -L "$TARGET" ]] || die "local core Web package is not symlinked: $TARGET"
-resolved_core="$(realpath "$TARGET")"
-[[ "$resolved_core" == "$CORE_PACKAGE_DIR" ]] || die "core symlink resolves to $resolved_core, expected $CORE_PACKAGE_DIR"
-
-printf 'local core Web active: %s -> %s\n' "$TARGET" "$resolved_core"

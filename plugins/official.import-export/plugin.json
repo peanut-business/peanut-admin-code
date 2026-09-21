@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "73baea5bbc4e0878089f738de5618c57e9831a361a596e60288cd23131604931"
+        "sha256": "81aff30cfb72d5b06ce28e1ced82dca9acc901045847efd78be65593b15f703b"
     },
     "trust": {
         "channel": "bundled",
@@ -47,13 +47,25 @@
                             "version": "^1.0"
                         },
                         {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
+                        },
+                        {
+                            "module_key": "official.integration",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.settings",
+                            "version": "^1.0"
+                        },
+                        {
                             "module_key": "official.task",
                             "version": "^1.0"
                         }
                     ],
                     "permissions": {
                         "path": "resources/permissions.json",
-                        "sha256": "56a3a9e239f6d924540f4900197a272ea5368237d98c64f1882865277daf864e"
+                        "sha256": "acdc61fca3d351e1b170abd91be29a14302f44da4fd7ea7ae75fca93cb58c1b6"
                     },
                     "migrations": {
                         "reversibility": "verified-backup-required",
@@ -61,6 +73,10 @@
                             {
                                 "key": "official.import-export:20260826-namespace-permission-keys",
                                 "sha256": "0b7981ec9cf94453697c6cc7f6cc3f0abae9e88769c3a8370b1b57034efa596e"
+                            },
+                            {
+                                "key": "official.import-export:20260921-adopt-import-export-schema",
+                                "sha256": "ad77642648ef414871258f1ff2ec61a9586d115651a3c883b7986e58b0d4c8ba"
                             }
                         ]
                     }
@@ -72,7 +88,7 @@
         {
             "name": "peanut-business/official-import-export",
             "version": "1.0.0",
-            "sha256": "333ea85de66bb950d9240b441bc10d1a8e7efb0532a291798b9de153fc70c071"
+            "sha256": "81c82cc9843d5ee788c49989defbd10cb97afccbb4b86b5d2d8f3f58d988ad73"
         }
     ],
     "npm": [
@@ -88,7 +104,7 @@
             "package": "@peanut-admin/official-import-export",
             "version": "1.0.0",
             "entry": "web/src/modules/official-import-export/contribution.ts",
-            "sha256": "b6c0eae98ed1e4c086f520cd9603d2afad64e2dcbf246a5a3ebe79e431a61694"
+            "sha256": "5f604e2dda1a5154bc39706bc09821dc16d8c2f69c9d83cbcfbfccd27ccc969b"
         }
     ],
     "modules": [

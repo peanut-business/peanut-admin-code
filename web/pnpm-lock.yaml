@@ -21,9 +21,12 @@ importers:
       '@hocuspocus/provider':
         specifier: 4.6.0
         version: 4.6.0(y-protocols@1.0.7(yjs@13.6.32))(yjs@13.6.32)
-      '@peanut-admin/admin':
-        specifier: 3.1.0
-        version: 3.1.0(element-plus@2.14.3(vue@3.5.40(typescript@4.9.5)))(pinia@2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5)))(vue-router@4.6.4(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5))
+      '@peanut-admin/ui-vue':
+        specifier: file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz
+        version: file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz(@peanut-admin/vue@file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz(pinia@2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5)))(element-plus@2.14.3(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5))
+      '@peanut-admin/vue':
+        specifier: file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz
+        version: file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz(pinia@2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5))
       '@tiptap/core':
         specifier: 3.30.5
         version: 3.30.5(@tiptap/pm@3.30.5)
@@ -695,18 +698,22 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
 
-  '@peanut-admin/admin@3.1.0':
-    resolution: {integrity: sha512-VgzBHMbxK3NE8XFvT4idh8G+6xi/soBkoh6tnFGb+q/Gi2br1vWZzenA1oYtes044CklhLXw3Bh2xrzSesGExA==}
+  '@peanut-admin/ui-vue@file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz':
+    resolution: {integrity: sha512-JHXOlDUQaXbz7kzOxVtnDDzMdsty7BR2DK0G7gEFyZmN+u/8FJeh7AP8bu5bGGcP1Be2G9WsFotSxpqPX0qVEQ==, tarball: file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz}
+    version: 4.0.0-dev.0
+    engines: {node: '>=22.12.0 <23'}
     peerDependencies:
+      '@peanut-admin/vue': 4.0.0-dev.0
       element-plus: ^2.14.3
+      vue: ^3.4.21
+
+  '@peanut-admin/vue@file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz':
+    resolution: {integrity: sha512-5s/Nnhfy5xRNAsZDhGzW7hm+sq6ZMuY3VD1nDQsx9cesf5JSo8q3eSasTC3Z2WAUdrQein1UYYHxfrrjW4Xvzg==, tarball: file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz}
+    version: 4.0.0-dev.0
+    engines: {node: '>=22.12.0 <23'}
+    peerDependencies:
       pinia: '>=2.0.23 <5'
       vue: ^3.4.21
-      vue-router: '>=4.0.0 <6'
-    peerDependenciesMeta:
-      element-plus:
-        optional: true
-      pinia:
-        optional: true
 
   '@redocly/ajv@8.11.2':
     resolution: {integrity: sha512-io1JpnwtIcvojV7QKDUSIuMN/ikdOUd1ReEnUnMKGfDVridQZ31J0MmIuqwuRjWDZfmvr+Q0MqCcfHM2gTivOg==}
@@ -4326,14 +4333,16 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
-  '@peanut-admin/admin@3.1.0(element-plus@2.14.3(vue@3.5.40(typescript@4.9.5)))(pinia@2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5)))(vue-router@4.6.4(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5))':
+  '@peanut-admin/ui-vue@file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz(@peanut-admin/vue@file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz(pinia@2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5)))(element-plus@2.14.3(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5))':
     dependencies:
-      openapi-fetch: 0.17.0
-      vue: 3.5.40(typescript@4.9.5)
-      vue-router: 4.6.4(vue@3.5.40(typescript@4.9.5))
-    optionalDependencies:
+      '@peanut-admin/vue': file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz(pinia@2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5))
       element-plus: 2.14.3(vue@3.5.40(typescript@4.9.5))
+      vue: 3.5.40(typescript@4.9.5)
+
+  '@peanut-admin/vue@file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz(pinia@2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5)))(vue@3.5.40(typescript@4.9.5))':
+    dependencies:
       pinia: 2.3.1(typescript@4.9.5)(vue@3.5.40(typescript@4.9.5))
+      vue: 3.5.40(typescript@4.9.5)
 
   '@redocly/ajv@8.11.2':
     dependencies:

@@ -14,6 +14,12 @@ final class PeanutRouteInventoryNode
         return $this;
     }
 
+    public function option(array $options): self
+    {
+        PeanutRouteInventoryRoute::addOptions($this->indices, $options);
+        return $this;
+    }
+
     public function __call(string $name, array $arguments): self
     {
         return $this;
@@ -116,6 +122,21 @@ final class PeanutRouteInventoryRoute
         return self::$endpoints;
     }
 
+    /** @param list<int> $indices @param array<string,mixed> $options */
+    public static function addOptions(array $indices, array $options): void
+    {
+        if (!array_key_exists('peanut_permission', $options)) {
+            return;
+        }
+        $permission = $options['peanut_permission'];
+        if (!is_string($permission) || trim($permission) === '') {
+            throw new RuntimeException('Route inventory permission must be a non-empty string');
+        }
+        foreach ($indices as $index) {
+            self::$endpoints[$index]['permission'] = $permission;
+        }
+    }
+
     private static function add(string $method, string $path, mixed $handler): PeanutRouteInventoryNode
     {
         if (!is_array($handler) || count($handler) !== 2 || !is_string($handler[0]) || !is_string($handler[1])) {
@@ -136,6 +157,7 @@ final class PeanutRouteInventoryRoute
             'line' => $line,
             'application' => self::$application,
             'middleware' => [],
+            'permission' => null,
         ];
 
         return new PeanutRouteInventoryNode([array_key_last(self::$endpoints)]);
@@ -258,13 +280,6 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
         $relative = substr(dirname($manifestPath), strlen($resolvedRoot . '/app/modules/'));
         $moduleNamespaces['app\\modules\\' . str_replace('/', '\\', $relative) . '\\'] = $moduleKey;
         $moduleSources['server/app/modules/' . $relative . '/'] = $moduleKey;
-        if (!class_exists($provider, false)) {
-            $separator = strrpos($provider, '\\');
-            $namespace = substr($provider, 0, $separator);
-            $class = substr($provider, $separator + 1);
-            $key = var_export($moduleKey, true);
-            eval("namespace {$namespace}; final class {$class} { public function moduleKey(): string { return {$key}; } }");
-        }
     }
 
     PeanutRouteInventoryRoute::reset($resolvedRoot);

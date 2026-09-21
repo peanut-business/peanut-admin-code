@@ -8,8 +8,8 @@ use app\modules\official\member\contracts\dto\MemberIdentitySnapshot;
 use app\modules\official\member\contracts\MemberIdentityCommands;
 use app\api\services\UserTokenService;
 use app\common\enum\notice\NoticeSceneEnum;
-use app\common\services\FileService;
-use app\common\services\config\TenantApplicationSettingService;
+use app\modules\official\file\contracts\FileReferences;
+use app\modules\official\settings\services\TenantApplicationSettingService;
 use app\common\exception\BusinessException;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
@@ -20,7 +20,7 @@ class LoginApplicationService
         private readonly MemberIdentityCommands $memberIdentities,
         private readonly VerificationCodeCommands $verificationCodes,
         private readonly TenantApplicationSettingService $applicationSettings,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
         private readonly UserTokenService $tokens,
         private readonly string $defaultAvatar,
     ) {

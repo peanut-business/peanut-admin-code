@@ -1,0 +1,18 @@
+{
+  "name": "peanut-business/official-ops",
+  "description": "First-party platform operations ownership module",
+  "type": "library",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "require": {
+    "php": "^8.3",
+    "peanut-admin/core": "^1.0",
+    "peanut-business/official-task": "^1.0",
+    "peanut-business/official-identity": "4.0.0-dev"
+  },
+  "autoload": {
+    "psr-4": {
+      "app\\modules\\official\\ops\\": "./"
+    }
+  }
+}

@@ -43,8 +43,13 @@ class AuthMiddleware
             return $next($request);
         }
 
-        // 权限字符使用 adminapi/ 之后的精确路径，不做 URI alias 展开。
-        $accessUri = substr($path, strlen('adminapi/'));
+        // REST 模块路由由服务器的匹配 Rule 声明权限；不能从请求参数读取。
+        // 未声明的现有路由继续使用精确路径，所有权限仍须通过登记与租户授权检查。
+        $routePermission = $request->rule()?->getOption('peanut_permission');
+        if ($routePermission !== null && (!is_string($routePermission) || trim($routePermission) === '')) {
+            throw \app\common\http\ApiProblem::fromEnvelope('路由权限配置无效', null, 40300);
+        }
+        $accessUri = $routePermission ?? substr($path, strlen('adminapi/'));
 
         $tenantContext = $current instanceof AdminExecutionContext ? $current->tenant : null;
         $decision = $tenantContext instanceof \PeanutAdmin\Kernel\Auth\TenantContext

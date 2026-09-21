@@ -144,6 +144,7 @@ final readonly class ModuleAuthorCheckHost
     /**
      * @param array{
      *   key:string,version:string,backend_relative:string,frontend_relative:?string,
+     *   frontend_contributions:list<array{client_key:string,entry:string,root:string}>,
      *   manifest:\PeanutAdmin\Kernel\Module\ManifestDocument,
      *   dependencies:list<array{module_key:string,version:string}>,owned_tables:list<string>
      * } $rootInspection
@@ -199,6 +200,7 @@ final readonly class ModuleAuthorCheckHost
     /**
      * @param array{
      *   key:string,version:string,backend_relative:string,frontend_relative:?string,
+     *   frontend_contributions:list<array{client_key:string,entry:string,root:string}>,
      *   manifest:\PeanutAdmin\Kernel\Module\ManifestDocument,
      *   dependencies:list<array{module_key:string,version:string}>,owned_tables:list<string>
      * } $inspection
@@ -370,7 +372,7 @@ final readonly class ModuleAuthorCheckHost
             'MODULE_PACKAGE_PERMISSION_NOT_NAMESPACED' => '为每个权限 key 添加当前 Module key 前缀后重试',
             'MODULE_PACKAGE_PERMISSION_REFERENCE_INVALID' => '让菜单只引用当前 Module 已声明的 namespaced 权限',
             'MODULE_PACKAGE_FRONTEND_ENTRY_MISMATCH',
-            'MODULE_PACKAGE_FRONTEND_ENTRY_MISSING' => '按 Module key 派生 web/src/modules/<slug>/contribution.ts 并修正 frontend.entry',
+            'MODULE_PACKAGE_FRONTEND_ENTRY_MISSING' => '按 frontend client 与 Module key 派生各端 modules/<slug>/contribution.ts，并补齐对应 package.json',
             'MODULE_CHECK_VERSION_INVALID' => '把 version 改为严格 SemVer，例如 1.0.0',
             'MODULE_CHECK_KERNEL_INCOMPATIBLE' => '修正 kernel_constraint，或显式选择兼容的 Kernel 版本重新检查',
             'MODULE_PACKAGE_DEPENDENCY_MISSING',

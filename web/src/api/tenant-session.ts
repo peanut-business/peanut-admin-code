@@ -3,7 +3,7 @@ import type {
   TenantAuthentication,
   TenantSessionOutcome,
   TenantSelection,
-} from '@peanut-admin/admin/core';
+} from '@peanut-admin/vue';
 
 const tenantClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,

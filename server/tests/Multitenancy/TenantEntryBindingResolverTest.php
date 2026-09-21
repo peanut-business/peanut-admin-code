@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-use app\common\infrastructure\storage\StorageRepository;
+use app\modules\official\file\services\storage\StorageService;
+use app\modules\official\file\composition\storage\StorageDriverFactory;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\tenancy\MultiTenantDataScopePolicy;
@@ -82,19 +83,34 @@ SQL);
 
 $fallbackCalls = 0;
 $resolver = new TenantEntryBindingResolver(
-    $pdo,
     static function (string $actor, string $operation, string $operationId) use (&$fallbackCalls): TenantSystemContext {
         $fallbackCalls++;
         return new TenantSystemContext(999, $actor, $operation, $operationId);
     },
+    true,
+    new \app\modules\official\identity\tenancy\infrastructure\ThinkPhpTenantEntryBindingLookup(),
 );
 $multiTenantScope = new MultiTenantDataScopePolicy(
     new CurrentExecutionContext(new ExecutionContextStore()),
 );
 ThinkPhpTestConnection::fromPdo($pdo);
-$storage = new StorageRepository($multiTenantScope, new DefaultTenantContextResolver());
+$storage = new StorageService(
+    (new ReflectionClass(StorageDriverFactory::class))->newInstanceWithoutConstructor(),
+    $multiTenantScope,
+    new DefaultTenantContextResolver(),
+    str_repeat('s', 32),
+    'https://admin.example.test',
+);
+$deliverable = static function (int $tenantId, string $fileKey) use ($storage): bool {
+    try {
+        $storage->accessUrlForTenant($tenantId, $fileKey);
+        return true;
+    } catch (Throwable) {
+        return false;
+    }
+};
 entryBindingExpect(
-    $storage->deliverableObjectForTenant(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') !== null,
+    $deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
     'an active Tenant file was not deliverable',
 );
 $boundRequest = new class {
@@ -265,12 +281,12 @@ entryBindingRejects(
 );
 entryBindingExpect($fallbackCalls === 1, 'a configured failure reached the compatibility fallback');
 entryBindingExpect(
-    $storage->deliverableObjectForTenant(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') === null,
+    !$deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
     'a suspended Tenant file remained deliverable',
 );
 $pdo->exec("UPDATE pa_tenant SET status='active' WHERE id=101");
 entryBindingExpect(
-    $storage->deliverableObjectForTenant(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') !== null,
+    $deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
     'reactivation did not restore a still-ready Tenant file',
 );
 $reactivated = $resolver->system(

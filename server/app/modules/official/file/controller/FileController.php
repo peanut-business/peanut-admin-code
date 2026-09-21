@@ -5,8 +5,8 @@ namespace app\modules\official\file\controller;
 
 use app\adminapi\controller\BaseAdminController;
 use app\common\execution\CurrentExecutionContext;
-use app\modules\official\file\contracts\fileAdministration;
-use app\modules\official\file\validate\fileCateValidate;
+use app\modules\official\file\contracts\FileAdministration;
+use app\modules\official\file\validate\FileCateValidate;
 use think\App;
 use app\common\exception\BusinessException;
 
@@ -21,6 +21,20 @@ class FileController extends BaseAdminController
     public function lists()
     {
         return $this->data($this->files->lists($this->request->get()));
+    }
+
+    public function assets()
+    {
+        $page = $this->files->imageAssets($this->request->get());
+        return json([
+            'data' => ['items' => $page->items],
+            'meta' => [
+                'request_id' => $this->executionContext()->requestId(),
+                'page' => $page->page,
+                'page_size' => $page->pageSize,
+                'total' => $page->total,
+            ],
+        ]);
     }
 
     public function move()

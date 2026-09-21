@@ -1,0 +1,3 @@
+[
+  {"key":"official.integration.security","scope":"tenant","type":"page","name":"集成与安全","route_name":"official.integration.index","route_path":"/system/integration-security","component_key":"official.integration.index","required_permission":"official.integration.access","icon":"icon-link","sort_order":54,"client_keys":["admin-web"]}
+]

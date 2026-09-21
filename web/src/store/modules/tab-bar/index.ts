@@ -4,7 +4,7 @@ import {
   tabFromRoute,
   type ShellTab as TagProps,
   type ShellTabState as TabBarState,
-} from '@peanut-admin/admin/shell';
+} from '@peanut-admin/ui-vue';
 import {
   DEFAULT_ROUTE,
   DEFAULT_ROUTE_NAME,

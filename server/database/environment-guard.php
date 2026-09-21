@@ -61,6 +61,11 @@ function registeredDatabase(array $registry, string $resourceId): array
 function deploymentTargetContract(string $deploymentTarget): array
 {
     return match ($deploymentTarget) {
+        'development-test' => [
+            'app_environment' => 'development',
+            'resource_environment' => 'development-test',
+            'default_consumer' => 'host',
+        ],
         'local-development' => [
             'app_environment' => 'development',
             'resource_environment' => 'development',
@@ -602,6 +607,43 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
                 assertConsumerUpgradeLeaseContract($leaseProofPath, $metadata, $resources, $database, $identity, $resourceId, $deploymentTarget, $deploymentMode);
         } else {
             throw new RuntimeException('templated database resource 未获 qualification guard 授权');
+        }
+    } elseif ($deploymentTarget === 'development-test') {
+        if ($consumer !== 'host' || ($database['application_runtime'] ?? null) !== false
+            || ($database['lifecycle'] ?? null) !== 'ephemeral'
+            || !is_string($database['lease_gate'] ?? null)) {
+            throw new RuntimeException('development-test 必须使用已登记的临时 Host 资源');
+        }
+        $names = [$registeredName];
+        foreach (($database['synthetic_databases'] ?? []) as $group) {
+            if (!is_array($group) || !array_is_list($group)) {
+                throw new RuntimeException('synthetic database 登记格式无效');
+            }
+            $names = [...$names, ...$group];
+        }
+        foreach ($names as $name) {
+            if (!is_string($name) || preg_match('/^[a-z0-9_]{1,64}$/D', $name) !== 1) {
+                throw new RuntimeException('synthetic database 必须登记精确名称');
+            }
+        }
+        if (!in_array($actual['database'], $names, true)
+            || !in_array($deploymentMode, $database['deployment_modes'] ?? [], true)) {
+            throw new RuntimeException('development-test database 或 deployment mode 未登记');
+        }
+        $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+        $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
+        $resources = activeLeaseResources($leaseProofPath);
+        $root = realpath(dirname(__DIR__, 2));
+        $common = leaseGit(['-C', (string)$root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+        $expectedProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease'];
+        if ($metadata['owner'] !== ($database['owner'] ?? null)
+            || realpath($metadata['worktree']) !== $root
+            || realpath($metadata['candidate_repository']) !== $root
+            || realpath($leaseProofPath) !== realpath($expectedProof)
+            || !in_array($resourceId, $resources['database-resource'] ?? [], true)
+            || !in_array($actual['database'], $resources['mysql-db'] ?? [], true)
+            || !in_array($actual['port'], $resources['port'] ?? [], true)) {
+            throw new RuntimeException('development-test active lease 与当前资源/工作树不匹配');
         }
     } else {
         if (!is_string($registeredName) || !hash_equals($registeredName, $actual['database'])) {

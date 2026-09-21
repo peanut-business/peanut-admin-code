@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-use PeanutAdmin\NotificationSms\Application\VerificationCodeSecret;
+use app\modules\official\notification\delivery\Application\VerificationCodeSecret;
 use app\common\service\scaffold\EditionProfile;
 use app\common\service\scaffold\EditionProjector;
 
@@ -270,8 +270,8 @@ foreach ($tenantSources as $source) {
         'PeanutAdmin\\Kernel\\Auth\\TenantContext',
         'PeanutAdmin\\Kernel\\Context\\AuthenticatedMemberContext',
         'PeanutAdmin\\Kernel\\Context\\TenantSystemContext',
-        'PeanutAdmin\\NotificationSms\\Application\\VerificationCodeSecret',
-        'PeanutAdmin\\NotificationSms\\Sms\\NoticeSmsSender',
+        'app\\modules\\official\\notification\\delivery\\Application\\VerificationCodeSecret',
+        'app\\modules\\official\\notification\\contracts\\NoticeSmsSender',
     ], '', $source);
     expectNotificationHost(
         !str_contains($withoutAllowedContextTypes, 'PeanutAdmin\\'),

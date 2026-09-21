@@ -5,7 +5,7 @@ namespace app\api\controller;
 
 use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
-use app\common\services\storage\StorageService;
+use app\modules\official\file\contracts\FileStorage;
 use think\App;
 
 final class StorageController extends BaseApiController
@@ -13,7 +13,7 @@ final class StorageController extends BaseApiController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        private readonly StorageService $storage,
+        private readonly FileStorage $storage,
     ) {
         parent::__construct($app, $executionContext);
     }
@@ -22,15 +22,14 @@ final class StorageController extends BaseApiController
     {
         $tenantId = $this->positiveInteger($this->request->get('tenant_id'));
         $fileKey = $this->request->get('file_key');
-        $expires = $this->positiveInteger($this->request->get('expires'));
-        $signature = $this->request->get('signature');
+        $token = $this->request->get('token');
         if (!is_string($fileKey) || preg_match('/^file_[0-9a-f]{32}$/D', $fileKey) !== 1
-            || !is_string($signature) || preg_match('/^[0-9a-f]{64}$/D', $signature) !== 1
+            || !is_string($token) || $token === '' || strlen($token) > 2048
         ) {
             throw new \InvalidArgumentException('文件链接参数无效');
         }
 
-        $file = $this->storage->authorizedDownload($tenantId, $fileKey, $expires, $signature);
+        $file = $this->storage->authorizedDownload($tenantId, $fileKey, $token);
 
         try {
             $contents = file_get_contents($file['path']);

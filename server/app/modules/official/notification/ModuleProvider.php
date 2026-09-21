@@ -7,8 +7,8 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\contract\http\OutboundHttpTransport;
 use app\common\infrastructure\notice\ApplicationNoticeSmsSender;
 use app\common\services\notice\NoticeChannelService;
-use app\common\services\external\ExternalChannelBindingService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalChannelBindings;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
 use app\modules\official\notification\services\VerificationCodeService;
 use app\modules\official\notification\services\NotificationApplicationService;
 use app\modules\official\notification\services\NotificationBootstrapService;
@@ -17,7 +17,9 @@ use app\modules\official\notification\contracts\NotificationCommands;
 use app\modules\official\notification\contracts\NotificationQueries;
 use app\modules\official\notification\contracts\VerificationCodeCommands;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
-use PeanutAdmin\NotificationSms\Sms\NoticeSmsSender;
+use app\modules\official\notification\contracts\NoticeSmsSender;
+use app\modules\official\notification\delivery\Persistence\NotificationRepository;
+use app\modules\official\notification\delivery\Persistence\NotificationStore;
 use think\App;
 use think\facade\Config;
 
@@ -46,6 +48,7 @@ final class ModuleProvider implements ModuleProviderContract
             NotificationBootstrapCommands::class => NotificationBootstrapService::class,
             NotificationQueries::class => NotificationApplicationService::class,
             VerificationCodeCommands::class => NotificationApplicationService::class,
+            NotificationRepository::class => NotificationStore::class,
         ];
     }
 }

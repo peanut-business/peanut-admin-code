@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\modules\official\oauth\contracts;
 
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBinding;
+use app\modules\official\integration\contracts\ExternalTenantBinding;
 
 interface OAuthCallbackLocator
 {

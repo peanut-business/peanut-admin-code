@@ -22,7 +22,8 @@ const expectedCounts = {
 const readJson = (relativePath) => JSON.parse(readFileSync(resolve(rootDir, relativePath), 'utf8'))
 const versionContract = readJson('release-versions.json')
 const releaseMetadata = readJson('RELEASE_METADATA.json')
-const releaseVersion = versionContract.schema_version === 2
+const currentVersionContract = [2, 3].includes(versionContract.schema_version)
+const releaseVersion = currentVersionContract
   ? versionContract.source_product_version
   : versionContract.product_release
 const metadataVersion = releaseMetadata.schema_version === 2
@@ -30,7 +31,7 @@ const metadataVersion = releaseMetadata.schema_version === 2
   ? (releaseMetadata.instance_version ?? releaseMetadata.source_product_version)
   : releaseMetadata.version
 if (metadataVersion !== releaseVersion
-  || (versionContract.schema_version === 2
+  || (currentVersionContract
     && (releaseMetadata.source_product_version !== releaseVersion
       || releaseMetadata.instance_version !== null))
   || releaseMetadata.expected_tag !== `v${releaseVersion}`) {
@@ -38,10 +39,14 @@ if (metadataVersion !== releaseVersion
 }
 const releaseTag = releaseMetadata.expected_tag
 const releaseDate = releaseMetadata.release_date
-const corePhpVersion = versionContract.core_php
-const coreWebVersion = versionContract.core_web
-const corePcVersion = readJson('pc/package.json').dependencies['@peanut-admin/admin']
-const coreUniappVersion = readJson('uniapp/package.json').dependencies['@peanut-admin/admin']
+const corePhpIdentity = versionContract.schema_version === 3
+  ? `${versionContract.core_php.resolved_version} (${versionContract.core_php.source_reference})`
+  : versionContract.core_php
+const coreWebIdentity = versionContract.schema_version === 3
+  ? Object.entries(versionContract.core_web.packages)
+      .map(([name, identity]) => `${name}@${identity.version}`)
+      .join(', ')
+  : `@peanut-admin/admin@${versionContract.core_web}`
 
 const normalizeLicense = (license, name, version) => {
   if ((name === 'trim' && version === '0.0.1') ||
@@ -314,8 +319,8 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 | Arco Design Pro Vue | MIT | The initial management client used Arco Design Pro Vue material; applicable upstream MIT attribution is retained. Source: https://github.com/arco-design/arco-design-pro-vue |
 | LikeAdmin 1.9.4 | MIT | Used as the documented behavioral parity reference. This notice does not claim the application is a clean-room implementation. Source: https://github.com/likeadmin-likeshop/likeadmin_php |
 | ThinkPHP 8 | Apache-2.0 | Backend framework. Its upstream notice is also retained at \`server/LICENSE.txt\`. Source: https://github.com/top-think/framework |
-| \`peanut-admin/core\` | Apache-2.0 | Composer core package locked at ${corePhpVersion}. Source: https://github.com/peanut-business/peanut-admin-core-php |
-| \`@peanut-admin/admin\` | Apache-2.0 | npm core package locked at ${coreWebVersion} for Web, ${corePcVersion} for PC and ${coreUniappVersion} for UniApp. Source: https://github.com/peanut-business/peanut-admin-core-web |
+| \`peanut-admin/core\` | Apache-2.0 | Composer core package locked at ${corePhpIdentity}. Source: https://github.com/peanut-business/peanut-admin-core-php |
+| Peanut Admin Core Web | Apache-2.0 | npm core packages locked as ${coreWebIdentity}. Source: https://github.com/peanut-business/peanut-admin-core-web |
 
 ## License handling
 

@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "key": "official.ops",
+  "name": "Platform Operations",
+  "description": "Platform-owned maintenance windows, persistent operations tasks, safe diagnostics, backup, restore and upgrade orchestration.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-ops",
+  "web_package": null,
+  "dependencies": [
+    {
+      "module_key": "official.task",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    }
+  ],
+  "lifecycle": {
+    "protected": true
+  },
+  "backend": {
+    "provider": "app\\modules\\official\\ops\\ModuleProvider"
+  },
+  "frontend": {
+    "clients": {
+      "platform-web": {
+        "entry": "platform/src/modules/official-ops/contribution.ts"
+      }
+    }
+  },
+  "database": {
+    "owned_tables": [
+      "pa_ops_task",
+      "pa_ops_maintenance_window",
+      "pa_ops_backup_evidence",
+      "pa_ops_restore_evidence",
+      "pa_ops_module_execution",
+      "pa_ops_module_request",
+      "pa_ops_upgrade_execution",
+      "pa_ops_upgrade_step"
+    ]
+  },
+  "contracts": {
+    "exports": [
+      "app\\modules\\official\\ops\\domain\\Maintenance\\MaintenanceService",
+      "app\\modules\\official\\ops\\domain\\Status\\OpsStatusService",
+      "app\\modules\\official\\ops\\domain\\Task\\OpsTaskService"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": false,
+    "requires": []
+  }
+}

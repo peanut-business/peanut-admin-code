@@ -5,8 +5,8 @@ namespace app\platform\controller;
 
 use app\common\http\JsonResponseFactory;
 use app\common\execution\CurrentExecutionContext;
-use app\platform\services\ops\PlatformOpsApplicationService;
-use PeanutAdmin\OpsConsole\Application\OpsConsoleException;
+use app\modules\official\ops\services\PlatformOpsApplicationService;
+use app\modules\official\ops\domain\Application\OpsConsoleException;
 use think\App;
 use think\Response;
 use think\response\Json;

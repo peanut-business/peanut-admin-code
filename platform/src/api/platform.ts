@@ -4,7 +4,7 @@ import type {
   MaintenanceScheduleInput,
   OpsConsoleTransport,
   OpsTransportResult,
-} from '@peanut-admin/admin/ops-console';
+} from '../modules/official-ops/contribution';
 
 interface Envelope<T> {
   code: number;
@@ -213,6 +213,64 @@ export interface ProviderQualificationSnapshot {
   schema_version: 1;
   generated_at: string;
   providers: ProviderQualificationItem[];
+}
+
+export interface DeveloperCatalogEvidence {
+  status: string;
+  code: string;
+  reason: string;
+  revision?: string | null;
+}
+
+export interface DeveloperModuleCatalog {
+  key: string;
+  name: string;
+  description: string;
+  version: string | null;
+  source: {
+    manifest: string;
+    manifest_sha256: string;
+    backend_root: string;
+    frontend_entry: string | null;
+    frontend_clients: Array<{ client_key: string; entry: string; root: string }>;
+  };
+  evidence: Record<string, DeveloperCatalogEvidence>;
+  dependencies: Array<Record<string, unknown>>;
+  dependants: Array<Record<string, unknown>>;
+  routes: Array<Record<string, unknown>>;
+  generated_api: Array<Record<string, unknown>>;
+  permissions: Array<Record<string, unknown>>;
+  public_services: Array<Record<string, unknown>>;
+  provider: Record<string, unknown>;
+  middleware: Array<Record<string, unknown>>;
+  lifecycle: Record<string, unknown>;
+  events: unknown[];
+  tasks: { commands: string[]; public_contracts: string[] };
+  migrations: { declared_path: string | null; files: Array<Record<string, unknown>> };
+  documentation: { status: string; files: string[] };
+  package_preview: Record<string, unknown> & {
+    status: string;
+    file_count?: number;
+    total_bytes?: number;
+    inventory_sha256?: string;
+    files?: Array<{ path: string; size: number; sha256: string }>;
+  };
+}
+
+export interface DeveloperCenterCatalogSnapshot {
+  schema_version: 1;
+  generated_at: string;
+  read_only: true;
+  sources: Record<string, string>;
+  status: Record<string, DeveloperCatalogEvidence>;
+  summary: {
+    modules: number;
+    discovered: number;
+    registered: number;
+    routes: number;
+    generated_api_operations: number;
+  };
+  modules: DeveloperModuleCatalog[];
 }
 
 export type OpsUpgradeReadinessState = 'configuration_required' | 'blocked' | 'ready';
@@ -658,6 +716,12 @@ export const api = {
   providerQualifications: () =>
     unwrap<ProviderQualificationSnapshot>(
       client.get('/platformapi/v1/ops/providers')
+    ),
+  developerCatalog: (moduleKey = '') =>
+    unwrap<DeveloperCenterCatalogSnapshot>(
+      client.get('/platformapi/developer-center/catalog', {
+        params: moduleKey ? { module_key: moduleKey } : {},
+      })
     ),
   async downloadDiagnostics(windowMinutes: 60 | 360 | 1440 = 60): Promise<DiagnosticDownload> {
     const result = await client.get<ArrayBuffer>('/platformapi/v1/ops/diagnostics', {

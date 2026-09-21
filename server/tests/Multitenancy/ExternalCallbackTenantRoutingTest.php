@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use app\common\service\external\ThinkPhpExternalTenantBindingRepository;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantAudit;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBinding;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBindingRepository;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolutionException;
+use app\modules\official\integration\infrastructure\ThinkPhpExternalTenantBindingRepository;
+use app\modules\official\integration\contracts\ExternalTenantAudit;
+use app\modules\official\integration\contracts\ExternalTenantBinding;
+use app\modules\official\integration\contracts\ExternalTenantBindingRepository;
+use app\modules\official\integration\services\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalTenantResolutionException;
 
 function externalExpect(bool $condition, string $message): void
 {

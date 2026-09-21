@@ -6,7 +6,7 @@ namespace app\common\value\scaffold;
 use Composer\Semver\VersionParser;
 use RuntimeException;
 
-/** Root source-product release authority; v2 root contracts never carry an instance identity. */
+/** Root source-product authority. V3 records package identities independently from the product version. */
 final readonly class VersionContract
 {
     private const STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
@@ -29,6 +29,15 @@ final readonly class VersionContract
         'core_php',
         'core_web',
     ];
+    private const V3_KEYS = self::V2_KEYS;
+    private const CORE_WEB_PACKAGES = [
+        '@peanut-admin/client',
+        '@peanut-admin/vue',
+        '@peanut-admin/ui-vue',
+        '@peanut-admin/nuxt',
+        '@peanut-admin/uniapp',
+        '@peanut-admin/testing',
+    ];
 
     private function __construct(private array $values)
     {
@@ -46,23 +55,28 @@ final readonly class VersionContract
         if (!is_array($values)) {
             throw new RuntimeException('VERSION_CONTRACT_SCHEMA_INVALID');
         }
+        $v3 = ($values['schema_version'] ?? null) === 3
+            && ($values['protocol'] ?? null) === 'peanut.release-versions.v3';
         $v2 = ($values['schema_version'] ?? null) === 2
             && ($values['protocol'] ?? null) === 'peanut.release-versions.v2';
-        if ((!$v2 && (array_keys($values) !== self::V1_KEYS
+        if ((!$v2 && !$v3 && (array_keys($values) !== self::V1_KEYS
                 || ($values['schema_version'] ?? null) !== 1
                 || ($values['protocol'] ?? null) !== 'peanut.release-versions.v1'))
-            || ($v2 && array_keys($values) !== self::V2_KEYS)) {
+            || ($v2 && array_keys($values) !== self::V2_KEYS)
+            || ($v3 && array_keys($values) !== self::V3_KEYS)) {
             throw new RuntimeException('VERSION_CONTRACT_SCHEMA_INVALID');
         }
         $parser = new VersionParser();
-        $versionKeys = $v2
-            ? ['source_product_version', 'scaffold_template', 'generated_instance_default', 'core_php', 'core_web']
-            : array_slice(self::V1_KEYS, 2);
+        $versionKeys = $v3
+            ? ['source_product_version', 'scaffold_template', 'generated_instance_default']
+            : ($v2
+                ? ['source_product_version', 'scaffold_template', 'generated_instance_default', 'core_php', 'core_web']
+                : array_slice(self::V1_KEYS, 2));
         foreach ($versionKeys as $key) {
             if (!is_string($values[$key]) || $values[$key] === '') {
                 throw new RuntimeException('VERSION_CONTRACT_VERSION_INVALID: ' . $key);
             }
-            if ($v2 && preg_match(self::STRICT_SEMVER, $values[$key]) !== 1) {
+            if (($v2 || $v3) && preg_match(self::STRICT_SEMVER, $values[$key]) !== 1) {
                 throw new RuntimeException('VERSION_CONTRACT_VERSION_INVALID: ' . $key);
             }
             try {
@@ -71,27 +85,35 @@ final readonly class VersionContract
                 throw new RuntimeException('VERSION_CONTRACT_VERSION_INVALID: ' . $key, 0, $exception);
             }
         }
-        if ($v2) {
+        if ($v2 || $v3) {
             if ($values['instance_version'] !== null) {
                 throw new RuntimeException('VERSION_CONTRACT_ROOT_INSTANCE_VERSION_INVALID');
             }
-            foreach (['core_php', 'core_web', 'scaffold_template'] as $key) {
+            foreach ($v2 ? ['core_php', 'core_web', 'scaffold_template'] : ['scaffold_template'] as $key) {
                 if ($values[$key] !== $values['source_product_version']) {
                     throw new RuntimeException('VERSION_CONTRACT_PRODUCT_CORE_VERSION_MISMATCH');
                 }
             }
+        }
+        if ($v3) {
+            self::assertV3Dependencies($values['core_php'] ?? null, $values['core_web'] ?? null, dirname($path));
         }
         return new self($values);
     }
 
     public function sourceProductVersion(): string
     {
-        return $this->isV2() ? $this->values['source_product_version'] : $this->values['product_release'];
+        return ($this->isV2() || $this->isV3()) ? $this->values['source_product_version'] : $this->values['product_release'];
     }
 
     public function isV2(): bool
     {
         return $this->values['schema_version'] === 2;
+    }
+
+    public function isV3(): bool
+    {
+        return $this->values['schema_version'] === 3;
     }
 
     public function scaffoldTemplate(): string
@@ -102,24 +124,59 @@ final readonly class VersionContract
     /** Default version assigned to a newly generated customer instance. */
     public function generatedInstanceDefault(): string
     {
-        return $this->isV2()
+        return ($this->isV2() || $this->isV3())
             ? $this->values['generated_instance_default']
             : $this->values['generated_application_default'];
     }
 
     public function corePhp(): string
     {
-        return $this->values['core_php'];
+        return $this->isV3() ? $this->values['core_php']['resolved_version'] : $this->values['core_php'];
     }
 
     public function coreWeb(): string
     {
-        return $this->values['core_web'];
+        return $this->isV3() ? $this->values['core_web']['packages']['@peanut-admin/client']['version'] : $this->values['core_web'];
+    }
+
+    /** @return array{package:string,constraint:string,resolved_version:string,source_type:string,source_url:string,source_reference:string} */
+    public function corePhpPackage(): array
+    {
+        if (!$this->isV3()) {
+            return [
+                'package' => 'peanut-admin/core',
+                'constraint' => $this->corePhp(),
+                'resolved_version' => $this->corePhp(),
+                'source_type' => 'release',
+                'source_url' => '',
+                'source_reference' => '',
+            ];
+        }
+        return $this->values['core_php'];
+    }
+
+    /** @return array<string,string> */
+    public function coreWebPackages(): array
+    {
+        return $this->isV3()
+            ? array_map(static fn(array $package): string => $package['version'], $this->values['core_web']['packages'])
+            : array_fill_keys(self::CORE_WEB_PACKAGES, $this->coreWeb());
+    }
+
+    /** @return array<string,mixed> */
+    public function coreWebIdentity(): array
+    {
+        return $this->isV3()
+            ? $this->values['core_web']
+            : ['packages' => array_map(
+                static fn(string $version): array => ['version' => $version],
+                $this->coreWebPackages(),
+            )];
     }
 
     public function assertSame(string $actual, string $expected, string $error): void
     {
-        if ($this->isV2()
+        if (($this->isV2() || $this->isV3())
             && (preg_match(self::STRICT_SEMVER, $actual) !== 1
                 || preg_match(self::STRICT_SEMVER, $expected) !== 1)) {
             throw new RuntimeException($error);
@@ -138,7 +195,7 @@ final readonly class VersionContract
 
     public function assertValid(string $version, string $error): void
     {
-        if ($this->isV2() && preg_match(self::STRICT_SEMVER, $version) !== 1) {
+        if (($this->isV2() || $this->isV3()) && preg_match(self::STRICT_SEMVER, $version) !== 1) {
             throw new RuntimeException($error);
         }
         try {
@@ -148,7 +205,7 @@ final readonly class VersionContract
         }
     }
 
-    /** @return array<string,int|string|null> */
+    /** @return array<string,mixed> */
     public function toArray(): array
     {
         return $this->values;
@@ -165,6 +222,46 @@ final readonly class VersionContract
             throw new RuntimeException('VERSION_CONTRACT_COMPOSER_AUTOLOAD_UNAVAILABLE');
         }
         require_once $autoload;
+    }
+
+    private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
+    {
+        $phpKeys = ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference'];
+        if (!is_array($php) || array_keys($php) !== $phpKeys
+            || $php['package'] !== 'peanut-admin/core'
+            || !is_string($php['constraint'])
+            || preg_match('/^dev-[A-Za-z0-9._-]+#[0-9a-f]{40}$/D', $php['constraint']) !== 1
+            || !is_string($php['resolved_version']) || !str_starts_with($php['resolved_version'], 'dev-')
+            || $php['source_type'] !== 'git'
+            || !is_string($php['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $php['source_url']) !== 1
+            || !is_string($php['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) !== 1
+            || !str_ends_with($php['constraint'], '#' . $php['source_reference'])) {
+            throw new RuntimeException('VERSION_CONTRACT_CORE_PHP_INVALID');
+        }
+        $webKeys = ['source_type', 'source_url', 'source_reference', 'packages'];
+        $packages = is_array($web) && array_keys($web) === $webKeys ? $web['packages'] : null;
+        if (!is_array($web) || $web['source_type'] !== 'git'
+            || !is_string($web['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $web['source_url']) !== 1
+            || !is_string($web['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $web['source_reference']) !== 1) {
+            throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_INVALID');
+        }
+        if (!is_array($packages) || array_keys($packages) !== self::CORE_WEB_PACKAGES) {
+            throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_INVALID');
+        }
+        foreach ($packages as $package => $identity) {
+            if (!is_array($identity) || array_keys($identity) !== ['version', 'archive', 'sha256']
+                || !is_string($identity['version']) || preg_match(self::STRICT_SEMVER, $identity['version']) !== 1
+                || !is_string($identity['archive'])
+                || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$#D', $identity['archive']) !== 1
+                || !is_string($identity['sha256']) || preg_match('/^[0-9a-f]{64}$/D', $identity['sha256']) !== 1) {
+                throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_INVALID: ' . $package);
+            }
+            $archive = $root . '/' . $identity['archive'];
+            $digest = is_file($archive) && !is_link($archive) ? hash_file('sha256', $archive) : false;
+            if (!is_string($digest) || !hash_equals($identity['sha256'], $digest)) {
+                throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_ARCHIVE_INVALID: ' . $package);
+            }
+        }
     }
 
 }

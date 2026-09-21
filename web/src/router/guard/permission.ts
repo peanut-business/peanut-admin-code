@@ -3,7 +3,7 @@ import NProgress from 'nprogress'; // progress bar
 
 import usePermission from '@/hooks/permission';
 import { useUserStore, useAppStore } from '@/store';
-import { routesForTenantModules } from '@peanut-admin/admin/core';
+import { routesForTenantModules } from '@peanut-admin/vue';
 import { permissionEvaluator } from '@/core/runtime';
 import { appRoutes } from '../routes';
 import { pluginRoutes } from '../routes/plugin-contributions';

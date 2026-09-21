@@ -64,7 +64,28 @@ $source["repositories"] = array_merge([
         "options" => ["symlink" => true],
     ],
 ], $source["repositories"] ?? []);
-$source["autoload"]["psr-4"]["app\\"] = $argv[5];
+// The ignored manifest lives outside server/. Root every source/test path at
+// the selected application, including module-owned public namespaces.
+$serverRoot = dirname($argv[5]);
+foreach (["autoload", "autoload-dev"] as $section) {
+    foreach (["psr-4", "psr-0"] as $kind) {
+        foreach ($source[$section][$kind] ?? [] as $namespace => $paths) {
+            $absolute = array_map(
+                static fn(string $path): string => $serverRoot . "/" . ltrim($path, "/"),
+                (array)$paths,
+            );
+            $source[$section][$kind][$namespace] = is_array($paths) ? $absolute : $absolute[0];
+        }
+    }
+    foreach (["classmap", "files", "exclude-from-classmap"] as $kind) {
+        if (isset($source[$section][$kind])) {
+            $source[$section][$kind] = array_map(
+                static fn(string $path): string => $serverRoot . "/" . ltrim($path, "/"),
+                $source[$section][$kind],
+            );
+        }
+    }
+}
 $source["config"]["vendor-dir"] = $argv[3];
 file_put_contents(
     $argv[4],
@@ -108,13 +129,13 @@ case "$ACTION" in
         preserve_application_lock
         trap restore_application_lock EXIT
         cp "$SERVER_DIR/composer.lock" "$LOCAL_LOCK"
-        run_composer update peanut-admin/core --no-scripts --no-progress --prefer-source
+        run_composer update peanut-admin/core --no-scripts --no-progress --prefer-dist
         ;;
     update|refresh)
         preserve_application_lock
         trap restore_application_lock EXIT
         cp "$SERVER_DIR/composer.lock" "$LOCAL_LOCK"
-        run_composer update peanut-admin/core --no-scripts --no-progress --prefer-source
+        run_composer update peanut-admin/core --no-scripts --no-progress --prefer-dist
         ;;
     autoload)
         run_composer dump-autoload --no-scripts

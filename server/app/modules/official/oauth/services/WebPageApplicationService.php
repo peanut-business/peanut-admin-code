@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\modules\official\oauth\services;
 
-use app\common\services\config\TenantApplicationSettingService;
+use app\modules\official\settings\contracts\TenantApplicationSettings;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
@@ -13,7 +13,7 @@ class WebPageApplicationService
     protected const CONFIG_TYPE = 'web_page';
 
     public function __construct(
-        private readonly TenantApplicationSettingService $applicationSettings,
+        private readonly TenantApplicationSettings $applicationSettings,
     ) {
     }
 

@@ -119,7 +119,7 @@ function pluginModuleContractMakeOfficial(App $app, string $abstract, string $co
         \app\common\contract\idempotency\IdempotentCommandExecutor::class => \app\common\service\idempotency\ThinkPhpIdempotentCommandExecutor::class,
         \app\Modules\Official\Task\Contracts\TaskJobRuntime::class => \app\Modules\Official\Task\Infrastructure\Runtime\ThinkPhpTaskJobRuntime::class,
         \app\common\service\http\OutboundHttpTransport::class => \app\common\service\http\GuzzleOutboundHttpTransport::class,
-        \PeanutAdmin\IntegrationSecurity\External\ExternalTenantAudit::class => \app\common\service\external\ThinkPhpExternalTenantAudit::class,
+        \app\modules\official\integration\contracts\ExternalTenantAudit::class => \app\modules\official\integration\infrastructure\ThinkPhpExternalTenantAudit::class,
         \app\common\service\payment\contract\PaymentTransportInterface::class => \app\common\service\payment\transport\CurlPaymentTransport::class,
     ];
     $reflection = new ReflectionClass($concrete);
@@ -172,7 +172,8 @@ $compiler = new ModuleRegistryCompiler(
         ...IdempotencySchema::tableNames(),
         ...DataPermissionSchema::tableNames(),
     ],
-    ['admin-web', 'platform-web']
+    ['admin-web', 'platform-web'],
+        [...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM],
 );
 
 $loader = new ManifestLoader();
@@ -220,9 +221,9 @@ $officialAutowireTargets = [
     \app\Modules\Official\ImportExport\Application\OperationLogExportApplicationService::class => \app\Modules\Official\ImportExport\Application\OperationLogExportApplicationService::class,
     \app\common\services\notice\NoticeChannelService::class => \app\common\services\notice\NoticeChannelService::class,
     \app\Modules\Official\Notification\Contracts\NotificationCommands::class => \app\Modules\Official\Notification\Application\NotificationApplicationService::class,
-    \app\common\service\external\ThinkPhpExternalTenantBindingRepository::class => \app\common\service\external\ThinkPhpExternalTenantBindingRepository::class,
-    \PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver::class => \PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver::class,
-    \app\common\service\external\ExternalChannelBindingService::class => \app\common\service\external\ExternalChannelBindingService::class,
+    \app\modules\official\integration\contracts\ExternalTenantBindingRepository::class => \app\modules\official\integration\infrastructure\ThinkPhpExternalTenantBindingRepository::class,
+    \app\modules\official\integration\contracts\ExternalTenantResolutionService::class => \app\modules\official\integration\services\ExternalTenantResolver::class,
+    \app\modules\official\integration\contracts\ExternalChannelBindings::class => \app\modules\official\integration\services\ExternalChannelBindingService::class,
     \app\common\service\payment\PaymentServiceFactory::class => \app\common\service\payment\PaymentServiceFactory::class,
     \app\Modules\Official\Payment\Contracts\PaymentChannelGrantCommands::class => \app\Modules\Official\Payment\Infrastructure\ThinkPhpPaymentChannelGrantCommands::class,
 ];

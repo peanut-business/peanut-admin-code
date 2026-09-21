@@ -4,9 +4,9 @@ declare(strict_types=1);
 namespace app\modules\official\oauth\services;
 
 use app\common\exception\BusinessException;
-use app\common\services\fileService;
-use app\common\services\external\ExternalChannelBindingService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\file\contracts\FileReferences;
+use app\modules\official\integration\contracts\ExternalChannelBindings;
+use app\modules\official\integration\contracts\ExternalProvider;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 /** 微信小程序基础配置。 */
@@ -15,14 +15,14 @@ class MiniProgramApplicationService
     protected const CONFIG_TYPE = 'mnp_setting';
 
     public function __construct(
-        private readonly ExternalChannelBindingService $bindings,
-        private readonly FileService $files,
+        private readonly ExternalChannelBindings $bindings,
+        private readonly FileReferences $files,
     ) {
     }
 
     public function getConfig(TenantContext $context, string $domain): array
     {
-        $stored = $this->bindings->config($context, ExternalTenantResolver::WECHAT_MINI_PROGRAM);
+        $stored = $this->bindings->config($context, ExternalProvider::WECHAT_MINI_PROGRAM);
         $qrCode = (string)($stored['qr_code'] ?? '');
         $secret = (string)($stored['app_secret'] ?? '');
         $domains = self::domainConfig($domain);
@@ -45,7 +45,7 @@ class MiniProgramApplicationService
 
     public function setConfig(TenantContext $context, array $params): bool
     {
-        $current = $this->bindings->config($context, ExternalTenantResolver::WECHAT_MINI_PROGRAM);
+        $current = $this->bindings->config($context, ExternalProvider::WECHAT_MINI_PROGRAM);
         $currentSecret = (string)($current['app_secret'] ?? '');
         $incomingSecret = trim((string)$params['app_secret']);
         $secret = $incomingSecret === '******' ? $currentSecret : $incomingSecret;
@@ -61,7 +61,7 @@ class MiniProgramApplicationService
         ];
         $this->bindings->update(
             $context,
-            ExternalTenantResolver::WECHAT_MINI_PROGRAM,
+            ExternalProvider::WECHAT_MINI_PROGRAM,
             $data,
             $data['app_id'],
         );

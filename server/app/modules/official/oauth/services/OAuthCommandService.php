@@ -13,13 +13,14 @@ use app\common\exception\BusinessException;
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
 use think\facade\Db;
-use app\common\services\config\TenantApplicationSettingService;
+use app\modules\official\settings\contracts\TenantApplicationSettings;
 use PeanutAdmin\IntegrationSecurity\OAuth\OAuthProfile;
 use PeanutAdmin\IntegrationSecurity\OAuth\OAuthTransport;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use app\common\context\external\ExternalTenantContext;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBinding;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalTenantContext;
+use app\modules\official\integration\contracts\ExternalTenantBinding;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use app\modules\official\integration\contracts\ExternalProvider;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 
@@ -47,8 +48,8 @@ final class OAuthCommandService implements OAuthCommands
         private readonly MemberProfileCommands $memberProfiles,
         private readonly VerificationCodeCommands $verificationCodes,
         private readonly AdvisoryLockExecution $locks,
-        private readonly TenantApplicationSettingService $applicationSettings,
-        private readonly ExternalTenantResolver $externalTenants,
+        private readonly TenantApplicationSettings $applicationSettings,
+        private readonly ExternalTenantResolutionService $externalTenants,
         private readonly OAuthPersistence $persistence,
         private readonly OAuthTransport $transport,
         private readonly string $defaultAvatar,
@@ -128,7 +129,7 @@ final class OAuthCommandService implements OAuthCommands
             }
             $binding = $this->externalTenants->bindingForTenant(
                 ExternalTenantContext::tenantId($context),
-                ExternalTenantResolver::oauthProvider($scene),
+                ExternalProvider::oauth($scene),
             );
             $profile = $this->transport->exchange($scene, $binding->config, $code);
             [$bound] = $this->resolveIdentity($context, $scene, $profile, $memberId, $binding);

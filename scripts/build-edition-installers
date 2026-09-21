@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ApplicationCreator;
 use app\common\infrastructure\scaffold\DeterministicEditionArchive;
+use app\common\value\scaffold\VersionContract;
 
 function editionInstallerUsage(): never
 {
@@ -72,7 +73,7 @@ foreach (['version', 'source-commit', 'output'] as $required) {
         editionInstallerUsage();
     }
 }
-if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $options['version']) !== 1
+if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $options['version']) !== 1
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
     || !str_starts_with($options['output'], '/')) {
     editionInstallerUsage();
@@ -99,17 +100,11 @@ try {
     editionInstallerRun(['git', '-C', $root, 'archive', '--format=tar', '--output=' . $sourceArchive, $commit]);
     (new PharData($sourceArchive))->extractTo($source);
 
-    $versions = json_decode((string)file_get_contents($source . '/release-versions.json'), true, 32, JSON_THROW_ON_ERROR);
-    if (($versions['schema_version'] ?? null) !== 2
-        || ($versions['protocol'] ?? null) !== 'peanut.release-versions.v2'
-        || ($versions['source_product_version'] ?? null) !== $options['version']
-        || !array_key_exists('instance_version', $versions)
-        || $versions['instance_version'] !== null
-        || ($versions['core_php'] ?? null) !== $options['version']
-        || ($versions['core_web'] ?? null) !== $options['version']
-        || ($versions['scaffold_template'] ?? null) !== $options['version']
-        || !is_string($versions['generated_instance_default'] ?? null)
-        || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $versions['generated_instance_default']) !== 1) {
+    require $source . '/server/app/common/value/scaffold/VersionContract.php';
+    $versions = VersionContract::load($source . '/release-versions.json');
+    if (!$versions->isV3()
+        || $versions->sourceProductVersion() !== $options['version']
+        || $versions->scaffoldTemplate() !== $options['version']) {
         throw new RuntimeException('EDITION_BUILD_VERSION_IDENTITY_MISMATCH');
     }
     require $source . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';

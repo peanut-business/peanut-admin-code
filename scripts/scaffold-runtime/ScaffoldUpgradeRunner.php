@@ -44,6 +44,15 @@ final class ScaffoldUpgradeRunner
         'core_php',
         'core_web',
     ];
+    private const VERSION_CONTRACT_V3_KEYS = self::VERSION_CONTRACT_V2_KEYS;
+    private const CORE_WEB_PACKAGES = [
+        '@peanut-admin/client',
+        '@peanut-admin/vue',
+        '@peanut-admin/ui-vue',
+        '@peanut-admin/nuxt',
+        '@peanut-admin/uniapp',
+        '@peanut-admin/testing',
+    ];
 
     /**
      * Build the immutable scaffold plan without writing a plan file or ledger event.
@@ -670,7 +679,7 @@ final class ScaffoldUpgradeRunner
             $rendered,
             'SCAFFOLD_VERSION_CONTRACT_TARGET_INVALID',
         );
-        if ($document['schema_version'] === 2) {
+        if ($document['schema_version'] >= 2) {
             $document['instance_version'] = $this->instanceVersion($versionContract);
         } else {
             $instanceVersion = $this->instanceVersion($versionContract);
@@ -1021,6 +1030,9 @@ final class ScaffoldUpgradeRunner
             is_string($raw) ? $raw : '',
             'SCAFFOLD_VERSION_CONTRACT_INVALID',
         );
+        if ($document['schema_version'] === 3) {
+            $this->assertV3ArchiveDigests($root, $document['core_web']);
+        }
         if ($document['scaffold_template'] !== ($application['template']['version'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_VERSION_CONTRACT_IDENTITY_MISMATCH');
         }
@@ -1047,7 +1059,7 @@ final class ScaffoldUpgradeRunner
                 === $this->normalizeVersionContractDocument($expected, 'SCAFFOLD_VERSION_CONTRACT_TARGET_INVALID');
     }
 
-    /** Parse exactly the seven supported fields and return their stable semantic order. */
+    /** Parse the supported historical/current fields and return their stable semantic order. */
     private function normalizeVersionContractDocument(string $raw, string $error): array
     {
         try {
@@ -1056,13 +1068,18 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException($error, 0, $exception);
         }
         $keys = is_array($document) ? array_keys($document) : [];
+        $v3 = is_array($document)
+            && ($document['schema_version'] ?? null) === 3
+            && ($document['protocol'] ?? null) === 'peanut.release-versions.v3';
         $v2 = is_array($document)
             && ($document['schema_version'] ?? null) === 2
             && ($document['protocol'] ?? null) === 'peanut.release-versions.v2';
-        $expectedKeys = $v2 ? self::VERSION_CONTRACT_V2_KEYS : self::VERSION_CONTRACT_V1_KEYS;
+        $expectedKeys = $v3
+            ? self::VERSION_CONTRACT_V3_KEYS
+            : ($v2 ? self::VERSION_CONTRACT_V2_KEYS : self::VERSION_CONTRACT_V1_KEYS);
         if (!is_array($document) || count($keys) !== count($expectedKeys)
             || array_diff($keys, $expectedKeys) !== [] || array_diff($expectedKeys, $keys) !== []
-            || (!$v2 && (($document['schema_version'] ?? null) !== 1
+            || (!$v2 && !$v3 && (($document['schema_version'] ?? null) !== 1
                 || ($document['protocol'] ?? null) !== 'peanut.release-versions.v1'))) {
             throw new RuntimeException($error);
         }
@@ -1073,9 +1090,13 @@ final class ScaffoldUpgradeRunner
                 $normalized[$key] = null;
                 continue;
             }
+            if ($v3 && in_array($key, ['core_php', 'core_web'], true)) {
+                $normalized[$key] = $value;
+                continue;
+            }
             if (!in_array($key, ['schema_version', 'protocol'], true)
                 && (!is_string($value)
-                    || !($v2 ? $this->isStrictSemanticVersion($value) : $this->isSemanticVersion($value)))) {
+                    || !(($v2 || $v3) ? $this->isStrictSemanticVersion($value) : $this->isSemanticVersion($value)))) {
                 throw new RuntimeException($error . ': ' . $key);
             }
             $normalized[$key] = $value;
@@ -1085,17 +1106,23 @@ final class ScaffoldUpgradeRunner
                 || $normalized['source_product_version'] !== $normalized['scaffold_template'])) {
             throw new RuntimeException($error . ': product-core-version-mismatch');
         }
+        if ($v3) {
+            if ($normalized['source_product_version'] !== $normalized['scaffold_template']) {
+                throw new RuntimeException($error . ': product-template-version-mismatch');
+            }
+            $this->assertV3DependencyIdentity($normalized['core_php'], $normalized['core_web'], $error);
+        }
         return $normalized;
     }
 
     /** Resolve only the customer instance sequence used by scaffold apply/verify plans. */
     private function instanceVersion(array $versionContract): string
     {
-        $version = $versionContract['schema_version'] === 2
+        $version = $versionContract['schema_version'] >= 2
             ? ($versionContract['instance_version'] ?? null)
             : ($versionContract['product_release'] ?? null);
         if (!is_string($version)
-            || !($versionContract['schema_version'] === 2
+            || !($versionContract['schema_version'] >= 2
                 ? $this->isStrictSemanticVersion($version)
                 : $this->isSemanticVersion($version))) {
             throw new RuntimeException('SCAFFOLD_INSTANCE_VERSION_INVALID');
@@ -1112,6 +1139,52 @@ final class ScaffoldUpgradeRunner
     private function isStrictSemanticVersion(string $version): bool
     {
         return preg_match(self::STRICT_SEMVER, $version) === 1;
+    }
+
+    private function assertV3DependencyIdentity(mixed $php, mixed $web, string $error): void
+    {
+        if (!is_array($php)
+            || array_keys($php) !== ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference']
+            || $php['package'] !== 'peanut-admin/core'
+            || !is_string($php['constraint'])
+            || preg_match('/^dev-[A-Za-z0-9._-]+#[0-9a-f]{40}$/D', $php['constraint']) !== 1
+            || !is_string($php['resolved_version']) || !str_starts_with($php['resolved_version'], 'dev-')
+            || $php['source_type'] !== 'git'
+            || !is_string($php['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $php['source_url']) !== 1
+            || !is_string($php['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) !== 1
+            || !str_ends_with($php['constraint'], '#' . $php['source_reference'])) {
+            throw new RuntimeException($error . ': core_php');
+        }
+        $packages = is_array($web)
+            && array_keys($web) === ['source_type', 'source_url', 'source_reference', 'packages']
+            ? $web['packages']
+            : null;
+        if (!is_array($web) || $web['source_type'] !== 'git'
+            || !is_string($web['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $web['source_url']) !== 1
+            || !is_string($web['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $web['source_reference']) !== 1
+            || !is_array($packages) || array_keys($packages) !== self::CORE_WEB_PACKAGES) {
+            throw new RuntimeException($error . ': core_web');
+        }
+        foreach ($packages as $identity) {
+            if (!is_array($identity) || array_keys($identity) !== ['version', 'archive', 'sha256']
+                || !is_string($identity['version']) || !$this->isStrictSemanticVersion($identity['version'])
+                || !is_string($identity['archive'])
+                || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$#D', $identity['archive']) !== 1
+                || !is_string($identity['sha256']) || preg_match('/^[0-9a-f]{64}$/D', $identity['sha256']) !== 1) {
+                throw new RuntimeException($error . ': core_web');
+            }
+        }
+    }
+
+    private function assertV3ArchiveDigests(string $root, array $web): void
+    {
+        foreach ($web['packages'] as $identity) {
+            $path = ScaffoldPathGuard::projectPath($root, $identity['archive']);
+            $digest = is_file($path) && !is_link($path) ? hash_file('sha256', $path) : false;
+            if (!is_string($digest) || !hash_equals($identity['sha256'], $digest)) {
+                throw new RuntimeException('SCAFFOLD_VERSION_CONTRACT_CORE_WEB_ARCHIVE_INVALID');
+            }
+        }
     }
 
     private function releaseIdentity(ScaffoldManifest $manifest): array { return $manifest->release() + ['manifest_sha256' => $manifest->digest()]; }

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "key": "official.integration",
+  "name": "External Integrations",
+  "description": "Tenant-owned external bindings, machine identities and webhook delivery lifecycle.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-integration",
+  "dependencies": [
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    }
+  ],
+  "lifecycle": {
+    "protected": true
+  },
+  "backend": {
+    "provider": "app\\modules\\official\\integration\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json"
+  },
+  "database": {
+    "owned_tables": [
+      "pa_external_channel_binding",
+      "pa_integration_machine_identity",
+      "pa_integration_webhook_endpoint",
+      "pa_integration_webhook_delivery",
+      "pa_integration_webhook_attempt",
+      "pa_integration_security_event"
+    ]
+  },
+  "contracts": {
+    "exports": [
+      "app\\modules\\official\\integration\\contracts\\ExternalTenantBindingRepository",
+      "app\\modules\\official\\integration\\contracts\\ExternalTenantBinding",
+      "app\\modules\\official\\integration\\contracts\\ExternalTenantContext",
+      "app\\modules\\official\\integration\\contracts\\ExternalTenantResolutionService",
+      "app\\modules\\official\\integration\\contracts\\ExternalTenantResolutionException",
+      "app\\modules\\official\\integration\\contracts\\ExternalChannelBindings",
+      "app\\modules\\official\\integration\\contracts\\ExternalChannelBindingStore",
+      "app\\modules\\official\\integration\\contracts\\ExternalProvider"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": false,
+    "disable_behavior": "reject_new_operations",
+    "requires": []
+  },
+  "frontend": {
+    "entry": "web/src/modules/official-integration/contribution.ts"
+  },
+  "web_package": "@peanut-admin/official-integration"
+}

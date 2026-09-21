@@ -1,6 +1,6 @@
 {
   "name": "peanut-admin-platform",
-  "version": "3.1.1",
+  "version": "4.0.0-dev",
   "private": true,
   "description": "Peanut Admin instance platform control plane",
   "author": "花生科技",
@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
-    "@peanut-admin/admin": "3.1.1",
+    "@peanut-admin/ui-vue": "file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
+    "@peanut-admin/vue": "file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
     "axios": "0.33.0",
     "element-plus": "2.14.3",
     "pinia": "2.0.23",

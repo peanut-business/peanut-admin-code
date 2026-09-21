@@ -3,7 +3,7 @@ import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useUserStore } from '@/store';
 import { getToken, setToken } from '@/utils/auth';
-import { isTenantAccessToken } from '@peanut-admin/admin/core';
+import { isTenantAccessToken } from '@peanut-admin/vue';
 import { refreshTenantSession } from '@/api/tenant-session';
 
 export interface HttpResponse<T = unknown> {

@@ -14,8 +14,12 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 POLICY_PATH = ROOT / "resources/consumer-ready-control.json"
-SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$")
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
+CORE_WEB_PACKAGES = [
+    "@peanut-admin/client", "@peanut-admin/vue", "@peanut-admin/ui-vue",
+    "@peanut-admin/nuxt", "@peanut-admin/uniapp", "@peanut-admin/testing",
+]
 
 
 class ControlError(RuntimeError):
@@ -53,6 +57,63 @@ def git(*arguments: str) -> str:
 
 def sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def current_version_contract(versions: dict[str, Any], target_version: str) -> bool:
+    if (
+        versions.get("schema_version") != 3
+        or versions.get("protocol") != "peanut.release-versions.v3"
+        or versions.get("source_product_version") != target_version
+        or versions.get("instance_version") is not None
+        or versions.get("scaffold_template") != target_version
+        or SEMVER.fullmatch(target_version) is None
+    ):
+        return False
+    php = versions.get("core_php")
+    web = versions.get("core_web")
+    if (
+        not isinstance(php, dict)
+        or list(php) != ["package", "constraint", "resolved_version", "source_type", "source_url", "source_reference"]
+        or php.get("package") != "peanut-admin/core"
+        or re.fullmatch(r"dev-[A-Za-z0-9._-]+#[0-9a-f]{40}", str(php.get("constraint", ""))) is None
+        or not str(php.get("resolved_version", "")).startswith("dev-")
+        or php.get("source_type") != "git"
+        or not str(php.get("source_url", "")).startswith("https://")
+        or COMMIT.fullmatch(str(php.get("source_reference", ""))) is None
+        or not str(php.get("constraint", "")).endswith("#" + str(php.get("source_reference", "")))
+        or not isinstance(web, dict)
+        or list(web) != ["source_type", "source_url", "source_reference", "packages"]
+        or web.get("source_type") != "git"
+        or not str(web.get("source_url", "")).startswith("https://")
+        or COMMIT.fullmatch(str(web.get("source_reference", ""))) is None
+    ):
+        return False
+    packages = web.get("packages")
+    if not isinstance(packages, dict) or list(packages) != CORE_WEB_PACKAGES:
+        return False
+    for identity in packages.values():
+        if not isinstance(identity, dict) or list(identity) != ["version", "archive", "sha256"]:
+            return False
+        archive = identity.get("archive")
+        digest = identity.get("sha256")
+        if (
+            not isinstance(identity.get("version"), str)
+            or SEMVER.fullmatch(identity["version"]) is None
+            or not isinstance(archive, str)
+            or re.fullmatch(r"packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz", archive) is None
+            or not isinstance(digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+        ):
+            return False
+        path = ROOT / archive
+        if not path.is_file() or path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            return False
+    return True
+
+
+def semantic_core(version: str) -> tuple[int, int, int]:
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", version)
+    return tuple(int(part) for part in match.groups()) if match else ()
 
 
 class Report:
@@ -203,7 +264,7 @@ def preflight(args: argparse.Namespace) -> int:
     report.derived.update({"head": head, "tag": f"v{target_version}"})
 
     report.check("TARGET_VERSION_VALID", SEMVER.fullmatch(target_version) is not None, target_version,
-                 "use a stable X.Y.Z version")
+                 "use a valid SemVer version")
     report.check("CANDIDATE_EXACT", COMMIT.fullmatch(candidate) is not None, candidate,
                  "resolve the candidate through Git instead of typing or abbreviating a SHA")
     report.check("CANDIDATE_IS_HEAD", candidate == head, f"candidate={candidate} head={head}",
@@ -240,14 +301,14 @@ def preflight(args: argparse.Namespace) -> int:
         "fixture_version": fixture.get("target_release", {}).get("version"),
     }
     expected_values = {
-        "schema_version": 2,
-        "protocol": "peanut.release-versions.v2",
+        "schema_version": versions.get("schema_version"),
+        "protocol": versions.get("protocol"),
         "source_product_version": target_version,
         "instance_version": None,
         "scaffold_template": target_version,
         "generated_instance_default": inventory.get("application", {}).get("version"),
-        "core_php": target_version,
-        "core_web": target_version,
+        "core_php": versions.get("core_php"),
+        "core_web": versions.get("core_web"),
         "metadata_schema_version": 2,
         "metadata_protocol": "peanut.release-metadata.v2",
         "metadata_source_product_version": target_version,
@@ -259,9 +320,9 @@ def preflight(args: argparse.Namespace) -> int:
     }
     if args.phase == "prepare":
         baseline_version = metadata_source_version if isinstance(metadata_source_version, str) else ""
-        target_parts = tuple(int(part) for part in target_version.split(".")) if SEMVER.fullmatch(target_version) else ()
-        baseline_parts = tuple(int(part) for part in baseline_version.split(".")) if SEMVER.fullmatch(baseline_version) else ()
-        development_identity_valid = (
+        target_parts = semantic_core(target_version) if SEMVER.fullmatch(target_version) else ()
+        baseline_parts = semantic_core(baseline_version) if SEMVER.fullmatch(baseline_version) else ()
+        historical_v2 = (
             versions.get("schema_version") == 2
             and versions.get("protocol") == "peanut.release-versions.v2"
             and versions.get("source_product_version") == target_version
@@ -269,6 +330,9 @@ def preflight(args: argparse.Namespace) -> int:
             and versions.get("scaffold_template") == target_version
             and versions.get("core_php") == target_version
             and versions.get("core_web") == target_version
+        )
+        development_identity_valid = (
+            (historical_v2 or current_version_contract(versions, target_version))
             and metadata_v2
             and metadata_instance_version is None
             and bool(baseline_parts)
@@ -283,7 +347,13 @@ def preflight(args: argparse.Namespace) -> int:
             report.warn("RELEASE_IDENTITY_CLOSURE_PENDING",
                         "published metadata, inventory, scaffold fixture or Core locks may remain on the previous release until seal")
     else:
-        report.check("VERSION_IDENTITY_ALIGNED", version_values == expected_values,
+        report.check("VERSION_IDENTITY_ALIGNED",
+                     (current_version_contract(versions, target_version)
+                      or (versions.get("schema_version") == 2
+                          and versions.get("protocol") == "peanut.release-versions.v2"
+                          and versions.get("core_php") == target_version
+                          and versions.get("core_web") == target_version))
+                     and version_values == expected_values,
                      json.dumps(version_values, sort_keys=True),
                      "align release-versions, metadata, inventory and P0-E fixture before sealing")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")

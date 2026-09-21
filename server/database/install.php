@@ -11,7 +11,7 @@ use think\Container;
 $installerArguments = $_SERVER['argv'] ?? [];
 $installerIsDirect = realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__;
 if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
-    require_once dirname(__DIR__) . '/app/common/service/installation/InstallationPreflightHost.php';
+    require_once dirname(__DIR__) . '/app/common/services/installation/InstallationPreflightHost.php';
     $preflight = (new \app\common\services\installation\InstallationPreflightHost(dirname(__DIR__)))->inspect();
     echo json_encode($preflight, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
     exit($preflight['status'] === 'ready' ? 0 : 1);

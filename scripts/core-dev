@@ -1,81 +1,62 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
-ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
-CORE_DIR=""
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)"
+ACTION="${1:-status}"
+[[ $# -eq 0 ]] || shift
+PHP_CORE_DIR=""
+WEB_CORE_DIR=""
 BACKEND_ENV=""
-PHP_LINK="$ROOT_DIR/server/vendor/peanut-admin/core"
-WEB_LINK="$ROOT_DIR/web/node_modules/@peanut-admin/admin"
-COMPOSER_BIN="$ROOT_DIR/scripts/project-composer"
 
 die() { printf 'core-dev: %s\n' "$*" >&2; exit 1; }
-action="${1:-status}"
-[ $# -gt 0 ] && shift
+usage() {
+  cat <<'EOF'
+Usage: scripts/core-dev {install|status|link|link-status}
+  --php-core-dir /absolute/peanut-admin-core-php
+  --web-core-dir /absolute/peanut-admin-core-web
+  [--backend-env /absolute/server/.env.development]
+
+Development only. PHP uses the selected local checkout without changing its
+formal lock. Web install/status use the locked candidate archives; link and
+link-status explicitly select local Web source. Final candidate qualification
+uses a clean consumer with both dependency graphs fixed.
+EOF
+}
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --core-dir) [[ $# -ge 2 ]] || die '--core-dir requires a value'; CORE_DIR="$2"; shift 2 ;;
-    --backend-env) [[ $# -ge 2 ]] || die '--backend-env requires a value'; BACKEND_ENV="$2"; shift 2 ;;
-    *) die "unsupported argument: $1" ;;
+    --php-core-dir) [[ $# -ge 2 ]] || die 'missing PHP Core path'; PHP_CORE_DIR="$2"; shift 2 ;;
+    --web-core-dir) [[ $# -ge 2 ]] || die 'missing Web Core path'; WEB_CORE_DIR="$2"; shift 2 ;;
+    --backend-env) [[ $# -ge 2 ]] || die 'missing environment path'; BACKEND_ENV="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown argument: $1" ;;
   esac
 done
-[[ "$CORE_DIR" == /* ]] || die '--core-dir must be an absolute path'
-if [[ "$action" == link || "$action" == unlink ]]; then
-  [[ "$BACKEND_ENV" == /* ]] || die '--backend-env is required for link and unlink'
-fi
-CORE_DIR="$(CDPATH= cd -- "$CORE_DIR" 2>/dev/null && pwd)" || die "core checkout not found: $CORE_DIR"
-PHP_CORE="$CORE_DIR/packages/php"
-WEB_CORE="$CORE_DIR/packages/web"
-[[ -f "$PHP_CORE/composer.json" ]] || die "PHP Core package is missing: $PHP_CORE"
-[[ -f "$WEB_CORE/package.json" ]] || die "Web Core package is missing: $WEB_CORE"
+[[ "$PHP_CORE_DIR" == /* && "$WEB_CORE_DIR" == /* ]] || die 'both absolute Core checkout paths are required'
+PHP_CORE_DIR="$(CDPATH= cd -- "$PHP_CORE_DIR" && pwd -P)"
+WEB_CORE_DIR="$(CDPATH= cd -- "$WEB_CORE_DIR" && pwd -P)"
+[[ -f "$PHP_CORE_DIR/composer.json" ]] || die 'PHP Core composer.json is missing'
+[[ -f "$WEB_CORE_DIR/pnpm-workspace.yaml" ]] || die 'Web Core workspace is missing'
 
-assert_versions() {
-  local required_php required_web actual_php actual_web
-  required_php="$(jq -r '.require["peanut-admin/core"] // empty' "$ROOT_DIR/server/composer.json")"
-  required_web="$(node -e 'const m=require(process.argv[1]); process.stdout.write(m.dependencies?.["@peanut-admin/admin"] ?? "")' "$ROOT_DIR/web/package.json")"
-  actual_php="$(jq -r '.version // empty' "$PHP_CORE/composer.json")"
-  actual_web="$(node -e 'const m=require(process.argv[1]); process.stdout.write(m.version ?? "")' "$WEB_CORE/package.json")"
-  [[ "$required_php" == "$actual_php" ]] || die "PHP Core version mismatch: application=$required_php core=$actual_php"
-  [[ "$required_web" == "$actual_web" ]] || die "Web Core version mismatch: application=$required_web core=$actual_web"
-}
-
-assert_versions
-
-case "$action" in
-  link)
-    "$ROOT_DIR/scripts/local-core-composer" install --core-dir "$CORE_DIR" --backend-env "$BACKEND_ENV"
-    "$ROOT_DIR/scripts/local-core-web" link --core-dir "$CORE_DIR"
-    ;;
-  status)
-    [[ -L "$PHP_LINK" ]] || die "PHP Core is not symlinked: $PHP_LINK"
-    [[ "$(realpath "$PHP_LINK")" == "$PHP_CORE" ]] || die 'PHP Core symlink resolves outside selected checkout'
-    [[ -L "$WEB_LINK" ]] || die "Web Core is not symlinked: $WEB_LINK"
-    [[ "$(realpath "$WEB_LINK")" == "$WEB_CORE" ]] || die 'Web Core symlink resolves outside selected checkout'
-    ;;
-  unlink)
-    if [[ -L "$PHP_LINK" ]]; then
-      [[ "$(realpath "$PHP_LINK")" == "$PHP_CORE" ]] || die 'refusing to unlink an unrelated PHP Core path'
-      rm "$PHP_LINK"
+case "$ACTION" in
+  install|link)
+    [[ "$BACKEND_ENV" == /* ]] || die 'install requires --backend-env'
+    "$ROOT_DIR/scripts/local-core-composer" install --core-dir "$PHP_CORE_DIR" --backend-env "$BACKEND_ENV"
+    if [[ "$ACTION" == link ]]; then
+      "$ROOT_DIR/scripts/local-core-web" link --core-dir "$WEB_CORE_DIR"
+    else
+      "$ROOT_DIR/scripts/local-core-web" install
     fi
-    if [[ -L "$WEB_LINK" ]]; then
-      [[ "$(realpath "$WEB_LINK")" == "$WEB_CORE" ]] || die 'refusing to unlink an unrelated Web Core path'
-      rm "$WEB_LINK"
-    fi
-    "$ROOT_DIR/scripts/run-with-environment-file" --env-file "$BACKEND_ENV" --as-selector PEANUT_SERVER_ENV_FILE -- \
-      "$COMPOSER_BIN" install --working-dir="$ROOT_DIR/server" --no-interaction --no-progress --prefer-dist
-    corepack pnpm --dir "$ROOT_DIR/web" install --frozen-lockfile --ignore-scripts
     ;;
-  verify)
-    if [[ -L "$PHP_LINK" && "$(realpath "$PHP_LINK")" == "$PHP_CORE" ]]; then
-      die 'PHP Core local symlink is active; release verification requires fixed dependency'
+  status|link-status)
+    php_link="$ROOT_DIR/server/vendor/peanut-admin/core"
+    [[ -L "$php_link" && "$(realpath "$php_link")" == "$PHP_CORE_DIR" ]] \
+      || die 'installed PHP Core does not link to the selected checkout'
+    if [[ "$ACTION" == link-status ]]; then
+      "$ROOT_DIR/scripts/local-core-web" link-status --core-dir "$WEB_CORE_DIR"
+    else
+      "$ROOT_DIR/scripts/local-core-web" status
     fi
-    if [[ -L "$WEB_LINK" && "$(realpath "$WEB_LINK")" == "$WEB_CORE" ]]; then
-      die 'Web Core local symlink is active; release verification requires fixed dependency'
-    fi
-    "$COMPOSER_BIN" validate --no-check-publish --working-dir="$ROOT_DIR/server" >/dev/null
-    php "$ROOT_DIR/scripts/build-application-template-inventory" --check >/dev/null
     ;;
-  *) die 'usage: scripts/core-dev {link|status|unlink|verify} --core-dir /absolute/path [--backend-env /absolute/server/.env.name]' ;;
+  *) usage >&2; die "unsupported action: $ACTION" ;;
 esac
-
-printf 'core-dev: %s php=%s web=%s\n' "$action" "$(jq -r '.version' "$PHP_CORE/composer.json")" "$(node -e 'process.stdout.write(require(process.argv[1]).version)' "$WEB_CORE/package.json")"
+printf 'core-dev: %s completed for explicit PHP and Web Core checkouts\n' "$ACTION"

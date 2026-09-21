@@ -8,6 +8,8 @@ use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
+use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PDO;
 use RuntimeException;
 use think\db\PDOConnection;
@@ -258,11 +260,18 @@ final class InstallationExecutionHost
             throw new InstallationExecutionException('INSTALL_MODULE_SELECTION_INVALID', 'Module 选择无效。', 422);
         }
         $modules = array_values(array_unique($modules));
-        sort($modules, SORT_STRING);
-        $available = array_column($this->officialModules(), 'key');
+        $options = $this->officialModules();
+        $available = array_column($options, 'key');
         if (array_diff($modules, $available) !== []) {
             throw new InstallationExecutionException('INSTALL_MODULE_SELECTION_INVALID', 'Module 选择无效。', 422);
         }
+        foreach ($options as $option) {
+            if ($option['required']) {
+                $modules[] = $option['key'];
+            }
+        }
+        $modules = array_values(array_unique($modules));
+        sort($modules, SORT_STRING);
         $credentials = array_intersect_key($input, array_flip([
             'admin_email', 'admin_password', 'platform_email', 'platform_password',
         ]));
@@ -274,13 +283,22 @@ final class InstallationExecutionHost
         return [$credentials, $modules];
     }
 
-    /** @return list<array{key:string,label:string}> */
+    /** @return list<array{key:string,label:string,description:string,required:bool,default:bool}> */
     private function officialModules(): array
     {
         $modules = [];
-        foreach ($this->lockResolver()->all() as $key => $_descriptor) {
-            if (str_starts_with($key, 'official.')) {
-                $modules[] = ['key' => $key, 'label' => substr($key, strlen('official.'))];
+        $registry = $this->definitionRegistry();
+        foreach ($registry->modules as $manifest) {
+            $key = $manifest->data['key'] ?? null;
+            if (is_string($key) && str_starts_with($key, 'official.')) {
+                $required = $registry->isRequiredTenantFoundation($key);
+                $modules[] = [
+                    'key' => $key,
+                    'label' => (string)($manifest->data['name'] ?? substr($key, strlen('official.'))),
+                    'description' => (string)($manifest->data['description'] ?? ''),
+                    'required' => $required,
+                    'default' => true,
+                ];
             }
         }
         usort($modules, static fn(array $left, array $right): int => $left['key'] <=> $right['key']);
@@ -309,7 +327,10 @@ final class InstallationExecutionHost
             ];
         }
         $profile = (new ProductTenantModuleProfileService(
-            new \PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository(true),
+            new \PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository(
+                $this->definitionRegistry(),
+                true,
+            ),
             new ThinkPhpModuleGovernanceProvider($this->serverRoot, $config, $this->catalogs),
             app(\app\common\services\audit\AuditContractHost::class),
         ))->applyInstallationSelection($moduleKeys, $tenantBootstrap['code']);
@@ -331,13 +352,21 @@ final class InstallationExecutionHost
             if ((int)$statement->fetchColumn() !== count($moduleKeys)) {
                 throw new RuntimeException('Official Module installation is incomplete.');
             }
-            $statement = $pdo->prepare(
-                "SELECT COUNT(*) FROM pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id "
-                . "WHERE t.code=? AND tm.status='enabled' AND tm.module_key IN ({$placeholders})"
-            );
-            $statement->execute([$tenantBootstrap['code'], ...$moduleKeys]);
-            if ((int)$statement->fetchColumn() !== count($moduleKeys)) {
-                throw new RuntimeException('Default Tenant Module selection is incomplete.');
+            $definitions = $this->definitionRegistry();
+            $tenantManaged = array_values(array_filter(
+                $moduleKeys,
+                fn(string $moduleKey): bool => !$definitions->isRequiredTenantFoundation($moduleKey),
+            ));
+            if ($tenantManaged !== []) {
+                $tenantPlaceholders = implode(',', array_fill(0, count($tenantManaged), '?'));
+                $statement = $pdo->prepare(
+                    "SELECT COUNT(*) FROM pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id "
+                    . "WHERE t.code=? AND tm.status='enabled' AND tm.module_key IN ({$tenantPlaceholders})"
+                );
+                $statement->execute([$tenantBootstrap['code'], ...$tenantManaged]);
+                if ((int)$statement->fetchColumn() !== count($tenantManaged)) {
+                    throw new RuntimeException('Default Tenant Module selection is incomplete.');
+                }
             }
         }
         $health['selected_module_count'] = count($moduleKeys);
@@ -374,6 +403,14 @@ final class InstallationExecutionHost
         return new PluginLockResolver(
             $this->serverRoot,
             (string)Config::get('modules.plugin_lock', '../plugins.lock'),
+        );
+    }
+
+    private function definitionRegistry(): CompiledModuleRegistry
+    {
+        return (new ModuleDefinitionRegistryFactory($this->serverRoot))->fromPluginLock(
+            $this->lockResolver(),
+            $this->moduleConfig(),
         );
     }
 

@@ -9,8 +9,8 @@ use app\common\execution\SystemExecutionMetadata;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use PeanutAdmin\TaskJob\Execution\JobExecution;
-use PeanutAdmin\TaskJob\Execution\TaskHandler;
+use app\modules\official\task\contracts\JobExecution;
+use app\modules\official\task\contracts\TaskHandler;
 
 /** Rechecks the owning Module immediately before a background handler runs. */
 final readonly class ModuleAwareTaskHandler implements TaskHandler
@@ -33,6 +33,7 @@ final readonly class ModuleAwareTaskHandler implements TaskHandler
 
     public function handle(AuthorizedOperationContext $context, JobExecution $execution): void
     {
+        $execution->checkpoint();
         $this->executionContexts->run(
             new SystemExecutionContext(
                 new TenantSystemContext(

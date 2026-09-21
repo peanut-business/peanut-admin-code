@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shlex
@@ -19,6 +20,11 @@ RESOURCE_ID = "peanut-admin-consumer-upgrade-mysql84-gate"
 ADMIN_TOOL_ID = "peanut-admin-consumer-upgrade-mysql84-remote-admin-cli"
 HTTP_RESOURCE_ID = "peanut-admin-local-production-preview-gateway"
 LOCAL_STORAGE_RESOURCE_ID = "peanut-admin-consumer-upgrade-local-storage"
+SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$")
+CORE_WEB_PACKAGES = [
+    "@peanut-admin/client", "@peanut-admin/vue", "@peanut-admin/ui-vue",
+    "@peanut-admin/nuxt", "@peanut-admin/uniapp", "@peanut-admin/testing",
+]
 ENV_RUNNER = ROOT / "scripts/run-with-environment-file"
 
 class PlanError(RuntimeError):
@@ -57,6 +63,59 @@ def unique_resource(items: object, resource_id: str, label: str) -> dict:
     return matches[0]
 
 
+def current_version_contract(versions: dict, target_version: object) -> bool:
+    if (
+        versions.get("schema_version") != 3
+        or versions.get("protocol") != "peanut.release-versions.v3"
+        or versions.get("instance_version") is not None
+        or not isinstance(target_version, str)
+        or SEMVER.fullmatch(target_version) is None
+        or versions.get("source_product_version") != target_version
+        or versions.get("scaffold_template") != target_version
+    ):
+        return False
+    php = versions.get("core_php")
+    web = versions.get("core_web")
+    if (
+        not isinstance(php, dict)
+        or list(php) != ["package", "constraint", "resolved_version", "source_type", "source_url", "source_reference"]
+        or php.get("package") != "peanut-admin/core"
+        or re.fullmatch(r"dev-[A-Za-z0-9._-]+#[0-9a-f]{40}", str(php.get("constraint", ""))) is None
+        or not str(php.get("resolved_version", "")).startswith("dev-")
+        or php.get("source_type") != "git"
+        or not str(php.get("source_url", "")).startswith("https://")
+        or re.fullmatch(r"[0-9a-f]{40}", str(php.get("source_reference", ""))) is None
+        or not str(php.get("constraint", "")).endswith("#" + str(php.get("source_reference", "")))
+        or not isinstance(web, dict)
+        or list(web) != ["source_type", "source_url", "source_reference", "packages"]
+        or web.get("source_type") != "git"
+        or not str(web.get("source_url", "")).startswith("https://")
+        or re.fullmatch(r"[0-9a-f]{40}", str(web.get("source_reference", ""))) is None
+    ):
+        return False
+    packages = web.get("packages")
+    if not isinstance(packages, dict) or list(packages) != CORE_WEB_PACKAGES:
+        return False
+    for identity in packages.values():
+        if not isinstance(identity, dict) or list(identity) != ["version", "archive", "sha256"]:
+            return False
+        archive = identity.get("archive")
+        digest = identity.get("sha256")
+        if (
+            not isinstance(identity.get("version"), str)
+            or SEMVER.fullmatch(identity["version"]) is None
+            or not isinstance(archive, str)
+            or re.fullmatch(r"packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz", archive) is None
+            or not isinstance(digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+        ):
+            return False
+        path = ROOT / archive
+        if not path.is_file() or path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            return False
+    return True
+
+
 def remote_container_command(script: str, *, receives_stdin: bool = False) -> list[str]:
     docker = ["/usr/local/bin/docker", "exec"]
     if receives_stdin:
@@ -89,14 +148,15 @@ def main() -> int:
         raise PlanError("candidate worktree must be clean")
     fixture, registry, versions = read_json(FIXTURE), read_json(REGISTRY), read_json(VERSIONS)
     target_version = versions.get("scaffold_template")
-    if (
-        versions.get("schema_version") != 2
-        or versions.get("protocol") != "peanut.release-versions.v2"
-        or versions.get("instance_version") is not None
-        or not isinstance(target_version, str)
-        or not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", target_version)
-        or any(versions.get(field) != target_version for field in ("source_product_version", "core_php", "core_web"))
-    ):
+    historical_v2 = (
+        versions.get("schema_version") == 2
+        and versions.get("protocol") == "peanut.release-versions.v2"
+        and versions.get("instance_version") is None
+        and isinstance(target_version, str)
+        and re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", target_version)
+        and all(versions.get(field) == target_version for field in ("source_product_version", "core_php", "core_web"))
+    )
+    if not historical_v2 and not current_version_contract(versions, target_version):
         raise PlanError("candidate release version contract is invalid")
     databases = registry.get("resources", {}).get("databases", [])
     resource = unique_resource(databases, RESOURCE_ID, "database")

@@ -1,4 +1,4 @@
-import type { PluginFrontendContribution } from '@peanut-admin/admin/core';
+import type { PluginFrontendContribution } from '@peanut-admin/vue';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
 const contribution: PluginFrontendContribution = {

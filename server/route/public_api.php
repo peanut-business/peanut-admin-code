@@ -5,7 +5,6 @@ use app\api\controller\IndexController as ApiIndexController;
 use app\api\controller\LoginController as ApiLoginController;
 use app\api\controller\ArticleController as ApiArticleController;
 use app\api\controller\SearchController as ApiSearchController;
-use app\api\controller\StorageController as ApiStorageController;
 use app\api\controller\PcController as ApiPcController;
 use app\api\controller\DecorationController as ApiDecorationController;
 use app\api\middleware\CheckTokenMiddleware;
@@ -31,7 +30,6 @@ Route::get('index/policy',  [ApiIndexController::class, 'policy'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.decoration.public-read', '', 'decoration.config');
 
 Route::post('login/logout',   [ApiLoginController::class, 'logout']);
-Route::get('storage/delivery', [ApiStorageController::class, 'delivery']);
 
 Route::get('article/cate',    [ApiArticleController::class, 'cate'])
     ->middleware(PublicTenantModuleMiddleware::class, 'peanut.article.public-read', 'official.article', 'article.cate');

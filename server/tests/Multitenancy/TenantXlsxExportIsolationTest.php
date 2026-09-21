@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 use app\common\services\XlsxExportService;
 use app\common\execution\ExecutionContextStore;
-use app\common\services\storage\StorageService;
+use app\modules\official\file\services\storage\StorageService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;

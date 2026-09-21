@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\modules\official\oauth\contracts;
 
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantBinding;
+use app\modules\official\integration\contracts\ExternalTenantBinding;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use app\modules\official\oauth\contracts\dto\OAuthAuthorizationResult;
 use app\modules\official\oauth\contracts\dto\OAuthLoginResult;

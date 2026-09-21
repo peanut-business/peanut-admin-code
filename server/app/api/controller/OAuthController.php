@@ -4,12 +4,14 @@ declare(strict_types=1);
 namespace app\api\controller;
 
 use app\modules\official\oauth\contracts\OAuthCommands;
+use app\modules\official\oauth\contracts\OAuthCallbackLocator;
 use app\modules\official\oauth\contracts\dto\OAuthLoginResult;
 use app\api\services\UserTokenService;
-use app\common\services\FileService;
+use app\modules\official\file\contracts\FileReferences;
 use app\api\validate\OAuthValidate;
-use app\common\services\oauth\OAuthBrowserCallbackService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\oauth\services\OAuthBrowserCallbackService;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use app\modules\official\integration\contracts\ExternalProvider;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\RequestTrace;
@@ -23,11 +25,12 @@ class OAuthController extends BaseApiController
         App $app,
         CurrentExecutionContext $executionContext,
         private readonly OAuthCommands $commands,
+        private readonly OAuthCallbackLocator $callbackLocator,
         private readonly ExecutionContextStore $executionContexts,
         private readonly ModuleExecutionBoundary $modules,
-        private readonly ExternalTenantResolver $externalTenants,
+        private readonly ExternalTenantResolutionService $externalTenants,
         private readonly UserTokenService $tokens,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
     ) {
         parent::__construct($app, $executionContext);
     }
@@ -44,7 +47,7 @@ class OAuthController extends BaseApiController
             (string)$this->request->domain(),
             $scene
         );
-        $provider = ExternalTenantResolver::oauthProvider($scene);
+        $provider = ExternalProvider::oauth($scene);
             $clientId = trim((string)($params['client_id'] ?? ''));
             $resolution = $clientId === ''
                 ? $this->externalTenants->onlyActiveBinding(
@@ -94,11 +97,15 @@ class OAuthController extends BaseApiController
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.callback');
-        $resolution = $this->externalTenants->oauthState(
-                ExternalTenantResolver::oauthProvider((string)$params['scene']),
-                (string)$params['state'],
-                $this->operationId(),
-            );
+        $provider = ExternalProvider::oauth((string)$params['scene']);
+        $state = (string)$params['state'];
+        $resolution = $this->externalTenants->verifiedCandidates(
+            $this->callbackLocator->locateState($provider, hash('sha256', trim($state))),
+            $provider,
+            $state,
+            'oauth.callback',
+            $this->operationId(),
+        );
         $ip = $this->request->ip();
         $result = $this->executionContexts->run(
                 new \app\common\execution\SystemExecutionContext($resolution->context),
@@ -125,12 +132,12 @@ class OAuthController extends BaseApiController
             $clientId = trim((string)($params['client_id'] ?? ''));
             $resolution = $clientId === ''
                 ? $resolver->onlyActiveBinding(
-                    ExternalTenantResolver::WECHAT_MINI_PROGRAM,
+                    ExternalProvider::WECHAT_MINI_PROGRAM,
                     'oauth.mini-program',
                     $this->operationId(),
                 )
                 : $resolver->clientIdentity(
-                    ExternalTenantResolver::WECHAT_MINI_PROGRAM,
+                    ExternalProvider::WECHAT_MINI_PROGRAM,
                     $clientId,
                     'oauth.mini-program',
                     $this->operationId(),
@@ -156,10 +163,15 @@ class OAuthController extends BaseApiController
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.complete');
         $params['code'] = (string)($params['verification_code'] ?? '');
-        $resolution = $this->externalTenants->oauthTicket(
-                (string)$params['ticket'],
-                $this->operationId(),
-            );
+        $ticket = (string)$params['ticket'];
+        $resolution = $this->externalTenants->verifiedCandidates(
+            $this->callbackLocator->locateTicket(hash('sha256', trim($ticket))),
+            'oauth.wechat.completion',
+            $ticket,
+            'oauth.complete',
+            $this->operationId(),
+            false,
+        );
         $ip = $this->request->ip();
         $result = $this->executionContexts->run(
                 new \app\common\execution\SystemExecutionContext($resolution->context),

@@ -21,7 +21,6 @@ use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\contract\idempotency\IdempotentCommandExecutor;
 use app\common\contract\module\ModuleQualificationQuery;
 use app\common\services\audit\AuditContractHost;
-use app\common\infrastructure\external\ThinkPhpExternalTenantAudit;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\model\TenantOwnedModel;
@@ -37,22 +36,26 @@ use app\common\security\ApplicationPasswordPolicy;
 use app\common\composition\CoreServiceOverrides;
 use app\common\services\CrontabCommandService;
 use app\common\policy\DemoAccountPolicy;
-use app\common\services\FileService;
+use app\modules\official\file\services\FileService;
 use app\common\services\ProductAssetReferenceService;
 use app\common\services\authorization\MenuPermissionUsageQuery;
 use app\common\runtime\authorization\RoleAdministrationRuntime;
-use app\common\services\org\AdminDirectoryQuery;
-use app\common\runtime\org\DepartmentAdministrationRuntime;
+use app\modules\official\identity\contracts\AdminDirectoryQuery;
+use app\modules\official\identity\contracts\TenantAuditDiagnosticQuery;
+use app\modules\official\identity\contracts\PlatformAuditDiagnosticQuery;
+use app\modules\official\identity\contracts\PlatformOperatorIdentityQuery;
+use app\modules\official\task\contracts\TaskDiagnosticQuery;
+use app\modules\official\identity\access\source_read\SourceReadCapabilityRegistry;
 use app\common\runtime\org\TenantAdminRuntime;
 use app\common\services\tenant\TenantIdentityQuery;
-use app\common\composition\storage\AliyunStorageClientFactory;
-use app\common\infrastructure\storage\FailClosedStorageCredentialResolver;
-use app\common\composition\storage\QcloudStorageClientFactory;
-use app\common\infrastructure\storage\QiniuStorageHttpTransport;
+use app\modules\official\file\composition\storage\AliyunStorageClientFactory;
+use app\modules\official\file\infrastructure\storage\FailClosedStorageCredentialResolver;
+use app\modules\official\file\composition\storage\QcloudStorageClientFactory;
+use app\modules\official\file\infrastructure\storage\QiniuStorageHttpTransport;
 use app\common\contract\storage\StorageCredentialResolver;
-use app\common\services\storage\StorageConfigurationService;
-use app\common\composition\storage\StorageDriverFactory;
-use app\common\services\storage\StorageService;
+use app\modules\official\file\services\storage\StorageConfigurationService;
+use app\modules\official\file\composition\storage\StorageDriverFactory;
+use app\modules\official\file\services\storage\StorageService;
 use app\common\tenancy\DataScopePolicy;
 use app\common\tenancy\MultiTenantDataScopePolicy;
 use app\common\tenancy\StandaloneDataScopePolicy;
@@ -71,21 +74,21 @@ use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
 use app\platform\validation\module\OpisTenantModuleConfigValidator;
 use app\platform\services\module\PlatformTenantModuleService;
 use app\platform\infrastructure\module\VerifiedTenantModuleRepository;
-use app\platform\services\ops\PlatformOpsApplicationService;
-use app\platform\infrastructure\ops\ApplicationRuntimeStatusProvider;
-use app\platform\services\ops\DeploymentModuleRequestService;
-use app\platform\infrastructure\ops\PairedBackupProvider;
-use app\platform\infrastructure\ops\ThinkPhpMaintenanceWindowStore;
-use app\platform\infrastructure\ops\ThinkPhpModuleOperationTaskExecutionService;
-use app\platform\infrastructure\ops\ThinkPhpOpsTaskDispatcher;
-use app\platform\infrastructure\ops\ThinkPhpUpgradeTaskExecutionService;
-use app\platform\infrastructure\ops\PlatformAuditRuntimeLogProvider;
-use app\platform\services\ops\PlatformBackupCenterService;
-use app\platform\services\ops\PlatformDiagnosticBundleService;
-use app\platform\services\ops\PlatformModuleOperationExecutionService;
-use app\platform\validation\ops\PlatformOpsPermissionChecker;
-use app\platform\services\ops\PlatformUpgradeExecutionService;
-use app\platform\services\ops\PlatformUpgradeReadinessService;
+use app\modules\official\ops\services\PlatformOpsApplicationService;
+use app\modules\official\ops\infrastructure\ApplicationRuntimeStatusProvider;
+use app\modules\official\ops\services\DeploymentModuleRequestService;
+use app\modules\official\ops\infrastructure\PairedBackupProvider;
+use app\modules\official\ops\infrastructure\ThinkPhpMaintenanceWindowStore;
+use app\modules\official\ops\infrastructure\ThinkPhpModuleOperationTaskExecutionService;
+use app\modules\official\ops\infrastructure\ThinkPhpOpsTaskDispatcher;
+use app\modules\official\ops\infrastructure\ThinkPhpUpgradeTaskExecutionService;
+use app\modules\official\ops\infrastructure\PlatformAuditRuntimeLogProvider;
+use app\modules\official\ops\services\PlatformBackupCenterService;
+use app\modules\official\ops\services\PlatformDiagnosticBundleService;
+use app\modules\official\ops\services\PlatformModuleOperationExecutionService;
+use app\modules\official\ops\infrastructure\authorization\PlatformOpsPermissionChecker;
+use app\modules\official\ops\services\PlatformUpgradeExecutionService;
+use app\modules\official\ops\services\PlatformUpgradeReadinessService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\services\plugin\PlatformModuleRuntimeService;
 use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
@@ -116,12 +119,12 @@ use PeanutAdmin\Kernel\Audit\AuditService;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Identity\SelfService\AccountSelfService;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantAudit;
 use PeanutAdmin\Kernel\Http\TenantAuthEndpoint;
 use PeanutAdmin\Kernel\Membership\Application\MemberAdminService;
 use PeanutAdmin\Kernel\Organization\Application\DepartmentAdminService;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\TenantModuleConfigurationService;
 use PeanutAdmin\Kernel\Module\TenantModuleManager;
@@ -133,19 +136,19 @@ use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Tenancy\DefaultTenantContextResolver;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
-use PeanutAdmin\OpsConsole\Application\PlatformPermissionChecker;
-use PeanutAdmin\OpsConsole\Logs\RuntimeLogProviderRegistry;
-use PeanutAdmin\OpsConsole\Logs\RuntimeLogService;
-use PeanutAdmin\OpsConsole\Logs\SafeLogMessageCatalog;
-use PeanutAdmin\OpsConsole\Maintenance\MaintenanceReasonRegistry;
-use PeanutAdmin\OpsConsole\Maintenance\MaintenanceService;
-use PeanutAdmin\OpsConsole\Maintenance\MaintenanceWindowStore;
-use PeanutAdmin\OpsConsole\Status\OpsStatusService;
-use PeanutAdmin\OpsConsole\Status\RuntimeStatusProvider;
-use PeanutAdmin\OpsConsole\Task\BackupRestoreProviderRegistry;
-use PeanutAdmin\OpsConsole\Task\OpsTaskDispatcher;
-use PeanutAdmin\OpsConsole\Task\OpsTaskService;
-use PeanutAdmin\Settings\Definition\SettingDefinitionSynchronizer;
+use app\modules\official\ops\domain\Application\PlatformPermissionChecker;
+use app\modules\official\ops\domain\Logs\RuntimeLogProviderRegistry;
+use app\modules\official\ops\domain\Logs\RuntimeLogService;
+use app\modules\official\ops\domain\Logs\SafeLogMessageCatalog;
+use app\modules\official\ops\domain\Maintenance\MaintenanceReasonRegistry;
+use app\modules\official\ops\domain\Maintenance\MaintenanceService;
+use app\modules\official\ops\domain\Maintenance\MaintenanceWindowStore;
+use app\modules\official\ops\domain\Status\OpsStatusService;
+use app\modules\official\ops\domain\Status\RuntimeStatusProvider;
+use app\modules\official\ops\domain\Task\BackupRestoreProviderRegistry;
+use app\modules\official\ops\domain\Task\OpsTaskDispatcher;
+use app\modules\official\ops\domain\Task\OpsTaskService;
+use app\modules\official\settings\Definition\SettingDefinitionSynchronizer;
 use app\common\persistence\TenantPersistenceConfiguration;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 
@@ -215,9 +218,6 @@ class AppService extends Service
         $this->app->bind(OperationLogService::class, fn(): OperationLogService => new OperationLogService(
             $this->app->make(AuditContractHost::class),
         ));
-        $this->app->bind(ExternalTenantAudit::class, fn(): ExternalTenantAudit => new ThinkPhpExternalTenantAudit(
-            $this->app->make(AuditContractHost::class),
-        ));
     }
 
     private function registerAuthentication(): void
@@ -260,6 +260,9 @@ class AppService extends Service
     /** Wires current native Admin authorization services to their exact constructor contracts. */
     private function registerAuthorization(): void
     {
+        // Cross-Tenant read capabilities are server registrations supplied by source Modules.
+        // The base product intentionally starts empty, so unknown/wide scopes fail closed.
+        $this->app->instance(SourceReadCapabilityRegistry::class, new SourceReadCapabilityRegistry([]));
         $this->app->bind(AdminPermissionPolicy::class, fn(): AdminPermissionPolicy =>
             CoreServiceOverrides::adminPermissionPolicy());
         $this->app->bind(\PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository::class, ThinkPhpTenantAuthorizationRepository::class);
@@ -280,10 +283,6 @@ class AppService extends Service
         ));
         $this->app->bind(AdminDirectoryQuery::class, fn(): AdminDirectoryQuery => new AdminDirectoryQuery(
             $this->app->make(CurrentExecutionContext::class),
-        ));
-        $this->app->bind(DepartmentAdministrationRuntime::class, fn(): DepartmentAdministrationRuntime => new DepartmentAdministrationRuntime(
-            $this->app->make(CurrentExecutionContext::class),
-            new DepartmentAdminService($this->app->make(AuditService::class)),
         ));
         $this->app->bind(TenantAdminRuntime::class, fn(): TenantAdminRuntime => new TenantAdminRuntime(
             new MemberAdminService($this->app->make(AuditService::class), $this->app->make(PasswordHasher::class)),
@@ -347,7 +346,11 @@ class AppService extends Service
                     ->make(DefaultTenantContextResolver::class)
                     ->system($actor, $operation, $operationId)
                 : null;
-            return new TenantEntryBindingResolver($defaultSystem, $mode === DeploymentMode::MultiTenant);
+            return new TenantEntryBindingResolver(
+                $defaultSystem,
+                $mode === DeploymentMode::MultiTenant,
+                $this->app->make(\app\modules\official\identity\tenancy\infrastructure\ThinkPhpTenantEntryBindingLookup::class),
+            );
         });
         $this->app->bind(ApplicationHostPolicy::class, fn(): ApplicationHostPolicy => new ApplicationHostPolicy(
             (string)Config::get('deployment.mode', ''),
@@ -389,7 +392,7 @@ class AppService extends Service
         $this->app->bind(TenantModuleManager::class, fn(): TenantModuleManager => new TenantModuleManager(
             $this->app->make(DeployedTenantModuleRegistry::class)->compiled(),
             new VerifiedTenantModuleRepository(
-                new ThinkPhpModuleRuntimeRepository(),
+                new ThinkPhpModuleRuntimeRepository($this->app->make(CompiledModuleRegistry::class)),
                 $this->app->make(DeployedTenantModuleRegistry::class),
             ),
             $this->app->make(OpisTenantModuleConfigValidator::class),
@@ -486,13 +489,16 @@ class AppService extends Service
                     $permissions,
                     new RuntimeLogProviderRegistry([
                         new PlatformAuditRuntimeLogProvider(
-                            $since->format('Y-m-d H:i:s.v'),
+                            $since,
+                            $this->app->make(PlatformAuditDiagnosticQuery::class),
                         ),
                     ]),
                     new SafeLogMessageCatalog([]),
                 ),
                 $this->app->make(OpsStatusService::class),
                 $this->app->make(ThinkPhpModuleGovernanceProvider::class),
+                $this->app->make(TaskDiagnosticQuery::class),
+                $this->app->make(TenantAuditDiagnosticQuery::class),
                 (string)Config::get('deployment.mode', ''),
                 (bool)Config::get('app.app_debug', false),
             );
@@ -519,6 +525,7 @@ class AppService extends Service
                 dirname(__DIR__, 2),
                 $this->app->make(BackupRestoreProviderRegistry::class),
                 $this->app->make(ApplicationRuntimeStatusProvider::class),
+                $this->app->make(PlatformOperatorIdentityQuery::class),
             ));
         $this->app->bind(ThinkPhpModuleOperationTaskExecutionService::class, fn(): ThinkPhpModuleOperationTaskExecutionService =>
             new ThinkPhpModuleOperationTaskExecutionService(
@@ -528,20 +535,8 @@ class AppService extends Service
                 $this->app->make(DeploymentModuleRequestService::class),
                 $this->app->make(BackupRestoreProviderRegistry::class),
                 $this->app->make(ApplicationRuntimeStatusProvider::class),
+                $this->app->make(PlatformOperatorIdentityQuery::class),
             ));
-        $this->app->bind(\app\common\runtime\dict\DictionaryRuntime::class, function (): \app\common\runtime\dict\DictionaryRuntime {
-            $tenant = new \app\common\infrastructure\dict\ThinkPhpTenantDictionaryProvider();
-            $system = new \app\common\infrastructure\dict\ThinkPhpSystemDictionaryProvider();
-            return new \app\common\runtime\dict\DictionaryRuntime(
-                new \PeanutAdmin\Kernel\Dictionary\Application\DictionaryService($tenant, $tenant, $system),
-                $system,
-            );
-        });
-        $this->app->bind(\app\common\services\tenant\TenantSettingService::class, fn(): \app\common\services\tenant\TenantSettingService => new \app\common\services\tenant\TenantSettingService(
-            new \app\common\infrastructure\tenant\ThinkPhpTenantSettingsProvider(
-                $this->app->make(DataScopePolicy::class),
-            ),
-        ));
         $this->app->bind(CrontabCommandService::class, fn(): CrontabCommandService => new CrontabCommandService(
             (array)Config::get('console.commands', []),
             (array)Config::get('console.module_commands', []),
@@ -553,16 +548,16 @@ class AppService extends Service
         $this->app->bind(WorkbenchApplicationService::class, fn(): WorkbenchApplicationService => new WorkbenchApplicationService(
             $this->app->make(AdminAuthorizationService::class),
             $this->app->make(FileService::class),
-            $this->app->make(\app\common\services\config\WebsiteConfigService::class),
+            $this->app->make(\app\modules\official\settings\services\WebsiteConfigService::class),
             (string)Config::get('project.version', ''),
             (string)Config::get('project.based', ''),
             (array)Config::get('project.default_image', []),
         ));
         $this->app->bind(ConfigApplicationService::class, fn(): ConfigApplicationService => new ConfigApplicationService(
-            $this->app->make(\app\common\services\config\TenantApplicationSettingService::class),
+            $this->app->make(\app\modules\official\settings\services\TenantApplicationSettingService::class),
             $this->app->make(FileService::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
-            $this->app->make(\app\common\services\config\WebsiteConfigService::class),
+            $this->app->make(\app\modules\official\settings\services\WebsiteConfigService::class),
             (string)Config::get('project.default_image.user_avatar', ''),
         ));
         $this->app->bind(GeneratorService::class, fn(): GeneratorService => new GeneratorService(
@@ -572,11 +567,11 @@ class AppService extends Service
         ));
         $this->app->bind(IndexApplicationService::class, fn(): IndexApplicationService => new IndexApplicationService(
             $this->app->make(TenantIdentityQuery::class),
-            $this->app->make(\app\common\services\config\TenantApplicationSettingService::class),
+            $this->app->make(\app\modules\official\settings\services\TenantApplicationSettingService::class),
             $this->app->make(PublicArticleQueries::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\app\common\services\decoration\DecorationReadService::class),
-            $this->app->make(\app\common\services\config\WebsiteConfigService::class),
+            $this->app->make(\app\modules\official\settings\services\WebsiteConfigService::class),
             (string)Config::get('project.version', ''),
             [
                 'enabled' => $this->app->make(DemoAccountPolicy::class)->enabled(),
@@ -591,7 +586,7 @@ class AppService extends Service
         $this->app->bind(MemberLoginApplicationService::class, fn(): MemberLoginApplicationService => new MemberLoginApplicationService(
             $this->app->make(\app\modules\official\member\contracts\MemberIdentityCommands::class),
             $this->app->make(\app\modules\official\notification\contracts\VerificationCodeCommands::class),
-            $this->app->make(\app\common\services\config\TenantApplicationSettingService::class),
+            $this->app->make(\app\modules\official\settings\services\TenantApplicationSettingService::class),
             $this->app->make(FileService::class),
             $this->app->make(UserTokenService::class),
             (string)Config::get('project.default_image.user_avatar', ''),
@@ -639,6 +634,7 @@ class AppService extends Service
             $config,
             false,
         );
+        $this->app->instance(CompiledModuleRegistry::class, $registry);
         (new ModuleComposition($this->app))->register($registry);
     }
 

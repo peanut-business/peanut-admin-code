@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\common\infrastructure\payment;
 
-use PeanutAdmin\OpsConsole\Logs\TenantDiagnosticAttributes;
+use app\modules\official\ops\domain\Logs\TenantDiagnosticAttributes;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 
 /** Payment-owned adapter for reconciliation diagnostics. */

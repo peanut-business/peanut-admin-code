@@ -110,8 +110,8 @@ final class PluginPackageInstaller
             $scopes = [$package->manifestRelative => dirname($package->manifestRelative)];
             foreach ($package->modules as $module) {
                 $scopes[$module['backend_relative']] = $module['backend_relative'];
-                if ($module['frontend_relative'] !== null) {
-                    $scopes[$module['frontend_relative']] = $module['frontend_relative'];
+                foreach ($module['frontend_contributions'] as $contribution) {
+                    $scopes[$contribution['root']] = $contribution['root'];
                 }
             }
             $scopeRoots = array_values(array_unique(array_map(

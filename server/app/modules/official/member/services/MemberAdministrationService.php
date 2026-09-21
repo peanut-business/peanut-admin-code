@@ -22,7 +22,7 @@ use app\modules\official\member\contracts\MemberBalanceCommands;
 use app\modules\official\member\contracts\MemberProfileCommands;
 use app\modules\official\member\contracts\MemberQueries;
 use app\modules\official\member\contracts\MemberTagCommands;
-use app\common\services\fileService;
+use app\modules\official\file\contracts\FileReferences;
 use app\common\value\Money;
 use app\common\services\XlsxExportService;
 use app\common\support\ExportPageInfo;
@@ -43,7 +43,7 @@ final class MemberAdministrationService implements MemberAdministration
         private readonly MemberTagCommands $tags,
         private readonly MemberBalanceCommands $balances,
         private readonly IdempotentCommandExecutor $idempotency,
-        private readonly FileService $files,
+        private readonly FileReferences $files,
     ) {}
 
     /**

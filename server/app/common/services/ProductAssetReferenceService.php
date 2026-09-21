@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace app\common\services;
 
+use app\modules\official\file\contracts\FileReferences;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
@@ -11,7 +12,7 @@ use PeanutAdmin\Kernel\Context\TenantSystemContext;
 final readonly class ProductAssetReferenceService
 {
     public function __construct(
-        private FileService $files,
+        private FileReferences $files,
         private string $applicationOrigin,
     ) {}
 

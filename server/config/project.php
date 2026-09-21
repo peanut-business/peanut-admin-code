@@ -12,7 +12,7 @@ $declaredReleaseVersion = $releaseVersions['instance_version']
     ?? $releaseVersions['source_product_version']
     ?? $releaseVersions['product_release']
     ?? null;
-$versionPattern = ($releaseVersions['schema_version'] ?? null) === 2
+$versionPattern = in_array(($releaseVersions['schema_version'] ?? null), [2, 3], true)
     ? '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D'
     : '/^\d+\.\d+\.\d+$/D';
 $defaultVersion = is_string($declaredReleaseVersion)

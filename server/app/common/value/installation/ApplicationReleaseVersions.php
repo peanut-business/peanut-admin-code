@@ -30,6 +30,11 @@ final readonly class ApplicationReleaseVersions
         'core_php',
         'core_web',
     ];
+    private const V3_KEYS = self::V2_KEYS;
+    private const CORE_WEB_PACKAGES = [
+        '@peanut-admin/client', '@peanut-admin/vue', '@peanut-admin/ui-vue',
+        '@peanut-admin/nuxt', '@peanut-admin/uniapp', '@peanut-admin/testing',
+    ];
 
     private function __construct(private array $values)
     {
@@ -47,13 +52,16 @@ final readonly class ApplicationReleaseVersions
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_INVALID', 0, $exception);
         }
         $keys = is_array($document) ? array_keys($document) : [];
+        $v3 = is_array($document)
+            && ($document['schema_version'] ?? null) === 3
+            && ($document['protocol'] ?? null) === 'peanut.release-versions.v3';
         $v2 = is_array($document)
             && ($document['schema_version'] ?? null) === 2
             && ($document['protocol'] ?? null) === 'peanut.release-versions.v2';
-        $expectedKeys = $v2 ? self::V2_KEYS : self::V1_KEYS;
+        $expectedKeys = $v3 ? self::V3_KEYS : ($v2 ? self::V2_KEYS : self::V1_KEYS);
         if (!is_array($document) || count($keys) !== count($expectedKeys)
             || array_diff($keys, $expectedKeys) !== [] || array_diff($expectedKeys, $keys) !== []
-            || (!$v2 && (($document['schema_version'] ?? null) !== 1
+            || (!$v2 && !$v3 && (($document['schema_version'] ?? null) !== 1
                 || ($document['protocol'] ?? null) !== 'peanut.release-versions.v1'))) {
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_INVALID');
         }
@@ -64,9 +72,13 @@ final readonly class ApplicationReleaseVersions
                 $values[$key] = null;
                 continue;
             }
+            if ($v3 && in_array($key, ['core_php', 'core_web'], true)) {
+                $values[$key] = $value;
+                continue;
+            }
             if (!in_array($key, ['schema_version', 'protocol'], true)
                 && (!is_string($value)
-                    || preg_match($v2 ? self::STRICT_SEMVER : self::V1_VERSION, $value) !== 1)) {
+                    || preg_match(($v2 || $v3) ? self::STRICT_SEMVER : self::V1_VERSION, $value) !== 1)) {
                 throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_INVALID: ' . $key);
             }
             $values[$key] = $value;
@@ -76,19 +88,25 @@ final readonly class ApplicationReleaseVersions
                 || $values['source_product_version'] !== $values['scaffold_template'])) {
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_PRODUCT_CORE_MISMATCH');
         }
+        if ($v3) {
+            self::assertV3Dependencies($values['core_php'], $values['core_web'], dirname($path));
+            if ($values['source_product_version'] !== $values['scaffold_template']) {
+                throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_PRODUCT_TEMPLATE_MISMATCH');
+            }
+        }
         return new self($values);
     }
 
     public function sourceProductVersion(): string
     {
-        return $this->values['schema_version'] === 2
+        return $this->values['schema_version'] >= 2
             ? $this->values['source_product_version']
             : $this->values['product_release'];
     }
 
     public function instanceVersion(): ?string
     {
-        return $this->values['schema_version'] === 2 ? $this->values['instance_version'] : null;
+        return $this->values['schema_version'] >= 2 ? $this->values['instance_version'] : null;
     }
 
     public function releaseSequenceVersion(): string
@@ -99,7 +117,7 @@ final readonly class ApplicationReleaseVersions
     /** Default version for a new instance; it is never the running instance identity. */
     public function generatedInstanceDefault(): string
     {
-        return $this->values['schema_version'] === 2
+        return $this->values['schema_version'] >= 2
             ? $this->values['generated_instance_default']
             : $this->values['generated_application_default'];
     }
@@ -109,9 +127,48 @@ final readonly class ApplicationReleaseVersions
         return $this->values['scaffold_template'];
     }
 
-    /** @return array<string,int|string|null> */
+    /** @return array<string,mixed> */
     public function toArray(): array
     {
         return $this->values;
+    }
+
+    private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
+    {
+        $phpKeys = ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference'];
+        if (!is_array($php) || array_keys($php) !== $phpKeys
+            || $php['package'] !== 'peanut-admin/core'
+            || !is_string($php['constraint']) || preg_match('/^dev-[A-Za-z0-9._-]+#[0-9a-f]{40}$/D', $php['constraint']) !== 1
+            || !is_string($php['resolved_version']) || !str_starts_with($php['resolved_version'], 'dev-')
+            || $php['source_type'] !== 'git'
+            || !is_string($php['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $php['source_url']) !== 1
+            || !is_string($php['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) !== 1
+            || !str_ends_with($php['constraint'], '#' . $php['source_reference'])) {
+            throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_CORE_PHP_INVALID');
+        }
+        $webKeys = ['source_type', 'source_url', 'source_reference', 'packages'];
+        $packages = is_array($web) && array_keys($web) === $webKeys ? $web['packages'] : null;
+        if (!is_array($web) || $web['source_type'] !== 'git'
+            || !is_string($web['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $web['source_url']) !== 1
+            || !is_string($web['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $web['source_reference']) !== 1) {
+            throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_CORE_WEB_INVALID');
+        }
+        if (!is_array($packages) || array_keys($packages) !== self::CORE_WEB_PACKAGES) {
+            throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_CORE_WEB_INVALID');
+        }
+        foreach ($packages as $identity) {
+            if (!is_array($identity) || array_keys($identity) !== ['version', 'archive', 'sha256']
+                || !is_string($identity['version']) || preg_match(self::STRICT_SEMVER, $identity['version']) !== 1
+                || !is_string($identity['archive'])
+                || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$#D', $identity['archive']) !== 1
+                || !is_string($identity['sha256']) || preg_match('/^[0-9a-f]{64}$/D', $identity['sha256']) !== 1) {
+                throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_CORE_WEB_INVALID');
+            }
+            $archive = $root . '/' . $identity['archive'];
+            $digest = is_file($archive) && !is_link($archive) ? hash_file('sha256', $archive) : false;
+            if (!is_string($digest) || !hash_equals($identity['sha256'], $digest)) {
+                throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_CORE_WEB_ARCHIVE_INVALID');
+            }
+        }
     }
 }

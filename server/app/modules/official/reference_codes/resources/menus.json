@@ -1,0 +1,3 @@
+[
+  {"key":"official.reference-codes.page","scope":"tenant","type":"page","name":"参考代码","route_name":"OfficialReferenceCodes","route_path":"/system/reference-codes","component_key":"official.reference-codes.page","required_permission":"official.reference-codes.read","icon":"icon-list","sort_order":71,"client_keys":["admin-web"]}
+]

@@ -5,5 +5,7 @@
   {"key":"official.notification.log.detail","type":"api","name":"查看通知详情","risk_level":"normal"},
   {"key":"official.notification.scene.list","type":"api","name":"查看通知场景","risk_level":"normal"},
   {"key":"official.notification.scene.detail","type":"api","name":"查看通知场景详情","risk_level":"normal"},
-  {"key":"official.notification.scene.save","type":"action","name":"保存通知场景","risk_level":"sensitive"}
+  {"key":"official.notification.scene.save","type":"action","name":"保存通知场景","risk_level":"sensitive"},
+  {"key":"official.notification.inbox.read","type":"api","name":"查看通知收件箱","risk_level":"normal"},
+  {"key":"official.notification.inbox.manage","type":"action","name":"更新通知收件箱","risk_level":"normal"}
 ]

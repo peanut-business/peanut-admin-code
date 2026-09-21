@@ -5,7 +5,6 @@ namespace app\modules\official\task\contracts;
 
 use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use PeanutAdmin\TaskJob\Execution\TaskHandler;
 
 /** A business Module's handler and its authoritative async reauthorization rule. */
 interface TaskWorkerDefinition

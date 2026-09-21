@@ -14,7 +14,7 @@ function expectContentDecoration(bool $condition, string $message): void
 
 $serverRoot = dirname(__DIR__, 2);
 $repositoryRoot = dirname($serverRoot);
-$fileService = (new ReflectionClass(\app\common\services\FileService::class))->newInstanceWithoutConstructor();
+$fileService = (new ReflectionClass(\app\modules\official\file\services\FileService::class))->newInstanceWithoutConstructor();
 $assetReferences = new ProductAssetReferenceService($fileService, 'https://app.example');
 
 expectContentDecoration(

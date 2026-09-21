@@ -109,6 +109,11 @@ final readonly class ModuleDefinitionRegistryFactory
                 ...DataPermissionSchema::tableNames(),
             ],
             $clients,
+            [
+                ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT,
+                ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM,
+            ],
+            $this->historicalBusinessTableOwners(),
         );
         $loader = new ManifestLoader();
         $documents = array_map(
@@ -118,6 +123,33 @@ final readonly class ModuleDefinitionRegistryFactory
         $registry = $compiler->compile($documents);
         (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();
         return $registry;
+    }
+
+    /**
+     * The protected, shipped IAM manifest is the ownership source. Arbitrary modules
+     * cannot opt themselves into the historical table exception by declaring a table.
+     * Technical ModuleSchema/IdempotencySchema tables have no exception.
+     * @return array<string,string>
+     */
+    private function historicalBusinessTableOwners(): array
+    {
+        $technical = [...ModuleSchema::tableNames(), ...IdempotencySchema::tableNames()];
+        $owners = [];
+        foreach (['official.identity' => 'identity', 'official.ops' => 'ops'] as $key => $directory) {
+            $path = $this->serverRoot . '/app/modules/official/' . $directory . '/module.json';
+            $manifest = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($manifest) || ($manifest['key'] ?? null) !== $key
+                || ($manifest['lifecycle']['protected'] ?? false) !== true) {
+                throw new ModuleException('MODULE_MANIFEST_INVALID', "The protected {$key} manifest is unavailable.");
+            }
+            foreach (($manifest['database']['owned_tables'] ?? []) as $table) {
+                if (!is_string($table) || in_array($table, $technical, true) || isset($owners[$table])) {
+                    throw new ModuleException('MODULE_REGISTRY_CONFLICT', "{$key} historical table ownership is invalid.");
+                }
+                $owners[$table] = $key;
+            }
+        }
+        return $owners;
     }
 
     /** @param non-empty-list<string> $roots @return list<string> */

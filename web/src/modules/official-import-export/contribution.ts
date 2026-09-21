@@ -1,4 +1,4 @@
-import type { PluginFrontendContribution } from '@peanut-admin/admin/core';
+import type { PluginFrontendContribution } from '@peanut-admin/vue';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
 const contribution: PluginFrontendContribution = {
@@ -27,6 +27,28 @@ const contribution: PluginFrontendContribution = {
           },
         },
       ],
+    },
+    {
+      path: '/system/import-export-operations',
+      name: 'OfficialImportExportOperationsRoot',
+      component: DEFAULT_LAYOUT,
+      meta: {
+        locale: 'Import/export operations',
+        requiresAuth: true,
+        tenantModuleKey: 'official.import-export',
+        requiredPermissions: 'official.import-export.operations.read',
+      },
+      children: [{
+        path: '',
+        name: 'OfficialImportExportOperations',
+        component: () => import('./OperationsPage.vue'),
+        meta: {
+          locale: 'Import/export operations',
+          requiresAuth: true,
+          tenantModuleKey: 'official.import-export',
+          requiredPermissions: 'official.import-export.operations.read',
+        },
+      }],
     },
   ],
 };

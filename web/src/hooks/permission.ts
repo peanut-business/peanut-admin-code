@@ -2,7 +2,7 @@ import { RouteLocationNormalized, RouteRecordRaw } from 'vue-router';
 import { useAppStore, useUserStore } from '@/store';
 import { REDIRECT_ROUTE_NAME } from '@/router/constants';
 import { permissionEvaluator } from '@/core/runtime';
-import { evaluateRequiredPermissions } from '@peanut-admin/admin/core';
+import { evaluateRequiredPermissions } from '@peanut-admin/vue';
 
 export function hasPermission(
   requiredPermissions: string | string[],

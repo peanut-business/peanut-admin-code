@@ -16,5 +16,10 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*", "src/**/*.vue"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "src/modules/**/optional-runtime/**",
+    "src/modules/official-reference-codes/runtime/tests/**",
+    "src/modules/official-settings/runtime/tests/**"
+  ]
 }

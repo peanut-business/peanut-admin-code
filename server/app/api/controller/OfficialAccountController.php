@@ -8,12 +8,13 @@ use app\common\execution\CurrentExecutionContext;
 
 use app\modules\official\oauth\contracts\OfficialAccountCallbacks;
 use app\common\exception\BusinessException;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use app\modules\official\integration\contracts\ExternalProvider;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\RequestTrace;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolutionException;
+use app\modules\official\integration\contracts\ExternalTenantResolutionException;
 
 class OfficialAccountController extends BaseApiController
 {
@@ -23,7 +24,7 @@ class OfficialAccountController extends BaseApiController
         private readonly OfficialAccountCallbacks $officialAccount,
         private readonly ExecutionContextStore $executionContexts,
         private readonly ModuleExecutionBoundary $modules,
-        private readonly ExternalTenantResolver $externalTenants,
+        private readonly ExternalTenantResolutionService $externalTenants,
     )
     {
         parent::__construct($app, $executionContext);
@@ -35,7 +36,7 @@ class OfficialAccountController extends BaseApiController
         $params = $this->request->get();
         try {
             $resolution = $this->externalTenants->verifiedCallback(
-                ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK,
+                ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
                 (string)$this->request->route('binding'),
                 'wechat.official.verify',
                 $this->operationId(),
@@ -56,7 +57,7 @@ class OfficialAccountController extends BaseApiController
         $params = $this->request->get();
         try {
             $resolution = $this->externalTenants->verifiedCallback(
-                ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK,
+                ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
                 (string)$this->request->route('binding'),
                 'wechat.official.callback',
                 $this->operationId(),

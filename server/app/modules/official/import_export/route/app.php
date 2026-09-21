@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use app\modules\official\import_export\controller\OperationLogExportController;
 use app\modules\official\import_export\controller\configurationTransferController;
+use app\modules\official\import_export\controller\ImportExportOperationController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
@@ -20,6 +21,16 @@ Route::group(function (): void {
     Route::get('official.import-export.configuration.export', [ConfigurationTransferController::class, 'export']);
     Route::post('official.import-export.configuration.dry-run', [ConfigurationTransferController::class, 'dryRun']);
     Route::post('official.import-export.configuration.apply', [ConfigurationTransferController::class, 'apply']);
+    Route::get('api/v1/import-export/operations', [ImportExportOperationController::class, 'index'])
+        ->option(['peanut_permission' => 'official.import-export.operations.read']);
+    Route::post('api/v1/import-export/imports', [ImportExportOperationController::class, 'submitImport'])
+        ->option(['peanut_permission' => 'official.import-export.operations.create']);
+    Route::post('api/v1/import-export/exports', [ImportExportOperationController::class, 'submitExport'])
+        ->option(['peanut_permission' => 'official.import-export.operations.create']);
+    Route::post('api/v1/import-export/operations/:operationKey/cancel', [ImportExportOperationController::class, 'cancel'])
+        ->option(['peanut_permission' => 'official.import-export.operations.cancel']);
+    Route::get('api/v1/files/:fileKey/content', [ImportExportOperationController::class, 'download'])
+        ->option(['peanut_permission' => 'official.import-export.operations.read']);
 })->middleware(LoginMiddleware::class)
     ->middleware(OfficialModuleMiddleware::class, 'official.import-export', 'http.admin')
     ->middleware(AuthMiddleware::class)

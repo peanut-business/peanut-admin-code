@@ -2,8 +2,8 @@ import {
   createClient,
   type ClientDecodeResult,
   type ClientTransportRequest,
-} from '@peanut-admin/admin/client'
-import { createNuxtClientTransport } from '@peanut-admin/admin/client/nuxt'
+} from '@peanut-admin/client'
+import { createNuxtClientTransport } from '@peanut-admin/nuxt'
 
 interface ApiResponse<T = unknown> {
   code: number

@@ -10,7 +10,7 @@ use app\modules\official\import_export\contracts\dto\AsyncExportOperation;
 use app\modules\official\import_export\infrastructure\file\AppFileMediaGateway;
 use app\modules\official\task\contracts\TaskJobRuntime;
 use app\modules\official\task\contracts\TaskWorkerDefinition;
-use PeanutAdmin\ImportExport\Application\ImportExportService;
+use app\modules\official\import_export\engine\Application\ImportExportService;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\authorizationDecision;
 

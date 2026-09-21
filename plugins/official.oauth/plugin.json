@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "ac22a9ed5a8fcf64047b5c7bd3f171bc912bcef69ae2ab5bfc32f087d2fc9817"
+        "sha256": "ffab9f45f958388affab6c253498472337d1d48ce9d19570f9b052808e6513f8"
     },
     "trust": {
         "channel": "bundled",
@@ -47,11 +47,19 @@
                             "version": "^1.0"
                         },
                         {
+                            "module_key": "official.integration",
+                            "version": "^1.0"
+                        },
+                        {
                             "module_key": "official.member",
                             "version": "^1.0"
                         },
                         {
                             "module_key": "official.notification",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.settings",
                             "version": "^1.0"
                         }
                     ],
@@ -92,7 +100,7 @@
             "package": "@peanut-admin/official-oauth",
             "version": "1.0.0",
             "entry": "web/src/modules/official-oauth/contribution.ts",
-            "sha256": "a27fd15b1d00ea253bc4e63830e0d41c7d8a4ad27a7f5ac76ee68407263540c8"
+            "sha256": "3d407727ed028cbf79fcaece7e8ad8f0c0591cbee030952407bf78b40741ab61"
         }
     ],
     "modules": [

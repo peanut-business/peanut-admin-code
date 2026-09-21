@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace app\modules\official\payment\services;
 
 use app\common\exception\BusinessException;
-use app\common\services\external\ExternalChannelBindingService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalChannelBindings;
+use app\modules\official\integration\contracts\ExternalProvider;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\facade\Db;
 use app\modules\official\payment\contracts\PaymentChannelGrantCommands;
@@ -22,7 +22,7 @@ class PayConfigApplicationService
 
     public function __construct(
         private readonly PaymentChannelGrantCommands $channelGrants,
-        private readonly ExternalChannelBindingService $bindings,
+        private readonly ExternalChannelBindings $bindings,
     ) {
     }
 
@@ -47,8 +47,8 @@ class PayConfigApplicationService
     public function getConfig(TenantContext $context): array
     {
         $stored = [
-            ...$this->bindings->config($context, ExternalTenantResolver::WECHAT_PAYMENT),
-            ...$this->bindings->config($context, ExternalTenantResolver::ALIPAY_PAYMENT),
+            ...$this->bindings->config($context, ExternalProvider::WECHAT_PAYMENT),
+            ...$this->bindings->config($context, ExternalProvider::ALIPAY_PAYMENT),
         ];
         $result = [];
         foreach (self::FIELDS as $field => $default) {
@@ -70,8 +70,8 @@ class PayConfigApplicationService
     public function setConfig(TenantContext $context, array $params): bool
     {
         $stored = [
-                ...$this->bindings->config($context, ExternalTenantResolver::WECHAT_PAYMENT),
-                ...$this->bindings->config($context, ExternalTenantResolver::ALIPAY_PAYMENT),
+                ...$this->bindings->config($context, ExternalProvider::WECHAT_PAYMENT),
+                ...$this->bindings->config($context, ExternalProvider::ALIPAY_PAYMENT),
             ];
             $data = [];
             foreach (self::FIELDS as $field => $default) {
@@ -91,20 +91,20 @@ class PayConfigApplicationService
         Db::transaction(function () use ($context, $data): void {
                 $this->bindings->update(
                     $context,
-                    ExternalTenantResolver::WECHAT_PAYMENT,
+                    ExternalProvider::WECHAT_PAYMENT,
                     $data,
                     trim((string)$data['wx_pay_appid']) !== '' && trim((string)$data['wx_pay_mch_id']) !== ''
                         ? (string)$data['wx_pay_appid'] . ':' . (string)$data['wx_pay_mch_id'] : '',
                 );
-                $this->channelGrants->ensureSelfGrant($context, ExternalTenantResolver::WECHAT_PAYMENT);
+                $this->channelGrants->ensureSelfGrant($context, ExternalProvider::WECHAT_PAYMENT);
                 $this->bindings->update(
                     $context,
-                    ExternalTenantResolver::ALIPAY_PAYMENT,
+                    ExternalProvider::ALIPAY_PAYMENT,
                     $data,
                     trim((string)$data['ali_pay_app_id']) !== '' && trim((string)$data['ali_pay_seller_id']) !== ''
                         ? (string)$data['ali_pay_app_id'] . ':' . (string)$data['ali_pay_seller_id'] : '',
                 );
-                $this->channelGrants->ensureSelfGrant($context, ExternalTenantResolver::ALIPAY_PAYMENT);
+                $this->channelGrants->ensureSelfGrant($context, ExternalProvider::ALIPAY_PAYMENT);
         });
         return true;
     }

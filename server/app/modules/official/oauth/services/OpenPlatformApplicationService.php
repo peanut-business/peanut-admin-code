@@ -4,21 +4,21 @@ declare(strict_types=1);
 namespace app\modules\official\oauth\services;
 
 use app\common\exception\BusinessException;
-use app\common\services\external\ExternalChannelBindingService;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolver;
+use app\modules\official\integration\contracts\ExternalChannelBindings;
+use app\modules\official\integration\contracts\ExternalProvider;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 class OpenPlatformApplicationService
 {
     private const CONFIG_TYPE = 'open_platform';
 
-    public function __construct(private readonly ExternalChannelBindingService $bindings)
+    public function __construct(private readonly ExternalChannelBindings $bindings)
     {
     }
 
     public function getConfig(TenantContext $context): array
     {
-        $stored = $this->bindings->config($context, ExternalTenantResolver::WECHAT_OPEN_PLATFORM);
+        $stored = $this->bindings->config($context, ExternalProvider::WECHAT_OPEN_PLATFORM);
         $secret = (string)($stored['app_secret'] ?? '');
         return [
             'app_id' => (string)($stored['app_id'] ?? ''),
@@ -29,7 +29,7 @@ class OpenPlatformApplicationService
 
     public function setConfig(TenantContext $context, array $params): bool
     {
-        $current = $this->bindings->config($context, ExternalTenantResolver::WECHAT_OPEN_PLATFORM);
+        $current = $this->bindings->config($context, ExternalProvider::WECHAT_OPEN_PLATFORM);
         $currentSecret = (string)($current['app_secret'] ?? '');
         $incomingSecret = trim((string)$params['app_secret']);
         $secret = $incomingSecret === '******' ? $currentSecret : $incomingSecret;
@@ -42,7 +42,7 @@ class OpenPlatformApplicationService
         ];
         $this->bindings->update(
             $context,
-            ExternalTenantResolver::WECHAT_OPEN_PLATFORM,
+            ExternalProvider::WECHAT_OPEN_PLATFORM,
             $data,
             $data['app_id'],
         );

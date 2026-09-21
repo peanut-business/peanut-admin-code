@@ -3,14 +3,14 @@ declare(strict_types=1);
 
 namespace app\adminapi\services\dept;
 
-use app\common\runtime\org\DepartmentAdministrationRuntime;
+use PeanutAdmin\Kernel\Organization\Application\DepartmentAdminService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 
 /** Compatibility department tree backed by native pa_department. */
 final class DeptApplicationService
 {
-    public function __construct(private readonly DepartmentAdministrationRuntime $runtime)
+    public function __construct(private readonly DepartmentAdminService $departments)
     {
     }
 
@@ -84,7 +84,8 @@ final class DeptApplicationService
 
     public function updateStatus(TenantContext $context, int $id, int $status): bool
     {
-        $this->runtime->setStatus($this->service()->get($context->tenantId, $id), $status);
+        $department = $this->departments->get($context->tenantId, $id);
+        $this->departments->setStatus($context, $id, (int)$department['revision'], $status === 1);
         return true;
     }
 
@@ -106,5 +107,5 @@ final class DeptApplicationService
 
     private static function statusInt(string $status): int { return $status === 'active' ? 1 : 0; }
     private static function code(array $params): string { return 'application.department.' . bin2hex(random_bytes(8)); }
-    private function service() { return $this->runtime->service(); }
+    private function service(): DepartmentAdminService { return $this->departments; }
 }

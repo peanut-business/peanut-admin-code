@@ -2,15 +2,29 @@
 declare(strict_types=1);
 namespace app\modules\official\import_export\infrastructure\file;
 
-use app\common\services\storage\StorageService;
-use PeanutAdmin\ImportExport\Application\ImportExportException;
-use PeanutAdmin\ImportExport\file\fileMediaGateway;
+use app\modules\official\file\contracts\FileStorage;
+use app\modules\official\import_export\engine\Application\ImportExportException;
+use app\modules\official\import_export\engine\File\FileMediaGateway;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 
 final readonly class AppFileMediaGateway implements FileMediaGateway
 {
-    public function __construct(private StorageService $storage) {}
-    public function openCsvInput(AuthorizedOperationContext $context,string $fileKey){throw ImportExportException::denied();}
+    public function __construct(private FileStorage $storage) {}
+    public function openCsvInput(AuthorizedOperationContext $context,string $fileKey)
+    {
+        if(preg_match('/^file_[0-9a-f]{32}$/D',$fileKey)!==1)throw ImportExportException::fileUnavailable();
+        $opened=$this->storage->openForTenant($context->tenantContext->tenantId,$fileKey);
+        $source=null;$copy=null;
+        try{
+            $source=fopen($opened['path'],'rb');
+            $copy=fopen('php://temp/maxmemory:2097152','w+b');
+            if(!is_resource($source)||!is_resource($copy))throw ImportExportException::fileUnavailable();
+            $bytes=stream_copy_to_stream($source,$copy,20*1024*1024+1);
+            if(!is_int($bytes)||$bytes<1||$bytes>20*1024*1024)throw ImportExportException::limitExceeded();
+            rewind($copy);return $copy;
+        }catch(\Throwable $error){if(is_resource($copy))fclose($copy);throw $error;}
+        finally{if(is_resource($source))fclose($source);if($opened['temporary']&&is_file($opened['path']))@unlink($opened['path']);}
+    }
     public function storePrivateCsv(AuthorizedOperationContext $context,string $operationKey,string $purpose,string $filename,$stream):string
     {
         if(!is_resource($stream)||$purpose!=='result'||preg_match('/^iox_[0-9a-f]{32}$/D',$operationKey)!==1)throw ImportExportException::fileUnavailable();

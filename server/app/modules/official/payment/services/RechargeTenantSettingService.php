@@ -5,7 +5,8 @@ namespace app\modules\official\payment\services;
 
 use app\modules\official\payment\model\PaymentScene;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use app\common\services\tenant\TenantSettingService;
+use app\modules\official\settings\contracts\TenantSettingsCommands;
+use app\modules\official\settings\contracts\TenantSettingsQuery;
 use app\modules\official\payment\contracts\PaymentChannelGrantCommands;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
@@ -15,7 +16,8 @@ final class RechargeTenantSettingService
     public const NAMESPACE = 'finance.recharge';
 
     public function __construct(
-        private readonly TenantSettingService $settings,
+        private readonly TenantSettingsQuery $settingsQuery,
+        private readonly TenantSettingsCommands $settingsCommands,
         private readonly PaymentChannelGrantCommands $channelGrants,
     ) {
     }
@@ -23,14 +25,14 @@ final class RechargeTenantSettingService
     public function config(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context
     ): array {
-        return $this->settings->get($context, self::NAMESPACE, self::defaults())->document;
+        return $this->settingsQuery->get($context, self::NAMESPACE, self::defaults())->document;
     }
 
     public function replace(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         array $config
     ): void {
-        $this->settings->replace($context, self::NAMESPACE, $config);
+        $this->settingsCommands->replace($context, self::NAMESPACE, $config);
     }
 
     public function enabledScenes(

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\platform\services\ops\DeploymentModuleRequestService;
+use app\modules\official\ops\services\DeploymentModuleRequestService;
 use app\platform\services\plugin\PluginRuntimeGovernanceService;
 use app\common\execution\ModuleContextualCommand;
 use think\console\Input;

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 namespace app\modules\official\import_export\infrastructure\configuration;
-use PeanutAdmin\IntegrationSecurity\External\ExternalTenantResolutionException;
+use app\modules\official\integration\contracts\ExternalTenantResolutionException;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use think\facade\Db;

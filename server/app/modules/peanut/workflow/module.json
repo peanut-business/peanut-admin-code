@@ -1,0 +1,48 @@
+{
+    "schema_version": 1,
+    "key": "peanut.workflow",
+    "name": "Workflow",
+    "description": "可选工作流运行与查询；使用方必须提供授权、分配、附件与副作用协议实现。",
+    "version": "4.0.0-dev",
+    "kernel_constraint": "^1.0",
+    "license": "Apache-2.0",
+    "php_package": "peanut-business/workflow",
+    "web_package": null,
+    "dependencies": [
+        {
+            "module_key": "official.identity",
+            "version": "4.0.0-dev"
+        }
+    ],
+    "backend": {
+        "provider": "app\\modules\\peanut\\workflow\\ModuleProvider",
+        "migrations": "database/migrations"
+    },
+    "frontend": {},
+    "database": {
+        "owned_tables": [
+            "pa_workflow_definition",
+            "pa_workflow_definition_version",
+            "pa_workflow_instance",
+            "pa_workflow_work_item",
+            "pa_workflow_event"
+        ]
+    },
+    "contracts": {
+        "exports": [
+            "PeanutAdmin\\Workflow\\Application\\WorkflowRuntime",
+            "PeanutAdmin\\Workflow\\Application\\WorkflowQueryService",
+            "PeanutAdmin\\Workflow\\Adapter\\WorkflowAuthorizationResolver",
+            "PeanutAdmin\\Workflow\\Adapter\\WorkflowAssignmentResolver",
+            "PeanutAdmin\\Workflow\\Adapter\\WorkflowSideEffectPublisher"
+        ],
+        "events": []
+    },
+    "tenant": {
+        "enableable": true,
+        "disable_behavior": "reject_new_operations",
+        "requires": [
+            "official.identity"
+        ]
+    }
+}

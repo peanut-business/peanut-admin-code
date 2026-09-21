@@ -37,6 +37,50 @@ final class PluginPackageArchiveService
     }
 
     /**
+     * Builds the same canonical payload used by module:pack without writing an archive.
+     * The caller selects only a registered Module key; no filesystem path is accepted.
+     *
+     * @return array{
+     *   module_key:string,version:string,file_count:int,total_bytes:int,inventory_sha256:string,
+     *   files:list<array{path:string,size:int,sha256:string}>
+     * }
+     */
+    public function previewModule(string $moduleKey): array
+    {
+        $inspection = (new ModulePackagePreflight($this->projectRoot()))->inspect($moduleKey);
+        $built = $this->packageEntries($moduleKey, $inspection['version'], [$moduleKey]);
+        $files = [];
+        $totalBytes = 0;
+        foreach ($built['entries'] as $path => $entry) {
+            if (isset($entry['source'])) {
+                $size = filesize((string)$entry['source']);
+                $digest = hash_file('sha256', (string)$entry['source']);
+            } else {
+                $contents = (string)$entry['contents'];
+                $size = strlen($contents);
+                $digest = hash('sha256', $contents);
+            }
+            if (!is_int($size) || !is_string($digest)) {
+                throw new PluginPackageException('MODULE_PACKAGE_SOURCE_INVALID', 'Package preview source metadata failed.');
+            }
+            $totalBytes += $size;
+            $files[] = [
+                'path' => $path,
+                'size' => $size,
+                'sha256' => $digest,
+            ];
+        }
+        return [
+            'module_key' => $moduleKey,
+            'version' => $inspection['version'],
+            'file_count' => count($files),
+            'total_bytes' => $totalBytes,
+            'inventory_sha256' => hash('sha256', $built['inventory']),
+            'files' => $files,
+        ];
+    }
+
+    /**
      * @param list<string> $moduleKeys
      * @param array{key_id:string,secret_key:string}|null $signer
      * @return array{path:string,package_key:string,version:string,sha256:string,modules:list<string>}
@@ -219,6 +263,41 @@ final class PluginPackageArchiveService
         string $outputPath,
         ?array $signer,
     ): array {
+        $built = $this->packageEntries($packageKey, $version, $moduleKeys);
+        $moduleKeys = $built['module_keys'];
+        $entries = $built['entries'];
+        $inventory = $built['inventory'];
+        $entries['META-INF/files.sha256'] = ['contents' => $inventory];
+        if ($signer !== null) {
+            $signature = $this->signatureDocument($packageKey, $version, $inventory, $signer);
+            $entries['META-INF/signatures/' . $signature['key_id'] . '.json'] = [
+                'contents' => json_encode($signature, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+            ];
+        }
+        $this->tar->write($outputPath, $entries);
+        $digest = hash_file('sha256', $outputPath);
+        if (!is_string($digest)) {
+            throw new PluginPackageException('MODULE_PACKAGE_WRITE_FAILED', 'Package archive digest failed.');
+        }
+        return [
+            'path' => $outputPath,
+            'package_key' => $packageKey,
+            'version' => $version,
+            'sha256' => $digest,
+            'modules' => $moduleKeys,
+        ];
+    }
+
+    /**
+     * @param list<string> $moduleKeys
+     * @return array{
+     *   module_keys:list<string>,
+     *   entries:array<string,array{source?:string,contents?:string}>,
+     *   inventory:string
+     * }
+     */
+    private function packageEntries(string $packageKey, string $version, array $moduleKeys): array
+    {
         $moduleKeys = array_values(array_unique(array_map('trim', $moduleKeys)));
         sort($moduleKeys, SORT_STRING);
         if ($moduleKeys === []) {
@@ -235,8 +314,10 @@ final class PluginPackageArchiveService
         $modules = [];
         $moduleSpecs = [];
         $availableVersions = [];
+        $inspections = [];
         foreach ($moduleKeys as $moduleKey) {
             $inspection = $preflight->inspect($moduleKey);
+            $inspections[$moduleKey] = $inspection;
             $modules[$moduleKey] = [
                 'version' => $inspection['version'],
                 'dependencies' => $inspection['dependencies'],
@@ -263,11 +344,10 @@ final class PluginPackageArchiveService
                 ) . "\n",
             ],
         ];
-        foreach ($moduleKeys as $moduleKey) {
-            $inspection = $preflight->inspect($moduleKey);
+        foreach ($inspections as $inspection) {
             $this->collectFiles($inspection['backend_relative'], $entries);
-            if ($inspection['frontend_relative'] !== null) {
-                $this->collectFiles($inspection['frontend_relative'], $entries);
+            foreach ($inspection['frontend_contributions'] as $contribution) {
+                $this->collectFiles($contribution['root'], $entries);
             }
         }
         ksort($entries, SORT_STRING);
@@ -281,25 +361,7 @@ final class PluginPackageArchiveService
             }
             $inventory .= $path . "\0" . $digest . "\n";
         }
-        $entries['META-INF/files.sha256'] = ['contents' => $inventory];
-        if ($signer !== null) {
-            $signature = $this->signatureDocument($packageKey, $version, $inventory, $signer);
-            $entries['META-INF/signatures/' . $signature['key_id'] . '.json'] = [
-                'contents' => json_encode($signature, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
-            ];
-        }
-        $this->tar->write($outputPath, $entries);
-        $digest = hash_file('sha256', $outputPath);
-        if (!is_string($digest)) {
-            throw new PluginPackageException('MODULE_PACKAGE_WRITE_FAILED', 'Package archive digest failed.');
-        }
-        return [
-            'path' => $outputPath,
-            'package_key' => $packageKey,
-            'version' => $version,
-            'sha256' => $digest,
-            'modules' => $moduleKeys,
-        ];
+        return ['module_keys' => $moduleKeys, 'entries' => $entries, 'inventory' => $inventory];
     }
 
     /** @param array<string,array{offset:int,size:int}> $entries @param array<string,string> $trustedPublicKeys */

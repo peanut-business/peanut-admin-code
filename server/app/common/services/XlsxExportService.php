@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\common\services;
 
 use app\common\execution\CurrentExecutionContext;
-use app\common\services\storage\StorageService;
+use app\modules\official\file\contracts\FileStorage;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use ZipArchive;
 
@@ -13,7 +13,7 @@ class XlsxExportService
 {
     public function __construct(
         private readonly CurrentExecutionContext $executionContext,
-        private readonly StorageService $storage,
+        private readonly FileStorage $storage,
     ) {}
 
     /** Creates a private XLSX through the canonical storage service. */

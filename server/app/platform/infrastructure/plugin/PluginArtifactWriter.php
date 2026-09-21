@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\platform\infrastructure\plugin;
 
 use app\platform\exception\plugin\PluginArtifactToolException;
+use app\platform\value\plugin\ModuleFrontendLayout;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
@@ -152,32 +153,40 @@ final readonly class PluginArtifactWriter
             ];
             $contentRoots[] = $absoluteRoot;
 
-            $frontendRoot = 'web/src/modules/' . str_replace('.', '-', $moduleKey);
-            $absoluteFrontendRoot = $this->withinProject($frontendRoot);
-            if (!is_dir($absoluteFrontendRoot)) {
-                continue;
+            $moduleManifest = $this->readJson($absoluteRoot . '/module.json');
+            try {
+                $contributions = ModuleFrontendLayout::contributions(
+                    is_array($moduleManifest['frontend'] ?? null) ? $moduleManifest['frontend'] : [],
+                    $moduleKey,
+                );
+            } catch (\InvalidArgumentException $exception) {
+                throw new PluginArtifactToolException($exception->getMessage(), 0, $exception);
             }
-            $packagePath = $absoluteFrontendRoot . '/package.json';
-            $entryPath = $absoluteFrontendRoot . '/contribution.ts';
-            if (!is_file($packagePath) || !is_file($entryPath)) {
-                throw new PluginArtifactToolException("Frontend contribution is incomplete: {$frontendRoot}");
+            foreach ($contributions as $contribution) {
+                $frontendRoot = $contribution['root'];
+                $absoluteFrontendRoot = $this->withinProject($frontendRoot);
+                $packagePath = $absoluteFrontendRoot . '/package.json';
+                $entryPath = $this->withinProject($contribution['entry']);
+                if (!is_dir($absoluteFrontendRoot) || !is_file($packagePath) || !is_file($entryPath)) {
+                    throw new PluginArtifactToolException("Frontend contribution is incomplete: {$frontendRoot}");
+                }
+                $package = $this->readJson($packagePath);
+                $packageName = $this->packageName($package['name'] ?? '', 'npm');
+                $packageVersion = $this->version($package['version'] ?? '');
+                $npm[] = [
+                    'name' => $packageName,
+                    'version' => $packageVersion,
+                    'integrity' => 'sha256-' . base64_encode(hash_file('sha256', $packagePath, true) ?: ''),
+                ];
+                $frontend[] = [
+                    'client_key' => $contribution['client_key'],
+                    'package' => $packageName,
+                    'version' => $packageVersion,
+                    'entry' => $contribution['entry'],
+                    'sha256' => $this->digest($entryPath),
+                ];
+                $contentRoots[] = $absoluteFrontendRoot;
             }
-            $package = $this->readJson($packagePath);
-            $packageName = $this->packageName($package['name'] ?? '', 'npm');
-            $packageVersion = $this->version($package['version'] ?? '');
-            $npm[] = [
-                'name' => $packageName,
-                'version' => $packageVersion,
-                'integrity' => 'sha256-' . base64_encode(hash_file('sha256', $packagePath, true) ?: ''),
-            ];
-            $frontend[] = [
-                'client_key' => 'admin-web',
-                'package' => $packageName,
-                'version' => $packageVersion,
-                'entry' => $frontendRoot . '/contribution.ts',
-                'sha256' => $this->digest($entryPath),
-            ];
-            $contentRoots[] = $absoluteFrontendRoot;
         }
         $this->sortIdentities($composer, 'name');
         $this->sortIdentities($npm, 'name');
@@ -270,7 +279,10 @@ final readonly class PluginArtifactWriter
     /** @param array<string,mixed> $backend @return list<array{key:string,sha256:string}> */
     private function migrationFingerprints(string $root, string $moduleKey, array $backend): array
     {
-        if (($backend['migrations'] ?? null) !== 'database/migrations') {
+        if (!array_key_exists('migrations', $backend)) {
+            return [];
+        }
+        if ($backend['migrations'] !== 'database/migrations') {
             throw new PluginArtifactToolException("Module migration path is not canonical: {$moduleKey}");
         }
         $directories = ['database/migrations'];
@@ -278,7 +290,9 @@ final readonly class PluginArtifactWriter
         $resolvedDirectories = [];
         foreach (array_values(array_unique($directories)) as $directory) {
             $resolved = realpath($root . '/' . ltrim($directory, '/'));
-            if ($resolved === false || !is_dir($resolved)) continue;
+            if ($resolved === false || !is_dir($resolved)) {
+                throw new PluginArtifactToolException("Module migration directory is unavailable: {$moduleKey}");
+            }
             $stat = stat($resolved);
             if (!is_array($stat) || !isset($stat['dev'], $stat['ino'])) {
                 throw new PluginArtifactToolException("Module migration directory is unavailable: {$moduleKey}");

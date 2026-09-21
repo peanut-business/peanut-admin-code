@@ -1,8 +1,70 @@
 {
-  "schema_version":1,"key":"official.payment","name":"Payment","description":"Tenant-owned payment settings, recharge orders and refund processing.","version":"1.0.0","kernel_constraint":"^1.0","license":"Apache-2.0",
-  "php_package":"peanut-business/official-payment","web_package":"@peanut-admin/official-payment","dependencies":[{"module_key":"official.member","version":"^1.0"},{"module_key":"official.oauth","version":"^1.0"}],
-  "backend":{"provider":"app\\modules\\official\\payment\\ModuleProvider","migrations":"database/migrations","menus":"resources/menus.json","permissions":"resources/permissions.json","setting_definitions":"resources/setting-definitions.json"},
-  "frontend":{"entry":"web/src/modules/official-payment/contribution.ts"},
-  "database":{"owned_tables":["pa_payment_scene","pa_payment_tenant_channel_grant","pa_recharge_order","pa_refund_log","pa_refund_record"]},"contracts":{"exports":["app\\modules\\official\\payment\\contracts\\PaymentChannelGrantCommands","app\\modules\\official\\payment\\contracts\\RechargeCommands","app\\modules\\official\\payment\\contracts\\RechargeQueries","app\\modules\\official\\payment\\contracts\\RefundReconciliationCommands"],"events":[]},
-  "tenant":{"enableable":true,"disable_behavior":"reject_new_operations","requires":["official.member"]}
+  "schema_version": 1,
+  "key": "official.payment",
+  "name": "Payment",
+  "description": "Tenant-owned payment settings, recharge orders and refund processing.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-payment",
+  "web_package": "@peanut-admin/official-payment",
+  "dependencies": [
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.integration",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.member",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.oauth",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.settings",
+      "version": "^1.0"
+    }
+  ],
+  "backend": {
+    "provider": "app\\modules\\official\\payment\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json",
+    "setting_definitions": "resources/setting-definitions.json"
+  },
+  "frontend": {
+    "entry": "web/src/modules/official-payment/contribution.ts"
+  },
+  "database": {
+    "owned_tables": [
+      "pa_payment_scene",
+      "pa_payment_tenant_channel_grant",
+      "pa_recharge_order",
+      "pa_refund_log",
+      "pa_refund_record"
+    ]
+  },
+  "contracts": {
+    "exports": [
+      "app\\modules\\official\\payment\\contracts\\PaymentChannelGrantCommands",
+      "app\\modules\\official\\payment\\contracts\\RechargeCommands",
+      "app\\modules\\official\\payment\\contracts\\RechargeQueries",
+      "app\\modules\\official\\payment\\contracts\\RefundReconciliationCommands"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": true,
+    "disable_behavior": "reject_new_operations",
+    "requires": [
+      "official.file",
+      "official.member",
+      "official.settings"
+    ]
+  }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\common\services;
 
 use app\common\services\HtmlSanitizerService;
+use app\modules\official\file\contracts\FileReferences;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
@@ -11,7 +12,7 @@ use PeanutAdmin\Kernel\Context\TenantSystemContext;
 /** 富文本内资源地址的相对 URI 存储与绝对 URL 读取转换。 */
 final readonly class RichTextResourceService
 {
-    public function __construct(private FileService $files) {}
+    public function __construct(private FileReferences $files) {}
 
     public function forStorage(
         string $html,

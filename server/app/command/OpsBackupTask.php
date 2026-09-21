@@ -3,8 +3,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\common\services\audit\AuditContractHost;
-use app\platform\infrastructure\ops\ThinkPhpBackupTaskExecutionService;
+use app\modules\official\ops\infrastructure\ThinkPhpBackupTaskExecutionService;
 use app\common\execution\ContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
@@ -28,8 +27,7 @@ final class OpsBackupTask extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            $audit = app(AuditContractHost::class);
-            $service = new ThinkPhpBackupTaskExecutionService($audit);
+            $service = app(ThinkPhpBackupTaskExecutionService::class);
             $action = trim((string)$input->getArgument('action'));
             $result = match ($action) {
                 'claim' => $service->claim(),
