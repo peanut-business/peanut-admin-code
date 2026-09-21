@@ -381,7 +381,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0c8cb8c753d8cd29eb0fd26a089e7caca3e8ba5d7a524b1f6625ad2e367d11b4"
+            "source_sha256": "d9e3f4eb4897d3c6fab948ed4e6778c16465ac6568567256ce14b53dedf905de"
         },
         {
             "path": "deploy/docker/php-development-entrypoint.sh",
@@ -421,7 +421,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2d3e2b065a1a2c72bc86f3883090b6ba7160845d6e5ea4b21a7d18b8651e2789"
+            "source_sha256": "6b3ba9446b77057c59732543c6fad2988a7990cc6d59aaae3da7abec05001df1"
         },
         {
             "path": "deploy/docker/php-upload.ini",
@@ -449,7 +449,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "468e4027eb176a7f3b053b8d306c7af372c5882e3dc498aede45f183b7e58e40"
+            "source_sha256": "67926bef63c54262dfbc6d0dc6fccb57aa09162def328588d0c329f2e73a1698"
+        },
+        {
+            "path": "deploy/docker/read-backend-enum.sh",
+            "target": "deploy/docker/read-backend-enum.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3525bd577c686409fdffcdc35c949e1aff8b78d58d2be74db1c1df24bdbe16e7"
         },
         {
             "path": "deploy/local-stack.env.example",
@@ -22368,7 +22382,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "644930cc9c6ab88811cc9d973d261fd1f7720d30e9cefdf0c1bba064a6595589"
+            "source_sha256": "123e592d7da9e960566bc151a61a827ef2483f129a8d926bb9a783240f051738"
         },
         {
             "path": "server/resources/scaffold-application/docs-site/guide/development.md.stub",
@@ -25071,6 +25085,19 @@
         {
             "path": "server/tests/Unit/ApiMetadataCompletionTest.php",
             "target": "server/tests/Unit/ApiMetadataCompletionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/BackendEnumReaderTest.php",
+            "target": "server/tests/Unit/BackendEnumReaderTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

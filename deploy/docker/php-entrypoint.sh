@@ -17,7 +17,7 @@ backend_runtime=/var/www/peanut-admin/server/.env.container
 }
 install -o www-data -g www-data -m 600 "$backend_source" "$backend_runtime"
 export PEANUT_SERVER_ENV_FILE="$backend_runtime"
-installation_mode=$(awk -F= '$1 == "PEANUT_INSTALLATION_MODE" { print $2; exit }' "$backend_runtime")
+installation_mode=$(/usr/local/bin/peanut-read-backend-enum "$backend_runtime" PEANUT_INSTALLATION_MODE)
 case "$installation_mode" in automatic|guided) ;; *)
     printf 'PEANUT_INSTALLATION_MODE must be automatic or guided\n' >&2
     exit 1

@@ -7,7 +7,7 @@ backend_source=/var/www/peanut-admin/server/.env.source
     printf 'nginx-select-admin: backend environment source is unavailable\n' >&2
     exit 1
 }
-DEPLOYMENT_MODE=$(awk -F= '$1 == "DEPLOYMENT_MODE" { print $2; exit }' "$backend_source")
+DEPLOYMENT_MODE=$(/usr/local/bin/peanut-read-backend-enum "$backend_source" DEPLOYMENT_MODE)
 case "$DEPLOYMENT_MODE" in
     standalone|multi-tenant) ;;
     *)

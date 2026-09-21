@@ -11,7 +11,7 @@ php scripts/build-scaffold-release --version=<scaffold-semver> --source-commit=<
 php scripts/create-app --name=<name> --slug=<slug> --package=<vendor/name> --target=<absolute-path> --edition=multi-tenant --profile=standard --scaffold-manifest=<absolute-candidate-directory>/scaffold-manifest.json
 ~~~
 
-The explicit manifest lets `create-app` use the sealed commit/tree identity without a source `.git` directory or a private Project repository. Record that identity from `.peanut/application-manifest.json`. Application creation does not create a customer Tenant. Register the application's own database, ports, domains, storage, queues and external services separately; the product manifest is not a place for deployment secrets.
+Run `create-app` from a clean, fixed scaffold Git checkout. The explicit manifest binds the adopted template identity separately from the generation checkout identity; a private Project repository is not required. The generated application itself contains no source `.git` directory. Record that identity from `.peanut/application-manifest.json`. Application creation does not create a customer Tenant. Register the application's own database, ports, domains, storage, queues and external services separately; the product manifest is not a place for deployment secrets.
 
 Install the generated application's locked PHP dependencies before using `server/think`:
 

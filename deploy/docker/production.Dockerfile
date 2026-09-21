@@ -111,6 +111,7 @@ COPY server/public server/public
 COPY server/resources/schemas server/resources/schemas
 COPY --from=composer-deps /build/server/vendor server/vendor
 COPY deploy/docker/php-entrypoint.sh /usr/local/bin/peanut-php-entrypoint
+COPY --chmod=0555 deploy/docker/read-backend-enum.sh /usr/local/bin/peanut-read-backend-enum
 
 RUN if [ -n "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" ]; then \
         printf '%s' "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" | base64 --decode > DEPLOYMENT_RECEIPT.json; \
@@ -146,6 +147,7 @@ FROM nginx:1.28.0-alpine AS nginx
 
 COPY deploy/nginx/peanut-admin.conf /etc/nginx/conf.d/default.conf
 COPY deploy/docker/nginx-select-admin.sh /docker-entrypoint.d/40-select-admin.sh
+COPY --chmod=0555 deploy/docker/read-backend-enum.sh /usr/local/bin/peanut-read-backend-enum
 COPY server/public /var/www/peanut-admin/server/public
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md RELEASE_SBOM.spdx.json CHANGELOG.md RELEASE_METADATA.json /var/www/peanut-admin/server/public/legal/
 COPY --from=admin-builder /build/web/dist /opt/peanut-admin/admin
