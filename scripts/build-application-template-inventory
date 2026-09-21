@@ -88,7 +88,7 @@ function excluded(string $path): bool
             'server/tests/Productization/ScaffoldUpgradeRunnerTest.php',
             'scripts/scaffold-upgrade',
         ], true)
-        || str_starts_with($path, 'server/app/common/service/scaffold/')
+        || str_starts_with($path, 'server/app/common/infrastructure/scaffold/')
         || str_starts_with($path, 'scripts/scaffold-runtime/')
         || str_starts_with($path, 'web/.claude/')
         || str_starts_with($path, 'plugins/fixture.delivery-record/')

@@ -6087,72 +6087,67 @@
         {
             "path": "server/app/common/infrastructure/scaffold/ApplicationCreator.php",
             "target": "server/app/common/infrastructure/scaffold/ApplicationCreator.php",
-            "classification": "app-owned",
-            "owner": "application",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "738d90f5a7d32edd3fa4a1a46a776300e57586bccbf9f924369da15eff5c1df5"
+            ]
         },
         {
             "path": "server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php",
             "target": "server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php",
-            "classification": "app-owned",
-            "owner": "application",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "f63521f72731c21e03f930cedf72fa42a6a853a9ea9783103261a0ae65194118"
+            ]
         },
         {
             "path": "server/app/common/infrastructure/scaffold/EditionProjector.php",
             "target": "server/app/common/infrastructure/scaffold/EditionProjector.php",
-            "classification": "app-owned",
-            "owner": "application",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ed62e6e065ddfca4e59beca034d1668e036a14a6b4a10a2eb7f7fa934fa79cbe"
+            ]
         },
         {
             "path": "server/app/common/infrastructure/scaffold/ScaffoldUpgradeLedger.php",
             "target": "server/app/common/infrastructure/scaffold/ScaffoldUpgradeLedger.php",
-            "classification": "app-owned",
-            "owner": "application",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "ad7916e77d02045d1c9922f53028827dd3b030ddb629003c4da5a72cf6d7c987"
+            ]
         },
         {
             "path": "server/app/common/infrastructure/scaffold/ScaffoldUpgradeRunner.php",
             "target": "server/app/common/infrastructure/scaffold/ScaffoldUpgradeRunner.php",
-            "classification": "app-owned",
-            "owner": "application",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "aa6d7d529c2d65e4d0c29d8c485c5a217684d358b7bc4c3cda705c62d09fac4b"
+            ]
         },
         {
             "path": "server/app/common/model/BaseModel.php",
