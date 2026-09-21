@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
 use app\platform\http\PlatformRequest;
 use app\platform\services\PlatformTenantQueryService;
@@ -18,11 +17,10 @@ final class PlatformTenantController extends BasePlatformController
 {
     public function __construct(
         App $app,
-        CurrentExecutionContext $execution,
         private readonly TenantGovernanceService $tenantGovernance,
         private readonly PlatformTenantQueryService $tenantQueries,
     ) {
-        parent::__construct($app, $execution);
+        parent::__construct($app);
     }
 
     public function provision()

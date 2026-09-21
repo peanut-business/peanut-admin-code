@@ -13,22 +13,32 @@ function expectChannelBindingTenant(bool $condition, string $message): void
 $serverRoot = dirname(__DIR__, 2);
 $read = static fn(string $path): string => (string)file_get_contents($serverRoot . '/' . $path);
 
-$noticeController = $read('app/Modules/Official/Notification/Http/Controller/NoticeChannelController.php');
-$notificationApplication = $read('app/Modules/Official/Notification/Application/NotificationApplicationService.php');
+$noticeController = $read('app/modules/official/notification/controller/NoticeChannelController.php');
+$notificationApplication = $read('app/modules/official/notification/services/NotificationApplicationService.php');
 $noticeService = $read('app/common/services/notice/NoticeChannelService.php');
 $sender = $read('app/common/infrastructure/notice/ApplicationNoticeSmsSender.php');
-$verification = $read('app/Modules/Official/Notification/Application/VerificationCodeService.php');
-$menuController = $read('app/Modules/Official/Oauth/Http/Controller/OfficialAccountMenuController.php');
-$menuLogic = $read('app/Modules/Official/Oauth/Application/OfficialAccountMenuApplicationService.php');
+$verification = $read('app/modules/official/notification/services/VerificationCodeService.php');
+$menuController = $read('app/modules/official/oauth/controller/OfficialAccountMenuController.php');
+$menuLogic = $read('app/modules/official/oauth/services/OfficialAccountMenuApplicationService.php');
 
-foreach ([$noticeController, $menuController] as $controller) {
+foreach ([
+    app\modules\official\notification\controller\NoticeChannelController::class,
+    app\modules\official\oauth\controller\OfficialAccountMenuController::class,
+] as $controller) {
+    $constructor = (new ReflectionClass($controller))->getConstructor();
     expectChannelBindingTenant(
-        str_contains($controller, 'CurrentExecutionContext $executionContext'),
-        'admin controller does not inject its trusted Tenant context'
+        $constructor?->getDeclaringClass()->getName() === app\BaseController::class
+            && count($constructor->getParameters()) === 1
+            && $constructor->getParameters()[0]->getType()?->getName() === think\App::class,
+        'admin controller does not inherit the current-App execution context contract'
     );
 }
 expectChannelBindingTenant(
-    str_contains($noticeController, 'NotificationQueries $queries')
+    (new ReflectionMethod(
+        app\modules\official\notification\controller\NoticeChannelController::class,
+        'notifications',
+    ))->getReturnType()?->getName() === app\modules\official\notification\services\NotificationAdminApplicationService::class
+        && str_contains($noticeController, '$this->tenantAdminContext()')
         && str_contains($notificationApplication, '$this->executionContext->tenantAdmin()'),
     'notification application service drops the trusted Tenant context'
 );
@@ -62,7 +72,7 @@ expectChannelBindingTenant(
 );
 
 foreach (['$this->bindings->config(', '$this->bindings->update(',
-    'ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK'] as $marker) {
+    'ExternalProvider::WECHAT_OFFICIAL_CALLBACK'] as $marker) {
     expectChannelBindingTenant(str_contains($menuLogic, $marker), 'official-account menu binding invariant missing: ' . $marker);
 }
 expectChannelBindingTenant(

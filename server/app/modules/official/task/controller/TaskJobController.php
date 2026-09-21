@@ -4,22 +4,17 @@ declare(strict_types=1);
 namespace app\modules\official\task\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
 use app\modules\official\task\contracts\JobRecord;
 use app\modules\official\task\job\Application\TaskJobException;
 use app\modules\official\task\services\TaskAdminApplicationService;
-use think\App;
 use think\response\Json;
 
 final class TaskJobController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly TaskAdminApplicationService $tasks,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function tasks(): TaskAdminApplicationService
+    {
+        return $this->app->make(TaskAdminApplicationService::class);
     }
 
     public function index(): Json
@@ -28,7 +23,7 @@ final class TaskJobController extends BaseAdminController
             $status = trim((string)$this->request->get('status', 'queued'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
-            $result = $this->tasks->jobs(
+            $result = $this->tasks()->jobs(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $status,
@@ -67,8 +62,8 @@ final class TaskJobController extends BaseAdminController
         try {
             $revision = $this->positiveInteger($this->request->post('revision'));
             $job = $action === 'cancel'
-                ? $this->tasks->cancelJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision)
-                : $this->tasks->retryJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision);
+                ? $this->tasks()->cancelJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision)
+                : $this->tasks()->retryJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision);
             return json([
                 'data' => $job->toPublicArray(),
                 'meta' => ['request_id' => $this->executionContext()->requestId()],

@@ -402,7 +402,8 @@ $assertGeneratedServiceOutput = static function (array $files): void {
         || !str_contains($byPath[$servicePath], 'namespace app\\adminapi\\services\\demo;')
         || !str_contains($byPath[$servicePath], 'class ArticleService')
         || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'use app\\adminapi\\services\\demo\\ArticleService;')
-        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'ArticleService $service')) {
+        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'function service(): ArticleService')
+        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', '$this->app->make(ArticleService::class)')) {
         throw new RuntimeException('generator services output contract violated');
     }
     foreach (array_keys($byPath) as $path) {
@@ -423,7 +424,8 @@ expectTpq51(
 $controllerContent = $generatedByPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '';
 expectTpq51(
     str_contains($controllerContent, 'use app\\adminapi\\services\\demo\\ArticleService;')
-        && str_contains($controllerContent, 'ArticleService $service'),
+        && str_contains($controllerContent, 'function service(): ArticleService')
+        && str_contains($controllerContent, '$this->app->make(ArticleService::class)'),
     'generator controller did not import the services class',
 );
 foreach (array_keys($generatedByPath) as $path) {

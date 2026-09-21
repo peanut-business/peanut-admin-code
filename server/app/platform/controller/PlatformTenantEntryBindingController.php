@@ -3,19 +3,14 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
-use app\common\execution\CurrentExecutionContext;
 use app\platform\services\TenantEntryBindingAdminService;
 use app\platform\validate\TenantEntryBindingValidate;
-use think\App;
 
 final class PlatformTenantEntryBindingController extends BasePlatformController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $execution,
-        private readonly TenantEntryBindingAdminService $entryBindings,
-    ) {
-        parent::__construct($app, $execution);
+    protected function entryBindings(): TenantEntryBindingAdminService
+    {
+        return $this->app->make(TenantEntryBindingAdminService::class);
     }
 
     public function lists()
@@ -24,7 +19,7 @@ final class PlatformTenantEntryBindingController extends BasePlatformController
             throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication is required.', null, 40100);
         }
         $tenantId = trim((string)$this->request->get('tenant_id', ''));
-        return $this->data($this->entryBindings->lists(
+        return $this->data($this->entryBindings()->lists(
             $this->platformContext,
             $tenantId === '' ? null : (int)$tenantId
         ));
@@ -33,7 +28,7 @@ final class PlatformTenantEntryBindingController extends BasePlatformController
     public function enable()
     {
         return $this->mutate('enable', fn(array $params): array =>
-            $this->entryBindings->enable(
+            $this->entryBindings()->enable(
                 $this->platformContext,
                 (int)$params['tenant_id'],
                 (string)$params['host'],
@@ -46,7 +41,7 @@ final class PlatformTenantEntryBindingController extends BasePlatformController
     public function disable()
     {
         return $this->mutate('disable', fn(array $params): array =>
-            $this->entryBindings->disable(
+            $this->entryBindings()->disable(
                 $this->platformContext,
                 (int)$params['binding_id'],
                 (string)$params['change_reason']

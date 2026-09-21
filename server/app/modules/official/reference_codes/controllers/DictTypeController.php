@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace app\modules\official\reference_codes\controllers;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\modules\official\reference_codes\services\DictTypeApplicationService;
 use app\modules\official\reference_codes\validation\DictTypeValidate;
@@ -17,9 +14,9 @@ class DictTypeController extends BaseAdminController
 {
     use CrudTrait;
 
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly DictTypeApplicationService $dictionaryTypes)
+    protected function dictionaryTypes(): DictTypeApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(DictTypeApplicationService::class);
     }
     protected const CRUD_VALIDATE = DictTypeValidate::class;
     protected const CRUD_NOT_FOUND_MESSAGE = '字典类型不存在';
@@ -31,11 +28,11 @@ class DictTypeController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->dictionaryTypes;
+        return $this->dictionaryTypes();
     }
 
     public function all(): Json
     {
-        return $this->data($this->dictionaryTypes->all($this->resolveCrudContext()));
+        return $this->data($this->dictionaryTypes()->all($this->resolveCrudContext()));
     }
 }

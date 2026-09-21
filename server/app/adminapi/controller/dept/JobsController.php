@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\dept;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\dept\JobsApplicationService;
 use app\common\traits\CrudTrait;
@@ -17,9 +15,9 @@ class JobsController extends BaseAdminController
 
     protected const CRUD_STATUS_FIELD = 'status';
 
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly JobsApplicationService $jobs)
+    protected function jobs(): JobsApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(JobsApplicationService::class);
     }
 
     protected function resolveCrudContext(): TenantContext
@@ -29,13 +27,13 @@ class JobsController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->jobs;
+        return $this->jobs();
     }
 
     protected function validatedInput(mixed $_context, string $scene, array $params): array
     {
-        $params = $this->jobs->normalizeInput($params);
-        $rules = $this->jobs->validationRules($scene);
+        $params = $this->jobs()->normalizeInput($params);
+        $rules = $this->jobs()->validationRules($scene);
         if (in_array($scene, ['detail', 'delete'], true)) {
             $rules = ['id' => $rules['id'] ?? 'require|integer|gt:0'];
         } elseif ($scene === 'status') {
@@ -55,6 +53,6 @@ class JobsController extends BaseAdminController
 
     public function all()
     {
-        return $this->data($this->jobs->all($this->resolveCrudContext()));
+        return $this->data($this->jobs()->all($this->resolveCrudContext()));
     }
 }

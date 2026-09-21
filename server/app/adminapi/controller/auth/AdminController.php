@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\auth\AdminApplicationService;
 use app\adminapi\validate\auth\AdminValidate;
@@ -13,31 +10,31 @@ use app\adminapi\validate\auth\EditSelfValidate;
 
 class AdminController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly AdminApplicationService $admins)
+    protected function admins(): AdminApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(AdminApplicationService::class);
     }
 
     public function lists()
     {
-        $params = $this->admins->normalizeInput($this->request->get());
+        $params = $this->admins()->normalizeInput($this->request->get());
         $this->validate($params, AdminValidate::class . '.lists');
-        return $this->data($this->admins->lists($this->tenantAdminContext(), $params));
+        return $this->data($this->admins()->lists($this->tenantAdminContext(), $params));
     }
 
     public function detail()
     {
         $params = ['id' => (int)$this->request->get('id')];
         $this->validate($params, ['id' => 'require|integer|gt:0']);
-        return $this->data($this->admins->detail($this->tenantAdminContext(), $params['id']));
+        return $this->data($this->admins()->detail($this->tenantAdminContext(), $params['id']));
     }
 
-    public function self()   { return $this->data($this->admins->detail($this->tenantAdminContext(), $this->adminId)); }
+    public function self()   { return $this->data($this->admins()->detail($this->tenantAdminContext(), $this->adminId)); }
     public function editSelf()
     {
         $params = $this->request->post();
         $this->validate($params, EditSelfValidate::class);
-        $this->admins->editSelf(
+        $this->admins()->editSelf(
             $this->tenantAdminContext(),
             $this->adminId,
             $params,
@@ -49,17 +46,17 @@ class AdminController extends BaseAdminController
 
     public function add()
     {
-        $params = $this->admins->normalizeInput($this->request->post());
-        $this->validate($params, $this->admins->validationRules('add'));
-        $this->admins->add($this->tenantAdminContext(), $params);
+        $params = $this->admins()->normalizeInput($this->request->post());
+        $this->validate($params, $this->admins()->validationRules('add'));
+        $this->admins()->add($this->tenantAdminContext(), $params);
         return $this->success('操作成功');
     }
 
     public function edit()
     {
-        $params = $this->admins->normalizeInput($this->request->post());
-        $this->validate($params, $this->admins->validationRules('edit'));
-        $this->admins->edit($this->tenantAdminContext(), $params);
+        $params = $this->admins()->normalizeInput($this->request->post());
+        $this->validate($params, $this->admins()->validationRules('edit'));
+        $this->admins()->edit($this->tenantAdminContext(), $params);
         return $this->success('操作成功');
     }
 
@@ -67,7 +64,7 @@ class AdminController extends BaseAdminController
     {
         $params = ['id' => (int)$this->request->post('id')];
         $this->validate($params, ['id' => 'require|integer|gt:0']);
-        $this->admins->delete($this->tenantAdminContext(), $params['id'], $this->adminId);
+        $this->admins()->delete($this->tenantAdminContext(), $params['id'], $this->adminId);
         return $this->success('操作成功');
     }
 
@@ -78,7 +75,7 @@ class AdminController extends BaseAdminController
             'disable' => $this->request->post('disable'),
         ];
         $this->validate($params, ['id' => 'require|integer|gt:0', 'disable' => 'require|in:0,1']);
-        $this->admins->updateStatus($this->tenantAdminContext(), $params['id'], (int)$params['disable'], $this->adminId);
+        $this->admins()->updateStatus($this->tenantAdminContext(), $params['id'], (int)$params['disable'], $this->adminId);
         return $this->success('操作成功');
     }
 }

@@ -3,30 +3,27 @@ declare(strict_types=1);
 
 namespace app\modules\official\oauth\controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\modules\official\oauth\services\OfficialAccountMenuApplicationService;
 use app\modules\official\oauth\validate\OfficialAccountMenuValidate;
 
 class OfficialAccountMenuController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly OfficialAccountMenuApplicationService $officialAccountMenus)
+    protected function officialAccountMenus(): OfficialAccountMenuApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(OfficialAccountMenuApplicationService::class);
     }
 
     public function detail()
     {
-        return $this->data($this->officialAccountMenus->detail($this->tenantAdminContext()));
+        return $this->data($this->officialAccountMenus()->detail($this->tenantAdminContext()));
     }
 
     public function save()
     {
         $params = $this->request->post();
         $this->validate($params, OfficialAccountMenuValidate::class);
-        $this->officialAccountMenus->save(
+        $this->officialAccountMenus()->save(
             $this->tenantAdminContext(),
             (array)$params['menu']
         );
@@ -37,7 +34,7 @@ class OfficialAccountMenuController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, OfficialAccountMenuValidate::class);
-        $this->officialAccountMenus->saveAndPublish(
+        $this->officialAccountMenus()->saveAndPublish(
             $this->tenantAdminContext(),
             (array)$params['menu']
         );

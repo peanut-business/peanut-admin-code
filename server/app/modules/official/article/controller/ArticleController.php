@@ -4,13 +4,11 @@ declare(strict_types=1);
 namespace app\modules\official\article\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
 use app\common\traits\CrudTrait;
 use app\modules\official\article\contracts\ArticleAdministration;
 use app\modules\official\article\validate\ArticleValidate;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use think\App;
 use think\response\Json;
 
 class ArticleController extends BaseAdminController
@@ -25,12 +23,9 @@ class ArticleController extends BaseAdminController
     protected const CRUD_VALIDATE_LISTS = true;
     protected const CRUD_STATUS_FIELD = 'is_show';
 
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly ArticleAdministration $articles,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function articles(): ArticleAdministration
+    {
+        return $this->app->get(ArticleAdministration::class);
     }
 
     protected function resolveCrudContext(): TenantContext
@@ -40,7 +35,7 @@ class ArticleController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->articles;
+        return $this->articles();
     }
 
     protected function renderDetail(array $result): Json
@@ -50,35 +45,35 @@ class ArticleController extends BaseAdminController
 
     protected function performLists(mixed $_context, array $params): PageResult|array
     {
-        return $this->articles->lists($params);
+        return $this->articles()->lists($params);
     }
 
     protected function performDetail(mixed $_context, array $params): array
     {
-        return $this->articles->detail((int)$params['id']);
+        return $this->articles()->detail((int)$params['id']);
     }
 
     protected function performAdd(mixed $_context, array $params): bool
     {
-        $this->articles->add($params);
+        $this->articles()->add($params);
         return true;
     }
 
     protected function performEdit(mixed $_context, array $params): bool
     {
-        $this->articles->edit($params);
+        $this->articles()->edit($params);
         return true;
     }
 
     protected function performDelete(mixed $_context, array $params): bool
     {
-        $this->articles->delete((int)$params['id']);
+        $this->articles()->delete((int)$params['id']);
         return true;
     }
 
     protected function performStatusUpdate(mixed $_context, array $params): bool
     {
-        $this->articles->updateStatus((int)$params['id'], (int)$params['is_show']);
+        $this->articles()->updateStatus((int)$params['id'], (int)$params['is_show']);
         return true;
     }
 }

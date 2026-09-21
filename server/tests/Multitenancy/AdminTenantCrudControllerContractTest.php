@@ -33,38 +33,38 @@ $actions = ['lists', 'detail', 'add', 'edit', 'delete', 'updateStatus'];
 
 expectAdminTenantCrud(trait_exists($trait), $trait . ' is not autoloadable');
 foreach ([
-    'app\\adminapi\\controller\\dict\\DictTypeController' => [
-        'service' => 'app\\adminapi\\application\\dict\\DictTypeApplicationService',
-        'validate' => 'app\\adminapi\\validate\\dict\\DictTypeValidate',
+    'app\\modules\\official\\reference_codes\\controllers\\DictTypeController' => [
+        'service' => 'app\\modules\\official\\reference_codes\\services\\DictTypeApplicationService',
+        'validate' => 'app\\modules\\official\\reference_codes\\validation\\DictTypeValidate',
         'extra' => ['all'],
     ],
-    'app\\adminapi\\controller\\dict\\DictDataController' => [
-        'service' => 'app\\adminapi\\application\\dict\\DictDataApplicationService',
-        'validate' => 'app\\adminapi\\validate\\dict\\DictDataValidate',
+    'app\\modules\\official\\reference_codes\\controllers\\DictDataController' => [
+        'service' => 'app\\modules\\official\\reference_codes\\services\\DictDataApplicationService',
+        'validate' => 'app\\modules\\official\\reference_codes\\validation\\DictDataValidate',
         'extra' => ['byType'],
     ],
-    'app\\Modules\\Official\\Oauth\\Http\\Controller\\OfficialAccountReplyController' => [
-        'service' => 'app\\Modules\\Official\\Oauth\\Application\\OfficialAccountReplyApplicationService',
-        'validate' => 'app\\Modules\\Official\\Oauth\\Validation\\OfficialAccountReplyValidate',
+    'app\\modules\\official\\oauth\\controller\\OfficialAccountReplyController' => [
+        'service' => 'app\\modules\\official\\oauth\\services\\OfficialAccountReplyApplicationService',
+        'validate' => 'app\\modules\\official\\oauth\\validate\\OfficialAccountReplyValidate',
         'extra' => [],
     ],
-    'app\\Modules\\Official\\Article\\Http\\Controller\\ArticleController' => [
-        'service' => 'app\\Modules\\Official\\Article\\Contracts\\ArticleAdministration',
-        'validate' => 'app\\Modules\\Official\\Article\\Validation\\ArticleValidate',
+    'app\\modules\\official\\article\\controller\\ArticleController' => [
+        'service' => 'app\\modules\\official\\article\\contracts\\ArticleAdministration',
+        'validate' => 'app\\modules\\official\\article\\validate\\ArticleValidate',
         'extra' => [],
     ],
-    'app\\Modules\\Official\\Article\\Http\\Controller\\ArticleCateController' => [
-        'service' => 'app\\Modules\\Official\\Article\\Contracts\\ArticleAdministration',
-        'validate' => 'app\\Modules\\Official\\Article\\Validation\\ArticleCateValidate',
+    'app\\modules\\official\\article\\controller\\ArticleCateController' => [
+        'service' => 'app\\modules\\official\\article\\contracts\\ArticleAdministration',
+        'validate' => 'app\\modules\\official\\article\\validate\\ArticleCateValidate',
         'extra' => ['all'],
     ],
     'app\\adminapi\\controller\\dept\\DeptController' => [
-        'service' => 'app\\adminapi\\application\\dept\\DeptApplicationService',
+        'service' => 'app\\adminapi\\services\\dept\\DeptApplicationService',
         'validate' => null,
         'extra' => ['all', 'leaderDept'],
     ],
     'app\\adminapi\\controller\\dept\\JobsController' => [
-        'service' => 'app\\adminapi\\application\\dept\\JobsApplicationService',
+        'service' => 'app\\adminapi\\services\\dept\\JobsApplicationService',
         'validate' => null,
         'extra' => ['all'],
     ],
@@ -73,11 +73,20 @@ foreach ([
     expectAdminTenantCrud($class->getParentClass()?->getName() === $base, $className . ' must extend BaseAdminController directly');
     expectAdminTenantCrud(in_array($trait, class_uses($className), true), $className . ' must compose CrudTrait directly');
 
-    $parameters = $class->getConstructor()?->getParameters() ?? [];
+    $constructor = $class->getConstructor();
     expectAdminTenantCrud(
-        count($parameters) === 3 && $parameters[2]->getType()?->getName() === $contract['service'],
-        $className . ' must inject ' . $contract['service'],
+        $constructor?->getDeclaringClass()->getName() === app\BaseController::class
+            && count($constructor->getParameters()) === 1
+            && $constructor->getParameters()[0]->getType()?->getName() === think\App::class,
+        $className . ' must inherit the native App constructor',
     );
+    $getters = array_filter(
+        $class->getMethods(ReflectionMethod::IS_PROTECTED),
+        static fn(ReflectionMethod $method): bool => $method->getDeclaringClass()->getName() === $class->getName()
+            && $method->getNumberOfParameters() === 0
+            && $method->getReturnType()?->getName() === $contract['service'],
+    );
+    expectAdminTenantCrud(count($getters) === 1, $className . ' must expose one fixed typed service getter');
     if ($contract['validate'] !== null) {
         expectCrudConstant($class, 'CRUD_VALIDATE', $contract['validate']);
     }

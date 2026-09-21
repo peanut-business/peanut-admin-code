@@ -4,21 +4,16 @@ declare(strict_types=1);
 namespace app\modules\official\notification\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use app\modules\official\notification\services\NotificationAdminApplicationService;
-use think\App;
 
 /**
  * 通知渠道配置控制器
  */
 class NoticeChannelController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly NotificationAdminApplicationService $notifications,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function notifications(): NotificationAdminApplicationService
+    {
+        return $this->app->make(NotificationAdminApplicationService::class);
     }
 
     /**
@@ -26,7 +21,7 @@ class NoticeChannelController extends BaseAdminController
      */
     public function detail(): \think\Response
     {
-        return $this->data($this->notifications->channel(
+        return $this->data($this->notifications()->channel(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
         ));
@@ -42,7 +37,7 @@ class NoticeChannelController extends BaseAdminController
         $section = (string) ($post['section'] ?? '');
 
         unset($post['section']);
-        $this->notifications->saveChannel(
+        $this->notifications()->saveChannel(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
             $section,

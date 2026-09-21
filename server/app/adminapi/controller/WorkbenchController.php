@@ -3,20 +3,12 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\services\WorkbenchApplicationService;
 
 class WorkbenchController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly WorkbenchApplicationService $workbench)
+    public function index(WorkbenchApplicationService $workbench)
     {
-        parent::__construct($app, $executionContext);
-    }
-
-    public function index()
-    {
-        return $this->data($this->workbench->index($this->tenantAdminContext()));
+        return $this->data($workbench->index($this->tenantAdminContext()));
     }
 }

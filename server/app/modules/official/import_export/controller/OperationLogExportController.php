@@ -5,23 +5,18 @@ namespace app\modules\official\import_export\controller;
 
 use app\adminapi\controller\BaseAdminController;
 use app\modules\official\import_export\services\OperationLogExportApplicationService;
-use app\common\execution\CurrentExecutionContext;
-use think\App;
 
 final class OperationLogExportController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly OperationLogExportApplicationService $exports,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function exports(): OperationLogExportApplicationService
+    {
+        return $this->app->make(OperationLogExportApplicationService::class);
     }
 
     public function export()
     {
         $context = $this->tenantAdminContext();
-        $operation = $this->exports->submit(
+        $operation = $this->exports()->submit(
             $context,
             $this->tenantAdminActor(),
             trim((string)$this->request->header('Idempotency-Key', '')),
@@ -32,7 +27,7 @@ final class OperationLogExportController extends BaseAdminController
     public function exportStatus()
     {
         $context = $this->tenantAdminContext();
-        $operation = $this->exports->operation(
+        $operation = $this->exports()->operation(
             $context,
             $this->tenantAdminActor(),
             (string)$this->request->get('operation_key', ''),
@@ -43,7 +38,7 @@ final class OperationLogExportController extends BaseAdminController
     public function exportDownload()
     {
         $context = $this->tenantAdminContext();
-        $file = $this->exports->download(
+        $file = $this->exports()->download(
             $context,
             $this->tenantAdminActor(),
             (string)$this->request->get('file_key', ''),

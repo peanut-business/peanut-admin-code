@@ -3,27 +3,30 @@ declare (strict_types = 1);
 
 namespace app;
 
+use app\common\execution\CurrentExecutionContext;
 use app\common\validate\InputValidator;
 use app\common\validate\ValidatedInput;
+use LogicException;
 use think\App;
 use think\exception\ValidateException;
+use think\Request;
 
 /**
  * 控制器基础类
+ *
+ * @property-read CurrentExecutionContext $context 当前 App 已注册的执行上下文读取器
  */
 abstract class BaseController
 {
     /**
      * Request实例
-     * @var \think\Request
      */
-    protected $request;
+    protected Request $request;
 
     /**
      * 应用实例
-     * @var \think\App
      */
-    protected $app;
+    protected App $app;
 
     /**
      * 是否批量验证
@@ -54,6 +57,49 @@ abstract class BaseController
     // 初始化
     protected function initialize()
     {}
+
+    /**
+     * 始终从构造当前 Controller 的 App 读取已注册 reader；不创建空上下文。
+     */
+    final protected function executionContext(): CurrentExecutionContext
+    {
+        return $this->app->get(CurrentExecutionContext::class);
+    }
+
+    final public function __get(string $name): mixed
+    {
+        return match ($name) {
+            'context' => $this->executionContext(),
+            default => throw new LogicException(sprintf(
+                'Undefined readonly controller property: %s::$%s',
+                static::class,
+                $name,
+            )),
+        };
+    }
+
+    final public function __isset(string $name): bool
+    {
+        return $name === 'context' && $this->app->has(CurrentExecutionContext::class);
+    }
+
+    final public function __set(string $name, mixed $value): never
+    {
+        throw new LogicException(sprintf(
+            'Readonly controller property cannot be written: %s::$%s',
+            static::class,
+            $name,
+        ));
+    }
+
+    final public function __unset(string $name): never
+    {
+        throw new LogicException(sprintf(
+            'Readonly controller property cannot be unset: %s::$%s',
+            static::class,
+            $name,
+        ));
+    }
 
     /**
      * 验证数据

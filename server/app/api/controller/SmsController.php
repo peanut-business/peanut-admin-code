@@ -3,17 +3,14 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\api\services\SmsApplicationService;
 use app\api\validate\SmsValidate;
 
 class SmsController extends BaseApiController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly SmsApplicationService $sms)
+    protected function sms(): SmsApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(SmsApplicationService::class);
     }
 
 
@@ -21,7 +18,7 @@ class SmsController extends BaseApiController
     {
         $params = $this->request->post();
         $this->validate($params, SmsValidate::class . '.send');
-        $this->sms->sendCode(
+        $this->sms()->sendCode(
             $this->publicTenantContext('notice.verification.send'),
             $params
         );

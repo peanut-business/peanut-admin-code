@@ -3,23 +3,20 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\api\services\SearchApplicationService;
 
 class SearchController extends BaseApiController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly SearchApplicationService $search)
+    protected function search(): SearchApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(SearchApplicationService::class);
     }
 
 
     /** 热门搜索 */
     public function hotLists()
     {
-        $result = $this->search->hotLists(
+        $result = $this->search()->hotLists(
             $this->publicTenantContext('hot-search.lists')
         );
         return $this->data($result);

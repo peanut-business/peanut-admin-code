@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace app\api\controller;
 
 use think\App;
-use app\common\execution\CurrentExecutionContext;
 
 use app\api\services\LoginApplicationService;
 use app\api\services\VerificationAttemptRateLimiter;
@@ -14,12 +13,11 @@ class LoginController extends BaseApiController
 {
     public function __construct(
         App $app,
-        CurrentExecutionContext $executionContext,
         private readonly LoginApplicationService $login,
         private readonly VerificationAttemptRateLimiter $verificationAttempts,
     )
     {
-        parent::__construct($app, $executionContext);
+        parent::__construct($app);
     }
 
 

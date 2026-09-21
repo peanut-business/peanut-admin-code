@@ -4,18 +4,13 @@ declare(strict_types=1);
 namespace app\api\controller;
 
 use app\common\exception\BusinessException;
-use app\common\execution\CurrentExecutionContext;
 use app\modules\official\file\contracts\FileStorage;
-use think\App;
 
 final class StorageController extends BaseApiController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly FileStorage $storage,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function storage(): FileStorage
+    {
+        return $this->app->get(FileStorage::class);
     }
 
     public function delivery()
@@ -29,7 +24,7 @@ final class StorageController extends BaseApiController
             throw new \InvalidArgumentException('文件链接参数无效');
         }
 
-        $file = $this->storage->authorizedDownload($tenantId, $fileKey, $token);
+        $file = $this->storage()->authorizedDownload($tenantId, $fileKey, $token);
 
         try {
             $contents = file_get_contents($file['path']);

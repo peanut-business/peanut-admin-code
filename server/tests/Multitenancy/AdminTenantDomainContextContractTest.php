@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require dirname(__DIR__, 2) . '/vendor/autoload.php';
+
 function expectAdminTenantDomainContext(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -28,6 +30,7 @@ foreach ([
 
 $current = (string)file_get_contents($serverRoot . '/app/common/execution/CurrentExecutionContext.php');
 $store = (string)file_get_contents($serverRoot . '/app/common/execution/ExecutionContextStore.php');
+$base = (string)file_get_contents($serverRoot . '/app/BaseController.php');
 $adminBase = (string)file_get_contents($serverRoot . '/app/adminapi/controller/BaseAdminController.php');
 $publicMiddleware = (string)file_get_contents($serverRoot . '/app/api/middleware/PublicTenantModuleMiddleware.php');
 expectAdminTenantDomainContext(
@@ -43,8 +46,9 @@ expectAdminTenantDomainContext(
     'ExecutionContextStore no longer restores the scoped context',
 );
 expectAdminTenantDomainContext(
-    str_contains($adminBase, 'CurrentExecutionContext $executionContext')
-        && str_contains($adminBase, '$this->executionContext->tenantAdmin()')
+    str_contains($base, 'function executionContext(): CurrentExecutionContext')
+        && str_contains($base, '$this->app->get(CurrentExecutionContext::class)')
+        && str_contains($adminBase, '$this->executionContext()->tenantAdmin()')
         && str_contains($publicMiddleware, 'ConsumerExecutionContext::publicTenant($context)'),
     'Admin or public boundary bypasses the typed execution context',
 );

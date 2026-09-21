@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace app\adminapi\controller\log;
 
 use think\App;
-use app\common\execution\CurrentExecutionContext;
 
 use app\adminapi\controller\BaseAdminController;
 use app\common\http\PageResult;
@@ -15,12 +14,11 @@ class OperationLogController extends BaseAdminController
 {
     public function __construct(
         App $app,
-        CurrentExecutionContext $executionContext,
         private readonly OperationLogApplicationService $operationLogs,
         private readonly ModuleExecutionBoundary $modules,
     )
     {
-        parent::__construct($app, $executionContext);
+        parent::__construct($app);
     }
 
     public function lists()

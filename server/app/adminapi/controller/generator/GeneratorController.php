@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\generator;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\generator\GeneratorService;
 use app\adminapi\services\generator\GeneratorArchiveService;
@@ -16,9 +13,9 @@ use think\response\Json;
 
 class GeneratorController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly GeneratorService $generator)
+    protected function generator(): GeneratorService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(GeneratorService::class);
     }
 
     public function sourceTables()
@@ -28,7 +25,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->get();
         $this->validate($params, GeneratorValidate::class . '.source');
-        $result = $this->generator->sourceTables($params);
+        $result = $this->generator()->sourceTables($params);
         return $this->data($result);
     }
 
@@ -39,7 +36,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->get();
         $this->validate($params, GeneratorValidate::class . '.lists');
-        $result = $this->generator->lists($this->adminId, $params);
+        $result = $this->generator()->lists($this->adminId, $params);
         return $this->data($result);
     }
 
@@ -50,7 +47,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->get();
         $this->validate($params, GeneratorValidate::class . '.id');
-        $result = $this->generator->detail($this->adminId, (int) $params['id']);
+        $result = $this->generator()->detail($this->adminId, (int) $params['id']);
         return $this->data($result);
     }
 
@@ -61,7 +58,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->post();
         $this->validate($params, GeneratorValidate::class . '.import');
-        $this->generator->importTables($this->adminId, $params['table_names']);
+        $this->generator()->importTables($this->adminId, $params['table_names']);
         return $this->success('导入成功');
     }
 
@@ -72,7 +69,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->post();
         $this->validate($params, GeneratorValidate::class . '.id');
-        $this->generator->sync($this->adminId, (int) $params['id']);
+        $this->generator()->sync($this->adminId, (int) $params['id']);
         return $this->success('同步成功');
     }
 
@@ -83,7 +80,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->post();
         $this->validate($params, GeneratorValidate::class . '.update');
-        $this->generator->update($this->adminId, $params);
+        $this->generator()->update($this->adminId, $params);
         return $this->success('保存成功');
     }
 
@@ -94,7 +91,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->post();
         $this->validate($params, GeneratorValidate::class . '.ids');
-        $this->generator->delete($this->adminId, $params['ids']);
+        $this->generator()->delete($this->adminId, $params['ids']);
         return $this->success('删除成功');
     }
 
@@ -105,7 +102,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->post();
         $this->validate($params, GeneratorValidate::class . '.id');
-        $result = $this->generator->preview($this->adminId, (int) $params['id']);
+        $result = $this->generator()->preview($this->adminId, (int) $params['id']);
         return $this->data($result);
     }
 
@@ -116,7 +113,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->post();
         $this->validate($params, GeneratorValidate::class . '.ids');
-        $result = $this->generator->generate($this->adminId, $params['ids']);
+        $result = $this->generator()->generate($this->adminId, $params['ids']);
         return $this->data($result);
     }
 
@@ -127,7 +124,7 @@ class GeneratorController extends BaseAdminController
 
         $params = $this->request->get();
         $this->validate($params, GeneratorValidate::class . '.download');
-        $file = $this->generator->consumeDownload($this->adminId, (string) $params['token']);
+        $file = $this->generator()->consumeDownload($this->adminId, (string) $params['token']);
         $adminId = $this->adminId;
         register_shutdown_function(static function () use ($file, $adminId): void {
             GeneratorArchiveService::cleanupAfterResponse($file['archive_path'], $adminId);
@@ -140,7 +137,7 @@ class GeneratorController extends BaseAdminController
         $denial = $this->instanceToolAccessDenial();
         if ($denial !== null) return $denial;
 
-        return $this->data($this->generator->models($this->adminId));
+        return $this->data($this->generator()->models($this->adminId));
     }
 
     private function instanceToolAccessDenial(): ?Json

@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\decoration;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\decoration\DecorationPageApplicationService;
 use app\adminapi\validate\decoration\DecorationPageValidate;
@@ -13,18 +10,14 @@ use app\common\enum\decoration\DecorationEnum;
 
 class DecorationPageController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly DecorationPageApplicationService $decorationPages,
-    )
+    protected function decorationPages(): DecorationPageApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(DecorationPageApplicationService::class);
     }
 
     public function mobileLists()
     {
-        return $this->data($this->decorationPages->lists(
+        return $this->data($this->decorationPages()->lists(
             $this->tenantAdminContext(),
             DecorationEnum::MOBILE_TYPES
         ));
@@ -47,7 +40,7 @@ class DecorationPageController extends BaseAdminController
 
     public function pcLists()
     {
-        return $this->data($this->decorationPages->lists(
+        return $this->data($this->decorationPages()->lists(
             $this->tenantAdminContext(),
             [DecorationEnum::PC_HOME]
         ));
@@ -62,7 +55,7 @@ class DecorationPageController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, DecorationPageValidate::class . '.article');
-        return $this->data($this->decorationPages->articleOptions(
+        return $this->data($this->decorationPages()->articleOptions(
             $this->tenantAdminContext(),
             (int)($params['limit'] ?? 20)
         ));
@@ -72,7 +65,7 @@ class DecorationPageController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, DecorationPageValidate::class . '.detail');
-        return $this->data($this->decorationPages->detail(
+        return $this->data($this->decorationPages()->detail(
             $this->tenantAdminContext(),
             (int)$params['id'],
             $allowedTypes
@@ -83,7 +76,7 @@ class DecorationPageController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, DecorationPageValidate::class . '.save');
-        $this->decorationPages->save(
+        $this->decorationPages()->save(
             $this->tenantAdminContext(),
             $params,
             $allowedTypes

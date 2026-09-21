@@ -3,21 +3,15 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\common\validate\ListsValidate;
 use app\common\exception\BusinessException;
 use app\modules\official\article\contracts\PublicArticleQueries;
 
 class ArticleController extends BaseApiController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly PublicArticleQueries $articles,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function articles(): PublicArticleQueries
+    {
+        return $this->app->get(PublicArticleQueries::class);
     }
 
 
@@ -34,7 +28,7 @@ class ArticleController extends BaseApiController
         ];
 
         $this->publicTenantContext('article.lists');
-        $result = $this->articles->lists($params, $this->memberId);
+        $result = $this->articles()->lists($params, $this->memberId);
         return $this->data($result);
     }
 
@@ -42,7 +36,7 @@ class ArticleController extends BaseApiController
     public function cate()
     {
         $this->publicTenantContext('article.cate');
-        $result = $this->articles->categories();
+        $result = $this->articles()->categories();
         return $this->data($result);
     }
 
@@ -51,7 +45,7 @@ class ArticleController extends BaseApiController
     {
         $id     = $this->request->get('id/d', 0);
         $this->publicTenantContext('article.detail');
-        $result = $this->articles->detail($id, $this->memberId);
+        $result = $this->articles()->detail($id, $this->memberId);
 
         if ($result === []) {
             throw BusinessException::notFound('ARTICLE_NOT_FOUND', '文章不存在或已下架');
@@ -65,7 +59,7 @@ class ArticleController extends BaseApiController
     {
         $id = $this->request->post('id/d', 0);
         $this->memberContext();
-        $this->articles->add($id, $this->memberId);
+        $this->articles()->add($id, $this->memberId);
         return $this->success('操作成功');
     }
 
@@ -74,7 +68,7 @@ class ArticleController extends BaseApiController
     {
         $id = $this->request->post('id/d', 0);
         $this->memberContext();
-        $this->articles->cancel($id, $this->memberId);
+        $this->articles()->cancel($id, $this->memberId);
         return $this->success('操作成功');
     }
 
@@ -88,7 +82,7 @@ class ArticleController extends BaseApiController
         ];
 
         $this->memberContext();
-        $result = $this->articles->collectionLists($this->memberId, $params);
+        $result = $this->articles()->collectionLists($this->memberId, $params);
         return $this->data($result);
     }
 }

@@ -4,21 +4,12 @@ declare(strict_types=1);
 namespace app\modules\official\integration\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
 use DateTimeImmutable;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
-use think\App;
 
 abstract class IntegrationAdminController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-    ) {
-        parent::__construct($app, $executionContext);
-    }
-
     /** @param list<string> $allowed @return array<string,mixed> */
     protected function body(array $allowed): array
     {

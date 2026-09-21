@@ -4,37 +4,35 @@ declare(strict_types=1);
 namespace app\modules\official\reference_codes\controllers;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
 use app\modules\official\reference_codes\Versioned\Application\ReferenceCodeException;
 use app\modules\official\reference_codes\services\ReferenceCodesHttpApplicationService;
-use think\App;
 use think\response\Json;
 
 final class ReferenceCodesController extends BaseAdminController
 {
     private const VERSION_FIELDS = ['label', 'metadata', 'status', 'sort_order', 'effective_at', 'expires_at'];
 
-    public function __construct(App $app, CurrentExecutionContext $context, private readonly ReferenceCodesHttpApplicationService $referenceCodes)
+    protected function referenceCodes(): ReferenceCodesHttpApplicationService
     {
-        parent::__construct($app, $context);
+        return $this->app->make(ReferenceCodesHttpApplicationService::class);
     }
 
     public function sets(): Json
     {
-        return $this->invoke(fn(): array => $this->referenceCodes->sets($this->tenantAdminContext()));
+        return $this->invoke(fn(): array => $this->referenceCodes()->sets($this->tenantAdminContext()));
     }
 
     public function index(string $moduleKey, string $setKey): Json
     {
-        return $this->invoke(fn(): array => $this->referenceCodes->list(
+        return $this->invoke(fn(): array => $this->referenceCodes()->list(
             $this->tenantAdminContext(), $moduleKey, $setKey, $this->request->get(),
         ));
     }
 
     public function detail(string $moduleKey, string $setKey, string $code): Json
     {
-        return $this->invoke(fn(): array => $this->referenceCodes->get(
+        return $this->invoke(fn(): array => $this->referenceCodes()->get(
             $this->tenantAdminContext(), $moduleKey, $setKey, $code, $this->request->get('as_of'),
         ), true);
     }
@@ -42,7 +40,7 @@ final class ReferenceCodesController extends BaseAdminController
     public function create(string $moduleKey, string $setKey): Json
     {
         $body = $this->jsonBody(['code', ...self::VERSION_FIELDS]);
-        return $this->invoke(fn(): array => $this->referenceCodes->create(
+        return $this->invoke(fn(): array => $this->referenceCodes()->create(
             $this->tenantAdminContext(), $moduleKey, $setKey, $body,
             $this->requiredHeader('Idempotency-Key'), $this->header('If-None-Match'),
         ), true);
@@ -51,7 +49,7 @@ final class ReferenceCodesController extends BaseAdminController
     public function replace(string $moduleKey, string $setKey, string $code): Json
     {
         $body = $this->jsonBody(self::VERSION_FIELDS);
-        return $this->invoke(fn(): array => $this->referenceCodes->replace(
+        return $this->invoke(fn(): array => $this->referenceCodes()->replace(
             $this->tenantAdminContext(), $moduleKey, $setKey, $code, $body,
             $this->requiredHeader('Idempotency-Key'), $this->header('If-Match'),
         ), true);
@@ -59,7 +57,7 @@ final class ReferenceCodesController extends BaseAdminController
 
     public function retire(string $moduleKey, string $setKey, string $code): Json
     {
-        return $this->invoke(fn(): array => $this->referenceCodes->retire(
+        return $this->invoke(fn(): array => $this->referenceCodes()->retire(
             $this->tenantAdminContext(), $moduleKey, $setKey, $code,
             $this->requiredHeader('Idempotency-Key'), $this->header('If-Match'),
         ), true);

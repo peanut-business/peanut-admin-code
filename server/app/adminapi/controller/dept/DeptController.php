@@ -3,8 +3,6 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\dept;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\dept\DeptApplicationService;
 use app\common\traits\CrudTrait;
@@ -17,9 +15,9 @@ class DeptController extends BaseAdminController
 
     protected const CRUD_STATUS_FIELD = 'status';
 
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly DeptApplicationService $departments)
+    protected function departments(): DeptApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(DeptApplicationService::class);
     }
 
     protected function resolveCrudContext(): TenantContext
@@ -29,7 +27,7 @@ class DeptController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->departments;
+        return $this->departments();
     }
 
     protected function validatedInput(mixed $_context, string $scene, array $params): array
@@ -37,7 +35,7 @@ class DeptController extends BaseAdminController
         if (!array_key_exists('status', $params) && array_key_exists('is_disable', $params)) {
             $params['status'] = (int)$params['is_disable'] === 0 ? 1 : 0;
         }
-        $rules = $this->departments->validationRules($scene);
+        $rules = $this->departments()->validationRules($scene);
         if (in_array($scene, ['detail', 'delete'], true)) {
             $rules = ['id' => $rules['id'] ?? 'require|integer|gt:0'];
         } elseif ($scene === 'status') {
@@ -57,11 +55,11 @@ class DeptController extends BaseAdminController
 
     public function all()
     {
-        return $this->data($this->departments->all($this->resolveCrudContext()));
+        return $this->data($this->departments()->all($this->resolveCrudContext()));
     }
 
     public function leaderDept()
     {
-        return $this->data($this->departments->leaderDept($this->resolveCrudContext()));
+        return $this->data($this->departments()->leaderDept($this->resolveCrudContext()));
     }
 }

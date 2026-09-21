@@ -3,30 +3,27 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\api\services\UserApplicationService;
 use app\common\exception\BusinessException;
 
 class UserController extends BaseApiController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly UserApplicationService $users)
+    protected function users(): UserApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(UserApplicationService::class);
     }
 
     /** 用户中心 */
     public function center()
     {
-        $data = $this->users->center($this->memberContext(), $this->memberId);
+        $data = $this->users()->center($this->memberContext(), $this->memberId);
         return $this->data($data);
     }
 
     /** 个人信息 */
     public function info()
     {
-        $data = $this->users->info($this->memberContext(), $this->memberId);
+        $data = $this->users()->info($this->memberContext(), $this->memberId);
         return $this->data($data);
     }
 
@@ -38,7 +35,7 @@ class UserController extends BaseApiController
             'value' => $this->request->post('value', ''),
         ];
 
-        $this->users->setInfo($this->memberContext(), $this->memberId, $params);
+        $this->users()->setInfo($this->memberContext(), $this->memberId, $params);
         return $this->success('修改成功');
     }
 
@@ -54,7 +51,7 @@ class UserController extends BaseApiController
             throw BusinessException::invalid('MEMBER_PASSWORD_CHANGE_INVALID', '旧密码和新密码不能为空');
         }
 
-        $this->users->changePassword($this->memberContext(), $this->memberId, $params);
+        $this->users()->changePassword($this->memberContext(), $this->memberId, $params);
         return $this->success('修改成功');
     }
 
@@ -66,7 +63,7 @@ class UserController extends BaseApiController
             'code'   => $this->request->post('code/s', ''),
         ];
 
-        $this->users->bindMobile($this->memberContext(), $this->memberId, $params);
+        $this->users()->bindMobile($this->memberContext(), $this->memberId, $params);
         return $this->success('绑定成功');
     }
 }
