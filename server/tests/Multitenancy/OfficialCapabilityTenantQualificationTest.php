@@ -86,6 +86,9 @@ foreach ([
     'oauth_controller' => 'app/api/controller/OAuthController.php',
     'payment_notify_controller' => 'app/api/controller/PaymentNotifyController.php',
     'official_account_controller' => 'app/api/controller/OfficialAccountController.php',
+    'oauth_application' => 'app/api/services/OAuthApplicationService.php',
+    'payment_callback_application' => 'app/api/services/PaymentCallbackApplicationService.php',
+    'official_account_application' => 'app/api/services/OfficialAccountApplicationService.php',
     'module_worker' => 'app/common/infrastructure/async/ModuleAwareTaskHandler.php',
     'console' => 'config/console.php',
     'module_manifest' => 'vendor/peanut-admin/core/kernel/src/Module/ManifestLoader.php',
@@ -449,9 +452,12 @@ qualificationExpect(
     'shared official Module middleware does not require a trusted Tenant context and TenantModule state'
 );
 qualificationExpect(
-    str_contains($sources['oauth_controller'], "assertExternalCallback('official.oauth')")
-        && str_contains($sources['official_account_controller'], "assertExternalCallback('official.oauth')")
-        && str_contains($sources['payment_notify_controller'], "assertExternalCallback('official.payment')")
+    str_contains($sources['oauth_controller'], '$this->application->callback(')
+        && str_contains($sources['official_account_controller'], '$this->application->callback(')
+        && str_contains($sources['payment_notify_controller'], '$this->application->wechat(')
+        && str_contains($sources['oauth_application'], "assertExternalCallback('official.oauth')")
+        && str_contains($sources['official_account_application'], "assertExternalCallback('official.oauth')")
+        && str_contains($sources['payment_callback_application'], "assertExternalCallback('official.payment')")
         && !str_contains($sources['external_resolver_core'], 'assertExternalCallback(')
         && str_contains($sources['async_runtime'], 'ImportExportCommands')
         && str_contains($sources['async_module_provider'], 'TaskImportExportRuntime::class')

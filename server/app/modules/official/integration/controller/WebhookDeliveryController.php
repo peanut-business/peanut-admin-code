@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 namespace app\modules\official\integration\controller;
 
-use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\execution\CurrentExecutionContext;
+use app\modules\official\integration\application\IntegrationAdminApplicationService;
 use app\modules\official\integration\application\IntegrationSecurityPage;
-use app\modules\official\integration\application\WebhookDeliveryLogService;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\App;
 use think\response\Json;
@@ -16,17 +15,17 @@ final class WebhookDeliveryController extends IntegrationAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        AdminAuthorizationQuery $authorization,
-        private readonly WebhookDeliveryLogService $deliveries,
+        private readonly IntegrationAdminApplicationService $deliveries,
     ) {
-        parent::__construct($app, $executionContext, $authorization);
+        parent::__construct($app, $executionContext);
     }
 
     public function index(): Json
     {
         try {
             return $this->response($this->deliveries->deliveries(
-                $this->operation('official.integration.delivery.read', 'delivery-read'),
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $this->positiveInteger($this->request->get('page', 1)),
                 $this->positiveInteger($this->request->get('page_size', 20)),
             ));
@@ -38,8 +37,9 @@ final class WebhookDeliveryController extends IntegrationAdminController
     public function attempts(string $deliveryKey): Json
     {
         try {
-            return $this->response($this->deliveries->attempts(
-                $this->operation('official.integration.delivery.read', 'delivery-read'),
+            return $this->response($this->deliveries->deliveryAttempts(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $deliveryKey,
                 $this->positiveInteger($this->request->get('page', 1)),
                 $this->positiveInteger($this->request->get('page_size', 20)),

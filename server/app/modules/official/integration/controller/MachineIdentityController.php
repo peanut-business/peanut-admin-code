@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 namespace app\modules\official\integration\controller;
 
-use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\execution\CurrentExecutionContext;
+use app\modules\official\integration\application\IntegrationAdminApplicationService;
 use app\modules\official\integration\application\MachineIdentity;
-use app\modules\official\integration\application\MachineIdentityService;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\App;
 use think\response\Json;
@@ -16,16 +15,15 @@ final class MachineIdentityController extends IntegrationAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        AdminAuthorizationQuery $authorization,
-        private readonly MachineIdentityService $machines,
+        private readonly IntegrationAdminApplicationService $machines,
     ) {
-        parent::__construct($app, $executionContext, $authorization);
+        parent::__construct($app, $executionContext);
     }
 
     public function index(): Json
     {
         try {
-            $items = $this->machines->list($this->operation('official.integration.machine.read', 'machine-read'));
+            $items = $this->machines->machines($this->tenantAdminContext(), $this->tenantAdminActor());
             return $this->response(['items' => array_map($this->identity(...), $items)]);
         } catch (IntegrationSecurityException $exception) {
             throw $this->problem($exception);
@@ -39,8 +37,9 @@ final class MachineIdentityController extends IntegrationAdminController
             if (!is_string($body['name'] ?? null) || !is_array($body['scopes'] ?? null) || !array_is_list($body['scopes'])) {
                 throw IntegrationSecurityException::invalid();
             }
-            $created = $this->machines->create(
-                $this->operation('official.integration.machine.manage', 'machine-manage'),
+            $created = $this->machines->createMachine(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $body['name'],
                 $body['scopes'],
                 $this->expiry($body['expires_at'] ?? null),
@@ -55,8 +54,9 @@ final class MachineIdentityController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            $rotated = $this->machines->rotate(
-                $this->operation('official.integration.machine.manage', 'machine-manage'),
+            $rotated = $this->machines->rotateMachine(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $identityKey,
                 $this->positiveInteger($body['revision'] ?? null),
             );
@@ -70,8 +70,9 @@ final class MachineIdentityController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            return $this->response($this->identity($this->machines->revoke(
-                $this->operation('official.integration.machine.manage', 'machine-manage'),
+            return $this->response($this->identity($this->machines->revokeMachine(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $identityKey,
                 $this->positiveInteger($body['revision'] ?? null),
             )));

@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 namespace app\modules\official\notification\controller;
 
-use app\modules\official\notification\contracts\NotificationCommands;
-use app\modules\official\notification\contracts\NotificationQueries;
 use app\adminapi\controller\BaseAdminController;
 use app\common\execution\CurrentExecutionContext;
+use app\modules\official\notification\services\NotificationAdminApplicationService;
 use think\App;
 
 /**
@@ -17,8 +16,7 @@ class NoticeChannelController extends BaseAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        private readonly NotificationQueries $queries,
-        private readonly NotificationCommands $commands,
+        private readonly NotificationAdminApplicationService $notifications,
     ) {
         parent::__construct($app, $executionContext);
     }
@@ -28,7 +26,10 @@ class NoticeChannelController extends BaseAdminController
      */
     public function detail(): \think\Response
     {
-        return $this->data($this->queries->channelDetail());
+        return $this->data($this->notifications->channel(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+        ));
     }
 
     /**
@@ -41,7 +42,12 @@ class NoticeChannelController extends BaseAdminController
         $section = (string) ($post['section'] ?? '');
 
         unset($post['section']);
-        $this->commands->saveChannel($section, $post);
+        $this->notifications->saveChannel(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $section,
+            $post,
+        );
         return $this->success('保存成功');
     }
 }

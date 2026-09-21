@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 namespace app\modules\official\integration\controller;
 
-use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\execution\CurrentExecutionContext;
+use app\modules\official\integration\application\IntegrationAdminApplicationService;
 use app\modules\official\integration\application\WebhookEndpoint;
-use app\modules\official\integration\application\WebhookService;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\App;
 use think\response\Json;
@@ -16,16 +15,15 @@ final class WebhookController extends IntegrationAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        AdminAuthorizationQuery $authorization,
-        private readonly WebhookService $webhooks,
+        private readonly IntegrationAdminApplicationService $webhooks,
     ) {
-        parent::__construct($app, $executionContext, $authorization);
+        parent::__construct($app, $executionContext);
     }
 
     public function index(): Json
     {
         try {
-            $items = $this->webhooks->list($this->operation('official.integration.webhook.read', 'webhook-read'));
+            $items = $this->webhooks->webhooks($this->tenantAdminContext(), $this->tenantAdminActor());
             return $this->response(['items' => array_map($this->endpoint(...), $items)]);
         } catch (IntegrationSecurityException $exception) {
             throw $this->problem($exception);
@@ -41,8 +39,9 @@ final class WebhookController extends IntegrationAdminController
             ) {
                 throw IntegrationSecurityException::invalid();
             }
-            $created = $this->webhooks->create(
-                $this->operation('official.integration.webhook.manage', 'webhook-manage'),
+            $created = $this->webhooks->createWebhook(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $body['name'],
                 $body['url'],
                 $body['events'],
@@ -60,8 +59,9 @@ final class WebhookController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            $rotated = $this->webhooks->rotateSecret(
-                $this->operation('official.integration.webhook.manage', 'webhook-manage'),
+            $rotated = $this->webhooks->rotateWebhookSecret(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $endpointKey,
                 $this->positiveInteger($body['revision'] ?? null),
             );
@@ -78,8 +78,9 @@ final class WebhookController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            return $this->response($this->endpoint($this->webhooks->disable(
-                $this->operation('official.integration.webhook.manage', 'webhook-manage'),
+            return $this->response($this->endpoint($this->webhooks->disableWebhook(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $endpointKey,
                 $this->positiveInteger($body['revision'] ?? null),
             )));

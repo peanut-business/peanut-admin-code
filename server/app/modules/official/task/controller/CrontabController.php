@@ -7,7 +7,7 @@ use think\App;
 
 use app\adminapi\controller\BaseAdminController;
 use app\common\execution\CurrentExecutionContext;
-use app\modules\official\task\services\CrontabApplicationService;
+use app\modules\official\task\services\TaskAdminApplicationService;
 use app\modules\official\task\validate\CrontabValidate;
 
 /**
@@ -18,7 +18,7 @@ class CrontabController extends BaseAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        private readonly CrontabApplicationService $crontabs,
+        private readonly TaskAdminApplicationService $crontabs,
     )
     {
         parent::__construct($app, $executionContext);
@@ -26,8 +26,11 @@ class CrontabController extends BaseAdminController
 
     public function lists()
     {
-        $this->tenantAdminContext();
-        $res = $this->crontabs->lists($this->request->get());
+        $res = $this->crontabs->crontabs(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $this->request->get(),
+        );
         return $this->data($res);
     }
 
@@ -35,24 +38,33 @@ class CrontabController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, CrontabValidate::class . '.detail');
-        $this->tenantAdminContext();
-        $result = $this->crontabs->detail((int)$params['id']);
+        $result = $this->crontabs->crontab(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            (int)$params['id'],
+        );
         return $this->data($result);
     }
 
     public function add()
     {
         $this->validate($this->request->post(), CrontabValidate::class . '.add');
-        $this->tenantAdminContext();
-        $this->crontabs->add($this->request->post());
+        $this->crontabs->addCrontab(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $this->request->post(),
+        );
         return $this->success('添加成功');
     }
 
     public function edit()
     {
         $this->validate($this->request->post(), CrontabValidate::class . '.edit');
-        $this->tenantAdminContext();
-        $this->crontabs->edit($this->request->post());
+        $this->crontabs->editCrontab(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $this->request->post(),
+        );
         return $this->success('编辑成功');
     }
 
@@ -60,8 +72,11 @@ class CrontabController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, CrontabValidate::class . '.delete');
-        $this->tenantAdminContext();
-        $this->crontabs->delete((int)$params['id']);
+        $this->crontabs->deleteCrontab(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            (int)$params['id'],
+        );
         return $this->success('删除成功');
     }
 
@@ -71,8 +86,12 @@ class CrontabController extends BaseAdminController
         $this->validate($params, CrontabValidate::class . '.operate');
         $id      = (int)$params['id'];
         $operate = (string)$params['operate'];
-        $this->tenantAdminContext();
-        $this->crontabs->operate($id, $operate);
+        $this->crontabs->operateCrontab(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $id,
+            $operate,
+        );
         return $this->success('操作成功');
     }
 
@@ -81,6 +100,10 @@ class CrontabController extends BaseAdminController
         $params = $this->request->get();
         $this->validate($params, CrontabValidate::class . '.expression');
         $expression = (string)$params['expression'];
-        return $this->data($this->crontabs->expression($expression));
+        return $this->data($this->crontabs->previewExpression(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $expression,
+        ));
     }
 }

@@ -383,7 +383,11 @@ SQL);
     }
 
     $controller = (string)file_get_contents($serverRoot . '/app/api/controller/OAuthController.php');
-    expectOAuthTenant(str_contains($controller, 'ExternalTenantResolver::production()->onlyActiveBinding('), 'OAuth begin does not use the trusted external binding resolver');
+    $application = (string)file_get_contents($serverRoot . '/app/api/services/OAuthApplicationService.php');
+    expectOAuthTenant(str_contains($controller, '$this->application->begin(')
+        && str_contains($application, '$this->externalTenants->onlyActiveBinding(')
+        && str_contains($application, "assertExternalCallback('official.oauth')"),
+        'OAuth begin does not use the trusted external binding and module boundary');
     foreach ([
         'app/api/application/LoginApplicationService.php',
         'app/Modules/Official/Oauth/Application/OAuthCommandService.php',

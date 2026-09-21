@@ -18,9 +18,9 @@ abstract class BasePlatformController extends BaseController
     protected ?PlatformOperatorContext $platformContext = null;
     protected readonly CurrentExecutionContext $executionContext;
 
-    public function __construct(App $app, ?CurrentExecutionContext $executionContext = null)
+    public function __construct(App $app, CurrentExecutionContext $executionContext)
     {
-        $this->executionContext = $executionContext ?? $app->make(CurrentExecutionContext::class);
+        $this->executionContext = $executionContext;
         parent::__construct($app);
     }
 

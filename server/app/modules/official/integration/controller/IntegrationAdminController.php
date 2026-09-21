@@ -4,15 +4,10 @@ declare(strict_types=1);
 namespace app\modules\official\integration\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\contract\authorization\AdminAuthorizationQuery;
-use app\common\dto\authorization\AdminPrincipal;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
-use app\modules\official\integration\Package;
 use DateTimeImmutable;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
-use PeanutAdmin\Kernel\Context\AuthorizationDecision;
-use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use think\App;
 
 abstract class IntegrationAdminController extends BaseAdminController
@@ -20,25 +15,8 @@ abstract class IntegrationAdminController extends BaseAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        private readonly AdminAuthorizationQuery $authorization,
     ) {
         parent::__construct($app, $executionContext);
-    }
-
-    protected function operation(string $permission, string $operation): AuthorizedOperationContext
-    {
-        $tenant = $this->tenantAdminContext();
-        $principal = AdminPrincipal::fromArray($this->executionContext()->tenantAdminPrincipal());
-        if (!$this->authorization->decide($tenant, $principal, $permission)->allowed) {
-            throw new ApiProblem('INTEGRATION_PERMISSION_DENIED', 403, 'Integration access was denied.');
-        }
-        return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
-            $tenant,
-            Package::RESOURCE_KEY,
-            $operation,
-            [],
-            hash('sha256', $tenant->requestId . '|' . $permission . '|' . $operation),
-        ));
     }
 
     /** @param list<string> $allowed @return array<string,mixed> */

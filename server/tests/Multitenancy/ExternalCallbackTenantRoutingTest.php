@@ -200,16 +200,24 @@ $root = dirname(__DIR__, 2);
 $paymentController = (string)file_get_contents($root . '/app/api/controller/PaymentNotifyController.php');
 $officialController = (string)file_get_contents($root . '/app/api/controller/OfficialAccountController.php');
 $oauthController = (string)file_get_contents($root . '/app/api/controller/OAuthController.php');
+$paymentApplication = (string)file_get_contents($root . '/app/api/services/PaymentCallbackApplicationService.php');
+$officialApplication = (string)file_get_contents($root . '/app/api/services/OfficialAccountApplicationService.php');
+$oauthApplication = (string)file_get_contents($root . '/app/api/services/OAuthApplicationService.php');
 $settlement = (string)file_get_contents($root . '/app/Modules/Official/Payment/Application/RechargeApplicationService.php');
 $schema = (string)file_get_contents($root . '/database/init.sql');
 $bindingRepository = (string)file_get_contents($root . '/app/common/service/external/ThinkPhpExternalTenantBindingRepository.php');
 $bootstrapService = (string)file_get_contents($root . '/app/platform/service/ApplicationTenantBootstrapService.php');
-foreach ([$paymentController, $officialController, $oauthController] as $source) {
+foreach ([$paymentController, $officialController, $oauthController, $paymentApplication, $officialApplication, $oauthApplication] as $source) {
     externalExpect(!str_contains($source, "['tenant_id']") && !str_contains($source, "get('tenant_id")
         && !str_contains($source, "header('tenant_id"), 'callback wiring trusts request tenant_id');
 }
 externalExpect(!str_contains($paymentController, 'static function () use ($event, $resolution): void'), 'payment callback uses injected service from a static closure');
-externalExpect(strpos($paymentController, 'verifiedCallback(') < strpos($paymentController, '$this->recharges->settleVerifiedCallback('), 'payment write precedes verification');
+$verificationPosition = strpos($paymentApplication, 'verifiedCallback(');
+$settlementPosition = strpos($paymentApplication, '$this->recharges->settleVerifiedCallback(');
+externalExpect($verificationPosition !== false && $settlementPosition !== false
+    && $verificationPosition < $settlementPosition, 'payment write precedes verification');
+externalExpect(str_contains($paymentController, '$this->application->wechat(')
+    && str_contains($paymentController, '$this->application->alipay('), 'payment HTTP adapter bypasses its use case');
 externalExpect(str_contains($settlement, 'settle(object $context'), 'settlement does not require a verified context port');
 externalExpect(!str_contains($settlement, 'VerifiedPaymentTenantResolver::resolve'), 'settlement still derives Tenant from an order number');
 foreach (['uk_external_callback_key', 'uk_external_provider_identity', 'uk_external_tenant_provider',

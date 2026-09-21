@@ -17,6 +17,7 @@ use think\Request;
 
 function expectOptionalInjection(bool $condition, string $message): void
 {
+    $GLOBALS['controller_context_assertions'] = ($GLOBALS['controller_context_assertions'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -35,12 +36,13 @@ $app->instance(Request::class, $request);
 $app->instance(ExecutionContextStore::class, $store);
 $app->instance(CurrentExecutionContext::class, $current);
 
-// 2. 定义派生测试类（模拟无需显式声明 executionContext 的精简业务控制器）
+// 历史测试文件名保留；合同现为明确注入，由 ThinkPHP 原生容器解析，不再从基类兜底查容器。
+// 2. 三个派生控制器明确转发框架依赖。
 class SampleAdminController extends BaseAdminController
 {
-    public function __construct(App $app)
+    public function __construct(App $app, CurrentExecutionContext $executionContext)
     {
-        parent::__construct($app);
+        parent::__construct($app, $executionContext);
     }
 
     public function exposedContext(): CurrentExecutionContext
@@ -56,9 +58,9 @@ class SampleAdminController extends BaseAdminController
 
 class SampleApiController extends BaseApiController
 {
-    public function __construct(App $app)
+    public function __construct(App $app, CurrentExecutionContext $executionContext)
     {
-        parent::__construct($app);
+        parent::__construct($app, $executionContext);
     }
 
     public function exposedContext(): CurrentExecutionContext
@@ -74,9 +76,9 @@ class SampleApiController extends BaseApiController
 
 class SamplePlatformController extends BasePlatformController
 {
-    public function __construct(App $app)
+    public function __construct(App $app, CurrentExecutionContext $executionContext)
     {
-        parent::__construct($app);
+        parent::__construct($app, $executionContext);
     }
 
     public function exposedContext(): CurrentExecutionContext
@@ -90,11 +92,11 @@ class SamplePlatformController extends BasePlatformController
     }
 }
 
-// 3. 测试 Admin 控制器：未传上下文时自动从容器回退
-$adminController = new SampleAdminController($app);
+// 3. ThinkPHP 原生容器为必需构造参数注入当前上下文。
+$adminController = $app->make(SampleAdminController::class, [], true);
 expectOptionalInjection(
     $adminController->exposedContext() === $current,
-    'SampleAdminController failed to fallback to container CurrentExecutionContext',
+    'SampleAdminController did not receive the explicitly required dependency via the ThinkPHP container',
 );
 
 // 4. 测试 Admin 控制器：显式传入时优先使用传入实例
@@ -111,18 +113,18 @@ expectOptionalInjection(
     'Explicit CurrentExecutionContext injection was ignored in BaseAdminController',
 );
 
-// 5. 测试 Api 控制器：未传上下文时自动从容器回退
-$apiController = new SampleApiController($app);
+// 5. Api 通过同一个正式容器机制注入。
+$apiController = $app->make(SampleApiController::class, [], true);
 expectOptionalInjection(
     $apiController->exposedContext() === $current,
-    'SampleApiController failed to fallback to container CurrentExecutionContext',
+    'SampleApiController did not receive the explicitly required dependency via the ThinkPHP container',
 );
 
-// 6. 测试 Platform 控制器：未传上下文时自动从容器回退
-$platformController = new SamplePlatformController($app);
+// 6. Platform 通过同一个正式容器机制注入。
+$platformController = $app->make(SamplePlatformController::class, [], true);
 expectOptionalInjection(
     $platformController->exposedContext() === $current,
-    'SamplePlatformController failed to fallback to container CurrentExecutionContext',
+    'SamplePlatformController did not receive the explicitly required dependency via the ThinkPHP container',
 );
 
 // 7. 测试生命周期与上下文提取
@@ -146,11 +148,24 @@ $adminExecution = new AdminExecutionContext(
 );
 
 $store->run($adminExecution, function () use ($app) {
-    $activeAdminController = new SampleAdminController($app);
+    $activeAdminController = $app->make(SampleAdminController::class, [], true);
     expectOptionalInjection(
         $activeAdminController->exposedAdminId() === 301,
         'BaseAdminController initialize() did not extract adminId from CurrentExecutionContext',
     );
 });
 
-echo "CONTROLLER-CONTEXT-OPTIONAL-INJECTION-001 passed\n";
+// 直接实例化遗漏安全上下文必须失败，不能静默从全局状态补齐。
+foreach ([SampleAdminController::class, SampleApiController::class, SamplePlatformController::class] as $type) {
+    $missingRejected = false;
+    try {
+        new $type($app);
+    } catch (ArgumentCountError) {
+        $missingRejected = true;
+    }
+    expectOptionalInjection($missingRejected, $type . ' unexpectedly accepted a missing context');
+    $parameter = (new ReflectionClass($type))->getConstructor()->getParameters()[1];
+    expectOptionalInjection(!$parameter->allowsNull() && !$parameter->isDefaultValueAvailable(), 'Context must be required and non-null');
+}
+expectOptionalInjection($store->isEmpty(), 'Context was not restored after the request');
+echo 'CONTROLLER-CONTEXT-EXPLICIT-INJECTION-001 passed: ' . $GLOBALS['controller_context_assertions'] . " assertions\n";

@@ -20,9 +20,9 @@ abstract class BaseAdminController extends BaseController
 
     public function __construct(
         App $app,
-        ?CurrentExecutionContext $executionContext = null,
+        CurrentExecutionContext $executionContext,
     ) {
-        $this->executionContext = $executionContext ?? $app->make(CurrentExecutionContext::class);
+        $this->executionContext = $executionContext;
         parent::__construct($app);
     }
 
@@ -38,6 +38,20 @@ abstract class BaseAdminController extends BaseController
     protected function executionContext(): CurrentExecutionContext
     {
         return $this->executionContext;
+    }
+
+    /** 供业务入口使用的类型化人员摘要；真实授权仍由业务服务核验。 */
+    protected function tenantAdminActor(): \app\common\dto\authorization\AdminPrincipal
+    {
+        $tenant = $this->tenantAdminContext();
+        $actor = \app\common\dto\authorization\AdminPrincipal::fromArray(
+            $this->executionContext->tenantAdminPrincipal(),
+        );
+        if ($actor->id !== $tenant->memberId || $actor->tenantId !== $tenant->tenantId
+            || $actor->accountId !== $tenant->accountId) {
+            throw new \DomainException('EXECUTION_ADMIN_PRINCIPAL_REQUIRED');
+        }
+        return $actor;
     }
 
     protected function tenantAdminContext(): TenantContext

@@ -4,16 +4,11 @@ declare(strict_types=1);
 namespace app\modules\official\task\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\dto\authorization\AdminPrincipal;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
-use app\common\services\authorization\AdminAuthorizationService;
 use app\modules\official\task\contracts\JobRecord;
-use app\modules\official\task\contracts\TaskJobRuntime;
-use app\modules\official\task\contracts\TaskJobService;
 use app\modules\official\task\job\Application\TaskJobException;
-use PeanutAdmin\Kernel\Context\AuthorizationDecision;
-use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
+use app\modules\official\task\services\TaskAdminApplicationService;
 use think\App;
 use think\response\Json;
 
@@ -22,8 +17,7 @@ final class TaskJobController extends BaseAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        private readonly TaskJobRuntime $tasks,
-        private readonly AdminAuthorizationService $authorization,
+        private readonly TaskAdminApplicationService $tasks,
     ) {
         parent::__construct($app, $executionContext);
     }
@@ -34,8 +28,9 @@ final class TaskJobController extends BaseAdminController
             $status = trim((string)$this->request->get('status', 'queued'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
-            $result = $this->tasks->jobs()->list(
-                $this->context('official.task.jobs.read', 'read'),
+            $result = $this->tasks->jobs(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $status,
                 $page,
                 $pageSize,
@@ -71,11 +66,9 @@ final class TaskJobController extends BaseAdminController
     {
         try {
             $revision = $this->positiveInteger($this->request->post('revision'));
-            $service = $this->tasks->jobs();
-            $context = $this->context('official.task.jobs.manage', 'manage');
             $job = $action === 'cancel'
-                ? $service->cancel($context, $jobKey, $revision)
-                : $service->retry($context, $jobKey, $revision);
+                ? $this->tasks->cancelJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision)
+                : $this->tasks->retryJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision);
             return json([
                 'data' => $job->toPublicArray(),
                 'meta' => ['request_id' => $this->executionContext()->requestId()],
@@ -83,22 +76,6 @@ final class TaskJobController extends BaseAdminController
         } catch (TaskJobException $exception) {
             throw $this->problem($exception);
         }
-    }
-
-    private function context(string $permission, string $operation): AuthorizedOperationContext
-    {
-        $tenant = $this->tenantAdminContext();
-        $principal = AdminPrincipal::fromArray($this->executionContext()->tenantAdminPrincipal());
-        if (!$this->authorization->decide($tenant, $principal, $permission)->allowed) {
-            throw new ApiProblem('TASK_PERMISSION_DENIED', 403, 'Task job access was denied.');
-        }
-        return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
-            $tenant,
-            TaskJobService::RESOURCE_KEY,
-            $operation,
-            [],
-            hash('sha256', $tenant->requestId . '|' . $permission . '|' . $operation),
-        ));
     }
 
     private function positiveInteger(mixed $value): int

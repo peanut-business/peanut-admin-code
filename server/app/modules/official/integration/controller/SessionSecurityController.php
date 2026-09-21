@@ -3,10 +3,9 @@ declare(strict_types=1);
 
 namespace app\modules\official\integration\controller;
 
-use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\execution\CurrentExecutionContext;
+use app\modules\official\integration\application\IntegrationAdminApplicationService;
 use app\modules\official\integration\application\SessionDevice;
-use app\modules\official\integration\application\SessionSecurityService;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\App;
 use think\response\Json;
@@ -16,16 +15,15 @@ final class SessionSecurityController extends IntegrationAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        AdminAuthorizationQuery $authorization,
-        private readonly SessionSecurityService $sessions,
+        private readonly IntegrationAdminApplicationService $sessions,
     ) {
-        parent::__construct($app, $executionContext, $authorization);
+        parent::__construct($app, $executionContext);
     }
 
     public function index(): Json
     {
         try {
-            $items = $this->sessions->list($this->operation('official.integration.session.read', 'session-read'));
+            $items = $this->sessions->sessions($this->tenantAdminContext(), $this->tenantAdminActor());
             return $this->response(['items' => array_map($this->session(...), $items)]);
         } catch (IntegrationSecurityException $exception) {
             throw $this->problem($exception);
@@ -36,8 +34,9 @@ final class SessionSecurityController extends IntegrationAdminController
     {
         try {
             $this->body([]);
-            return $this->response($this->session($this->sessions->revoke(
-                $this->operation('official.integration.session.revoke', 'session-revoke'),
+            return $this->response($this->session($this->sessions->revokeSession(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $sessionKey,
             )));
         } catch (IntegrationSecurityException $exception) {

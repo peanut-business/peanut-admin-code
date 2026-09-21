@@ -15,6 +15,7 @@ class PcApplicationService
     public function __construct(
         private readonly PublicArticleQueries $articles,
         private readonly DecorationReadService $decoration,
+        private readonly IndexApplicationService $index,
     )
     {
     }
@@ -32,5 +33,42 @@ class PcApplicationService
                 'article.pc-index'
             ),
         ];
+    }
+
+    /** PC 配置聚合；可信 Host 绑定已经在 HTTP 边界解析。 */
+    public function config(
+        TenantContext|TenantSystemContext $context,
+        string $domain,
+        string $host,
+        ?int $entryTenantId,
+    ): array {
+        return $this->index->getConfigData($context, $domain, $host, $entryTenantId);
+    }
+
+    /** PC 资讯中心公开查询入口。 */
+    public function infoCenter(TenantContext|TenantSystemContext $context): array
+    {
+        $this->assertSystemOperation($context, 'article.info-center');
+        return $this->articles->infoCenter();
+    }
+
+    /** PC 文章详情公开查询入口。 */
+    public function articleDetail(
+        TenantContext|TenantSystemContext $context,
+        int $memberId,
+        int $articleId,
+        string $source,
+    ): array {
+        $this->assertSystemOperation($context, 'article.pc-detail');
+        return $this->articles->pcDetail($memberId, $articleId, $source);
+    }
+
+    private function assertSystemOperation(
+        TenantContext|TenantSystemContext $context,
+        string $operation,
+    ): void {
+        if ($context instanceof TenantSystemContext && !hash_equals($operation, $context->operation)) {
+            throw new \DomainException('EXECUTION_PUBLIC_TENANT_CONTEXT_REQUIRED');
+        }
     }
 }

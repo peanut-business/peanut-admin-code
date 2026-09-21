@@ -4,16 +4,11 @@ declare(strict_types=1);
 namespace app\modules\official\notification\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\dto\authorization\AdminPrincipal;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
-use app\common\services\authorization\AdminAuthorizationService;
 use app\modules\official\notification\delivery\Application\NotificationException;
-use app\modules\official\notification\delivery\Application\NotificationInboxService;
 use app\modules\official\notification\delivery\Application\NotificationMessage;
-use app\modules\official\notification\delivery\Package;
-use PeanutAdmin\Kernel\Context\AuthorizationDecision;
-use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
+use app\modules\official\notification\services\NotificationAdminApplicationService;
 use think\App;
 use think\response\Json;
 
@@ -22,8 +17,7 @@ final class NotificationInboxController extends BaseAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        private readonly NotificationInboxService $inbox,
-        private readonly AdminAuthorizationService $authorization,
+        private readonly NotificationAdminApplicationService $notifications,
     ) {
         parent::__construct($app, $executionContext);
     }
@@ -34,8 +28,9 @@ final class NotificationInboxController extends BaseAdminController
             $status = trim((string)$this->request->get('status', 'all'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
-            $result = $this->inbox->inbox(
-                $this->context('official.notification.inbox.read', 'read'),
+            $result = $this->notifications->messages(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $status,
                 $page,
                 $pageSize,
@@ -61,8 +56,9 @@ final class NotificationInboxController extends BaseAdminController
     {
         try {
             $revision = $this->revisionHeader();
-            $message = $this->inbox->markRead(
-                $this->context('official.notification.inbox.manage', 'manage'),
+            $message = $this->notifications->markRead(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $messageKey,
                 $revision,
             );
@@ -83,8 +79,9 @@ final class NotificationInboxController extends BaseAdminController
             if (!is_array($keys) || !array_is_list($keys)) {
                 throw NotificationException::invalid();
             }
-            $changed = $this->inbox->bulk(
-                $this->context('official.notification.inbox.manage', 'manage'),
+            $changed = $this->notifications->bulk(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $keys,
                 $action,
             );
@@ -95,22 +92,6 @@ final class NotificationInboxController extends BaseAdminController
         } catch (NotificationException $exception) {
             throw $this->problem($exception);
         }
-    }
-
-    private function context(string $permission, string $operation): AuthorizedOperationContext
-    {
-        $tenant = $this->tenantAdminContext();
-        $principal = AdminPrincipal::fromArray($this->executionContext()->tenantAdminPrincipal());
-        if (!$this->authorization->decide($tenant, $principal, $permission)->allowed) {
-            throw new ApiProblem('NOTIFICATION_PERMISSION_DENIED', 403, 'Notification inbox access was denied.');
-        }
-        return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
-            $tenant,
-            Package::RESOURCE_KEY,
-            $operation,
-            [],
-            hash('sha256', $tenant->requestId . '|' . $permission . '|' . $operation),
-        ));
     }
 
     private function positiveInteger(mixed $value): int

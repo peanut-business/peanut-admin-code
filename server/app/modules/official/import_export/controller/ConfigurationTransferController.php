@@ -5,7 +5,6 @@ namespace app\modules\official\import_export\controller;
 
 use app\modules\official\import_export\services\TenantConfigurationTransferService;
 use app\adminapi\controller\BaseAdminController;
-use app\common\dto\authorization\AdminPrincipal;
 use app\common\execution\CurrentExecutionContext;
 use think\App;
 use app\common\exception\BusinessException;
@@ -24,32 +23,32 @@ final class ConfigurationTransferController extends BaseAdminController
     public function export()
     {
         return $this->data($this->transfers->export(
-                $this->tenantAdminContext(),
-                AdminPrincipal::fromArray($this->adminInfo),
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
         ));
     }
 
     public function dryRun()
     {
         [$package, $secretBindings, $conflictPolicy] = $this->requestPayload();
-            return $this->data($this->transfers->dryRun(
-                $this->tenantAdminContext(),
-                AdminPrincipal::fromArray($this->adminInfo),
-                $package,
-                $secretBindings,
-                $conflictPolicy,
+        return $this->data($this->transfers->dryRun(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $package,
+            $secretBindings,
+            $conflictPolicy,
         ));
     }
 
     public function apply()
     {
         [$package, $secretBindings, $conflictPolicy] = $this->requestPayload();
-            return $this->data($this->transfers->apply(
-                $this->tenantAdminContext(),
-                AdminPrincipal::fromArray($this->adminInfo),
-                $package,
-                $secretBindings,
-                $conflictPolicy,
+        return $this->data($this->transfers->apply(
+            $this->tenantAdminContext(),
+            $this->tenantAdminActor(),
+            $package,
+            $secretBindings,
+            $conflictPolicy,
         ));
     }
 
@@ -73,5 +72,4 @@ final class ConfigurationTransferController extends BaseAdminController
             $payload['conflict_policy'],
         ];
     }
-
 }

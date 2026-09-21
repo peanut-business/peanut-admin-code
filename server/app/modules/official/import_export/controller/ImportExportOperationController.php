@@ -4,17 +4,11 @@ declare(strict_types=1);
 namespace app\modules\official\import_export\controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\dto\authorization\AdminPrincipal;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
-use app\common\services\authorization\AdminAuthorizationService;
 use app\modules\official\import_export\contracts\dto\AsyncExportOperation;
 use app\modules\official\import_export\engine\Application\ImportExportException;
-use app\modules\official\import_export\engine\Application\ImportExportService;
-use app\modules\official\import_export\infrastructure\file\AppFileMediaGateway;
-use app\modules\official\import_export\services\ImportExportApplicationService;
-use PeanutAdmin\Kernel\Context\AuthorizationDecision;
-use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
+use app\modules\official\import_export\services\ImportExportAdminApplicationService;
 use think\App;
 use think\Response;
 use think\response\Json;
@@ -24,9 +18,7 @@ final class ImportExportOperationController extends BaseAdminController
     public function __construct(
         App $app,
         CurrentExecutionContext $executionContext,
-        private readonly ImportExportApplicationService $operations,
-        private readonly AppFileMediaGateway $files,
-        private readonly AdminAuthorizationService $authorization,
+        private readonly ImportExportAdminApplicationService $operations,
     ) {
         parent::__construct($app, $executionContext);
     }
@@ -38,7 +30,8 @@ final class ImportExportOperationController extends BaseAdminController
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
             $result = $this->operations->operations(
-                $this->context('official.import-export.operations.read', 'read'),
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $status,
                 $page,
                 $pageSize,
@@ -68,7 +61,8 @@ final class ImportExportOperationController extends BaseAdminController
                 throw ImportExportException::invalid();
             }
             $operation = $this->operations->submitImport(
-                $this->context('official.import-export.operations.create', 'create'),
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 trim((string)$this->request->post('provider_key', '')),
                 trim((string)$this->request->post('file_key', '')),
                 $mapping,
@@ -84,7 +78,8 @@ final class ImportExportOperationController extends BaseAdminController
     {
         try {
             $operation = $this->operations->submitExport(
-                $this->context('official.import-export.operations.create', 'create'),
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 trim((string)$this->request->post('provider_key', '')),
                 $this->idempotencyKey(),
             );
@@ -98,7 +93,8 @@ final class ImportExportOperationController extends BaseAdminController
     {
         try {
             $operation = $this->operations->cancel(
-                $this->context('official.import-export.operations.cancel', 'cancel'),
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
                 $operationKey,
                 $this->positiveInteger($this->request->post('revision')),
             );
@@ -111,9 +107,11 @@ final class ImportExportOperationController extends BaseAdminController
     public function download(string $fileKey): Response
     {
         try {
-            $context = $this->context('official.import-export.operations.read', 'read');
-            $this->operations->resultFile($context, $fileKey);
-            $file = $this->files->download($context, $fileKey);
+            $file = $this->operations->download(
+                $this->tenantAdminContext(),
+                $this->tenantAdminActor(),
+                $fileKey,
+            );
             return redirect($file['url'])->header(['Cache-Control' => 'no-store']);
         } catch (ImportExportException $exception) {
             throw $this->problem($exception);
@@ -126,22 +124,6 @@ final class ImportExportOperationController extends BaseAdminController
             'data' => $operation->toPublicArray(),
             'meta' => ['request_id' => $this->executionContext()->requestId()],
         ], $status);
-    }
-
-    private function context(string $permission, string $operation): AuthorizedOperationContext
-    {
-        $tenant = $this->tenantAdminContext();
-        $principal = AdminPrincipal::fromArray($this->executionContext()->tenantAdminPrincipal());
-        if (!$this->authorization->decide($tenant, $principal, $permission)->allowed) {
-            throw new ApiProblem('IMPORT_EXPORT_PERMISSION_DENIED', 403, 'Import/export access was denied.');
-        }
-        return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
-            $tenant,
-            ImportExportService::RESOURCE_KEY,
-            $operation,
-            [],
-            hash('sha256', $tenant->requestId . '|' . $permission . '|' . $operation),
-        ));
     }
 
     private function idempotencyKey(): string

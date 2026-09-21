@@ -5,9 +5,7 @@ namespace app\api\controller;
 
 use think\App;
 use app\common\execution\CurrentExecutionContext;
-use app\api\services\IndexApplicationService;
 use app\api\services\PcApplicationService;
-use app\modules\official\article\contracts\PublicArticleQueries;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
 /**
@@ -17,8 +15,6 @@ class PcController extends BaseApiController
 {
     public function __construct(
         App $app, CurrentExecutionContext $executionContext,
-        private readonly PublicArticleQueries $articles,
-        private readonly IndexApplicationService $indexApplication,
         private readonly PcApplicationService $pcApplication,
         private readonly TenantEntryBindingResolver $entryBindings,
     ) {
@@ -29,11 +25,13 @@ class PcController extends BaseApiController
     /** PC 配置 */
     public function config()
     {
+        // Core 当前的可信 Host 绑定契约只接收 Request-like 对象，因此解析留在 HTTP 边界；
+        // 解析后的租户编号和规范请求字段再交给 PC 应用用例完成聚合查询。
         $entryTenantId = $this->entryBindings->boundTenantId(
             $this->request,
             TenantEntryBindingResolver::ADMIN_CLIENT,
         );
-        $result = $this->indexApplication->getConfigData(
+        $result = $this->pcApplication->config(
             $this->publicTenantContext('decoration.config'),
             (string)$this->request->domain(),
             (string)$this->request->host(),
@@ -52,8 +50,9 @@ class PcController extends BaseApiController
     /** PC 资讯中心（同 article/lists） */
     public function infoCenter()
     {
-        $this->publicTenantContext('article.info-center');
-        return $this->data($this->articles->infoCenter());
+        return $this->data($this->pcApplication->infoCenter(
+            $this->publicTenantContext('article.info-center'),
+        ));
     }
 
     /** PC 文章详情 */
@@ -61,7 +60,11 @@ class PcController extends BaseApiController
     {
         $id     = $this->request->get('id/d', 0);
         $source = $this->request->get('source/s', 'default');
-        $this->publicTenantContext('article.pc-detail');
-        return $this->data($this->articles->pcDetail($this->memberId, $id, $source));
+        return $this->data($this->pcApplication->articleDetail(
+            $this->publicTenantContext('article.pc-detail'),
+            $this->memberId,
+            $id,
+            $source,
+        ));
     }
 }
