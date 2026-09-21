@@ -1469,6 +1469,55 @@
         "failure_retention_policy": "stop further actions and retain the exact target resources for diagnosis; do not reuse them for another task or candidate",
         "cleanup_responsibility": "scripts/ops-restore-worker removes only this fixed target after successful verification; failed resources require explicit disposition",
         "backup_responsibility": "not applicable; this is a disposable restore target sourced from a verified immutable pair"
+      },
+      {
+        "stable_resource_id": "peanut-admin-a1-review-mysql84",
+        "purpose": "A1 review repairs: exclusive synthetic member-session and Scope regression; no customer data",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "a1-review-repair-20260921",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20337,
+        "container_name": "peanut-admin-a1-review-mysql84",
+        "database": "peanut_a1_review",
+        "schema": "pa_ synthetic schemas only",
+        "namespace": "exclusive task-created anonymous MySQL data volume; no host data mount",
+        "credential_ref": ".local/review-repair/database/credentials.json (0600; ephemeral, not committed)",
+        "data_source": "new empty instance and source-owned synthetic fixtures",
+        "freshness_requirement": "container and listener absent before claim; credentials generated only for this run",
+        "health_check": "task-owned PDO SELECT VERSION()",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": false,
+        "claim_precondition": "exclusive lease before container creation",
+        "cleanup_responsibility": "a1-review-repair-20260921 removes only exact container and its anonymous volume, credentials and lease",
+        "backup_responsibility": "not applicable; synthetic only",
+        "failure_retention_policy": "2026-09-21 closed: tool safety check blocked database validation before execution; own container and anonymous volume removed, credentials deleted and lease released. Sanitized diagnostics retained in task worktree; no DB qualification.",
+        "lease_gate": "a1-review-focused",
+        "deployment_modes": [
+          "standalone",
+          "multi-tenant"
+        ],
+        "synthetic_databases": {
+          "review": [
+            "peanut_a1_review",
+            "peanut_admin_scope_review_20260921",
+            "peanut_a1_member_session_review"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-a1-review-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20337,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "task-owned loopback only"
+        }
       }
     ],
     "local_listeners": [

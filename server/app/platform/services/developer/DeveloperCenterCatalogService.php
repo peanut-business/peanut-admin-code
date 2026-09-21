@@ -35,13 +35,18 @@ final readonly class DeveloperCenterCatalogService
         [$registration, $registeredKeys, $registryRevision] = $this->registration();
         $apiCatalog = $this->apiCatalog();
         $routes = $apiCatalog['endpoints'];
+        // 路由已发现不等于请求／响应合同已经完整，分别计算并展示。
+        $documentedOperations = array_values(array_filter(
+            $routes,
+            static fn(array $route): bool => ($route['documented'] ?? false) === true,
+        ));
         $commands = $this->moduleCommands();
         $modules = [];
         foreach ($declarations as $key => $declaration) {
             $data = $declaration['data'];
             $root = $declaration['root'];
             $moduleRoutes = $this->moduleRoutes($routes, $key);
-            $generatedApi = $this->moduleRoutes($apiCatalog['endpoints'], $key);
+            $generatedApi = $this->moduleRoutes($documentedOperations, $key);
             $modules[] = [
                 'key' => $key,
                 'name' => (string)($data['name'] ?? $key),
@@ -114,7 +119,8 @@ final readonly class DeveloperCenterCatalogService
                 'discovered' => count($discoveredRoots),
                 'registered' => count($registeredKeys),
                 'routes' => count($routes),
-                'generated_api_operations' => count($apiCatalog['endpoints']),
+                'generated_api_operations' => count($documentedOperations),
+                'undocumented_routes' => count($routes) - count($documentedOperations),
             ],
             'modules' => $modules,
         ];

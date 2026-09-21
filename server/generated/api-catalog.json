@@ -96,7 +96,7 @@
         },
         {
             "path": "server/route/public_api.php",
-            "sha256": "1a1a5ffaf6e7af77fb55c875280cb609cbccbee472429fe200e99f57ead1ff32"
+            "sha256": "9ac9647058659328ef3c0bd494501c6c1da63670d0225d47f4f7ca558e1b3149"
         },
         {
             "path": "server/route/registry_source.php",
@@ -1327,7 +1327,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 34
+                "line": 36
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1341,7 +1341,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 67
+                "line": 69
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1355,7 +1355,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 45
+                "line": 47
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1369,7 +1369,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 49
+                "line": 51
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1383,7 +1383,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 47
+                "line": 49
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1467,7 +1467,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 59
+                "line": 61
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1481,7 +1481,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 53
+                "line": 55
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1495,7 +1495,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 55
+                "line": 57
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1509,7 +1509,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 57
+                "line": 59
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -1565,7 +1565,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 41
+                "line": 43
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -3245,7 +3245,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 65
+                "line": 67
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -3259,7 +3259,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 66
+                "line": 68
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -3287,7 +3287,7 @@
             },
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 32
+                "line": 33
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": null
@@ -11092,7 +11092,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 34
+                "line": 36
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11155,7 +11155,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 67
+                "line": 69
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11218,7 +11218,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 38
+                "line": 40
             },
             "documented": true,
             "openapi_operation_id": "articleDetail",
@@ -11276,7 +11276,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 36
+                "line": 38
             },
             "documented": true,
             "openapi_operation_id": "listArticles",
@@ -11334,7 +11334,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 45
+                "line": 47
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11397,7 +11397,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 49
+                "line": 51
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11460,7 +11460,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 47
+                "line": 49
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11798,7 +11798,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 59
+                "line": 61
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11861,7 +11861,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 53
+                "line": 55
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11924,7 +11924,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 55
+                "line": 57
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -11987,7 +11987,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 57
+                "line": 59
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -12239,7 +12239,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 41
+                "line": 43
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -21863,7 +21863,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 65
+                "line": 67
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -21926,7 +21926,7 @@
             ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 66
+                "line": 68
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -22024,15 +22024,22 @@
             "controller": "app\\api\\controller\\LoginController",
             "action": "logout",
             "auth": {
-                "mode": "public",
+                "mode": "member_session",
                 "exception_registration": null
             },
             "permissions": [],
-            "errors": [],
-            "middleware": [],
+            "errors": [
+                401
+            ],
+            "middleware": [
+                {
+                    "class": "app\\api\\middleware\\CheckTokenMiddleware",
+                    "arguments": []
+                }
+            ],
             "source": {
                 "file": "server/route/public_api.php",
-                "line": 32
+                "line": 33
             },
             "documented": false,
             "openapi_operation_id": null,
