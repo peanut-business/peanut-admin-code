@@ -25213,6 +25213,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/GeneratedPackageIdentityTest.php",
+            "target": "server/tests/Unit/GeneratedPackageIdentityTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/GeneratorDeclaredCrudTemplateTest.php",
             "target": "server/tests/Unit/GeneratorDeclaredCrudTemplateTest.php",
             "classification": "excluded",

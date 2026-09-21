@@ -463,7 +463,7 @@ try {
             );
         }
     }
-    foreach (['pc', 'uniapp'] as $client) {
+    foreach (['platform', 'pc', 'uniapp'] as $client) {
         $lock = json_decode((string)file_get_contents($first . "/{$client}/package-lock.json"), true, 512, JSON_THROW_ON_ERROR);
         createApplicationExpect(
             ($lock['version'] ?? null) === '0.1.0' && ($lock['packages']['']['version'] ?? null) === '0.1.0',

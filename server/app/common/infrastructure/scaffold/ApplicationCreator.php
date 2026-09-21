@@ -664,11 +664,8 @@ final class ApplicationCreator
     /** @param array<string,string> $parameters */
     private function packageTransform(string $content, array $parameters, string $path): string
     {
-        $content = str_replace(
-            ['peanut-business/peanut-admin-code', 'peanut-admin-web', 'peanut-admin-pc', 'peanut-admin-uniapp', 'peanut-admin-docs'],
-            [$parameters['PACKAGE_IDENTITY'], $parameters['SLUG'] . '-web', $parameters['SLUG'] . '-pc', $parameters['SLUG'] . '-uniapp', $parameters['SLUG'] . '-docs'],
-            $this->textTransform($content, $parameters, 'package')
-        );
+        // 只转换应用元数据；全局替换包名会破坏同名 Core 归档路径及依赖身份。
+        $content = $this->textTransform($content, $parameters, 'package');
         if (!str_ends_with($path, '.json')) {
             return $content;
         }
@@ -680,10 +677,20 @@ final class ApplicationCreator
         if (!is_array($document)) {
             throw new RuntimeException('CREATE_APP_PACKAGE_JSON_INVALID: ' . $path);
         }
+        if (preg_match('#^(web|platform|pc|uniapp|docs-site)/package(?:-lock)?\\.json$#D', $path, $clientMatch) === 1) {
+            $suffix = $clientMatch[1] === 'docs-site' ? 'docs' : $clientMatch[1];
+            $applicationName = $parameters['SLUG'] . '-' . $suffix;
+            if (array_key_exists('name', $document)) {
+                $document['name'] = $applicationName;
+            }
+            if (isset($document['packages']['']) && array_key_exists('name', $document['packages'][''])) {
+                $document['packages']['']['name'] = $applicationName;
+            }
+        }
         if (str_ends_with($path, '/package.json') && array_key_exists('version', $document)) {
             $document['version'] = $parameters['APPLICATION_VERSION'];
         }
-        if (in_array($path, ['pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
+        if (in_array($path, ['platform/package-lock.json', 'pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
             if (!array_key_exists('version', $document)
                 || !is_array($document['packages'][''] ?? null)
                 || !array_key_exists('version', $document['packages'][''])) {
