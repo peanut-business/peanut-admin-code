@@ -257,26 +257,26 @@
     }
   ],
   "known_tenant_models": [
-    "server/app/modules/official/article/model/Article.php",
-    "server/app/modules/official/article/model/ArticleCate.php",
-    "server/app/modules/official/article/model/ArticleCollect.php",
-    "server/app/modules/official/file/model/File.php",
-    "server/app/modules/official/file/model/FileCate.php",
-    "server/app/modules/official/member/model/Member.php",
-    "server/app/modules/official/member/model/MemberBalanceLog.php",
-    "server/app/modules/official/member/model/MemberTag.php",
-    "server/app/modules/official/member/model/MemberTagRelation.php",
-    "server/app/modules/official/notification/model/NoticeLog.php",
-    "server/app/modules/official/notification/model/NoticeScene.php",
-    "server/app/modules/official/oauth/model/OAuthAttempt.php",
-    "server/app/modules/official/oauth/model/OAuthCompletionTicket.php",
-    "server/app/modules/official/oauth/model/OAuthIdentity.php",
-    "server/app/modules/official/oauth/model/OAuthPrincipal.php",
-    "server/app/modules/official/oauth/model/OfficialAccountReply.php",
-    "server/app/modules/official/payment/model/RechargeOrder.php",
-    "server/app/modules/official/payment/model/RefundLog.php",
-    "server/app/modules/official/payment/model/RefundRecord.php",
-    "server/app/modules/official/task/model/Crontab.php",
+    "server/app/modules/official/article/src/Model/Article.php",
+    "server/app/modules/official/article/src/Model/ArticleCate.php",
+    "server/app/modules/official/article/src/Model/ArticleCollect.php",
+    "server/app/modules/official/file/src/Model/File.php",
+    "server/app/modules/official/file/src/Model/FileCate.php",
+    "server/app/modules/official/member/src/Model/Member.php",
+    "server/app/modules/official/member/src/Model/MemberBalanceLog.php",
+    "server/app/modules/official/member/src/Model/MemberTag.php",
+    "server/app/modules/official/member/src/Model/MemberTagRelation.php",
+    "server/app/modules/official/notification/src/Model/NoticeLog.php",
+    "server/app/modules/official/notification/src/Model/NoticeScene.php",
+    "server/app/modules/official/oauth/src/Model/OAuthAttempt.php",
+    "server/app/modules/official/oauth/src/Model/OAuthCompletionTicket.php",
+    "server/app/modules/official/oauth/src/Model/OAuthIdentity.php",
+    "server/app/modules/official/oauth/src/Model/OAuthPrincipal.php",
+    "server/app/modules/official/oauth/src/Model/OfficialAccountReply.php",
+    "server/app/modules/official/payment/src/Model/RechargeOrder.php",
+    "server/app/modules/official/payment/src/Model/RefundLog.php",
+    "server/app/modules/official/payment/src/Model/RefundRecord.php",
+    "server/app/modules/official/task/src/Model/Crontab.php",
     "server/app/common/model/decoration/DecoratePage.php",
     "server/app/common/model/decoration/DecorateTabbar.php",
     "server/app/common/model/decoration/DecorationTabbarSetting.php",
@@ -291,7 +291,7 @@
     {
       "issue_id": "accessor_sql:ff7b7936973d",
       "category": "accessor_sql",
-      "path": "server/app/modules/official/payment/model/RefundLog.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundLog.php",
       "line": 28,
       "symbol": "public function getHandlerAttr($value, $data): string",
       "owner": "TPQ36/TPQ38 / Luna max; Sol review",
@@ -302,7 +302,7 @@
     {
       "issue_id": "controller_service_construction:0ce7de64a5a2",
       "category": "controller_service_construction",
-      "path": "server/app/modules/official/notification/controller/NoticeChannelController.php",
+      "path": "server/app/modules/official/notification/src/Controller/NoticeChannelController.php",
       "line": 20,
       "symbol": "return $this->data((new ModuleProvider())->queries()->channelDetail(MemberTenantContext::member($this->request)));",
       "owner": "TPQ24/TPQ42 / Sol",
@@ -313,7 +313,7 @@
     {
       "issue_id": "controller_service_construction:d2b1b46540ed",
       "category": "controller_service_construction",
-      "path": "server/app/modules/official/notification/controller/NoticeChannelController.php",
+      "path": "server/app/modules/official/notification/src/Controller/NoticeChannelController.php",
       "line": 34,
       "symbol": "(new ModuleProvider())->commands()->saveChannel(MemberTenantContext::member($this->request), $section, $post);",
       "owner": "TPQ24/TPQ42 / Sol",
@@ -390,7 +390,7 @@
     {
       "issue_id": "direct_db_in_business:aa16cd2beaed",
       "category": "direct_db_in_business",
-      "path": "server/app/modules/official/import_export/controller/ConfigurationTransferController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/ConfigurationTransferController.php",
       "line": 65,
       "symbol": "$pdo = Db::connect()->connect();",
       "owner": "TPQ08/TPQ24/TPQ42 / Sol",
@@ -401,7 +401,7 @@
     {
       "issue_id": "direct_db_in_business:0d9f31c1d2c4",
       "category": "direct_db_in_business",
-      "path": "server/app/modules/official/import_export/controller/OperationLogExportController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/OperationLogExportController.php",
       "line": 75,
       "symbol": "$pdo = Db::connect()->connect();",
       "owner": "TPQ08/TPQ24/TPQ42 / Sol",
@@ -1347,7 +1347,7 @@
     {
       "issue_id": "direct_validator_instantiation:054c2e1c44d2",
       "category": "direct_validator_instantiation",
-      "path": "server/app/modules/official/member/controller/MemberController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberController.php",
       "line": 68,
       "symbol": "(new MemberValidate())->forTenant($context)->scene($scene)->failException(true)->check($data);",
       "owner": "TPQ40 / Luna max; Sol review",
@@ -1358,7 +1358,7 @@
     {
       "issue_id": "direct_validator_instantiation:4c331780d841",
       "category": "direct_validator_instantiation",
-      "path": "server/app/modules/official/notification/controller/NoticeSceneController.php",
+      "path": "server/app/modules/official/notification/src/Controller/NoticeSceneController.php",
       "line": 40,
       "symbol": "(new NoticeSceneValidate())->forTenant($context)->scene($scene)->failException(true)->check($data);",
       "owner": "TPQ40 / Luna max; Sol review",
@@ -1369,7 +1369,7 @@
     {
       "issue_id": "direct_validator_instantiation:fb8cc99c8303",
       "category": "direct_validator_instantiation",
-      "path": "server/app/modules/official/payment/controller/RechargeController.php",
+      "path": "server/app/modules/official/payment/src/Controller/RechargeController.php",
       "line": 55,
       "symbol": "(new RechargeValidate())->forTenant($context)->scene($scene)->failException(true)->check($data);",
       "owner": "TPQ40 / Luna max; Sol review",
@@ -1459,7 +1459,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:52dbf3cdcbee",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/import_export/infrastructure/file/AppFileMediaGateway.php",
+      "path": "server/app/modules/official/import_export/src/Infrastructure/File/AppFileMediaGateway.php",
       "line": 29,
       "symbol": "$s->execute(['tenant_id'=>$context->tenantContext->tenantId,'file_key'=>$fileKey]);if($s->fetchColumn()===false)throw ImportExportException::fileUnavailable();",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1492,7 +1492,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:d105ad67ade7",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/notification/services/NotificationApplicationService.php",
+      "path": "server/app/modules/official/notification/src/Service/NotificationApplicationService.php",
       "line": 80,
       "symbol": "->where('l.tenant_id', $tenantId);",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1503,7 +1503,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:a91cd6f28f35",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/notification/services/NotificationApplicationService.php",
+      "path": "server/app/modules/official/notification/src/Service/NotificationApplicationService.php",
       "line": 122,
       "symbol": "->where('l.tenant_id', $tenantId)",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1514,7 +1514,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:07403059e17c",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 22,
       "symbol": "$query = OfficialAccountReply::where('tenant_id', $tenantId)->field([",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1525,7 +1525,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:a83e84c9efdf",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 42,
       "symbol": "$reply = OfficialAccountReply::where('tenant_id', MemberTenantContext::tenantId($context))->findOrEmpty($id);",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1536,7 +1536,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:61429c83fe72",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 67,
       "symbol": "$reply = OfficialAccountReply::where(['tenant_id' => $tenantId, 'id' => (int)$params['id']])->lock(true)->findOrEmpty();",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1547,7 +1547,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:feaeb2800d43",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 86,
       "symbol": "$reply = OfficialAccountReply::where(['tenant_id' => MemberTenantContext::tenantId($context), 'id' => $id])->lock(true)->findOrEmpty();",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1558,7 +1558,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:abaf36ce967a",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 104,
       "symbol": "$reply = OfficialAccountReply::where(['tenant_id' => $tenantId, 'id' => $id])->lock(true)->findOrEmpty();",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1569,7 +1569,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:65ef52d85aed",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 132,
       "symbol": "'tenant_id' => $tenantId,",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1580,7 +1580,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:3d1de018faf0",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 150,
       "symbol": "$reply = OfficialAccountReply::where(['tenant_id' => $tenantId, 'reply_type' => $type, 'status' => 1])",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1591,7 +1591,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:78210bd456e6",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 163,
       "symbol": "$query = OfficialAccountReply::where('tenant_id', $tenantId)->where('reply_type', $type)->where('status', 1);",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1613,7 +1613,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:f7956897972e",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/payment/services/RefundApplicationService.php",
+      "path": "server/app/modules/official/payment/src/Service/RefundApplicationService.php",
       "line": 152,
       "symbol": "->where('u.tenant_id', $tenantId);",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1624,7 +1624,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:59de51ae30c4",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/payment/model/RefundLog.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundLog.php",
       "line": 34,
       "symbol": "->where('tenant_id', (int)($data['tenant_id'] ?? 0))",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -1635,7 +1635,7 @@
     {
       "issue_id": "handwritten_tenant_predicate:79abeb78ce1a",
       "category": "handwritten_tenant_predicate",
-      "path": "server/app/modules/official/rich_text/services/RichTextDocumentService.php",
+      "path": "server/app/modules/official/rich_text/src/Service/RichTextDocumentService.php",
       "line": 118,
       "symbol": "'tenant_id' => $tenant->tenantId,",
       "owner": "TPQ02-TPQ13 / Sol",
@@ -3933,7 +3933,7 @@
     {
       "issue_id": "manual_pagination:f2a5683632ea",
       "category": "manual_pagination",
-      "path": "server/app/modules/official/member/services/MemberQueryService.php",
+      "path": "server/app/modules/official/member/src/Service/MemberQueryService.php",
       "line": 67,
       "symbol": "$query->order('id', 'desc')->page($page, $pageSize)->select()->toArray(),",
       "owner": "TPQ30-TPQ32 / Luna max; Sol review",
@@ -3966,7 +3966,7 @@
     {
       "issue_id": "manual_pagination:31d75741d5af",
       "category": "manual_pagination",
-      "path": "server/app/modules/official/notification/services/NotificationApplicationService.php",
+      "path": "server/app/modules/official/notification/src/Service/NotificationApplicationService.php",
       "line": 104,
       "symbol": "$list = $query->order('l.id', 'desc')->page($page, $limit)->select()->toArray();",
       "owner": "TPQ30-TPQ32 / Luna max; Sol review",
@@ -3977,7 +3977,7 @@
     {
       "issue_id": "manual_pagination:40588ae6bb31",
       "category": "manual_pagination",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 31,
       "symbol": "->page($pagination->page, $pagination->pageSize)->select()->toArray();",
       "owner": "TPQ30-TPQ32 / Luna max; Sol review",
@@ -3999,7 +3999,7 @@
     {
       "issue_id": "manual_pagination:13d4259ed579",
       "category": "manual_pagination",
-      "path": "server/app/modules/official/payment/services/RefundApplicationService.php",
+      "path": "server/app/modules/official/payment/src/Service/RefundApplicationService.php",
       "line": 86,
       "symbol": "->page($pageNo, $pageSize)",
       "owner": "TPQ30-TPQ32 / Luna max; Sol review",
@@ -4010,7 +4010,7 @@
     {
       "issue_id": "manual_pagination:5f1e098da50b",
       "category": "manual_pagination",
-      "path": "server/app/modules/official/task/services/CrontabApplicationService.php",
+      "path": "server/app/modules/official/task/src/Service/CrontabApplicationService.php",
       "line": 37,
       "symbol": "->page($pagination->page, $pagination->pageSize)",
       "owner": "TPQ30-TPQ32 / Luna max; Sol review",
@@ -4461,7 +4461,7 @@
     {
       "issue_id": "model_accessor_mutator:c029b62d00f2",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/article/model/Article.php",
+      "path": "server/app/modules/official/article/src/Model/Article.php",
       "line": 24,
       "symbol": "public function setImageAttr($value): string",
       "owner": "TPQ05/TPQ13 / Sol",
@@ -4474,7 +4474,7 @@
     {
       "issue_id": "model_accessor_mutator:6e5da17cc8ef",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/article/model/Article.php",
+      "path": "server/app/modules/official/article/src/Model/Article.php",
       "line": 25,
       "symbol": "public function getClickAttr($value, array $data): int",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4485,7 +4485,7 @@
     {
       "issue_id": "model_accessor_mutator:2288d8caa2b5",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/article/model/Article.php",
+      "path": "server/app/modules/official/article/src/Model/Article.php",
       "line": 30,
       "symbol": "public function setContentAttr($value): string",
       "owner": "TPQ05/TPQ13 / Sol",
@@ -4498,7 +4498,7 @@
     {
       "issue_id": "model_accessor_mutator:7fd2a8e28fc5",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/article/model/Article.php",
+      "path": "server/app/modules/official/article/src/Model/Article.php",
       "line": 31,
       "symbol": "public function getImageAttr($value): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4509,7 +4509,7 @@
     {
       "issue_id": "model_accessor_mutator:071b80532231",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/article/model/Article.php",
+      "path": "server/app/modules/official/article/src/Model/Article.php",
       "line": 43,
       "symbol": "public function getContentAttr($value): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4520,7 +4520,7 @@
     {
       "issue_id": "model_accessor_mutator:518adef1d7cd",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/file/model/File.php",
+      "path": "server/app/modules/official/file/src/Model/File.php",
       "line": 17,
       "symbol": "public function getUrlAttr($value, $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4531,7 +4531,7 @@
     {
       "issue_id": "model_accessor_mutator:c335d0595d37",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/member/model/Member.php",
+      "path": "server/app/modules/official/member/src/Model/Member.php",
       "line": 19,
       "symbol": "public function setAvatarAttr($value): string",
       "owner": "TPQ05/TPQ13 / Sol",
@@ -4544,7 +4544,7 @@
     {
       "issue_id": "model_accessor_mutator:e4dffd9a797c",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/member/model/Member.php",
+      "path": "server/app/modules/official/member/src/Model/Member.php",
       "line": 20,
       "symbol": "public function getAvatarAttr($value): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4555,7 +4555,7 @@
     {
       "issue_id": "model_accessor_mutator:bf34a78c5550",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/notification/model/NoticeScene.php",
+      "path": "server/app/modules/official/notification/src/Model/NoticeScene.php",
       "line": 19,
       "symbol": "public function getVariablesAttr(mixed $value): array",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4566,7 +4566,7 @@
     {
       "issue_id": "model_accessor_mutator:0dae52e0f26a",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/notification/model/NoticeScene.php",
+      "path": "server/app/modules/official/notification/src/Model/NoticeScene.php",
       "line": 36,
       "symbol": "public function setVariablesAttr(array|string $value): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4577,7 +4577,7 @@
     {
       "issue_id": "model_accessor_mutator:403e0cad556e",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/payment/model/RechargeOrder.php",
+      "path": "server/app/modules/official/payment/src/Model/RechargeOrder.php",
       "line": 39,
       "symbol": "public function getPayWayTextAttr($value, array $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4588,7 +4588,7 @@
     {
       "issue_id": "model_accessor_mutator:04d5ca9b0de8",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/payment/model/RechargeOrder.php",
+      "path": "server/app/modules/official/payment/src/Model/RechargeOrder.php",
       "line": 48,
       "symbol": "public function getPayStatusTextAttr($value, array $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4599,7 +4599,7 @@
     {
       "issue_id": "model_accessor_mutator:772f95d735d9",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/payment/model/RefundLog.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundLog.php",
       "line": 27,
       "symbol": "public function getRefundStatusTextAttr($value, $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4610,7 +4610,7 @@
     {
       "issue_id": "model_accessor_mutator:f21a7aed18c9",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/payment/model/RefundRecord.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundRecord.php",
       "line": 27,
       "symbol": "public function getRefundTypeTextAttr($value, $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4621,7 +4621,7 @@
     {
       "issue_id": "model_accessor_mutator:169de251f996",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/payment/model/RefundRecord.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundRecord.php",
       "line": 33,
       "symbol": "public function getRefundStatusTextAttr($value, $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4632,7 +4632,7 @@
     {
       "issue_id": "model_accessor_mutator:b76d19a8f5d3",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/payment/model/RefundRecord.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundRecord.php",
       "line": 39,
       "symbol": "public function getRefundWayTextAttr($value, $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4643,7 +4643,7 @@
     {
       "issue_id": "model_accessor_mutator:1e8b17553ffe",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/task/model/Crontab.php",
+      "path": "server/app/modules/official/task/src/Model/Crontab.php",
       "line": 20,
       "symbol": "public function getTypeDescAttr($value, $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4654,7 +4654,7 @@
     {
       "issue_id": "model_accessor_mutator:1d3882cc3936",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/task/model/Crontab.php",
+      "path": "server/app/modules/official/task/src/Model/Crontab.php",
       "line": 26,
       "symbol": "public function getStatusDescAttr($value, $data): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -4665,7 +4665,7 @@
     {
       "issue_id": "model_accessor_mutator:5d0e89c4a408",
       "category": "model_accessor_mutator",
-      "path": "server/app/modules/official/task/model/Crontab.php",
+      "path": "server/app/modules/official/task/src/Model/Crontab.php",
       "line": 32,
       "symbol": "public function getLastTimeAttr($value): string",
       "owner": "TPQ36/TPQ46 / Terra inventory; Sol review",
@@ -5017,7 +5017,7 @@
     {
       "issue_id": "query_inside_loop:8cf003870b4a",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/file/services/FileAdministrationService.php",
+      "path": "server/app/modules/official/file/src/Service/FileAdministrationService.php",
       "line": 133,
       "symbol": "StorageService::fromDefaultConnection()->delete($tenantId, $fileKey);",
       "owner": "TPQ33/TPQ38 / Sol",
@@ -5074,7 +5074,7 @@
     {
       "issue_id": "query_inside_loop:6996a73ae830",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/member/services/MemberIdentityContractService.php",
+      "path": "server/app/modules/official/member/src/Service/MemberIdentityContractService.php",
       "line": 135,
       "symbol": "} while (MemberTenantRepository::members($context)->withTrashed()->where('account', $account)->count() > 0);",
       "owner": "TPQ33/TPQ38 / Terra inventory; Sol review",
@@ -5085,7 +5085,7 @@
     {
       "issue_id": "query_inside_loop:69f3ebb6f89f",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/member/model/Member.php",
+      "path": "server/app/modules/official/member/src/Model/Member.php",
       "line": 35,
       "symbol": "} while (MemberTenantRepository::members($context)->where('sn', $sn)->count() > 0);",
       "owner": "TPQ33/TPQ38 / Terra inventory; Sol review",
@@ -5096,7 +5096,7 @@
     {
       "issue_id": "query_inside_loop:60c1b74c6280",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/member/model/MemberBalanceLog.php",
+      "path": "server/app/modules/official/member/src/Model/MemberBalanceLog.php",
       "line": 24,
       "symbol": "} while (MemberTenantRepository::balanceLogs($context)->withTrashed()->where('sn', $sn)->count() > 0);",
       "owner": "TPQ33/TPQ38 / Terra inventory; Sol review",
@@ -5107,7 +5107,7 @@
     {
       "issue_id": "query_inside_loop:3194f6ffbe92",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 168,
       "symbol": "$row->save();",
       "owner": "TPQ33/TPQ38 / Terra inventory; Sol review",
@@ -5118,7 +5118,7 @@
     {
       "issue_id": "query_inside_loop:60c097160199",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/payment/model/RechargeOrder.php",
+      "path": "server/app/modules/official/payment/src/Model/RechargeOrder.php",
       "line": 61,
       "symbol": "} while (self::withTrashed()->where('sn', $sn)->count() > 0);",
       "owner": "TPQ33/TPQ38 / Terra inventory; Sol review",
@@ -5129,7 +5129,7 @@
     {
       "issue_id": "query_inside_loop:fdf1750a642a",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/payment/model/RefundLog.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundLog.php",
       "line": 21,
       "symbol": "} while (self::where('sn', $sn)->count() > 0);",
       "owner": "TPQ33/TPQ38 / Terra inventory; Sol review",
@@ -5140,7 +5140,7 @@
     {
       "issue_id": "query_inside_loop:fae0b0a7b459",
       "category": "query_inside_loop",
-      "path": "server/app/modules/official/payment/model/RefundRecord.php",
+      "path": "server/app/modules/official/payment/src/Model/RefundRecord.php",
       "line": 21,
       "symbol": "} while (self::where('sn', $sn)->count() > 0);",
       "owner": "TPQ33/TPQ38 / Terra inventory; Sol review",
@@ -5809,7 +5809,7 @@
     {
       "issue_id": "static_logic_layer:3fab2499eb47",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/oauth/services/MiniProgramApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/MiniProgramApplicationService.php",
       "line": 13,
       "symbol": "class MiniProgramApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5820,7 +5820,7 @@
     {
       "issue_id": "static_logic_layer:c3e3cc45c5e4",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountApplicationService.php",
       "line": 13,
       "symbol": "class OfficialAccountApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5831,7 +5831,7 @@
     {
       "issue_id": "static_logic_layer:e8eab1fd1358",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountMenuApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountMenuApplicationService.php",
       "line": 12,
       "symbol": "class OfficialAccountMenuApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5842,7 +5842,7 @@
     {
       "issue_id": "static_logic_layer:2fcf0fc75312",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/oauth/services/OfficialAccountReplyApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OfficialAccountReplyApplicationService.php",
       "line": 17,
       "symbol": "class OfficialAccountReplyApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5853,7 +5853,7 @@
     {
       "issue_id": "static_logic_layer:6200cb47cfe4",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/oauth/services/OpenPlatformApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/OpenPlatformApplicationService.php",
       "line": 11,
       "symbol": "class OpenPlatformApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5864,7 +5864,7 @@
     {
       "issue_id": "static_logic_layer:3da19a6ab72b",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/oauth/services/WebPageApplicationService.php",
+      "path": "server/app/modules/official/oauth/src/Service/WebPageApplicationService.php",
       "line": 12,
       "symbol": "class WebPageApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5875,7 +5875,7 @@
     {
       "issue_id": "static_logic_layer:89e0ed7a624b",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/payment/services/PayConfigApplicationService.php",
+      "path": "server/app/modules/official/payment/src/Service/PayConfigApplicationService.php",
       "line": 19,
       "symbol": "class PayConfigApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5897,7 +5897,7 @@
     {
       "issue_id": "static_logic_layer:78a67d8c8c87",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/payment/services/RechargeSettingApplicationService.php",
+      "path": "server/app/modules/official/payment/src/Service/RechargeSettingApplicationService.php",
       "line": 12,
       "symbol": "class RechargeSettingApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5908,7 +5908,7 @@
     {
       "issue_id": "static_logic_layer:3dd665062718",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/payment/services/RefundApplicationService.php",
+      "path": "server/app/modules/official/payment/src/Service/RefundApplicationService.php",
       "line": 18,
       "symbol": "class RefundApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -5919,7 +5919,7 @@
     {
       "issue_id": "static_logic_layer:d70fd88067e4",
       "category": "static_logic_layer",
-      "path": "server/app/modules/official/task/services/CrontabApplicationService.php",
+      "path": "server/app/modules/official/task/src/Service/CrontabApplicationService.php",
       "line": 18,
       "symbol": "class CrontabApplicationService extends BaseLogic",
       "owner": "TPQ42 / Luna max; Sol review",
@@ -6271,7 +6271,7 @@
     {
       "issue_id": "tenant_context_request_argument:c702d7b08110",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/import_export/controller/ConfigurationTransferController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/ConfigurationTransferController.php",
       "line": 26,
       "symbol": "OperationLogTenantContext::member($this->request),",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6282,7 +6282,7 @@
     {
       "issue_id": "tenant_context_request_argument:29524101bd26",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/import_export/controller/ConfigurationTransferController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/ConfigurationTransferController.php",
       "line": 39,
       "symbol": "OperationLogTenantContext::member($this->request),",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6293,7 +6293,7 @@
     {
       "issue_id": "tenant_context_request_argument:f82619793cec",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/import_export/controller/ConfigurationTransferController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/ConfigurationTransferController.php",
       "line": 55,
       "symbol": "OperationLogTenantContext::member($this->request),",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6304,7 +6304,7 @@
     {
       "issue_id": "tenant_context_request_argument:9eb8d6756868",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/import_export/controller/OperationLogExportController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/OperationLogExportController.php",
       "line": 24,
       "symbol": "$context = OperationLogTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6315,7 +6315,7 @@
     {
       "issue_id": "tenant_context_request_argument:36905322e8a5",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/import_export/controller/OperationLogExportController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/OperationLogExportController.php",
       "line": 39,
       "symbol": "$context = OperationLogTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6326,7 +6326,7 @@
     {
       "issue_id": "tenant_context_request_argument:a8cfaccac980",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/import_export/controller/OperationLogExportController.php",
+      "path": "server/app/modules/official/import_export/src/Controller/OperationLogExportController.php",
       "line": 54,
       "symbol": "$context = OperationLogTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6337,7 +6337,7 @@
     {
       "issue_id": "tenant_context_request_argument:35494caf3bda",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/AccountLogController.php",
+      "path": "server/app/modules/official/member/src/Controller/AccountLogController.php",
       "line": 18,
       "symbol": "$result = AccountLogLogic::lists(MemberTenantContext::member($this->request), $params);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6348,7 +6348,7 @@
     {
       "issue_id": "tenant_context_request_argument:2a205673f3fd",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberController.php",
       "line": 15,
       "symbol": "$result = MemberLogic::lists(MemberTenantContext::member($this->request), $this->request->get());",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6359,7 +6359,7 @@
     {
       "issue_id": "tenant_context_request_argument:6499fe595f30",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberController.php",
       "line": 21,
       "symbol": "$context = MemberTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6370,7 +6370,7 @@
     {
       "issue_id": "tenant_context_request_argument:95eeb2327636",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberController.php",
       "line": 28,
       "symbol": "$context = MemberTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6381,7 +6381,7 @@
     {
       "issue_id": "tenant_context_request_argument:1320ee46009b",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberController.php",
       "line": 36,
       "symbol": "$context = MemberTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6392,7 +6392,7 @@
     {
       "issue_id": "tenant_context_request_argument:de333104859a",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberController.php",
       "line": 45,
       "symbol": "$context = MemberTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6403,7 +6403,7 @@
     {
       "issue_id": "tenant_context_request_argument:060d970cf39b",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberController.php",
       "line": 54,
       "symbol": "$context = MemberTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6414,7 +6414,7 @@
     {
       "issue_id": "tenant_context_request_argument:811fde5ed5e1",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberTagController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberTagController.php",
       "line": 13,
       "symbol": "public function lists()  { return $this->data(MemberTagLogic::lists(MemberTenantContext::member($this->request))); }",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6425,7 +6425,7 @@
     {
       "issue_id": "tenant_context_request_argument:345699555bad",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberTagController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberTagController.php",
       "line": 18,
       "symbol": "$r = MemberTagLogic::add(MemberTenantContext::member($this->request), $this->request->post());",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6436,7 +6436,7 @@
     {
       "issue_id": "tenant_context_request_argument:6dc96796a613",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberTagController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberTagController.php",
       "line": 25,
       "symbol": "$r = MemberTagLogic::edit(MemberTenantContext::member($this->request), $this->request->post());",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6447,7 +6447,7 @@
     {
       "issue_id": "tenant_context_request_argument:597af4d0da6b",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/member/controller/MemberTagController.php",
+      "path": "server/app/modules/official/member/src/Controller/MemberTagController.php",
       "line": 31,
       "symbol": "$r = MemberTagLogic::delete(MemberTenantContext::member($this->request), (int)$this->request->post('id'));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6458,7 +6458,7 @@
     {
       "issue_id": "tenant_context_request_argument:7a591ad55c1b",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/notification/controller/NoticeChannelController.php",
+      "path": "server/app/modules/official/notification/src/Controller/NoticeChannelController.php",
       "line": 20,
       "symbol": "return $this->data((new ModuleProvider())->queries()->channelDetail(MemberTenantContext::member($this->request)));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6469,7 +6469,7 @@
     {
       "issue_id": "tenant_context_request_argument:c269e8486b33",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/notification/controller/NoticeChannelController.php",
+      "path": "server/app/modules/official/notification/src/Controller/NoticeChannelController.php",
       "line": 34,
       "symbol": "(new ModuleProvider())->commands()->saveChannel(MemberTenantContext::member($this->request), $section, $post);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6480,7 +6480,7 @@
     {
       "issue_id": "tenant_context_request_argument:73f0a67d131c",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/MiniProgramController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/MiniProgramController.php",
       "line": 15,
       "symbol": "return $this->data(MiniProgramApplicationService::getConfig(MemberTenantContext::member($this->request)));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6491,7 +6491,7 @@
     {
       "issue_id": "tenant_context_request_argument:bdf2c7d1d50c",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/MiniProgramController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/MiniProgramController.php",
       "line": 22,
       "symbol": "return MiniProgramApplicationService::setConfig(MemberTenantContext::member($this->request), $params)",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6502,7 +6502,7 @@
     {
       "issue_id": "tenant_context_request_argument:590b9171458c",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OfficialAccountController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountController.php",
       "line": 15,
       "symbol": "return $this->data(OfficialAccountApplicationService::getConfig(MemberTenantContext::member($this->request)));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6513,7 +6513,7 @@
     {
       "issue_id": "tenant_context_request_argument:9327c05eda26",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OfficialAccountController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountController.php",
       "line": 22,
       "symbol": "return OfficialAccountApplicationService::setConfig(MemberTenantContext::member($this->request), $params)",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6524,7 +6524,7 @@
     {
       "issue_id": "tenant_context_request_argument:ded9ea95b8e1",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OfficialAccountMenuController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountMenuController.php",
       "line": 15,
       "symbol": "return $this->data(OfficialAccountMenuApplicationService::detail(MemberTenantContext::member($this->request)));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6535,7 +6535,7 @@
     {
       "issue_id": "tenant_context_request_argument:48028cebb933",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OfficialAccountMenuController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountMenuController.php",
       "line": 23,
       "symbol": "MemberTenantContext::member($this->request),",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6546,7 +6546,7 @@
     {
       "issue_id": "tenant_context_request_argument:0bedc2614dea",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OfficialAccountMenuController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountMenuController.php",
       "line": 34,
       "symbol": "MemberTenantContext::member($this->request),",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6557,7 +6557,7 @@
     {
       "issue_id": "tenant_context_request_argument:46e0034c890f",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OfficialAccountReplyController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountReplyController.php",
       "line": 26,
       "symbol": "$context = MemberTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6568,7 +6568,7 @@
     {
       "issue_id": "tenant_context_request_argument:007984d188b9",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OpenPlatformController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OpenPlatformController.php",
       "line": 15,
       "symbol": "return $this->data(OpenPlatformApplicationService::getConfig(MemberTenantContext::member($this->request)));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6579,7 +6579,7 @@
     {
       "issue_id": "tenant_context_request_argument:11f062fb6251",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/OpenPlatformController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/OpenPlatformController.php",
       "line": 22,
       "symbol": "return OpenPlatformApplicationService::setConfig(MemberTenantContext::member($this->request), $params)",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6590,7 +6590,7 @@
     {
       "issue_id": "tenant_context_request_argument:05bb937a5a7a",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/WebPageController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/WebPageController.php",
       "line": 15,
       "symbol": "return $this->data(WebPageApplicationService::getConfig(MemberTenantContext::member($this->request)));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6601,7 +6601,7 @@
     {
       "issue_id": "tenant_context_request_argument:e4f8e2654502",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/oauth/controller/WebPageController.php",
+      "path": "server/app/modules/official/oauth/src/Controller/WebPageController.php",
       "line": 22,
       "symbol": "WebPageApplicationService::setConfig(MemberTenantContext::member($this->request), $params);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6612,7 +6612,7 @@
     {
       "issue_id": "tenant_context_request_argument:770ac45e722c",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/payment/controller/PayConfigController.php",
+      "path": "server/app/modules/official/payment/src/Controller/PayConfigController.php",
       "line": 15,
       "symbol": "return $this->data(PayConfigApplicationService::getConfig(MemberTenantContext::member($this->request)));",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6623,7 +6623,7 @@
     {
       "issue_id": "tenant_context_request_argument:b7d3744a2050",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/payment/controller/PayConfigController.php",
+      "path": "server/app/modules/official/payment/src/Controller/PayConfigController.php",
       "line": 22,
       "symbol": "$result = PayConfigApplicationService::setConfig(MemberTenantContext::member($this->request), $params);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6634,7 +6634,7 @@
     {
       "issue_id": "tenant_context_request_argument:732342ef4fc4",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/task/controller/CrontabController.php",
+      "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
       "line": 18,
       "symbol": "CrontabTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6645,7 +6645,7 @@
     {
       "issue_id": "tenant_context_request_argument:094a61819406",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/task/controller/CrontabController.php",
+      "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
       "line": 27,
       "symbol": "CrontabTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6656,7 +6656,7 @@
     {
       "issue_id": "tenant_context_request_argument:8b34da1bea49",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/task/controller/CrontabController.php",
+      "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
       "line": 35,
       "symbol": "CrontabTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6667,7 +6667,7 @@
     {
       "issue_id": "tenant_context_request_argument:e6296d00f762",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/task/controller/CrontabController.php",
+      "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
       "line": 43,
       "symbol": "CrontabTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6678,7 +6678,7 @@
     {
       "issue_id": "tenant_context_request_argument:46060c948937",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/task/controller/CrontabController.php",
+      "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
       "line": 52,
       "symbol": "CrontabTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",
@@ -6689,7 +6689,7 @@
     {
       "issue_id": "tenant_context_request_argument:8f1fca2f0636",
       "category": "tenant_context_request_argument",
-      "path": "server/app/modules/official/task/controller/CrontabController.php",
+      "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
       "line": 63,
       "symbol": "CrontabTenantContext::member($this->request);",
       "owner": "TPQ25 / Luna max; Sol review",

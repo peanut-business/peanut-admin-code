@@ -164,7 +164,7 @@ const temporary = mkdtempSync(resolve(tmpdir(), 'pa-module-dev-discovery-'));
 try {
   const invalidRoot = resolve(
     temporary,
-    'server/app/Modules/Fixture/InvalidEntry'
+    'server/app/modules/fixture/invalid_entry'
   );
   mkdirSync(invalidRoot, { recursive: true });
   mkdirSync(resolve(temporary, 'web/src/modules/fixture-invalid-entry'), {
