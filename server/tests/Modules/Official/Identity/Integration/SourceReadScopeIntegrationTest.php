@@ -52,10 +52,10 @@ final class SourceReadScopeIntegrationTest extends TestCase
             $password,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => true],
         );
-        $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
-        $this->admin->exec('CREATE DATABASE `' . self::DATABASE . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
+        $this->admin->exec('DROP DATABASE IF EXISTS `' . $this->testDatabase() . '`');
+        $this->admin->exec('CREATE DATABASE `' . $this->testDatabase() . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
         $this->database = new PDO(
-            "mysql:host={$host};port={$port};dbname=" . self::DATABASE . ';charset=utf8mb4',
+            "mysql:host={$host};port={$port};dbname=" . $this->testDatabase() . ';charset=utf8mb4',
             $user,
             $password,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => true],
@@ -114,7 +114,7 @@ SQL);
     protected function tearDown(): void
     {
         if (isset($this->admin)) {
-            $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
+            $this->admin->exec('DROP DATABASE IF EXISTS `' . $this->testDatabase() . '`');
         }
     }
 
@@ -250,6 +250,56 @@ SQL);
                 "SELECT COUNT(*) FROM pa_tenant_audit_event WHERE event_type IN ('tenant.source-read-grant.changed','tenant.source-read-grant.revoked')",
             )->fetchColumn(),
         );
+    }
+
+    /** 测试只连接调用方独占的合成数据库；可覆盖名称，避免占用另一个任务的租约。 */
+    private function testDatabase(): string
+    {
+        $name = getenv('PEANUT_SCOPE_TEST_DATABASE') ?: self::DATABASE;
+        if (preg_match('/^peanut_admin_scope_[a-z0-9_]{1,40}$/D', $name) !== 1) {
+            throw new \RuntimeException('SOURCE_READ_TEST_DATABASE_INVALID');
+        }
+        return $name;
+    }
+
+    public function testDistinctModuleEntitlementsAndObjectFieldProjectionUseTheRealGrantStore(): void
+    {
+        $registry = new SourceReadCapabilityRegistry([
+            new SourceReadCapability('fixture.order-summary', 'aggregate', 'official.inventory',
+                'core.role.read', 'core.role.data-policy.manage', ['id', 'amount', 'status'], 'official.summary'),
+        ]);
+        $repository = new ThinkPhpTenantAuthorizationRepository();
+        $permissions = new TenantAuthorizationEvaluator($repository, new RevisionPermissionCache());
+        // 这一组只替换模块状态来源，实际授权存储、租户、权限、SQL 和撤销仍用真实 MySQL。
+        $moduleCalls = [];
+        $modules = $this->createMock(\PeanutAdmin\Kernel\Module\ModuleAvailability::class);
+        $modules->expects(self::any())->method('assertAvailable')->willReturnCallback(
+            function ($scope, $moduleKey) use (&$moduleCalls): void {
+                $moduleCalls[] = [$scope->tenantId(), $moduleKey];
+                $expected = $scope->tenantId() === 101 ? 'official.summary' : 'official.inventory';
+                self::assertSame($expected, $moduleKey, 'Source provider and recipient feature must be checked separately');
+            },
+        );
+        $grants = new SourceReadGrantAdministrationService($registry, $permissions, $modules, new AuditService());
+        $authority = new ThinkPhpReadScopeAuthority($registry, $permissions, $repository, $modules);
+        $source = $this->context(202, 502, 1502, 'source-a');
+        $receiver = $this->context(101, 501, 1501, 'receiver');
+        $first = $grants->put($source, 101, 'fixture.order-summary', 'aggregate', 'allow', 1, ['id', 'amount']);
+        $grants->put($source, 101, 'fixture.order-summary', 'aggregate', 'allow', 7, ['id', 'status']);
+        $scope = $authority->authorize($receiver, 'fixture.order-summary', 'aggregate', [202], ['id', 'amount']);
+        self::assertSame(['amount', 'id'], $scope->requestedFields);
+        self::assertSame([1], $scope->sources[0]->objectIds);
+        $query = Db::table('pa_scope_order')->alias('o')->field('o.id,o.amount')->order('o.id');
+        (new ThinkPhpQueryConstraintApplier())->apply($query, $scope->constraint(new ColumnReference('o.tenant_id'), new ColumnReference('o.id')));
+        self::assertSame([['id' => 1, 'amount' => 10]], array_map($this->ints(...), $query->select()->toArray()));
+        $other = $authority->authorize($receiver, 'fixture.order-summary', 'aggregate', [202], ['status']);
+        self::assertSame([7], $other->sources[0]->objectIds);
+        $this->expectAuthorizationCode('AUTHZ_READ_FIELDS_DENIED', fn() => $authority->authorize($receiver, 'fixture.order-summary', 'aggregate', [202], ['amount', 'status']));
+        $authority->assertCurrent($scope);
+        self::assertContains([101, 'official.summary'], $moduleCalls);
+        self::assertContains([202, 'official.inventory'], $moduleCalls);
+        $grants->revoke($source, $first['id'], 1);
+        $this->expectAuthorizationFailure(fn() => $authority->assertCurrent($scope));
     }
 
     private function fixtures(): void

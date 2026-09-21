@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c674b576ed816387ab3dc391162dc03e",
+    "content-hash": "474894890b85ea1c5054dfa48ee3e845",
     "packages": [
         {
             "name": "aliyuncs/oss-sdk-php",
@@ -1482,12 +1482,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-                "reference": "584f3f7033de95ebfd118e4737094cd8d1a06bc2"
+                "reference": "7a8c15e66c441048b740961dc743e7379921faec"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/peanut-business/peanut-admin-core-php/zipball/584f3f7033de95ebfd118e4737094cd8d1a06bc2",
-                "reference": "584f3f7033de95ebfd118e4737094cd8d1a06bc2",
+                "url": "https://api.github.com/repos/peanut-business/peanut-admin-core-php/zipball/7a8c15e66c441048b740961dc743e7379921faec",
+                "reference": "7a8c15e66c441048b740961dc743e7379921faec",
                 "shasum": ""
             },
             "require": {
@@ -1537,7 +1537,7 @@
                 "source": "https://github.com/peanut-business/peanut-admin-core-php/tree/dev",
                 "issues": "https://github.com/peanut-business/peanut-admin-core-php/issues"
             },
-            "time": "2026-09-21T00:28:39+00:00"
+            "time": "2026-09-21T04:35:35+00:00"
         },
         {
             "name": "psr/container",

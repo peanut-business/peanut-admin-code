@@ -43,7 +43,7 @@ final readonly class SourceReadGrantAdministrationService
     ): array {
         $definition = $this->capabilities->require($capability, $action);
         $this->permissions->assertAllowed($actor, $definition->managePermissionKey);
-        $this->assertTenants($actor, $recipientTenantId, $definition->moduleKey);
+        $this->assertTenants($actor, $recipientTenantId, $definition);
         $fields = $this->fields($definition, $effect, $fields);
         if ($objectId !== null && $objectId < 1) {
             throw new \InvalidArgumentException('SOURCE_READ_GRANT_OBJECT_INVALID');
@@ -168,12 +168,13 @@ final readonly class SourceReadGrantAdministrationService
         });
     }
 
-    private function assertTenants(TenantContext $actor, int $recipientTenantId, string $moduleKey): void
+    private function assertTenants(TenantContext $actor, int $recipientTenantId, SourceReadCapability $definition): void
     {
         if ($recipientTenantId < 1 || $recipientTenantId === $actor->tenantId) {
             throw new \InvalidArgumentException('SOURCE_READ_GRANT_TENANT_INVALID');
         }
-        foreach ([$actor->tenantId, $recipientTenantId] as $tenantId) {
+        // 来源具备数据提供模块；接收方具备消费该能力的模块，两者不必相同。
+        foreach ([[$actor->tenantId, $definition->moduleKey], [$recipientTenantId, $definition->recipientModuleKey]] as [$tenantId, $moduleKey]) {
             if (Tenant::where('id', $tenantId)->where('status', 'active')->value('id') === null) {
                 throw new DataAuthorizationException('AUTHZ_READ_TENANT_UNAVAILABLE', 'A source-read tenant is unavailable.');
             }

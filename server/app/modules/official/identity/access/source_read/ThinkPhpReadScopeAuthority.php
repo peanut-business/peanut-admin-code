@@ -33,21 +33,25 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
         string $capability,
         string $action,
         array $requestedSourceTenantIds = [],
+        array $requestedFields = [],
     ): AuthorizedReadScope {
         $definition = $this->capabilities->require($capability, $action);
+        $requestedFields = SourceReadProjection::requestedFields($requestedFields, $definition->fields);
         $this->permissions->assertAllowed($actor, $definition->readPermissionKey);
         $requested = $this->requestedSources($actor, $requestedSourceTenantIds);
-        $this->assertTenantAndModule($actor->tenantId, $definition->moduleKey);
+        $this->assertTenantAndModule($actor->tenantId, $definition->recipientModuleKey);
         $authorizationRevision = $this->authorization->revision($actor->tenantId, $actor->memberId);
         $sources = [];
         $revisionParts = [
-            $definition->key, $definition->action, $definition->moduleKey,
+            $definition->key, $definition->action, $definition->moduleKey, $definition->recipientModuleKey,
+            json_encode($definition->fields, JSON_THROW_ON_ERROR),
+            json_encode($requestedFields, JSON_THROW_ON_ERROR),
             $definition->readPermissionKey, $authorizationRevision, (string)$actor->authorizationRevision,
         ];
 
         foreach ($requested as $sourceTenantId) {
             $this->assertTenantAndModule($sourceTenantId, $definition->moduleKey);
-            [$source, $grantRevisionParts] = $this->authorizedSource($actor, $definition, $sourceTenantId);
+            [$source, $grantRevisionParts] = $this->authorizedSource($actor, $definition, $sourceTenantId, $requestedFields);
             $sources[] = $source;
             array_push($revisionParts, ...$grantRevisionParts);
         }
@@ -62,6 +66,7 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
             $definition->action,
             $sources,
             hash('sha256', json_encode($revisionParts, JSON_THROW_ON_ERROR)),
+            $requestedFields,
         );
     }
 
@@ -72,6 +77,7 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
             $scope->capability,
             $scope->action,
             $scope->sourceTenantIds(),
+            $scope->requestedFields,
         );
         if (!hash_equals($scope->revision, $current->revision)) {
             throw new DataAuthorizationException(
@@ -124,6 +130,7 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
         TenantContext $actor,
         SourceReadCapability $definition,
         int $sourceTenantId,
+        array $requestedFields,
     ): array {
         $rows = SourceReadGrantRecord::where('source_tenant_id', $sourceTenantId)
             ->where('recipient_tenant_id', $actor->tenantId)
@@ -161,37 +168,11 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
             throw new DataAuthorizationException('AUTHZ_READ_SOURCE_DENIED', 'The requested read source is explicitly denied.');
         }
 
-        $allObjects = false;
-        $allowedObjects = [];
-        // The scope exposes one projection for the whole source. Intersecting all
-        // applicable allows prevents a field granted for one object leaking from another.
-        $fields = null;
-        foreach ($allows as $allow) {
-            if ($allow['object_id'] === null) {
-                $allObjects = true;
-            } else {
-                $allowedObjects[$allow['object_id']] = true;
-            }
-            $allowFields = array_values(array_intersect($definition->fields, $allow['fields']));
-            $fields = $fields === null ? $allowFields : array_values(array_intersect($fields, $allowFields));
-        }
-        $fields ??= [];
-        sort($fields, SORT_STRING);
-        if ($fields === []) {
-            throw new DataAuthorizationException('AUTHZ_READ_FIELDS_DENIED', 'No common granted output field remains.');
-        }
-        foreach (array_keys($denied) as $deniedId) {
-            unset($allowedObjects[$deniedId]);
-        }
-        $objectIds = $allObjects ? null : array_map('intval', array_keys($allowedObjects));
-        if ($objectIds !== null) {
-            sort($objectIds, SORT_NUMERIC);
-        }
         $deniedIds = array_map('intval', array_keys($denied));
         sort($deniedIds, SORT_NUMERIC);
-        if ($objectIds === []) {
-            throw new DataAuthorizationException('AUTHZ_READ_SOURCE_DENIED', 'No authorized object remains in the source.');
-        }
+        [$objectIds, $fields] = SourceReadProjection::resolve(
+            $allows, $deniedIds, $definition->fields, $requestedFields,
+        );
         $sourceRevision = hash('sha256', json_encode($revisionParts, JSON_THROW_ON_ERROR));
 
         return [
