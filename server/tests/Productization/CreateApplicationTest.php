@@ -314,10 +314,17 @@ try {
         'source-only fixture Plugin leaked into the generated Plugin lock'
     );
     $generatedProductionDockerfile = (string)file_get_contents($first . '/deploy/docker/production.Dockerfile');
-    createApplicationExpect(
-        preg_match('/COPY plugins\\.lock \/build\/plugins\\.lock\\R+COPY web\/ \.\/\\R+RUN pnpm exec vue-tsc --noEmit/', $generatedProductionDockerfile) === 1,
-        'admin production builder must copy the fail-closed Plugin lock to the repository root before Vite build'
-    );
+    // 检查真正的构建依赖顺序，不要求 COPY 与 RUN 相邻；环境选择文件也必须在构建前生成。
+    createApplicationExpect(preg_match('/FROM client-base AS admin-builder(.*?)FROM client-base AS mobile-builder/s',
+        $generatedProductionDockerfile, $adminBuildMatch) === 1, 'admin builder stage is missing');
+    $adminBuild = $adminBuildMatch[1];
+    $compilePosition = strpos($adminBuild, 'pnpm exec vite build');
+    foreach (['COPY plugins.lock /build/plugins.lock', 'COPY scripts/client-environment.ts', 'COPY web/ ./',
+        'pnpm exec vue-tsc --noEmit', 'VITE_DEPLOYMENT_MODE=multi-tenant'] as $requiredInput) {
+        $inputPosition = strpos($adminBuild, $requiredInput);
+        createApplicationExpect(is_int($inputPosition) && is_int($compilePosition) && $inputPosition < $compilePosition,
+            'admin production build prerequisite is missing or occurs after compilation: ' . $requiredInput);
+    }
     createApplicationExpect(
         str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
             && !str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')

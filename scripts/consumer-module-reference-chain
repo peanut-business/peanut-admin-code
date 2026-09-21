@@ -196,7 +196,14 @@ def registered_database(resource_id: str, endpoint_id: str, database: str) -> tu
                if isinstance(item, dict) and item.get("stable_resource_id") == resource_id]
     expect(len(matches) == 1, "database resource is missing or ambiguous")
     resource = matches[0]
-    expect("development" in resource.get("environments", []), "resource is not for development")
+    environments = resource.get("environments", [])
+    eligible_test_resource = (
+        "development-test" in environments
+        and resource.get("application_runtime") is True
+        and resource.get("lifecycle") == "ephemeral"
+    )
+    expect("development" in environments or eligible_test_resource,
+           "resource is not an authorized development or ephemeral development-test runtime")
     endpoint = resource.get("upstream_endpoint")
     expect(isinstance(endpoint, dict) and endpoint.get("endpoint_id") == endpoint_id
            and "host" in endpoint.get("consumers", []), "endpoint is not the registered host endpoint")

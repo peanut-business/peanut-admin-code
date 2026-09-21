@@ -3013,6 +3013,20 @@
             ]
         },
         {
+            "path": "scripts/tests/consumer-module-resource-test.py",
+            "target": "scripts/tests/consumer-module-resource-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1f9e00be4231337dc6398422d5796764c2edfd62f91e6510405516392818bc7a"
+        },
+        {
             "path": "scripts/tests/run-registered-mysql-tests",
             "target": "scripts/tests/run-registered-mysql-tests",
             "classification": "managed",
