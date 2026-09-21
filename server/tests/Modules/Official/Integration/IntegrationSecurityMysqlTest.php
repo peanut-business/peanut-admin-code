@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 4) . '/tests/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__, 4) . '/tests/Support/RegisteredMysqlTestResource.php';
+
+define('INTEGRATION_MYSQL_DATABASE', RegisteredMysqlTestResource::configuredDatabaseName());
 
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use PeanutAdmin\Modules\Integration\Application\MachineIdentityService;
@@ -29,15 +32,21 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
+use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Auth\TenantSessionAccessService;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
 
 function same(mixed $expected, mixed $actual, string $message): void
 {
+    $GLOBALS['integrationMysqlChecks'] = ($GLOBALS['integrationMysqlChecks'] ?? 0) + 1;
     if ($expected !== $actual) {
         throw new RuntimeException($message . ': ' . var_export($actual, true));
     }
 }
 function truth(bool $condition, string $message): void
 {
+    $GLOBALS['integrationMysqlChecks'] = ($GLOBALS['integrationMysqlChecks'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -45,7 +54,7 @@ function truth(bool $condition, string $message): void
 function guardedDatabase(PDO $pdo): string
 {
     $database = $pdo->query('SELECT DATABASE()')->fetchColumn();
-    if ($database !== 'peanut_admin_a1_integration_test') {
+    if ($database !== INTEGRATION_MYSQL_DATABASE) {
         throw new RuntimeException('Refusing destructive SQL outside the registered Integration database.');
     }
     return $database;
@@ -67,62 +76,34 @@ function operation(string $name, int $tenantId, int $accountId, int $memberId, s
     ));
 }
 
-$host = getenv('DB_HOST');
-$port = getenv('DB_PORT');
-$user = getenv('DB_USER');
-$password = getenv('DB_PASS');
-$database = getenv('DB_NAME');
-if (!is_string($host) || $host === '' || !is_string($port) || preg_match('/^[1-9][0-9]*$/D', $port) !== 1
-    || !is_string($user) || $user === '' || !is_string($password)
-    || $database !== 'peanut_admin_a1_integration_test'
-) {
-    throw new RuntimeException('Registered Integration MySQL environment is incomplete.');
-}
-$serverDsn = "mysql:host={$host};port={$port};charset=utf8mb4";
-$pdo = new PDO($serverDsn, $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]);
-if ($pdo->query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = " . $pdo->quote($database))->fetchColumn() !== false) {
-    throw new RuntimeException('Registered Integration database must not pre-exist.');
-}
-$pdo->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-$pdo->exec("USE `{$database}`");
-same($database, guardedDatabase($pdo), 'unique database selected');
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase(INTEGRATION_MYSQL_DATABASE);
+same(INTEGRATION_MYSQL_DATABASE, guardedDatabase($pdo), 'unique database selected');
 ThinkPhpTestConnection::fromPdo($pdo);
 
-$baseTables = ['pa_tenant_session_token', 'pa_tenant_session', 'pa_tenant_member', 'pa_account', 'pa_tenant'];
+$baseTables = ['pa_tenant_session_token', 'pa_tenant_session', 'pa_tenant_audit_event', 'pa_tenant_member', 'pa_account', 'pa_tenant'];
 $drop = [...array_reverse(Schema::tableNames()), ...$baseTables];
 try {
     foreach ($drop as $table) {
         dropTable($pdo, $table);
     }
-    $pdo->exec("CREATE TABLE pa_tenant (id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB");
-    $pdo->exec("CREATE TABLE pa_account (id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB");
-    $pdo->exec("CREATE TABLE pa_tenant_member (id BIGINT UNSIGNED NOT NULL, tenant_id BIGINT UNSIGNED NOT NULL, account_id BIGINT UNSIGNED NOT NULL, PRIMARY KEY (id), UNIQUE KEY uk_member_tenant_id (tenant_id,id), CONSTRAINT fk_member_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant(id), CONSTRAINT fk_member_account FOREIGN KEY (account_id) REFERENCES pa_account(id)) ENGINE=InnoDB");
-    $pdo->exec(<<<'SQL'
-CREATE TABLE pa_tenant_session (
- id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, session_key CHAR(26) NOT NULL, tenant_id BIGINT UNSIGNED NOT NULL,
- account_id BIGINT UNSIGNED NOT NULL, tenant_member_id BIGINT UNSIGNED NOT NULL, client_key VARCHAR(64) NOT NULL,
- status VARCHAR(16) NOT NULL, issued_at DATETIME(3) NOT NULL, last_seen_at DATETIME(3) NOT NULL,
- idle_expires_at DATETIME(3) NOT NULL, absolute_expires_at DATETIME(3) NOT NULL, ip_address VARCHAR(45) NULL,
- user_agent_hash CHAR(64) NULL, revoked_at DATETIME(3) NULL, revoke_reason VARCHAR(64) NULL,
- created_at DATETIME(3) NOT NULL, updated_at DATETIME(3) NOT NULL,
- PRIMARY KEY(id), UNIQUE KEY uk_session_key(session_key), CONSTRAINT fk_session_member FOREIGN KEY(tenant_id,tenant_member_id) REFERENCES pa_tenant_member(tenant_id,id)
-) ENGINE=InnoDB
-SQL);
-    $pdo->exec("CREATE TABLE pa_tenant_session_token (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, session_id BIGINT UNSIGNED NOT NULL, token_type VARCHAR(16) NOT NULL, token_hash CHAR(64) NOT NULL, status VARCHAR(16) NOT NULL, revoked_at DATETIME(3) NULL, PRIMARY KEY(id), CONSTRAINT fk_session_token FOREIGN KEY(session_id) REFERENCES pa_tenant_session(id)) ENGINE=InnoDB");
+    foreach (['pa_account', 'pa_tenant', 'pa_tenant_member', 'pa_tenant_audit_event', 'pa_tenant_session', 'pa_tenant_session_token'] as $table) {
+        $pdo->exec(KernelSchema::createSql($table));
+    }
     foreach (Schema::tableNames() as $table) {
         $pdo->exec(Schema::createSql($table));
     }
 
-    $pdo->exec('INSERT INTO pa_tenant(id) VALUES (101),(102)');
-    $pdo->exec('INSERT INTO pa_account(id) VALUES (301),(302),(303)');
-    $pdo->exec('INSERT INTO pa_tenant_member(id,tenant_id,account_id) VALUES (501,101,301),(502,101,302),(503,102,303)');
+    $pdo->exec("INSERT INTO pa_tenant(id,code,name,display_name,status,activated_at,created_at,updated_at) VALUES (101,'tenant-a','Tenant A','Tenant A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(102,'tenant-b','Tenant B','Tenant B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
+    $pdo->exec("INSERT INTO pa_account(id,display_name,status,created_at,updated_at) VALUES (301,'Actor A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(302,'Actor B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(303,'Actor C','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
+    $pdo->exec("INSERT INTO pa_tenant_member(id,tenant_id,account_id,display_name,status,joined_at,created_at,updated_at) VALUES (501,101,301,'Actor A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(502,101,302,'Actor B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(503,102,303,'Actor C','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
     $session1 = '01J00000000000000000000000';
     $sessionOther = '01J00000000000000000000001';
     $sessionTenant2 = '01J00000000000000000000002';
-    $insertSession = $pdo->prepare("INSERT INTO pa_tenant_session(session_key,tenant_id,account_id,tenant_member_id,client_key,status,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,ip_address,user_agent_hash,created_at,updated_at) VALUES (:key,:tenant,:account,:member,'admin-web','active','2026-07-24 10:00:00.000','2026-07-24 10:00:00.000','2030-01-01 00:00:00.000','2030-01-02 00:00:00.000',:ip,:agent,'2026-07-24 10:00:00.000','2026-07-24 10:00:00.000')");
-    foreach ([[$session1,101,301,501,'203.0.113.42'],[$sessionOther,101,302,502,'198.51.100.9'],[$sessionTenant2,102,303,503,'192.0.2.7']] as [$key,$tenant,$account,$member,$ip]) {
+    $sessionOwnSecond = '01J00000000000000000000003';
+    $insertSession = $pdo->prepare("INSERT INTO pa_tenant_session(session_key,tenant_id,account_id,tenant_member_id,client_key,status,account_security_revision,tenant_security_revision,member_security_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,ip_address,user_agent_hash,created_at,updated_at) VALUES (:key,:tenant,:account,:member,'admin-web','active',1,1,1,'2026-07-24 10:00:00.000','2026-07-24 10:00:00.000','2030-01-01 00:00:00.000','2030-01-02 00:00:00.000',:ip,:agent,'2026-07-24 10:00:00.000','2026-07-24 10:00:00.000')");
+    foreach ([[$session1,101,301,501,'203.0.113.42'],[$sessionOwnSecond,101,301,501,'203.0.113.43'],[$sessionOther,101,302,502,'198.51.100.9'],[$sessionTenant2,102,303,503,'192.0.2.7']] as [$key,$tenant,$account,$member,$ip]) {
         $insertSession->execute(['key' => $key,'tenant' => $tenant,'account' => $account,'member' => $member,'ip' => $ip,'agent' => hash('sha256', 'agent-' . $key)]);
-        $pdo->prepare("INSERT INTO pa_tenant_session_token(session_id,token_type,token_hash,status) VALUES (:id,'refresh',:hash,'active')")->execute(['id' => (int) $pdo->lastInsertId(),'hash' => hash('sha256', 'token-' . $key)]);
+        $pdo->prepare("INSERT INTO pa_tenant_session_token(session_id,token_type,token_hash,status,expires_at,created_at) VALUES (:id,'refresh',:hash,'active','2030-01-02 00:00:00.000','2026-07-24 10:00:00.000')")->execute(['id' => (int) $pdo->lastInsertId(),'hash' => hash('sha256', 'token-' . $key)]);
     }
 
     $repository = new ThinkPhpIntegrationSecurityRepository();
@@ -216,32 +197,31 @@ SQL);
     $repository->purgeExpiredDeliveryData(new DateTimeImmutable('2031-01-01T00:00:00Z'), new DateTimeImmutable('2031-01-01T00:00:00Z'));
     same(0, (int) $pdo->query("SELECT COUNT(*) FROM pa_integration_webhook_delivery WHERE delivery_key='" . $expiredKey . "'")->fetchColumn(), 'terminal expired lease row purged');
 
-    $sessions = new SessionSecurityService($repository);
+    $sessions = new SessionSecurityService(new TenantSessionAccessService(
+        new ThinkPhpTenantMemberDirectory(),
+        new AuditService(),
+    ));
     $listed = $sessions->list(operation('session-read', 101, 301, 501, $session1));
-    same(1, count($listed), 'sessions self scoped');
-    same('203.0.113.*', $listed[0]->maskedIp, 'IP masked');
+    same(2, count($listed), 'sessions self scoped');
+    truth($listed[0]->maskedIp === '203.0.113.*' && $listed[1]->maskedIp === '203.0.113.*', 'IPs masked');
     try {
         $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $sessionOther);
         throw new RuntimeException('cross-account session revoked');
     } catch (IntegrationSecurityException $exception) {
         same('SESSION_DEVICE_NOT_FOUND', $exception->problemCode, 'cross account hidden');
     }
-    same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $session1)->status, 'own session revoked');
-    same('revoked', (string) $pdo->query("SELECT status FROM pa_tenant_session_token WHERE token_hash='" . hash('sha256', 'token-' . $session1) . "'")->fetchColumn(), 'session tokens revoked');
+    same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $sessionOwnSecond)->status, 'own session revoked');
+    same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $sessionOwnSecond)->status, 'own session revoke idempotent');
+    same('revoked', (string) $pdo->query("SELECT status FROM pa_tenant_session_token WHERE token_hash='" . hash('sha256', 'token-' . $sessionOwnSecond) . "'")->fetchColumn(), 'session tokens revoked');
+    same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $session1)->status, 'current session revoked');
+    same(2, (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE event_type='tenant.identity.session_revoked'")->fetchColumn(), 'one Identity audit event per effective revoke');
+    $identityAudit = json_encode($pdo->query("SELECT target_resource_id,metadata_json,request_id FROM pa_tenant_audit_event WHERE event_type='tenant.identity.session_revoked'")->fetchAll(), JSON_THROW_ON_ERROR);
+    truth(!str_contains($identityAudit, $session1) && !str_contains($identityAudit, $sessionOwnSecond)
+        && str_contains($identityAudit, hash('sha256', $session1)) && str_contains($identityAudit, hash('sha256', $sessionOwnSecond)), 'Identity session audit targets redacted');
     $audit = json_encode($pdo->query('SELECT event_key,target_key_hash,metadata_json,request_id_hash FROM pa_integration_security_event')->fetchAll(), JSON_THROW_ON_ERROR);
     truth(!str_contains($audit, $machine->token) && !str_contains($audit, $endpoint->signingSecret) && !str_contains($audit, $session1), 'audit redacted');
 
-    echo "integration-security mysql harness: PASS\n";
+    echo 'integration-security mysql harness: PASS (' . ($GLOBALS['integrationMysqlChecks'] ?? 0) . " checks)\n";
 } finally {
-    foreach ($drop as $table) {
-        try {
-            dropTable($pdo, $table);
-        } catch (Throwable) {
-        }
-    }
-    try {
-        $selected = guardedDatabase($pdo);
-        $pdo->exec("DROP DATABASE `{$selected}`");
-    } catch (Throwable) {
-    }
+    RegisteredMysqlTestResource::cleanup($pdo, INTEGRATION_MYSQL_DATABASE, $createdDatabase);
 }

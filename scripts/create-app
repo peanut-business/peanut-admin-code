@@ -16,13 +16,13 @@ require $root . '/server/app/common/infrastructure/scaffold/ApplicationCreator.p
 
 function createAppUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/create-app --name=<product> --slug=<slug> --package=<vendor/name> --target=/absolute/path --edition=standalone|multi-tenant [--application-version=<semver>] [--profile=minimal|standard|full]\n");
+    fwrite(STDERR, "Usage: php scripts/create-app --name=<product> --slug=<slug> --package=<vendor/name> --target=/absolute/path --edition=standalone|multi-tenant [--application-version=<semver>] [--profile=minimal|standard|full] [--scaffold-manifest=/absolute/path/scaffold-manifest.json]\n");
     exit(64);
 }
 
 $options = [];
 foreach (array_slice($argv, 1) as $argument) {
-    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile|scaffold-manifest)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         createAppUsage();
     }
     $options[$matches[1]] = $matches[2];
@@ -43,13 +43,22 @@ try {
         throw new RuntimeException('CREATE_APP_ADOPTION_INVENTORY_VERSION_INVALID');
     }
     $versions->assertSame($templateVersion, $versions->scaffoldTemplate(), 'CREATE_APP_ADOPTION_INVENTORY_VERSION_INVALID');
-    $adoptionPath = $root . '/scaffold/releases/v' . $templateVersion . '/scaffold-manifest.json';
+    $adoptionPath = $options['scaffold-manifest']
+        ?? ($root . '/scaffold/releases/v' . $templateVersion . '/scaffold-manifest.json');
+    if (!str_starts_with($adoptionPath, '/')) {
+        throw new RuntimeException('CREATE_APP_SCAFFOLD_MANIFEST_PATH_INVALID');
+    }
     $adoption = ScaffoldManifest::load($adoptionPath);
     if ($adoption->version() !== $templateVersion
         || ($adoption->release()['inventory_template_version'] ?? null) !== $templateVersion) {
         throw new RuntimeException('CREATE_APP_ADOPTION_VERSION_MISMATCH');
     }
-    $manifest = (new ApplicationCreator($root, $inventoryPath, null, $adoption->path))->create(
+    $manifest = (new ApplicationCreator(
+        $root,
+        $inventoryPath,
+        null,
+        $adoption->path,
+    ))->create(
         $options['name'],
         $options['slug'],
         $options['package'],

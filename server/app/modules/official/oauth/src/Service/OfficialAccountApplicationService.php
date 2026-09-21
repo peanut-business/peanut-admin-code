@@ -16,6 +16,7 @@ use think\facade\Db;
 class OfficialAccountApplicationService implements OfficialAccountCallbacks
 {
     private const CONFIG_TYPE = 'oa_setting';
+    private const SECRET_MASK = '******';
 
     public function __construct(
         private readonly ExternalChannelBindings $bindings,
@@ -53,6 +54,7 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
         $stored = $this->bindings->config($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK);
         $qrCode = (string)($stored['qr_code'] ?? '');
         $secret = (string)($stored['app_secret'] ?? '');
+        $token = (string)($stored['token'] ?? '');
         $domain = rtrim($domain, '/');
         $authority = self::authority($domain);
 
@@ -61,11 +63,12 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
             'original_id' => (string)($stored['original_id'] ?? ''),
             'qr_code' => $this->files->getFileUrl($qrCode),
             'app_id' => (string)($stored['app_id'] ?? ''),
-            'app_secret' => $secret !== '' ? '******' : '',
+            'app_secret' => self::maskedSecret($secret),
             'app_secret_configured' => $secret !== '',
             'url' => $domain . '/api/wechat/official-account/callback/'
                 . $this->bindings->callbackKey($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK),
-            'token' => (string)($stored['token'] ?? ''),
+            'token' => self::maskedSecret($token),
+            'token_configured' => $token !== '',
             'business_domain' => $authority,
             'js_secure_domain' => $authority,
             'web_auth_domain' => $authority,
@@ -78,17 +81,20 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
         $current = $this->bindings->config($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK);
         $currentSecret = (string)($current['app_secret'] ?? '');
         $incomingSecret = trim((string)$params['app_secret']);
-        $secret = $incomingSecret === '******' ? $currentSecret : $incomingSecret;
+        $secret = self::retainedSecret($incomingSecret, $currentSecret);
         if ($secret === '') {
             throw BusinessException::invalid('OAUTH_APP_SECRET_REQUIRED', 'AppSecret 不能为空');
         }
+        $currentToken = (string)($current['token'] ?? '');
+        $incomingToken = trim((string)($params['token'] ?? ''));
+        $token = self::retainedSecret($incomingToken, $currentToken);
         $data = [
             'name' => trim((string)($params['name'] ?? '')),
             'original_id' => trim((string)($params['original_id'] ?? '')),
             'qr_code' => $this->relativeFile($context, (string)($params['qr_code'] ?? '')),
             'app_id' => trim((string)$params['app_id']),
             'app_secret' => $secret,
-            'token' => trim((string)($params['token'] ?? '')),
+            'token' => $token,
         ];
         Db::transaction(function () use ($context, $data): void {
             $this->bindings->update(
@@ -105,6 +111,16 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
             );
         });
         return true;
+    }
+
+    private static function maskedSecret(string $value): string
+    {
+        return $value === '' ? '' : self::SECRET_MASK;
+    }
+
+    private static function retainedSecret(string $incoming, string $current): string
+    {
+        return hash_equals(self::SECRET_MASK, $incoming) ? $current : $incoming;
     }
 
     private function relativeFile(TenantContext $context, string $value): string

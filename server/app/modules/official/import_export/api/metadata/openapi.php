@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$error = ['$ref' => '#/components/responses/ApiResponse'];
+$error = ['$ref' => '#/components/responses/ErrorResponse'];
 $success = static fn(string $schema, string $description = 'Successful import/export response.'): array => [
     'description' => $description,
     'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/' . $schema]]],
@@ -15,6 +15,44 @@ $operationKey = ['name' => 'operationKey', 'in' => 'path', 'required' => true, '
 
 return [
     'paths' => [
+        '/adminapi/official.import-export.operation-log.export' => ['post' => [
+            'tags' => ['ImportExport'], 'operationId' => 'submitOperationLogExport',
+            'parameters' => [$idempotency],
+            'responses' => [
+                '200' => $success('ImportExportLegacyOperationResponse', 'Operation-log export accepted.'),
+                '401' => $error, '403' => $error, '409' => $error, '422' => $error, '503' => $error,
+            ],
+            'x-peanut-errors' => [
+                'IMPORT_EXPORT_INVALID', 'IMPORT_EXPORT_PERMISSION_DENIED',
+                'IMPORT_EXPORT_IDEMPOTENCY_CONFLICT', 'IMPORT_EXPORT_PROVIDER_UNAVAILABLE',
+            ],
+        ]],
+        '/adminapi/official.import-export.operation.status' => ['get' => [
+            'tags' => ['ImportExport'], 'operationId' => 'getLegacyImportExportOperation',
+            'parameters' => [[
+                'name' => 'operation_key', 'in' => 'query', 'required' => true,
+                'schema' => ['type' => 'string', 'pattern' => '^iox_[0-9a-f]{32}$'],
+            ]],
+            'responses' => [
+                '200' => $success('ImportExportLegacyOperationResponse'),
+                '401' => $error, '403' => $error, '404' => $error, '422' => $error,
+            ],
+            'x-peanut-errors' => ['IMPORT_EXPORT_INVALID', 'IMPORT_EXPORT_PERMISSION_DENIED', 'IMPORT_EXPORT_NOT_FOUND'],
+        ]],
+        '/adminapi/official.import-export.result.download' => ['get' => [
+            'tags' => ['ImportExport'], 'operationId' => 'downloadLegacyImportExportResult',
+            'parameters' => [[
+                'name' => 'file_key', 'in' => 'query', 'required' => true,
+                'schema' => ['type' => 'string', 'pattern' => '^file_[0-9a-f]{32}$'],
+            ]],
+            'responses' => [
+                '302' => ['description' => 'Redirect to the tenant-scoped result URL returned by the file gateway.', 'headers' => [
+                    'Location' => ['required' => true, 'schema' => ['type' => 'string', 'format' => 'uri']],
+                ]],
+                '401' => $error, '403' => $error, '404' => $error, '422' => $error,
+            ],
+            'x-peanut-errors' => ['IMPORT_EXPORT_INVALID', 'IMPORT_EXPORT_PERMISSION_DENIED', 'IMPORT_EXPORT_FILE_UNAVAILABLE'],
+        ]],
         '/adminapi/api/v1/import-export/operations' => ['get' => [
             'tags' => ['ImportExport'], 'operationId' => 'listImportExportOperations',
             'parameters' => [
@@ -97,6 +135,14 @@ return [
         'ImportExportOperationResponse' => [
             'type' => 'object', 'additionalProperties' => false, 'required' => ['data', 'meta'],
             'properties' => ['data' => ['$ref' => '#/components/schemas/ImportExportOperation'], 'meta' => ['$ref' => '#/components/schemas/ImportExportMeta']],
+        ],
+        'ImportExportLegacyOperationResponse' => [
+            'type' => 'object', 'additionalProperties' => false, 'required' => ['code', 'msg', 'data'],
+            'properties' => [
+                'code' => ['type' => 'integer', 'enum' => [20000]],
+                'msg' => ['type' => 'string'],
+                'data' => ['$ref' => '#/components/schemas/ImportExportOperation'],
+            ],
         ],
         'ImportExportOperationListResponse' => [
             'type' => 'object', 'additionalProperties' => false, 'required' => ['data', 'meta'],

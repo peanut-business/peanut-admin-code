@@ -4,16 +4,49 @@ declare(strict_types=1);
 
 $repositoryRoot = dirname(__DIR__);
 $projectRoot = null;
+$checkOnly = false;
+$catalogOutput = null;
+$outputRootArgument = null;
 foreach (array_slice($argv, 1) as $argument) {
     if (str_starts_with($argument, '--project-root=')) {
         $projectRoot = substr($argument, strlen('--project-root='));
+    } elseif ($argument === '--check') {
+        $checkOnly = true;
+    } elseif (str_starts_with($argument, '--catalog-output=')) {
+        $catalogOutput = substr($argument, strlen('--catalog-output='));
+    } elseif (str_starts_with($argument, '--output-root=')) {
+        $outputRootArgument = substr($argument, strlen('--output-root='));
+    } else {
+        fwrite(STDERR, "generate-api-contracts: unknown argument: {$argument}\n");
+        exit(2);
     }
 }
-$projectRoot ??= $repositoryRoot . '/../peanut-admin-project';
-$resolvedProjectRoot = realpath($projectRoot);
-if ($resolvedProjectRoot === false) {
-    fwrite(STDERR, "generate-api-contracts: Project root is unavailable: {$projectRoot}\n");
-    exit(1);
+$outputRoot = $repositoryRoot;
+if ($outputRootArgument !== null) {
+    if ($checkOnly) {
+        fwrite(STDERR, "generate-api-contracts: --output-root cannot be combined with --check\n");
+        exit(2);
+    }
+    try {
+        $outputRoot = resolveIsolatedOutputRoot($outputRootArgument, $repositoryRoot);
+    } catch (Throwable $exception) {
+        fwrite(STDERR, 'generate-api-contracts: ' . $exception->getMessage() . PHP_EOL);
+        exit(1);
+    }
+}
+$resolvedProjectRoot = null;
+// A generated application owns its generated API artifacts and does not need
+// access to the maintainer's private Project repository. Mirroring is explicit.
+if (!$checkOnly && $projectRoot !== null) {
+    if ($projectRoot === '') {
+        fwrite(STDERR, "generate-api-contracts: --project-root must not be empty\n");
+        exit(1);
+    }
+    $resolvedProjectRoot = realpath($projectRoot);
+    if ($resolvedProjectRoot === false) {
+        fwrite(STDERR, "generate-api-contracts: Project root is unavailable: {$projectRoot}\n");
+        exit(1);
+    }
 }
 
 require_once $repositoryRoot . '/server/route/registry_source.php';
@@ -26,17 +59,49 @@ try {
     validateContract($contract, $routes);
     $catalog = buildCatalog($repositoryRoot, $contract, $inventory);
 
-    writeJson($resolvedProjectRoot . '/docs/api/openapi.yaml', $contract);
-    writeJson($repositoryRoot . '/server/generated/api-catalog.json', $catalog);
-    writeModuleTypes($repositoryRoot, $contract, $routes);
+    if ($checkOnly) {
+        if ($catalogOutput !== null) {
+            if ($catalogOutput === '' || !str_starts_with($catalogOutput, '/')) {
+                throw new RuntimeException('--catalog-output must be an absolute path');
+            }
+            writeJson($catalogOutput, $catalog);
+        }
+        printf(
+            "API-CONTRACT-CHECK-001 passed: %d runtime routes, %d generated operations (%d complete, %d partial), %d route-only gaps, %d owners\n",
+            $catalog['summary']['route_count'],
+            $catalog['summary']['generated_api_operations'],
+            $catalog['summary']['complete_operations'],
+            $catalog['summary']['partial_operations'],
+            $catalog['summary']['route_only_operations'],
+            $catalog['summary']['owners'],
+        );
+        exit(0);
+    }
 
-    $command = sprintf(
-        'pnpm --dir %s exec openapi-typescript %s --output %s',
-        escapeshellarg($repositoryRoot . '/web'),
-        escapeshellarg($resolvedProjectRoot . '/docs/api/openapi.yaml'),
-        escapeshellarg($repositoryRoot . '/web/src/generated/openapi.d.ts'),
-    );
-    passthru($command, $status);
+    $typeGenerator = $repositoryRoot . '/web/node_modules/openapi-typescript/bin/cli.js';
+    if (!is_file($typeGenerator)) {
+        throw new RuntimeException('Install the web package lock before generating API types; openapi-typescript is unavailable.');
+    }
+    $generatedContract = generatedArtifactPath($outputRoot, 'server/generated/openapi.json');
+    writeJson($generatedContract, $contract);
+    if ($resolvedProjectRoot !== null) {
+        writeJson(generatedArtifactPath($resolvedProjectRoot, 'docs/api/openapi.yaml'), $contract);
+    }
+    writeJson(generatedArtifactPath($outputRoot, 'server/generated/api-catalog.json'), $catalog);
+    writeModuleTypes($repositoryRoot, $outputRoot, $contract, $routes);
+    $generatedTypes = generatedArtifactPath($outputRoot, 'web/src/generated/openapi.d.ts');
+
+    // Execute the already installed, locked tool; no global package manager,
+    // dependency download, shell interpolation, or private checkout is needed.
+    $process = proc_open([
+        'node', $typeGenerator, $generatedContract,
+        '--output', $generatedTypes,
+    ], [0 => ['pipe', 'r'], 1 => STDOUT, 2 => STDERR], $pipes, $repositoryRoot . '/web');
+    if (!is_resource($process)) {
+        throw new RuntimeException('openapi-typescript process could not be started');
+    }
+    fclose($pipes[0]);
+    $status = proc_close($process);
     if ($status !== 0) {
         throw new RuntimeException("openapi-typescript failed with exit {$status}");
     }
@@ -61,33 +126,72 @@ function loadContract(string $repositoryRoot): array
         throw new RuntimeException('Structured OpenAPI source must be an object');
     }
 
+    foreach (hostMetadataFiles($repositoryRoot) as $fragmentPath) {
+        $contract = mergeContractFragment($contract, $fragmentPath, true);
+    }
     foreach (glob($repositoryRoot . '/server/app/modules/*/*/api/metadata/openapi.php') ?: [] as $fragmentPath) {
-        $fragment = require $fragmentPath;
-        if (!is_array($fragment)) {
-            throw new RuntimeException('Module OpenAPI fragment must return an array: ' . $fragmentPath);
+        $contract = mergeContractFragment($contract, $fragmentPath, false);
+    }
+    return $contract;
+}
+
+/** @return list<string> */
+function hostMetadataFiles(string $repositoryRoot): array
+{
+    return array_map(
+        static fn(string $path): string => $repositoryRoot . '/' . $path,
+        [
+            'server/app/api/metadata/application/shared.php',
+            'server/app/api/metadata/application/adminapi.php',
+            'server/app/api/metadata/application/platform.php',
+            'server/app/api/metadata/application/installation.php',
+        ],
+    );
+}
+
+/** @param array<string,mixed> $contract @return array<string,mixed> */
+function mergeContractFragment(array $contract, string $fragmentPath, bool $allowOverrides): array
+{
+    if (!is_file($fragmentPath) || is_link($fragmentPath)) {
+        throw new RuntimeException('OpenAPI fragment must be a regular non-symlink file: ' . $fragmentPath);
+    }
+    $fragment = require $fragmentPath;
+    if (!is_array($fragment)) {
+        throw new RuntimeException('OpenAPI fragment must return an array: ' . $fragmentPath);
+    }
+    $paths = isset($fragment['paths']) && is_array($fragment['paths'])
+        ? $fragment['paths']
+        : (isset($fragment['components']) || isset($fragment['overrides']) ? [] : $fragment);
+    foreach ($paths as $path => $pathItem) {
+        if (!is_string($path) || !is_array($pathItem)) {
+            throw new RuntimeException('OpenAPI fragment path is invalid: ' . $fragmentPath);
         }
-        $paths = isset($fragment['paths']) && is_array($fragment['paths'])
-            ? $fragment['paths']
-            : $fragment;
-        foreach ($paths as $path => $pathItem) {
-            if (!is_string($path) || !is_array($pathItem)) {
-                throw new RuntimeException('Module OpenAPI fragment path is invalid: ' . $fragmentPath);
+        foreach ($pathItem as $method => $operation) {
+            $method = strtolower((string)$method);
+            if (!is_array($operation) || isset($contract['paths'][$path][$method])) {
+                throw new RuntimeException("Duplicate or invalid OpenAPI operation: {$method} {$path}");
             }
-            foreach ($pathItem as $method => $operation) {
-                $method = strtolower((string)$method);
-                if (isset($contract['paths'][$path][$method])) {
-                    throw new RuntimeException("Duplicate OpenAPI operation: {$method} {$path}");
-                }
-                $contract['paths'][$path][$method] = $operation;
-            }
+            $contract['paths'][$path][$method] = $operation;
         }
-        foreach (['schemas', 'responses'] as $componentType) {
-            foreach (($fragment['components'][$componentType] ?? []) as $name => $component) {
-                if (!is_string($name) || !is_array($component) || isset($contract['components'][$componentType][$name])) {
-                    throw new RuntimeException('Module OpenAPI component is invalid or duplicated: ' . $fragmentPath . '#' . $componentType . '/' . (string)$name);
-                }
-                $contract['components'][$componentType][$name] = $component;
+    }
+    foreach (($fragment['overrides'] ?? []) as $path => $pathItem) {
+        if (!$allowOverrides || !is_string($path) || !is_array($pathItem)) {
+            throw new RuntimeException('OpenAPI fragment override is not allowed or invalid: ' . $fragmentPath);
+        }
+        foreach ($pathItem as $method => $operation) {
+            $method = strtolower((string)$method);
+            if (!is_array($operation) || !isset($contract['paths'][$path][$method])) {
+                throw new RuntimeException("OpenAPI override has no existing operation: {$method} {$path}");
             }
+            $contract['paths'][$path][$method] = $operation;
+        }
+    }
+    foreach (['schemas', 'responses', 'parameters', 'requestBodies', 'securitySchemes'] as $componentType) {
+        foreach (($fragment['components'][$componentType] ?? []) as $name => $component) {
+            if (!is_string($name) || !is_array($component) || isset($contract['components'][$componentType][$name])) {
+                throw new RuntimeException('OpenAPI component is invalid or duplicated: ' . $fragmentPath . '#' . $componentType . '/' . (string)$name);
+            }
+            $contract['components'][$componentType][$name] = $component;
         }
     }
     return $contract;
@@ -127,9 +231,7 @@ function applyRouteMetadata(array $contract, array $routes): array
             }
             $route = $routes[$key];
             [$auth, $permissions] = accessMetadata($route, null);
-            if (!in_array($auth['mode'], ['public', 'public_tenant_module'], true)) {
-                $operation['security'] ??= [['bearerAuth' => []]];
-            }
+            $operation['security'] ??= securityRequirements($auth);
             $operation['x-peanut-route'] = [
                 'application' => $route['application'],
                 'owner' => $route['owner'],
@@ -198,6 +300,40 @@ function validateSchemas(mixed $schemas): void
             throw new RuntimeException('OpenAPI schema must not be empty: ' . (string)$name);
         }
         validateSchemaNode($schema, '#/components/schemas/' . (string)$name);
+        validateSealedAllOf($schema, $schemas, '#/components/schemas/' . (string)$name);
+    }
+}
+
+/** @param array<string|int,mixed> $node @param array<string,mixed> $schemas */
+function validateSealedAllOf(array $node, array $schemas, string $pointer): void
+{
+    $branches = $node['allOf'] ?? null;
+    if (is_array($branches)) {
+        foreach ($branches as $index => $branch) {
+            if (!is_array($branch)) continue;
+            $sealed = $branch;
+            $ref = $branch['$ref'] ?? null;
+            if (is_string($ref)
+                && preg_match('~^#/components/schemas/([^/]+)$~D', $ref, $match) === 1
+                && is_array($schemas[$match[1]] ?? null)
+            ) {
+                $sealed = $schemas[$match[1]];
+            }
+            if (($sealed['additionalProperties'] ?? null) !== false) continue;
+            $allowed = array_keys(is_array($sealed['properties'] ?? null) ? $sealed['properties'] : []);
+            foreach ($branches as $otherIndex => $other) {
+                if ($otherIndex === $index || !is_array($other)) continue;
+                $otherProperties = array_keys(is_array($other['properties'] ?? null) ? $other['properties'] : []);
+                if (array_diff($otherProperties, $allowed) !== []) {
+                    throw new RuntimeException('OpenAPI allOf extends a sealed object: ' . $pointer);
+                }
+            }
+        }
+    }
+    foreach ($node as $key => $value) {
+        if (is_array($value) && $value !== []) {
+            validateSealedAllOf($value, $schemas, $pointer . '/' . (string)$key);
+        }
     }
 }
 
@@ -283,7 +419,7 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
             ? [
                 'status' => 'documented',
                 'automatic_metadata' => ['route', 'owner', 'controller', 'middleware', 'auth', 'permissions', 'source'],
-                'requires_owner_contract' => [],
+                'requires_owner_contract' => operationContractGaps($operation, $endpoint, $auth, $permissions),
             ]
             : [
                 'status' => 'route_only',
@@ -320,10 +456,23 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
             'source' => ['file' => $endpoint['source'], 'line' => $endpoint['line']],
             'documented' => $operation !== null,
             'openapi_operation_id' => $operation['operationId'] ?? null,
+            'contract_quality' => $operation === null
+                ? 'route_only'
+                : ($documentation['requires_owner_contract'] === [] ? 'complete' : 'partial'),
+            'sdk_consumers' => $operation === null ? [] : sdkConsumers($repositoryRoot, $endpoint),
             'documentation' => $documentation,
         ];
     }
     ksort($owners);
+
+    $complete = count(array_filter(
+        $endpoints,
+        static fn(array $endpoint): bool => ($endpoint['contract_quality'] ?? null) === 'complete',
+    ));
+    $partial = count(array_filter(
+        $endpoints,
+        static fn(array $endpoint): bool => ($endpoint['contract_quality'] ?? null) === 'partial',
+    ));
 
     return [
         'schema_version' => 1,
@@ -331,9 +480,18 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
         'inputs' => catalogInputs($repositoryRoot, $inventory),
         'generated_from' => [
             'routes' => 'server/route/registry_source.php::peanut_route_endpoint_inventory',
-            'contracts' => 'server/app/api/metadata/contracts/openapi.json',
+            'contracts' => [
+                'server/app/api/metadata/contracts/openapi.json',
+                'server/app/api/metadata/application/*.php',
+                'server/app/modules/*/*/api/metadata/openapi.php',
+            ],
         ],
         'summary' => [
+            'route_count' => count($endpoints),
+            'generated_api_operations' => count($documented),
+            'route_only_operations' => count($documentationGaps),
+            'complete_operations' => $complete,
+            'partial_operations' => $partial,
             'runtime_routes' => count($endpoints),
             'documented_operations' => count($documented),
             'undocumented_routes' => count($documentationGaps),
@@ -348,14 +506,173 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
     ];
 }
 
+/** @return list<string> */
+function operationContractGaps(array $operation, array $endpoint, array $auth, array $permissions): array
+{
+    $gaps = [];
+    $path = openApiPath((string)$endpoint['path']);
+    preg_match_all('/\{([A-Za-z_][A-Za-z0-9_]*)\}/', $path, $matches);
+    $declaredPathParameters = [];
+    foreach ($operation['parameters'] ?? [] as $parameter) {
+        if (is_array($parameter)
+            && ($parameter['in'] ?? null) === 'path'
+            && is_string($parameter['name'] ?? null)
+            && ($parameter['required'] ?? false) === true
+        ) {
+            $declaredPathParameters[] = $parameter['name'];
+        }
+    }
+    sort($declaredPathParameters, SORT_STRING);
+    $expectedPathParameters = $matches[1] ?? [];
+    sort($expectedPathParameters, SORT_STRING);
+    if ($declaredPathParameters !== $expectedPathParameters) {
+        $gaps[] = 'path_parameters';
+    }
+
+    if (!securityMatches($operation['security'] ?? null, securityRequirements($auth))) {
+        $gaps[] = in_array($auth['mode'], ['public', 'public_tenant_module'], true)
+            ? 'security_domain'
+            : 'security';
+    }
+
+    $responses = $operation['responses'] ?? null;
+    if (!is_array($responses) || $responses === []) {
+        $gaps[] = 'response_schemas';
+    } else {
+        foreach ($responses as $status => $response) {
+            if (!is_array($response)
+                || (!responseHasSchema($response) && !responseMayOmitSchema((string)$status, $response))
+            ) {
+                $gaps[] = 'response_schema:' . (string)$status;
+                continue;
+            }
+            if (genericResponseContract($response)) {
+                $gaps[] = 'generic_response:' . (string)$status;
+            }
+        }
+    }
+
+    if (isset($operation['requestBody'])
+        && (!is_array($operation['requestBody']) || !responseHasSchema($operation['requestBody']))
+    ) {
+        $gaps[] = 'request_schema';
+    }
+    foreach ($operation['x-peanut-errors'] ?? [] as $errorCode) {
+        if (!is_string($errorCode) || preg_match('/^[A-Z][A-Z0-9_]{2,127}$/D', $errorCode) !== 1) {
+            $gaps[] = 'business_errors';
+            break;
+        }
+    }
+    if ($permissions !== [] && !array_key_exists('403', $responses)) {
+        $gaps[] = 'permission_error_response';
+    }
+
+    return array_values(array_unique($gaps));
+}
+
+/** @param array<string,mixed> $auth @return list<array<string,list<string>>> */
+function securityRequirements(array $auth): array
+{
+    return match ($auth['mode']) {
+        'public', 'public_tenant_module' => [],
+        'tenant_host', 'tenant_selection' => [['tenantHost' => []]],
+        'tenant_refresh' => [['tenantHost' => [], 'tenantRefreshCookie' => []]],
+        'tenant_bearer' => [['tenantHost' => [], 'bearerAuth' => []]],
+        'platform_host' => [['platformHost' => []]],
+        'platform_refresh' => [['platformHost' => [], 'platformRefreshCookie' => []]],
+        'installation_setup' => [['installationSetupToken' => []]],
+        default => [['bearerAuth' => []]],
+    };
+}
+
+function securityMatches(mixed $actual, array $expected): bool
+{
+    if (!is_array($actual) || count($actual) !== count($expected)) return false;
+    $normalize = static function (array $requirements): array {
+        $normalized = [];
+        foreach ($requirements as $requirement) {
+            if (!is_array($requirement)) return [];
+            ksort($requirement, SORT_STRING);
+            $normalized[] = $requirement;
+        }
+        usort($normalized, static fn(array $left, array $right): int => strcmp(
+            json_encode($left, JSON_THROW_ON_ERROR),
+            json_encode($right, JSON_THROW_ON_ERROR),
+        ));
+        return $normalized;
+    };
+    return $normalize($actual) === $normalize($expected);
+}
+
+function responseHasSchema(array $response): bool
+{
+    if (is_string($response['$ref'] ?? null)) return true;
+    foreach (($response['content'] ?? []) as $media) {
+        if (is_array($media) && is_array($media['schema'] ?? null) && $media['schema'] !== []) return true;
+    }
+    return false;
+}
+
+function responseMayOmitSchema(string $status, array $response): bool
+{
+    if (in_array($status, ['204', '304'], true)) {
+        return !isset($response['content']);
+    }
+    if (!in_array($status, ['301', '302', '303', '307', '308'], true)) {
+        return false;
+    }
+    $location = $response['headers']['Location'] ?? null;
+    return !isset($response['content'])
+        && is_array($location)
+        && ($location['required'] ?? false) === true
+        && is_array($location['schema'] ?? null)
+        && ($location['schema']['type'] ?? null) === 'string';
+}
+
+function genericResponseContract(array $response): bool
+{
+    $refs = [];
+    if (is_string($response['$ref'] ?? null)) $refs[] = $response['$ref'];
+    foreach (($response['content'] ?? []) as $media) {
+        if (is_array($media) && is_string($media['schema']['$ref'] ?? null)) {
+            $refs[] = $media['schema']['$ref'];
+        }
+    }
+    foreach ($refs as $ref) {
+        if (in_array($ref, [
+            '#/components/responses/ApiResponse',
+            '#/components/schemas/ApiResponse',
+            '#/components/schemas/JsonValue',
+        ], true)) return true;
+    }
+    return false;
+}
+
+/** @return list<string> */
+function sdkConsumers(string $repositoryRoot, array $endpoint): array
+{
+    $consumers = ['web/src/generated/openapi.d.ts'];
+    if (($endpoint['owner']['type'] ?? null) !== 'module') return $consumers;
+    $moduleKey = (string)($endpoint['owner']['key'] ?? '');
+    $moduleDirectory = str_replace('.', '-', $moduleKey);
+    if (is_dir($repositoryRoot . '/web/src/modules/' . $moduleDirectory)) {
+        $consumers[] = 'web/src/modules/' . $moduleDirectory . '/generated/openapi.ts';
+    }
+    return $consumers;
+}
+
 /** @return list<array{path:string,sha256:string}> */
 function catalogInputs(string $repositoryRoot, array $inventory): array
 {
     $paths = [
         'server/app/api/metadata/contracts/openapi.json' => true,
+        'server/app/api/metadata/application/common.php' => true,
         'server/config/admin_api_access.php' => true,
         'server/route/registry_source.php' => true,
     ];
+    foreach (hostMetadataFiles($repositoryRoot) as $absolutePath) {
+        $paths[substr($absolutePath, strlen($repositoryRoot) + 1)] = true;
+    }
     foreach ($inventory['endpoints'] as $endpoint) {
         $paths[(string)$endpoint['source']] = true;
     }
@@ -433,6 +750,30 @@ function accessMetadata(array $endpoint, ?string $exception): array
         $mode = 'public_tenant_module';
     }
 
+    $controller = (string)($endpoint['controller'] ?? '');
+    $action = (string)($endpoint['action'] ?? '');
+    if (str_ends_with($controller, '\\PlatformSessionController')) {
+        $mode = match ($action) {
+            'login', 'logout' => 'platform_host',
+            'refresh' => 'platform_refresh',
+            default => $mode,
+        };
+    } elseif (str_ends_with($controller, '\\TenantOwnerInvitationPublicController')) {
+        $mode = 'platform_host';
+    } elseif (str_ends_with($controller, '\\TenantSessionController')) {
+        $mode = match ($action) {
+            'login' => 'tenant_host',
+            'select' => 'tenant_selection',
+            'switchChallenge', 'logout' => 'tenant_bearer',
+            'refresh' => 'tenant_refresh',
+            default => $mode,
+        };
+    } elseif (str_ends_with($controller, '\\LoginController') && $action === 'login') {
+        $mode = 'tenant_host';
+    } elseif (str_ends_with($controller, '\\InstallationController') && $action === 'execute') {
+        $mode = 'installation_setup';
+    }
+
     return [[
         'mode' => $mode,
         'exception_registration' => $exception,
@@ -454,17 +795,24 @@ function hasMiddlewareSuffix(array $classes, string $suffix): bool
 function inferredErrors(array $auth, array $permissions): array
 {
     $errors = [];
-    if (in_array($auth['mode'], ['authenticated', 'tenant_session', 'tenant_permission', 'member_session', 'platform_session', 'platform_permission'], true)) {
+    if (in_array($auth['mode'], [
+        'authenticated', 'tenant_session', 'tenant_permission', 'member_session',
+        'tenant_bearer', 'tenant_refresh', 'platform_session', 'platform_permission',
+        'platform_refresh', 'installation_setup',
+    ], true)) {
         $errors[] = 401;
     }
-    if ($permissions !== [] || in_array($auth['mode'], ['tenant_permission', 'platform_permission', 'public_tenant_module'], true)) {
+    if ($permissions !== [] || in_array($auth['mode'], [
+        'tenant_permission', 'platform_permission', 'public_tenant_module',
+        'tenant_selection', 'platform_host', 'platform_refresh', 'installation_setup',
+    ], true)) {
         $errors[] = 403;
     }
     return $errors;
 }
 
 /** @param array<string,mixed> $contract @param array<string,array<string,mixed>> $routes */
-function writeModuleTypes(string $repositoryRoot, array $contract, array $routes): void
+function writeModuleTypes(string $repositoryRoot, string $outputRoot, array $contract, array $routes): void
 {
     $modules = [];
     foreach ($contract['paths'] as $path => $pathItem) {
@@ -486,13 +834,14 @@ function writeModuleTypes(string $repositoryRoot, array $contract, array $routes
 
     foreach ($modules as $moduleKey => $operations) {
         $moduleDirectory = str_replace('.', '-', $moduleKey);
-        $targetDirectory = $repositoryRoot . '/web/src/modules/' . $moduleDirectory . '/generated';
-        if (!is_dir(dirname($targetDirectory))) {
+        $sourceModuleDirectory = $repositoryRoot . '/web/src/modules/' . $moduleDirectory;
+        if (!is_dir($sourceModuleDirectory)) {
             continue;
         }
-        if (!is_dir($targetDirectory) && !mkdir($targetDirectory, 0775, true) && !is_dir($targetDirectory)) {
-            throw new RuntimeException('Cannot create module generated directory: ' . $targetDirectory);
-        }
+        $target = generatedArtifactPath(
+            $outputRoot,
+            'web/src/modules/' . $moduleDirectory . '/generated/openapi.ts',
+        );
         $lines = [
             "// Generated by scripts/generate-api-contracts.php. Do not edit.",
             "import createClient, { wrapAsPathBasedClient } from 'openapi-fetch';",
@@ -529,7 +878,9 @@ function writeModuleTypes(string $repositoryRoot, array $contract, array $routes
         $lines[] = '  return createModuleApi(createClient<paths>(options));';
         $lines[] = '}';
         $lines[] = '';
-        file_put_contents($targetDirectory . '/openapi.ts', implode("\n", $lines));
+        if (file_put_contents($target, implode("\n", $lines)) === false) {
+            throw new RuntimeException('Cannot write generated file: ' . $target);
+        }
     }
 }
 
@@ -541,6 +892,79 @@ function routeKey(string $method, string $path): string
 function openApiPath(string $path): string
 {
     return preg_replace('/:([A-Za-z_][A-Za-z0-9_]*)/', '{$1}', $path) ?? $path;
+}
+
+function resolveIsolatedOutputRoot(string $requestedRoot, string $repositoryRoot): string
+{
+    if ($requestedRoot === '' || !str_starts_with($requestedRoot, '/')) {
+        throw new RuntimeException('--output-root must be an absolute path');
+    }
+    $requestedRoot = rtrim($requestedRoot, DIRECTORY_SEPARATOR);
+    if ($requestedRoot === '' || is_link($requestedRoot) || !is_dir($requestedRoot)) {
+        throw new RuntimeException('--output-root must be an existing regular directory, not a symlink');
+    }
+    $resolvedOutputRoot = realpath($requestedRoot);
+    $resolvedRepositoryRoot = realpath($repositoryRoot);
+    if ($resolvedOutputRoot === false || $resolvedRepositoryRoot === false) {
+        throw new RuntimeException('--output-root or repository root cannot be resolved');
+    }
+    if (pathsOverlap($resolvedOutputRoot, $resolvedRepositoryRoot)) {
+        throw new RuntimeException('--output-root must be separate from the source repository');
+    }
+    $entries = scandir($resolvedOutputRoot);
+    if ($entries === false || array_values(array_diff($entries, ['.', '..'])) !== []) {
+        throw new RuntimeException('--output-root must be an empty, exclusive directory');
+    }
+    return $resolvedOutputRoot;
+}
+
+function pathsOverlap(string $left, string $right): bool
+{
+    return $left === $right
+        || str_starts_with($left, rtrim($right, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
+        || str_starts_with($right, rtrim($left, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
+}
+
+function generatedArtifactPath(string $outputRoot, string $relativePath): string
+{
+    if ($relativePath === ''
+        || str_starts_with($relativePath, '/')
+        || preg_match('#(^|/)(?:\.|\.\.)(?:/|$)#D', $relativePath) === 1) {
+        throw new RuntimeException('Generated artifact path must remain relative to its output root: ' . $relativePath);
+    }
+    $resolvedRoot = realpath($outputRoot);
+    if ($resolvedRoot === false || !is_dir($resolvedRoot) || is_link($outputRoot)) {
+        throw new RuntimeException('Generated artifact output root is unavailable or a symlink: ' . $outputRoot);
+    }
+
+    $segments = explode('/', $relativePath);
+    $filename = array_pop($segments);
+    $directory = $resolvedRoot;
+    foreach ($segments as $segment) {
+        if ($segment === '') {
+            throw new RuntimeException('Generated artifact path contains an empty segment: ' . $relativePath);
+        }
+        $directory .= DIRECTORY_SEPARATOR . $segment;
+        if (is_link($directory)) {
+            throw new RuntimeException('Generated artifact path refuses symlink directory: ' . $directory);
+        }
+        if (file_exists($directory)) {
+            if (!is_dir($directory)) {
+                throw new RuntimeException('Generated artifact parent is not a directory: ' . $directory);
+            }
+        } elseif (!mkdir($directory, 0775) && !is_dir($directory)) {
+            throw new RuntimeException('Cannot create generated directory: ' . $directory);
+        }
+    }
+
+    $target = $directory . DIRECTORY_SEPARATOR . $filename;
+    if (is_link($target)) {
+        throw new RuntimeException('Generated artifact path refuses symlink target: ' . $target);
+    }
+    if (file_exists($target) && !is_file($target)) {
+        throw new RuntimeException('Generated artifact target is not a regular file: ' . $target);
+    }
+    return $target;
 }
 
 /** @param array<string,mixed> $value */

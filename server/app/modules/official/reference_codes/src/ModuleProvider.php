@@ -22,6 +22,7 @@ use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegi
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use think\App;
 
 final class ModuleProvider implements ModuleProviderContract
@@ -51,6 +52,9 @@ final class ModuleProvider implements ModuleProviderContract
             SystemReferenceCodeQuery::class => DictionaryRuntime::class,
             ReferenceCodeSetRegistry::class => fn(App $app): ReferenceCodeSetRegistry =>
                 $app->make(DeployedReferenceCodeSetRegistry::class)->build(),
+            ReferenceCodeStore::class => fn(App $app): ReferenceCodeStore => new ReferenceCodeStore(
+                $app->make(TenantMemberDirectory::class),
+            ),
             ReferenceCodeQuery::class => fn(App $app): ReferenceCodeQuery => new ReferenceCodeQuery($app->make(ReferenceCodeStore::class)),
             ReferenceCodeAdminService::class => fn(App $app): ReferenceCodeAdminService => new ReferenceCodeAdminService($app->make(ReferenceCodeStore::class)),
             ReferenceCodesHttpApplicationService::class => fn(App $app): ReferenceCodesHttpApplicationService => new ReferenceCodesHttpApplicationService(
@@ -59,6 +63,8 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(ReferenceCodeAdminService::class),
                 $app->make(IdempotentCommandExecutor::class),
                 $app->make(ModuleRuntimeRepository::class),
+                $app->get(\app\common\execution\CurrentExecutionContext::class),
+                $app->get(\app\common\contract\authorization\AdminAuthorizationQuery::class),
             ),
         ];
     }

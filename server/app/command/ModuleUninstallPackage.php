@@ -3,15 +3,12 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\common\validation\instance\InstanceToolAccessGuard;
 use app\platform\exception\plugin\PluginLifecycleException;
-use app\platform\services\plugin\PluginRuntimeGovernanceService;
 use app\common\execution\ModuleContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
 use think\console\input\Option;
 use think\console\Output;
-use think\facade\Config;
 
 final class ModuleUninstallPackage extends ModuleContextualCommand
 {
@@ -27,29 +24,18 @@ final class ModuleUninstallPackage extends ModuleContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            if (strtolower(trim((string)Config::get('peanut.environment', ''))) !== 'development'
-                || !app()->isDebug()
-                || !InstanceToolAccessGuard::fromConfiguredValue(Config::get('deployment.mode'))->allows()) {
-                throw new PluginLifecycleException('MODULE_RUNTIME_MUTATION_DISABLED', 'Runtime Module mutation is disabled.');
-            }
-            $config = Config::get('modules', []);
-            if (!is_array($config)) throw new PluginLifecycleException('MODULE_REGISTRY_UNAVAILABLE', 'Module deployment config is invalid.');
-            $service = new PluginRuntimeGovernanceService(
-                dirname(__DIR__, 2),
-                $config,
-                $this->moduleCatalogs(),
-            );
+            $this->assertDevelopmentInstanceMaintenanceAccess();
             $key = trim((string)$input->getArgument('module_key'));
             $purge = (bool)$input->getOption('purge');
             $planFile = trim((string)$input->getOption('confirm-plan-file'));
             $digest = trim((string)$input->getOption('confirm-plan-digest'));
             if ($planFile === '' && $digest === '') {
-                $result = $service->preview($key, $purge);
+                $result = $this->moduleRuntime()->uninstallPreview($key, $purge);
             } else {
                 if ($planFile === '' || $digest === '' || !is_file($planFile)) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Both confirmation options are required.');
                 $plan = json_decode((string)file_get_contents($planFile), true, 128, JSON_THROW_ON_ERROR);
                 if (!is_array($plan) || array_is_list($plan)) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed plan file is invalid.');
-                $result = $service->uninstall($key, $purge, $plan, $digest);
+                $result = $this->moduleRuntime()->uninstall($key, $purge, $plan, $digest);
             }
             $output->writeln((string)json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;

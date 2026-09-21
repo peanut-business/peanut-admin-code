@@ -8,18 +8,16 @@ use PeanutAdmin\Modules\Member\Contract\MemberAdministration;
 use PeanutAdmin\Modules\Member\Validation\AccountLogValidate;
 use app\common\enum\AccountLogEnum;
 
+/** @property-read MemberAdministration $members 当前 App 中声明式解析的控制器依赖。 */
 class AccountLogController extends BaseAdminController
 {
-    protected function members(): MemberAdministration
-    {
-        return $this->app->get(MemberAdministration::class);
-    }
+    protected string $membersClass = MemberAdministration::class;
 
     public function lists()
     {
         $params = $this->request->get();
         $this->validate($params, AccountLogValidate::class . '.lists');
-        return $this->data($this->members()->balanceLogs($params));
+        return $this->data($this->members->balanceLogs($params));
     }
 
     public function getUmChangeType()

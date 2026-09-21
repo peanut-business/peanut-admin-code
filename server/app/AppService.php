@@ -255,6 +255,7 @@ class AppService extends Service
         $this->app->bind(AdminAuthorizationService::class, fn(): AdminAuthorizationService => new AdminAuthorizationService(
             $this->app->make(CoreTenantModuleAdminBridge::class),
             $this->app->make(AdminPermissionPolicy::class),
+            $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory::class),
         ));
         $this->app->bind(AdminAuthorizationQuery::class, fn(): AdminAuthorizationQuery => $this->app->make(AdminAuthorizationService::class));
         $this->app->bind(CoreTenantModuleAdminBridge::class, fn(): CoreTenantModuleAdminBridge => new CoreTenantModuleAdminBridge(
@@ -602,6 +603,14 @@ class AppService extends Service
         if ($this->app->runningInConsole()
             && ($_SERVER['argv'][1] ?? null) === 'module:adopt-package'
             && Config::get('peanut.environment', '') === 'development') {
+            return;
+        }
+        // Source authoring repairs stale artifacts; it must not load Providers before it rewrites them.
+        if ($this->app->runningInConsole()
+            && PHP_SAPI === 'cli'
+            && Config::get('peanut.environment', '') === 'development'
+            && $this->app->isDebug()
+            && in_array((new \think\console\Input())->getFirstArgument(), ['plugin:make', 'plugin:lock'], true)) {
             return;
         }
         $config = Config::get('modules', []);

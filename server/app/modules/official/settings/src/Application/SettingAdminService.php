@@ -8,8 +8,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use JsonException;
 use PeanutAdmin\Kernel\Persistence\Model\EditionTenantModel;
-use PeanutAdmin\Modules\Identity\Persistence\Model\PlatformOperator;
-use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
+use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantColumnScope;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
@@ -37,6 +37,8 @@ final readonly class SettingAdminService
         private SecretProtector $protector,
         private TenantPersistenceMode $persistenceMode = TenantPersistenceMode::TenantScoped,
         private ?int $instanceTenantId = null,
+        private ?TenantMemberDirectory $members = null,
+        private ?PlatformOperatorIdentityQuery $operators = null,
     ) {
         $this->tenantColumnScope = new TenantColumnScope($this->persistenceMode, $this->instanceTenantId);
     }
@@ -645,15 +647,19 @@ final readonly class SettingAdminService
     private function assertActor(string $scopeName, ?TenantScope $scope, int $actorId): void
     {
         if ($scopeName === 'deployment') {
-            $operator = PlatformOperator::where('id', $actorId)->find();
-            if (!$operator instanceof PlatformOperator) {
+            try {
+                $accountId = $this->operators?->accountId($actorId) ?? 0;
+            } catch (\Throwable) {
+                $accountId = 0;
+            }
+            if ($accountId < 1) {
                 throw SettingException::notFound('SETTING_ACTOR_UNAUTHORIZED');
             }
 
             return;
         }
         if (!$scope instanceof TenantScope
-            || !TenantMember::scope('tenant', $scope)->where('id', $actorId)->find() instanceof TenantMember) {
+            || $this->members?->activeMembership($scope->tenantId(), $actorId) === null) {
             throw SettingException::notFound('SETTING_TARGET_UNAUTHORIZED');
         }
     }

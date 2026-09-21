@@ -107,6 +107,7 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
 axios.interceptors.response.use(
   handleResponse,
   (error) => {
+    if (axios.isCancel(error)) return Promise.reject(error);
     const response = axios.isAxiosError(error)
       ? error.response as AxiosResponse<HttpResponse> | undefined
       : undefined;

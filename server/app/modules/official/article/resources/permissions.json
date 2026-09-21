@@ -6,10 +6,18 @@
   {"key":"official.article.category.edit","type":"action","name":"Edit article category","risk_level":"sensitive"},
   {"key":"official.article.category.delete","type":"action","name":"Delete article category","risk_level":"critical"},
   {"key":"official.article.category.update-status","type":"action","name":"Change article category status","risk_level":"sensitive"},
+  {"key":"official.article.category.recycle.list","type":"api","name":"List deleted article categories","risk_level":"sensitive"},
+  {"key":"official.article.category.recycle.detail","type":"api","name":"Read deleted article category","risk_level":"sensitive"},
+  {"key":"official.article.category.restore","type":"action","name":"Restore article category","risk_level":"critical"},
+  {"key":"official.article.category.force-delete","type":"action","name":"Permanently delete article category","risk_level":"critical"},
   {"key":"official.article.list","type":"api","name":"List articles","risk_level":"normal"},
   {"key":"official.article.detail","type":"api","name":"Read article","risk_level":"normal"},
   {"key":"official.article.add","type":"action","name":"Create article","risk_level":"sensitive"},
   {"key":"official.article.edit","type":"action","name":"Edit article","risk_level":"sensitive"},
   {"key":"official.article.delete","type":"action","name":"Delete article","risk_level":"critical"},
-  {"key":"official.article.update-status","type":"action","name":"Change article status","risk_level":"sensitive"}
+  {"key":"official.article.update-status","type":"action","name":"Change article status","risk_level":"sensitive"},
+  {"key":"official.article.recycle.list","type":"api","name":"List deleted articles","risk_level":"sensitive"},
+  {"key":"official.article.recycle.detail","type":"api","name":"Read deleted article","risk_level":"sensitive"},
+  {"key":"official.article.restore","type":"action","name":"Restore article","risk_level":"critical"},
+  {"key":"official.article.force-delete","type":"action","name":"Permanently delete article","risk_level":"critical"}
 ]

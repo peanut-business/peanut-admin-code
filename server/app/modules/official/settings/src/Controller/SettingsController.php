@@ -9,17 +9,15 @@ use PeanutAdmin\Modules\Settings\Application\SettingException;
 use PeanutAdmin\Modules\Settings\Service\SettingsHttpApplicationService;
 use think\response\Json;
 
+/** @property-read SettingsHttpApplicationService $settings 当前 App 中声明式解析的控制器依赖。 */
 final class SettingsController extends BaseAdminController
 {
-    protected function settings(): SettingsHttpApplicationService
-    {
-        return $this->app->make(SettingsHttpApplicationService::class);
-    }
+    protected string $settingsClass = SettingsHttpApplicationService::class;
 
     public function index(): Json
     {
         try {
-            return $this->response(['items' => $this->settings()->list($this->tenantAdminContext())['items']]);
+            return $this->response(['items' => $this->settings->list($this->tenantAdminContext())['items']]);
         } catch (SettingException $exception) {
             throw $this->problem($exception);
         }
@@ -29,7 +27,7 @@ final class SettingsController extends BaseAdminController
     {
         $body = $this->jsonBody(['value']);
         try {
-            $record = $this->settings()->replace(
+            $record = $this->settings->replace(
                 $this->tenantAdminContext(), $moduleKey, $settingKey, $body['value'],
                 $this->header('If-Match'), $this->header('If-None-Match'), $this->requiredHeader('Idempotency-Key'),
             );
@@ -42,7 +40,7 @@ final class SettingsController extends BaseAdminController
     public function unset(string $moduleKey, string $settingKey): Json
     {
         try {
-            $record = $this->settings()->unset(
+            $record = $this->settings->unset(
                 $this->tenantAdminContext(), $moduleKey, $settingKey,
                 $this->header('If-Match'), $this->requiredHeader('Idempotency-Key'),
             );

@@ -13,12 +13,12 @@
   },
   "scripts": {
     "dev": "../scripts/local-client-dev web",
-    "build": "vue-tsc --noEmit && vite build --config ./config/vite.config.prod.ts",
+    "build": "vue-tsc --noEmit && vite build --config ./config/vite.config.prod.ts --configLoader runner",
     "report": "PEANUT_CLIENT_ENV_FILE=$PWD/.env.report npm run build",
     "preview": "npm run build && vite preview --host",
     "type:check": "vue-tsc --noEmit --skipLibCheck",
     "lint-staged": "npx lint-staged",
-    "prepare": "husky install"
+    "hooks:install": "husky install"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx}": [
@@ -38,8 +38,8 @@
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
     "@hocuspocus/provider": "4.6.0",
-    "@peanut-admin/ui-vue": "file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
-    "@peanut-admin/vue": "file:../packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
+    "@peanut-admin/ui-vue": "file:../packages/core-web/peanut-admin-ui-vue-4.0.0-dev.1.tgz",
+    "@peanut-admin/vue": "file:../packages/core-web/peanut-admin-vue-4.0.0-dev.1.tgz",
     "@tiptap/core": "3.30.5",
     "@tiptap/extension-collaboration": "3.30.5",
     "@tiptap/pm": "3.30.5",
@@ -106,7 +106,7 @@
     "vue-tsc": "^1.0.14"
   },
   "engines": {
-    "node": "^18.0.0 || ^20.0.0 || >=22.0.0"
+    "node": ">=22.12.0 <23"
   },
   "resolutions": {
     "bin-wrapper": "npm:bin-wrapper-china",
@@ -118,5 +118,6 @@
       "js-yaml@4.3.1": "4.3.2",
       "postcss": "8.5.23"
     }
-  }
+  },
+  "packageManager": "pnpm@9.15.6"
 }

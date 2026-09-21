@@ -124,11 +124,37 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "default",
+                "new",
+                "hot"
+              ],
+              "default": "default"
+            }
           }
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/ApiResponse"
+            "description": "公开文章分页",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationArticleListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
         }
       }
@@ -152,9 +178,25 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/ApiResponse"
+            "description": "公开文章详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationArticleDetailResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
-        }
+        },
+        "x-peanut-errors": [
+          "ARTICLE_NOT_FOUND"
+        ]
       }
     },
     "/adminapi/official.file.upload.file": {
@@ -195,9 +237,28 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/ApiResponse"
+            "description": "上传成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
-        }
+        },
+        "x-peanut-errors": [
+          "UPLOAD_FILE_REQUIRED"
+        ]
       }
     },
     "/api/storage/delivery": {
@@ -260,7 +321,10 @@
             }
           },
           "404": {
-            "description": "Signature, object state or Tenant state rejected"
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
         }
       }
@@ -280,6 +344,45 @@
         ],
         "parameters": [
           {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                10,
+                20,
+                30
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "cid",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
             "$ref": "#/components/parameters/PageNo"
           },
           {
@@ -288,7 +391,23 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/ApiResponse"
+            "description": "当前租户素材分页",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
         }
       }
@@ -322,9 +441,28 @@
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/ApiResponse"
+            "description": "验证码发送请求已受理",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
           }
-        }
+        },
+        "x-peanut-errors": [
+          "VERIFICATION_CODE_SEND_REJECTED"
+        ]
       }
     },
     "/adminapi/readiness/checklist": {
@@ -387,10 +525,10 @@
             }
           },
           "401": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           },
           "403": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           }
         }
       }
@@ -431,15 +569,18 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           },
           "401": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           },
           "403": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           }
-        }
+        },
+        "x-peanut-errors": [
+          "TRANSFER_REQUEST_INVALID"
+        ]
       }
     },
     "/adminapi/official.import-export.configuration.apply": {
@@ -478,18 +619,21 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           },
           "401": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           },
           "403": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           },
           "409": {
-            "$ref": "#/components/responses/ApiResponse"
+            "$ref": "#/components/responses/ErrorResponse"
           }
-        }
+        },
+        "x-peanut-errors": [
+          "TRANSFER_REQUEST_INVALID"
+        ]
       }
     },
     "/platformapi/v1/ops/backups": {
@@ -1914,7 +2058,44 @@
           }
         }
       },
-      "ApiResponse": {
+    "ErrorEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "msg",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "minimum": 40000,
+          "maximum": 59999
+        },
+        "msg": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "nullable": true,
+          "properties": {
+            "error_code": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{2,127}$"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "example": {
+        "code": 40300,
+        "msg": "无权执行该操作",
+        "data": {
+          "error_code": "API_PERMISSION_DENIED"
+        }
+      }
+    },
+    "ApiResponse": {
         "type": "object",
         "additionalProperties": true,
         "properties": {
@@ -1956,8 +2137,8 @@
         ]
       }
     },
-    "responses": {
-      "ApiResponse": {
+  "responses": {
+    "ApiResponse": {
         "description": "Standard Peanut Admin API response",
         "content": {
           "application/json": {
@@ -1966,7 +2147,25 @@
             }
           }
         }
+      },
+    "ErrorResponse": {
+      "description": "统一 API 错误响应；data.error_code 仅在异常提供稳定错误码时出现。",
+      "headers": {
+        "X-Request-Id": {
+          "description": "请求追踪 ID",
+          "schema": {
+            "type": "string"
+          }
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+          }
+        }
       }
     }
   }
+}
 }

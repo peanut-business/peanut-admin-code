@@ -7,6 +7,13 @@ export interface ModuleApiOperations {
   listTaskJobs: paths['/adminapi/api/v1/tasks/jobs']['get'];
   cancelTaskJob: paths['/adminapi/api/v1/tasks/jobs/{jobKey}/cancel']['post'];
   retryTaskJob: paths['/adminapi/api/v1/tasks/jobs/{jobKey}/retry']['post'];
+  previewCrontabExpression: paths['/adminapi/official.task.expression']['get'];
+  listCrontabs: paths['/adminapi/official.task.list']['get'];
+  getCrontab: paths['/adminapi/official.task.detail']['get'];
+  createCrontab: paths['/adminapi/official.task.add']['post'];
+  updateCrontab: paths['/adminapi/official.task.edit']['post'];
+  deleteCrontab: paths['/adminapi/official.task.delete']['post'];
+  operateCrontab: paths['/adminapi/official.task.operate']['post'];
 }
 
 export function createModuleApi(client: Client<paths>) {
@@ -15,6 +22,13 @@ export function createModuleApi(client: Client<paths>) {
     listTaskJobs: pathClient['/adminapi/api/v1/tasks/jobs'].GET,
     cancelTaskJob: pathClient['/adminapi/api/v1/tasks/jobs/{jobKey}/cancel'].POST,
     retryTaskJob: pathClient['/adminapi/api/v1/tasks/jobs/{jobKey}/retry'].POST,
+    previewCrontabExpression: pathClient['/adminapi/official.task.expression'].GET,
+    listCrontabs: pathClient['/adminapi/official.task.list'].GET,
+    getCrontab: pathClient['/adminapi/official.task.detail'].GET,
+    createCrontab: pathClient['/adminapi/official.task.add'].POST,
+    updateCrontab: pathClient['/adminapi/official.task.edit'].POST,
+    deleteCrontab: pathClient['/adminapi/official.task.delete'].POST,
+    operateCrontab: pathClient['/adminapi/official.task.operate'].POST,
   };
 }
 

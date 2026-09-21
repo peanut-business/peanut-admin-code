@@ -8,6 +8,16 @@ export interface ModuleApiOperations {
   deliverTenantFile: paths['/api/storage/delivery']['get'];
   listFiles: paths['/adminapi/official.file.list']['get'];
   listFileAssets: paths['/adminapi/api/v1/files/assets']['get'];
+  uploadAdminImage: paths['/adminapi/official.file.upload.image']['post'];
+  uploadAdminVideo: paths['/adminapi/official.file.upload.video']['post'];
+  uploadMemberImage: paths['/api/upload/image']['post'];
+  moveFiles: paths['/adminapi/official.file.move']['post'];
+  renameFile: paths['/adminapi/official.file.rename']['post'];
+  deleteFiles: paths['/adminapi/official.file.delete']['post'];
+  listFileCategories: paths['/adminapi/official.file.category.list']['get'];
+  createFileCategory: paths['/adminapi/official.file.category.add']['post'];
+  updateFileCategory: paths['/adminapi/official.file.category.edit']['post'];
+  deleteFileCategory: paths['/adminapi/official.file.category.delete']['post'];
 }
 
 export function createModuleApi(client: Client<paths>) {
@@ -17,6 +27,16 @@ export function createModuleApi(client: Client<paths>) {
     deliverTenantFile: pathClient['/api/storage/delivery'].GET,
     listFiles: pathClient['/adminapi/official.file.list'].GET,
     listFileAssets: pathClient['/adminapi/api/v1/files/assets'].GET,
+    uploadAdminImage: pathClient['/adminapi/official.file.upload.image'].POST,
+    uploadAdminVideo: pathClient['/adminapi/official.file.upload.video'].POST,
+    uploadMemberImage: pathClient['/api/upload/image'].POST,
+    moveFiles: pathClient['/adminapi/official.file.move'].POST,
+    renameFile: pathClient['/adminapi/official.file.rename'].POST,
+    deleteFiles: pathClient['/adminapi/official.file.delete'].POST,
+    listFileCategories: pathClient['/adminapi/official.file.category.list'].GET,
+    createFileCategory: pathClient['/adminapi/official.file.category.add'].POST,
+    updateFileCategory: pathClient['/adminapi/official.file.category.edit'].POST,
+    deleteFileCategory: pathClient['/adminapi/official.file.category.delete'].POST,
   };
 }
 

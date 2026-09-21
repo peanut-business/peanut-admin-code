@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use PeanutAdmin\Modules\ImportExport\Contract\ImportExportWorkerRuntime;
+use PeanutAdmin\Modules\Task\Contract\TaskJobRuntime;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\runtime\OperationalLog;
@@ -17,7 +17,7 @@ final class TenantTaskWorker extends ContextualCommand
     public function __construct(
         ?ExecutionContextStore $contexts = null,
         ?CurrentExecutionContext $executionContext = null,
-        private readonly ?ImportExportWorkerRuntime $runtime = null,
+        private readonly ?TaskJobRuntime $runtime = null,
     ) {
         parent::__construct($contexts, $executionContext);
     }
@@ -65,7 +65,7 @@ final class TenantTaskWorker extends ContextualCommand
         ], true) ? $exception->getMessage() : 'TENANT_TASK_WORKER_STARTUP_FAILED';
     }
 
-    private function runtime(): ImportExportWorkerRuntime
+    private function runtime(): TaskJobRuntime
     {
         return $this->runtime
             ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');

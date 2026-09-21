@@ -40,6 +40,14 @@ final readonly class DeveloperCenterCatalogService
             $routes,
             static fn(array $route): bool => ($route['documented'] ?? false) === true,
         ));
+        $completeOperations = array_values(array_filter(
+            $documentedOperations,
+            static fn(array $route): bool => ($route['contract_quality'] ?? null) === 'complete',
+        ));
+        $partialOperations = array_values(array_filter(
+            $documentedOperations,
+            static fn(array $route): bool => ($route['contract_quality'] ?? null) !== 'complete',
+        ));
         $commands = $this->moduleCommands();
         $modules = [];
         foreach ($declarations as $key => $declaration) {
@@ -120,6 +128,8 @@ final readonly class DeveloperCenterCatalogService
                 'registered' => count($registeredKeys),
                 'routes' => count($routes),
                 'generated_api_operations' => count($documentedOperations),
+                'complete_api_operations' => count($completeOperations),
+                'partial_api_operations' => count($partialOperations),
                 'undocumented_routes' => count($routes) - count($documentedOperations),
             ],
             'modules' => $modules,

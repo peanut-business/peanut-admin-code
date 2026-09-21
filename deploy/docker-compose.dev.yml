@@ -13,7 +13,7 @@ x-node-environment: &node-environment
 
 services:
   web:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/web
     command: ["sh", "-c", "test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts --host 0.0.0.0 --port 5173"]
     environment:
@@ -28,7 +28,7 @@ services:
       - "127.0.0.1:${VITE_PORT:?set the registered admin port}:5173"
 
   platform:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/platform
     command: ["sh", "-c", "test -x node_modules/.bin/vite || npm ci --legacy-peer-deps; exec node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5177"]
     environment:
@@ -43,13 +43,15 @@ services:
       - "127.0.0.1:${PLATFORM_PORT:?set the registered platform port}:5177"
 
   pc:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/pc
     command: ["sh", "-c", "test -x node_modules/.bin/nuxt || npm ci; exec node node_modules/nuxt/bin/nuxt.mjs dev --port 3100 --host 0.0.0.0"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
       PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
+      NUXT_UPSTREAM_ORIGIN: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
+      NUXT_FORWARDED_PROTO: http
     volumes:
       - ../pc:/workspace/pc
       - ../.local/container-client.env:/run/peanut/client.env:ro
@@ -58,7 +60,7 @@ services:
       - "127.0.0.1:${PC_PORT:?set the registered PC port}:3100"
 
   mobile:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/uniapp
     command: ["sh", "-c", "test -x node_modules/.bin/uni || npm ci; exec node node_modules/@dcloudio/vite-plugin-uni/bin/uni.js --host 0.0.0.0 --port 5174"]
     environment:
@@ -73,7 +75,7 @@ services:
       - "127.0.0.1:${MOBILE_PORT:?set the registered mobile port}:5174"
 
   docs:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/peanut-admin-project/docs-site
     command: ["sh", "-c", "corepack enable && corepack prepare pnpm@9.15.6 --activate; test -x node_modules/.bin/vitepress || pnpm install --frozen-lockfile; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
     environment:

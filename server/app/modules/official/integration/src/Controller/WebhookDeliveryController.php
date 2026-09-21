@@ -8,17 +8,15 @@ use PeanutAdmin\Modules\Integration\Application\IntegrationSecurityPage;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\response\Json;
 
+/** @property-read IntegrationAdminApplicationService $deliveries 当前 App 中声明式解析的控制器依赖。 */
 final class WebhookDeliveryController extends IntegrationAdminController
 {
-    protected function deliveries(): IntegrationAdminApplicationService
-    {
-        return $this->app->make(IntegrationAdminApplicationService::class);
-    }
+    protected string $deliveriesClass = IntegrationAdminApplicationService::class;
 
     public function index(): Json
     {
         try {
-            return $this->response($this->deliveries()->deliveries(
+            return $this->response($this->deliveries->deliveries(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $this->positiveInteger($this->request->get('page', 1)),
@@ -32,7 +30,7 @@ final class WebhookDeliveryController extends IntegrationAdminController
     public function attempts(string $deliveryKey): Json
     {
         try {
-            return $this->response($this->deliveries()->deliveryAttempts(
+            return $this->response($this->deliveries->deliveryAttempts(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $deliveryKey,

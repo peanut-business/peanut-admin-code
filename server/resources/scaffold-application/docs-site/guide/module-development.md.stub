@@ -1,0 +1,11 @@
+# 模块开发
+
+在 `server/` 执行 `php think module:create <vendor.module> --vendor=<vendor>`，再执行 `module:check`。模块根包含正式 `module.json`、Composer 声明、`src/`、数据库迁移和资源；仅建立实际使用的子目录，不机械生成空的分层。
+
+类名使用该模块声明的唯一 PSR-4 前缀；公开服务、稳定结果、依赖及数据所有者随版本登记。其他模块不能导入私有 Model 或跨模块 ORM 关联；使用目标模块的公开查询或业务操作。Controller 可声明受保护的 `xxClass`，通过只读 `$this->xx` 取得已绑定对象；安全身份仍由正式入口建立，声明不授予权限。
+
+简单管理配置允许动作、输入/输出、分页/排序及可写字段；软删除必须显式启用并声明字段。普通查询排除已删除项；回收查看、恢复、永久删除有独立授权和关联冲突检查。付款、撤单、库存变更使用业务服务，不套通用删除。
+
+前后端源码分别放在对应工程。`frontend.clients` 可登记实际存在的 `web/src/modules`、`platform/src/modules`、`pc/modules`、`uniapp/src/modules` 贡献；每个贡献有 `contribution.ts` 和 `package.json`。旧 `frontend.entry` 表达管理端贡献，不假设所有端共享组件；代码变化需要重新构建受影响客户端。
+
+用两个合成租户验证合法调用、跨租户拒绝、停用和撤权；生成接口/SDK、编译模块、重建对应包摘要。按 [打包、安装与升级](application-module-lifecycle.md) 交付，不以本机路径或开发依赖作为安装前提。

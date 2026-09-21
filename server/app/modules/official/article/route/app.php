@@ -21,12 +21,20 @@ Route::group(function (): void {
     Route::post('official.article.category.edit', [ArticleCateController::class, 'edit']);
     Route::post('official.article.category.delete', [ArticleCateController::class, 'delete']);
     Route::post('official.article.category.update-status', [ArticleCateController::class, 'updateStatus']);
+    Route::get('official.article.category.recycle.list', [ArticleCateController::class, 'recycleLists']);
+    Route::get('official.article.category.recycle.detail', [ArticleCateController::class, 'recycleDetail']);
+    Route::post('official.article.category.restore', [ArticleCateController::class, 'restore']);
+    Route::post('official.article.category.force-delete', [ArticleCateController::class, 'forceDelete']);
     Route::get('official.article.list', [ArticleController::class, 'lists']);
     Route::get('official.article.detail', [ArticleController::class, 'detail']);
     Route::post('official.article.add', [ArticleController::class, 'add']);
     Route::post('official.article.edit', [ArticleController::class, 'edit']);
     Route::post('official.article.delete', [ArticleController::class, 'delete']);
     Route::post('official.article.update-status', [ArticleController::class, 'updateStatus']);
+    Route::get('official.article.recycle.list', [ArticleController::class, 'recycleLists']);
+    Route::get('official.article.recycle.detail', [ArticleController::class, 'recycleDetail']);
+    Route::post('official.article.restore', [ArticleController::class, 'restore']);
+    Route::post('official.article.force-delete', [ArticleController::class, 'forceDelete']);
 })->middleware([
     LoginMiddleware::class,
     [OfficialModuleMiddleware::class, ['official.article', 'http.admin']],

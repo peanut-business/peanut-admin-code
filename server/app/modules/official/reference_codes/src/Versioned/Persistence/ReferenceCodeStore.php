@@ -13,13 +13,15 @@ use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegi
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\Model\ReferenceCodeEntryRecord;
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\Model\ReferenceCodeEntryVersionRecord;
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\Model\ReferenceCodeSetRecord;
-use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
+use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use think\db\Raw;
 use think\db\exception\PDOException;
 use think\facade\Db;
 
 final class ReferenceCodeStore
 {
+    public function __construct(private readonly ?TenantMemberDirectory $members = null) {}
+
     /** @template T
      * @param callable(): T $operation
      * @return T
@@ -386,22 +388,12 @@ final class ReferenceCodeStore
 
     private function assertTenantActor(TenantContext $context): void
     {
-        if ($context->tenantId < 1
-            || !$this->memberBelongsToTenant($context->tenantId, $context->memberId)) {
+        $member = $this->members?->activeMembership($context->tenantId, $context->memberId);
+        if ($member === null
+            || $member->accountId !== $context->accountId
+            || $member->authorizationRevision !== $context->authorizationRevision) {
             throw ReferenceCodeException::codeNotFound();
         }
-    }
-
-    private function memberBelongsToTenant(int $tenantId, mixed $memberId): bool
-    {
-        if ($tenantId < 1
-            || (!is_int($memberId) && !is_string($memberId))
-            || preg_match('/^[1-9][0-9]*$/D', (string) $memberId) !== 1) {
-            return false;
-        }
-
-        return TenantMember::where('tenant_id', $tenantId)
-            ->where('id', $memberId)->value('id') !== null;
     }
 
     /** @return array<string, mixed>|null */

@@ -98,12 +98,27 @@ try {
     $archive=$temporary.'/source.tar'; $source=$temporary.'/source'; mkdir($source,0700);
     releaseRun(['git','-C',$root,'archive','--format=tar','--output='.$archive,$commit]);
     (new PharData($archive))->extractTo($source);
-    require $source.'/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
-    require $source.'/server/app/common/value/scaffold/ScaffoldManifest.php';
-    require $source.'/server/app/common/infrastructure/scaffold/ApplicationCreator.php';
+    $modernCreator = is_file($source . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php');
+    require $source . ($modernCreator
+        ? '/server/app/common/validation/scaffold/ScaffoldPathGuard.php'
+        : '/server/app/common/service/scaffold/ScaffoldPathGuard.php');
+    require $source . ($modernCreator
+        ? '/server/app/common/value/scaffold/ScaffoldManifest.php'
+        : '/server/app/common/service/scaffold/ScaffoldManifest.php');
+    require $source . ($modernCreator
+        ? '/server/app/common/infrastructure/scaffold/ApplicationCreator.php'
+        : '/server/app/common/service/scaffold/ApplicationCreator.php');
     $application=$temporary.'/application';
     $edition=$options['edition']??null;
-    $creator=new \app\common\infrastructure\scaffold\ApplicationCreator($source,$source.'/scaffold/application-template-inventory.json',['commit'=>$commit,'tree'=>$tree],null,$edition!==null);
+    $creatorClass=$modernCreator
+        ? \app\common\infrastructure\scaffold\ApplicationCreator::class
+        : \app\common\service\scaffold\ApplicationCreator::class;
+    $creatorArguments=[$source,$source.'/scaffold/application-template-inventory.json',['commit'=>$commit,'tree'=>$tree]];
+    $constructor=(new ReflectionClass($creatorClass))->getConstructor();
+    $constructorCount=$constructor?->getNumberOfParameters()??0;
+    if($constructorCount>=4)$creatorArguments[]=null;
+    if($constructorCount>=5)$creatorArguments[]=$edition!==null;
+    $creator=(new ReflectionClass($creatorClass))->newInstanceArgs($creatorArguments);
     $create=new ReflectionMethod($creator,'create');
     $createParameters=array_map(static fn(ReflectionParameter $parameter):string=>$parameter->getName(),$create->getParameters());
     if($createParameters===['productName','slug','packageIdentity','target']) {
@@ -183,5 +198,11 @@ try {
     $manifestPath=rtrim($options['output'],'/').'/scaffold-manifest.json';
     if($check){if(!is_file($manifestPath)||!hash_equals($json,(string)file_get_contents($manifestPath)))throw new RuntimeException('SCAFFOLD_RELEASE_MANIFEST_STALE'); echo "SCAFFOLD-RELEASE-{$options['version']} verified\n";}
     else{releaseWrite($manifestPath,$json,0644);echo "wrote {$manifestPath} with ".count($files)." managed files\n";}
-    if($check){foreach($files as $file)releaseAssertTracked($root,rtrim($options['output'],'/').'/'.$file['source']);releaseAssertTracked($root,$manifestPath);}
+    // Historical in-repository releases remain versioned inputs. A freshly built
+    // candidate outside scaffold/releases is verified against its exact source
+    // commit above; requiring it in Git would prevent pre-release qualification.
+    if ($check && str_starts_with(rtrim($options['output'], '/') . '/', $root . '/scaffold/releases/')) {
+        foreach ($files as $file) releaseAssertTracked($root, rtrim($options['output'], '/') . '/' . $file['source']);
+        releaseAssertTracked($root, $manifestPath);
+    }
 } finally { releaseDelete($temporary); }

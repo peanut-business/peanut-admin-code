@@ -2,20 +2,15 @@
 
 FROM node:22.22.0-bookworm-slim AS client-base
 
-COPY packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz \
-    packages/core-web/peanut-admin-nuxt-4.0.0-dev.0.tgz \
-    packages/core-web/peanut-admin-testing-4.0.0-dev.0.tgz \
-    packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz \
-    packages/core-web/peanut-admin-uniapp-4.0.0-dev.0.tgz \
-    packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz \
-    /build/packages/core-web/
+# Client manifests/locks select exact archives; release-versions.json verifies their digests.
+COPY packages/core-web/*.tgz /build/packages/core-web/
 
 FROM client-base AS admin-builder
 
 WORKDIR /build/web
-RUN corepack enable && corepack prepare pnpm@10.15.0 --activate
 COPY web/package.json web/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN corepack enable && corepack prepare "$(node -p "require('./package.json').packageManager")" --activate
+RUN HUSKY=0 pnpm install --frozen-lockfile
 COPY plugins.lock /build/plugins.lock
 COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY web/ ./
@@ -50,7 +45,20 @@ COPY pc/package.json pc/package-lock.json ./
 RUN npm ci
 COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY pc/ ./
-RUN npm run generate
+RUN npm run build
+
+FROM node:22.22.0-bookworm-slim AS pc
+
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=3000
+
+WORKDIR /app
+COPY --from=pc-builder /build/pc/.output ./.output
+
+USER node
+EXPOSE 3000
+CMD ["node", ".output/server/index.mjs"]
 
 FROM composer:2.8 AS composer-deps
 
@@ -143,7 +151,5 @@ COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md RELEASE_SBOM.spdx.json CHANGELOG.md R
 COPY --from=admin-builder /build/web/dist /opt/peanut-admin/admin
 COPY --from=platform-builder /build/platform/dist /var/www/peanut-admin/server/public/platform
 COPY --from=mobile-builder /build/uniapp/dist/build/h5 /var/www/peanut-admin/server/public/mobile
-COPY --from=pc-builder /build/pc/.output/public /var/www/peanut-admin/server/public/pc
-
 RUN chmod +x /docker-entrypoint.d/40-select-admin.sh \
     && mkdir -p /var/www/peanut-admin/server/public/storage

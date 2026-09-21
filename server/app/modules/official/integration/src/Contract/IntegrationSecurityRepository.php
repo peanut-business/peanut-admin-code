@@ -43,7 +43,4 @@ interface IntegrationSecurityRepository
     public function deliveryRecords(int $tenantId, int $page, int $pageSize): IntegrationSecurityPage;
     public function deliveryAttemptRecords(int $tenantId, string $deliveryKey, int $page, int $pageSize): IntegrationSecurityPage;
 
-    /** @return list<SessionDevice> */
-    public function sessionDevices(int $tenantId, int $accountId, string $currentSessionKey): array;
-    public function revokeOwnSession(TenantContext $context, string $sessionKey): SessionDevice;
 }

@@ -76,7 +76,17 @@
         />
       </el-form-item>
       <el-form-item prop="token" :label="$t('channel.officialAccount.token')">
-        <el-input v-model="form.token" :maxlength="255" />
+        <el-input
+          v-model="form.token"
+          type="password"
+          show-password
+          :maxlength="255"
+          :placeholder="
+            form.token_configured
+              ? $t('channel.officialAccount.secretMaskedPlaceholder')
+              : $t('channel.field.secret.placeholder')
+          "
+        />
       </el-form-item>
       <el-divider content-position="left">
         {{ $t('channel.officialAccount.callback') }}
@@ -143,6 +153,7 @@
     app_secret_configured: false,
     url: '',
     token: '',
+    token_configured: false,
     business_domain: '',
     js_secure_domain: '',
     web_auth_domain: '',

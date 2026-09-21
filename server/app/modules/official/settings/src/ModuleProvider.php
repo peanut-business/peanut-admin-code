@@ -26,6 +26,8 @@ use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Settings\Secret\SecretProtector;
 use PeanutAdmin\Settings\Secret\SodiumSecretProtector;
+use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use think\App;
 use Throwable;
 
@@ -56,7 +58,13 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(DeployedSettingDefinitionRegistry::class)->build(),
             SettingAdminService::class => function (App $app): SettingAdminService {
                 $persistence = $app->make(TenantPersistenceConfiguration::class);
-                return new SettingAdminService($app->make(SecretProtector::class), $persistence->mode, $persistence->instanceTenantId);
+                return new SettingAdminService(
+                    $app->make(SecretProtector::class),
+                    $persistence->mode,
+                    $persistence->instanceTenantId,
+                    $app->make(TenantMemberDirectory::class),
+                    $app->make(PlatformOperatorIdentityQuery::class),
+                );
             },
             SettingResolver::class => function (App $app): SettingResolver {
                 $persistence = $app->make(TenantPersistenceConfiguration::class);
@@ -71,6 +79,8 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(SettingResolver::class),
                 $app->make(IdempotentCommandExecutor::class),
                 $app->make(ModuleRuntimeRepository::class),
+                $app->get(\app\common\execution\CurrentExecutionContext::class),
+                $app->get(\app\common\contract\authorization\AdminAuthorizationQuery::class),
             ),
         ];
     }

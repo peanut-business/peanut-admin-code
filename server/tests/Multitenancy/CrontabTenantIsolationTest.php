@@ -215,6 +215,7 @@ SQL);
         app(\app\common\service\module\ModuleExecutionBoundary::class),
         app(\app\common\services\CrontabCommandService::class),
         $dispatch,
+        [],
         25,
     );
     $scheduler = $taskProvider->scheduler(

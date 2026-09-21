@@ -8,6 +8,7 @@ import {
 import { setToken, clearToken } from '@/utils/auth';
 import { selectTenant, tenantLogin, tenantLogout } from '@/api/tenant-session';
 import {
+  disposeTenantState,
   isTenantAccessToken,
 } from '@peanut-admin/vue';
 import isMultiTenantDeployment from '@/core/tenant-session';
@@ -107,14 +108,18 @@ const useUserStore = defineStore('user', {
         throw err;
       }
     },
-    logoutCallBack() {
-      const appStore = useAppStore();
-      const brandStore = useBrandStore();
-      this.resetInfo();
-      brandStore.setTenantName();
-      clearToken();
-      removeRouteListener();
-      appStore.clearServerMenu();
+    async logoutCallBack() {
+      try {
+        await disposeTenantState();
+      } finally {
+        const appStore = useAppStore();
+        const brandStore = useBrandStore();
+        this.resetInfo();
+        brandStore.setTenantName();
+        clearToken();
+        removeRouteListener();
+        appStore.clearServerMenu();
+      }
     },
     // Logout
     async logout() {
@@ -126,7 +131,7 @@ const useUserStore = defineStore('user', {
           await userLogout();
         }
       } finally {
-        this.logoutCallBack();
+        await this.logoutCallBack();
       }
     },
   },

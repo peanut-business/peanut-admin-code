@@ -15,9 +15,9 @@ use PeanutAdmin\Modules\Ops\Domain\Task\BackupRestoreProviderRegistry;
 use PeanutAdmin\Modules\Identity\Identity\Query\ThinkPhpPlatformOperatorIdentityQuery;
 use PeanutAdmin\Modules\Ops\Service\PlatformModuleOperationExecutionService;
 use PeanutAdmin\Modules\Ops\Infrastructure\Authorization\PlatformOpsPermissionChecker;
-use app\platform\service\plugin\PluginPackageArchiveService;
-use app\platform\service\plugin\PluginPackageInstaller;
-use app\platform\service\plugin\PluginRuntimeGovernanceService;
+use app\platform\infrastructure\plugin\PluginPackageInstaller;
+use app\platform\services\plugin\PluginPackageArchiveService;
+use app\platform\services\plugin\PluginRuntimeGovernanceService;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Context\PlatformContext;
@@ -129,7 +129,15 @@ $identity = initializeCoreIdentity(
     'module-delivery@example.test',
     'module-delivery-password',
     null,
-    new \app\common\service\DemoAccountPolicy(false, []),
+    new \app\common\policy\DemoAccountPolicy(false, []),
+    [
+        'kind' => 'real-default-tenant',
+        'code' => 'default',
+        'tenant_identity' => 'required',
+        'rbac' => 'required',
+        'execution_context' => \PeanutAdmin\Kernel\Context\TenantSystemContext::class,
+        'module_lifecycle' => 'required',
+    ],
 );
 $serverRoot = dirname(__DIR__, 2);
 executeSqlFiles($pdo, [$serverRoot . '/database/init.sql']);

@@ -39,21 +39,21 @@ officialArticleExpect(
     'official Article public contracts did not converge to three consumed interfaces',
 );
 officialArticleExpect(
-    ($manifest['backend']['migrations'] ?? null) === 'Database/Migrations'
-        && ($manifest['backend']['setting_definitions'] ?? null) === 'Resources/setting-definitions.json',
+    ($manifest['backend']['migrations'] ?? null) === 'database/migrations'
+        && ($manifest['backend']['setting_definitions'] ?? null) === 'resources/setting-definitions.json',
     'official Article manifest does not declare its migrations and setting definitions'
 );
 officialArticleExpect(
-    json_decode((string)file_get_contents($moduleRoot . '/Resources/setting-definitions.json'), true, 8, JSON_THROW_ON_ERROR) === [],
+    json_decode((string)file_get_contents($moduleRoot . '/resources/setting-definitions.json'), true, 8, JSON_THROW_ON_ERROR) === [],
     'official Article setting definition catalog must be explicitly empty'
 );
 
 $baseline = (string)file_get_contents($serverRoot . '/database/init.sql');
 $ownershipMigration = (string)file_get_contents(
-    $moduleRoot . '/Database/Migrations/20260825-adopt-permission-ownership.sql'
+    $moduleRoot . '/database/migrations/20260825-adopt-permission-ownership.sql'
 );
 $namespaceMigration = (string)file_get_contents(
-    $moduleRoot . '/Database/Migrations/20260826-namespace-permission-keys.sql'
+    $moduleRoot . '/database/migrations/20260826-namespace-permission-keys.sql'
 );
 officialArticleExpect(
     str_contains($baseline, "'article.articlecate/all'")
@@ -68,7 +68,7 @@ officialArticleExpect(
 );
 
 $permissions = json_decode(
-    (string)file_get_contents($moduleRoot . '/Resources/permissions.json'),
+    (string)file_get_contents($moduleRoot . '/resources/permissions.json'),
     true,
     64,
     JSON_THROW_ON_ERROR
@@ -88,39 +88,36 @@ officialArticleExpect(
     'official Article permission escaped its Module-key namespace'
 );
 
-$routes = (string)file_get_contents($moduleRoot . '/Http/routes.php');
+$routes = (string)file_get_contents($moduleRoot . '/route/app.php');
 $hostRoutes = peanut_route_registry_source($serverRoot);
 $legacyHostRoutes = implode('', array_map(
     static fn(string $file): string => (string)file_get_contents($serverRoot . '/route/' . $file),
     ['app.php', 'platform.php', 'tenant.php', 'admin.php', 'public_api.php'],
 ));
 $publicMiddleware = (string)file_get_contents($serverRoot . '/app/api/middleware/PublicTenantModuleMiddleware.php');
-$administration = (string)file_get_contents($moduleRoot . '/Application/ArticleAdministrationService.php');
-$publicArticles = (string)file_get_contents($moduleRoot . '/Application/PublicArticleService.php');
-$publicContract = (string)file_get_contents($moduleRoot . '/Contracts/PublicArticleQueries.php');
+$administration = (string)file_get_contents($moduleRoot . '/src/Service/ArticleAdministrationService.php');
+$publicArticles = (string)file_get_contents($moduleRoot . '/src/Service/PublicArticleService.php');
+$publicContract = (string)file_get_contents($moduleRoot . '/src/Contract/PublicArticleQueries.php');
 $articlePersistence = $administration . $publicArticles
-    . (string)file_get_contents($moduleRoot . '/Model/Article.php')
-    . (string)file_get_contents($moduleRoot . '/Model/ArticleCate.php')
-    . (string)file_get_contents($moduleRoot . '/Model/ArticleCollect.php');
-$provider = (string)file_get_contents($moduleRoot . '/ModuleProvider.php');
-$categoryController = (string)file_get_contents($moduleRoot . '/Http/Controller/ArticleCateController.php');
-$menuLogic = (string)file_get_contents($serverRoot . '/app/adminapi/application/auth/MenuApplicationService.php');
-$permissionService = (string)file_get_contents($serverRoot . '/app/common/service/authorization/AdminAuthorizationService.php');
-officialArticleExpect(substr_count($routes, "Route::get('official.article.") === 5, 'Article GET route count changed');
-officialArticleExpect(substr_count($routes, "Route::post('official.article.") === 8, 'Article POST route count changed');
+    . (string)file_get_contents($moduleRoot . '/src/Model/Article.php')
+    . (string)file_get_contents($moduleRoot . '/src/Model/ArticleCate.php')
+    . (string)file_get_contents($moduleRoot . '/src/Model/ArticleCollect.php');
+$provider = (string)file_get_contents($moduleRoot . '/src/ModuleProvider.php');
+$categoryController = (string)file_get_contents($moduleRoot . '/src/Controller/ArticleCateController.php');
+$menuLogic = (string)file_get_contents($serverRoot . '/app/adminapi/services/auth/MenuApplicationService.php');
+$permissionService = (string)file_get_contents($serverRoot . '/app/common/services/authorization/AdminAuthorizationService.php');
+officialArticleExpect(substr_count($routes, "Route::get('official.article.") === 9, 'Article GET route count changed');
+officialArticleExpect(substr_count($routes, "Route::post('official.article.") === 12, 'Article POST route count changed');
 officialArticleExpect(
     str_contains($routes, 'OfficialModuleMiddleware::class')
-        && str_contains($routes, "(new ModuleProvider())->moduleKey()"),
+        && str_contains($routes, "[OfficialModuleMiddleware::class, ['official.article', 'http.admin']]"),
     'Article routes lost the shared Module execution boundary',
 );
 officialArticleExpect(
-    str_contains($categoryController, 'categoryLists(')
-        && str_contains($categoryController, 'categoryDetail(')
-        && str_contains($categoryController, 'addCategory(')
-        && str_contains($categoryController, 'editCategory(')
-        && str_contains($categoryController, 'deleteCategory(')
-        && str_contains($categoryController, 'updateCategoryStatus('),
-    'Article category controller is not mapped to category application use cases',
+    str_contains($categoryController, 'use CrudTrait;')
+        && str_contains($categoryController, 'protected string $crudClass = ArticleCategoryAdministration::class;')
+        && str_contains($categoryController, '@property-read ArticleCategoryAdministration $crud'),
+    'Article category controller is not mapped to the declared category application use case',
 );
 officialArticleExpect(
     !str_contains($administration, 'class ArticleAdministrationService extends BaseLogic')
@@ -128,7 +125,7 @@ officialArticleExpect(
     'Article administration did not converge on its application contract',
 );
 officialArticleExpect(
-    !is_file($moduleRoot . '/Http/ArticleModuleMiddleware.php'),
+    !is_file($moduleRoot . '/src/Http/ArticleModuleMiddleware.php'),
     'Article-specific Module middleware was reintroduced',
 );
 officialArticleExpect(!str_contains($legacyHostRoutes, "Route::get('official.article."), 'Article Admin routes remain Host-owned');
@@ -159,9 +156,9 @@ officialArticleExpect(
 
 $pcController = (string)file_get_contents($serverRoot . '/app/api/controller/PcController.php');
 $articleController = (string)file_get_contents($serverRoot . '/app/api/controller/ArticleController.php');
-$pcApplication = (string)file_get_contents($serverRoot . '/app/api/application/PcApplicationService.php');
-$indexApplication = (string)file_get_contents($serverRoot . '/app/api/application/IndexApplicationService.php');
-$userApplication = (string)file_get_contents($serverRoot . '/app/api/application/UserApplicationService.php');
+$pcApplication = (string)file_get_contents($serverRoot . '/app/api/services/PcApplicationService.php');
+$indexApplication = (string)file_get_contents($serverRoot . '/app/api/services/IndexApplicationService.php');
+$userApplication = (string)file_get_contents($serverRoot . '/app/api/services/UserApplicationService.php');
 officialArticleExpect(
     str_contains($pcController, "publicTenantContext('article.pc-index')")
         && str_contains($pcController, "publicTenantContext('article.info-center')")
@@ -175,14 +172,14 @@ officialArticleExpect(
     'PC aggregation no longer routes Article and decoration reads through guarded services'
 );
 officialArticleExpect(
-    !is_file($serverRoot . '/app/api/application/ArticleApplicationService.php')
+    !is_file($serverRoot . '/app/api/services/ArticleApplicationService.php')
         && substr_count($publicArticles, 'ArticleCollect::where([])') >= 4
         && str_contains($publicArticles, 'implements PublicArticleQueries')
         && str_contains($provider, 'PublicArticleQueries::class =>')
-        && str_contains($articleController, 'private readonly PublicArticleQueries $articles')
+        && str_contains($articleController, 'protected string $articlesClass = PublicArticleQueries::class;')
+        && str_contains($articleController, '@property-read PublicArticleQueries $articles')
         && str_contains($articleController, '$this->articles->add(')
         && str_contains($articleController, '$this->articles->cancel(')
-        && str_contains($pcController, 'private readonly PublicArticleQueries $articles')
         && str_contains($indexApplication, 'private readonly PublicArticleQueries $articles')
         && str_contains($indexApplication, '$this->articles->homeArticles(20)')
         && !str_contains($articleController . $pcController . $pcApplication . $indexApplication, 'ArticleTenantRepository')
@@ -234,17 +231,17 @@ officialArticleExpect(
 );
 
 $moduleFiles = [
-    'Http/Controller/ArticleCateController.php',
-    'Http/Controller/ArticleController.php',
-    'Application/ArticleAdministrationService.php',
-    'Application/PublicArticleService.php',
-    'Contracts/ArticleAdministration.php',
-    'Contracts/PublicArticleQueries.php',
-    'Validation/ArticleCateValidate.php',
-    'Validation/ArticleValidate.php',
-    'Model/Article.php',
-    'Model/ArticleCate.php',
-    'Model/ArticleCollect.php',
+    'src/Controller/ArticleCateController.php',
+    'src/Controller/ArticleController.php',
+    'src/Service/ArticleAdministrationService.php',
+    'src/Service/PublicArticleService.php',
+    'src/Contract/ArticleAdministration.php',
+    'src/Contract/PublicArticleQueries.php',
+    'src/Validation/ArticleCateValidate.php',
+    'src/Validation/ArticleValidate.php',
+    'src/Model/Article.php',
+    'src/Model/ArticleCate.php',
+    'src/Model/ArticleCollect.php',
 ];
 foreach ($moduleFiles as $relative) {
     officialArticleExpect(is_file($moduleRoot . '/' . $relative), 'Article business file is outside Module subtree: ' . $relative);

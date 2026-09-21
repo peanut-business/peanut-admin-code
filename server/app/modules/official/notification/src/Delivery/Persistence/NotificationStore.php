@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use JsonException;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
+use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PeanutAdmin\Modules\Notification\Delivery\Application\AttachmentReference;
 use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationException;
 use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationMessage;
@@ -27,6 +27,8 @@ use think\db\Raw;
 /** Retains notification/outbox invariants while using ThinkPHP persistence. */
 final class NotificationStore implements NotificationRepository
 {
+    public function __construct(private readonly TenantMemberDirectory $members) {}
+
     public function putTemplate(
         TenantContext $context,
         string $templateKey,
@@ -111,7 +113,7 @@ final class NotificationStore implements NotificationRepository
         array $attachments,
     ): array {
         $this->assertTenantActor($context);
-        $this->assertRecipientSnapshot($context->tenantId, $recipient);
+        $this->assertRecipientSnapshot($context, $recipient);
         $now = $this->now();
         $messageId = (int) NotificationMessageRecord::insertGetId([
             'message_key' => $messageKey,
@@ -532,18 +534,15 @@ final class NotificationStore implements NotificationRepository
 
     private function assertTenantActor(TenantContext $context): void
     {
-        $id = TenantMember::where('tenant_id', $context->tenantId)->where('id', $context->memberId)
-            ->where('account_id', $context->accountId)->where('status', 'active')->value('id');
-        if ($id === null) {
+        if ($this->members->current($context) === null) {
             throw NotificationException::denied();
         }
     }
 
-    private function assertRecipientSnapshot(int $tenantId, RecipientSnapshot $recipient): void
+    private function assertRecipientSnapshot(TenantContext $context, RecipientSnapshot $recipient): void
     {
-        $accountId = TenantMember::where('tenant_id', $tenantId)->where('id', $recipient->memberId)
-            ->where('status', 'active')->value('account_id');
-        if ((!is_int($accountId) && !is_string($accountId)) || (int) $accountId !== $recipient->accountId) {
+        $member = $this->members->activeMember($context, $recipient->memberId);
+        if ($member === null || $member->accountId !== $recipient->accountId) {
             throw NotificationException::recipientUnavailable();
         }
     }

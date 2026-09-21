@@ -10,7 +10,7 @@ const devProxyTarget = fileEnv.NUXT_DEV_PROXY_TARGET || `${devProxyOrigin}/api`
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: false },
-  ssr: false,
+  ssr: true,
 
   app: {
     baseURL: '/pc/',
@@ -31,6 +31,9 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    upstreamOrigin: process.env.NUXT_UPSTREAM_ORIGIN || devProxyOrigin,
+    forwardedProto: process.env.NUXT_FORWARDED_PROTO || 'http',
+    trustedHosts: process.env.NUXT_TRUSTED_HOSTS || '',
     public: {
       apiBase: '',
     },

@@ -13,13 +13,11 @@ use think\response\Json;
  * 系统维护控制器
  * Class SystemController
  * @package app\adminapi\controller\system
+ * @property-read SystemApplicationService $system 当前 App 中声明式解析的控制器依赖。
  */
 class SystemController extends BaseAdminController
 {
-    protected function system(): SystemApplicationService
-    {
-        return $this->app->make(SystemApplicationService::class);
-    }
+    protected string $systemClass = SystemApplicationService::class;
 
     /** 系统环境信息 */
     public function info()
@@ -28,7 +26,7 @@ class SystemController extends BaseAdminController
         if ($denial !== null) {
             return $denial;
         }
-        return $this->data($this->system()->getInfo((string)$this->request->server('SERVER_SOFTWARE', '')));
+        return $this->data($this->system->getInfo((string)$this->request->server('SERVER_SOFTWARE', '')));
     }
 
     /** 清除系统缓存 */
@@ -39,7 +37,7 @@ class SystemController extends BaseAdminController
             return $denial;
         }
 
-        $this->system()->clearCache();
+        $this->system->clearCache();
         return $this->success('清除成功');
     }
 

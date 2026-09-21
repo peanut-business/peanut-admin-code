@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "0da2e992001c4dda6d528fd1cf0f0bed180820f71fc1ea19941d7a51973c1b36"
+        "sha256": "9592fe5bdb0a8f86cfa803b66dc298fbd1805042ec7de862dfff0b7dbf24c9b3"
     },
     "trust": {
         "channel": "bundled",
@@ -49,7 +49,7 @@
                     ],
                     "permissions": {
                         "path": "resources/permissions.json",
-                        "sha256": "acfaad21285fbd1de4fa6120f309e1c85eeb5e77dcb1fa60f1aa9cf88a6158d1"
+                        "sha256": "c1f2aeea64aba642a66e4b8542ee570e018ad53866cbff662d4a5cf57bfcf5ca"
                     },
                     "migrations": {
                         "reversibility": "verified-backup-required",
@@ -88,7 +88,7 @@
             "package": "@peanut-admin/official-article",
             "version": "1.0.0",
             "entry": "web/src/modules/official-article/contribution.ts",
-            "sha256": "4fb7b7461cd56a247ad2455f51363ae2d753c8db71089debcdc9abbdd7404520"
+            "sha256": "c4c715937dd643e5014d3218db515e98eca49a049c7cc47465c3abc370dd0486"
         }
     ],
     "modules": [

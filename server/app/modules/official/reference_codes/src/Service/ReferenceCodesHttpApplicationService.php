@@ -3,6 +3,11 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Service;
 
+use app\common\contract\authorization\AdminAuthorizationQuery;
+use app\common\dto\authorization\AdminPrincipal;
+use app\common\exception\BusinessException;
+use app\common\execution\CurrentExecutionContext;
+
 use app\common\contract\idempotency\IdempotencyCommand;
 use app\common\contract\idempotency\IdempotencyReceipt;
 use app\common\contract\idempotency\IdempotentCommandExecutor;
@@ -25,11 +30,14 @@ final readonly class ReferenceCodesHttpApplicationService
         private ReferenceCodeAdminService $admin,
         private IdempotentCommandExecutor $idempotency,
         private ModuleRuntimeRepository $modules,
+        private CurrentExecutionContext $execution,
+        private AdminAuthorizationQuery $authorization,
     ) {}
 
     /** @return array{items:list<array<string,mixed>>} */
     public function sets(TenantContext $context): array
     {
+        $this->assertPermission($context, 'official.reference-codes.read');
         $enabled = new ReferenceCodeSetRegistry();
         $now = new DateTimeImmutable('now');
         foreach ($this->definitions->moduleKeys() as $moduleKey) {
@@ -46,6 +54,7 @@ final readonly class ReferenceCodesHttpApplicationService
     /** @return array<string,mixed> */
     public function list(TenantContext $context, string $moduleKey, string $setKey, array $query): array
     {
+        $this->assertPermission($context, 'official.reference-codes.read');
         $result = $this->query->list(
             $this->definition($context, $moduleKey, $setKey),
             $context,
@@ -62,6 +71,7 @@ final readonly class ReferenceCodesHttpApplicationService
     /** @return array<string,mixed> */
     public function get(TenantContext $context, string $moduleKey, string $setKey, string $code, mixed $asOf): array
     {
+        $this->assertPermission($context, 'official.reference-codes.read');
         return $this->query->get(
             $this->definition($context, $moduleKey, $setKey),
             $context,
@@ -107,6 +117,8 @@ final readonly class ReferenceCodesHttpApplicationService
     /** @param array<mixed> $request @param callable():array<string,mixed> $operation @return array<string,mixed> */
     private function command(TenantContext $context, string $operationKey, string $key, array $request, callable $operation): array
     {
+        // 重放幂等结果也必须先获授权，不能以旧成功回执绕过本次撤权。
+        $this->assertPermission($context, 'official.reference-codes.manage');
         return Db::transaction(function () use ($context, $operationKey, $key, $request, $operation): array {
             $lease = $this->idempotency->begin(IdempotencyCommand::tenant(
                 $context, $operationKey, $key,
@@ -121,6 +133,25 @@ final readonly class ReferenceCodesHttpApplicationService
             $this->idempotency->complete($lease, new IdempotencyReceipt(200, $body));
             return $body;
         });
+    }
+
+    /** 公开管理用例使用固定权限，不依赖 HTTP 中间件作为唯一授权点。 */
+    private function assertPermission(TenantContext $context, string $permission): void
+    {
+        try {
+            $current = $this->execution->tenantAdmin();
+            $actor = AdminPrincipal::fromArray($this->execution->tenantAdminPrincipal());
+        } catch (\DomainException) {
+            throw BusinessException::forbidden('REFERENCE_CODE_PERMISSION_DENIED', '无权管理参考代码');
+        }
+        if ($current->tenantId !== $context->tenantId
+            || $current->memberId !== $context->memberId
+            || $current->accountId !== $context->accountId
+            || $current->authorizationRevision !== $context->authorizationRevision
+            || !$this->authorization->decide($context, $actor, $permission)->allowed
+        ) {
+            throw BusinessException::forbidden('REFERENCE_CODE_PERMISSION_DENIED', '无权管理参考代码');
+        }
     }
 
     private static function requiredInstant(mixed $value): DateTimeImmutable

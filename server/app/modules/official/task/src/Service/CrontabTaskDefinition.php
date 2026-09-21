@@ -93,9 +93,9 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
         return 'official.task';
     }
 
-    public function handler(): TaskHandler
+    public function handlers(): array
     {
-        return $this;
+        return [$this];
     }
 
     public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext

@@ -45,7 +45,7 @@ final class ScaffoldManifest
             throw new RuntimeException('SCAFFOLD_MANIFEST_SCHEMA_UNSUPPORTED');
         }
         $release = $data['release'] ?? null;
-        if (!is_array($release) || preg_match('/^\d+\.\d+\.\d+$/D', (string)($release['version'] ?? '')) !== 1
+        if (!is_array($release) || preg_match(self::VERSION_PATTERN, (string)($release['version'] ?? '')) !== 1
             || preg_match('/^[a-f0-9]{40}$/D', (string)($release['source_commit'] ?? '')) !== 1
             || preg_match('/^[a-f0-9]{40}$/D', (string)($release['source_tree'] ?? '')) !== 1
             || preg_match('/^[a-f0-9]{64}$/D', (string)($release['inventory_sha256'] ?? '')) !== 1

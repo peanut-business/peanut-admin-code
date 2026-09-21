@@ -15,17 +15,25 @@ fi
 export PEANUT_SERVER_ENV_FILE="$BACKEND_ENV"
 
 run_php_test() {
-  php -r 'require $argv[1]; require $argv[2];' \
-    "$ROOT/server/bootstrap/environment.php" "$ROOT/$1"
+  # Class-based suites must be executed by PHPUnit, not only required as PHP declarations.
+  php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$1"
 }
 
-if [[ "$mode" != '--fast' && "$mode" != '--full' ]]; then
-  echo 'ERROR: ci-server-check.sh requires --fast or --full' >&2
+if [[ "$mode" != '--fast' && "$mode" != '--full' && "$mode" != '--mysql' ]]; then
+  echo 'ERROR: ci-server-check.sh requires --fast, --full, or --mysql' >&2
   exit 2
 fi
 
 php scripts/check-admin-api-permissions.php
 php scripts/check-test-integrity
+
+if [[ "$mode" == '--mysql' ]]; then
+  mysql_resource_mode="${PEANUT_MYSQL_RESOURCE_MODE:---registered}"
+  [[ "$mysql_resource_mode" == '--registered' || "$mysql_resource_mode" == '--ci-service' ]] \
+    || { echo 'ERROR: PEANUT_MYSQL_RESOURCE_MODE is invalid' >&2; exit 2; }
+  "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"
+  exit 0
+fi
 
 lint_php() {
   local path
@@ -81,13 +89,24 @@ changed_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-changed-server.XXXXXX")"
 changed_php_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-changed-php.XXXXXX")"
 selected_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-focused-tests.XXXXXX")"
 trap 'rm -f -- "$changed_file" "$changed_php_file" "$selected_file"' EXIT
-git diff --name-only "$base...HEAD" -- server plugins plugins.lock scripts/check-admin-api-permissions.php scripts/check-test-integrity > "$changed_file"
+git diff --name-only "$base...HEAD" -- server plugins plugins.lock resources/project-resources.json scripts/check-admin-api-permissions.php scripts/check-test-integrity scripts/run-php-test scripts/ci-server-check.sh scripts/tests/run-registered-mysql-tests scripts/consumer-module-reference-chain scripts/project-resource-registry scripts/project-resource-lease > "$changed_file"
 
 select_test() {
   local path="$1"
   if [[ -f "$path" ]]; then
     printf '%s\n' "$path" >> "$selected_file"
   fi
+}
+
+is_registered_mysql_suite() {
+  case "$1" in
+    server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php|\
+    server/tests/Modules/Official/Notification/mysql-harness.php|\
+    server/tests/Multitenancy/MemberSessionTenantIsolationTest.php)
+      return 0
+      ;;
+  esac
+  return 1
 }
 
 integrity_checker_changed=0
@@ -99,15 +118,51 @@ while IFS= read -r path; do
     printf '%s\n' "$path" >> "$changed_php_file"
   fi
   if [[ "$path" == server/tests/*.php || "$path" == server/tests/*/*.php ]]; then
-    select_test "$path"
+    if is_registered_mysql_suite "$path"; then
+      # Real MySQL suites are owned by the explicit --mysql Gate. A changed
+      # test file must not make the ordinary fast Unit gate connect to MySQL.
+      :
+    else
+      select_test "$path"
+    fi
+  fi
+
+  if [[ "$path" == server/tests/Support/RegisteredMysqlTestResource.php \
+    || "$path" == scripts/tests/run-registered-mysql-tests \
+    || "$path" == resources/project-resources.json \
+    || "$path" == scripts/project-resource-registry \
+    || "$path" == scripts/project-resource-lease ]]; then
+    select_test server/tests/Unit/RegisteredMysqlTestResourceTest.php
+    select_test server/tests/Unit/RegisteredMysqlSchemaBoundaryTest.php
+    select_test server/tests/Unit/RegisteredMysqlRunnerEnvironmentTest.php
   fi
 
   if [[ "$path" == server/app/adminapi/services/generator/* || "$path" == server/app/adminapi/service/generator/* ]]; then
     select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
+    select_test server/tests/Unit/GeneratorDeclaredCrudTemplateTest.php
+    select_test server/tests/Unit/GeneratorRuntimeAssemblyTest.php
+    select_test server/tests/Unit/GeneratorSoftDeleteContractTest.php
+  fi
+
+  if [[ "$path" == server/app/BaseController.php || "$path" == server/app/common/validate/* || "$path" == server/app/common/traits/CrudTrait.php ]]; then
+    select_test server/tests/Unit/ControllerDeclaredDependencyTest.php
+    select_test server/tests/Unit/ControllerDependencyResolutionTest.php
+    select_test server/tests/Unit/InputValidatorPolicyTest.php
+    select_test server/tests/Productization/MemberJwtContractTest.php
+  fi
+
+  if [[ "$path" == scripts/consumer-module-reference-chain ]]; then
+    select_test server/tests/Productization/CreateApplicationTest.php
+    select_test server/tests/Productization/ModuleBundleLifecycleTest.php
+    select_test server/tests/Productization/ModuleDeliveryOperationTest.php
   fi
 
   if [[ "$path" == server/app/command/OpsModuleTask.php ]]; then
     select_test server/tests/Productization/OpsModuleTaskWiringTest.php
+  fi
+
+  if [[ "$path" == scripts/run-php-test || "$path" == server/tests/Support/CiBootstrap.php || "$path" == scripts/ci-server-check.sh ]]; then
+    select_test server/tests/Unit/PhpTestRunnerTest.php
   fi
 
   case "$path" in
@@ -129,7 +184,7 @@ while IFS= read -r path; do
       select_test server/tests/Multitenancy/PlatformTenantReadApiTest.php
       select_test server/tests/Multitenancy/PlatformOperatorBoundaryTest.php
       ;;
-    server/app/common/service/external/*|server/app/api/controller/PaymentNotifyController.php|server/app/api/controller/OfficialAccountController.php|server/app/api/controller/OAuthController.php)
+    server/app/common/service/external/*|server/app/api/controller/PaymentNotifyController.php|server/app/api/controller/OfficialAccountController.php|server/app/api/controller/OAuthController.php|server/app/api/services/OAuthApplicationService.php|server/app/api/services/OfficialAccountApplicationService.php|server/app/api/services/PaymentCallbackApplicationService.php)
       select_test server/tests/Multitenancy/ExternalCallbackTenantRoutingTest.php
       ;;
     *member*|*Member*|*account_log*|*AccountLog*)

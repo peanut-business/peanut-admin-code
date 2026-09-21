@@ -3,263 +3,237 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Article\Service;
 
-use PeanutAdmin\Modules\Article\Model\Article;
-use PeanutAdmin\Modules\Article\Model\ArticleCate;
-use PeanutAdmin\Modules\Article\Contract\ArticleAdministration;
+use app\common\contract\authorization\AdminAuthorizationQuery;
+use app\common\dto\authorization\AdminPrincipal;
+use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
 use app\common\services\ProductAssetReferenceService;
 use app\common\services\RichTextResourceService;
 use app\common\support\PaginationInput;
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Modules\Article\Contract\ArticleAdministration;
+use PeanutAdmin\Modules\Article\Model\Article;
+use PeanutAdmin\Modules\Article\Model\ArticleCate;
+use PeanutAdmin\Modules\Article\Model\ArticleCollect;
+use think\db\BaseQuery;
 use think\facade\Db;
 
-/** Application use cases for Article content and categories. */
+/** 资讯后台用例：权限、Tenant Scope、输入字段和软删除状态都在服务边界复核。 */
 final class ArticleAdministrationService implements ArticleAdministration
 {
     private const PAGE_SIZE_DEFAULT = 25;
     private const PAGE_SIZE_MAX = 25000;
+    private const WRITE_FIELDS = [
+        'cid', 'title', 'desc', 'abstract', 'image', 'author', 'content',
+        'click_virtual', 'is_show', 'sort',
+    ];
 
     public function __construct(
         private readonly CurrentExecutionContext $executionContext,
+        private readonly AdminAuthorizationQuery $authorization,
         private readonly ProductAssetReferenceService $assets,
         private readonly RichTextResourceService $richText,
     ) {}
 
-    /** 分页列表。 */
-    public function lists(array $params): PageResult
+    public function lists(TenantContext $context, array $params): PageResult
     {
-        if (in_array((int) ($params['export'] ?? 0), [1, 2], true)) {
-            throw new \runtimeException('该列表不支持导出');
+        $this->assertPermission($context, 'official.article.list');
+        if (in_array((int)($params['export'] ?? 0), [1, 2], true)) {
+            throw BusinessException::invalid('ARTICLE_EXPORT_UNSUPPORTED', '该列表不支持导出');
         }
-
-        $pageType = (int) ($params['page_type'] ?? 1);
-        if ($pageType === 0) {
-            $pageNo = 1;
-            $pageSize = self::PAGE_SIZE_MAX;
-        } else {
-            $pagination = PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT);
-            $pageNo = $pagination->page;
-            $pageSize = $pagination->pageSize;
-        }
-
-        $query = Article::where([])->field(self::articleFields());
-        if (!empty($params['title'])) {
-            $query->whereLike('title', '%' . $params['title'] . '%');
-        }
-        if (isset($params['cid']) && $params['cid'] !== '') {
-            $query->where('cid', (int) $params['cid']);
-        }
-        if (isset($params['is_show']) && $params['is_show'] !== '') {
-            $query->where('is_show', (int) $params['is_show']);
-        }
-
-        $field = (string) ($params['field'] ?? '');
-        $orderBy = strtolower((string) ($params['order_by'] ?? ''));
-        if (in_array($field, ['create_time', 'id'], true)
-            && in_array($orderBy, ['asc', 'desc'], true)) {
-            $query->order($field, $orderBy);
-        } else {
-            $query->order(['sort' => 'desc', 'id' => 'desc']);
-        }
-
-        $pageResult = $pageType === 0
-            ? PageResult::fromPaginator($query->paginate([
-                'list_rows' => $pageSize,
-                'page' => $pageNo,
-                'var_page' => 'page_no',
-            ]), $pageNo)
-            : $pagination->result($query);
-        $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
-            ? $item->toArray()
-            : (array)$item);
-        $lists = $pageResult->items;
-        $categoryNames = $this->categoryNames(array_column($lists, 'cid'));
-        foreach ($lists as &$row) {
-            $row = $this->formatArticleRow($row, $categoryNames);
-        }
-        unset($row);
-
-        return new PageResult($lists, $pageResult->total, $pageResult->page, $pageResult->pageSize);
+        return $this->articleLists($params, false);
     }
 
-    /** @return array<string,mixed> */
-    public function detail(int $id): array
+    public function detail(TenantContext $context, int $id): array
     {
-        $article = Article::where([])
-            ->field(self::articleFields())
-            ->where('id', $id)
-            ->findOrEmpty();
-        if ($article->isEmpty()) {
-            return [];
-        }
-
-        return $this->formatArticleRow(
-            $article->toArray(),
-            $this->categoryNames([(int) $article['cid']]),
-        );
+        $this->assertPermission($context, 'official.article.detail');
+        return $this->findRow($id, false);
     }
 
-    public function add(array $params): void
+    public function add(TenantContext $context, array $params): bool
     {
-        $this->requireCategory((int) $params['cid']);
-        Article::create($this->articleWriteData($params));
-    }
-
-    public function edit(array $params): void
-    {
-        $this->requireCategory((int) $params['cid']);
-        $article = Article::where([])
-            ->where('id', (int) $params['id'])
-            ->findOrEmpty();
-        if ($article->isEmpty()) {
-            throw new \runtimeException('资讯不存在');
-        }
-
-        $article->save($this->articleWriteData($params));
-    }
-
-    public function delete(int $id): void
-    {
-        $article = Article::where([])->where('id', $id)->findOrEmpty();
-        if ($article->isEmpty()) {
-            throw new \runtimeException('资讯不存在');
-        }
-
-        $article->delete();
-    }
-
-    public function updateStatus(int $id, int $isShow): void
-    {
-        $updated = Article::where([])
-            ->where('id', $id)
-            ->update(['is_show' => $isShow]);
-        if ($updated !== 1) {
-            throw new \runtimeException('资讯不存在');
-        }
-    }
-
-    /** 分页列表（含文章数）。 */
-    public function categoryLists(array $params): PageResult
-    {
-        if (in_array((int) ($params['export'] ?? 0), [1, 2], true)) {
-            throw new \runtimeException('该列表不支持导出');
-        }
-
-        $pageType = (int) ($params['page_type'] ?? 1);
-        if ($pageType === 0) {
-            $pageNo = 1;
-            $pageSize = self::PAGE_SIZE_MAX;
-        } else {
-            $pagination = PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT);
-            $pageNo = $pagination->page;
-            $pageSize = $pagination->pageSize;
-        }
-
-        $query = ArticleCate::where([])->field([
-            'id', 'name', 'sort', 'is_show', 'create_time', 'update_time', 'delete_time',
-        ]);
-        $field = (string) ($params['field'] ?? '');
-        $orderBy = strtolower((string) ($params['order_by'] ?? ''));
-        if (in_array($field, ['create_time', 'id'], true)
-            && in_array($orderBy, ['asc', 'desc'], true)) {
-            $query->order($field, $orderBy);
-        } else {
-            $query->order(['sort' => 'desc', 'id' => 'desc']);
-        }
-
-        $pageResult = $pageType === 0
-            ? PageResult::fromPaginator($query->paginate([
-                'list_rows' => $pageSize,
-                'page' => $pageNo,
-                'var_page' => 'page_no',
-            ]), $pageNo)
-            : $pagination->result($query);
-        $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
-            ? $item->toArray()
-            : (array)$item);
-        $lists = $pageResult->items;
-        $articleCounts = $this->articleCounts(array_column($lists, 'id'));
-        foreach ($lists as &$row) {
-            $row = $this->formatCategoryRow($row);
-            $row['article_count'] = $articleCounts[(int) $row['id']] ?? 0;
-        }
-        unset($row);
-
-        return new PageResult($lists, $pageResult->total, $pageResult->page, $pageResult->pageSize);
-    }
-
-    /** 下拉用：全部启用分类。 */
-    public function allCategories(): array
-    {
-        $lists = ArticleCate::where([])
-            ->where('is_show', 1)
-            ->field(['id', 'name', 'sort', 'is_show', 'create_time', 'update_time', 'delete_time'])
-            ->order(['sort' => 'desc', 'id' => 'desc'])
-            ->select()
-            ->toArray();
-
-        return array_map(fn(array $row): array => $this->formatCategoryRow($row), $lists);
-    }
-
-    /** @return array<string,mixed> */
-    public function categoryDetail(int $id): array
-    {
-        $category = ArticleCate::where([])->field([
-            'id', 'name', 'sort', 'is_show', 'create_time', 'update_time', 'delete_time',
-        ])->where('id', $id)->findOrEmpty();
-
-        return $category->isEmpty() ? [] : $this->formatCategoryRow($category->toArray());
-    }
-
-    public function addCategory(array $params): void
-    {
-        ArticleCate::create([
-            'name' => $params['name'],
-            'sort' => (int) ($params['sort'] ?? 0),
-            'is_show' => (int) ($params['is_show'] ?? 1),
-        ]);
-    }
-
-    public function editCategory(array $params): void
-    {
-        $category = ArticleCate::where([])
-            ->where('id', (int) $params['id'])
-            ->findOrEmpty();
-        if ($category->isEmpty()) {
-            throw new \runtimeException('资讯分类不存在');
-        }
-
-        $category->save([
-            'name' => $params['name'],
-            'sort' => (int) ($params['sort'] ?? 0),
-            'is_show' => (int) $params['is_show'],
-        ]);
-    }
-
-    public function deleteCategory(int $id): void
-    {
-        Db::transaction(function () use ($id): void {
-            $category = ArticleCate::where([])->where('id', $id)->lock(true)->findOrEmpty();
-            if ($category->isEmpty()) {
-                throw new \runtimeException('资讯分类不存在');
+        $this->assertPermission($context, 'official.article.add');
+        return Db::transaction(function () use ($context, $params): bool {
+            $this->requireCategory((int)$params['cid'], true);
+            $article = new Article();
+            if (!$article->save($this->articleWriteData($context, $params))) {
+                throw new \LogicException('ARTICLE_CREATE_FAILED');
             }
-
-            if (!Article::where([])->where('cid', $id)->lock(true)->findOrEmpty()->isEmpty()) {
-                throw new \runtimeException('资讯分类已使用，请先删除绑定该资讯分类的资讯');
-            }
-
-            $category->delete();
+            return true;
         });
     }
 
-    public function updateCategoryStatus(int $id, int $isShow): void
+    public function edit(TenantContext $context, array $params): bool
     {
-        $updated = ArticleCate::where([])
-            ->where('id', $id)
-            ->update(['is_show' => $isShow]);
-        if ($updated !== 1) {
-            throw new \runtimeException('资讯分类不存在');
+        $this->assertPermission($context, 'official.article.edit');
+        return Db::transaction(function () use ($context, $params): bool {
+            $this->requireCategory((int)$params['cid'], true);
+            $article = Article::where([])->where('id', (int)$params['id'])->lock(true)->findOrEmpty();
+            if ($article->isEmpty()) {
+                throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
+            }
+            $article->save($this->articleWriteData($context, $params));
+            return true;
+        });
+    }
+
+    public function delete(TenantContext $context, int $id): bool
+    {
+        $this->assertPermission($context, 'official.article.delete');
+        return Db::transaction(function () use ($id): bool {
+            $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
+            if ($article->isEmpty()) {
+                throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
+            }
+            if ($article->trashed()) {
+                return true;
+            }
+            if (!$article->delete()) {
+                throw new \LogicException('ARTICLE_SOFT_DELETE_FAILED');
+            }
+            // 封面和正文中的文件引用仍由文件模块保留；软删除不触发外部清理。
+            return true;
+        });
+    }
+
+    public function updateStatus(TenantContext $context, int $id, int $isShow): bool
+    {
+        $this->assertPermission($context, 'official.article.update-status');
+        return Db::transaction(function () use ($id, $isShow): bool {
+            $article = Article::where([])->where('id', $id)->lock(true)->findOrEmpty();
+            if ($article->isEmpty()) {
+                throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
+            }
+            if ((int)$article->is_show !== $isShow) {
+                $article->save(['is_show' => $isShow]);
+            }
+            return true;
+        });
+    }
+
+    public function recycleLists(TenantContext $context, array $params): PageResult
+    {
+        $this->assertPermission($context, 'official.article.recycle.list');
+        return $this->articleLists($params, true);
+    }
+
+    public function recycleDetail(TenantContext $context, int $id): array
+    {
+        $this->assertPermission($context, 'official.article.recycle.detail');
+        return $this->findRow($id, true);
+    }
+
+    public function restore(TenantContext $context, array $ids): array
+    {
+        $this->assertPermission($context, 'official.article.restore');
+        return $this->batch($ids, 'restored', function (int $id): string {
+            return Db::transaction(function () use ($id): string {
+                $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
+                if ($article->isEmpty()) {
+                    throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
+                }
+                if (!$article->trashed()) {
+                    return 'already_active';
+                }
+                $this->requireCategory((int)$article->cid, true);
+                if (!$article->restore()) {
+                    throw new \LogicException('ARTICLE_RESTORE_FAILED');
+                }
+                return 'restored';
+            });
+        });
+    }
+
+    public function forceDelete(TenantContext $context, array $ids): array
+    {
+        $this->assertPermission($context, 'official.article.force-delete');
+        return $this->batch($ids, 'deleted', static function (int $id): string {
+            return Db::transaction(static function () use ($id): string {
+                $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
+                if ($article->isEmpty()) {
+                    throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
+                }
+                if (!$article->trashed()) {
+                    throw BusinessException::conflict('ARTICLE_FORCE_DELETE_REQUIRES_TRASHED', '仅回收站资讯可永久删除');
+                }
+                if (!ArticleCollect::withTrashed()->where('article_id', $id)
+                    ->lock(true)->findOrEmpty()->isEmpty()
+                ) {
+                    throw BusinessException::conflict('ARTICLE_COLLECTION_REFERENCE_EXISTS', '资讯仍有收藏引用，不能永久删除');
+                }
+                if (!$article->force(true)->delete()) {
+                    throw new \LogicException('ARTICLE_FORCE_DELETE_FAILED');
+                }
+                return 'deleted';
+            });
+        });
+    }
+
+    private function articleLists(array $params, bool $onlyTrashed): PageResult
+    {
+        $query = $onlyTrashed ? Article::onlyTrashed() : Article::where([]);
+        $query->field(self::articleFields());
+        if (isset($params['title']) && $params['title'] !== '') {
+            $query->whereLike('title', '%' . trim((string)$params['title']) . '%');
         }
+        if (isset($params['cid']) && $params['cid'] !== '') {
+            $query->where('cid', (int)$params['cid']);
+        }
+        if (isset($params['is_show']) && $params['is_show'] !== '') {
+            $query->where('is_show', (int)$params['is_show']);
+        }
+        $this->applyOrder($query, $params);
+        $pageResult = $this->paginate($query, $params)
+            ->map(static fn(mixed $item): array => $item instanceof \think\Model
+                ? $item->toArray()
+                : (array)$item);
+        $rows = $pageResult->items;
+        $categoryNames = $this->categoryNames(array_column($rows, 'cid'), $onlyTrashed);
+        foreach ($rows as &$row) {
+            $row = $this->formatArticleRow($row, $categoryNames);
+        }
+        unset($row);
+        return new PageResult($rows, $pageResult->total, $pageResult->page, $pageResult->pageSize);
+    }
+
+    /** @return array<string,mixed> */
+    private function findRow(int $id, bool $onlyTrashed): array
+    {
+        $query = $onlyTrashed ? Article::onlyTrashed() : Article::where([]);
+        $article = $query->field(self::articleFields())->where('id', $id)->findOrEmpty();
+        if ($article->isEmpty()) {
+            return [];
+        }
+        return $this->formatArticleRow(
+            $article->toArray(),
+            $this->categoryNames([(int)$article['cid']], $onlyTrashed),
+        );
+    }
+
+    private function paginate(BaseQuery $query, array $params): PageResult
+    {
+        $pageType = (int)($params['page_type'] ?? 1);
+        if ($pageType === 0) {
+            return PageResult::fromPaginator($query->paginate([
+                'list_rows' => self::PAGE_SIZE_MAX,
+                'page' => 1,
+                'var_page' => 'page_no',
+            ]), 1);
+        }
+        return PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->result($query);
+    }
+
+    private function applyOrder(BaseQuery $query, array $params): void
+    {
+        $field = (string)($params['field'] ?? '');
+        $orderBy = strtolower((string)($params['order_by'] ?? ''));
+        if (in_array($field, ['create_time', 'id'], true)
+            && in_array($orderBy, ['asc', 'desc'], true)) {
+            $query->order($field, $orderBy);
+            return;
+        }
+        $query->order(['sort' => 'desc', 'id' => 'desc']);
     }
 
     /** @return list<string> */
@@ -273,43 +247,42 @@ final class ArticleAdministrationService implements ArticleAdministration
     }
 
     /** @return array<string,mixed> */
-    private function articleWriteData(array $params): array
+    private function articleWriteData(TenantContext $context, array $params): array
     {
-        $context = $this->executionContext->tenantAdmin();
+        $params = array_intersect_key($params, array_flip(self::WRITE_FIELDS));
         return [
-            'cid' => (int) $params['cid'],
-            'title' => (string) $params['title'],
-            'desc' => (string) ($params['desc'] ?? ''),
-            'abstract' => (string) ($params['abstract'] ?? ''),
-            'image' => $this->assets->forStorage(
-                (string) ($params['image'] ?? ''),
-                null,
-                $context,
-            ),
-            'author' => (string) ($params['author'] ?? ''),
-            'content' => $this->richText->forStorage(
-                (string) ($params['content'] ?? ''),
-                $context,
-            ),
-            'click_virtual' => (int) ($params['click_virtual'] ?? 0),
-            'is_show' => (int) $params['is_show'],
-            'sort' => (int) ($params['sort'] ?? 0),
+            'cid' => (int)$params['cid'],
+            'title' => (string)$params['title'],
+            'desc' => (string)($params['desc'] ?? ''),
+            'abstract' => (string)($params['abstract'] ?? ''),
+            'image' => $this->assets->forStorage((string)($params['image'] ?? ''), null, $context),
+            'author' => (string)($params['author'] ?? ''),
+            'content' => $this->richText->forStorage((string)($params['content'] ?? ''), $context),
+            'click_virtual' => (int)($params['click_virtual'] ?? 0),
+            'is_show' => (int)$params['is_show'],
+            'sort' => (int)($params['sort'] ?? 0),
         ];
     }
 
     /** @return array<int,string> */
-    private function categoryNames(array $ids): array
+    private function categoryNames(array $ids, bool $includeTrashed): array
     {
         $ids = array_values(array_unique(array_map('intval', $ids)));
-        return $ids === []
-            ? []
-            : ArticleCate::where([])->whereIn('id', $ids)->column('name', 'id');
+        if ($ids === []) {
+            return [];
+        }
+        $query = $includeTrashed ? ArticleCate::withTrashed() : ArticleCate::where([]);
+        return $query->whereIn('id', $ids)->column('name', 'id');
     }
 
-    private function requireCategory(int $id): void
+    private function requireCategory(int $id, bool $lock = false): void
     {
-        if (ArticleCate::where([])->where('id', $id)->findOrEmpty()->isEmpty()) {
-            throw new \runtimeException('所属栏目必须存在');
+        $query = ArticleCate::where([])->where('id', $id);
+        if ($lock) {
+            $query->lock(true);
+        }
+        if ($query->findOrEmpty()->isEmpty()) {
+            throw BusinessException::conflict('ARTICLE_CATEGORY_UNAVAILABLE', '所属栏目必须存在且未删除');
         }
     }
 
@@ -317,48 +290,57 @@ final class ArticleAdministrationService implements ArticleAdministration
     private function formatArticleRow(array $row, array $categoryNames): array
     {
         foreach (['id', 'cid', 'click_virtual', 'click_actual', 'is_show', 'sort'] as $field) {
-            $row[$field] = (int) ($row[$field] ?? 0);
+            $row[$field] = (int)($row[$field] ?? 0);
         }
-        $row['cate_name'] = (string) ($categoryNames[$row['cid']] ?? '');
+        $row['cate_name'] = (string)($categoryNames[$row['cid']] ?? '');
         $row['click'] = $row['click_actual'] + $row['click_virtual'];
-        $row['image'] = $this->assets->forRead((string) ($row['image'] ?? ''));
-        $row['content'] = $this->richText->forRead((string) ($row['content'] ?? ''));
+        $row['image'] = $this->assets->forRead((string)($row['image'] ?? ''));
+        $row['content'] = $this->richText->forRead((string)($row['content'] ?? ''));
         foreach (['create_time', 'update_time', 'delete_time'] as $field) {
             $row[$field] = self::formatTime($row[$field] ?? 0);
         }
         return $row;
     }
 
-    /** @return array<int,int> */
-    private function articleCounts(array $categoryIds): array
+    /** @param list<int> $ids @return array<string,mixed> */
+    private function batch(array $ids, string $successKey, callable $operation): array
     {
-        if ($categoryIds === []) {
-            return [];
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn(int $id): bool => $id > 0)));
+        if ($ids === [] || count($ids) > 100) {
+            throw BusinessException::invalid('ARTICLE_BATCH_IDS_INVALID', '操作对象数量须在 1 到 100 之间');
         }
-
-        $rows = Article::where([])
-            ->whereIn('cid', $categoryIds)
-            ->field('cid, COUNT(*) AS article_count')
-            ->group('cid')
-            ->select()
-            ->toArray();
-        $counts = [];
-        foreach ($rows as $row) {
-            $counts[(int) $row['cid']] = (int) $row['article_count'];
+        $result = ['requested' => $ids, $successKey => [], 'already_active' => [], 'failed' => []];
+        foreach ($ids as $id) {
+            try {
+                $status = $operation($id);
+                $result[$status][] = $id;
+            } catch (BusinessException $exception) {
+                $result['failed'][] = [
+                    'id' => $id,
+                    'code' => $exception->errorCode,
+                    'message' => $exception->getMessage(),
+                ];
+            }
         }
-        return $counts;
+        return $result;
     }
 
-    /** @param array<string,mixed> $row */
-    private function formatCategoryRow(array $row): array
+    private function assertPermission(TenantContext $context, string $permission): void
     {
-        $row['id'] = (int) $row['id'];
-        $row['sort'] = (int) $row['sort'];
-        $row['is_show'] = (int) $row['is_show'];
-        $row['create_time'] = self::formatTime($row['create_time'] ?? 0);
-        $row['update_time'] = self::formatTime($row['update_time'] ?? 0);
-        $row['delete_time'] = self::formatTime($row['delete_time'] ?? 0);
-        return $row;
+        try {
+            $current = $this->executionContext->tenantAdmin();
+            $actor = AdminPrincipal::fromArray($this->executionContext->tenantAdminPrincipal());
+        } catch (\Throwable) {
+            throw BusinessException::forbidden('ARTICLE_ADMIN_PERMISSION_DENIED', '无权管理资讯');
+        }
+        if ($current->tenantId !== $context->tenantId
+            || $current->accountId !== $context->accountId
+            || $current->memberId !== $context->memberId
+            || $current->authorizationRevision !== $context->authorizationRevision
+            || !$this->authorization->decide($context, $actor, $permission)->allowed
+        ) {
+            throw BusinessException::forbidden('ARTICLE_ADMIN_PERMISSION_DENIED', '无权管理资讯');
+        }
     }
 
     private static function formatTime(mixed $value): string
@@ -366,6 +348,6 @@ final class ArticleAdministrationService implements ArticleAdministration
         if (empty($value)) {
             return '';
         }
-        return is_numeric($value) ? date('Y-m-d H:i:s', (int) $value) : (string) $value;
+        return is_numeric($value) ? date('Y-m-d H:i:s', (int)$value) : (string)$value;
     }
 }

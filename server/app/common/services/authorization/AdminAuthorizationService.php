@@ -17,7 +17,10 @@ use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
 use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
-use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
+use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Platform\InstanceControlPlanePolicy;
 
 /** Tenant Admin identity, RBAC and access projection service. */
@@ -26,53 +29,49 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
     public function __construct(
         private readonly CoreTenantModuleAdminBridge $moduleAdmin,
         private readonly AdminPermissionPolicy $permissionPolicy,
+        private readonly TenantMemberDirectory $members,
     ) {
     }
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
     {
-        $row = TenantMember::alias('member')
-            ->join('tenant tenant', "tenant.id=member.tenant_id AND tenant.status='active'")
-            ->join('account account', "account.id=member.account_id AND account.status='active'")
-            ->join('credential credential', "credential.account_id=account.id AND credential.kind='email_password' AND credential.identifier_type='email' AND credential.status='active'")
-            ->where('member.tenant_id', $tenantContext->tenantId)
-            ->where('member.id', $tenantContext->memberId)
-            ->where('member.account_id', $tenantContext->accountId)
-            ->where('member.status', 'active')
-            ->field('member.id,member.tenant_id,member.account_id,member.display_name,member.primary_department_id,member.status,member.authorization_revision')
-            ->field('tenant.name AS tenant_name,account.avatar_uri,account.last_login_at,credential.identifier_normalized AS username')
-            ->find();
-        if ($row === null) {
+        $member = $this->members->activeMembership($tenantContext->tenantId, $tenantContext->memberId);
+        if ($member === null
+            || $member->accountId !== $tenantContext->accountId) {
+            throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
+        }
+
+        $tenant = Tenant::where('id', $member->tenantId)->where('status', 'active')->find();
+        $account = Account::where('id', $member->accountId)->where('status', 'active')->find();
+        $credential = Credential::where('account_id', $member->accountId)
+            ->where('kind', 'email_password')->where('identifier_type', 'email')->where('status', 'active')->find();
+        if ($tenant === null || $account === null || $credential === null) {
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
 
         $roles = $this->roles($tenantContext->tenantId, $tenantContext->memberId);
-        $switchableTenantCount = TenantMember::alias('member')
-            ->join('tenant tenant', "tenant.id=member.tenant_id AND tenant.status='active'")
-            ->where('member.account_id', $tenantContext->accountId)
-            ->where('member.status', 'active')
-            ->count();
+        $switchableTenantCount = $this->members->activeMembershipCount($member->accountId);
         $root = false;
         foreach ($roles as $role) {
             $root = $root || ($role['key'] === 'core.tenant-owner' && $role['is_builtin']);
         }
 
         return new AdminPrincipal(
-            id: (int)$row['id'],
-            tenantId: (int)$row['tenant_id'],
-            accountId: (int)$row['account_id'],
-            tenantName: (string)$row['tenant_name'],
-            username: (string)$row['username'],
-            nickname: (string)($row['display_name'] ?: $row['username']),
-            name: (string)($row['display_name'] ?: $row['username']),
-            avatar: (string)($row['avatar_uri'] ?? ''),
+            id: $member->memberId,
+            tenantId: $member->tenantId,
+            accountId: $member->accountId,
+            tenantName: (string)$tenant->getAttr('name'),
+            username: (string)$credential->getAttr('identifier_normalized'),
+            nickname: $member->displayName,
+            name: $member->displayName,
+            avatar: (string)($account->getAttr('avatar_uri') ?? ''),
             root: $root,
             switchableTenantCount: (int)$switchableTenantCount,
             roles: $roles,
             roleName: implode('/', array_column($roles, 'name')),
-            authorizationRevision: (int)$row['authorization_revision'],
-            primaryDepartmentId: $row['primary_department_id'] === null ? null : (int)$row['primary_department_id'],
-            lastLoginAt: $row['last_login_at'],
+            authorizationRevision: $member->authorizationRevision,
+            primaryDepartmentId: $member->primaryDepartmentId,
+            lastLoginAt: $account->getAttr('last_login_at'),
         );
     }
 

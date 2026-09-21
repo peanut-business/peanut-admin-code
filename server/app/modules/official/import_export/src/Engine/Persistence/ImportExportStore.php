@@ -394,19 +394,7 @@ final class ImportExportStore
     /** @param array<string, mixed> $row */
     private function map(array $row, int $logicalTenantId): OperationRecord
     {
-        try {
-            $mapping = json_decode((string) $row['mapping_json'], true, 16, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw ImportExportException::internal();
-        }
-        if (!is_array($mapping)) {
-            throw ImportExportException::internal();
-        }
-        foreach ($mapping as $key => $value) {
-            if (!is_string($key) || !is_string($value)) {
-                throw ImportExportException::internal();
-            }
-        }
+        $mapping = $this->mapping($row['mapping_json'] ?? null);
 
         return new OperationRecord(
             (int) $row['id'], (string) $row['operation_key'], $this->tenantScope->tenantId($row, $logicalTenantId),
@@ -422,6 +410,28 @@ final class ImportExportStore
             $this->time((string) $row['updated_at']),
             is_string($row['completed_at']) ? $this->time($row['completed_at']) : null,
         );
+    }
+
+    /**
+     * ThinkORM 的 JSON 属性已转换为数组；兼容原始 SQL 字符串但不接受其他形状。
+     * @return array<string,string>
+     */
+    private function mapping(mixed $stored): array
+    {
+        try {
+            $mapping = is_string($stored) ? json_decode($stored, true, 16, JSON_THROW_ON_ERROR) : $stored;
+        } catch (JsonException) {
+            throw ImportExportException::internal();
+        }
+        if (!is_array($mapping)) {
+            throw ImportExportException::internal();
+        }
+        foreach ($mapping as $key => $value) {
+            if (!is_string($key) || !is_string($value)) {
+                throw ImportExportException::internal();
+            }
+        }
+        return $mapping;
     }
 
     /** @param array<string, string> $value */

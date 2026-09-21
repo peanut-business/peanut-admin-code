@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, realpathSync } from 'fs';
-import { isAbsolute, relative, resolve, sep } from 'path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'path';
+import { fileURLToPath } from 'node:url';
 import {
   defineConfig,
   type ConfigEnv,
@@ -18,9 +19,11 @@ interface PluginLockDocument {
   }>;
 }
 
+const configDir = dirname(fileURLToPath(import.meta.url));
+
 function lockedAdminContributions(): string[] {
   const lock = JSON.parse(
-    readFileSync(resolve(__dirname, '../../plugins.lock'), 'utf8')
+    readFileSync(resolve(configDir, '../../plugins.lock'), 'utf8')
   ) as PluginLockDocument;
   if (lock.schema_version !== 1 || !Array.isArray(lock.plugins)) {
     throw new Error('plugins.lock is invalid');
@@ -37,7 +40,7 @@ function resolveContributionImport(entry: unknown): string {
   if (typeof entry !== 'string' || isAbsolute(entry)) {
     throw new Error('Plugin contribution entry is invalid');
   }
-  const projectRoot = resolve(__dirname, '../..');
+  const projectRoot = resolve(configDir, '../..');
   const webRoot = resolve(projectRoot, 'web');
   const sourceRoot = resolve(webRoot, 'src');
   const entryPath = resolve(projectRoot, entry);
@@ -110,7 +113,7 @@ export function createBaseConfig(
   configEnv: ConfigEnv,
   contributionEntries: () => string[] = lockedAdminContributions
 ): UserConfig {
-  const fileEnv = readClientEnvironment(resolve(__dirname, `../.env.${configEnv.mode}`));
+  const fileEnv = readClientEnvironment(resolve(configDir, `../.env.${configEnv.mode}`));
   const instanceToolsCompiled = compileInstanceTools(configEnv, fileEnv.VITE_DEPLOYMENT_MODE);
   return {
     // The admin SPA is published below server/public/admin in every environment.
@@ -126,11 +129,11 @@ export function createBaseConfig(
       alias: [
         {
           find: '@',
-          replacement: resolve(__dirname, '../src'),
+          replacement: resolve(configDir, '../src'),
         },
         {
           find: 'assets',
-          replacement: resolve(__dirname, '../src/assets'),
+          replacement: resolve(configDir, '../src/assets'),
         },
         {
           find: 'vue-i18n',

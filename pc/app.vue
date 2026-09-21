@@ -19,5 +19,5 @@ useHead({
   link: [{ rel: 'icon', href: computed(() => website.value.pc_ico) }],
 })
 
-onMounted(() => appStore.loadConfig())
+await appStore.loadConfig()
 </script>

@@ -60,6 +60,15 @@ expect(
   'enabled and authorized official Article Module was not visible'
 );
 expect(
+  routesForTenantModules(
+    [articleContribution],
+    ['official.article'],
+    ['official.article.category.list'],
+    exact
+  ).length === 1,
+  'category-only permission could not enter the official Article Module'
+);
+expect(
   routesForTenantModules([articleContribution], [], ['*'], exact).length === 0,
   'official Article route bypassed TenantModule enablement'
 );

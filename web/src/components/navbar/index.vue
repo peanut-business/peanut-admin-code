@@ -186,7 +186,7 @@
   import useUser from '@/hooks/user';
   import MenuComponent from '@/components/menu/index.vue';
   import { selectTenant, tenantSwitch } from '@/api/tenant-session';
-  import type { TenantChoice } from '@peanut-admin/vue';
+  import { disposeTenantState, type TenantChoice } from '@peanut-admin/vue';
   import { getToken, setToken } from '@/utils/auth';
 
   const appStore = useAppStore();
@@ -254,6 +254,7 @@
         tenantChallenge.value,
         selectedTenantId.value
       );
+      await disposeTenantState();
       setToken(authenticated.access_token);
       tenantSwitchVisible.value = false;
       userStore.resetInfo();

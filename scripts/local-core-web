@@ -33,17 +33,30 @@ packages_for_client() {
     esac
 }
 selected_clients() { if [[ "$CLIENT" == all ]]; then printf '%s\n' web platform pc uniapp; else printf '%s\n' "$CLIENT"; fi; }
-candidate_name() { printf 'peanut-admin-%s-4.0.0-dev.0.tgz\n' "$1"; }
-candidate_path() { printf '%s/%s\n' "$CANDIDATE_DIR" "$(candidate_name "$1")"; }
-candidate_specifier() { printf 'file:../packages/core-web/%s\n' "$(candidate_name "$1")"; }
+# The release contract is the single source of package version, path and digest.
+candidate_property() {
+    node - "$ROOT_DIR/release-versions.json" "$1" "$2" <<'NODE'
+const [file, suffix, field] = process.argv.slice(2)
+const identity = require(file).core_web?.packages?.[`@peanut-admin/${suffix}`]
+if (!identity || !['archive', 'version', 'sha256'].includes(field)
+    || !/^packages\/core-web\/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$/.test(identity.archive ?? '')
+    || !/^[0-9a-f]{64}$/.test(identity.sha256 ?? '')
+    || typeof identity.version !== 'string' || identity.version === '') {
+    throw new Error(`Invalid fixed Core Web candidate: ${suffix}`)
+}
+process.stdout.write(identity[field])
+NODE
+}
+candidate_path() { printf '%s/%s\n' "$ROOT_DIR" "$(candidate_property "$1" archive)"; }
+candidate_specifier() { printf 'file:../%s\n' "$(candidate_property "$1" archive)"; }
 
 verify_package_manifest() {
     local manifest="$1" package="$2"
     node -e '
 const m=require(process.argv[1]), name=`@peanut-admin/${process.argv[2]}`
-if(m.name!==name||m.version!=="4.0.0-dev.0")process.exit(1)
+if(m.name!==name||m.version!==process.argv[3])process.exit(1)
 if(m.exports?.["."]?.import!=="./dist/index.js"||m.exports?.["."]?.types!=="./dist/index.d.ts")process.exit(1)
-' "$manifest" "$package" || die "invalid package identity or exports: $manifest"
+' "$manifest" "$package" "$(candidate_property "$package" version)" || die "invalid package identity or exports: $manifest"
 }
 
 verify_candidates() {
@@ -52,6 +65,8 @@ verify_candidates() {
     for package in "${PACKAGES[@]}"; do
         archive="$(candidate_path "$package")"
         [[ -f "$archive" ]] || { rm -rf "$temporary"; die "missing candidate archive: $archive"; }
+        [[ "$(shasum -a 256 "$archive" | awk '{print $1}')" == "$(candidate_property "$package" sha256)" ]] \
+            || { rm -rf "$temporary"; die "candidate digest differs from release contract: $archive"; }
         tar -tzf "$archive" > "$temporary/$package.files"
         grep -Fxq 'package/LICENSE' "$temporary/$package.files" || { rm -rf "$temporary"; die "candidate has no LICENSE: $archive"; }
         grep -Fxq 'package/dist/index.js' "$temporary/$package.files" || { rm -rf "$temporary"; die "candidate has no JS entry: $archive"; }

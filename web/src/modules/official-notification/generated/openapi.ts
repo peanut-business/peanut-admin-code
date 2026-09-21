@@ -5,6 +5,13 @@ import type { paths } from '../../../generated/openapi';
 
 export interface ModuleApiOperations {
   sendVerificationCode: paths['/api/sms/sendCode']['post'];
+  getNotificationChannelConfiguration: paths['/adminapi/official.notification.channel.detail']['get'];
+  saveNotificationChannelConfiguration: paths['/adminapi/official.notification.channel.save']['post'];
+  listNotificationScenes: paths['/adminapi/official.notification.scene.list']['get'];
+  getNotificationScene: paths['/adminapi/official.notification.scene.detail']['get'];
+  saveNotificationScene: paths['/adminapi/official.notification.scene.save']['post'];
+  listNotificationLogs: paths['/adminapi/official.notification.log.list']['get'];
+  getNotificationLog: paths['/adminapi/official.notification.log.detail']['get'];
   listInboxNotifications: paths['/adminapi/api/v1/notifications']['get'];
   markInboxNotificationRead: paths['/adminapi/api/v1/notifications/{messageKey}/read']['post'];
   bulkUpdateInboxNotifications: paths['/adminapi/api/v1/notifications/bulk']['post'];
@@ -14,6 +21,13 @@ export function createModuleApi(client: Client<paths>) {
   const pathClient = wrapAsPathBasedClient(client);
   return {
     sendVerificationCode: pathClient['/api/sms/sendCode'].POST,
+    getNotificationChannelConfiguration: pathClient['/adminapi/official.notification.channel.detail'].GET,
+    saveNotificationChannelConfiguration: pathClient['/adminapi/official.notification.channel.save'].POST,
+    listNotificationScenes: pathClient['/adminapi/official.notification.scene.list'].GET,
+    getNotificationScene: pathClient['/adminapi/official.notification.scene.detail'].GET,
+    saveNotificationScene: pathClient['/adminapi/official.notification.scene.save'].POST,
+    listNotificationLogs: pathClient['/adminapi/official.notification.log.list'].GET,
+    getNotificationLog: pathClient['/adminapi/official.notification.log.detail'].GET,
     listInboxNotifications: pathClient['/adminapi/api/v1/notifications'].GET,
     markInboxNotificationRead: pathClient['/adminapi/api/v1/notifications/{messageKey}/read'].POST,
     bulkUpdateInboxNotifications: pathClient['/adminapi/api/v1/notifications/bulk'].POST,

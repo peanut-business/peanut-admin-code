@@ -47,6 +47,18 @@ export interface GeneratorRelation {
   target_edition?: 'standalone' | 'multi-tenant' | '';
 }
 
+export interface GeneratorSoftDeleteConfig {
+  enabled: boolean;
+  field: string;
+}
+
+export interface GeneratorTreeConfig {
+  id_field?: string;
+  parent_field?: string;
+  name_field?: string;
+  soft_delete?: GeneratorSoftDeleteConfig;
+}
+
 export interface GeneratorRecord {
   id: number;
   admin_id: number;
@@ -58,8 +70,9 @@ export interface GeneratorRecord {
   data_owner: 'tenant-orm' | 'platform' | 'instance' | 'shared' | '';
   target_edition: 'standalone' | 'multi-tenant' | '';
   author: string;
-  tree_config: Record<string, string>;
+  tree_config: GeneratorTreeConfig;
   relations: GeneratorRelation[];
+  soft_delete: GeneratorSoftDeleteConfig;
   columns?: GeneratorColumn[];
   create_time?: string;
   update_time?: string;
@@ -82,6 +95,7 @@ export interface GeneratorUpdateForm {
   author?: string;
   tree_config?: Record<string, string>;
   relations?: GeneratorRelation[];
+  soft_delete: GeneratorSoftDeleteConfig;
   columns: Array<Partial<GeneratorColumn> & { id: number }>;
 }
 

@@ -10,12 +10,10 @@ use PeanutAdmin\Modules\Task\Job\Application\TaskJobException;
 use PeanutAdmin\Modules\Task\Service\TaskAdminApplicationService;
 use think\response\Json;
 
+/** @property-read TaskAdminApplicationService $tasks 当前 App 中声明式解析的控制器依赖。 */
 final class TaskJobController extends BaseAdminController
 {
-    protected function tasks(): TaskAdminApplicationService
-    {
-        return $this->app->make(TaskAdminApplicationService::class);
-    }
+    protected string $tasksClass = TaskAdminApplicationService::class;
 
     public function index(): Json
     {
@@ -23,7 +21,7 @@ final class TaskJobController extends BaseAdminController
             $status = trim((string)$this->request->get('status', 'queued'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
-            $result = $this->tasks()->jobs(
+            $result = $this->tasks->jobs(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $status,
@@ -62,8 +60,8 @@ final class TaskJobController extends BaseAdminController
         try {
             $revision = $this->positiveInteger($this->request->post('revision'));
             $job = $action === 'cancel'
-                ? $this->tasks()->cancelJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision)
-                : $this->tasks()->retryJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision);
+                ? $this->tasks->cancelJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision)
+                : $this->tasks->retryJob($this->tenantAdminContext(), $this->tenantAdminActor(), $jobKey, $revision);
             return json([
                 'data' => $job->toPublicArray(),
                 'meta' => ['request_id' => $this->executionContext()->requestId()],

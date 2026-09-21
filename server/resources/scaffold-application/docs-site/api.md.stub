@@ -1,0 +1,3 @@
+# API and extensions
+
+Application HTTP adapters and product modules are app-owned. Use `server/config/peanut.php` and `web/src/peanut.overrides.ts` as the stable Core Host extension entries.

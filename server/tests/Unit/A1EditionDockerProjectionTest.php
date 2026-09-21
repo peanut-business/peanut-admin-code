@@ -18,19 +18,19 @@ final class A1EditionDockerProjectionTest extends TestCase
     {
         $docker = $this->read('deploy/docker/production.Dockerfile');
         self::assertStringContainsString('FROM node:22.22.0-bookworm-slim AS client-base', $docker);
-        self::assertStringContainsString('pnpm@10.15.0', $docker);
-
+        self::assertStringContainsString("require('./package.json').packageManager", $docker);
+        $web = json_decode($this->read('web/package.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertMatchesRegularExpression('/^pnpm@[0-9]+\\.[0-9]+\\.[0-9]+$/D', $web['packageManager']);
         $firstInstall = $this->position($docker, 'pnpm install --frozen-lockfile');
-        foreach ([
-            'peanut-admin-client-4.0.0-dev.0.tgz',
-            'peanut-admin-nuxt-4.0.0-dev.0.tgz',
-            'peanut-admin-testing-4.0.0-dev.0.tgz',
-            'peanut-admin-ui-vue-4.0.0-dev.0.tgz',
-            'peanut-admin-uniapp-4.0.0-dev.0.tgz',
-            'peanut-admin-vue-4.0.0-dev.0.tgz',
-        ] as $archive) {
-            self::assertFileExists($this->repositoryRoot . '/packages/core-web/' . $archive);
-            self::assertLessThan($firstInstall, $this->position($docker, $archive));
+        self::assertLessThan($firstInstall, $this->position($docker, 'COPY web/package.json web/pnpm-lock.yaml ./'));
+        self::assertLessThan($firstInstall, $this->position($docker, 'COPY packages/core-web/*.tgz'));
+        $versions = json_decode($this->read('release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertCount(6, $versions['core_web']['packages']);
+        foreach ($versions['core_web']['packages'] as $identity) {
+            self::assertMatchesRegularExpression('~^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\\.tgz$~D', $identity['archive']);
+            $archive = $this->repositoryRoot . '/' . $identity['archive'];
+            self::assertFileExists($archive);
+            self::assertSame($identity['sha256'], hash_file('sha256', $archive));
         }
 
         $composerInstall = $this->position($docker, 'RUN composer install');

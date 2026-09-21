@@ -11,13 +11,11 @@ use app\common\exception\BusinessException;
 
 /**
  * 用户端上传
+ * @property-read FileUploads $uploads 当前 App 中声明式解析的控制器依赖。
  */
 class UploadController extends BaseApiController
 {
-    protected function uploads(): FileUploads
-    {
-        return $this->app->get(FileUploads::class);
-    }
+    protected string $uploadsClass = FileUploads::class;
 
     public function image()
     {
@@ -29,7 +27,7 @@ class UploadController extends BaseApiController
         if (!$uploaded instanceof UploadedFile) {
             throw BusinessException::invalid('UPLOAD_FILE_REQUIRED', '未接收到上传文件');
         }
-        $result = $this->uploads()->image(
+        $result = $this->uploads->image(
             $this->memberContext(),
             new UploadFile(
                 (string)$uploaded->getPathname(),

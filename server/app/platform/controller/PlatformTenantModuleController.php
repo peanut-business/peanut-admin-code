@@ -8,12 +8,10 @@ use app\platform\services\module\PlatformTenantModuleService;
 use app\platform\validate\PlatformTenantModuleValidate;
 use DateTimeImmutable;
 
+/** @property-read PlatformTenantModuleService $tenantModules 当前 App 中声明式解析的控制器依赖。 */
 final class PlatformTenantModuleController extends BasePlatformController
 {
-    protected function tenantModules(): PlatformTenantModuleService
-    {
-        return $this->app->make(PlatformTenantModuleService::class);
-    }
+    protected string $tenantModulesClass = PlatformTenantModuleService::class;
 
     public function enable()
     {
@@ -23,7 +21,7 @@ final class PlatformTenantModuleController extends BasePlatformController
 
         $params = $this->request->post();
         $this->validate($params, PlatformTenantModuleValidate::class . '.enable');
-        return $this->data($this->tenantModules()->enable(
+        return $this->data($this->tenantModules->enable(
             PlatformRequest::bearerToken($this->request),
             (int)$params['tenant_id'],
             trim((string)$params['module_key']),
@@ -44,7 +42,7 @@ final class PlatformTenantModuleController extends BasePlatformController
 
         $params = $this->request->post();
         $this->validate($params, PlatformTenantModuleValidate::class . '.disable');
-        return $this->data($this->tenantModules()->disable(
+        return $this->data($this->tenantModules->disable(
             PlatformRequest::bearerToken($this->request),
             (int)$params['tenant_id'],
             trim((string)$params['module_key']),

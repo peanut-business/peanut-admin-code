@@ -8,17 +8,15 @@ use PeanutAdmin\Modules\Integration\Application\MachineIdentity;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\response\Json;
 
+/** @property-read IntegrationAdminApplicationService $machines 当前 App 中声明式解析的控制器依赖。 */
 final class MachineIdentityController extends IntegrationAdminController
 {
-    protected function machines(): IntegrationAdminApplicationService
-    {
-        return $this->app->make(IntegrationAdminApplicationService::class);
-    }
+    protected string $machinesClass = IntegrationAdminApplicationService::class;
 
     public function index(): Json
     {
         try {
-            $items = $this->machines()->machines($this->tenantAdminContext(), $this->tenantAdminActor());
+            $items = $this->machines->machines($this->tenantAdminContext(), $this->tenantAdminActor());
             return $this->response(['items' => array_map($this->identity(...), $items)]);
         } catch (IntegrationSecurityException $exception) {
             throw $this->problem($exception);
@@ -32,7 +30,7 @@ final class MachineIdentityController extends IntegrationAdminController
             if (!is_string($body['name'] ?? null) || !is_array($body['scopes'] ?? null) || !array_is_list($body['scopes'])) {
                 throw IntegrationSecurityException::invalid();
             }
-            $created = $this->machines()->createMachine(
+            $created = $this->machines->createMachine(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $body['name'],
@@ -49,7 +47,7 @@ final class MachineIdentityController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            $rotated = $this->machines()->rotateMachine(
+            $rotated = $this->machines->rotateMachine(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $identityKey,
@@ -65,7 +63,7 @@ final class MachineIdentityController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            return $this->response($this->identity($this->machines()->revokeMachine(
+            return $this->response($this->identity($this->machines->revokeMachine(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $identityKey,

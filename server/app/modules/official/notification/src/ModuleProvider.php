@@ -18,12 +18,24 @@ use PeanutAdmin\Modules\Notification\Contract\NotificationQueries;
 use PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use PeanutAdmin\Modules\Notification\Contract\NoticeSmsSender;
+use PeanutAdmin\Modules\Notification\Delivery\Application\RecipientResolver;
+use PeanutAdmin\Modules\Notification\Delivery\Identity\TenantMemberRecipientResolver;
 use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationRepository;
 use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationStore;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\DisabledSmsProvider;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\LocalDevSmsProvider;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsProvider;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsRecipientResolver;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\UnavailableSmsRecipientResolver;
+use PeanutAdmin\Modules\Notification\Delivery\Task\NotificationOutboxDispatcher;
+use PeanutAdmin\Modules\Notification\Delivery\Task\NotificationTaskWorkerDefinition;
+use PeanutAdmin\Modules\Notification\Delivery\Task\OutboxTaskSubmissionProvider;
+use PeanutAdmin\Modules\Task\Contract\TaskJobRuntime;
+use PeanutAdmin\Modules\Task\Contract\TaskWorkerContributor;
 use think\App;
 use think\facade\Config;
 
-final class ModuleProvider implements ModuleProviderContract
+final class ModuleProvider implements ModuleProviderContract, TaskWorkerContributor
 {
     public function moduleKey(): string
     {
@@ -49,6 +61,23 @@ final class ModuleProvider implements ModuleProviderContract
             NotificationQueries::class => NotificationApplicationService::class,
             VerificationCodeCommands::class => NotificationApplicationService::class,
             NotificationRepository::class => NotificationStore::class,
+            RecipientResolver::class => TenantMemberRecipientResolver::class,
+            SmsRecipientResolver::class => UnavailableSmsRecipientResolver::class,
+            SmsProvider::class => fn(): SmsProvider => (string)Config::get('peanut.environment', '') === 'development'
+                ? new LocalDevSmsProvider()
+                : new DisabledSmsProvider(),
+            NotificationOutboxDispatcher::class => fn(App $app): NotificationOutboxDispatcher => new NotificationOutboxDispatcher(
+                $app->make(NotificationRepository::class),
+                $app->make(TaskJobRuntime::class)->publisher(
+                    new OutboxTaskSubmissionProvider('inbox'),
+                    new OutboxTaskSubmissionProvider('sms'),
+                ),
+            ),
         ];
+    }
+
+    public function taskWorkerDefinitions(): array
+    {
+        return [NotificationTaskWorkerDefinition::class];
     }
 }

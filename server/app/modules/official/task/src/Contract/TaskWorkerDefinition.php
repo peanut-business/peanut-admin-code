@@ -15,7 +15,8 @@ interface TaskWorkerDefinition
 
     public function operation(): string;
 
-    public function handler(): TaskHandler;
+    /** @return list<TaskHandler> */
+    public function handlers(): array;
 
     public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext;
 }

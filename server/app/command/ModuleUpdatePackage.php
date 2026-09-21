@@ -3,16 +3,13 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\common\validation\instance\InstanceToolAccessGuard;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\exception\plugin\PluginPackageException;
-use app\platform\infrastructure\plugin\PluginPackageInstaller;
 use app\common\execution\ModuleContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
 use think\console\input\Option;
 use think\console\Output;
-use think\facade\Config;
 
 final class ModuleUpdatePackage extends ModuleContextualCommand
 {
@@ -28,28 +25,8 @@ final class ModuleUpdatePackage extends ModuleContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            if (strtolower(trim((string)Config::get('peanut.environment', ''))) !== 'development'
-                || !app()->isDebug()
-                || !InstanceToolAccessGuard::fromConfiguredValue(Config::get('deployment.mode'))->allows()) {
-                throw new PluginPackageException('MODULE_RUNTIME_MUTATION_DISABLED', 'Runtime Module mutation is disabled.');
-            }
-            $trusted = [];
-            foreach ((array)Config::get('module_packages.trusted_ed25519_keys', []) as $keyId => $encoded) {
-                $decoded = is_string($encoded) ? base64_decode($encoded, true) : false;
-                if (is_string($keyId) && is_string($decoded) && strlen($decoded) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
-                    $trusted[$keyId] = $decoded;
-                }
-            }
-            $config = Config::get('modules', []);
-            if (!is_array($config)) {
-                throw new PluginPackageException('MODULE_REGISTRY_UNAVAILABLE', 'Module deployment config is invalid.');
-            }
-            $result = (new PluginPackageInstaller(
-                dirname(__DIR__, 2),
-                $config,
-                $trusted,
-                $this->moduleCatalogs(),
-            ))->update(
+            $this->assertDevelopmentInstanceMaintenanceAccess();
+            $result = $this->moduleRuntime()->update(
                 (string)$input->getArgument('package'),
                 ($pin = trim((string)$input->getOption('sha256'))) === '' ? null : $pin,
                 ($keyId = trim((string)$input->getOption('signature-key-id'))) === '' ? null : $keyId,

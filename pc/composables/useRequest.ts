@@ -3,7 +3,10 @@ import {
   type ClientDecodeResult,
   type ClientTransportRequest,
 } from '@peanut-admin/client'
-import { createNuxtClientTransport } from '@peanut-admin/nuxt'
+import {
+  createNuxtClientTransport,
+  createNuxtSsrForwardHeaders,
+} from '@peanut-admin/nuxt'
 
 interface ApiResponse<T = unknown> {
   code: number
@@ -33,13 +36,33 @@ const decodeApiResponse = <T>(
 }
 
 export function useRequest() {
-  const configuredBaseUrl = String(useRuntimeConfig().public.apiBase || '')
-  const baseUrl = configuredBaseUrl || (import.meta.client ? window.location.origin : 'http://localhost')
+  const runtimeConfig = useRuntimeConfig()
+  const configuredBaseUrl = String(runtimeConfig.public.apiBase || '')
+  let baseUrl: string
+  let forwardHeaders: Readonly<Record<string, string>> | undefined
+
+  if (import.meta.server) {
+    const requestHeaders = useRequestHeaders(['host', 'cookie'])
+    const trustedHosts = String(runtimeConfig.trustedHosts || '')
+      .split(',')
+      .map(host => host.trim())
+      .filter(Boolean)
+    baseUrl = String(runtimeConfig.upstreamOrigin || '')
+    forwardHeaders = createNuxtSsrForwardHeaders({
+      requestHost: requestHeaders.host || '',
+      cookie: requestHeaders.cookie,
+      forwardedProto: runtimeConfig.forwardedProto === 'https' ? 'https' : 'http',
+      trustedHosts,
+    })
+  } else {
+    baseUrl = configuredBaseUrl || window.location.origin
+  }
   const userStore = useUserStore()
 
   const client = createClient({
     transport: createNuxtClientTransport({
       baseUrl,
+      forwardHeaders,
       $fetch: async (url, options) => {
         try {
           return await $fetch(
@@ -65,7 +88,7 @@ export function useRequest() {
         await navigateTo('/login')
       },
       businessError: (error) => {
-        ElMessage.error(error.message || '请求失败')
+        if (import.meta.client) ElMessage.error(error.message || '请求失败')
       },
     },
   })

@@ -66,8 +66,6 @@ const website = computed(() => appStore.website)
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const userInfo = computed(() => userStore.userInfo)
 
-onMounted(() => appStore.loadConfig())
-
 async function handleLogout() {
   userStore.logout()
   await navigateTo('/')

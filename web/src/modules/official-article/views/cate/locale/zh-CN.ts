@@ -22,4 +22,5 @@ export default {
   'articleCate.form.sort.min': '排序值不能小于 0',
   'articleCate.form.isShow': '是否显示',
   'articleCate.message.success': '操作成功',
+  'articleCate.error.request': '文章栏目请求失败，请重试。',
 };

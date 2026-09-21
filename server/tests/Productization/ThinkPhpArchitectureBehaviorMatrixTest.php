@@ -1,18 +1,18 @@
 <?php
 declare(strict_types=1);
 
-use app\common\application\BusinessException;
+use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\ApiProblemMapper;
 use app\common\http\PageResult;
 use app\common\validate\InputValidator;
 use app\common\model\TenantOwnedModel;
-use app\common\service\module\ModuleExecutionBoundary;
+use app\common\infrastructure\module\ModuleExecutionBoundary;
 use app\common\tenancy\DataScopePolicy;
 use app\common\tenancy\MultiTenantDataScopePolicy;
 use app\common\tenancy\PlatformTenantDataGateway;
-use app\adminapi\service\generator\GeneratorRenderService;
+use app\adminapi\services\generator\GeneratorRenderService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Module\ModuleException;
@@ -365,7 +365,7 @@ expectTpq51(
 );
 expectTpq51($mapper->map(new RuntimeException('unknown')) === null, 'unknown exception was exposed as a public problem');
 
-$applicationRoot = dirname(__DIR__, 2) . '/app/adminapi/application';
+$applicationRoot = dirname(__DIR__, 2) . '/app/adminapi/services';
 foreach ([
     dirname(__DIR__, 2) . '/app/adminapi/services/generator/GeneratorService.php',
     $applicationRoot . '/dept/JobsApplicationService.php',
@@ -397,13 +397,13 @@ $generatedFiles = GeneratorRenderService::render([
 $assertGeneratedServiceOutput = static function (array $files): void {
     $byPath = array_column($files, 'content', 'path');
     $servicePath = 'server/app/adminapi/services/demo/ArticleService.php';
-    if (count($files) !== 7
+    if (count($files) !== 6
         || !isset($byPath[$servicePath])
         || !str_contains($byPath[$servicePath], 'namespace app\\adminapi\\services\\demo;')
         || !str_contains($byPath[$servicePath], 'class ArticleService')
         || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'use app\\adminapi\\services\\demo\\ArticleService;')
-        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'function service(): ArticleService')
-        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', '$this->app->make(ArticleService::class)')) {
+        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'protected string $crudClass = ArticleService::class;')
+        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', '@property-read ArticleService $crud')) {
         throw new RuntimeException('generator services output contract violated');
     }
     foreach (array_keys($byPath) as $path) {
@@ -415,7 +415,7 @@ $assertGeneratedServiceOutput = static function (array $files): void {
 $assertGeneratedServiceOutput($generatedFiles);
 $generatedByPath = array_column($generatedFiles, 'content', 'path');
 $servicePath = 'server/app/adminapi/services/demo/ArticleService.php';
-expectTpq51(count($generatedFiles) === 7 && isset($generatedByPath[$servicePath]), 'generator did not render the services output path');
+expectTpq51(count($generatedFiles) === 6 && isset($generatedByPath[$servicePath]), 'generator did not render the services output path');
 expectTpq51(
     str_contains($generatedByPath[$servicePath], 'namespace app\\adminapi\\services\\demo;')
         && str_contains($generatedByPath[$servicePath], 'class ArticleService'),
@@ -424,8 +424,9 @@ expectTpq51(
 $controllerContent = $generatedByPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '';
 expectTpq51(
     str_contains($controllerContent, 'use app\\adminapi\\services\\demo\\ArticleService;')
-        && str_contains($controllerContent, 'function service(): ArticleService')
-        && str_contains($controllerContent, '$this->app->make(ArticleService::class)'),
+        && str_contains($controllerContent, 'protected string $crudClass = ArticleService::class;')
+        && str_contains($controllerContent, '@property-read ArticleService $crud')
+        && !str_contains($controllerContent, 'function service()'),
     'generator controller did not import the services class',
 );
 foreach (array_keys($generatedByPath) as $path) {
@@ -457,23 +458,23 @@ scanner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(scanner)
 cases = {
     "host_application": (
-        "server/app/adminapi/application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Application\\CrontabApplicationService;\n",
+        "server/app/adminapi/services/ProbeService.php",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Service\\CrontabApplicationService;\n",
     ),
     "platform_adapter_model": (
         "server/app/platform/infrastructure/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Model\\Crontab;\n",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Model\\Crontab;\n",
     ),
     "host_contract": (
-        "server/app/api/application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Contracts\\TaskJobRuntime;\n",
+        "server/app/api/services/ProbeService.php",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Contract\\TaskJobRuntime;\n",
     ),
     "module_internal": (
-        "server/app/Modules/Official/Task/Application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
+        "server/app/modules/official/task/src/Service/Probe.php",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
     ),
     "application_console": (
-        "server/app/adminapi/application/ConsoleProbe.php",
+        "server/app/adminapi/services/ConsoleProbeService.php",
         "<?php\nuse think\\Console;\n",
     ),
     "services_console": (
@@ -481,15 +482,15 @@ cases = {
         "<?php\nuse think\\Console;\n",
     ),
     "application_transport": (
-        "server/app/Modules/Official/Oauth/Application/TransportProbe.php",
+        "server/app/modules/official/oauth/src/Service/TransportProbe.php",
         "<?php\nfinal class TransportProbe { public function run(): void { new WechatOAuthTransport(); } }\n",
     ),
     "tenant_join_missing": (
-        "server/app/Modules/Official/Article/Application/JoinProbe.php",
+        "server/app/modules/official/article/src/Service/JoinProbe.php",
         "<?php\n$query->join('article a', 'a.id = c.article_id');\n",
     ),
     "tenant_join_scoped": (
-        "server/app/Modules/Official/Article/Application/ScopedJoinProbe.php",
+        "server/app/modules/official/article/src/Service/ScopedJoinProbe.php",
         "<?php\n$query->leftJoin('article a', 'a.tenant_id = c.tenant_id AND a.id = c.article_id');\n",
     ),
     "tenant_join_global": (

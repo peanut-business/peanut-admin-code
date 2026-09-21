@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$error = ['$ref' => '#/components/responses/ApiResponse'];
+$error = ['$ref' => '#/components/responses/ErrorResponse'];
 $response = static fn(string $schema, string $description = 'Successful integration response.'): array => [
     'description' => $description,
     'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/' . $schema]]],

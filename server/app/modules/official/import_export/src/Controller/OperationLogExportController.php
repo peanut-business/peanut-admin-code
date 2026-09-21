@@ -6,17 +6,15 @@ namespace PeanutAdmin\Modules\ImportExport\Controller;
 use app\adminapi\controller\BaseAdminController;
 use PeanutAdmin\Modules\ImportExport\Service\OperationLogExportApplicationService;
 
+/** @property-read OperationLogExportApplicationService $exports 当前 App 中声明式解析的控制器依赖。 */
 final class OperationLogExportController extends BaseAdminController
 {
-    protected function exports(): OperationLogExportApplicationService
-    {
-        return $this->app->make(OperationLogExportApplicationService::class);
-    }
+    protected string $exportsClass = OperationLogExportApplicationService::class;
 
     public function export()
     {
         $context = $this->tenantAdminContext();
-        $operation = $this->exports()->submit(
+        $operation = $this->exports->submit(
             $context,
             $this->tenantAdminActor(),
             trim((string)$this->request->header('Idempotency-Key', '')),
@@ -27,7 +25,7 @@ final class OperationLogExportController extends BaseAdminController
     public function exportStatus()
     {
         $context = $this->tenantAdminContext();
-        $operation = $this->exports()->operation(
+        $operation = $this->exports->operation(
             $context,
             $this->tenantAdminActor(),
             (string)$this->request->get('operation_key', ''),
@@ -38,7 +36,7 @@ final class OperationLogExportController extends BaseAdminController
     public function exportDownload()
     {
         $context = $this->tenantAdminContext();
-        $file = $this->exports()->download(
+        $file = $this->exports->download(
             $context,
             $this->tenantAdminActor(),
             (string)$this->request->get('file_key', ''),

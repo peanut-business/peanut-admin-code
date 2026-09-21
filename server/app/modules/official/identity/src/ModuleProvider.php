@@ -15,6 +15,10 @@ use PeanutAdmin\Modules\Identity\Contract\TenantAuditDiagnosticQuery;
 use PeanutAdmin\DataPermission\Constraint\TargetSetConstraintApplier;
 use PeanutAdmin\DataPermission\Scope\ReadScopeAuthority;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Auth\TenantSessionAccessService;
+use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
+use PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
 use PeanutAdmin\Kernel\Audit\AuditWriter;
 use PeanutAdmin\Kernel\Module\ModuleAvailability;
 use PeanutAdmin\Modules\Identity\Module\ModuleAvailabilityService;
@@ -38,6 +42,8 @@ final class ModuleProvider implements ModuleProviderContract
             TenantAuditDiagnosticQuery::class => ThinkPhpTenantAuditDiagnosticQuery::class,
             PlatformAuditDiagnosticQuery::class => ThinkPhpPlatformAuditDiagnosticQuery::class,
             PlatformOperatorIdentityQuery::class => ThinkPhpPlatformOperatorIdentityQuery::class,
+            TenantMemberDirectory::class => ThinkPhpTenantMemberDirectory::class,
+            TenantSessionAccess::class => TenantSessionAccessService::class,
         ];
     }
 }

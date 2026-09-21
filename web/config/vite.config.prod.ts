@@ -1,14 +1,17 @@
-import { resolve } from 'path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, mergeConfig, type OutputChunk, type Plugin } from 'vite';
 import { createBaseConfig } from './vite.config.base';
 import configCompressPlugin from './plugin/compress';
 import configVisualizerPlugin from './plugin/visualizer';
 
+const configDir = dirname(fileURLToPath(import.meta.url));
+
 function assertNoInstanceTools(): Plugin {
-  const route = resolve(__dirname, '../src/router/routes/modules/dev-tools.ts');
+  const route = resolve(configDir, '../src/router/routes/modules/dev-tools.ts');
   const prefixes = [
-    `${resolve(__dirname, '../src/views/dev-tools')}/`,
-    `${resolve(__dirname, '../src/api/dev-tools')}/`,
+    `${resolve(configDir, '../src/views/dev-tools')}/`,
+    `${resolve(configDir, '../src/api/dev-tools')}/`,
   ];
   const normalize = (value: string) => value.replace(/\\/g, '/');
   const forbiddenRoute = normalize(route);

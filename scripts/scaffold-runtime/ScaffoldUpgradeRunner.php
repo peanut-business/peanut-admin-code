@@ -88,7 +88,7 @@ final class ScaffoldUpgradeRunner
         $identity = [
             'from' => $this->releaseIdentity($from),
             'to' => $this->releaseIdentity($to),
-            'edition' => $to->data['edition'],
+            'edition' => $to->data['edition'] ?? null,
             'application_version' => $instanceVersion,
             'adoption_application_version' => $application['application']['version'],
             'version_contract' => $versionContract,
@@ -242,7 +242,7 @@ final class ScaffoldUpgradeRunner
             $ledger = $this->ledger($root);
             if ($plan['status'] !== 'ready') throw new RuntimeException('SCAFFOLD_PLAN_BLOCKED');
             if (in_array($this->candidateState($ledger, $plan['candidate']), ['applied', 'verified'], true)) {
-                $this->assertPluginProjection($root, $plan);
+                $this->assertAppliedState($root, $plan);
                 return ['status' => 'applied', 'candidate' => $plan['candidate'], 'idempotent' => true];
             }
             $this->assertPlanFresh($root, $plan);
@@ -304,29 +304,11 @@ final class ScaffoldUpgradeRunner
             $plan = $this->loadPlan($root, $planPath);
             $ledger = $this->ledger($root);
             if ($this->candidateState($ledger, $plan['candidate']) === 'verified') {
-                $this->assertPluginProjection($root, $plan);
+                $this->assertAppliedState($root, $plan);
                 return ['status' => 'verified', 'candidate' => $plan['candidate'], 'idempotent' => true];
             }
             if (!in_array($this->candidateState($ledger, $plan['candidate']), ['applied','verified'], true)) throw new RuntimeException('SCAFFOLD_APPLY_NOT_COMMITTED');
-            [$application] = $this->applicationManifest($root);
-            $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
-            if (($application['template']['version'] ?? null) !== $to->version()
-                || ($application['template']['source_commit'] ?? null) !== $to->release()['source_commit']
-                || ($application['template']['source_tree'] ?? null) !== $to->release()['source_tree']
-                || ($application['application']['version'] ?? null) !== $plan['identity']['application_version']
-                || ($application['edition'] ?? null) !== ($plan['identity']['edition'] ?? null)) {
-                throw new RuntimeException('SCAFFOLD_VERIFY_APPLICATION_IDENTITY_MISMATCH');
-            }
-            $actualAppOwned = $this->ownershipState($root, ['files' => array_values(array_filter($application['files'], static fn(array $file): bool => $file['classification'] === 'app-owned'))], 'app-owned');
-            if (!hash_equals($plan['identity']['app_owned_pre_sha256'], $actualAppOwned['digest'])) throw new RuntimeException('SCAFFOLD_VERIFY_APP_OWNED_CHANGED');
-            $this->assertPluginProjection($root, $plan);
-            foreach ($application['files'] as $file) {
-                if (!in_array($file['classification'], ['managed', 'generated-managed'], true)) continue;
-                $path = ScaffoldPathGuard::projectPath($root, $file['path']);
-                if (!is_file($path) || !hash_equals($file['sha256'], (string)hash_file('sha256', $path)) || ((fileperms($path) & 0777) !== ($file['mode'] ?? 0644))) {
-                    throw new RuntimeException('SCAFFOLD_VERIFY_MANAGED_MISMATCH: ' . $file['path']);
-                }
-            }
+            [$application, $actualAppOwned] = $this->assertAppliedState($root, $plan);
             $post = $this->managedDigestFromManifest($root, $application);
             $ledger->append($this->event($plan, 'verify', 'verified', $plan['identity']['managed_pre_sha256'], $post));
             return ['status' => 'verified', 'candidate' => $plan['candidate'], 'managed_post_sha256' => $post, 'app_owned_sha256' => $actualAppOwned['digest'], 'idempotent' => false];
@@ -381,6 +363,12 @@ final class ScaffoldUpgradeRunner
         $fromEdition = $from->data['edition'] ?? null;
         $toEdition = $to->data['edition'] ?? null;
         $name = $application['application']['edition'] ?? null;
+        if ($name === null && $applicationEdition === null && $fromEdition === null && $toEdition === null) {
+            // Immutable pre-Edition releases have no Edition identity. Their
+            // generic upgrade chain remains valid, but it cannot convert an
+            // instance into either current Edition implicitly.
+            return;
+        }
         $expectedBootstrap = [
             'kind' => 'real-default-tenant',
             'code' => 'default',
@@ -782,7 +770,13 @@ final class ScaffoldUpgradeRunner
             $frontendRoots = [];
             foreach ($descriptor->moduleRoots as $moduleKey => $absoluteRoot) {
                 $moduleRoots[] = $this->relativeDirectory($root, $absoluteRoot);
-                $frontendRoot = 'web/src/modules/' . str_replace('.', '-', (string)$moduleKey);
+            }
+            foreach ($descriptor->frontend as $frontend) {
+                $entry = is_array($frontend) ? ($frontend['entry'] ?? null) : null;
+                if (!is_string($entry)) {
+                    throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID: PLUGIN_MANIFEST_INVALID');
+                }
+                $frontendRoot = dirname(ScaffoldManifest::path($entry));
                 $frontendPath = ScaffoldPathGuard::projectPath($root, $frontendRoot);
                 if (!is_dir($frontendPath)) {
                     throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID: PLUGIN_PATH_UNAVAILABLE');
@@ -854,6 +848,8 @@ final class ScaffoldUpgradeRunner
             if (!is_array($entry)
                 || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', (string)($entry['key'] ?? '')) !== 1
                 || !is_string($entry['manifest'] ?? null)
+                || !is_array($entry['frontend'] ?? null)
+                || !array_is_list($entry['frontend'])
                 || !is_array($entry['modules'] ?? null)
                 || $entry['modules'] === []
                 || !array_is_list($entry['modules'])) {
@@ -877,7 +873,12 @@ final class ScaffoldUpgradeRunner
                     throw new RuntimeException('SCAFFOLD_TARGET_PLUGIN_LOCK_INVALID');
                 }
                 $moduleRoots[$moduleRoot] = true;
-                $frontendRoots['web/src/modules/' . str_replace('.', '-', (string)$module['key'])] = true;
+            }
+            foreach ($entry['frontend'] ?? [] as $frontend) {
+                if (!is_array($frontend) || !is_string($frontend['entry'] ?? null)) {
+                    throw new RuntimeException('SCAFFOLD_TARGET_PLUGIN_LOCK_INVALID');
+                }
+                $frontendRoots[dirname(ScaffoldManifest::path($frontend['entry']))] = true;
             }
             $plugins[$key] = [
                 'manifest' => $manifestPath,
@@ -1342,6 +1343,49 @@ final class ScaffoldUpgradeRunner
         $this->assertManifestDigest(ScaffoldManifest::load($plan['manifest_paths']['to']), $plan['identity']['to']['manifest_sha256']);
     }
 
+    /**
+     * Revalidate the complete committed target before an idempotent apply/verify returns success.
+     *
+     * @return array{0:array<string,mixed>,1:array{digest:string,files:array<string,mixed>}}
+     */
+    private function assertAppliedState(string $root, array $plan): array
+    {
+        [$application] = $this->applicationManifest($root);
+        $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
+        $this->assertManifestDigest($to, $plan['identity']['to']['manifest_sha256']);
+        if (($application['template']['version'] ?? null) !== $to->version()
+            || ($application['template']['source_commit'] ?? null) !== $to->release()['source_commit']
+            || ($application['template']['source_tree'] ?? null) !== $to->release()['source_tree']
+            || ($application['application']['version'] ?? null) !== $plan['identity']['application_version']
+            || ($application['edition'] ?? null) !== ($plan['identity']['edition'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_VERIFY_APPLICATION_IDENTITY_MISMATCH');
+        }
+        $actualAppOwned = $this->ownershipState(
+            $root,
+            ['files' => array_values(array_filter(
+                $application['files'],
+                static fn(array $file): bool => $file['classification'] === 'app-owned',
+            ))],
+            'app-owned',
+        );
+        if (!hash_equals($plan['identity']['app_owned_pre_sha256'], $actualAppOwned['digest'])) {
+            throw new RuntimeException('SCAFFOLD_VERIFY_APP_OWNED_CHANGED');
+        }
+        $this->assertPluginProjection($root, $plan);
+        foreach ($application['files'] as $file) {
+            if (!in_array($file['classification'], ['managed', 'generated-managed'], true)) {
+                continue;
+            }
+            $path = ScaffoldPathGuard::projectPath($root, $file['path']);
+            if (!is_file($path) || is_link($path)
+                || !hash_equals((string)$file['sha256'], (string)hash_file('sha256', $path))
+                || ((fileperms($path) & 0777) !== ($file['mode'] ?? 0644))) {
+                throw new RuntimeException('SCAFFOLD_VERIFY_MANAGED_MISMATCH: ' . $file['path']);
+            }
+        }
+        return [$application, $actualAppOwned];
+    }
+
     /** Rebuild the plan from its immutable manifests so edited actions cannot claim another ownership class or path. */
     private function assertPlanRebound(string $root, array $plan): void
     {
@@ -1471,7 +1515,10 @@ final class ScaffoldUpgradeRunner
         $appOwned = array_values(array_filter($files, static fn(array $f): bool => $f['classification']==='app-owned'));
         $application['template'] = ['version'=>$to->version(),'inventory_sha256'=>$to->release()['inventory_sha256'],
             'source_commit'=>$to->release()['source_commit'],'source_tree'=>$to->release()['source_tree']];
-        $application['edition'] = $plan['identity']['edition'];
+        $edition = $plan['identity']['edition'] ?? null;
+        if (is_array($edition)) {
+            $application['edition'] = $edition;
+        }
         $application['schema_version'] = 2;
         $application['protocol'] = 'peanut.application-scaffold.v2';
         $application['application']['version'] = $plan['identity']['application_version'];
@@ -1482,9 +1529,11 @@ final class ScaffoldUpgradeRunner
             'candidate'=>$plan['candidate'],
             'from'=>$plan['identity']['from']['version'],
             'to'=>$to->version(),
-            'edition_profile_sha256'=>$plan['identity']['edition']['source_sha256'],
-            'tenant_bootstrap'=>$plan['identity']['edition']['tenant_bootstrap'],
         ];
+        if (is_array($edition)) {
+            $application['last_scaffold_upgrade']['edition_profile_sha256'] = $edition['source_sha256'];
+            $application['last_scaffold_upgrade']['tenant_bootstrap'] = $edition['tenant_bootstrap'];
+        }
         return $application;
     }
 

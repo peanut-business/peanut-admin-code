@@ -8,16 +8,14 @@ use app\adminapi\services\decoration\DecorationPageApplicationService;
 use app\adminapi\validate\decoration\DecorationPageValidate;
 use app\common\enum\decoration\DecorationEnum;
 
+/** @property-read DecorationPageApplicationService $decorationPages 当前 App 中声明式解析的控制器依赖。 */
 class DecorationPageController extends BaseAdminController
 {
-    protected function decorationPages(): DecorationPageApplicationService
-    {
-        return $this->app->make(DecorationPageApplicationService::class);
-    }
+    protected string $decorationPagesClass = DecorationPageApplicationService::class;
 
     public function mobileLists()
     {
-        return $this->data($this->decorationPages()->lists(
+        return $this->data($this->decorationPages->lists(
             $this->tenantAdminContext(),
             DecorationEnum::MOBILE_TYPES
         ));
@@ -40,7 +38,7 @@ class DecorationPageController extends BaseAdminController
 
     public function pcLists()
     {
-        return $this->data($this->decorationPages()->lists(
+        return $this->data($this->decorationPages->lists(
             $this->tenantAdminContext(),
             [DecorationEnum::PC_HOME]
         ));
@@ -55,7 +53,7 @@ class DecorationPageController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, DecorationPageValidate::class . '.article');
-        return $this->data($this->decorationPages()->articleOptions(
+        return $this->data($this->decorationPages->articleOptions(
             $this->tenantAdminContext(),
             (int)($params['limit'] ?? 20)
         ));
@@ -65,7 +63,7 @@ class DecorationPageController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, DecorationPageValidate::class . '.detail');
-        return $this->data($this->decorationPages()->detail(
+        return $this->data($this->decorationPages->detail(
             $this->tenantAdminContext(),
             (int)$params['id'],
             $allowedTypes
@@ -76,7 +74,7 @@ class DecorationPageController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, DecorationPageValidate::class . '.save');
-        $this->decorationPages()->save(
+        $this->decorationPages->save(
             $this->tenantAdminContext(),
             $params,
             $allowedTypes

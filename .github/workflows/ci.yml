@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: application-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   stale-facts:
     name: Stale facts
@@ -31,6 +35,7 @@ jobs:
       pc: ${{ steps.paths.outputs.pc }}
       uniapp: ${{ steps.paths.outputs.uniapp }}
       create_app: ${{ steps.paths.outputs.create_app }}
+      mysql: ${{ steps.paths.outputs.mysql }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,7 +47,7 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            for output in server web platform pc uniapp create_app; do
+            for output in server web platform pc uniapp create_app mysql; do
               echo "${output}=true" >> "$GITHUB_OUTPUT"
             done
             exit 0
@@ -53,13 +58,15 @@ jobs:
             grep -Eq "$1" <<< "$changed"
           }
 
-          server_changed="$(grep -E '^server/' <<< "$changed" | grep -Ev '^(server/app/common/service/scaffold/.*|server/tests/Productization/CreateApplicationTest\.php)$' || true)"
-          [[ -n "$server_changed" || "$(grep -E '^(scripts/ci-server-check\.sh|scripts/check-admin-api-permissions\.php)$' <<< "$changed" || true)" != "" ]] && echo 'server=true' >> "$GITHUB_OUTPUT" || echo 'server=false' >> "$GITHUB_OUTPUT"
-          matches '^(web/|scripts/sync-brand-assets\.mjs$)' && echo 'web=true' >> "$GITHUB_OUTPUT" || echo 'web=false' >> "$GITHUB_OUTPUT"
-          matches '^platform/' && echo 'platform=true' >> "$GITHUB_OUTPUT" || echo 'platform=false' >> "$GITHUB_OUTPUT"
-          matches '^pc/' && echo 'pc=true' >> "$GITHUB_OUTPUT" || echo 'pc=false' >> "$GITHUB_OUTPUT"
-          matches '^uniapp/' && echo 'uniapp=true' >> "$GITHUB_OUTPUT" || echo 'uniapp=false' >> "$GITHUB_OUTPUT"
-          matches '^(scaffold/application-template-inventory\.json|scaffold/releases/v2\.0\.0/|scripts/create-app|scripts/build-application-template-inventory|scripts/build-scaffold-release|server/app/common/service/scaffold/ApplicationCreator\.php|server/tests/Productization/CreateApplicationTest\.php)$' && echo 'create_app=true' >> "$GITHUB_OUTPUT" || echo 'create_app=false' >> "$GITHUB_OUTPUT"
+          # Shared package/tool changes affect their consumers, not only files under one client.
+          shared='packages/|release-versions\.json$|scripts/(sync-brand-assets\.mjs|client-environment|local-client-dev)|\.github/workflows/ci\.yml$'
+          matches '^(server/|plugins/|plugins\.lock$|resources/project-resources\.json$|scripts/(ci-server-check\.sh|run-php-test|check-admin-api-permissions\.php|check-test-integrity|tests/run-registered-mysql-tests|consumer-module-reference-chain|project-resource-registry|project-resource-lease)|\.github/workflows/ci\.yml$)' && echo 'server=true' >> "$GITHUB_OUTPUT" || echo 'server=false' >> "$GITHUB_OUTPUT"
+          matches "^(web/|${shared})" && echo 'web=true' >> "$GITHUB_OUTPUT" || echo 'web=false' >> "$GITHUB_OUTPUT"
+          matches "^(platform/|${shared})" && echo 'platform=true' >> "$GITHUB_OUTPUT" || echo 'platform=false' >> "$GITHUB_OUTPUT"
+          matches "^(pc/|${shared})" && echo 'pc=true' >> "$GITHUB_OUTPUT" || echo 'pc=false' >> "$GITHUB_OUTPUT"
+          matches "^(uniapp/|${shared})" && echo 'uniapp=true' >> "$GITHUB_OUTPUT" || echo 'uniapp=false' >> "$GITHUB_OUTPUT"
+          matches '^(scaffold/|resources/project-resources\.json$|scripts/(create-app|build-application-template-inventory|build-scaffold-release|scaffold-runtime/|consumer-module-reference-chain|project-resource-registry|project-resource-lease)|server/app/common/(infrastructure|value|validation)/scaffold/|server/tests/Productization/(CreateApplication|ModuleBundleLifecycle|ModuleDeliveryOperation|ModulePackageArchive|ScaffoldUpgradeRunner)Test\.php$|\.github/workflows/ci\.yml$)' && echo 'create_app=true' >> "$GITHUB_OUTPUT" || echo 'create_app=false' >> "$GITHUB_OUTPUT"
+          matches '^(resources/project-resources\.json$|scripts/(tests/run-registered-mysql-tests|project-resource-registry|project-resource-lease|consumer-module-reference-chain)|server/tests/Support/RegisteredMysqlTestResource\.php|server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest\.php|server/tests/Modules/Official/Notification/mysql-harness\.php|server/tests/Multitenancy/MemberSessionTenantIsolationTest\.php|server/app/modules/official/(identity|integration|member|notification|task)/|server/app/api/services/UserTokenService\.php|server/database/migrations/.*member[-_]session|\.github/workflows/ci\.yml$)' && echo 'mysql=true' >> "$GITHUB_OUTPUT" || echo 'mysql=false' >> "$GITHUB_OUTPUT"
 
   create-app:
     name: Create app
@@ -73,7 +80,11 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          tools: composer:2.10.2
           coverage: none
+      - name: Install the tool's locked dependencies
+        working-directory: server
+        run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
       - name: Verify inventory and create-app contract
         run: |
           php scripts/build-application-template-inventory --check
@@ -86,11 +97,11 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mysql:
-        image: mysql:8.4
+        image: mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af
         env:
           MYSQL_ROOT_PASSWORD: mt02_root
         ports:
-          - 3306:3306
+          - 3306
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -pmt02_root"
           --health-interval=5s
@@ -113,19 +124,27 @@ jobs:
         shell: bash
         run: |
           backend_env="$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+          registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+          mysql_port='${{ job.services.mysql.ports[3306] }}'
           umask 077
           printf '%s\n' \
             'APP_ENV=development' \
             'APP_DEBUG=false' \
             'PEANUT_DEPLOYMENT_TARGET=local-development' \
-            'DEPLOYMENT_MODE=standalone' \
+            'DEPLOYMENT_MODE=multi-tenant' \
             'DB_HOST=127.0.0.1' \
-            'DB_PORT=3306' \
+            "DB_PORT=${mysql_port}" \
             'DB_NAME=peanut_admin_ci' \
             'DB_USER=root' \
             'DB_PASS=mt02_root' \
             'DB_ROOT_PASS=mt02_root' \
             'DB_PREFIX=pa_' > "$backend_env"
+          sed 's/^DB_NAME=.*/DB_NAME=peanut_admin_ci_registered_mysql/' "$backend_env" > "$registered_mysql_env"
+          printf '%s\n' \
+            'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
+            'PEANUT_DATABASE_ENDPOINT_ID=peanut-admin-ci-real-mysql84-host' \
+            'PEANUT_DATABASE_CONSUMER=host' >> "$registered_mysql_env"
+          chmod 600 "$registered_mysql_env"
 
       - name: Cache Composer downloads
         uses: actions/cache@v4
@@ -155,15 +174,32 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: ./scripts/ci-server-check.sh --full --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
+      - name: Run lease-bound real MySQL 8.4 gate
+        if: needs.changes.outputs.mysql == 'true'
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
+          DB_NAME: peanut_admin_ci_registered_mysql
+          PEANUT_DATABASE_RESOURCE_ID: peanut-admin-ci-real-mysql84
+          PEANUT_DATABASE_ENDPOINT_ID: peanut-admin-ci-real-mysql84-host
+          PEANUT_DATABASE_CONSUMER: host
+          PEANUT_DATABASE_ENVIRONMENT: continuous-integration
+          PEANUT_DATABASE_RESOURCE_SCOPE: github-actions-job:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
+          PEANUT_DATABASE_LEASE_ID: ci-mysql-${{ github.run_id }}-${{ github.run_attempt }}
+          PEANUT_DATABASE_LEASE_OWNER: github-actions:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
+          PEANUT_DATABASE_LEASE_GATE: real-mysql
+          PEANUT_MYSQL_RESOURCE_MODE: --ci-service
+        run: ./scripts/ci-server-check.sh --mysql --env-file "$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+
       - name: Remove isolated backend environment
         if: always()
         shell: bash
         run: |
           backend_env="$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
-          case "$backend_env" in
-            "$GITHUB_WORKSPACE"/server/.env.ci-*) rm -f -- "$backend_env" ;;
-            *) exit 1 ;;
-          esac
+          registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+          [[ "$backend_env" == "$GITHUB_WORKSPACE"/server/.env.ci-* ]]
+          [[ "$registered_mysql_env" == "$GITHUB_WORKSPACE"/server/.env.ci-mysql-* ]]
+          rm -f -- "$backend_env" "$registered_mysql_env"
 
   web:
     name: Web
@@ -181,7 +217,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - name: Install dependencies
@@ -236,7 +272,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: npm
           cache-dependency-path: platform/package-lock.json
       - name: Install dependencies
@@ -260,7 +296,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: npm
           cache-dependency-path: pc/package-lock.json
       - name: Install dependencies
@@ -269,9 +305,9 @@ jobs:
       - name: Typecheck
         working-directory: pc
         run: npm run typecheck
-      - name: Generate
+      - name: Build the server-rendered website
         working-directory: pc
-        run: npm run generate
+        run: npm run build
 
   uniapp:
     name: UniApp
@@ -284,7 +320,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: npm
           cache-dependency-path: uniapp/package-lock.json
       - name: Install dependencies
@@ -296,3 +332,6 @@ jobs:
       - name: Build H5
         working-directory: uniapp
         run: npm run build:h5
+      - name: Build the supported WeChat client
+        working-directory: uniapp
+        run: npm run build:mp-weixin

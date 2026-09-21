@@ -4,8 +4,8 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
 use PeanutAdmin\Modules\Notification\Delivery\Application\VerificationCodeSecret;
-use app\common\service\scaffold\EditionProfile;
-use app\common\service\scaffold\EditionProjector;
+use app\common\value\scaffold\EditionProfile;
+use app\common\infrastructure\scaffold\EditionProjector;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -47,7 +47,7 @@ $sceneValidator = (string)file_get_contents(
     $serverRoot . '/app/modules/official/notification/src/Validation/NoticeSceneValidate.php'
 );
 $readinessHost = (string)file_get_contents(
-    $serverRoot . '/app/common/service/readiness/FirstRunReadinessHost.php'
+    $serverRoot . '/app/common/services/readiness/FirstRunReadinessHost.php'
 );
 $readinessController = (string)file_get_contents(
     $serverRoot . '/app/adminapi/controller/config/ReadinessController.php'
@@ -66,16 +66,17 @@ expectNotificationHost(
     str_contains($readinessHost, 'private readonly NotificationQueries $notifications')
         && str_contains($readinessHost, '$this->notifications->channelDetail()')
         && !str_contains($readinessHost, 'NotificationModuleProvider')
-        && str_contains($readinessController, 'private readonly FirstRunReadinessHost $readiness')
+        && str_contains($readinessController, 'protected string $readinessClass = FirstRunReadinessHost::class;')
+        && str_contains($readinessController, '@property-read FirstRunReadinessHost $readiness')
         && str_contains($readinessController, '$this->readiness->checklist(')
         && !str_contains($readinessController, 'new FirstRunReadinessHost'),
     'readiness projection bypasses its container-owned Notification dependency'
 );
 foreach ([
-    'Login' => '/app/api/application/LoginApplicationService.php',
+    'Login' => '/app/api/services/LoginApplicationService.php',
     'OAuth' => '/app/modules/official/oauth/src/Service/OAuthCommandService.php',
-    'Sms' => '/app/api/application/SmsApplicationService.php',
-    'User' => '/app/api/application/UserApplicationService.php',
+    'Sms' => '/app/api/services/SmsApplicationService.php',
+    'User' => '/app/api/services/UserApplicationService.php',
 ] as $application => $path) {
     $consumer = (string)file_get_contents($serverRoot . $path);
     expectNotificationHost(

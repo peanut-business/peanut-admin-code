@@ -37,6 +37,8 @@ export default {
     'Choose the official modules to enable during the initial installation.',
   'installation.modules.empty':
     'No official modules selected (they can be enabled after installation).',
+  'installation.modules.catalogMissing':
+    'The installation service did not return a module catalog. Installation cannot continue with a local fallback list.',
   'installation.submit': 'Start installation',
   'installation.submitting': 'Installing…',
   'installation.validation.required': 'This field is required',

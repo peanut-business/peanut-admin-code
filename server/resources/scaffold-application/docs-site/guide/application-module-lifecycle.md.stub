@@ -1,0 +1,87 @@
+# Create an application and deliver a Module
+
+This guide is for an application owner and Module author. Start from one fixed scaffold candidate, keep each generated application in its own repository, and use the [reference index](/reference) when a command or failure needs clarification.
+
+## 1. Fix the candidate and create an application
+
+The source commit must already contain the matching scaffold inventory. A prerelease such as `4.0.0-dev` is a candidate identity, not a published Release:
+
+~~~bash
+php scripts/build-scaffold-release --version=<scaffold-semver> --source-commit=<40-hex> --output=<absolute-candidate-directory>
+php scripts/create-app --name=<name> --slug=<slug> --package=<vendor/name> --target=<absolute-path> --edition=multi-tenant --profile=standard --scaffold-manifest=<absolute-candidate-directory>/scaffold-manifest.json
+~~~
+
+The explicit manifest lets `create-app` use the sealed commit/tree identity without a source `.git` directory or a private Project repository. Record that identity from `.peanut/application-manifest.json`. Application creation does not create a customer Tenant. Register the application's own database, ports, domains, storage, queues and external services separately; the product manifest is not a place for deployment secrets.
+
+Install the generated application's locked PHP dependencies before using `server/think`:
+
+~~~bash
+scripts/project-composer prepare
+scripts/project-composer install --working-dir=server --no-interaction
+~~~
+
+`prepare` downloads the pinned Composer binary and verifies its digest. If policy forbids network access, provision that exact verified tool and the locked dependency cache through the deployment owner; do not copy another application's `vendor/`.
+
+## 2. Create and check a Module
+
+In the generated application's `server/` directory:
+
+~~~bash
+php think module:create <vendor.module> --vendor=<vendor>
+php think module:check <vendor.module>
+~~~
+
+Complete the backend, frontend, single `module.json` identity, permissions, menus, migrations and Tenant isolation skeleton. Composer, npm, `plugins.lock` and version projections must agree with that declaration. `module:check` is read-only and must report `status=ready` before packaging.
+
+## 3. Pack and share the Module
+
+~~~bash
+php think module:pack <vendor.module> --output=<absolute-path>/<module>-<version>.tar --signing-key-id=<key-id> --signing-secret-key-file=<permission-0600-file>
+~~~
+
+Share the archive SHA-256, signature key ID and public-key configuration through a trusted channel. Never commit the signing secret. The verifier rejects undeclared files, symlinks, traversal, checksum/signature changes, dependency conflicts, namespace collisions and same-version identity changes; packages cannot run arbitrary install scripts.
+
+## 4. Install without opening a Tenant
+
+Development/debug instance CLI tooling can install the verified archive in either Standalone or multi-tenant Edition:
+
+~~~bash
+php think module:install-package <archive> --sha256=<64-hex> --signature-key-id=<key-id>
+~~~
+
+Installation changes Package and ModuleInstallation state only. It does not create a Tenant, enable a TenantModule, create a person, or grant Tenant/RBAC permissions. Application creation, Tenant onboarding, source-only `module:adopt-package`, Runtime Package installation and production operations are separate lifecycles. The Platform `instance-tools/modules/*` HTTP boundary remains Standalone-only. The mutation CLI requires an actual local console command in a known Edition with `development` plus debug enabled; it does not accept a request actor or Tenant member as an instance maintainer. Production continues to accept only deployment-owned opaque update, retire and Purge tasks, and no production HTTP request may supply an archive, path, URL, command, target or credential. Do not promise arbitrary frontend hot-plugging: build and deploy every declared client contribution with its lock file.
+
+## 5. Update and recover
+
+Fix a higher immutable version, take and verify the paired backup, then run the zero-write plan before applying:
+
+~~~bash
+php think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<key-id> --dry-run
+php think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<key-id>
+~~~
+
+The Package key and member scope cannot change during update. A digest/signature mismatch, downgrade, missing dependency, path conflict, occupied lifecycle lock, unknown migration or irreversible step without backup must stop. A failed source promotion is restored before migrations start; after migrations start, preserve the returned recovery pointer and verified backup. Restoring source files is not a database rollback. Repeating a completed operation is stable.
+
+## 6. Ownership and scaffold upgrades
+
+- `managed`: upstream bytes; edit upstream and regenerate.
+- `generated-managed`: deterministic projection; change its single source, never the projection.
+- `app-owned`: application and private Module customizations; scaffold upgrades preserve them.
+- instance state: environment files, credentials, uploads, database rows, backups and recovery pointers; never copy them into a candidate or Package.
+
+Use the candidate's upgrade tool from the verified scaffold tool checkout, with `--project-root` pointing to this application. The generated app does not have to copy maintainer-only build tools:
+
+~~~bash
+php scripts/scaffold-upgrade preflight --project-root=<application> --from-manifest=<from> --to-manifest=<to>
+php scripts/scaffold-upgrade apply --project-root=<application> --plan=<plan>
+php scripts/scaffold-upgrade verify --project-root=<application> --plan=<plan>
+php scripts/scaffold-upgrade recover --project-root=<application> --plan=<plan>
+~~~
+
+Only manifest-declared managed regions are replaced. Conflicting local edits stop at preflight. `recover` resumes the same plan or restores its recorded file backup; it does not undo database migrations or Package updates.
+
+## 7. Disable, retire and Purge
+
+Disable TenantModules and dependants before disabling a Package. Retire preserves data and must use the unchanged preview plan and digest. Purge additionally requires a verified paired backup and explicit confirmation before deleting Module-owned tables, migration ledgers, catalogs or bindings. Active TenantModules, business dependencies, protected Modules and external table references block the operation.
+
+For stable errors and recovery fields, use [Reference](/reference). For a redacted report, use [Support](/support).

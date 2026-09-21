@@ -1,4 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { loadConfigFromFile } from 'vite';
 
@@ -10,12 +12,23 @@ const webRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const virtualId = 'virtual:peanut-instance-tool-routes';
 
 async function virtualRouteSource(command, mode, deploymentMode, configFile) {
-  process.env.VITE_DEPLOYMENT_MODE = deploymentMode;
-  const loaded = await loadConfigFromFile(
-    { command, mode },
-    resolve(webRoot, configFile),
-    webRoot
-  );
+  const envDirectory = mkdtempSync(resolve(tmpdir(), 'pa-vite-boundary-'));
+  const envFile = resolve(envDirectory, '.env');
+  const previousEnvFile = process.env.PEANUT_CLIENT_ENV_FILE;
+  writeFileSync(envFile, `VITE_DEPLOYMENT_MODE=${deploymentMode}\n`);
+  process.env.PEANUT_CLIENT_ENV_FILE = envFile;
+  let loaded;
+  try {
+    loaded = await loadConfigFromFile(
+      { command, mode },
+      resolve(webRoot, configFile),
+      webRoot
+    );
+  } finally {
+    if (previousEnvFile === undefined) delete process.env.PEANUT_CLIENT_ENV_FILE;
+    else process.env.PEANUT_CLIENT_ENV_FILE = previousEnvFile;
+    rmSync(envDirectory, { recursive: true, force: true });
+  }
   expect(loaded !== null, `${configFile} could not be loaded`);
   const plugin = loaded.config.plugins?.find(
     (candidate) => candidate.name === 'peanut-instance-tool-route-manifest'
@@ -71,6 +84,5 @@ expect(
   'ordinary eager routes no longer exclude dev-tools or lost the virtual gate'
 );
 
-delete process.env.VITE_DEPLOYMENT_MODE;
 // eslint-disable-next-line no-console
 console.log('INSTANCE-TOOL-BUILD-BOUNDARY-D4-001 passed');

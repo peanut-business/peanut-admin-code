@@ -59,7 +59,7 @@ final readonly class SmsTaskHandler implements TaskHandler
             return;
         }
         try {
-            $recipient = $this->recipients->resolve($dispatch->tenantId, $dispatch->recipientMemberId);
+            $recipient = $this->recipients->resolve($context->tenantContext, $dispatch->recipientMemberId);
         } catch (NotificationException) {
             $execution->assertLeaseOwned();
             $this->recordFailure($execution, $dispatch, 'SMS_RECIPIENT_UNAVAILABLE', false);
@@ -127,8 +127,10 @@ final readonly class SmsTaskHandler implements TaskHandler
                 $this->repository->completeSms($dispatch, $receipt);
             });
         } catch (Throwable) {
-            $this->recordFailure($execution, $dispatch, 'SMS_DELIVERY_COMMIT_FAILED', true);
-            throw new RetryableTaskException('SMS_DELIVERY_COMMIT_FAILED');
+            // The provider accepted this idempotency key, but its receipt was not
+            // committed locally. A retry must reconcile through the same key.
+            $this->recordFailure($execution, $dispatch, 'SMS_DELIVERY_COMMIT_UNKNOWN', true);
+            throw new RetryableTaskException('SMS_DELIVERY_COMMIT_UNKNOWN');
         }
     }
 

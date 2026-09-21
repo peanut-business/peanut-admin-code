@@ -4,36 +4,32 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Article\Contract;
 
 use app\common\http\PageResult;
+use PeanutAdmin\Kernel\Auth\TenantContext;
 
-/** Public administrative use cases for the Article Module. */
+/** 资讯后台公开用例；调用者必须提供当前受信租户，服务仍会复核人员权限。 */
 interface ArticleAdministration
 {
-    public function lists(array $params): PageResult;
+    public function lists(TenantContext $context, array $params): PageResult;
 
     /** @return array<string,mixed> */
-    public function detail(int $id): array;
+    public function detail(TenantContext $context, int $id): array;
 
-    public function add(array $params): void;
+    public function add(TenantContext $context, array $params): bool;
 
-    public function edit(array $params): void;
+    public function edit(TenantContext $context, array $params): bool;
 
-    public function delete(int $id): void;
+    public function delete(TenantContext $context, int $id): bool;
 
-    public function updateStatus(int $id, int $isShow): void;
+    public function updateStatus(TenantContext $context, int $id, int $isShow): bool;
 
-    public function categoryLists(array $params): PageResult;
-
-    /** @return list<array<string,mixed>> */
-    public function allCategories(): array;
+    public function recycleLists(TenantContext $context, array $params): PageResult;
 
     /** @return array<string,mixed> */
-    public function categoryDetail(int $id): array;
+    public function recycleDetail(TenantContext $context, int $id): array;
 
-    public function addCategory(array $params): void;
+    /** @param list<int> $ids @return array<string,mixed> */
+    public function restore(TenantContext $context, array $ids): array;
 
-    public function editCategory(array $params): void;
-
-    public function deleteCategory(int $id): void;
-
-    public function updateCategoryStatus(int $id, int $isShow): void;
+    /** @param list<int> $ids @return array<string,mixed> */
+    public function forceDelete(TenantContext $context, array $ids): array;
 }

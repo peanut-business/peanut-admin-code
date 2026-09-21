@@ -121,7 +121,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c575b4b9016bc8e05624648654e59a0515d642b25fbeb9a5e3d8607412feb1a"
+            "source_sha256": "e3e2307fc88160199f6e931fc07c96b0f73d701c3acad53764a26f8f651ad180"
         },
         {
             "path": ".github/workflows/repository-policy.yml",
@@ -161,7 +161,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ae9079ac44106e749a9314e878e0eec13b3ced636b7b65e1991c74c517b99a2b"
+            "source_sha256": "e78087370f88b26af0a3eb70f5e6c53760cbf84fd280dbc30c137df619bf77fb"
         },
         {
             "path": ".vscode/settings.json",
@@ -274,20 +274,6 @@
             "source_sha256": "7d0738b553d3115612ced8496469e60bc259ea026b433eb52b56b07857ddccd7"
         },
         {
-            "path": "SECURITY.md",
-            "target": "SECURITY.md",
-            "classification": "app-owned",
-            "owner": "application",
-            "transform": "docs-page",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "447183afd9b33a54a2ef2383c25667b5728d738eb1720a2bb1e16704aa6e3eb9"
-        },
-        {
             "path": "THIRD_PARTY_NOTICES.md",
             "target": "THIRD_PARTY_NOTICES.md",
             "classification": "generated-managed",
@@ -341,7 +327,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ccc9088681345ec713f3ddf4cb8e424ff649c8ac171f774620f437658f117bd2"
+            "source_sha256": "7ca11918392150bb55b09475e227c092dbf45e9aff2bd1580ad1be1daa254e43"
         },
         {
             "path": "deploy/docker-compose.dev.yml",
@@ -368,7 +354,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cfbc22ab3b98f8756e0529b69a4d0c5ce190c9a445e0eed44994bb27938198dc"
+            "source_sha256": "096da25854a8de9259a8338f63b62fc59e4528367de162ecc8955224cc38b1b0"
         },
         {
             "path": "deploy/docker-compose.remote-development.yml",
@@ -463,7 +449,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1483c5d83e94bb55660bc9fb0c83718849c791bc45a98eb565dc166b9e79a989"
+            "source_sha256": "468e4027eb176a7f3b053b8d306c7af372c5882e3dc498aede45f183b7e58e40"
         },
         {
             "path": "deploy/local-stack.env.example",
@@ -503,7 +489,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed2bef0d00f95f84e3af4bd76eab58a3fb26b0f1a9a1e1afe8b71c5a1b414d2c"
+            "source_sha256": "2a404317b712cce4573f0065b1987d3a6a119a36c91e5225ddcf4526be1ef2d4"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -520,6 +506,20 @@
             "source_sha256": "53be959861a597374a068d6ae999635d9ba8700534ade858b782fa3dfd1594b2"
         },
         {
+            "path": "packages/core-web/peanut-admin-client-4.0.0-dev.1.tgz",
+            "target": "packages/core-web/peanut-admin-client-4.0.0-dev.1.tgz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f1220b210e47d7777ff84eb6f3e62031dee1a54f1483f0d6de4a105cb79bbde5"
+        },
+        {
             "path": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.0.tgz",
             "target": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.0.tgz",
             "classification": "managed",
@@ -532,6 +532,20 @@
                 "full"
             ],
             "source_sha256": "e88d678afbc54045a1a42f597085ae50c8149a89a6f035d88b68af1e90a15452"
+        },
+        {
+            "path": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.1.tgz",
+            "target": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.1.tgz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c8027c201d81df291692d3c299a3f6e683c7a0594581e5b4416417f3ac7a4f10"
         },
         {
             "path": "packages/core-web/peanut-admin-testing-4.0.0-dev.0.tgz",
@@ -548,6 +562,20 @@
             "source_sha256": "10ad9c9ba82e22ab9df3176972cb7858fdc30e145a8a411a7dd0f37f33a2e6d6"
         },
         {
+            "path": "packages/core-web/peanut-admin-testing-4.0.0-dev.1.tgz",
+            "target": "packages/core-web/peanut-admin-testing-4.0.0-dev.1.tgz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f61692fc3a03c61042d0e68ae29a957fdd5615e95384244822ed3ff823a286e4"
+        },
+        {
             "path": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
             "target": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
             "classification": "managed",
@@ -560,6 +588,20 @@
                 "full"
             ],
             "source_sha256": "431a557157b968f5e2e7569fc01505d8b083be5d0e5507ab80ebaf43e06d7aac"
+        },
+        {
+            "path": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.1.tgz",
+            "target": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.1.tgz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "892d23223cadf108afad0ec9796c0fbfa8a8942c6c66d50e24b642a6c75cd206"
         },
         {
             "path": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.0.tgz",
@@ -576,6 +618,20 @@
             "source_sha256": "4a5a686701599f2af0edcbeb95c5ee58a6fac461164afcbe404ec19b54a95e95"
         },
         {
+            "path": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.1.tgz",
+            "target": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.1.tgz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a138bcb36878e11f27adce6a93ea3134eaebb84a173d741f245d761a259f67c8"
+        },
+        {
             "path": "packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
             "target": "packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
             "classification": "managed",
@@ -588,6 +644,20 @@
                 "full"
             ],
             "source_sha256": "b1a533b40d55e53aa5979b07b4f5e26d98d934c46f3247832a1e0ca0968e4265"
+        },
+        {
+            "path": "packages/core-web/peanut-admin-vue-4.0.0-dev.1.tgz",
+            "target": "packages/core-web/peanut-admin-vue-4.0.0-dev.1.tgz",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cf64f68a696069a34bf0a83a50286400f37ac4a2e4f9e7e297d0844ddaaa335b"
         },
         {
             "path": "pc/.env.example",
@@ -678,7 +748,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "33f1685fa60679a35b5a6f42be2b6d55831cb25b69595c9fb81af0ab86e8d894"
+            "source_sha256": "9e23dce5d9c34175ecc4c70a9b097ffaa13f086426a03d44369554cadc540393"
         },
         {
             "path": "pc/components/ArticleCard.vue",
@@ -704,7 +774,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ba03a8a31db9934a3bf4de0caad6362177da07b5f35853616303683a650c82b3"
+            "source_sha256": "dcbe9e2f46db2d9af8711079c095256e45c41464fd653d38740f9ae89385e318"
         },
         {
             "path": "pc/generated/brand.json",
@@ -730,7 +800,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e26285d17925aa0c065f6cd90cd83f1f613b256ea8573fee2176a5bebf90076"
+            "source_sha256": "e3bfb1c82e3e060e71562966c10a94bc6c09dba0281437f633d039f9c3bbcce3"
         },
         {
             "path": "pc/layouts/user.vue",
@@ -769,7 +839,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35b88b8a1db838170113278cace216f547ca15d2ff360d7475192cd1241398c8"
+            "source_sha256": "e434eaf83d767ca3eb107e36faeed819fee1e8832628e595f7373beaa98e4dd4"
         },
         {
             "path": "pc/package-lock.json",
@@ -782,7 +852,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "227263f757335a5b37c5ce35926c6f02e9f76ee0b8573d04d535ae1763cdc12d"
+            "source_sha256": "eeb7aa0090b2bed7ee0e0deb8eb660675350b69244d8e5a0b2c4e3bb3a46a854"
         },
         {
             "path": "pc/package.json",
@@ -795,7 +865,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4fe8f2508ab7eb4ce16d6e82692685e351c73e1d230b171354a787883d079684"
+            "source_sha256": "e28cde7a47605fc1cfc4a42440c1878b4c6159815ee805c1ceda9b6a2dc529cc"
         },
         {
             "path": "pc/pages/account/security.vue",
@@ -847,7 +917,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3e9b51482b4eb3230d5769c08ee94014210b124e438f260bb77be40d4a50722"
+            "source_sha256": "60b85f9479ae71284af6f1a3c11d36fcf6c00dd50a5bfcbbe6612402535a4f56"
         },
         {
             "path": "pc/pages/information/index.vue",
@@ -1058,6 +1128,19 @@
             "source_sha256": "67c9fe5c77d70ae44c22d34bbc060355a2f0c2128f7ce116f29048b4eeb298b8"
         },
         {
+            "path": "pc/server/routes/healthz.get.ts",
+            "target": "pc/server/routes/healthz.get.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "039f1c6a3e86aa044b246910219615d30cd544bc7d11f14a9c51db2612599fe1"
+        },
+        {
             "path": "pc/stores/app.ts",
             "target": "pc/stores/app.ts",
             "classification": "managed",
@@ -1068,7 +1151,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89ef2dde1c2c4abc013d45a0315746f750d11d775d7765aaabfb129df5dd22c2"
+            "source_sha256": "a1cdd996124049f6085b6d0298cceeef878e5a4006cc01a0e87984c4c3f26ffd"
         },
         {
             "path": "pc/stores/user.ts",
@@ -1110,6 +1193,32 @@
             "source_sha256": "7df2e68f306ed594f64eac2dd32c12a018868adbb3e1f0de1d17b35d35e40c70"
         },
         {
+            "path": "pc/tests/Productization/fixtures/ssr-upstream.mjs",
+            "target": "pc/tests/Productization/fixtures/ssr-upstream.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "40d12f7a5e0bdbc3a3693f1691750d525ff048f9fb2f3eea591176b806053d68"
+        },
+        {
+            "path": "pc/tests/Productization/ssr-multitenant.test.mjs",
+            "target": "pc/tests/Productization/ssr-multitenant.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d82936fc177a504b52f684d4c97d9d953e541d44a44dcf265ff548be3648c89c"
+        },
+        {
             "path": "pc/tsconfig.json",
             "target": "pc/tsconfig.json",
             "classification": "managed",
@@ -1123,6 +1232,19 @@
             "source_sha256": "56f5b528cc102a257b71c01305f8b1456762d85793bd610bf613f2d7c3e1fc84"
         },
         {
+            "path": "pc/types/node-runtime.d.ts",
+            "target": "pc/types/node-runtime.d.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cc83e0619c049b7478cb6c317b2830716a449a94bc4deeccc671bbc0c7f7f119"
+        },
+        {
             "path": "pc/utils/sanitize-rich-text.ts",
             "target": "pc/utils/sanitize-rich-text.ts",
             "classification": "managed",
@@ -1133,7 +1255,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa368d3c907faacba767b4fe6cec4c8311191def2cf1f78d667bc89c35bb8715"
+            "source_sha256": "3be1de616fab23961572b3bea28514021b2254d45b3101007539eaef2c906c28"
         },
         {
             "path": "platform/.env.example",
@@ -1193,7 +1315,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "743575d2b0454315dea161f66406b35bb671097cd8e3e464ab0bebf277e92e55"
+            "source_sha256": "81739d07846aaf0205256ee10e28a7f50497d4460a9a9032032f3543c8d10623"
         },
         {
             "path": "platform/package.json",
@@ -1205,7 +1327,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "104605491244dee4b5a91fa72c2cf7bd987c40b640744145bb6308bc5336f117"
+            "source_sha256": "5bc9e98a79a333478114fa7f729e8ea8d4a6d3f944cc98ed97a87773f7aa2a21"
         },
         {
             "path": "platform/src/App.vue",
@@ -1217,7 +1339,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "db4b14a0701bd37c7e1a784743e3a14eaabd9bbb8259988b33943894ece3e3c5"
+            "source_sha256": "bf08cc98ad27db75776eca0c39d03387b17175f401fc8e599c1ab03c454bb56e"
         },
         {
             "path": "platform/src/api/platform.ts",
@@ -1580,16 +1702,16 @@
             "source_sha256": "e6544fec64ae890b86fb785814e1a9edadee1927ba4fb0d34d7badf2ff92209a"
         },
         {
-            "path": "platform/vite.config.ts",
-            "target": "platform/vite.config.ts",
+            "path": "platform/vite.config.mts",
+            "target": "platform/vite.config.mts",
             "classification": "managed",
             "owner": "scaffold",
-            "transform": "text",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "full"
             ],
-            "source_sha256": "f753d4cb542f25a57e25f49f2a4304ea5b84ca9e1aa912acb1affd77379b7ae8"
+            "source_sha256": "d2b1244cfb091dc7166b8512eac3a56d1af897237c446404666e5b552e8e9d9e"
         },
         {
             "path": "plugins.lock",
@@ -1603,7 +1725,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f906724476c0b5a8b59821028b2f48840492e5a95340f2ddb43c3adf37195b6e"
+            "source_sha256": "c867a341d3fcc35a63cebe6a3ef7a331af39fb02bc75ed26dd4fefa7a7e74d73"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -1657,7 +1779,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c8e51a5fd6f6850ea67f58f2355ca334b098a7192f8b9a5770950849a3d1c334"
+            "source_sha256": "4f73ad45528766178874dc490c70fe57a6aac67c5c8935f2197a3e802a0d7a9a"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -1671,7 +1793,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f29e4652e2e404207e4ca9d5f184495126706452688c7c776d298999c7fd036c"
+            "source_sha256": "fd2ed3b697d857e752b5cb7fc8c99c729b6333a25ab30aae027409c2b8b9a32c"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -1685,7 +1807,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1e23c5c23460dc063ce6ed0e61ad7b1f9335363a92e7bcf5acc1631675876f15"
+            "source_sha256": "825b92953c2c602164f26091d64799452c9bef6e692980b5e3018914169b0930"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -1699,7 +1821,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "be047e4e6fe04d9cea6abac789708a1e3802129c2d9f3e6c5136c9f324765936"
+            "source_sha256": "fe8272755c1811a6ba2f89ff7d47b74f502d2b27b63b88eb09b29bd79e05d9fa"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -1713,7 +1835,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9432f0da877b58b9c8706e0d1f395fb41f5b3f0bd497ace7c33f6bb42cef5144"
+            "source_sha256": "4efc3a3dd51347dfc6fe680d088035eac785170199497448342af32b02f114f9"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -1727,7 +1849,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "00cf4d35405a0a75df1e892ed3621fe6b6cfe3d37c6c9f177756dbe81738112a"
+            "source_sha256": "e4fe9566b4bc7dd83316be096a3cd7050552dfe33522ba07f446ba9fcf0bd0c2"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -1741,7 +1863,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "45da803ef84c1985c69c76607b5328fc7bd4b5120680cffc4ded8d08f848af6e"
+            "source_sha256": "1c5da7afa1b22b3569ceaab01c571334e7ad6bea8b3d9f46880dd45104a54dc0"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -1755,7 +1877,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b2ba57c8889097367b4ee49bc9dfcc73584ecc4749d1ee793c65b4b3fa5cd01"
+            "source_sha256": "da86d74518b5250d660025e54af3816d14bcaf0d82704e3b9bdb15b6e15c6ce1"
         },
         {
             "path": "plugins/official.ops/plugin.json",
@@ -1783,7 +1905,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f02d459b3a8bb94fb816c54d41dc458bf9ab8c74963ed504a7275924520d7c14"
+            "source_sha256": "5e892e367ffe0759e06a1c961f8b564182ae87bb99f29d45822d3e3c02788fab"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -1797,7 +1919,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2d3aacfcde229e6323304e24b4f370480b4a671dfbeb476a7635e0d28e639779"
+            "source_sha256": "dd18f339cbeaf3be6d87117ff6ab12aadcef5dd8484ba696f3a69a32dc7ad590"
         },
         {
             "path": "plugins/official.rich-text/plugin.json",
@@ -1811,7 +1933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a45c221c250a835ef55fb3668d798966ff93ac212af594514f316f2b107fe10e"
+            "source_sha256": "2516d2613dd122aa977c890439f625ebf081587ab5bd24a01827c6d060582c3e"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -1825,7 +1947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ba383a997931afe7241b4135141f24d7ed4b5cefef6b64419e456a051fd0245"
+            "source_sha256": "01cdfedd784f61a5fb307deff0cb654ecd3f5887c74089aaf144707312741942"
         },
         {
             "path": "plugins/official.task/plugin.json",
@@ -1839,7 +1961,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc2d2bc6e03fd2ec5f25e6dbd12a0b0b40f4164694e182b6fa9cc60d49d604ae"
+            "source_sha256": "60d0efaa34788c477af96a7cbe911b70d504d5cace76912441f38e8acb35880c"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -2125,7 +2247,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3fe3d781aed16aa9e093cc3ac018b1b86726e5d2b313d8cd3c8ceff9295f1c23"
+            "source_sha256": "e043bad5be49a62c03d80a249ff9a22be6891b38cd177b564177b2c8993550db"
         },
         {
             "path": "scripts/check-release-consistency",
@@ -2179,7 +2301,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d58113cc08d5fa1bf2135b03ebeb8484e67b0c0a4e8c50d3a70f8a33171cf5b8"
+            "source_sha256": "d9207e35c26fefc6e3442506a2d663b8c557bd9a3d4d119509bd48e24963dbe8"
         },
         {
             "path": "scripts/client-environment.ts",
@@ -2339,7 +2461,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "256f9694cb8222424444af394fb11799bf9a5a21b92dfd55f031c7bdda72f458"
+            "source_sha256": "703aa902ceae6d4183bc3704df62364b6b3e781ffaffb42349c7013c79bf147b"
         },
         {
             "path": "scripts/generate-release-legal.mjs",
@@ -2366,7 +2488,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ce8e14b49c98991bc0d71216909afac01e42b8d19a63f2b8ee38c486052e1f8"
+            "source_sha256": "148e464dd8f30d9046fea6907ff2dbbaad331524bcb86fbd4917aa5f1f396b81"
         },
         {
             "path": "scripts/local-core-composer",
@@ -2394,7 +2516,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6fd342abafcb94703cb4c8d34e7ac888fb8905c6192e05f4ee3be0b7857f29dd"
+            "source_sha256": "4cf49d0f499ec5e3b0577fffad287245b6632c77258de4ba5050562ce09a278d"
         },
         {
             "path": "scripts/local-environment-probe",
@@ -2641,6 +2763,20 @@
             ]
         },
         {
+            "path": "scripts/run-php-test",
+            "target": "scripts/run-php-test",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "817c0d0aa32ddb360dc5524f3615306f27444f4be32c9ff1bea03cde7a0de542"
+        },
+        {
             "path": "scripts/run-with-environment-file",
             "target": "scripts/run-with-environment-file",
             "classification": "managed",
@@ -2801,6 +2937,20 @@
             ]
         },
         {
+            "path": "scripts/tests/run-registered-mysql-tests",
+            "target": "scripts/tests/run-registered-mysql-tests",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ccf0e6b8d9fb84fca177659ea4909c7ee8676cee117fc5c1ddd9a722b760f5d4"
+        },
+        {
             "path": "server/.env.example",
             "target": "server/.env.example",
             "classification": "managed",
@@ -2896,7 +3046,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b582dd9ef67d126affd78bd3700d38ddf39a376db2588eb62a06b764f65241e"
+            "source_sha256": "464c633aa642693b7df77cc729e6273f76cbf7da03fc7a969f88f4e0d90b6a38"
         },
         {
             "path": "server/app/BaseController.php",
@@ -2910,7 +3060,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1de59b98af05e0f3183c670c555c5389b903d326721ce674d504d6ed31cedd9b"
+            "source_sha256": "630b63aac09a88e013e0b73ede0f834c95afcd221dd62a82b76c7cbdfa148e6a"
         },
         {
             "path": "server/app/ExceptionHandle.php",
@@ -2980,7 +3130,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9db8009e77b7f70cd4277453d7dc0120f92e188655bc810697ed7a4ef888a369"
+            "source_sha256": "da4cb58f3ab227d89f5873ba428c0fe1a0c6a1341b140e88e6bd202ad7a00e19"
         },
         {
             "path": "server/app/adminapi/controller/auth/LoginController.php",
@@ -3008,7 +3158,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d04b09db7949652417f3a938b2a79545c9fa0efe4d16dab7b4a3b0d81dfc63a"
+            "source_sha256": "3d80fa4b1e792c189fa40242d1846a7010178f4dcfe75eaa07355a9078236ee1"
         },
         {
             "path": "server/app/adminapi/controller/auth/RoleController.php",
@@ -3022,7 +3172,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0450adaa1ca7e43a686e793b237cc19aca5c7589334b1f7c0fe38d46bee75b80"
+            "source_sha256": "8c7787f50f2833c8424b6a0c2eb7327c573f97db9e31a2bb071481abc54ee9f1"
         },
         {
             "path": "server/app/adminapi/controller/auth/TenantSessionController.php",
@@ -3050,7 +3200,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32216eddf09b4aa87ff22b4d3ab8af85a1429776bb8674938f8291d3d5e45401"
+            "source_sha256": "3be1739e9acee905ad2591ada7953e3f0073915fa7b26bc94f12102bc5c6f9af"
         },
         {
             "path": "server/app/adminapi/controller/config/ReadinessController.php",
@@ -3064,7 +3214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "941a662936cb3dd55ad7d03ea25c3d31f4e1c12f453b225bffe3b752e11aeb6d"
+            "source_sha256": "043db8709bc022e50bb4e049929abd0c08744cb8668ae43420f99bdbe3c6f6d3"
         },
         {
             "path": "server/app/adminapi/controller/decoration/DecorationPageController.php",
@@ -3078,7 +3228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6d9f72843cb04d818e1768b2c799356a353e2db560b621607bc01e27a99761a5"
+            "source_sha256": "3d7eac60684d7cfa5e0b0140073bf3ccae8786c7bfb90076f4187b8634f608fb"
         },
         {
             "path": "server/app/adminapi/controller/decoration/DecorationTabbarController.php",
@@ -3092,7 +3242,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "10a42020751e16d7c45c7faca2a1a3d995fdf3ade529149ff9d35fe183cb2a77"
+            "source_sha256": "76835e6295dc8be55feaf9f39f647c4575efdc563304c5eaa59cb40f5c2ef301"
         },
         {
             "path": "server/app/adminapi/controller/dept/DeptController.php",
@@ -3106,7 +3256,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a6c68e8103d0b87ecd93a7cd187447b9c5459f920f25cfbb67d51f1b02819e2"
+            "source_sha256": "096ad856c41577cd7fc7ec5eb7625a053e0ccc2f84834f21180e5b71df4e82cb"
         },
         {
             "path": "server/app/adminapi/controller/dept/JobsController.php",
@@ -3120,7 +3270,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1539db61494091fe993bf2d493defd4648e4d181e14fc82b83143d57f98ffede"
+            "source_sha256": "34546b9c7946a229c543e35147d0d49dea8807ee34f136800373373b5b638b96"
         },
         {
             "path": "server/app/adminapi/controller/generator/GeneratorController.php",
@@ -3134,7 +3284,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8a994ddc539936efc486a8c7217eb442b1878bc0eb3b196ccb372e9e88febae5"
+            "source_sha256": "7f42c991e8ec76914e64f80d67b4c3d6e0aa5c5c0a09cea4350f3f32d9d91508"
         },
         {
             "path": "server/app/adminapi/controller/log/OperationLogController.php",
@@ -3162,7 +3312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e81310c8f33e7c838f9177dafee0220842234737f070705bf465ee2586c8881e"
+            "source_sha256": "2ebc836cab74ec4023ba104e10a3e48c866ade807fff0ef62ccbede8ca5d15b5"
         },
         {
             "path": "server/app/adminapi/controller/setting/TransactionSettingsController.php",
@@ -3176,7 +3326,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "482e165827713d51f73dec0788d1fcfba0175dcb564be105421f7b7f128d3294"
+            "source_sha256": "a3654277ea7149c8cb6f0b16ff24b8617b447d32f532067e9991900430431ef2"
         },
         {
             "path": "server/app/adminapi/controller/system/SystemController.php",
@@ -3190,7 +3340,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2337ca6170ebb42ac2e23085f049fd05c684f5001f3e42d4ad8736ae44aa4015"
+            "source_sha256": "7fba852b99e5935b9ec9c92e8100c23e816975418eb72540c171cfaaa744dd0f"
         },
         {
             "path": "server/app/adminapi/http/AdminTokenExtractor.php",
@@ -3274,7 +3424,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f943f55bdb44ce84eb39cda2bd3cd9506649c3e85801dc50bc4576a477a5ac84"
+            "source_sha256": "17c202a3ed54f61fd1cb737b057fc4f2a39cee69e5e306d4d5b2c1a4c51485e4"
         },
         {
             "path": "server/app/adminapi/infrastructure/generator/ThinkPhpGeneratorMetadata.php",
@@ -3540,7 +3690,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cb7bcc6157342de2fb2cb4452c6f3290afbd0ca9bf6ba4b175aa904b742e243b"
+            "source_sha256": "4ac98df42c873842a23674b467786a4298799c8f4a02664bce58a2decb4cbbf0"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -3554,7 +3704,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70c00f90b78a53eb8b39e27286da5f8d25c46c33aeabbccf6e1367377908ea78"
+            "source_sha256": "647ccf29c442f61caba042245e1526c7b75b54ae3f186a403edf59d4ba286965"
         },
         {
             "path": "server/app/adminapi/services/log/OperationLogApplicationService.php",
@@ -3722,7 +3872,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b2d446a582404171e1e68642072b6c5b383b3eb9358271a40b27a1b28abdc2a"
+            "source_sha256": "cff32618f3ceaae9a6da38430ee43ee7aa41803f675ee83af8fd0a5a19ad5d35"
         },
         {
             "path": "server/app/api/controller/AccountLogController.php",
@@ -3736,7 +3886,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79f41d158bb3ac4c0f95a5954b13cd7773d90221f29dd14442f4ac5d64173b14"
+            "source_sha256": "7cf1b102fe6284957b5b946600ff8ae58712f2838e588b9915573727547c02a2"
         },
         {
             "path": "server/app/api/controller/ArticleController.php",
@@ -3750,7 +3900,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8a6b0071d675e05b7d05b8fa33ab9342410b520271d74a2d47baacefb14bd1f7"
+            "source_sha256": "6eca9b218edacdf0172e32fc0331e3d48956d9178d131fd6d65168811f9f3e91"
         },
         {
             "path": "server/app/api/controller/BaseApiController.php",
@@ -3778,7 +3928,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b753ba987f69abc6080195073666273e8cd35be65851283ee70e7d7ff6184fce"
+            "source_sha256": "48c0617689ba59a798021089ad590645c9653808cbdbf8591057e9072e2b6ede"
         },
         {
             "path": "server/app/api/controller/IndexController.php",
@@ -3820,7 +3970,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "369932fa528e73fd6258e0323637aafcc1164d7d3afc1b165c326cb2efd802af"
+            "source_sha256": "8b8a8656811c27dc4031acdf205273056e5261c5fc91730aeccc20e3ad906e3d"
         },
         {
             "path": "server/app/api/controller/OfficialAccountController.php",
@@ -3834,7 +3984,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f707257bdcc953d0912fa9e0913877052e60c2e7ca9524ed62e63afd77551116"
+            "source_sha256": "05c7d9dff2aaa7adc7cb6bf4c073b82d110142629c2cc97fc6311de733376653"
         },
         {
             "path": "server/app/api/controller/PaymentNotifyController.php",
@@ -3848,7 +3998,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9015a144ff1a2088ff5e3c633a5406c9f6d47018b3d7697bd411267a181873fe"
+            "source_sha256": "c75bc743af7a9f3131cc8d401b2b8c1aee3a913ff708f7d0489e057e398e40a2"
         },
         {
             "path": "server/app/api/controller/PcController.php",
@@ -3876,7 +4026,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dcaaf81d637757d321dcf83745d6ffea386c32b105a4413c7fe71a27bc99bf5f"
+            "source_sha256": "76e0aae53526996b4a4979699c9001244bce160f24b6b6697a1867cf659958ce"
         },
         {
             "path": "server/app/api/controller/SearchController.php",
@@ -3890,7 +4040,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "813c1c1d28d181f46d11d208d4d0d6591b0535f570483eae33908bc52f44a977"
+            "source_sha256": "c07907d4fb35a3d82ea4997b331c9ed79b49333a1fc448a64c1d95f1c6141a28"
         },
         {
             "path": "server/app/api/controller/SmsController.php",
@@ -3904,7 +4054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6806f12f4f399aba5c177c163c335f463cb0cedff4860ba0b14c39380efe8127"
+            "source_sha256": "c63fb8ade8e2352dc10d87a751663f0a274e0c1a2dd7ccdfce15552941ece8f3"
         },
         {
             "path": "server/app/api/controller/StorageController.php",
@@ -3918,7 +4068,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5d19998d9e791128271aa791bfc35938dc3507eedd0ecf5e2ae2e0b17691e4fc"
+            "source_sha256": "3ddd8935731a4dc71d5ec0d57ba4d848bbe7f70e8dbd006a3351d98570ca0a5a"
         },
         {
             "path": "server/app/api/controller/UploadController.php",
@@ -3932,7 +4082,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03174b19702c8e3afe2e01cdb4f01abe69d3f3fbd37d12c2ee65e1b02b67075f"
+            "source_sha256": "ca22b2bc1237d462c5a82bbb27489eae910c0da129950c0c8efd519dc8b7a67f"
         },
         {
             "path": "server/app/api/controller/UserController.php",
@@ -3946,7 +4096,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1e99a90b9d8b327ab45883cdadc6e937fea077d67348a7ee41f97bc0a829bd13"
+            "source_sha256": "dfe670d9d336f77037174b33f478af302ac4c6bb873e08a9f96b4a3f797d1cd6"
         },
         {
             "path": "server/app/api/metadata/README.md",
@@ -3960,7 +4110,77 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8413641e4519bba33c3748f5219eb2e566a14096aa2c6fb619ffc6da64de773f"
+            "source_sha256": "b3cedbd89762a527c452d50705f540bf7948528251b4e0d2eab1f0c5e36a14b1"
+        },
+        {
+            "path": "server/app/api/metadata/application/adminapi.php",
+            "target": "server/app/api/metadata/application/adminapi.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "403a33ce04388a15c43cfe22ef0535ced1d9ff9cf3648dde45e50738444122ce"
+        },
+        {
+            "path": "server/app/api/metadata/application/common.php",
+            "target": "server/app/api/metadata/application/common.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c4853668de62546ee9b014277ee0b0c42f30f76b929b54da940ed8a5f0c85aba"
+        },
+        {
+            "path": "server/app/api/metadata/application/installation.php",
+            "target": "server/app/api/metadata/application/installation.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2e114a818e960c661bf762647328436291a9050a432269a011f3188f08fb5ddf"
+        },
+        {
+            "path": "server/app/api/metadata/application/platform.php",
+            "target": "server/app/api/metadata/application/platform.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "39c9d9f6956153c8e67b56ffe3b33ec131c85022969e5179c1292fefc15808f7"
+        },
+        {
+            "path": "server/app/api/metadata/application/shared.php",
+            "target": "server/app/api/metadata/application/shared.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b1351b4a306ccfcea27320fffb7abcf54711a0d04f8451aa9058bbe73efce51e"
         },
         {
             "path": "server/app/api/metadata/contracts/openapi.json",
@@ -3974,7 +4194,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81fd1ea66b9af9b3243579f7d7ba8ccc67830fdc175603ab6b0b0305cd824a8a"
+            "source_sha256": "2f70e18b4915ca56b4d6687ab349525348e66bdd9c717e864f2a4e5e2f8339f8"
         },
         {
             "path": "server/app/api/middleware.php",
@@ -4380,7 +4600,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "00f761874e30dac495df24b7e045dfade47282299e0ad5c2b2228a14205078dd"
+            "source_sha256": "1ece9f151eefd9a0b2ff3b283c0f4ee0eeba5b72782dc0686d52b7ce9459f1e8"
         },
         {
             "path": "server/app/command/ModuleInstall.php",
@@ -4408,7 +4628,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8c0da2f356085eb51cc8b14588b281ff8b391140026ed893c5ef003c971819d7"
+            "source_sha256": "18c9fa0f0bd3447486a47305d59e248ef7b1fb94385caa6a53dfc2ef7c1cb0eb"
         },
         {
             "path": "server/app/command/ModulePack.php",
@@ -4464,7 +4684,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f9c24e744dfd2f6783367d2e4b0e233d0ef98479bb5fc4b0b242c8f9ca2c3ce5"
+            "source_sha256": "864156808460dbefc9302ef7b30582926393b884416b204f79cfc4b32e365d9f"
         },
         {
             "path": "server/app/command/ModuleUpdatePackage.php",
@@ -4478,7 +4698,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "293213ea0d17267398aaae8f0ffa43c16a2ac3efd55ea147cf40ebf67d47fabc"
+            "source_sha256": "6d96e70436758b20901bfa37f906b516be1f3967faac315ec3c3fb3cb083318b"
         },
         {
             "path": "server/app/command/OpsBackupTask.php",
@@ -4590,7 +4810,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ab7a61caa4be42663edb4917d089eab683ff18a75aace889df92066877b4ff6"
+            "source_sha256": "e01b19cd397cf81c4a6b3e2a48e3ffe889b903ef3dad1c7e137c68fed07bd10d"
         },
         {
             "path": "server/app/command/PluginMake.php",
@@ -4604,7 +4824,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f56ed8e59426ba6e1557419aa22019aeded84868903cc1578d8e76404a35ce3e"
+            "source_sha256": "b79f091cb5c7b130120771281a5e83b2b2309a53e1e4a0b5b90d5df800b9795a"
         },
         {
             "path": "server/app/command/PluginReconcile.php",
@@ -4730,7 +4950,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc562ee9ad6d314fb96f88ba4063038caf80be491a00111c1e7641516939d6c1"
+            "source_sha256": "35722c80bbde66c584e6ef41cfc7c5f7f36e27e118deceb3a3b12517653c75cf"
         },
         {
             "path": "server/app/common.php",
@@ -4772,7 +4992,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d534409377c4986bf94c6eb804854756ba638ef46db84422766951123142a54"
+            "source_sha256": "42ab3764c254471ea50318d5200110724784468338e7c94023897a0032209665"
         },
         {
             "path": "server/app/common/composition/payment/PaymentServiceFactory.php",
@@ -5502,7 +5722,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb749beb343f2d8f6fd47313a43dd4c8ea7cccde1c6ae0d9aba7b8e668f12538"
+            "source_sha256": "acdb5797916d7365a254bbdc027fca2549b95404ede0d399ff98ccafb8aa1b3e"
         },
         {
             "path": "server/app/common/execution/CurrentExecutionContext.php",
@@ -5600,7 +5820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd0ed91ec37c757c870d5d59be0fd931d39157ddc253c6752f0893cc3c6d6ecd"
+            "source_sha256": "1d335cfa422dcf8bf992e03d6a15846e0e8b11aea650a8b6eac7bf4d37900893"
         },
         {
             "path": "server/app/common/execution/PlatformExecutionContext.php",
@@ -6694,7 +6914,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd5a2cb6b1203f106e72158e2795d94d13157a6794af8153fb0f564f7b8d4a45"
+            "source_sha256": "95fa831d4a8a4c6f2cd3d70181ea7bd9ff62bff983b1c9bdd0be1c0c52980ad0"
         },
         {
             "path": "server/app/common/services/authorization/MenuPermissionUsageQuery.php",
@@ -6933,7 +7153,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5581194e275717452564eb396b25a5e05a2e21cb3dd004c992e60f74ecc9c2fc"
+            "source_sha256": "d53acf03ad57b7b4466d6020359c37e6f647adaca299d3a3ac89987505b92ecb"
         },
         {
             "path": "server/app/common/validate/InputValidator.php",
@@ -6947,7 +7167,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7144e09f61f1ffd8ff4202c5e68380e5785b467cd5939b578c2bc1d35d102e15"
+            "source_sha256": "6c9795e2cdddca151368e39243675eb58f9cded49af09b01d0221473f24035af"
         },
         {
             "path": "server/app/common/validate/ListsValidate.php",
@@ -7017,7 +7237,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7dff96a17b522923280069a0994df036e390194a86ef665e865a8a18c951685e"
+            "source_sha256": "bd739e110e587110fa2e78841fc55c7be5e05202bd069998dd55c6892295d762"
         },
         {
             "path": "server/app/common/validation/instance/InstanceToolAccessGuard.php",
@@ -7031,7 +7251,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3f69654411a92d048c3cb5b73198215c752cf3578bdd7b9739d955c9341505b4"
+            "source_sha256": "8ac1bf34c92b5461d19efbf8cfb3e5fd9c399c8d381c2d0df4c5f6d019f8ba1b"
         },
         {
             "path": "server/app/common/validation/scaffold/ScaffoldPathGuard.php",
@@ -7508,6 +7728,20 @@
             ]
         },
         {
+            "path": "server/app/modules/official/article/api/metadata/openapi.php",
+            "target": "server/app/modules/official/article/api/metadata/openapi.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "69ba80546fefa0d017d0d5c95b3c90a5421ff056cb4a5cd4f40627a62cf8b8ab"
+        },
+        {
             "path": "server/app/modules/official/article/composer.json",
             "target": "server/app/modules/official/article/composer.json",
             "classification": "app-owned",
@@ -7589,7 +7823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "acfaad21285fbd1de4fa6120f309e1c85eeb5e77dcb1fa60f1aa9cf88a6158d1"
+            "source_sha256": "c1f2aeea64aba642a66e4b8542ee570e018ad53866cbff662d4a5cf57bfcf5ca"
         },
         {
             "path": "server/app/modules/official/article/resources/setting-definitions.json",
@@ -7617,7 +7851,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a85ec506de7fa523c26d98b8f08d5fd67293f87e546647d8bd5c5fbca9e5a55"
+            "source_sha256": "8e23597a4392b6ad6a3e83f1fb5284c879d7823c23bb1b2ded2328467d105e6b"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleAdministration.php",
@@ -7631,7 +7865,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f8387c0316bb80a0bebc6d5d6bdee9c87204844c7e33bf29fbccb55ae274ed00"
+            "source_sha256": "201e64cf43c9f31addc17f53116c28ebe40125f95b1d9b35f435f16e44eb1d9a"
+        },
+        {
+            "path": "server/app/modules/official/article/src/Contract/ArticleCategoryAdministration.php",
+            "target": "server/app/modules/official/article/src/Contract/ArticleCategoryAdministration.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "beedf6d711fd015c1ec1a250365ad6e8be70dd830051fef7302f576c445c89f7"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleQueries.php",
@@ -7673,7 +7921,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa25ef5abc702c18e4f2d74ee9412036d7a3e1ea0bf0667f78c4b074d63b847e"
+            "source_sha256": "3c4c51ed3e11d7fa341058e38f37672e2aa5a5b08e0b9e348611a35f3224d1c2"
         },
         {
             "path": "server/app/modules/official/article/src/Controller/ArticleController.php",
@@ -7687,7 +7935,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfeb13fef07506d972eb5c2a42fad7fae32947bd1288ea81dc8e13458b307929"
+            "source_sha256": "8f7c771d5fc28c98bf39752888e62480d95408b7506f46a4961a3e7558db1d11"
         },
         {
             "path": "server/app/modules/official/article/src/Model/Article.php",
@@ -7743,7 +7991,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "48f58cc70730315f3a4b01d56f096cd3ff2b4728eaa4cd681eadb78ac33582fc"
+            "source_sha256": "31da91638d9c70c8df5b8a9770a879e421505fd5de2bdc972c6e499889714ee1"
         },
         {
             "path": "server/app/modules/official/article/src/Service/ArticleAdministrationService.php",
@@ -7757,7 +8005,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "577c12288cc30f035cf9d5991db6ceeffc95a3fe134b4c00a6f5e7e3da7c8422"
+            "source_sha256": "abbfbac7d1b1a2bace528da8e7feb9b18500882b6dd16b7d0958fcff01d9c4ec"
+        },
+        {
+            "path": "server/app/modules/official/article/src/Service/ArticleCategoryAdministrationService.php",
+            "target": "server/app/modules/official/article/src/Service/ArticleCategoryAdministrationService.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3c6e7276036350bacb4a58c234e680215f517a240af6a5f8a4bda88d46fda4d5"
         },
         {
             "path": "server/app/modules/official/article/src/Service/ArticleQueryService.php",
@@ -7799,7 +8061,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cc123d80969a2d39f6e2546ccc370944a0484e75b0dd93d8e7d99f2c2986297b"
+            "source_sha256": "cc9f647414efe162c460e2e76878e2562840e56d8e070576a8b13f9a716cdb29"
         },
         {
             "path": "server/app/modules/official/article/src/Validation/ArticleValidate.php",
@@ -7813,7 +8075,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0951c37036783ed891536bf8fbd0bd019a236d5eaf7983678b987e5542c69193"
+            "source_sha256": "e27d502858a35a65e6cca645c47341f5caf4658b08165fe7f1f151a06e603d35"
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
@@ -7827,7 +8089,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "55c83b5ec1eb3c21907d3ca9cb32c2ab0ed508eb75c6f03356de74343e0958c8"
+            "source_sha256": "07d72dcb50345bc45c0144e6135c2b7bc636a6054af243070fc2e31b3796f070"
         },
         {
             "path": "server/app/modules/official/file/composer.json",
@@ -8107,7 +8369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a521870b6df68a8b8fe14eec91758e2a9e98bf92b8b60c38b23cca570c76a5f2"
+            "source_sha256": "56f5aa3c48a48d07981e973081836877731bd1fcb4011833b32d8a889118ac55"
         },
         {
             "path": "server/app/modules/official/file/src/Controller/UploadController.php",
@@ -8121,7 +8383,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bf5e520d210f3d9473d01a663bef198d488f6bb9af373f94d60a067917f0126"
+            "source_sha256": "2732be9857e515055629802e9305879a0cabe14e8e85cc8601fcab08b4675b26"
         },
         {
             "path": "server/app/modules/official/file/src/Infrastructure/Storage/DatabaseReplayGuard.php",
@@ -8415,7 +8677,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3688b85926797209dafa7bec6e156b463d400dc525bc1db5f33b50462fc5475b"
+            "source_sha256": "89e0fb938072e45801b3f0242881753878449e7cbd09dda10212cba11a1e6da3"
         },
         {
             "path": "server/app/modules/official/file/src/Validation/FileCateValidate.php",
@@ -8569,7 +8831,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "427470b33f584e717f38019f5ca24c21e060e8118eec9b25d24817f8bb5d5a20"
+            "source_sha256": "9be7eb3b94a06d971bc0d7591a947e12410afc2e832a5dfdab2438d86cb059e4"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -8894,6 +9156,20 @@
             "source_sha256": "e2cfd1235d8d12a4688445ceff4498929a07e09b7f22205980b1ba3d85fea2ca"
         },
         {
+            "path": "server/app/modules/official/identity/src/Auth/TenantSessionAccessService.php",
+            "target": "server/app/modules/official/identity/src/Auth/TenantSessionAccessService.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9f0d10aa50fa76cdf587d1f56629993d3720215f02641c713701ad22a0acebe4"
+        },
+        {
             "path": "server/app/modules/official/identity/src/Auth/TenantTokenPair.php",
             "target": "server/app/modules/official/identity/src/Auth/TenantTokenPair.php",
             "classification": "app-owned",
@@ -9146,6 +9422,34 @@
             "source_sha256": "af01cbafd92b331410e5795dfe29ea6d3b1737cc3e183f29f6bb21d5d687c01e"
         },
         {
+            "path": "server/app/modules/official/identity/src/Contract/Dto/TenantMemberSummary.php",
+            "target": "server/app/modules/official/identity/src/Contract/Dto/TenantMemberSummary.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a5fd3391a4b9cebd68fdec61e623809ff7f3eef8d75b66b63f2a44b6c564259d"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/Dto/TenantSessionSummary.php",
+            "target": "server/app/modules/official/identity/src/Contract/Dto/TenantSessionSummary.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "254d794bc3259d952b113df633989c192ffa3773f914b001f9598cc73b4894bd"
+        },
+        {
             "path": "server/app/modules/official/identity/src/Contract/PlatformAuditDiagnosticQuery.php",
             "target": "server/app/modules/official/identity/src/Contract/PlatformAuditDiagnosticQuery.php",
             "classification": "app-owned",
@@ -9186,6 +9490,48 @@
                 "full"
             ],
             "source_sha256": "4d9394babdeebaac6e340ed0f1094a7cf75290ecebe6cbc16aa8cca8844284e2"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/TenantMemberDirectory.php",
+            "target": "server/app/modules/official/identity/src/Contract/TenantMemberDirectory.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9690b17d69036a03842b67dcc0782e19e9b306be1e427b68b10a82f95d9d949c"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/TenantSessionAccess.php",
+            "target": "server/app/modules/official/identity/src/Contract/TenantSessionAccess.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7ec2cc936a8186d49ca9809104ed4a1b72bd4222393fd0de58237afb8f3a13e8"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/TenantSessionAccessException.php",
+            "target": "server/app/modules/official/identity/src/Contract/TenantSessionAccessException.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "dfab87688b21d80d95f7199d48e5facb19ae7b5b16c71363c7b116af3799c8b5"
         },
         {
             "path": "server/app/modules/official/identity/src/DataPermission/Application/DataPolicyAdminService.php",
@@ -9454,6 +9800,20 @@
             "source_sha256": "dd3e81cc287267585bb40bb355aff0d9b52ae3d4f9d3485d7c0429f8ccc4a32e"
         },
         {
+            "path": "server/app/modules/official/identity/src/Membership/Query/ThinkPhpTenantMemberDirectory.php",
+            "target": "server/app/modules/official/identity/src/Membership/Query/ThinkPhpTenantMemberDirectory.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "02cdce964c5fc2020a928729a9c28b673c9677ae17d9e24d64b5bb0b5f6b6aad"
+        },
+        {
             "path": "server/app/modules/official/identity/src/Membership/TenantMemberStatus.php",
             "target": "server/app/modules/official/identity/src/Membership/TenantMemberStatus.php",
             "classification": "app-owned",
@@ -9591,7 +9951,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f3dda4025e9ea2070d59aaf207dacafe2ccc1b6b10be3660757c3d9ee0a5379"
+            "source_sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
         },
         {
             "path": "server/app/modules/official/identity/src/Organization/Application/DepartmentAdminService.php",
@@ -10207,7 +10567,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c64b2562a6269999ee7af01f4d7b92ec2931f47301aa0be14dc7c23ef8be0a74"
+            "source_sha256": "ddcb3b0ce96e3c9e4242c8775576b70e0638d4207f618268b6e1a27a7cdf31fc"
         },
         {
             "path": "server/app/modules/official/import_export/composer.json",
@@ -10459,7 +10819,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b9a43c6948b2daaf4b3332003b85fd115b994428cb737c9d8e9ddb94d7823e28"
+            "source_sha256": "4f33004fbe33be43b2d1fa32ebe578ccc009751393e1aaa19417f3312e2876d3"
         },
         {
             "path": "server/app/modules/official/import_export/src/Controller/ImportExportOperationController.php",
@@ -10473,7 +10833,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf221815d1b561cdc53f7e03f3b1faf260f744188ec5e4fbebac5af2ca45b921"
+            "source_sha256": "11f1b48ecf36fb8e1a525cbc10e52a7ffe4940e64849bcd2207db0e82006bb25"
         },
         {
             "path": "server/app/modules/official/import_export/src/Controller/OperationLogExportController.php",
@@ -10487,7 +10847,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38e6bfda42e3e16abd143e3416e77e6df686698aa935ff51fdafc731e6639b17"
+            "source_sha256": "f42cdd3e2977ccd11583bdedcd551e2fb4fa184a18ed639c81a8fa8d37a67127"
         },
         {
             "path": "server/app/modules/official/import_export/src/Engine/Application/ImportExportException.php",
@@ -10641,7 +11001,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9108b352c08c917f4b7b09e32e76cd7501c1a5de0027585e0ea1cfb459783180"
+            "source_sha256": "0eef05675f3554fe265516f2c7bef8431104eed37c5f49f8c0f8f4f41fd477f5"
         },
         {
             "path": "server/app/modules/official/import_export/src/Engine/Execution/ImportExportTaskHandler.php",
@@ -10711,7 +11071,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "84ad684127f2f81f07507e4ee4a6e4dc63e8d42610b38f9fbe3ff592bc166690"
+            "source_sha256": "1cd29b8a2cb3ead8e842ce2b0ce47b49701808afea21f6d118f3b60ea41b5517"
         },
         {
             "path": "server/app/modules/official/import_export/src/Engine/Persistence/Model/ImportExportOperationRecord.php",
@@ -10725,7 +11085,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d79810d9fc4b4a130451446fdac97834edc5dd868680219cb3b0904165a5fe01"
+            "source_sha256": "652f68b46734429b11f5411ecacfce09c17f9a9f8fc66e545d7efae8ebc98299"
         },
         {
             "path": "server/app/modules/official/import_export/src/Engine/Persistence/Model/ImportExportRowErrorRecord.php",
@@ -10739,7 +11099,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f237e38857bffddcb797e3a17d2958fd468bd99f5953324ebed0ee10d0c34f12"
+            "source_sha256": "be1097f95e1511c8904e7aa1a193afd3a9b7554a97b1367bd60b9ad02e8b10c4"
         },
         {
             "path": "server/app/modules/official/import_export/src/Infrastructure/Authorization/AdminAsyncAuthorization.php",
@@ -10894,7 +11254,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "717aca6bb8c704ecbfb84546ed2200eb1c6fd916e0b0fa9da810ce8dbda1688b"
+            "source_sha256": "1ba0667fa6ee297a851b9228bb5ca15786f2129fa0b5ff990d4a916734e575ca"
         },
         {
             "path": "server/app/modules/official/import_export/src/Service/ConfigurationTransferApplicationService.php",
@@ -10950,7 +11310,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0df954bd2f4f3b9ffb91818e0ede6cb8ed1e68194c7b6a0ef7db40e228424922"
+            "source_sha256": "660c6422eb23df8e723abd2d694f5d6b03cb0d1cb2d4de282a17441843cb2153"
         },
         {
             "path": "server/app/modules/official/import_export/src/Service/OperationLogExportApplicationService.php",
@@ -10978,7 +11338,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9c5ef3284db6816271a4dc8e785476f4ec141da42a92e26b0b2998c87cbe07e5"
+            "source_sha256": "0dbf275bc59f5eec451024dc218633858a17e9e65e92c1341adba5f7d271856e"
         },
         {
             "path": "server/app/modules/official/import_export/src/Service/TenantConfigurationTransferService.php",
@@ -11034,7 +11394,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d64f9909372a37bab79faca6bff1965b412a966fe0ee0000f4bc2e74c472a652"
+            "source_sha256": "e85207d7a19597ac2614bc0545abb08face521af758562236de530a0772b9c58"
         },
         {
             "path": "server/app/modules/official/integration/composer.json",
@@ -11272,7 +11632,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "90780177b208770b49eaf5000e49e5460b032d5a4a26d439057ba7d4374c9baf"
+            "source_sha256": "b992d3776c9046d66b3dc5e4fd07b33d609ad919040eb997b337573ccdf4ab4a"
         },
         {
             "path": "server/app/modules/official/integration/src/Application/WebhookAttemptRecord.php",
@@ -11496,7 +11856,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ad0804585b58b48ea0c4c6be30c5ad27cb4ace7a03d10c95dc5f9d234c6f4de"
+            "source_sha256": "7e62212940dca472d7530d14b9ec07d454cb8f78744ec1eea4f22565c6697fb5"
         },
         {
             "path": "server/app/modules/official/integration/src/Contract/MachineScopeGrantResolver.php",
@@ -11538,7 +11898,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88e61dfe5a1b828fa2aa19e1432f1e3725e1f5053a5caee97e5c1f0d343dea30"
+            "source_sha256": "4775516b585b2217570d6e4d04b0b6da28fcc2a35fbde2d1186372776210f16a"
         },
         {
             "path": "server/app/modules/official/integration/src/Controller/SessionSecurityController.php",
@@ -11552,7 +11912,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e92b8ed6415144b35b0c04d49ec866456e796a42926070db597dc6111f3eba6"
+            "source_sha256": "f981a4539e4ff2b2aa2e99d8e2b1f86e2a9e6f18e4f6dbc9cc797646e544c589"
         },
         {
             "path": "server/app/modules/official/integration/src/Controller/WebhookController.php",
@@ -11566,7 +11926,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "44f53fbac209d74947fe70d2738c219cd39fd9974b29ad0636014dedc70a2603"
+            "source_sha256": "d06b78ee24ff862c65c71ee177c0c51ae5db907ba9f9a5894308349e889fa922"
         },
         {
             "path": "server/app/modules/official/integration/src/Controller/WebhookDeliveryController.php",
@@ -11580,7 +11940,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "848bae6b986c89c4b4d6c28e01d88125db5791f9d8926ea4befeea9ee928971a"
+            "source_sha256": "5846fd6b0e9ac09130cee603b517c7e3c32a62041d73fb9d6b0c997640691ec5"
         },
         {
             "path": "server/app/modules/official/integration/src/Database/Schema.php",
@@ -11622,7 +11982,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef13347004a2679b9ec3765a28793878f2a7d09c3adceb0cae4ef73bf7f3ee8a"
+            "source_sha256": "a8d233488f005c34ec7120b988fb367f63ec3e8726c35e392acb328e8c6956aa"
         },
         {
             "path": "server/app/modules/official/integration/src/Infrastructure/ThinkPhpExternalTenantAudit.php",
@@ -11847,6 +12207,20 @@
                 "full"
             ],
             "source_sha256": "56d6f18dc561ff1fc32a199f41a79cbea98cd9b01d74ac5ab4054ff04111f9d4"
+        },
+        {
+            "path": "server/app/modules/official/member/api/metadata/openapi.php",
+            "target": "server/app/modules/official/member/api/metadata/openapi.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "981353627b1318ec2f2d8073cbbbfbfa2ce4168115dc97d31adeca1b4bcd91b7"
         },
         {
             "path": "server/app/modules/official/member/composer.json",
@@ -12182,7 +12556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6ac08348d83ea1ab746b6bcf515d7bf82e2e6be2e2e9ad3f6cf3af72c98d34ea"
+            "source_sha256": "6714ccc971d2f11d1c3da0c5577488044a7abba45511a5d49b7c3296323d50c6"
         },
         {
             "path": "server/app/modules/official/member/src/Controller/MemberController.php",
@@ -12196,7 +12570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b50251d5209addc220d6a78936491b97d26ef5446722cea2eb6951d9b028ba28"
+            "source_sha256": "35d4b04d578727b22d45d6aa03246d78f149cab2c6ce61bb00155532d92b2b0c"
         },
         {
             "path": "server/app/modules/official/member/src/Controller/MemberTagController.php",
@@ -12210,7 +12584,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b066347b5ee102649d2bdb5144d90964d2e381520575090f2247a903d4a34c2"
+            "source_sha256": "67e0ca908b478b38cb8cc118f3063a70a1e86c6b658bdf1f633b768ef69bb772"
         },
         {
             "path": "server/app/modules/official/member/src/Infrastructure/Persistence/ThinkPhpMemberSessionStore.php",
@@ -12490,7 +12864,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bde29e5024f74e83f3891f77a2c1c7f7301f6cc1392aafb22c61e1666608cbe5"
+            "source_sha256": "4438244d6418bce8a1ace9237c75a337a925cf1e5b6e338cdc0c834f6ffed19f"
         },
         {
             "path": "server/app/modules/official/notification/composer.json",
@@ -12588,7 +12962,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c01e39b0d560b979a91fce5dfea460e0a45da593d4de1f888784c64736f7fc5"
+            "source_sha256": "768d5b2d563064798ec2409e16254d8a60f3d5bd78e4b11099d248406720fe63"
         },
         {
             "path": "server/app/modules/official/notification/resources/setting-definitions.json",
@@ -12728,7 +13102,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c4164dd8e2db638d3068daec36cd4b76b635443f72182cd734e7712ee0fb990"
+            "source_sha256": "0bcec669588a7a7250c7d0dc1f70766d5856d575459b262966c76b80f6f70b71"
         },
         {
             "path": "server/app/modules/official/notification/src/Controller/NoticeLogController.php",
@@ -12742,7 +13116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbf3df5a7a3f715c2aae8414a79b350e474230252dd5683c34f87b5c454e63ff"
+            "source_sha256": "a444feedca8e8453c9b6eaf50c0460136cf45c9f21a03becf045c74490a6784b"
         },
         {
             "path": "server/app/modules/official/notification/src/Controller/NoticeSceneController.php",
@@ -12756,7 +13130,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a8c9d600bc3cc6e5d98856d612b51d395af170cc7ec76cbccdaee6653492fc5"
+            "source_sha256": "a7e540402ecde0c0314cbbe1cd35be533442dce05f3dbc89e683c78aacc05fb4"
         },
         {
             "path": "server/app/modules/official/notification/src/Controller/NotificationInboxController.php",
@@ -12770,7 +13144,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e47b545533269b1cff9fa7b3824906a97b442cb9a67b40b3c9620f784d863dba"
+            "source_sha256": "8de42e16faf1a5f5ef41c53fad829f34762de3454e245b3b85fe69d4084c8a9d"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Application/AttachmentReference.php",
@@ -12941,6 +13315,20 @@
             "source_sha256": "4fbdf353e172326b9e223a184ff03b40731eb72896f92e690f00a81dcc1ef537"
         },
         {
+            "path": "server/app/modules/official/notification/src/Delivery/Identity/TenantMemberRecipientResolver.php",
+            "target": "server/app/modules/official/notification/src/Delivery/Identity/TenantMemberRecipientResolver.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c5dfcc9ce3c9c83546a6b654f8ae042dcadb0245773d04bbd0ae0102f4db9107"
+        },
+        {
             "path": "server/app/modules/official/notification/src/Delivery/Package.php",
             "target": "server/app/modules/official/notification/src/Delivery/Package.php",
             "classification": "app-owned",
@@ -12952,7 +13340,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8830de112151894370471e22b80878e1c5fdf511fe5f8d31bf32c16a1eeb8f85"
+            "source_sha256": "474d148b44227a6d2af472fa73e538e7b9b8ed9c36d386c69f8ec31518734fb8"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Persistence/Model/NotificationAttachmentRecord.php",
@@ -13064,7 +13452,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2625a71c77d6b36b342a7921e3fdbf1f87d72aac138e9808bf87a97b4e4e21ba"
+            "source_sha256": "d45dd4cac3d4a35ec12fc18d9de454a6b2bb79a47e4e942eecdd636666aaa962"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Persistence/SmsDispatch.php",
@@ -13120,7 +13508,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "94bd0133ddeab934341b02307a60b3dede58b641f1efd8147eb07b3d77998f27"
+            "source_sha256": "78c5b374762c58c3174b54d2b63d1fd906d46b3561be2c47777ce0cd8bb90dcf"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Sms/SmsProviderException.php",
@@ -13176,7 +13564,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9fa8f93a4a0d98f3a4e59136a18b38a968c0cde64e8b2aacd4de1ef62416768e"
+            "source_sha256": "0d81dc3cf24a8c76126a457f6178479162c7bf0b009afd52de4802b103ee03ab"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Sms/SmsSendRequest.php",
@@ -13207,6 +13595,20 @@
             "source_sha256": "a83387131f54026c5e0c395d82b5a8b98a789f3b49100532dd0a638825803c15"
         },
         {
+            "path": "server/app/modules/official/notification/src/Delivery/Sms/UnavailableSmsRecipientResolver.php",
+            "target": "server/app/modules/official/notification/src/Delivery/Sms/UnavailableSmsRecipientResolver.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "01226775ae2c953510f7637dfe99fdd1a7a3b405757812662cb768f72b19c2ff"
+        },
+        {
             "path": "server/app/modules/official/notification/src/Delivery/Task/InboxTaskHandler.php",
             "target": "server/app/modules/official/notification/src/Delivery/Task/InboxTaskHandler.php",
             "classification": "app-owned",
@@ -13235,6 +13637,20 @@
             "source_sha256": "47636c2b56f2b851273df3f4130a0025218880e335d3e72b97765539a1c40aa0"
         },
         {
+            "path": "server/app/modules/official/notification/src/Delivery/Task/NotificationTaskWorkerDefinition.php",
+            "target": "server/app/modules/official/notification/src/Delivery/Task/NotificationTaskWorkerDefinition.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8db86ec0fe56cddd9baae02156e50ce2772b5f543d666c039515a6cbee65be7b"
+        },
+        {
             "path": "server/app/modules/official/notification/src/Delivery/Task/OutboxTaskSubmissionProvider.php",
             "target": "server/app/modules/official/notification/src/Delivery/Task/OutboxTaskSubmissionProvider.php",
             "classification": "app-owned",
@@ -13260,7 +13676,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9512e47556a03d56cf1df63291a8d77e2e85ee637dfef6723b49790cde65b28"
+            "source_sha256": "d830460e69cbd59aeab5708bd822eceb82c3b07992f46a03b12ee07647e0e34e"
+        },
+        {
+            "path": "server/app/modules/official/notification/src/Infrastructure/Authorization/NotificationAsyncAuthorization.php",
+            "target": "server/app/modules/official/notification/src/Infrastructure/Authorization/NotificationAsyncAuthorization.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "038b94b8b4d20091c1b82cbbb025cdfda22f9f20cb735d507cd0dac4f7f4df04"
         },
         {
             "path": "server/app/modules/official/notification/src/Model/NoticeLog.php",
@@ -13302,7 +13732,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7337f77cd631398a7bf884105dd0ee134389c1ece32399bc2cad377afc63682b"
+            "source_sha256": "319a717bdd7cd680bb730eaf30e2f2c4f60d7951810961bab10fd7bd7e05c726"
         },
         {
             "path": "server/app/modules/official/notification/src/Service/NotificationAdminApplicationService.php",
@@ -13388,6 +13818,20 @@
                 "full"
             ],
             "source_sha256": "2326c239101f204c59ab077f8cacbb357f1108cf1af1b366bb6ff200675701fd"
+        },
+        {
+            "path": "server/app/modules/official/oauth/api/metadata/openapi.php",
+            "target": "server/app/modules/official/oauth/api/metadata/openapi.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bf143da99da9ada30a177ba1290116c79fa9bfceb79a194602e3fd068193a9e7"
         },
         {
             "path": "server/app/modules/official/oauth/composer.json",
@@ -13653,7 +14097,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9293fd7ce1a66942201b61ef39a92077358e0cf2445eb3ac55f202ee9e43d2c8"
+            "source_sha256": "08470a5a4e9b721ee185b4064b1b042d6956abb21064a0e8d15253e5910f77e2"
         },
         {
             "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountController.php",
@@ -13667,7 +14111,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f39fe15f680700e3a8333192d75b1fda45b46bc33a7f0336438bdda84b62602"
+            "source_sha256": "59d07f723cf116e0025ee98bf65d4dd44ed8eb900c70969ffc771d3586d98cb8"
         },
         {
             "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountMenuController.php",
@@ -13681,7 +14125,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "67110b0847cb23603eddbf4cff23660c80b48c03d23d83d71d8635e9421e7677"
+            "source_sha256": "ce0ed802a151f63b954280c8ade1cead92820e9c86c0614181728d81b8f1f325"
         },
         {
             "path": "server/app/modules/official/oauth/src/Controller/OfficialAccountReplyController.php",
@@ -13695,7 +14139,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a050f89ec13d52f00a59fea867477004e4abcb23d3c3f27a4e1767527635e655"
+            "source_sha256": "78fc18ae1461bb0279c9085e451c990ac4798582f4399bf73dd6752d17bb94c4"
         },
         {
             "path": "server/app/modules/official/oauth/src/Controller/OpenPlatformController.php",
@@ -13709,7 +14153,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fed19cf2dd675d976904f8b3259a142cdb29425ffcfff59009fcd4d10b738bd5"
+            "source_sha256": "f9610104d93ba1d5adcd50724ec2a7505616a6eb59d822a7275f5c69ae565112"
         },
         {
             "path": "server/app/modules/official/oauth/src/Controller/WebPageController.php",
@@ -13723,7 +14167,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2c46b98409f2eca0400883e75144d38e0f0ebcdfa06aa824a07fa3f802cdc25c"
+            "source_sha256": "96218e57fb91d40ecd065290506424045e3fef572ac897b6cacd7876f48d0f13"
         },
         {
             "path": "server/app/modules/official/oauth/src/Infrastructure/Persistence/ThinkPhpOAuthCallbackLocator.php",
@@ -13920,7 +14364,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5776faa0c1b1f5f5f46b5472b8b0c141a7a8d6ae1b0951c946e3d2f66c1391b1"
+            "source_sha256": "f0f4c333a2b1822ade81285163341074dc01fd31551f8bc433ecc1ae7b40c819"
         },
         {
             "path": "server/app/modules/official/oauth/src/Service/OfficialAccountMenuApplicationService.php",
@@ -14805,6 +15249,20 @@
             "source_sha256": "e7eabe5c121b3eba7e3da3bf5d7cff5a20b94d3294843c31b98ff756b6fd4c59"
         },
         {
+            "path": "server/app/modules/official/payment/api/metadata/openapi.php",
+            "target": "server/app/modules/official/payment/api/metadata/openapi.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "44aa4b895c190f0d56fb3c59edfe0f6c8eeee49241582f0ed7c025a1b4b93107"
+        },
+        {
             "path": "server/app/modules/official/payment/composer.json",
             "target": "server/app/modules/official/payment/composer.json",
             "classification": "app-owned",
@@ -14984,7 +15442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d2d8179b98bac9ae0cd0788fdb01ee47007cac99aec62fabf59f2aeb569dbe47"
+            "source_sha256": "65404b0a7d341ff1447a68af39f0293592ffa43d679a0b829f25b23b53043501"
         },
         {
             "path": "server/app/modules/official/payment/src/Controller/RechargeController.php",
@@ -14998,7 +15456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "076a6ba000fe3c07463862949daf14cd925661c94397370ceb51693a8a459955"
+            "source_sha256": "cef57dfbf019d96e855f2b896c44eea199404fb4f4d717df2a0649e8ac867b24"
         },
         {
             "path": "server/app/modules/official/payment/src/Controller/RechargeSettingController.php",
@@ -15012,7 +15470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f69715c69b5029954fd97cf041026e13eb0b3067494c35eafeaaad9d33cad5a"
+            "source_sha256": "1e3a9fb222f613bcf018d72759e73455d940aeed222d96654e996b2b0c4472db"
         },
         {
             "path": "server/app/modules/official/payment/src/Controller/RefundController.php",
@@ -15026,7 +15484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b0167ab6c2509dfca8506a396f22c8d315109d307221ede56ec661e872933c9"
+            "source_sha256": "098108ef71e9f618cf479d7d8c57eade004075655e5abd42e812c5682980f062"
         },
         {
             "path": "server/app/modules/official/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php",
@@ -15320,7 +15778,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b69dc4778bf147099b5ce78a6ec9e939e7261b0712ec2ab713c4af42a2a0610"
+            "source_sha256": "860f02564af9ca74bf35cc47c92c5517c9e46a1a747798b6a71c1c19b47d1f16"
         },
         {
             "path": "server/app/modules/official/reference_codes/composer.json",
@@ -15530,7 +15988,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff79aa9bbfdcdfe34dc40ccf4e11dda85a47bfdd6a2a955027220b87c0a8618e"
+            "source_sha256": "9f2a3114d4bb53ae848a778b53715b236fbc37b55d3a8668fd2c339549075c96"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/Controller/DictTypeController.php",
@@ -15544,7 +16002,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "750cbb0aa7aee21f0dcb63ac9554e3e5b9c3e8b897526c9d9db2d69e43409d53"
+            "source_sha256": "0caf00b294d3994139a770da7291857465a0fbba8a9300563c856553e20a9000"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/Controller/ReferenceCodesController.php",
@@ -15558,7 +16016,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0843aa01515d8a1c2bf082125a9307c2325fe5e1eace89b4623862070fe1158f"
+            "source_sha256": "3562a57d7f98d7aa34159b2361b1caa40ae7444d52df40e102e025a822ae75a3"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/DictionaryEntry.php",
@@ -15714,7 +16172,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "715337e83c12dba198e9948ed5e93b1bed1881508e492216b504b0ac4454d6d5"
+            "source_sha256": "5fb4eb6ee0800c212478ffe220eca5b39fbf4de1567715b52cc4a7088a9f6e46"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/Service/DictDataApplicationService.php",
@@ -15770,7 +16228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b9a9052cf70e73af7b1107ef8a065f282745bc225c281cf72858078eb353f3a3"
+            "source_sha256": "f4acbc2567260f59416dde932a8505b15643bb0feca4e0772f9921e6e21f7913"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/Validation/DictDataValidate.php",
@@ -15994,7 +16452,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c26875c5261fc3c6a64351533eeeaad3ba1f3cbc1698ce7615df60407caa2bd9"
+            "source_sha256": "7e9d08b0464d218661d4bcda45d158e8c062669f17563741da45a03e7508e283"
         },
         {
             "path": "server/app/modules/official/rich_text/composer.json",
@@ -16092,7 +16550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "035d11be52b8551640aa8eb0c426c7b3155b62763374cf4a2de6e74745bdfab9"
+            "source_sha256": "30e91db7afff121aa18273e014ab30225fda05aa731e0c5186e5d3daa5a59aad"
         },
         {
             "path": "server/app/modules/official/rich_text/src/Model/RichTextDocument.php",
@@ -16190,7 +16648,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b279a1020e3b51544d3a3edc0b0a1f861d5c14e9175dc3fc1c8e4403a33d645a"
+            "source_sha256": "674df7f72afce89a60e172cb28d6b5fc40ed1f149db8f5835f13d0b111e804b2"
         },
         {
             "path": "server/app/modules/official/settings/composer.json",
@@ -16302,7 +16760,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3deb5667422e46c393b18d14772216e9a86897860ae0b00a40ef8a565c17cc36"
+            "source_sha256": "cf4cc886211757e6cf2179170bcaf318f1ffe0e4724b19a180576e02712ab8c5"
         },
         {
             "path": "server/app/modules/official/settings/src/Application/SettingException.php",
@@ -16526,7 +16984,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c85df8fa5c899741439693e3525b8fe0b6838d95ece838fb4449422330bb883"
+            "source_sha256": "543b01e1f4da140a48e6a7f4360de295dfe11165f63780032752c789168b5980"
         },
         {
             "path": "server/app/modules/official/settings/src/Database/Schema.php",
@@ -16738,7 +17196,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b30b4dcab0437648dbbd5872e95bd26623a77b29fc8cc049061a9a2ef0180cc7"
+            "source_sha256": "7d5e1414892b85149f0f3280ed82f201c5da9b157f32eb88ce38e226e2f251b3"
         },
         {
             "path": "server/app/modules/official/settings/src/Package.php",
@@ -16780,7 +17238,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4a0ec732a634a6fb2984001c0a290c59f8296d581e9cfa7701ce870a359136a7"
+            "source_sha256": "e23eb3f8ebcdf57bc1a7dac852fd96cf9a2534e33195a9fc6b1c25773393f87c"
         },
         {
             "path": "server/app/modules/official/settings/src/Service/TenantApplicationSettingService.php",
@@ -16851,7 +17309,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a216528595e051915c8dcb7fc8359378f1ea1283ff852a931a2206ce617b0b33"
+            "source_sha256": "686419c5d3f5678e1d7fb3ae0adabceb7ea9abdda7a223daa45b0c5a7efb873c"
         },
         {
             "path": "server/app/modules/official/task/composer.json",
@@ -16921,7 +17379,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03fe08df53a13a0772eb46a393fd068940d0eed7d412ede2709328b1ab89a913"
+            "source_sha256": "a70ae15df5aaa1fa74398c792eb91d5e406b4f56b8e434a2efa4c99bec06b257"
         },
         {
             "path": "server/app/modules/official/task/resources/menus.json",
@@ -17103,7 +17561,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8294684152985dc7a32b8be7bd6da6d857d4e60d52127ae1089b4e7486a17409"
+            "source_sha256": "a089aed9431595f1b6e47ef942fb8d8dbf6bebd1a84b55bad31e5c204849ea71"
         },
         {
             "path": "server/app/modules/official/task/src/Contract/TaskJobService.php",
@@ -17162,6 +17620,20 @@
             "source_sha256": "73a17473711c55fe8514e29034ef2d10e71a42f53acc4d1a6f139c74b8118bd7"
         },
         {
+            "path": "server/app/modules/official/task/src/Contract/TaskWorkerContributor.php",
+            "target": "server/app/modules/official/task/src/Contract/TaskWorkerContributor.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8705edaed59722c641d27c054fc0efda155ed8d71a170df50dfc8348a2e0827b"
+        },
+        {
             "path": "server/app/modules/official/task/src/Contract/TaskWorkerDefinition.php",
             "target": "server/app/modules/official/task/src/Contract/TaskWorkerDefinition.php",
             "classification": "app-owned",
@@ -17173,7 +17645,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a15f784bacd9d650fd0a1ae33a68297814fdf6654cbc054e1945cb12cbd7353b"
+            "source_sha256": "936ec03bd74cb3e11022e4f04e9f0af23e908036460bf75cffe4bf266f454a70"
         },
         {
             "path": "server/app/modules/official/task/src/Contract/TrustedJobPublisher.php",
@@ -17201,7 +17673,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88760b78d9e84b8d7d009aa0894f1db06eba0dda20c82a867fadebe3a26ff731"
+            "source_sha256": "da941f6b8c4d857115a0e405bcd37a2bb03717e455378563b0a29987acccbdc3"
         },
         {
             "path": "server/app/modules/official/task/src/Controller/TaskJobController.php",
@@ -17215,7 +17687,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7eab9f5cca0a57be8b95de8388946478c28ad5967350d12ecf489664719a86dd"
+            "source_sha256": "24173915bdfe02f09e522da56dfc653ed6e3b08dadfe20c62a0879ed2fb85fdb"
         },
         {
             "path": "server/app/modules/official/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php",
@@ -17229,7 +17701,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b22b11d3183eadbf0ce7bafcdcc0b31e45bb465b6d54f5664a46e43211a97d24"
+            "source_sha256": "083cf222a5bdff2229e0e722c706dcde5e0325dd4ece217affb35f4328821eec"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Application/TaskJobException.php",
@@ -17243,7 +17715,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8cb4ebd88358e4d6a1e74997742ec33372fff304ee08d850209057e2b84b838f"
+            "source_sha256": "bce21d937bd9f6cf3ed4662f321cec8b3c0c75e2b4f2606f92986ed61c0e644c"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Database/Schema.php",
@@ -17383,7 +17855,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ed8119e848ec5e7ad75e59e0e310de76d3affa833c2df19cd40f3928d6b96f1"
+            "source_sha256": "fa6d1c415798f2c12462f478cf818f5b8136d37ce4d9b9ac15158f87c9c09081"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Submission/TaskSubmissionRegistry.php",
@@ -17425,7 +17897,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "76170e15bcde5a2e711ade29b012fc4e9cdaaa1ac17af5eb8517ac0617decbc1"
+            "source_sha256": "6a7c17816728991661dc254a43d72ed28ee0c250239c9810bf5403aa893ab571"
         },
         {
             "path": "server/app/modules/official/task/src/Service/CrontabApplicationService.php",
@@ -17468,7 +17940,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce44b1ad7018a950ad1c710bbcf15d70a16a42d30d6aff9081ca6549886bec87"
+            "source_sha256": "97121fa4b1c54f4318d5f0e34cf0df059491d258bd0f51bf985d0ba0bfe2abfe"
         },
         {
             "path": "server/app/modules/official/task/src/Service/TaskAdminApplicationService.php",
@@ -17538,7 +18010,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "769e7f017b8ff16144aebb6d814b30bdcd99a045b93a26fbd3450664f97048ef"
+            "source_sha256": "dfa246d3fc47fba55645e6417b5f4bd3d3a133672c921d6319ba544e94984064"
+        },
+        {
+            "path": "server/app/modules/official/task/src/Service/TaskWorkerDefinitionRegistry.php",
+            "target": "server/app/modules/official/task/src/Service/TaskWorkerDefinitionRegistry.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8102bd4f78c38ee934b7df58c159cd31ec981e8a60646125c1683d1fc14b7c87"
         },
         {
             "path": "server/app/modules/official/task/src/Validation/CrontabValidate.php",
@@ -18686,7 +19172,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "9690925ec59da24518271219838da1df6d8f6401413c60c7d15a4754a229f624"
+            "source_sha256": "d6afb26dd75fac5d9df2cf332a07fa85c7221adc7e5eb036056b6bd870695475"
         },
         {
             "path": "server/app/platform/controller/PlatformControlPlaneQueryController.php",
@@ -18698,7 +19184,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "8fe45ac918cfc1c9ca7338d7ad3cbf7d450274ec828378006fe91ea854c067cb"
+            "source_sha256": "3619663942f45a45ad032f4baf06be4034c3148446d58942aab05d4d6fa671f6"
         },
         {
             "path": "server/app/platform/controller/PlatformDeveloperCenterController.php",
@@ -18722,7 +19208,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "cc7fb282f6781ee77d6d1d4367280e8a19fe0cd102cc3d986f1767c6c819cca7"
+            "source_sha256": "393adc497c69de3b25e3153873e4266f6ea54673cd016eecabacbb812a5d09c8"
         },
         {
             "path": "server/app/platform/controller/PlatformOpsController.php",
@@ -18734,7 +19220,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "e9fc336fbee5345c64c8fa58643957d144c71e0bf0a626cb42aee200755b3bf3"
+            "source_sha256": "242ca57ba9187cc797f56ab73deae3c4d665699aafcf398b9f73add05f0fe0f1"
         },
         {
             "path": "server/app/platform/controller/PlatformSessionController.php",
@@ -18746,7 +19232,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "f9ae8019b868f5c84a68b0e625422098343c5174a8bfa1236c023af32ff72f8e"
+            "source_sha256": "ac7fff186dce2f6002974387810cd1e9dceae950d35c10fd4568820a2888d588"
         },
         {
             "path": "server/app/platform/controller/PlatformStorageController.php",
@@ -18758,7 +19244,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "0128351d56edb8a1bd44ebf139eabb15847d43a4dcd6749acce56f0fa6a142fa"
+            "source_sha256": "8292fff1f0e7bdb6cbbaecb089729fdf89ad096c1c2d6d0661571de74fba7b20"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantBoundaryController.php",
@@ -18794,7 +19280,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "15ecfbbfd8a5d442afbf4c74c31fcca61153a1c071fd2468c23a6be2cf6f3f09"
+            "source_sha256": "7049f2acf20e79fc8d6d527901315240f384a65329e37ef7c5e6648dd62fcc99"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantInvitationController.php",
@@ -18806,7 +19292,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "765ee13c56acbee8ba48693f878cba065066c36770ab2cc4f6fa86acb624307d"
+            "source_sha256": "c0eb9415e40bb5ab3673d6bc9abc23bbe737f47d1f0590413d76420f37970b21"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantModuleController.php",
@@ -18818,7 +19304,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "8319d41f05f24b7bcf4dc55e5a9bc8cb5f843c087f0f4af6cb6310d85f7ae367"
+            "source_sha256": "8621dc66a5b98ac724dcaa5007346ccdd9ef32d0c6cad9ee3b0b07b97ef1193c"
         },
         {
             "path": "server/app/platform/controller/TenantOwnerInvitationPublicController.php",
@@ -19478,7 +19964,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "8adba352f27eebfcaa8f038469ddde2c257cff43406aec9b1b9fb47325867673"
+            "source_sha256": "4589ece49dd29f8c086a1889f05ebbd378820f53e498a939df0bf96512099131"
         },
         {
             "path": "server/app/platform/services/module/ModuleQualificationQueryService.php",
@@ -19538,7 +20024,7 @@
             "profiles": [
                 "full"
             ],
-            "source_sha256": "4d495311bb2e24482c4f01e772fee7205dd144d099778091c695dbd45c15f334"
+            "source_sha256": "ed22a0f99afd757953adfcef90231fa248ac47965db9822f40f9f96289bb5718"
         },
         {
             "path": "server/app/platform/services/plugin/PluginCatalogSyncService.php",
@@ -21042,7 +21528,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0692a897baf6cf3f34fb879585e0134e4a55801243e4dd12e7d1f4f75f38e30d"
+            "source_sha256": "72502a53a709a500817967805701e310da8d1e39e2cf595c46d15272f05496f2"
+        },
+        {
+            "path": "server/generated/openapi.json",
+            "target": "server/generated/openapi.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "873152978461ea0375953868b056332c8946448ad9b065fb9701cf453d8c0733"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -21435,6 +21935,272 @@
                 "full"
             ],
             "source_sha256": "f847f4b564d8fb1f7b13fd5658c0de6659c6c2dfa203a3aa54708094fad72e5f"
+        },
+        {
+            "path": "server/resources/scaffold-application/SECURITY.md.stub",
+            "target": "SECURITY.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4fe245595002d2da753bedb3796847b937792bbbcede308a9977594b9cf1b1c4"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/.vitepress/config.ts.stub",
+            "target": "docs-site/.vitepress/config.ts",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2234ebd51b4ed0c39a521dce4b0c441ebdd25eb3d4270ffa19936d6550a31e75"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/.vitepress/theme/index.ts.stub",
+            "target": "docs-site/.vitepress/theme/index.ts",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cad4807aab43538208e661036f8aaa985815d7e32ee6eae6285275c611491778"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/404.md.stub",
+            "target": "docs-site/404.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4583b9718d84298f7d7ab950a9862044265026e854cc805617ecb799730dddcb"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/api.md.stub",
+            "target": "docs-site/api.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "85b2172f102027e44e42592ea36f35453b86d8a818b407c4049fc0c4a6e4ba2b"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/architecture/identity-and-tenancy.md.stub",
+            "target": "docs-site/architecture/identity-and-tenancy.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8d7ff770b2188ff3e9390ee1698f4f37afee9673c0f08968f36d21fba955b985"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/architecture/official-module-qualification.md.stub",
+            "target": "docs-site/architecture/official-module-qualification.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e9c57770265b86e065da6f2299e1e4d0c58e6d77aa792d4d8c7059e663394d3f"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/capabilities.md.stub",
+            "target": "docs-site/capabilities.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ec097dabb28a9a6b7b0b28fa3cc253a6558cd18dedb879d89de9f5e91dda5622"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/getting-started.md.stub",
+            "target": "docs-site/getting-started.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "000fce08f4f257cc6f53abbab54e749ebe3cb515941474e74983cca2f80458e5"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/guide/application-module-lifecycle.md.stub",
+            "target": "docs-site/guide/application-module-lifecycle.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "644930cc9c6ab88811cc9d973d261fd1f7720d30e9cefdf0c1bba064a6595589"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/guide/development.md.stub",
+            "target": "docs-site/guide/development.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8e1f0268ac6492123d6d50b1a36ea14923b2cb4847ff446c25f7da6fc7a9ef76"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/guide/module-development.md.stub",
+            "target": "docs-site/guide/module-development.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "741a5a682d45ca783e1fa6842f656e73c277057a00c27d9025370bfbe2abf544"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/index.md.stub",
+            "target": "docs-site/index.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3c6b77d8f1cf3db486f3764a168edf80c10d5324d55bc6436c9ec5c80baeef7f"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/legal.md.stub",
+            "target": "docs-site/legal.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "15d5580ea2682ff28ad2558ecd7cfeea044502c4dc4a478acb4c19fea390339b"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/package.json.stub",
+            "target": "docs-site/package.json",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "61a7ebd4bd604a6440f066136737f66d6b6b19dc1d783013d28888dc6a0c785f"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/pnpm-lock.yaml.stub",
+            "target": "docs-site/pnpm-lock.yaml",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "afcbc2c01975027ff3e92cedb413eb8d492cc46f813b295c2f890d8016b726c6"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/reference.md.stub",
+            "target": "docs-site/reference.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bbcda27d994515cb536b2e0d1091fae983472053a5e92c4025e13a4376aab78b"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/releases.md.stub",
+            "target": "docs-site/releases.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f6fec540881d689e46756b2c6ae04782e558d031b136f8942ab548c9ab8d83e6"
+        },
+        {
+            "path": "server/resources/scaffold-application/docs-site/support.md.stub",
+            "target": "docs-site/support.md",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8757995d6f8a118a866f2b129c33b2615261cf3e6987921abc91a54d8f99da71"
         },
         {
             "path": "server/resources/schemas/plugin.schema.json",
@@ -22392,6 +23158,19 @@
             ]
         },
         {
+            "path": "server/tests/Modules/Official/Task/worker-composition-harness.php",
+            "target": "server/tests/Modules/Official/Task/worker-composition-harness.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Application/ArtifactRevisionServiceTest.php",
             "target": "server/tests/Modules/Peanut/ArtifactRevision/Integration/Application/ArtifactRevisionServiceTest.php",
             "classification": "excluded",
@@ -23278,8 +24057,34 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ConsumerModuleReferenceChainContractTest.php",
+            "target": "server/tests/Productization/ConsumerModuleReferenceChainContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/ContentDecorationHostTest.php",
             "target": "server/tests/Productization/ContentDecorationHostTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/CreateApplicationPublicIdentityTest.php",
+            "target": "server/tests/Productization/CreateApplicationPublicIdentityTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23502,6 +24307,19 @@
         {
             "path": "server/tests/Productization/ModuleCatalogApplierTest.php",
             "target": "server/tests/Productization/ModuleCatalogApplierTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleCommandContractTest.php",
+            "target": "server/tests/Productization/ModuleCommandContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23825,8 +24643,34 @@
             ]
         },
         {
+            "path": "server/tests/Support/CiBootstrap.php",
+            "target": "server/tests/Support/CiBootstrap.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Support/IsolatedBackendEnvironment.php",
             "target": "server/tests/Support/IsolatedBackendEnvironment.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Support/RegisteredMysqlTestResource.php",
+            "target": "server/tests/Support/RegisteredMysqlTestResource.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23916,8 +24760,60 @@
             ]
         },
         {
+            "path": "server/tests/Unit/ApiContractCatalogTest.php",
+            "target": "server/tests/Unit/ApiContractCatalogTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ApiMetadataCompletionTest.php",
+            "target": "server/tests/Unit/ApiMetadataCompletionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/CallbackApplicationServicesTest.php",
             "target": "server/tests/Unit/CallbackApplicationServicesTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ControllerDeclaredDependencyMigrationTest.php",
+            "target": "server/tests/Unit/ControllerDeclaredDependencyMigrationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ControllerDeclaredDependencyTest.php",
+            "target": "server/tests/Unit/ControllerDeclaredDependencyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23955,8 +24851,99 @@
             ]
         },
         {
+            "path": "server/tests/Unit/CrudTraitInputContractTest.php",
+            "target": "server/tests/Unit/CrudTraitInputContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/DeployedModuleRegistryTest.php",
+            "target": "server/tests/Unit/DeployedModuleRegistryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/DeveloperCenterDocumentationCountTest.php",
             "target": "server/tests/Unit/DeveloperCenterDocumentationCountTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/GeneratorDeclaredCrudTemplateTest.php",
+            "target": "server/tests/Unit/GeneratorDeclaredCrudTemplateTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/GeneratorRuntimeAssemblyTest.php",
+            "target": "server/tests/Unit/GeneratorRuntimeAssemblyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/GeneratorSoftDeleteContractTest.php",
+            "target": "server/tests/Unit/GeneratorSoftDeleteContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ImportExportJsonHydrationTest.php",
+            "target": "server/tests/Unit/ImportExportJsonHydrationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/InputValidatorPolicyTest.php",
+            "target": "server/tests/Unit/InputValidatorPolicyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23994,8 +24981,125 @@
             ]
         },
         {
+            "path": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
+            "target": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/PhpTestRunnerTest.php",
+            "target": "server/tests/Unit/PhpTestRunnerTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/PluginAuthoringBootstrapTest.php",
+            "target": "server/tests/Unit/PluginAuthoringBootstrapTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/PublicApiArtifactCheckTest.php",
+            "target": "server/tests/Unit/PublicApiArtifactCheckTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/PublicSettingsAuthorizationTest.php",
+            "target": "server/tests/Unit/PublicSettingsAuthorizationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/RegisteredMysqlRunnerEnvironmentTest.php",
+            "target": "server/tests/Unit/RegisteredMysqlRunnerEnvironmentTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/RegisteredMysqlSchemaBoundaryTest.php",
+            "target": "server/tests/Unit/RegisteredMysqlSchemaBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/RegisteredMysqlTestResourceTest.php",
+            "target": "server/tests/Unit/RegisteredMysqlTestResourceTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/SourceReadProjectionTest.php",
             "target": "server/tests/Unit/SourceReadProjectionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/TaskJobJsonHydrationTest.php",
+            "target": "server/tests/Unit/TaskJobJsonHydrationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -24552,7 +25656,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f9473e34634edd8849e3370c9d3c56fe9e7890e70b0ad6e66b3e0d0873f811b2"
+            "source_sha256": "e2399bc1921fc8c05ad930ad8676018e3ace96306f7219ebfdd810d0d9976b41"
         },
         {
             "path": "uniapp/package.json",
@@ -24565,7 +25669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9eba037b0380c27a603172fb0635dd07266f6f8234150f7fea8df8b4098c2750"
+            "source_sha256": "169fc32a6a21c84df459947680bd97f295dd99690b70653825c001a06c5596cd"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -25293,7 +26397,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d700cac04e82c2f5470a0719e72c0b77d6630c099ef4731e7b3f053b10970d74"
+            "source_sha256": "49bb877e86f68a4a30847e045f1826095a0fdcaf2d374bfea7f70541f844c01e"
         },
         {
             "path": "web/.claude/launch.json",
@@ -25572,7 +26676,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e3ad11182e0d703f29114032c170feef86eca086a9c723091374d2682f2947a8"
+            "source_sha256": "3e50622db925abdaa92c665604dce8ab6d548a31c8c79eba7b2251112da5ebe7"
         },
         {
             "path": "web/config/vite.config.base.ts",
@@ -25586,7 +26690,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ff72ff3f01a734f19f81ef5f3937e641a650c7b5efd0de93735994fadc6849e"
+            "source_sha256": "620d5aee7b4b2116e4ccb040f8a6ee454c5ec68eebc0fc1ae0fb670ac1d7157a"
         },
         {
             "path": "web/config/vite.config.dev.ts",
@@ -25600,7 +26704,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "943e8933decddcf9e27bcfbd0f3c3dd0a0084f842f7d42936a6427647ab145d4"
+            "source_sha256": "8566455970aac77bb064d87a04775a52ae4c2c8310bb7a3fad9b48b5cc29ff41"
         },
         {
             "path": "web/config/vite.config.prod.ts",
@@ -25614,7 +26718,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "52d860cb55071fbf969e19fdffc6d4191cb5f94ccfef18f3399fc067457dcaca"
+            "source_sha256": "a81f5a90119c0e5f69c01df113abf24bd7c885b9473877ce7dcaeb06dd22db30"
         },
         {
             "path": "web/index.html",
@@ -25642,7 +26746,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a541cc62350d42aa8e762310226be5785b5e338e4e1dc4b84746e524f80fe5ca"
+            "source_sha256": "422fc9d4304d10f709cf0c2bb02c38345de86043131d4aff5fd6881d97027601"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -25656,7 +26760,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1c8034abaaf6c281acac6b5ea1eda6b1f61d6ee0c46129b725492c115243e419"
+            "source_sha256": "95f12bedaef240249456be4e6ed4509e07a479723081efbc3334175e946b56eb"
         },
         {
             "path": "web/public/brand/avatar-admin.svg",
@@ -25852,7 +26956,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3d31e5bb5279e962cf63891b16b5d9f5f4630b6df5f9df4bbe20419589eec1b"
+            "source_sha256": "9258882d606ad6d8662951f81a831c9e17e1bb2a89d176a543c28d1a799f0542"
         },
         {
             "path": "web/src/api/readiness.ts",
@@ -25950,7 +27054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72228d9d08874904ba567f9686bcac1f256f2c40a691be459d0c2af3fbe8c067"
+            "source_sha256": "1bc843468c9913da6f1fd6b6fc0522c34edbb1b5492b053e006f74864092d1bc"
         },
         {
             "path": "web/src/api/system/jobs.ts",
@@ -26258,7 +27362,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b810427a72e9145c03e0a500fa61ee15db82af5361268c644c3c47a18482f867"
+            "source_sha256": "641ffc3e7deccfe6759927f21c8d9c85f96e1675d170a91658e4590ee85f1636"
         },
         {
             "path": "web/src/components/tab-bar/index.vue",
@@ -26442,7 +27546,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "926edc512d5d921f732470db5e44e96137713981c2180bbb5de7bd724ff9c28c"
+            "source_sha256": "a264e765098af389b24a2c743aba05f9bb3e5d36ab2cc292a04185cf652600d3"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -26733,7 +27837,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18a45cb9349df921ae95211bed75aaf1f68df4d769f3d11178130f2a7aa6b50c"
+            "source_sha256": "7bdcc34bf62fa881c43947d07ad13586bc9543e41ab2983784d6630db298c896"
+        },
+        {
+            "path": "web/src/modules/official-article/category-resource.ts",
+            "target": "web/src/modules/official-article/category-resource.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "90fa61ee902c61fb5f1a24e4d3137ff2e738e646c3d57fdf611c7dcd12fede6c"
         },
         {
             "path": "web/src/modules/official-article/contribution.ts",
@@ -26747,7 +27865,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4fb7b7461cd56a247ad2455f51363ae2d753c8db71089debcdc9abbdd7404520"
+            "source_sha256": "c4c715937dd643e5014d3218db515e98eca49a049c7cc47465c3abc370dd0486"
+        },
+        {
+            "path": "web/src/modules/official-article/generated/openapi.ts",
+            "target": "web/src/modules/official-article/generated/openapi.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3e0a53f57f8cf9858ed4402c3c35f9d427173f1b203c9feb8ece7b54b3136f71"
         },
         {
             "path": "web/src/modules/official-article/package.json",
@@ -26775,7 +27907,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e3024c94c84ed001f4b978933654c587cf2c979cf2dbb702f8b47a91518eb9c"
+            "source_sha256": "4007d64fd2dfa4ba7e4379e8480c67b2f377b0d7c40b91fc5810b6d3245520f8"
         },
         {
             "path": "web/src/modules/official-article/views/cate/locale/en-US.ts",
@@ -26789,7 +27921,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9360aff81e3ace65b4d2f39ca51b121975eae7354ca8c21e810ae0eba088524d"
+            "source_sha256": "64231b3a371b4f9f71f90f924af88769d3ee0198252cce90a2d3d6bd7600bc39"
         },
         {
             "path": "web/src/modules/official-article/views/cate/locale/zh-CN.ts",
@@ -26803,7 +27935,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "99dd20be6382cfbd8a37c1a8faf2b07ab1e442a5a859d4e180fc2e47382f0b01"
+            "source_sha256": "5d852b5c6bb6de9cc2bd50f0d6af2b15df27678d0ba32103e06cb2a3ae6922be"
         },
         {
             "path": "web/src/modules/official-article/views/list/index.vue",
@@ -26887,7 +28019,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a704e4123c1d59672d5b6828087a47bba3dd71a084f38b5ef317c82f94d02a81"
+            "source_sha256": "3f98910712744067ccd8c076960d122589321e0ecc11558ce58bc2c0a154da5d"
         },
         {
             "path": "web/src/modules/official-file/optional-runtime/LICENSE",
@@ -27139,7 +28271,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cbbdde03cfa40b0cba5911661129b3dd0fdd9f497000821f163cd2c6b689e24a"
+            "source_sha256": "3603a08160d19461f001dba7a86234567db75dc60d937dea6e2f48289e2f5da7"
         },
         {
             "path": "web/src/modules/official-import-export/optional-runtime/LICENSE",
@@ -27478,6 +28610,20 @@
             "source_sha256": "8697fa98466d93efb5f5caa8f1f41a79231dc9a53ed5ba44a5a9236344605f37"
         },
         {
+            "path": "web/src/modules/official-member/generated/openapi.ts",
+            "target": "web/src/modules/official-member/generated/openapi.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "71c75aa38a6454eafa79e27a6d25147b20600956f7c24fc55fe90e08866e7de0"
+        },
+        {
             "path": "web/src/modules/official-member/package.json",
             "target": "web/src/modules/official-member/package.json",
             "classification": "managed",
@@ -27671,7 +28817,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e6d036ad1e077db1355a8cf6e112cbd755a3a22f5500e4744e7f6e0451235d51"
+            "source_sha256": "03b14e2cb469d99e96c86dd1cc8d3063953cc3932eb7c5ad9f91f3ed7d69bad2"
         },
         {
             "path": "web/src/modules/official-notification/optional-runtime/LICENSE",
@@ -27937,7 +29083,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d375249e67001032a94651d1b11ac59757625c9db48f87f74198b25e55147907"
+            "source_sha256": "4afc2ba6f32c31b861554fa79d2800d98fe92109a88b864066060af81fc985fd"
         },
         {
             "path": "web/src/modules/official-oauth/contribution.ts",
@@ -27952,6 +29098,20 @@
                 "full"
             ],
             "source_sha256": "3d407727ed028cbf79fcaece7e8ad8f0c0591cbee030952407bf78b40741ab61"
+        },
+        {
+            "path": "web/src/modules/official-oauth/generated/openapi.ts",
+            "target": "web/src/modules/official-oauth/generated/openapi.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0e4fd73061c7c38c9923fde9d7ff4a6094e72f3e631b06c18052a55327335118"
         },
         {
             "path": "web/src/modules/official-oauth/package.json",
@@ -27979,7 +29139,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8947545d0552176ee7da23bf97361570edf56c036208476f86e849601386f7e4"
+            "source_sha256": "9b27a32ba092b11c182771d61a7f7cbc96c9832c8a68fdb32989385734ae473a"
         },
         {
             "path": "web/src/modules/official-oauth/views/channel/OfficialAccountMenu.vue",
@@ -28106,6 +29266,20 @@
                 "full"
             ],
             "source_sha256": "ec981e8c4ee621d0c7b7426129389e4afe20ac1289c65c895361d4edfb1d6862"
+        },
+        {
+            "path": "web/src/modules/official-payment/generated/openapi.ts",
+            "target": "web/src/modules/official-payment/generated/openapi.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ab919740ba9b384148992389fbfaec96575f37ff20223dc45c649d85938f70ef"
         },
         {
             "path": "web/src/modules/official-payment/package.json",
@@ -28287,7 +29461,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3be68c529c6adee8bef06d075f7bd42b15e9ce3a54a89e967581f0ff3f4138de"
+            "source_sha256": "3e9e85a10286fc9158e19f4e2d26f7813edb9f99cb4f1f5809bf0a2ff4b966bb"
         },
         {
             "path": "web/src/modules/official-reference-codes/package.json",
@@ -28805,7 +29979,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "700737007ddd76e1f05a34212431aef551cf8fc35cbd8d9b27e233e67dc1ee60"
+            "source_sha256": "ab665182725c627599c5e88fcb0ee07cbea659fb889e3acc58fde24e60edb3f6"
         },
         {
             "path": "web/src/modules/official-task/optional-runtime/LICENSE",
@@ -29379,7 +30553,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c162be1f65cae31e8f39c366ab76d93064be0d7ad86ff18a50ea53eaa1a0cb8e"
+            "source_sha256": "857af621b3fdafc136c9fe0b85f0aac554b46d639dd7bdc2a632848a1082849d"
         },
         {
             "path": "web/src/store/modules/user/types.ts",
@@ -29799,7 +30973,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26f25a4c4ea5ebe1f14f62bc889ed9ee41b39fb36b8587aaa649300913fff61e"
+            "source_sha256": "ce424853d814dcaea09f206c322d6037d447a144f189cf37809e6cf94739f7e8"
         },
         {
             "path": "web/src/views/dev-tools/modules/index.vue",
@@ -29827,7 +31001,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "719e68eff9ba48345a4e0ee75c46519003a66a237ed1a992232a951a503574b8"
+            "source_sha256": "edbe9fa85c70ec25afe8ceff44076687492de4b93c07e58d9adc03f9cb16d4b7"
         },
         {
             "path": "web/src/views/installation/locale/en-US.ts",
@@ -29841,7 +31015,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c09c21e300618e08560a28f959235c7ecd5bae515820ff27b32300c0b5870d96"
+            "source_sha256": "6ef9b409cf18bd1a063a176bc1019a58f4f6fd2f1747e98fb395a8a1870624d0"
         },
         {
             "path": "web/src/views/installation/locale/zh-CN.ts",
@@ -29855,7 +31029,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4610e97d47e874643664326d9e7a1abb6577847cdf64e7847ce70090391ff8ac"
+            "source_sha256": "3435f82e35bc0ef5fd7cb09b63051810ef788526459669e9f367151560019922"
         },
         {
             "path": "web/src/views/login/components/banner.vue",
@@ -30443,7 +31617,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "20b3a3e93a5a42a4d712874b44efdd2e29dda502360352384fbe155bba82b5ef"
+            "source_sha256": "4539ba3ae5fa90eb6ce88adb3c707e5b34a2f2da2ce3bdf09e604a5aa7a0447a"
         },
         {
             "path": "web/tests/Productization/module-dev-discovery.test.mjs",
@@ -30512,7 +31686,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db89b0a7a1fd4c140c99097fbf1e68b130bbfc24372dae0a5bb6e6d66dc3e43e"
+            "source_sha256": "08ad13aa5dff3cfd920cbf151c8b0b3e6c8614a46c0130469faa5d7fbe258c23"
         },
         {
             "path": "web/tsconfig.json",

@@ -34,10 +34,10 @@ foreach ([
     );
 }
 expectChannelBindingTenant(
-    (new ReflectionMethod(
-        PeanutAdmin\Modules\Notification\Controller\NoticeChannelController::class,
-        'notifications',
-    ))->getReturnType()?->getName() === PeanutAdmin\Modules\Notification\Service\NotificationAdminApplicationService::class
+    (new ReflectionClass(PeanutAdmin\Modules\Notification\Controller\NoticeChannelController::class))
+        ->getProperty('notificationsClass')->getDefaultValue()
+        === PeanutAdmin\Modules\Notification\Service\NotificationAdminApplicationService::class
+        && str_contains($noticeController, '@property-read NotificationAdminApplicationService $notifications')
         && str_contains($noticeController, '$this->tenantAdminContext()')
         && str_contains($notificationApplication, '$this->executionContext->tenantAdmin()'),
     'notification application service drops the trusted Tenant context'

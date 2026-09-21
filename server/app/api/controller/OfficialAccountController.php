@@ -9,19 +9,19 @@ use app\common\http\RequestTrace;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Kernel\Module\ModuleException;
 
-/** 公众号协议适配：用例负责验签及执行范围，这里只保留 HTTP 输入和响应映射。 */
+/**
+ * 公众号协议适配：用例负责验签及执行范围，这里只保留 HTTP 输入和响应映射。
+ * @property-read OfficialAccountApplicationService $application 当前 App 中声明式解析的控制器依赖。
+ */
 class OfficialAccountController extends BaseApiController
 {
-    protected function application(): OfficialAccountApplicationService
-    {
-        return $this->app->make(OfficialAccountApplicationService::class);
-    }
+    protected string $applicationClass = OfficialAccountApplicationService::class;
 
     public function verify()
     {
         $params = $this->request->get();
         try {
-            $this->application()->verify((string)$this->request->route('binding'), $params, $this->operationId());
+            $this->application->verify((string)$this->request->route('binding'), $params, $this->operationId());
         } catch (ExternalTenantResolutionException|ModuleException) {
             return response('callback rejected', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
@@ -32,7 +32,7 @@ class OfficialAccountController extends BaseApiController
     {
         $params = $this->request->get();
         try {
-            $result = $this->application()->callback(
+            $result = $this->application->callback(
                 (string)$this->request->route('binding'), $params,
                 (string)$this->request->getContent(), $this->operationId(),
             );

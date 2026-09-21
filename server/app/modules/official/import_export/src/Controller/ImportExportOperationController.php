@@ -11,12 +11,10 @@ use PeanutAdmin\Modules\ImportExport\Service\ImportExportAdminApplicationService
 use think\Response;
 use think\response\Json;
 
+/** @property-read ImportExportAdminApplicationService $operations 当前 App 中声明式解析的控制器依赖。 */
 final class ImportExportOperationController extends BaseAdminController
 {
-    protected function operations(): ImportExportAdminApplicationService
-    {
-        return $this->app->make(ImportExportAdminApplicationService::class);
-    }
+    protected string $operationsClass = ImportExportAdminApplicationService::class;
 
     public function index(): Json
     {
@@ -24,7 +22,7 @@ final class ImportExportOperationController extends BaseAdminController
             $status = trim((string)$this->request->get('status', 'queued'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
-            $result = $this->operations()->operations(
+            $result = $this->operations->operations(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $status,
@@ -55,7 +53,7 @@ final class ImportExportOperationController extends BaseAdminController
             if (!is_array($mapping) || array_is_list($mapping)) {
                 throw ImportExportException::invalid();
             }
-            $operation = $this->operations()->submitImport(
+            $operation = $this->operations->submitImport(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 trim((string)$this->request->post('provider_key', '')),
@@ -72,7 +70,7 @@ final class ImportExportOperationController extends BaseAdminController
     public function submitExport(): Json
     {
         try {
-            $operation = $this->operations()->submitExport(
+            $operation = $this->operations->submitExport(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 trim((string)$this->request->post('provider_key', '')),
@@ -87,7 +85,7 @@ final class ImportExportOperationController extends BaseAdminController
     public function cancel(string $operationKey): Json
     {
         try {
-            $operation = $this->operations()->cancel(
+            $operation = $this->operations->cancel(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $operationKey,
@@ -102,7 +100,7 @@ final class ImportExportOperationController extends BaseAdminController
     public function download(string $fileKey): Response
     {
         try {
-            $file = $this->operations()->download(
+            $file = $this->operations->download(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $fileKey,

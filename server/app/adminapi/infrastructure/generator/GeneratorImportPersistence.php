@@ -43,7 +43,9 @@ final readonly class GeneratorImportPersistence
                     'data_owner' => null,
                     'target_edition' => null,
                     'author' => '',
-                    'tree_config' => [],
+                    'tree_config' => [
+                        'soft_delete' => ['enabled' => false, 'field' => ''],
+                    ],
                     'relations' => [],
                 ],
                 $definitions,

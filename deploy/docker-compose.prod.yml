@@ -20,6 +20,27 @@ x-build-hosts: &build-hosts
   - "host.docker.internal:host-gateway"
 
 services:
+  pc:
+    image: ${PC_IMAGE:-peanut-admin-pc:production}
+    build:
+      context: ..
+      dockerfile: deploy/docker/production.Dockerfile
+      target: pc
+      args: *build-proxy
+      extra_hosts: *build-hosts
+    restart: unless-stopped
+    environment:
+      NUXT_UPSTREAM_ORIGIN: http://nginx
+      NUXT_FORWARDED_PROTO: ${PEANUT_PUBLIC_SCHEME:-http}
+      NUXT_TRUSTED_HOSTS: ${PEANUT_TRUSTED_HOSTS:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/pc/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    logging: *default-logging
+
   php:
     image: ${PHP_IMAGE:-peanut-admin-php:production}
     build:
@@ -67,6 +88,8 @@ services:
       - php-storage:/var/www/peanut-admin/server/public/storage:ro
     depends_on:
       php:
+        condition: service_healthy
+      pc:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -Y off -q -O /dev/null http://127.0.0.1/healthz || exit 1"]

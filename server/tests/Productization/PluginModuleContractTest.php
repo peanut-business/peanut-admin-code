@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use app\platform\service\module\OpisManifestSchemaValidator;
-use app\platform\service\module\ReflectionContractInspector;
-use app\platform\service\module\StrictVersionConstraintMatcher;
+use app\platform\validation\module\OpisManifestSchemaValidator;
+use app\platform\validation\module\ReflectionContractInspector;
+use app\platform\validation\module\StrictVersionConstraintMatcher;
 use PeanutAdmin\Modules\Identity\DataPermission\Persistence\Schema\DataPermissionSchema;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
 use PeanutAdmin\Kernel\Idempotency\IdempotencySchema;
@@ -13,10 +13,10 @@ use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ModuleBoundaryChecker;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleRegistryCompiler;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use app\common\composition\ModuleComposition;
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use PeanutAdmin\Modules\Article\Service\ArticleQueryService;
@@ -145,25 +145,46 @@ $moduleRoot = $serverRoot . '/app/modules/fixture/delivery_record';
 $officialModuleRoots = glob($serverRoot . '/app/modules/official/*', GLOB_ONLYDIR) ?: [];
 sort($officialModuleRoots, SORT_STRING);
 $moduleRoots = [$moduleRoot, ...$officialModuleRoots];
-$layout = new ModuleHostLayout('server/app/modules', 'app\modules', 'web/src/modules');
+$moduleRootsByKey = [];
+foreach ($moduleRoots as $root) {
+    $document = json_decode((string)file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
+    $moduleRootsByKey[(string)$document['key']] = $root;
+}
+$layout = ModuleHostLayoutFactory::fromModuleRoots($moduleRootsByKey);
+$frontendComponents = [];
+foreach ($moduleRoots as $root) {
+    $document = json_decode((string)file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
+    $menus = $document['backend']['menus'] ?? null;
+    if (!is_string($menus) || !is_file($root . '/' . $menus)) {
+        continue;
+    }
+    foreach (json_decode((string)file_get_contents($root . '/' . $menus), true, 32, JSON_THROW_ON_ERROR) as $menu) {
+        if (($menu['type'] ?? null) === 'page' && is_string($menu['component_key'] ?? null)) {
+            $frontendComponents[] = $menu['component_key'];
+        }
+    }
+}
+$frontendComponents = array_values(array_unique($frontendComponents));
+sort($frontendComponents, SORT_STRING);
+$historicalTableOwners = [];
+foreach (['official.identity', 'official.ops'] as $protectedKey) {
+    $protected = json_decode(
+        (string)file_get_contents($moduleRootsByKey[$protectedKey] . '/module.json'),
+        true,
+        32,
+        JSON_THROW_ON_ERROR,
+    );
+    foreach ($protected['database']['owned_tables'] as $table) {
+        $historicalTableOwners[$table] = $protectedKey;
+    }
+}
 $kernelRoot = dirname((new ReflectionClass(\PeanutAdmin\Kernel\Module\ModuleProvider::class))->getFileName(), 3);
 $compiler = new ModuleRegistryCompiler(
     new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
     new StrictVersionConstraintMatcher(),
     new ReflectionContractInspector(),
     '1.0.0',
-    [
-        'fixture.delivery-record.list',
-        'official.article.cate', 'official.article.list',
-        'official.file.library',
-        'official.import-export.configuration',
-        'official.notification.channel', 'official.notification.template', 'official.notification.log',
-        'official.oauth.channel',
-        'official.payment.settings', 'official.payment.recharge', 'official.payment.refund',
-        'official.member.list', 'official.member.tag', 'official.member.account-log',
-        'official.rich-text.documents',
-        'official.task.schedules',
-    ],
+    $frontendComponents,
     $layout,
     [
         ...KernelSchema::tableNames(),
@@ -173,7 +194,8 @@ $compiler = new ModuleRegistryCompiler(
         ...DataPermissionSchema::tableNames(),
     ],
     ['admin-web', 'platform-web'],
-        [...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM],
+    [...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM],
+    $historicalTableOwners,
 );
 
 $loader = new ManifestLoader();
@@ -210,6 +232,7 @@ pluginModuleContractExpect(
 $officialAutowireTargets = [
     \PeanutAdmin\Modules\Article\Contract\PublicArticleQueries::class => \PeanutAdmin\Modules\Article\Service\PublicArticleService::class,
     \PeanutAdmin\Modules\Article\Contract\ArticleAdministration::class => \PeanutAdmin\Modules\Article\Service\ArticleAdministrationService::class,
+    \PeanutAdmin\Modules\Article\Contract\ArticleCategoryAdministration::class => \PeanutAdmin\Modules\Article\Service\ArticleCategoryAdministrationService::class,
     \PeanutAdmin\Modules\File\Contract\FileAdministration::class => \PeanutAdmin\Modules\File\Service\FileAdministrationService::class,
     \PeanutAdmin\Modules\File\Contract\FileUploads::class => \PeanutAdmin\Modules\File\Service\FileUploadService::class,
     \PeanutAdmin\Modules\Member\Contract\MemberQueries::class => \PeanutAdmin\Modules\Member\Service\MemberQueryService::class,

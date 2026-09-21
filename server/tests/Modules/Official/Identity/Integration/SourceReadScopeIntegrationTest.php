@@ -29,11 +29,12 @@ use think\db\Query;
 use think\db\Raw;
 use think\facade\Db;
 
+require_once dirname(__DIR__, 4) . '/Support/ThinkPhpTestConnection.php';
+require_once dirname(__DIR__, 4) . '/Support/RegisteredMysqlTestResource.php';
+
 final class SourceReadScopeIntegrationTest extends TestCase
 {
-    private const DATABASE = 'peanut_admin_scope_a1_iam_r4';
-
-    private PDO $admin;
+    private bool $createdDatabase = false;
     private PDO $database;
     private CompiledModuleRegistry $modules;
 
@@ -42,23 +43,9 @@ final class SourceReadScopeIntegrationTest extends TestCase
         if (getenv('PEANUT_INTEGRATION') !== '1') {
             self::markTestSkipped('Run with the registered A1 IAM integration database.');
         }
-        $host = getenv('DB_HOST') ?: '127.0.0.1';
-        $port = (int)(getenv('MYSQL_PORT') ?: getenv('DB_PORT') ?: 3306);
-        $user = getenv('DB_USER') ?: 'root';
-        $password = getenv('DB_PASS') ?: '';
-        $this->admin = new PDO(
-            "mysql:host={$host};port={$port};charset=utf8mb4",
-            $user,
-            $password,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => true],
-        );
-        $this->admin->exec('DROP DATABASE IF EXISTS `' . $this->testDatabase() . '`');
-        $this->admin->exec('CREATE DATABASE `' . $this->testDatabase() . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci');
-        $this->database = new PDO(
-            "mysql:host={$host};port={$port};dbname=" . $this->testDatabase() . ';charset=utf8mb4',
-            $user,
-            $password,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => true],
+        // 必须先核验登记端点、精确库名、当前候选和租约；已有非空库绝不清空。
+        [$this->database, $this->createdDatabase] = \RegisteredMysqlTestResource::openEmptyDatabase(
+            $this->testDatabase(),
         );
         $serverRoot = dirname(__DIR__, 5);
         $app = new App($serverRoot);
@@ -113,8 +100,9 @@ SQL);
 
     protected function tearDown(): void
     {
-        if (isset($this->admin)) {
-            $this->admin->exec('DROP DATABASE IF EXISTS `' . $this->testDatabase() . '`');
+        if (isset($this->database)) {
+            \RegisteredMysqlTestResource::cleanup($this->database, $this->testDatabase(), $this->createdDatabase);
+            unset($this->database);
         }
     }
 
@@ -252,11 +240,12 @@ SQL);
         );
     }
 
-    /** 测试只连接调用方独占的合成数据库；可覆盖名称，避免占用另一个任务的租约。 */
+    /** 精确采用已登记且由本任务持有的库；旧显式参数不得指向另一数据库。 */
     private function testDatabase(): string
     {
-        $name = getenv('PEANUT_SCOPE_TEST_DATABASE') ?: self::DATABASE;
-        if (preg_match('/^peanut_admin_scope_[a-z0-9_]{1,40}$/D', $name) !== 1) {
+        $name = \RegisteredMysqlTestResource::configuredDatabaseName();
+        $selected = getenv('PEANUT_SCOPE_TEST_DATABASE');
+        if ($selected !== false && $selected !== '' && !hash_equals($name, $selected)) {
             throw new \RuntimeException('SOURCE_READ_TEST_DATABASE_INVALID');
         }
         return $name;
@@ -273,7 +262,7 @@ SQL);
         // 这一组只替换模块状态来源，实际授权存储、租户、权限、SQL 和撤销仍用真实 MySQL。
         $moduleCalls = [];
         $modules = $this->createMock(\PeanutAdmin\Kernel\Module\ModuleAvailability::class);
-        $modules->expects(self::any())->method('assertAvailable')->willReturnCallback(
+        $modules->expects(self::atLeastOnce())->method('assertAvailable')->willReturnCallback(
             function ($scope, $moduleKey) use (&$moduleCalls): void {
                 $moduleCalls[] = [$scope->tenantId(), $moduleKey];
                 $expected = $scope->tenantId() === 101 ? 'official.summary' : 'official.inventory';

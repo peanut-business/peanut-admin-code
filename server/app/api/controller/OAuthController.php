@@ -8,19 +8,19 @@ use app\api\validate\OAuthValidate;
 use app\common\http\RequestTrace;
 use PeanutAdmin\Modules\OAuth\Service\OAuthBrowserCallbackService;
 
-/** OAuth HTTP 适配：解析输入及映射响应，用例负责可信绑定和模块调用。 */
+/**
+ * OAuth HTTP 适配：解析输入及映射响应，用例负责可信绑定和模块调用。
+ * @property-read OAuthApplicationService $application 当前 App 中声明式解析的控制器依赖。
+ */
 class OAuthController extends BaseApiController
 {
-    protected function application(): OAuthApplicationService
-    {
-        return $this->app->make(OAuthApplicationService::class);
-    }
+    protected string $applicationClass = OAuthApplicationService::class;
 
     public function begin()
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.begin');
-        return $this->data($this->application()->begin($params, (string)$this->request->domain(), $this->operationId()));
+        return $this->data($this->application->begin($params, (string)$this->request->domain(), $this->operationId()));
     }
 
     public function redirectPc()
@@ -37,28 +37,28 @@ class OAuthController extends BaseApiController
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.callback');
-        return $this->data($this->application()->callback($params, $this->request->ip(), $this->operationId()));
+        return $this->data($this->application->callback($params, $this->request->ip(), $this->operationId()));
     }
 
     public function miniProgram()
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.mnp');
-        return $this->data($this->application()->miniProgram($params, $this->request->ip(), $this->operationId()));
+        return $this->data($this->application->miniProgram($params, $this->request->ip(), $this->operationId()));
     }
 
     public function complete()
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.complete');
-        return $this->data($this->application()->complete($params, $this->request->ip(), $this->operationId()));
+        return $this->data($this->application->complete($params, $this->request->ip(), $this->operationId()));
     }
 
     public function bind()
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.bind');
-        $this->application()->bind($this->memberContext(), (string)$params['scene'], (string)$params['code']);
+        $this->application->bind($this->memberContext(), (string)$params['scene'], (string)$params['code']);
         return $this->success('绑定成功');
     }
 

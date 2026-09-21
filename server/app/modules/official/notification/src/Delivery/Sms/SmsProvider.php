@@ -8,6 +8,10 @@ interface SmsProvider
 {
     public function key(): string;
 
-    /** The provider must deduplicate retries by SmsSendRequest::idempotencyKey(). */
+    /**
+     * The provider must deduplicate retries by SmsSendRequest::idempotencyKey().
+     * Timeouts with an uncertain remote result must remain retryable/unknown;
+     * callers reconcile the returned receipt using that same key.
+     */
     public function send(SmsSendRequest $request): SmsReceipt;
 }

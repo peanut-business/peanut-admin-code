@@ -9,16 +9,14 @@ use app\common\traits\CrudTrait;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\response\Json;
 
+/** @property-read JobsApplicationService $jobs 当前 App 中声明式解析的控制器依赖。 */
 class JobsController extends BaseAdminController
 {
     use CrudTrait;
 
     protected const CRUD_STATUS_FIELD = 'status';
 
-    protected function jobs(): JobsApplicationService
-    {
-        return $this->app->make(JobsApplicationService::class);
-    }
+    protected string $jobsClass = JobsApplicationService::class;
 
     protected function resolveCrudContext(): TenantContext
     {
@@ -27,13 +25,13 @@ class JobsController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->jobs();
+        return $this->jobs;
     }
 
     protected function validatedInput(mixed $_context, string $scene, array $params): array
     {
-        $params = $this->jobs()->normalizeInput($params);
-        $rules = $this->jobs()->validationRules($scene);
+        $params = $this->jobs->normalizeInput($params);
+        $rules = $this->jobs->validationRules($scene);
         if (in_array($scene, ['detail', 'delete'], true)) {
             $rules = ['id' => $rules['id'] ?? 'require|integer|gt:0'];
         } elseif ($scene === 'status') {
@@ -53,6 +51,6 @@ class JobsController extends BaseAdminController
 
     public function all()
     {
-        return $this->data($this->jobs()->all($this->resolveCrudContext()));
+        return $this->data($this->jobs->all($this->resolveCrudContext()));
     }
 }

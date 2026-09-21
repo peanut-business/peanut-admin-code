@@ -6,6 +6,7 @@ namespace app\command;
 use app\platform\exception\plugin\PluginArtifactToolException;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\common\execution\ContextualCommand;
+use app\common\validation\instance\InstanceToolAccessGuard;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
@@ -22,6 +23,7 @@ final class PluginLock extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
+            $this->assertSourceAuthoringAccess();
             $write = (bool)$input->getOption('write');
             $check = (bool)$input->getOption('check');
             if ($write === $check) throw new PluginArtifactToolException('Specify exactly one of --write or --check.');
@@ -32,6 +34,21 @@ final class PluginLock extends ContextualCommand
         } catch (PluginArtifactToolException $exception) {
             $output->writeln((string)json_encode(['error' => $exception->getMessage()], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             return 1;
+        }
+    }
+
+    private function assertSourceAuthoringAccess(): void
+    {
+        $app = $this->getApp();
+        if (!InstanceToolAccessGuard::fromConfiguredValue($app->config->get('deployment.mode'))
+            ->allowsCliDevelopmentMaintenance(
+                $app->config->get('peanut.environment'),
+                $app->isDebug(),
+                $this->executionContext(),
+                $this->getName(),
+                $this->establishedInstanceContext(),
+            )) {
+            throw new PluginArtifactToolException('Plugin source authoring requires a development/debug CLI command.');
         }
     }
 }

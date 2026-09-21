@@ -140,7 +140,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns a Tenant-safe, read-only projection of first-run readiness. Configured values are not promoted to external connectivity or production qualification, and infrastructure details are omitted. */
+        /** @description 只读返回当前 Tenant 的首次运行清单；配置值不等同外部连通或生产资格。 */
         get: operations["getFirstRunReadinessChecklist"];
         put?: never;
         post?: never;
@@ -208,8 +208,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns the fixed backup Provider, the latest verified path-free manifest projection, and at most 20 recent backup tasks. */
-        get: operations["getPlatformBackupCenter"];
+        get: operations["listPlatformBackups"];
         put?: never;
         post?: never;
         delete?: never;
@@ -225,7 +224,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns the read-only source/target, migration, Module, scaffold, backup, restore-evidence and maintenance-window projection. The target is accepted only from the fixed deployment-staged bundle; the request cannot supply a path, URL, command, release key, or credential. */
         get: operations["getPlatformUpgradeReadiness"];
         put?: never;
         post?: never;
@@ -242,8 +240,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns at most ten application upgrade tasks with immutable source and target identities, ordered step status, stop code and recovery pointer. */
-        get: operations["getPlatformUpgradeExecutions"];
+        get: operations["listPlatformUpgrades"];
         put?: never;
         post?: never;
         delete?: never;
@@ -259,8 +256,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns at most ten deployment-owned Module operation tasks with their immutable Package identity, ordered step status, stable stop code and path-free recovery pointer. */
-        get: operations["getPlatformModuleOperations"];
+        get: operations["listPlatformModuleOperations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -276,8 +272,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns a secret-free, read-only aggregation of configured, connectivity, callback, credential-rotation, production qualification and recent failure states. Reading this endpoint never runs a probe, sends a message, or performs a financial operation. */
-        get: operations["getPlatformProviderQualifications"];
+        get: operations["getPlatformOpsProviders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -293,10 +288,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Returns the current scheduled or active maintenance window. */
-        get: operations["getPlatformMaintenanceWindow"];
-        /** @description Schedules the sole maintenance window. Once its time range is active, all HTTP mutation routes except the two maintenance-control routes are rejected and audited. */
-        put: operations["schedulePlatformMaintenanceWindow"];
+        get: operations["getPlatformMaintenance"];
+        put: operations["schedulePlatformMaintenance"];
         post?: never;
         delete?: never;
         options?: never;
@@ -313,8 +306,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Closes the current maintenance window and restores normal HTTP mutation handling. */
-        post: operations["closePlatformMaintenanceWindow"];
+        post: operations["closePlatformMaintenance"];
         delete?: never;
         options?: never;
         head?: never;
@@ -330,7 +322,6 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Submits the single registered paired DB/files backup. Host, database, path, command, credential and retry fields are not accepted. */
         post: operations["submitPlatformBackup"];
         delete?: never;
         options?: never;
@@ -347,8 +338,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Restores one verified paired backup to the registered isolated target, verifies data and files, then removes only that target. Host, database, path, command, credential and retry fields are not accepted. */
-        post: operations["submitPlatformRestoreVerification"];
+        post: operations["submitPlatformRestore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -364,8 +354,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Submits the sole fixed application-upgrade workflow. Source and target identities come from current Runtime plus the deployment-staged PC41 descriptor. The request cannot provide a path, URL, command, Release, image, credential, retry count or deployment target. */
-        post: operations["submitPlatformUpgradeExecution"];
+        post: operations["submitPlatformUpgrade"];
         delete?: never;
         options?: never;
         head?: never;
@@ -381,7 +370,6 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Submits one deployment-prepared Module update, retire or Purge request by opaque request key. The request cannot provide an archive, path, URL, command, host, database, credential, confirmation plan or target. */
         post: operations["submitPlatformModuleOperation"];
         delete?: never;
         options?: never;
@@ -405,6 +393,2765 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/index/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApplicationHome"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/index/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApplicationPublicConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/index/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getApplicationPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/login/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logoutMemberSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/article/cate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPublicArticleCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search/hotLists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPublicHotSearches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decoration/mobile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicMobileDecorationPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decoration/tabbar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getVisibleDecorationTabbar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/decoration/pc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicPcDecorationPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pc/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPcPublicConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pc/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPcHome"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pc/infoCenter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPcInformationCenter"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pc/articleDetail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPcArticleDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/article/addCollect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addArticleCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/article/cancelCollect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelArticleCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/article/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listArticleCollections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/user/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/user/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["getAdminSessionInfo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/user/menu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["getAdminSessionMenu"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/login/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminLoginInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/tenant/session/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["tenantSessionLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/tenant/session/switch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createTenantSwitchChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/tenant/session/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refreshTenantSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/tenant/session/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logoutTenantSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/tenant/owner-invitations/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["inspectTenantOwnerInvitation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/tenant/owner-invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acceptTenantOwnerInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAdministrators"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdministrator"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/self": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCurrentAdministrator"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/editSelf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateCurrentAdministrator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdministrator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateAdministrator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteAdministrator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/admin/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setAdministratorStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdministratorMenuRoute"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAdminMenus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAssignableAdminMenus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminMenu"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdminMenu"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateAdminMenu"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteAdminMenu"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/menu/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setAdminMenuStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAdminRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAllAdminRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRole"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAdminRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateAdminRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveAdminRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDepartments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listActiveDepartments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/leaderDept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDepartmentLeaderOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDepartment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveDepartment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dept/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setDepartmentStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/jobs/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/jobs/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listActiveJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/jobs/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/jobs/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/jobs/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/jobs/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/jobs/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setJobStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/website": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWebsiteConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/website/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveWebsiteConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/agreement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAgreementConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/agreement/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveAgreementConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/statistics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getStatisticsConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/statistics/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveStatisticsConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMemberProfileConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/user/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveMemberProfileConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getLoginConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/login/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveLoginConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/copyright": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCopyrightConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/config/copyright/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveCopyrightConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/mobile/page/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMobileDecorationPages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/mobile/page/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMobileDecorationPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/mobile/page/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveMobileDecorationPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/pc/page/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPcDecorationPages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/pc/page/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPcDecorationPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/pc/page/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["savePcDecorationPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/mobile/article": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDecorationArticleOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/tabbar/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDecorationTabbar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/decoration/tabbar/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveDecorationTabbar"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/source-tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeneratorSourceTables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeneratorImports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGeneratorImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importGeneratorTables"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["syncGeneratorImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateGeneratorImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteGeneratorImports"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewGeneratorImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["generateApplicationCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadGeneratedApplicationCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/generator/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeneratorModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/log/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listOperationLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/log/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["clearOperationLogs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/setting/hot-search/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getHotSearchConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/setting/hot-search/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveHotSearchConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/setting/transaction/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTransactionConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/setting/transaction/save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveTransactionConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/system/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSystemInformation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/system/clearCache": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["clearSystemCache"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/workbench/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminWorkbench"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/session/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["platformSessionLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/session/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["platformSessionRefresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/session/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["platformSessionLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/session/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformSessionInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformTenantCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformTenants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformTenant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["activatePlatformTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["suspendPlatformTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["closePlatformTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/operators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformOperators"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformPermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformTenantModules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformTenantOwner"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/operators/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createPlatformOperator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/operators/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updatePlatformOperator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/operators/roles/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["replacePlatformOperatorRoles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/operators/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["activatePlatformOperator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/operators/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["suspendPlatformOperator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/operators/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["closePlatformOperator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/roles/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createPlatformRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/roles/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updatePlatformRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/roles/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archivePlatformRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/roles/permissions/replace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["replacePlatformRolePermissions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/provision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["provisionPlatformTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformTenantInvitations"];
+        put?: never;
+        post: operations["invitePlatformTenantOwner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/invitations/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resendPlatformTenantInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/invitations/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokePlatformTenantInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenant-entry-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformTenantEntryBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenant-entry-bindings/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enablePlatformTenantEntryBinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenant-entry-bindings/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disablePlatformTenantEntryBinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/modules/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enablePlatformTenantModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/tenants/modules/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disablePlatformTenantModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listInstanceModules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["installInstanceModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createInstanceModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disableInstanceModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["syncInstanceModuleCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/instance-tools/modules/uninstall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uninstallInstanceModule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/developer-center/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformDeveloperCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/v1/ops/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformOpsStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/v1/ops/diagnostics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadPlatformDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 只读安装状态与 preflight；不会执行数据库安装。 */
+        get: operations["getInstallationStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 仅同源 guided 安装；Authorization Bearer 是一次性部署 setup token，不是 Platform/Tenant 会话。 */
+        post: operations["executeGuidedInstallation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询资讯分类 */
+        get: operations["listArticleCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询全部启用资讯分类 */
+        get: operations["listEnabledArticleCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询资讯分类详情 */
+        get: operations["getArticleCategory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建资讯分类 */
+        post: operations["createArticleCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新资讯分类 */
+        post: operations["updateArticleCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 软删除资讯分类 */
+        post: operations["deleteArticleCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.update-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新资讯分类启用状态 */
+        post: operations["updateArticleCategoryStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.recycle.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询已删除资讯分类 */
+        get: operations["listRecycledArticleCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.recycle.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询已删除资讯分类详情 */
+        get: operations["getRecycledArticleCategory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 恢复已删除资讯分类 */
+        post: operations["restoreArticleCategories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.category.force-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 永久删除资讯分类 */
+        post: operations["forceDeleteArticleCategories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询资讯 */
+        get: operations["listAdminArticles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询资讯详情 */
+        get: operations["getAdminArticle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建资讯 */
+        post: operations["createArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新资讯 */
+        post: operations["updateArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 软删除资讯 */
+        post: operations["deleteArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.update-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新资讯展示状态 */
+        post: operations["updateArticleStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.recycle.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询已删除资讯 */
+        get: operations["listRecycledArticles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.recycle.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询已删除资讯详情 */
+        get: operations["getRecycledArticle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 恢复已删除资讯 */
+        post: operations["restoreArticles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.force-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 永久删除资讯 */
+        post: operations["forceDeleteArticles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/api/v1/files/assets": {
         parameters: {
             query?: never;
@@ -413,6 +3160,214 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listFileAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.upload.image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadAdminImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.upload.video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadAdminVideo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/upload/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadMemberImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["moveFiles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.rename": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["renameFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteFiles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.category.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listFileCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.category.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createFileCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.category.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateFileCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.category.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteFileCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.import-export.operation-log.export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitOperationLogExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.import-export.operation.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getLegacyImportExportOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.import-export.result.download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["downloadLegacyImportExportResult"];
         put?: never;
         post?: never;
         delete?: never;
@@ -661,6 +3616,492 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/official.member.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员列表或导出结果 */
+        get: operations["listAdminMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员详情 */
+        get: operations["getAdminMember"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建会员 */
+        post: operations["createAdminMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新会员字段 */
+        post: operations["updateAdminMemberField"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.update-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新会员状态 */
+        post: operations["updateAdminMemberStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.balance.adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 调整会员余额 */
+        post: operations["adjustAdminMemberBalance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.tag.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建会员标签 */
+        post: operations["createMemberTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.tag.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员标签 */
+        get: operations["listMemberTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.tag.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新会员标签 */
+        post: operations["updateMemberTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.tag.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 删除会员标签 */
+        post: operations["deleteMemberTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.account-log.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员余额流水 */
+        get: operations["listAdminMemberBalanceLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.member.account-log.change-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员余额变动类型 */
+        get: operations["getMemberBalanceChangeTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/login/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 注册会员账号 */
+        post: operations["registerMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/login/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 会员账号密码登录 */
+        post: operations["loginMemberWithAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/login/mobile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 会员手机验证码登录 */
+        post: operations["loginMemberWithMobileCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/login/resetPassword": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 通过手机验证码重置会员密码 */
+        post: operations["resetMemberPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/center": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员中心 */
+        get: operations["getMemberCenter"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员资料 */
+        get: operations["getMemberProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/setInfo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新会员本人资料字段 */
+        post: operations["updateMemberProfileField"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/changePassword": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 修改会员密码 */
+        post: operations["changeMemberPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/user/bindMobile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 绑定或变更会员手机 */
+        post: operations["bindMemberMobile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/account_log/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询当前会员余额流水 */
+        get: operations["listCurrentMemberBalanceLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.notification.channel.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNotificationChannelConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.notification.channel.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveNotificationChannelConfiguration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.notification.scene.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listNotificationScenes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.notification.scene.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNotificationScene"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.notification.scene.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveNotificationScene"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.notification.log.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listNotificationLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.notification.log.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNotificationLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -703,6 +4144,957 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["bulkUpdateInboxNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.web-page.config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询 H5 网页渠道配置 */
+        get: operations["getOAuthWebPageConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.web-page.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存 H5 网页渠道配置 */
+        post: operations["replaceOAuthWebPageConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.mini-program.config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询微信小程序配置 */
+        get: operations["getOAuthMiniProgramConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.mini-program.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存微信小程序配置 */
+        post: operations["replaceOAuthMiniProgramConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询微信公众号配置 */
+        get: operations["getOAuthOfficialAccountConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存微信公众号配置 */
+        post: operations["replaceOAuthOfficialAccountConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.menu.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询微信公众号菜单 */
+        get: operations["getOAuthOfficialAccountMenu"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.menu.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存微信公众号菜单 */
+        post: operations["saveOAuthOfficialAccountMenu"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.menu.publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存并发布微信公众号菜单 */
+        post: operations["publishOAuthOfficialAccountMenu"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.reply.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询微信公众号自动回复 */
+        get: operations["listOAuthOfficialAccountReplies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.reply.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询微信公众号自动回复详情 */
+        get: operations["getOAuthOfficialAccountReply"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.reply.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建微信公众号自动回复 */
+        post: operations["createOAuthOfficialAccountReply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.reply.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新微信公众号自动回复 */
+        post: operations["updateOAuthOfficialAccountReply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.reply.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 删除微信公众号自动回复 */
+        post: operations["deleteOAuthOfficialAccountReply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.official-account.reply.update-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 更新微信公众号自动回复状态 */
+        post: operations["updateOAuthOfficialAccountReplyStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.open-platform.config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询微信开放平台配置 */
+        get: operations["getOAuthOpenPlatformConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.oauth.open-platform.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存微信开放平台配置 */
+        post: operations["replaceOAuthOpenPlatformConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/wechat/begin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 发起微信浏览器授权 */
+        post: operations["beginWechatOAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/wechat/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 处理微信浏览器授权回调 */
+        post: operations["completeWechatOAuthCallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/wechat/mini-program": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 微信小程序登录 */
+        post: operations["loginWithWechatMiniProgram"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/wechat/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 补全微信登录资料 */
+        post: operations["completeWechatOAuthProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/wechat/redirect/pc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 重定向微信授权结果到 PC 客户端 */
+        get: operations["redirectWechatOAuthToPc"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/wechat/redirect/official-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 重定向微信授权结果到公众号 H5 客户端 */
+        get: operations["redirectWechatOAuthToOfficialAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/oauth/wechat/bind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 绑定当前会员的微信身份 */
+        post: operations["bindWechatIdentity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wechat/official-account/callback/{binding}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 验证微信公众号回调地址 */
+        get: operations["verifyWechatOfficialAccountCallback"];
+        put?: never;
+        /** 接收微信公众号明文消息 */
+        post: operations["receiveWechatOfficialAccountMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.settings.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询支付渠道配置 */
+        get: operations["getPaymentSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.settings.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存支付渠道配置 */
+        post: operations["savePaymentSettings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.recharge-settings.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询充值配置 */
+        get: operations["getPaymentRechargeSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.recharge-settings.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 保存充值配置 */
+        post: operations["savePaymentRechargeSettings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.recharge.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询充值订单 */
+        get: operations["listPaymentRecharges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.recharge.refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 发起充值退款
+         * @description 渠道明确成功时退款记录进入成功；渠道明确失败时接口返回错误。若 gateway 报告 ERROR_RESULT_UNKNOWN，现实现保留 refund_status=0（退款中）并等待 refund:reconcile 收敛，但本接口仍返回成功消息；该消息不表示退款资金已到达终态。
+         */
+        post: operations["refundPaymentRecharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.refund.retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 重试失败退款
+         * @description 重试会先把失败记录恢复为 refund_status=0（退款中）。若 gateway 报告 ERROR_RESULT_UNKNOWN，记录继续保持退款中并等待 refund:reconcile 收敛，但本接口仍返回成功消息；该消息不表示退款资金已到达终态。
+         */
+        post: operations["retryPaymentRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.refund.stat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询退款统计 */
+        get: operations["getPaymentRefundStatistics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.refund.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询退款记录 */
+        get: operations["listPaymentRefunds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.payment.refund.log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询退款操作日志 */
+        get: operations["listPaymentRefundLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payment/notify/wechat/{binding}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 接收微信支付回调
+         * @description 先用原始请求体和 Wechatpay-* 签名头完成绑定解析、验签和解密；仅 success 事件入账。已验签的 failed/pending（含未知渠道状态）不入账，但同样返回渠道确认。
+         */
+        post: operations["receiveWechatPaymentCallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payment/notify/alipay/{binding}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 接收支付宝支付回调
+         * @description 按 application/x-www-form-urlencoded 表单原值进行 RSA2 验签和绑定解析；仅 success 事件入账。已验签的 failed/pending（含未知渠道状态）不入账，但同样返回 success 文本。
+         */
+        post: operations["receiveAlipayPaymentCallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recharge/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询会员充值配置 */
+        get: operations["getMemberRechargeConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recharge/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建会员充值订单 */
+        post: operations["createMemberRecharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recharge/prepay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 创建充值预支付参数 */
+        post: operations["prepayMemberRecharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recharge/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询本人充值订单 */
+        get: operations["getMemberRecharge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recharge/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 查询本人充值订单列表 */
+        get: operations["listMemberRecharges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/type/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listLegacyDictionaryTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/type/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEnabledLegacyDictionaryTypes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/type/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getLegacyDictionaryType"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/type/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createLegacyDictionaryType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/type/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateLegacyDictionaryType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/type/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteLegacyDictionaryType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/type/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setLegacyDictionaryTypeStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/data/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listLegacyDictionaryEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/data/byType": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listLegacyDictionaryEntriesByType"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/data/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getLegacyDictionaryEntry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/data/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createLegacyDictionaryEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/data/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateLegacyDictionaryEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/data/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteLegacyDictionaryEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/dict/data/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["setLegacyDictionaryEntryStatus"];
         delete?: never;
         options?: never;
         head?: never;
@@ -832,6 +5224,118 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["retryTaskJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.task.expression": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["previewCrontabExpression"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.task.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCrontabs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.task.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getCrontab"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.task.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createCrontab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.task.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["updateCrontab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.task.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deleteCrontab"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.task.operate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["operateCrontab"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1033,6 +5537,24 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /**
+         * @example {
+         *       "code": 40300,
+         *       "msg": "无权执行该操作",
+         *       "data": {
+         *         "error_code": "API_PERMISSION_DENIED"
+         *       }
+         *     }
+         */
+        ErrorEnvelope: {
+            code: number;
+            msg: string;
+            data: ({
+                error_code?: string;
+            } & {
+                [key: string]: unknown;
+            }) | null;
+        };
         ApiResponse: {
             code?: number;
             show?: boolean;
@@ -1047,6 +5569,1560 @@ export interface components {
         } | (string | number | boolean | {
             [key: string]: unknown;
         })[]) | null;
+        /** @description 受业务定义约束的 JSON 值；对象的每个扩展值仍必须是该明确递归类型。 */
+        ApplicationDynamicValue: (string | number | boolean | components["schemas"]["ApplicationDynamicValue"][] | {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        }) | null;
+        PositiveIntegerId: number;
+        NumericStringId: string;
+        NullableNumericStringId: string | null;
+        UtcInstant: string;
+        NullableUtcInstant: string | null;
+        ExportPageInfo: {
+            count: number;
+            page_size: number;
+            sum_page: number;
+            max_page: number;
+            all_max_size: number;
+            page_start: number;
+            page_end: number;
+            file_name: string;
+        };
+        ExportFile: {
+            url: string;
+            file_name: string;
+        };
+        StringList: string[];
+        IntegerList: number[];
+        ApplicationFlexibleTime: number | string;
+        ApplicationDynamicObject: {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        ApplicationArticleCategory: {
+            id: number;
+            name: string;
+        };
+        ApplicationArticleListItem: {
+            id: number;
+            cid: number;
+            title: string;
+            desc: string | null;
+            image: string;
+            create_time: number | string;
+            click: number;
+            collect: boolean;
+        };
+        ApplicationArticleListPage: {
+            lists: components["schemas"]["ApplicationArticleListItem"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        ApplicationArticleDetail: {
+            id: number;
+            desc: string | null;
+            abstract: string | null;
+            /** @enum {integer} */
+            is_show: 1;
+            create_time: number | string;
+            update_time: number | string;
+            delete_time: ((number | string) | 0) | null;
+            title: string;
+            author: string | null;
+            content: string;
+            sort: number;
+            image: string;
+            tenant_id: number;
+            cid: number;
+            click: number;
+            collect: boolean;
+        };
+        ApplicationArticleNavigationItem: {
+            id: number;
+            cid: number;
+            title: string;
+            desc: string | null;
+            abstract: string | null;
+            image: string;
+            author: string | null;
+            create_time: number | string;
+            click: number;
+        };
+        ApplicationPcArticleDetail: {
+            id: number;
+            desc: string | null;
+            abstract: string | null;
+            /** @enum {integer} */
+            is_show: 1;
+            create_time: number | string;
+            update_time: number | string;
+            delete_time: ((number | string) | 0) | null;
+            title: string;
+            author: string | null;
+            content: string;
+            sort: number;
+            image: string;
+            tenant_id: number;
+            cid: number;
+            click: number;
+            collect: boolean;
+            last: components["schemas"]["ApplicationArticleNavigationItem"] | unknown[];
+            next: components["schemas"]["ApplicationArticleNavigationItem"] | unknown[];
+            new: components["schemas"]["ApplicationArticleNavigationItem"][];
+            cate_name: string;
+        };
+        ApplicationHomeArticle: {
+            id: number;
+            title: string;
+            desc: string | null;
+            abstract: string | null;
+            image: string;
+            author: string | null;
+            create_time: number | string;
+            click: number;
+        };
+        ApplicationArticleCollectionRequest: {
+            id: number;
+        };
+        ApplicationArticleCollectionItem: {
+            id: number;
+            article_id: number;
+            title: string;
+            image: string;
+            desc: string | null;
+            /** @enum {integer} */
+            is_show: 1;
+            create_time: number | string;
+            collect_time: string;
+            click: number;
+        };
+        ApplicationArticleCollectionPage: {
+            lists: components["schemas"]["ApplicationArticleCollectionItem"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        ApplicationDecorationComponent: {
+            title: string;
+            name: string;
+            /** @enum {integer} */
+            disabled?: 0 | 1;
+            content: components["schemas"]["ApplicationDynamicObject"];
+            styles: components["schemas"]["ApplicationDynamicObject"];
+        };
+        /** @description 由已登记装修组件 schema 决定；组件集合保留显式信封，内部提供方值使用递归 JSON 类型。 */
+        ApplicationDecorationPayload: components["schemas"]["ApplicationDecorationComponent"][] | components["schemas"]["ApplicationDynamicObject"];
+        ApplicationDecorationPage: {
+            id: number;
+            /** @enum {integer} */
+            type: 1 | 2 | 3 | 4 | 5;
+            name: string;
+            data: components["schemas"]["ApplicationDecorationPayload"];
+            meta: components["schemas"]["ApplicationDecorationPayload"];
+            create_time: number | string;
+            update_time: number | string;
+            tenant_id: number;
+        };
+        ApplicationDecorationLink: {
+            /** @enum {string} */
+            target_type: "shop" | "article" | "custom" | "mini_program";
+            target: string | number;
+            query?: components["schemas"]["ApplicationDynamicObject"];
+        };
+        ApplicationDecorationTabbarItem: {
+            id: number;
+            position: number;
+            name: string;
+            link: components["schemas"]["ApplicationDecorationLink"];
+            /** @enum {integer} */
+            is_show: 1;
+            create_time: number | string;
+            update_time: number | string;
+            selected: string;
+            unselected: string;
+            tenant_id: number;
+        };
+        ApplicationDecorationTabbar: {
+            style: {
+                default_color: string;
+                selected_color: string;
+            } & {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            list: components["schemas"]["ApplicationDecorationTabbarItem"][];
+        };
+        ApplicationWebsiteConfig: {
+            name: string;
+            web_favicon: string;
+            web_logo: string;
+            login_image: string;
+            shop_name: string;
+            shop_logo: string;
+            pc_logo: string;
+            pc_title: string;
+            pc_ico: string;
+            pc_desc: string;
+            pc_keywords: string;
+            h5_favicon: string;
+            slogan: string;
+            copyright: string;
+            official_url: string;
+            github_url: string;
+        };
+        ApplicationPublicConfig: {
+            domain: string;
+            website: components["schemas"]["ApplicationWebsiteConfig"];
+            tenantName: string;
+            demo: {
+                enabled: boolean;
+                email: string;
+                password: string;
+            };
+            login: {
+                login_way: (1 | 2)[];
+                /** @enum {integer} */
+                coerce_mobile: 0 | 1;
+                /** @enum {integer} */
+                login_agreement: 0 | 1;
+                /** @enum {integer} */
+                third_auth: 0 | 1;
+                /** @enum {integer} */
+                wechat_auth: 0 | 1;
+            };
+            copyright: components["schemas"]["ApplicationDynamicObject"];
+            site_statistics: {
+                clarity_code: string;
+            };
+            web_page: {
+                /** @enum {integer} */
+                status: 0 | 1;
+                /** @enum {integer} */
+                page_status: 0 | 1;
+                page_url: string;
+                url: string;
+            };
+            tabbar: components["schemas"]["ApplicationDecorationTabbar"];
+            theme: components["schemas"]["ApplicationDecorationPage"];
+            version: string;
+        };
+        ApplicationPolicy: {
+            title: string;
+            content: string;
+        };
+        ApplicationHomeData: {
+            article: components["schemas"]["ApplicationHomeArticle"][];
+            decorate: components["schemas"]["ApplicationDecorationPage"];
+        };
+        ApplicationPcHomeData: {
+            all: components["schemas"]["ApplicationArticleNavigationItem"][];
+            new: components["schemas"]["ApplicationArticleNavigationItem"][];
+            hot: components["schemas"]["ApplicationArticleNavigationItem"][];
+            decorate: components["schemas"]["ApplicationDecorationPage"];
+        };
+        ApplicationInformationArticle: {
+            id: number;
+            cid: number;
+            title: string;
+            desc: string | null;
+            abstract: string | null;
+            image: string;
+            author: string | null;
+            /** @enum {integer} */
+            is_show: 1;
+            sort: number;
+            create_time: number | string;
+            update_time: number | string;
+            delete_time: ((number | string) | 0) | null;
+            click: number;
+        };
+        ApplicationInformationCategory: {
+            id: number;
+            name: string;
+            article: components["schemas"]["ApplicationInformationArticle"][];
+        };
+        ApplicationHotSearchData: {
+            /** @enum {integer} */
+            status: 0 | 1;
+            data: {
+                name: string;
+                sort: number;
+            }[];
+        };
+        ApplicationArticleListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ApplicationArticleListPage"];
+        };
+        ApplicationArticleDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ApplicationArticleDetail"];
+        };
+        AdminLoginRequest: {
+            /** Format: email */
+            account?: string;
+            /** Format: email */
+            username?: string;
+            /** Format: password */
+            password: string;
+            /** @enum {integer} */
+            terminal: 1 | 2;
+            tenant_code?: string;
+        } | unknown | unknown;
+        TenantChoice: {
+            tenant_id: components["schemas"]["NumericStringId"];
+            tenant_code: string;
+            tenant_name: string;
+            tenant_member_id: components["schemas"]["NumericStringId"];
+            member_display_name: string;
+        };
+        TenantSelectionData: {
+            /** @enum {string} */
+            state: "tenant_selection_required";
+            challenge_token: string;
+            /** Format: date-time */
+            expires_at: string;
+            tenants: components["schemas"]["TenantChoice"][];
+        };
+        TenantContextData: {
+            /** @enum {string} */
+            audience: "tenant";
+            account_id: components["schemas"]["NumericStringId"];
+            tenant_id: components["schemas"]["NumericStringId"];
+            tenant_member_id: components["schemas"]["NumericStringId"];
+            authorization_revision?: string;
+        };
+        TenantAuthenticationData: {
+            /** @enum {string} */
+            state: "authenticated";
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            expires_in: number;
+            context: components["schemas"]["TenantContextData"];
+        };
+        AdminAuthenticatedLoginData: {
+            /** @enum {string} */
+            state: "authenticated";
+            token: string;
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            expires_in: number;
+            admin_id: number | string;
+            account: string;
+            username: string;
+            name: string;
+            avatar: string;
+            role_name: string;
+            /** @enum {integer} */
+            terminal: 1 | 2;
+            context: components["schemas"]["TenantContextData"];
+        };
+        AdminLoginData: components["schemas"]["AdminAuthenticatedLoginData"] | components["schemas"]["TenantSelectionData"];
+        TenantSessionLoginRequest: {
+            /** Format: email */
+            email: string;
+            /** Format: password */
+            password: string;
+            tenant_code?: string;
+        };
+        TenantSessionSelectRequest: {
+            challenge_token: string;
+            tenant_id: number;
+        };
+        TenantAuthHttpResponse: {
+            data: components["schemas"]["TenantAuthenticationData"] | components["schemas"]["TenantSelectionData"];
+            meta: {
+                request_id: string;
+            };
+        };
+        AdminInfo: {
+            id: number | string;
+            username: string;
+            nickname: string;
+            name: string;
+            avatar: string;
+            /** @enum {string} */
+            role: "admin" | "user";
+            root: boolean;
+            roles: components["schemas"]["StringList"];
+            menu: components["schemas"]["AdminMenuNode"][];
+            permissions: components["schemas"]["StringList"];
+            tenantName: string;
+            canSwitchTenant: boolean;
+            demoMode: boolean;
+        };
+        AdminRecord: {
+            id: number;
+            account: string;
+            username: string;
+            name: string;
+            nickname: string;
+            avatar: string;
+            root: number;
+            /** @enum {integer} */
+            disable: 0 | 1;
+            disable_desc: string;
+            /** @enum {integer} */
+            multipoint_login: 0 | 1;
+            login_time: string;
+            login_ip: string;
+            create_time: string;
+            update_time: string;
+            role_id: components["schemas"]["IntegerList"];
+            role_ids: components["schemas"]["IntegerList"];
+            dept_id: components["schemas"]["IntegerList"];
+            jobs_id: components["schemas"]["IntegerList"];
+            role_name: string;
+            dept_name: string;
+            jobs_name: string;
+            roles: components["schemas"]["ApplicationDynamicValue"][];
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        AdminListData: {
+            lists: components["schemas"]["AdminRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        } | components["schemas"]["ExportPageInfo"] | components["schemas"]["ExportFile"];
+        AdminWriteRequest: {
+            id?: number;
+            /** Format: email */
+            account: string;
+            /** Format: email */
+            username?: string;
+            name: string;
+            nickname?: string;
+            avatar?: string;
+            password?: string;
+            password_confirm?: string;
+            role_id: components["schemas"]["IntegerList"];
+            role_ids?: components["schemas"]["IntegerList"];
+            dept_id?: components["schemas"]["IntegerList"];
+            jobs_id?: components["schemas"]["IntegerList"];
+            /** @enum {integer} */
+            disable: 0 | 1;
+            /** @enum {integer} */
+            multipoint_login: 0 | 1;
+        };
+        AdminSelfEditRequest: {
+            nickname: string;
+            avatar?: string;
+            password_old?: string;
+            password?: string;
+            password_confirm?: string;
+        };
+        AdminMenuNode: {
+            id: number;
+            pid: number;
+            name: string;
+            /** @enum {string} */
+            type?: "M" | "C" | "A";
+            icon?: string;
+            sort?: number;
+            perms?: string;
+            paths?: string;
+            component?: string;
+            /** @enum {integer} */
+            is_cache?: 0 | 1;
+            /** @enum {integer} */
+            is_show?: 0 | 1;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+            module_key?: string;
+            managed?: boolean;
+            children?: components["schemas"]["AdminMenuNode"][];
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        AdminMenuWriteRequest: {
+            id?: number;
+            name: string;
+            /** @enum {string} */
+            type: "M" | "C" | "A";
+            pid?: number;
+            icon?: string;
+            sort?: number;
+            perms?: string;
+            paths?: string;
+            component?: string;
+            /** @enum {integer} */
+            is_cache?: 0 | 1;
+            /** @enum {integer} */
+            is_show?: 0 | 1;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+        };
+        AdminRole: {
+            id: number;
+            name: string;
+            desc: string;
+            sort: number;
+            create_time: string;
+            num: number;
+            menu_id: components["schemas"]["IntegerList"];
+            menu_ids: components["schemas"]["IntegerList"];
+            status: string;
+            revision: number;
+        };
+        AdminRoleWriteRequest: {
+            id?: number;
+            name: string;
+            desc?: string;
+            menu_id?: components["schemas"]["IntegerList"];
+            menu_ids?: components["schemas"]["IntegerList"];
+        };
+        Department: {
+            id: number;
+            pid: number;
+            code: string;
+            name: string;
+            leader: string;
+            mobile: string;
+            sort: number;
+            /** @enum {integer} */
+            status: 0 | 1;
+            /** @enum {integer} */
+            is_disable: 0 | 1;
+            status_desc: string;
+            revision: number;
+            level?: number;
+            children?: components["schemas"]["Department"][];
+        };
+        DepartmentWriteRequest: {
+            id?: number;
+            name: string;
+            pid: number;
+            leader?: string;
+            mobile?: string;
+            sort?: number;
+            /** @enum {integer} */
+            status: 0 | 1;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+        };
+        Job: {
+            id: number;
+            name: string;
+            code: string;
+            sort: number;
+            remark?: string;
+            /** @enum {integer} */
+            status: 0 | 1;
+            /** @enum {integer} */
+            is_disable: 0 | 1;
+            status_desc: string;
+            create_time: string;
+            update_time: string;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        JobWriteRequest: {
+            id?: number;
+            name: string;
+            code: string;
+            sort?: number;
+            remark?: string;
+            /** @enum {integer} */
+            status: 0 | 1;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+        };
+        WebsiteConfig: {
+            name: string;
+            web_favicon: string;
+            web_logo: string;
+            login_image: string;
+            shop_name: string;
+            shop_logo: string;
+            pc_logo: string;
+            pc_title: string;
+            pc_ico: string;
+            pc_desc: string;
+            pc_keywords: string;
+            h5_favicon: string;
+            slogan: string;
+            copyright: string;
+            official_url: string;
+            github_url: string;
+        };
+        CopyrightItemList: {
+            key: string;
+            value: string;
+        }[];
+        CopyrightConfig: {
+            config: components["schemas"]["CopyrightItemList"];
+        };
+        AgreementConfig: {
+            service_title: string;
+            service_content: string;
+            privacy_title: string;
+            privacy_content: string;
+        };
+        StatisticsConfig: {
+            clarity_code: string;
+        };
+        MemberProfileConfig: {
+            default_avatar: string;
+        };
+        LoginConfig: {
+            login_way: (1 | 2)[];
+            /** @enum {integer} */
+            coerce_mobile: 0 | 1;
+            /** @enum {integer} */
+            login_agreement: 0 | 1;
+            /** @enum {integer} */
+            third_auth: 0 | 1;
+            /** @enum {integer} */
+            wechat_auth: 0 | 1;
+        };
+        DecorationPageSummary: {
+            id: number;
+            /** @enum {integer} */
+            type: 1 | 2 | 3 | 4 | 5;
+            name: string;
+            update_time: string | number;
+        };
+        DecorationPage: {
+            id: number;
+            /** @enum {integer} */
+            type: 1 | 2 | 3 | 4 | 5;
+            name: string;
+            data: components["schemas"]["ApplicationDynamicValue"][];
+            meta: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        DecorationPageSaveRequest: {
+            id: number;
+            /** @enum {integer} */
+            type: 1 | 2 | 3 | 4 | 5;
+            data: components["schemas"]["ApplicationDynamicValue"][];
+            meta?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+        };
+        DecorationTabbar: {
+            style: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            list: ({
+                name: string;
+                selected: string;
+                unselected: string;
+                link: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                };
+                /** @enum {integer} */
+                is_show: 0 | 1;
+            } & {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            })[];
+        };
+        ArticleOption: {
+            id: number;
+            title: string;
+            image?: string;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        GeneratorTable: {
+            id?: number;
+            table_name: string;
+            table_comment?: string;
+            module_name?: string;
+            entity_name?: string;
+            /** @enum {string} */
+            template_type?: "crud" | "tree";
+            /** @enum {string} */
+            data_owner?: "tenant-orm" | "platform" | "instance" | "shared";
+            /** @enum {string} */
+            target_edition?: "standalone" | "multi-tenant";
+            columns?: components["schemas"]["GeneratorColumn"][];
+            relations?: components["schemas"]["GeneratorRelation"][];
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        GeneratorColumn: {
+            id: number;
+            column_name: string;
+            column_comment?: string;
+            column_type?: string;
+            php_type?: string;
+            /** @enum {integer} */
+            is_required?: 0 | 1;
+            /** @enum {integer} */
+            is_pk?: 0 | 1;
+            /** @enum {integer} */
+            is_insert?: 0 | 1;
+            /** @enum {integer} */
+            is_update?: 0 | 1;
+            /** @enum {integer} */
+            is_lists?: 0 | 1;
+            /** @enum {integer} */
+            is_query?: 0 | 1;
+            query_type?: string;
+            view_type?: string;
+            dict_type?: string;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        GeneratorRelation: {
+            target_table_id: number;
+            name: string;
+            /** @enum {string} */
+            type: "belongsTo" | "hasOne" | "hasMany";
+            local_key: string;
+            foreign_key: string;
+            module?: string;
+            model?: string;
+            data_owner?: string;
+            target_edition?: string;
+        };
+        GeneratorUpdateRequest: {
+            id: number;
+            table_comment: string;
+            module_name: string;
+            entity_name: string;
+            /** @enum {string} */
+            template_type: "crud" | "tree";
+            /** @enum {string} */
+            data_owner: "tenant-orm" | "platform" | "instance" | "shared";
+            /** @enum {string} */
+            target_edition: "standalone" | "multi-tenant";
+            author?: string;
+            tree_config?: {
+                id_field?: string;
+                parent_field?: string;
+                name_field?: string;
+            };
+            relations?: components["schemas"]["GeneratorRelation"][];
+            columns: components["schemas"]["GeneratorColumn"][];
+        };
+        GeneratorPreviewFile: {
+            path: string;
+            content: string;
+        };
+        GeneratorDownload: {
+            download_token: string;
+            file_name: string;
+            /** @enum {integer} */
+            expires_in: 600;
+        };
+        OperationLog: {
+            id: number;
+            username: string;
+            ip: string;
+            uri: string;
+            method: string;
+            params: string;
+            create_time: number | string;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        HotSearchConfig: {
+            /** @enum {integer} */
+            status: 0 | 1;
+            data: {
+                id?: number;
+                name: string;
+                sort: number;
+            }[];
+        };
+        TransactionConfig: {
+            /** @enum {integer} */
+            cancel_unpaid_orders: 0 | 1;
+            cancel_unpaid_orders_times: number;
+            /** @enum {integer} */
+            verification_orders: 0 | 1;
+            verification_orders_times: number;
+        };
+        SystemInfo: {
+            server: {
+                param: string;
+                value: string;
+            }[];
+            env: {
+                option: string;
+                require: string;
+                /** @enum {integer} */
+                status: 0 | 1;
+                remark: string;
+            }[];
+            auth: {
+                dir: string;
+                require: string;
+                /** @enum {integer} */
+                status: 0 | 1;
+                remark: string;
+            }[];
+        };
+        Workbench: {
+            version: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            today: {
+                [key: string]: number;
+            };
+            menu: {
+                name: string;
+                image: string;
+                url: string;
+            }[];
+            visitor: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            support: {
+                image: string;
+                title: string;
+                desc: string;
+                url: string;
+            }[];
+            sale: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+        };
+        InvitationInspectRequest: {
+            token: string;
+        };
+        InvitationInspection: {
+            tenant_name: string;
+            display_name: string;
+            email_hint: string;
+            status: string;
+            delivery_status: string;
+            /** Format: date-time */
+            expires_at: string;
+            requires_password: boolean;
+        };
+        InvitationAcceptRequest: {
+            token: string;
+            new_account_password?: string;
+        };
+        InvitationAcceptance: {
+            invitation_id: number;
+            tenant_id: number;
+            account_id: number;
+            member_id: number;
+            role_id: number;
+            /** @enum {string} */
+            status: "accepted";
+            tenant_status: string;
+        };
+        PlatformAuthentication: {
+            /** @enum {string} */
+            state: "authenticated";
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            expires_in: number;
+            context: {
+                /** @enum {string} */
+                audience: "platform";
+                account_id: string;
+                platform_operator_id: string;
+            };
+        };
+        PlatformLoginRequest: {
+            /** Format: email */
+            email: string;
+            password: string;
+        };
+        PlatformSessionInfo: {
+            /** @enum {string} */
+            audience: "platform";
+            account_id: string;
+            platform_operator_id: string;
+            permissions: string[];
+            navigation: string[];
+        };
+        PlatformTenant: {
+            id: string;
+            code: string;
+            name: string;
+            display_name: string;
+            status: string;
+            locale: string;
+            timezone: string;
+            security_revision: string;
+            authorization_revision: string;
+            revision: string;
+            activated_at: string | null;
+            suspended_at: string | null;
+            closed_at: string | null;
+            created_at: string;
+            updated_at: string;
+        };
+        PlatformTenantTransitionRequest: {
+            tenant_id: number;
+            expected_revision: number;
+            change_reason: string;
+        };
+        PlatformCapabilities: {
+            /** @enum {string} */
+            audience: "platform";
+            /** @enum {string} */
+            scope: "application-instance";
+            /** @enum {string} */
+            permission_catalog: "platform.*";
+            /** @enum {boolean} */
+            tenant_business_access: false;
+            operations: ("platform.tenant.create" | "platform.tenant.lifecycle" | "platform.tenant.provision-owner" | "platform.tenant.module.manage")[];
+        };
+        PlatformOperator: {
+            id: number | string;
+            account_id: number | string;
+            display_name: string;
+            status: string;
+            security_revision: number | string;
+            suspended_at?: string | null;
+            closed_at?: string | null;
+            created_at: string;
+            updated_at: string;
+            account_display_name?: string;
+            account_status?: string;
+            email: string | null;
+            role_keys: string[];
+        };
+        PlatformRole: {
+            id: number | string;
+            key: string;
+            name: string;
+            description: string | null;
+            is_builtin: number | boolean;
+            status: string;
+            revision: number | string;
+            archived_at?: string | null;
+            created_at: string;
+            updated_at: string;
+            permission_count?: number;
+            permission_keys: string[];
+        };
+        PlatformPermission: {
+            id: number | string;
+            key: string;
+            module_key: string;
+            type: string;
+            name: string;
+            description: string | null;
+            risk_level: string;
+            status: string;
+            manifest_version: string;
+            created_at: string;
+            updated_at: string;
+            retired_at: string | null;
+        };
+        PlatformAuditEvent: {
+            id: number | string;
+            event_type: string;
+            action: string;
+            outcome: string;
+            reason_code: string | null;
+            operator_id: number | null;
+            account_id: number | null;
+            target_type: string | null;
+            target_id: string | null;
+            request_id: string;
+            operation_id: string | null;
+            ip_address: string | null;
+            user_agent_hash: string | null;
+            before_json: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            } | null;
+            after_json: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            } | null;
+            metadata_json: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            } | null;
+            occurred_at: string;
+        };
+        PlatformTenantModuleState: {
+            id: number | null;
+            tenant_id: number;
+            module_key: string;
+            status: string;
+            source: string;
+            config_revision: number;
+            effective_at: string | null;
+            expires_at: string | null;
+            enabled_at: string | null;
+            disabled_at: string | null;
+            disabled_reason: string | null;
+            created_at: string | null;
+            updated_at: string | null;
+            installed_version: string;
+            installation_status: string;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        PlatformTenantModuleRecord: {
+            id: string;
+            tenant_id: string;
+            module_key: string;
+            status: string;
+            source: string;
+            config_revision: string;
+            authorization_revision: string;
+            effective_at: string | null;
+            expires_at: string | null;
+            enabled_at: string | null;
+            disabled_at: string | null;
+            disabled_reason: string | null;
+            created_at: string;
+            updated_at: string;
+            config: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+        };
+        PlatformTenantOwner: {
+            member_id: number;
+            tenant_id: number;
+            account_id: number;
+            display_name: string;
+            member_status: string;
+            security_revision: number;
+            authorization_revision: number;
+            joined_at: string | null;
+            created_at: string;
+            updated_at: string;
+            account_display_name: string;
+            account_status: string;
+            email: string | null;
+            role_id: number;
+            /** @enum {string} */
+            role_key: "core.tenant-owner";
+        };
+        PlatformEntryBinding: {
+            id: number;
+            tenant_id: number;
+            tenant_code: string;
+            tenant_name: string;
+            host: string;
+            /** @enum {string} */
+            client_key: "admin-web" | "member-api";
+            status: string;
+            created_at?: string;
+            updated_at?: string;
+        };
+        PlatformEntryBindingDisabled: {
+            id: number;
+            tenant_id: number;
+            /** @enum {string} */
+            status: "disabled";
+        };
+        PlatformOwnerInvitation: {
+            id: number;
+            tenant_id: number;
+            /** Format: email */
+            email: string;
+            display_name: string;
+            status: string;
+            delivery_status: string;
+            delivery_provider?: string | null;
+            delivery_attempts?: number;
+            delivery_error_code?: string | null;
+            generation: number;
+            expires_at: string;
+            accepted_at?: string | null;
+            revoked_at?: string | null;
+            accepted_account_id?: number | null;
+            accepted_member_id?: number | null;
+            invited_by_operator_id?: number | null;
+            revoked_by_operator_id?: number | null;
+            created_at?: string;
+            updated_at?: string;
+            tenant_code?: string;
+            tenant_name?: string;
+            tenant_status?: string;
+            accept_token?: string;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        PlatformInvitationRevoked: {
+            id: number;
+            tenant_id: number;
+            /** @enum {string} */
+            status: "revoked";
+        };
+        PlatformModuleDescriptor: {
+            module_key: string;
+            name: string;
+            version: string;
+            manifest_digest: string;
+            package_key: string;
+            package_version: string;
+            dependencies: {
+                module_key: string;
+                version: string;
+            }[];
+            package_modules: string[];
+            lifecycle_protected: boolean;
+            status: string;
+            tenant_enabled_count: number;
+            blockers: string[];
+            dependents: string[];
+        };
+        PlatformModuleLifecycleResult: {
+            operation: string;
+            package_key?: string;
+            status?: string;
+            catalog_revision?: string;
+            affected_modules?: components["schemas"]["ApplicationDynamicValue"][];
+            modules?: components["schemas"]["ApplicationDynamicValue"][];
+            plan?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            plan_digest?: string;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        PlatformDeveloperCatalog: {
+            /** @enum {integer} */
+            schema_version: 1;
+            /** Format: date-time */
+            generated_at: string;
+            /** @enum {boolean} */
+            read_only: true;
+            sources: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            status: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            summary: {
+                modules: number;
+                discovered: number;
+                registered: number;
+                routes: number;
+                generated_api_operations: number;
+                complete_api_operations: number;
+                partial_api_operations: number;
+                undocumented_routes: number;
+            };
+            modules: ({
+                key: string;
+                name: string;
+                description: string;
+                version?: string | null;
+                source: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                };
+                evidence: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                };
+                routes: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                }[];
+                generated_api: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                }[];
+            } & {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            })[];
+        };
+        PlatformOpsMaintenance: {
+            maintenance_key: string;
+            /** @enum {string} */
+            state: "scheduled" | "active" | "closed";
+            reason_key: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            revision: number;
+        };
+        NullablePlatformOpsMaintenance: {
+            maintenance_key: string;
+            /** @enum {string} */
+            state: "scheduled" | "active" | "closed";
+            reason_key: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            revision: number;
+        } | null;
+        PlatformOpsTask: {
+            task_key: string;
+            task_type: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "succeeded" | "dead" | "cancelled";
+            attempt_count: number;
+            max_attempts?: number;
+            revision: number;
+            last_error_code: string | null;
+            request_key?: string;
+            provider_key?: string;
+            target_key?: string;
+            backup_reference_key?: string | null;
+            /** Format: date-time */
+            available_at?: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            completed_at: string | null;
+            current_step?: string;
+            recovery_pointer?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            } | null;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        PlatformOpsStatus: {
+            health: {
+                status: string;
+                checks: {
+                    key: string;
+                    /** @enum {string} */
+                    status: "up" | "down";
+                    critical: boolean;
+                    latency_ms: number;
+                }[];
+            };
+            version: {
+                commit: string;
+                tree: string;
+                release_key: string | null;
+                /** Format: date-time */
+                built_at: string;
+            };
+            migrations: {
+                applied: number;
+                target: number;
+                pending: number;
+                inventory_digest: string;
+                drift: boolean;
+            };
+            upgrade: {
+                state: string;
+                code: string;
+                source_commit: string;
+                target_commit: string;
+                repository_clean: boolean;
+                backup_verified: boolean;
+                source_evidence_matches: boolean;
+            };
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        PlatformOpsSnapshot: {
+            provider?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            latest_verified?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            } | null;
+            latest_restore_verified?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            } | null;
+            tasks?: components["schemas"]["PlatformOpsTask"][];
+            items?: components["schemas"]["ApplicationDynamicValue"][];
+            status?: string;
+            ready?: boolean;
+        } & {
+            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        InstallationStatus: {
+            /** @enum {string} */
+            mode: "guided" | "automatic";
+            /** @enum {string} */
+            deployment_mode: "standalone" | "multi-tenant";
+            tenant_bootstrap: {
+                kind: string;
+                code: string;
+                tenant_identity: string;
+                rbac: string;
+                execution_context: string;
+                module_lifecycle: string;
+            };
+            preflight: {
+                /** @enum {string} */
+                status: "ready" | "blocked";
+                code: string;
+                checks: ({
+                    status: string;
+                    code: string;
+                    message?: string;
+                } & {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                })[];
+            } & {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            official_modules: {
+                key: string;
+                label: string;
+                description: string;
+                required: boolean;
+                default: boolean;
+            }[];
+            /** @enum {string} */
+            state: "blocked" | "uninstalled" | "installed";
+            code: string;
+            retryable: boolean;
+            health: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            } | null;
+        };
+        /** @description multi-tenant 部署还要求 platform_email/platform_password；standalone 部署禁止提供这两个字段。 */
+        InstallationExecuteRequest: {
+            /** Format: email */
+            admin_email: string;
+            admin_password: string;
+            /** Format: email */
+            platform_email?: string;
+            platform_password?: string;
+            official_modules?: string[];
+        };
+        InstallationResult: {
+            /** @enum {string} */
+            state: "installed";
+            /** @enum {string} */
+            code: "INSTALL_COMPLETED";
+            /** @enum {string} */
+            deployment_mode: "standalone" | "multi-tenant";
+            baseline: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            migration: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            modules: {
+                operations: {
+                    key: string;
+                    operation: string;
+                }[];
+                profile: {
+                    [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                };
+            } & {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            health: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+        };
+        /** @description 服务端接受正整数或仅含十进制数字的字符串。 */
+        ArticlePositiveIntegerInput: number | string;
+        /**
+         * @example {
+         *       "id": 12
+         *     }
+         */
+        ArticleIdentifierRequest: {
+            id: components["schemas"]["ArticlePositiveIntegerInput"];
+        };
+        /**
+         * @example {
+         *       "ids": [
+         *         12,
+         *         13
+         *       ]
+         *     }
+         */
+        ArticleBatchIdentifierRequest: {
+            id?: components["schemas"]["ArticlePositiveIntegerInput"];
+            ids?: components["schemas"]["ArticlePositiveIntegerInput"][];
+        } & (unknown | unknown);
+        /**
+         * @example {
+         *       "id": 12,
+         *       "is_show": 1
+         *     }
+         */
+        ArticleStatusRequest: {
+            id: components["schemas"]["ArticlePositiveIntegerInput"];
+            /** @enum {integer} */
+            is_show: 0 | 1;
+        };
+        /**
+         * @example {
+         *       "name": "产品动态",
+         *       "is_show": 1,
+         *       "sort": 10
+         *     }
+         */
+        ArticleCategoryCreateRequest: {
+            name: string;
+            /** @enum {integer} */
+            is_show: 0 | 1;
+            sort?: number;
+        };
+        ArticleCategoryUpdateRequest: {
+            id: components["schemas"]["ArticlePositiveIntegerInput"];
+            name: string;
+            /** @enum {integer} */
+            is_show: 0 | 1;
+            sort?: number;
+        };
+        /**
+         * @example {
+         *       "title": "多租户产品动态",
+         *       "cid": 3,
+         *       "abstract": "资讯摘要",
+         *       "content": "<p>正文</p>",
+         *       "is_show": 1,
+         *       "sort": 10
+         *     }
+         */
+        ArticleCreateRequest: {
+            title: string;
+            cid: components["schemas"]["ArticlePositiveIntegerInput"];
+            desc?: string;
+            abstract?: string;
+            image?: string;
+            author?: string;
+            content?: string;
+            click_virtual?: number;
+            /** @enum {integer} */
+            is_show: 0 | 1;
+            sort?: number;
+        };
+        ArticleUpdateRequest: {
+            id: components["schemas"]["ArticlePositiveIntegerInput"];
+            title: string;
+            cid: components["schemas"]["ArticlePositiveIntegerInput"];
+            desc?: string;
+            abstract?: string;
+            image?: string;
+            author?: string;
+            content?: string;
+            click_virtual?: number;
+            /** @enum {integer} */
+            is_show: 0 | 1;
+            sort?: number;
+        };
+        ArticleCategoryRecord: {
+            id: number;
+            name: string;
+            sort: number;
+            /** @enum {integer} */
+            is_show: 0 | 1;
+            create_time: components["schemas"]["ArticleTimestamp"];
+            update_time: components["schemas"]["ArticleTimestamp"];
+            delete_time: components["schemas"]["ArticleTimestamp"];
+            article_count?: number;
+        };
+        ArticleRecord: {
+            id: number;
+            cid: number;
+            title: string;
+            desc: string;
+            abstract: string;
+            image: string;
+            author: string;
+            content: string;
+            click_virtual: number;
+            click_actual: number;
+            click: number;
+            /** @enum {integer} */
+            is_show: 0 | 1;
+            sort: number;
+            cate_name: string;
+            create_time: components["schemas"]["ArticleTimestamp"];
+            update_time: components["schemas"]["ArticleTimestamp"];
+            delete_time: components["schemas"]["ArticleTimestamp"];
+        };
+        /** @description 空字符串或服务端格式化的本地日期时间。 */
+        ArticleTimestamp: string;
+        ArticlePage: {
+            lists: components["schemas"]["ArticleRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        ArticleCategoryPage: {
+            lists: components["schemas"]["ArticleCategoryRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        ArticleBatchFailure: {
+            id: number;
+            code: string;
+            message: string;
+        };
+        ArticleBatchMutationResult: {
+            requested: number[];
+            restored?: number[];
+            deleted?: number[];
+            already_active: number[];
+            failed: components["schemas"]["ArticleBatchFailure"][];
+        };
+        ArticleMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: unknown[];
+        };
+        ArticlePageResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            /** @enum {string} */
+            msg: "success";
+            data: components["schemas"]["ArticlePage"];
+        };
+        ArticleCategoryPageResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            /** @enum {string} */
+            msg: "success";
+            data: components["schemas"]["ArticleCategoryPage"];
+        };
+        ArticleDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            /** @enum {string} */
+            msg: "success";
+            data: components["schemas"]["ArticleRecord"] | unknown[];
+        };
+        ArticleCategoryDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            /** @enum {string} */
+            msg: "success";
+            data: components["schemas"]["ArticleCategoryRecord"] | unknown[];
+        };
+        ArticleCategoryCollectionResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            /** @enum {string} */
+            msg: "success";
+            data: components["schemas"]["ArticleCategoryRecord"][];
+        };
+        ArticleBatchMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            /** @enum {string} */
+            msg: "success";
+            data: components["schemas"]["ArticleBatchMutationResult"];
+        };
+        /**
+         * @example {
+         *       "code": 40900,
+         *       "msg": "仅回收站资讯可永久删除",
+         *       "data": {
+         *         "error_code": "ARTICLE_FORCE_DELETE_REQUIRES_TRASHED"
+         *       }
+         *     }
+         */
+        ArticleErrorEnvelope: {
+            code: number;
+            msg: string;
+            data: {
+                error_code: string;
+            } & {
+                [key: string]: unknown;
+            };
+        };
         FileImageVariant: {
             variant_key: string;
             file_key: string;
@@ -1076,6 +7152,121 @@ export interface components {
                 page_size: number;
                 total: number;
             };
+        };
+        FileNonNegativeIntegerInput: number | string;
+        FilePositiveIntegerInput: number | string;
+        FileIdentifierRequest: {
+            id: components["schemas"]["FilePositiveIntegerInput"];
+        };
+        FileIdsRequest: {
+            ids: components["schemas"]["FilePositiveIntegerInput"][];
+        };
+        FileMoveRequest: {
+            ids: components["schemas"]["FilePositiveIntegerInput"][];
+            cid: components["schemas"]["FileNonNegativeIntegerInput"];
+        };
+        FileRenameRequest: {
+            id: components["schemas"]["FilePositiveIntegerInput"];
+            name: string;
+        };
+        FileCategoryCreateRequest: {
+            pid?: components["schemas"]["FileNonNegativeIntegerInput"];
+            /** @enum {integer} */
+            type: 10 | 20 | 30;
+            name: string;
+        };
+        FileCategoryUpdateRequest: {
+            id: components["schemas"]["FilePositiveIntegerInput"];
+            name: string;
+        };
+        FileCategoryRecord: {
+            id: number;
+            pid: number;
+            /** @enum {integer} */
+            type: 10 | 20 | 30;
+            name: string;
+            create_time: number;
+            update_time: number;
+            delete_time: number | null;
+            tenant_id: number;
+            children: components["schemas"]["FileCategoryRecord"][];
+        };
+        FileListRecord: {
+            id: number;
+            cid: number;
+            source_id: number;
+            /** @enum {integer} */
+            source: 0 | 1;
+            /** @enum {integer} */
+            type: 10 | 20 | 30;
+            name: string;
+            create_time: number | string;
+            update_time: number | string;
+            delete_time: (number | string) | null;
+            tenant_id: number;
+            file_key: string;
+            url: string;
+        };
+        FileListPage: {
+            lists: components["schemas"]["FileListRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        FileListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["FileListPage"];
+        };
+        FileUploadResult: {
+            id: number;
+            cid: number;
+            /** @enum {integer} */
+            type: 10 | 20 | 30;
+            name: string;
+            file_key: string;
+            uri: string;
+            url: string;
+        };
+        FileDeleteResult: {
+            files_deleted: number;
+            storage_deleted: number;
+        };
+        FileCategoryDeleteResult: {
+            categories_deleted: number;
+            files_deleted: number;
+            storage_deleted: number;
+        };
+        FileMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: unknown[];
+        };
+        FileUploadResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["FileUploadResult"];
+        };
+        FileDeleteResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["FileDeleteResult"];
+        };
+        FileCategoryDeleteResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["FileCategoryDeleteResult"];
+        };
+        FileCategoryListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["FileCategoryRecord"][];
         };
         ImportExportOperation: {
             operation_key: string;
@@ -1125,6 +7316,12 @@ export interface components {
         ImportExportOperationResponse: {
             data: components["schemas"]["ImportExportOperation"];
             meta: components["schemas"]["ImportExportMeta"];
+        };
+        ImportExportLegacyOperationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ImportExportOperation"];
         };
         ImportExportOperationListResponse: {
             data: {
@@ -1255,6 +7452,509 @@ export interface components {
                 total: number;
             };
         };
+        MemberPositiveIntegerInput: number | string;
+        /**
+         * @example {
+         *       "id": 17
+         *     }
+         */
+        MemberIdentifierRequest: {
+            id: components["schemas"]["MemberPositiveIntegerInput"];
+        };
+        /**
+         * @example {
+         *       "account": "member001",
+         *       "password": "secret-value"
+         *     }
+         */
+        MemberRegistrationRequest: {
+            account: string;
+            /** Format: password */
+            password: string;
+        };
+        MemberAccountLoginRequest: {
+            account: string;
+            /** Format: password */
+            password: string;
+            terminal?: number;
+        };
+        /**
+         * @example {
+         *       "mobile": "13800000000",
+         *       "code": "123456"
+         *     }
+         */
+        MemberMobileCodeRequest: {
+            mobile: string;
+            code: string;
+        };
+        MemberPasswordResetRequest: {
+            mobile: string;
+            code: string;
+            /** Format: password */
+            password: string;
+        };
+        MemberPasswordChangeRequest: {
+            /** Format: password */
+            old_password: string;
+            /** Format: password */
+            password: string;
+        };
+        /**
+         * @example {
+         *       "field": "birthday",
+         *       "value": "1990-01-01"
+         *     }
+         */
+        MemberSelfFieldRequest: {
+            /** @enum {string} */
+            field: "nickname" | "avatar" | "sex" | "birthday" | "email";
+            value: (string | (0 | 1 | 2)) | null;
+        };
+        MemberAdminCreateRequest: {
+            nickname: string;
+            mobile?: string;
+            /** Format: email */
+            email?: string;
+            /** @enum {integer} */
+            sex?: 0 | 1 | 2;
+            /** @enum {integer} */
+            status?: 0 | 1;
+        };
+        MemberAdminFieldUpdateRequest: {
+            id: components["schemas"]["MemberPositiveIntegerInput"];
+            /** @enum {string} */
+            field: "account" | "sex" | "mobile" | "real_name";
+            value: string | (0 | 1 | 2);
+        };
+        MemberAdminStatusRequest: {
+            id: components["schemas"]["MemberPositiveIntegerInput"];
+            /** @enum {integer} */
+            status: 0 | 1;
+        };
+        MemberBalanceAdjustmentRequest: {
+            user_id: components["schemas"]["MemberPositiveIntegerInput"];
+            /** @enum {integer} */
+            action: 1 | 2;
+            num: number | string;
+            remark?: string;
+        };
+        MemberTagCreateRequest: {
+            name: string;
+        };
+        MemberTagUpdateRequest: {
+            id: components["schemas"]["MemberPositiveIntegerInput"];
+            name: string;
+        };
+        MemberAdminListTag: {
+            id: number;
+            name: string;
+            remark: string;
+            create_time: number;
+            update_time: number;
+            delete_time: number | null;
+            tenant_id: number;
+        };
+        MemberAdminListItem: {
+            id: number;
+            sn: string;
+            account: string;
+            account_unique: string | null;
+            nickname: string;
+            avatar: string;
+            real_name: string;
+            mobile: string;
+            channel: string;
+            channel_value: number;
+            email: string;
+            /** @enum {string} */
+            sex: "未知" | "男" | "女";
+            /** @enum {integer} */
+            sex_value: 0 | 1 | 2;
+            /** Format: date */
+            birthday: string | null;
+            /** @enum {integer} */
+            status: 0 | 1;
+            login_time: string;
+            login_ip: string;
+            /** @enum {integer} */
+            is_new_user: 0 | 1;
+            user_money: number;
+            balance: number;
+            total_recharge_amount: number;
+            points: number;
+            create_time: string;
+            update_time: string;
+            delete_time: number | null;
+            mobile_unique: string | null;
+            tenant_id: number;
+            /** @enum {integer} */
+            is_disable: 0 | 1;
+            tags: components["schemas"]["MemberAdminListTag"][];
+            tag_ids: number[];
+        };
+        MemberAdminListPage: {
+            lists: components["schemas"]["MemberAdminListItem"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        MemberExportPageInfo: {
+            count: number;
+            page_size: number;
+            sum_page: number;
+            max_page: number;
+            /** @enum {integer} */
+            all_max_size: 25000;
+            /** @enum {integer} */
+            page_start: 1;
+            page_end: number;
+            file_name: string;
+        };
+        MemberExportFile: {
+            url: string;
+            file_name: string;
+        };
+        MemberAdminListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberAdminListPage"];
+        } | {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberExportPageInfo"];
+        } | {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberExportFile"];
+        };
+        MemberTagListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberAdminListTag"][];
+        };
+        MemberLoginData: {
+            token: string;
+            id: number;
+            sn: string;
+            nickname: string;
+            avatar: string;
+            mobile: string;
+        };
+        MemberAdminDetail: {
+            id: number;
+            sn: string;
+            account: string;
+            nickname: string;
+            avatar: string;
+            real_name: string;
+            /** @enum {integer} */
+            sex: 0 | 1 | 2;
+            mobile: string;
+            create_time: string;
+            login_time: string;
+            channel: string;
+            user_money: number;
+            balance: number;
+        };
+        MemberCenterData: {
+            id: number;
+            sn: string;
+            nickname: string;
+            avatar: string;
+            mobile: string;
+            balance: number;
+            points: number;
+            create_time: number | string;
+            collect_num: number;
+        };
+        MemberProfileData: {
+            id: number;
+            sn: string;
+            account: string;
+            nickname: string;
+            avatar: string;
+            /** @enum {integer} */
+            sex: 0 | 1 | 2;
+            birthday: string | null;
+            mobile: string;
+            email: string;
+            balance: number;
+            points: number;
+            create_time: number | string;
+            has_password: boolean;
+        };
+        MemberAdminBalanceLog: {
+            nickname: string;
+            account: string;
+            sn: string;
+            avatar: string;
+            mobile: string;
+            /** @enum {integer} */
+            action: 1 | 2;
+            change_amount: string;
+            left_amount: number | string;
+            /** @enum {integer} */
+            change_type: 100 | 101 | 200 | 201;
+            change_type_desc: string;
+            source_sn: string;
+            create_time: string;
+        };
+        MemberAdminBalanceLogPage: {
+            lists: components["schemas"]["MemberAdminBalanceLog"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        MemberSelfBalanceLog: {
+            id: number;
+            sn: string;
+            member_id: number;
+            /** @enum {integer} */
+            change_object: 1;
+            /** @enum {integer} */
+            change_type: 100 | 101 | 200 | 201;
+            /** @enum {integer} */
+            action: 1 | 2;
+            left_amount: string | number;
+            source_type: number;
+            extra: string | null;
+            admin_id: number;
+            create_time: number | string;
+            update_time: (number | string) | null;
+            delete_time: (number | string) | null;
+            change_amount: string | number;
+            source_sn: string | null;
+            remark: string | null;
+            tenant_id: number;
+        };
+        MemberSelfBalanceLogPage: {
+            lists: components["schemas"]["MemberSelfBalanceLog"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        MemberMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: unknown[];
+        };
+        MemberLoginResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberLoginData"];
+        };
+        MemberAdminDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberAdminDetail"] | unknown[];
+        };
+        MemberCenterResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberCenterData"] | unknown[];
+        };
+        MemberProfileResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberProfileData"] | unknown[];
+        };
+        MemberAdminBalanceLogPageResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberAdminBalanceLogPage"];
+        };
+        MemberSelfBalanceLogPageResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["MemberSelfBalanceLogPage"];
+        };
+        MemberChangeTypesResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            /**
+             * @description 键为稳定的 change_type 数字代码，值为中文说明。
+             * @example {
+             *       "100": "平台减少余额",
+             *       "200": "平台增加余额"
+             *     }
+             */
+            data: {
+                [key: string]: string;
+            };
+        };
+        NotificationChannelAliyunConfiguration: {
+            access_key_id: string;
+            /** @description 空字符串或已配置密钥的脱敏哨兵 ******。 */
+            access_key_secret: string;
+            sign_name: string;
+            /** @enum {integer} */
+            status: 0 | 1;
+        };
+        NotificationChannelTencentConfiguration: {
+            secret_id: string;
+            /** @description 空字符串或已配置密钥的脱敏哨兵 ******。 */
+            secret_key: string;
+            sdk_app_id: string;
+            sign_name: string;
+            region: string;
+            /** @enum {integer} */
+            status: 0 | 1;
+        };
+        NotificationChannelDetail: {
+            /** @enum {string} */
+            sms_default: "" | "aliyun" | "tencent";
+            sms_aliyun: components["schemas"]["NotificationChannelAliyunConfiguration"];
+            sms_tencent: components["schemas"]["NotificationChannelTencentConfiguration"];
+            status: {
+                sms: boolean;
+            };
+        };
+        NotificationChannelSaveRequest: {
+            /** @enum {string} */
+            section: "sms_default";
+            /** @enum {string} */
+            value: "aliyun" | "tencent";
+        } | {
+            /** @enum {string} */
+            section: "sms_aliyun";
+            access_key_id?: string;
+            /** @description ****** 表示保留现有密钥。 */
+            access_key_secret?: string;
+            sign_name?: string;
+            /** @enum {integer} */
+            status?: 0 | 1;
+        } | {
+            /** @enum {string} */
+            section: "sms_tencent";
+            secret_id?: string;
+            /** @description ****** 表示保留现有密钥。 */
+            secret_key?: string;
+            sdk_app_id?: string;
+            sign_name?: string;
+            region?: string;
+            /** @enum {integer} */
+            status?: 0 | 1;
+        };
+        /** @description NoticeScene 未声明 JSON cast；按实际 ORM/驱动边界可能是 JSON 字符串、已解码字符串数组或 null。 */
+        NotificationSceneVariables: (string | string[]) | null;
+        NotificationSceneListItem: {
+            id: number;
+            code: string;
+            name: string;
+            description: string;
+            recipient: string;
+            variables: components["schemas"]["NotificationSceneVariables"];
+            sms_template_id: string;
+            sms_content: string;
+            /** @enum {integer} */
+            sms_status: 0 | 1;
+            update_time: number;
+        };
+        NotificationSceneDetail: {
+            id: number;
+            code: string;
+            name: string;
+            description: string;
+            recipient: string;
+            variables: components["schemas"]["NotificationSceneVariables"];
+            sms_template_id: string;
+            sms_content: string;
+            /** @enum {integer} */
+            sms_status: 0 | 1;
+            create_time: number;
+            update_time: number;
+            tenant_id: number;
+        };
+        /** @description 服务只读取已列出的四个字段；当前旧控制器会忽略其他字段。 */
+        NotificationSceneSaveRequest: {
+            id: number;
+            sms_template_id?: string;
+            sms_content?: string;
+            /** @enum {integer} */
+            sms_status: 0 | 1;
+        };
+        NotificationLogRecord: {
+            id: number;
+            template_id: number;
+            scene_id: number;
+            /** @enum {integer} */
+            channel: 1 | 2 | 3;
+            provider: string;
+            receiver: string;
+            title: string;
+            content: string | null;
+            /** @enum {integer} */
+            is_verified: 0 | 1;
+            check_count: number;
+            verified_time: number;
+            /** @enum {integer} */
+            status: 0 | 1 | 2 | 3;
+            error: string;
+            send_time: number;
+            create_time: number;
+            template_name: string | null;
+            template_code: string | null;
+            scene_name: string | null;
+            scene_code: string | null;
+        };
+        NotificationLogPage: {
+            lists: components["schemas"]["NotificationLogRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        NotificationMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: unknown[];
+        };
+        NotificationChannelDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["NotificationChannelDetail"];
+        };
+        NotificationSceneListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                list: components["schemas"]["NotificationSceneListItem"][];
+                total: number;
+            };
+        };
+        NotificationSceneDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["NotificationSceneDetail"];
+        };
+        NotificationLogListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["NotificationLogPage"];
+        };
+        NotificationLogDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["NotificationLogRecord"] | unknown[];
+        };
         NotificationAttachment: {
             file_key: string;
             original_name: string;
@@ -1302,6 +8002,971 @@ export interface components {
             };
             meta: components["schemas"]["NotificationMeta"];
         };
+        OAuthPositiveIntegerInput: number | string;
+        OAuthEmptyData: string[];
+        /** @description 当前旧校验入口保留未知字段，但业务只消费 id，其他字段会被忽略。 */
+        OAuthIdentifierRequest: {
+            id: components["schemas"]["OAuthPositiveIntegerInput"];
+        };
+        /** @description page_status=1 时 page_url 必填且必须为 http/https 绝对地址。未列出的字段会被当前服务忽略。 */
+        OAuthWebPageConfigRequest: {
+            /** @enum {integer} */
+            status: 0 | 1;
+            /** @enum {integer} */
+            page_status: 0 | 1;
+            /** Format: uri */
+            page_url?: string;
+        };
+        OAuthWebPageConfig: {
+            /** @enum {integer} */
+            status: 0 | 1;
+            /** @enum {integer} */
+            page_status: 0 | 1;
+            page_url: string;
+            url: string;
+        };
+        /** @description app_secret 可传 ****** 保留已有秘密；未列出的字段会被当前服务忽略。 */
+        OAuthMiniProgramConfigRequest: {
+            name?: string;
+            original_id?: string;
+            qr_code?: string;
+            app_id: string;
+            /** Format: password */
+            app_secret: string;
+        };
+        OAuthMiniProgramConfig: {
+            name: string;
+            original_id: string;
+            qr_code: string;
+            app_id: string;
+            /** @description 已配置时固定返回 ******，否则返回空字符串。 */
+            readonly app_secret: string;
+            app_secret_configured: boolean;
+            request_domain: string;
+            socket_domain: string;
+            upload_file_domain: string;
+            download_file_domain: string;
+            udp_domain: string;
+            business_domain: string;
+        };
+        /** @description app_secret 与 token 可传 ****** 保留已有秘密；token 传空字符串表示清除。未列出的字段会被当前服务忽略。 */
+        OAuthOfficialAccountConfigRequest: {
+            name?: string;
+            original_id?: string;
+            qr_code?: string;
+            app_id: string;
+            /** Format: password */
+            app_secret: string;
+            /**
+             * Format: password
+             * @description ****** 表示保留已存 Token，空字符串表示清除。
+             */
+            token?: string;
+        };
+        OAuthOfficialAccountConfig: {
+            name: string;
+            original_id: string;
+            qr_code: string;
+            app_id: string;
+            /**
+             * @description 已配置时固定返回 ******，否则返回空字符串。
+             * @enum {string}
+             */
+            readonly app_secret: "" | "******";
+            app_secret_configured: boolean;
+            url: string;
+            /**
+             * @description 已配置时固定返回 ******，否则返回空字符串。
+             * @enum {string}
+             */
+            readonly token: "" | "******";
+            token_configured: boolean;
+            business_domain: string;
+            js_secure_domain: string;
+            web_auth_domain: string;
+            /** @enum {string} */
+            callback_mode: "plaintext";
+        };
+        /** @description app_secret 可传 ****** 保留已有秘密；未列出的字段会被当前服务忽略。 */
+        OAuthOpenPlatformConfigRequest: {
+            app_id: string;
+            /** Format: password */
+            app_secret: string;
+        };
+        OAuthOpenPlatformConfig: {
+            app_id: string;
+            /** @description 已配置时固定返回 ******，否则返回空字符串。 */
+            readonly app_secret: string;
+            app_secret_configured: boolean;
+        };
+        /** @description 顶层未知字段会被业务忽略；menu 节点内的扩展 JSON 字段会完整持久化并由详情接口返回。 */
+        OAuthMenuRequest: {
+            menu: components["schemas"]["OAuthMenuNode"][];
+        };
+        OAuthMenuNode: components["schemas"]["OAuthMenuParentNode"] | components["schemas"]["OAuthMenuTopClickNode"] | components["schemas"]["OAuthMenuTopViewNode"] | components["schemas"]["OAuthMenuTopMiniProgramNode"];
+        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name 和 sub_button。 */
+        OAuthMenuParentNode: {
+            name: string;
+            sub_button: (components["schemas"]["OAuthMenuClickNode"] | components["schemas"]["OAuthMenuViewNode"] | components["schemas"]["OAuthMenuMiniProgramNode"])[];
+        } & {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 key。 */
+        OAuthMenuTopClickNode: {
+            name: string;
+            /** @enum {string} */
+            type: "click";
+            key: string;
+        } & {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 url。 */
+        OAuthMenuTopViewNode: {
+            name: string;
+            /** @enum {string} */
+            type: "view";
+            /** Format: uri */
+            url: string;
+        } & {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费列出的微信标准字段。 */
+        OAuthMenuTopMiniProgramNode: {
+            name: string;
+            /** @enum {string} */
+            type: "miniprogram";
+            /** Format: uri */
+            url: string;
+            appid: string;
+            pagepath: string;
+        } & {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 key。 */
+        OAuthMenuClickNode: {
+            name: string;
+            /** @enum {string} */
+            type: "click";
+            key: string;
+        } & {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费 name、type 和 url。 */
+        OAuthMenuViewNode: {
+            name: string;
+            /** @enum {string} */
+            type: "view";
+            /** Format: uri */
+            url: string;
+        } & {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        /** @description 保存和详情会保留额外 JSON 字段；发布到微信 Provider 时只消费列出的微信标准字段。 */
+        OAuthMenuMiniProgramNode: {
+            name: string;
+            /** @enum {string} */
+            type: "miniprogram";
+            /** Format: uri */
+            url: string;
+            appid: string;
+            pagepath: string;
+        } & {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        /** @description reply_type=2 时 keyword、matching_type 和非负 sort 必填；未列出的字段会被当前服务忽略。 */
+        OAuthReplyCreateRequest: {
+            /** @enum {integer} */
+            reply_type: 1 | 2 | 3;
+            name: string;
+            keyword?: string;
+            /** @enum {integer} */
+            matching_type?: 1 | 2;
+            /** @enum {integer} */
+            content_type: 1;
+            content: string;
+            /** @enum {integer} */
+            status: 0 | 1;
+            sort?: number;
+        };
+        /** @description reply_type=2 时 keyword、matching_type 和非负 sort 必填；未列出的字段会被当前服务忽略。 */
+        OAuthReplyUpdateRequest: {
+            id: components["schemas"]["OAuthPositiveIntegerInput"];
+            /** @enum {integer} */
+            reply_type: 1 | 2 | 3;
+            name: string;
+            keyword?: string;
+            /** @enum {integer} */
+            matching_type?: 1 | 2;
+            /** @enum {integer} */
+            content_type: 1;
+            content: string;
+            /** @enum {integer} */
+            status: 0 | 1;
+            sort?: number;
+        };
+        /** @description 当前旧校验入口保留未知字段，但业务只消费 id 和 status，其他字段会被忽略。 */
+        OAuthReplyStatusRequest: {
+            id: components["schemas"]["OAuthPositiveIntegerInput"];
+            /** @enum {integer} */
+            status: 0 | 1;
+        };
+        OAuthReplyRecord: {
+            id: number;
+            name: string;
+            keyword: string;
+            /** @enum {integer} */
+            reply_type: 1 | 2 | 3;
+            /** @enum {integer} */
+            matching_type: 1 | 2;
+            /** @enum {integer} */
+            content_type: 1;
+            content: string;
+            /** @enum {integer} */
+            status: 0 | 1;
+            sort: number;
+            create_time: number;
+            update_time: number;
+            delete_time?: number;
+            tenant_id?: number;
+            singleton_active_key?: number | null;
+        };
+        /** @description 当前旧校验入口保留未知字段，但业务只消费列出的字段，其他字段会被忽略。 */
+        OAuthBeginRequest: {
+            /** @enum {string} */
+            scene: "oa" | "open_pc";
+            return_path: string;
+            client_id?: string;
+        };
+        /** @description 当前旧校验入口保留未知字段，但业务只消费列出的字段，其他字段会被忽略。 */
+        OAuthCallbackRequest: {
+            /** @enum {string} */
+            scene: "oa" | "open_pc";
+            code: string;
+            state: string;
+        };
+        /** @description 当前旧校验入口保留未知字段，但业务只消费 code 和 client_id，其他字段会被忽略。 */
+        OAuthMiniProgramLoginRequest: {
+            code: string;
+            client_id?: string;
+        };
+        /** @description need_profile/need_mobile 由票据决定；相应字段仅在服务要求时必须有效。当前旧校验入口保留未知字段，但补全业务不会消费其他字段。 */
+        OAuthCompletionRequest: {
+            /** Format: password */
+            ticket: string;
+            nickname?: string;
+            avatar?: string;
+            mobile?: string;
+            /** Format: password */
+            verification_code?: string;
+        };
+        /** @description 当前旧校验入口保留未知字段，但业务只消费 scene 和 code，其他字段会被忽略。 */
+        OAuthBindRequest: {
+            /** @enum {string} */
+            scene: "mnp" | "oa";
+            /** Format: password */
+            code: string;
+        };
+        OAuthAuthorizationData: {
+            /** Format: uri */
+            authorization_url: string;
+            expires_in: number;
+        };
+        OAuthMemberSummary: {
+            id: number;
+            sn: string;
+            nickname: string;
+            avatar: string;
+            mobile: string;
+        };
+        OAuthLoginCompletedData: {
+            /** @enum {boolean} */
+            completed: true;
+            member: components["schemas"]["OAuthMemberSummary"];
+            /** @description 本次完整登录签发的会员访问令牌。 */
+            readonly token: string;
+            return_path?: string;
+        };
+        OAuthLoginPendingData: {
+            /** @enum {boolean} */
+            completed: false;
+            member: components["schemas"]["OAuthMemberSummary"];
+            /** @description 短期、单次使用的资料补全票据。 */
+            readonly completion_ticket: string;
+            expires_in: number;
+            need_profile: boolean;
+            need_mobile: boolean;
+            return_path?: string;
+        };
+        /** @description 微信公众号明文 XML 消息或文本回复 XML。 */
+        OAuthOfficialAccountMessageXml: string;
+        /** @description 菜单扩展字段中可原样持久化并由详情接口返回的 JSON 值。 */
+        OAuthMenuExtensionValue: (string | null) | number | boolean | components["schemas"]["OAuthMenuExtensionValue"][] | {
+            [key: string]: components["schemas"]["OAuthMenuExtensionValue"];
+        };
+        OAuthMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthEmptyData"];
+        };
+        OAuthWebPageConfigResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthWebPageConfig"];
+        };
+        OAuthMiniProgramConfigResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthMiniProgramConfig"];
+        };
+        OAuthOfficialAccountConfigResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthOfficialAccountConfig"];
+        };
+        OAuthOpenPlatformConfigResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthOpenPlatformConfig"];
+        };
+        OAuthMenuResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                menu: components["schemas"]["OAuthMenuNode"][];
+            };
+        };
+        OAuthReplyDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthReplyRecord"];
+        };
+        OAuthReplyPageResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                lists: components["schemas"]["OAuthReplyRecord"][];
+                count: number;
+                pageNo: number;
+                pageSize: number;
+            };
+        };
+        OAuthAuthorizationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthAuthorizationData"];
+        };
+        OAuthLoginResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["OAuthLoginCompletedData"] | components["schemas"]["OAuthLoginPendingData"];
+        };
+        PaymentMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: string[];
+        };
+        PaymentSettingsData: {
+            /** @enum {integer} */
+            wx_pay_status: 0 | 1;
+            wx_pay_appid: string;
+            wx_pay_mch_id: string;
+            /**
+             * @description 只返回空串或固定掩码，不返回已存密钥。
+             * @enum {string}
+             */
+            wx_pay_secret: "" | "******";
+            wx_pay_secret_configured: boolean;
+            wx_pay_cert_path: string;
+            wx_pay_cert_key_path: string;
+            wx_pay_platform_cert_path: string;
+            /** @enum {integer} */
+            ali_pay_status: 0 | 1;
+            ali_pay_app_id: string;
+            /**
+             * @description 只返回空串或固定掩码，不返回已存私钥。
+             * @enum {string}
+             */
+            ali_pay_private_key: "" | "******";
+            ali_pay_private_key_configured: boolean;
+            ali_pay_public_key: string;
+            ali_pay_seller_id: string;
+        };
+        /** @description 当前服务只读取列出的支付字段；legacy 校验器未拒绝的其他字段会被忽略且不会持久化。 */
+        PaymentSettingsSaveRequest: {
+            wx_pay_status: (0 | 1) | ("0" | "1");
+            wx_pay_appid?: string;
+            wx_pay_mch_id?: string;
+            /** @description ****** 表示保留原密钥；其他值覆盖。 */
+            wx_pay_secret?: string;
+            wx_pay_cert_path?: string;
+            wx_pay_cert_key_path?: string;
+            wx_pay_platform_cert_path?: string;
+            ali_pay_status: (0 | 1) | ("0" | "1");
+            ali_pay_app_id?: string;
+            /** @description ****** 表示保留原私钥；其他值覆盖。 */
+            ali_pay_private_key?: string;
+            ali_pay_public_key?: string;
+            ali_pay_seller_id?: string;
+        } & {
+            [key: string]: components["schemas"]["PaymentIgnoredInput"];
+        };
+        PaymentSettingsResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentSettingsData"];
+        };
+        PaymentRechargeScene: {
+            /** @enum {integer} */
+            terminal: 1 | 2 | 3 | 4 | 5 | 6;
+            /** @enum {integer} */
+            pay_way: 2 | 3;
+            /** @enum {integer} */
+            status: 0 | 1;
+            /** @enum {integer} */
+            is_default: 0 | 1;
+        };
+        PaymentRechargeSceneInput: {
+            terminal: (1 | 2 | 3 | 4 | 5 | 6) | ("1" | "2" | "3" | "4" | "5" | "6");
+            pay_way: (2 | 3) | ("2" | "3");
+            status: (0 | 1) | ("0" | "1");
+            is_default: (0 | 1) | ("0" | "1");
+        };
+        PaymentRechargeSettingsData: {
+            /** @enum {integer} */
+            status: 0 | 1;
+            min_amount: string;
+            max_amount: string;
+            scenes: components["schemas"]["PaymentRechargeScene"][];
+        };
+        PaymentRechargeSettingsSaveRequest: {
+            status: (0 | 1) | ("0" | "1");
+            min_amount: number | string;
+            max_amount: number | string;
+            /** @description 必须一次提交 PaymentScene 当前登记的 11 个终端/渠道组合，组合不可重复；启用充值时每个终端恰有一个已启用默认渠道。 */
+            scenes: components["schemas"]["PaymentRechargeSceneInput"][];
+        };
+        PaymentRechargeSettingsResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentRechargeSettingsData"];
+        };
+        PaymentRechargeOrder: {
+            id: number;
+            sn: string;
+            /** @enum {integer} */
+            pay_way: 1 | 2 | 3;
+            pay_way_text: string;
+            /** @enum {integer} */
+            pay_status: 0 | 1;
+            /** @enum {string} */
+            pay_status_text: "未支付" | "已支付";
+            order_amount: string;
+            /** @enum {integer} */
+            order_terminal: 1 | 2 | 3 | 4 | 5 | 6;
+            terminal_text: string;
+            transaction_id: string;
+            pay_time: string;
+            create_time: string;
+        };
+        PaymentAdminRechargeOrder: {
+            id: number;
+            sn: string;
+            order_amount: string | number;
+            /** @enum {integer} */
+            pay_way: 1 | 2 | 3;
+            pay_time: string;
+            /** @enum {integer} */
+            pay_status: 0 | 1;
+            create_time: string;
+            /**
+             * @description 充值订单级标记：0 未发起退款，1 已发起退款；1 不表示渠道退款已经成功。
+             * @enum {integer}
+             */
+            refund_status: 0 | 1;
+            avatar: string;
+            nickname: string;
+            account: string;
+            refunded_amount: string;
+            refundable_amount: string;
+            pay_way_text: string;
+            pay_status_text: string;
+        };
+        PaymentPageData: {
+            lists: components["schemas"]["PaymentAdminRechargeOrder"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+            extend?: string[];
+        };
+        PaymentExportInfo: {
+            count: number;
+            page_size: number;
+            sum_page: number;
+            max_page: number;
+            /** @enum {integer} */
+            all_max_size: 25000;
+            page_start: number;
+            page_end: number;
+            file_name: string;
+        };
+        PaymentExportFile: {
+            url: string;
+            file_name: string;
+        };
+        PaymentAdminRechargeListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentPageData"] | components["schemas"]["PaymentExportInfo"] | components["schemas"]["PaymentExportFile"];
+        };
+        /** @description 当前服务只消费 recharge_id/refund_amount；legacy 校验器未拒绝的其他字段会被忽略。 */
+        PaymentRechargeRefundRequest: {
+            recharge_id: number | string;
+            refund_amount?: number | string;
+        } & {
+            [key: string]: components["schemas"]["PaymentIgnoredInput"];
+        };
+        /** @description 当前控制器只消费 record_id；legacy 校验器未拒绝的其他字段会被忽略。 */
+        PaymentRefundRetryRequest: {
+            record_id: number | string;
+        } & {
+            [key: string]: components["schemas"]["PaymentIgnoredInput"];
+        };
+        PaymentRefundStatistics: {
+            total: number;
+            ing: number;
+            success: number;
+            error: number;
+        };
+        PaymentRefundStatisticsResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentRefundStatistics"];
+        };
+        PaymentRefundRecord: {
+            id: number;
+            /** @enum {string} */
+            order_type: "order" | "recharge";
+            order_amount: string | number;
+            refund_amount: string | number;
+            transaction_id: string | null;
+            /** @enum {integer} */
+            refund_way: 1 | 2;
+            /** @enum {integer} */
+            refund_type: 1;
+            /**
+             * @description 0 退款中、1 退款成功、2 退款失败。gateway 结果未知时保持 0，由 refund:reconcile 后续收敛，不推定终态。
+             * @enum {integer}
+             */
+            refund_status: 0 | 1 | 2;
+            create_time: string;
+            update_time: (number | string) | null;
+            sn: string;
+            order_sn: string;
+            tenant_id?: number;
+            user_id: number;
+            order_id: number;
+            nickname: string;
+            avatar: string;
+            refund_type_text: string;
+            refund_status_text: string;
+            refund_way_text: string;
+        };
+        PaymentRefundSummary: {
+            total: number;
+            ing: number;
+            success: number;
+            error: number;
+        };
+        PaymentRefundPageData: {
+            lists: components["schemas"]["PaymentRefundRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+            extend: components["schemas"]["PaymentRefundSummary"];
+        };
+        PaymentRefundListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentRefundPageData"];
+        };
+        PaymentRefundLog: {
+            id: number;
+            sn: string | null;
+            record_id: number;
+            handle_id: number;
+            order_amount: string | number;
+            refund_amount: string | number;
+            /**
+             * @description 0 退款中、1 退款成功、2 退款失败。本次 gateway 结果未知时日志保持 0，等待 refund:reconcile 收敛。
+             * @enum {integer}
+             */
+            refund_status: 0 | 1 | 2;
+            create_time: string;
+            update_time: (number | string) | null;
+            tenant_id?: number;
+            user_id: number;
+            handler: string;
+            refund_status_text: string;
+        };
+        PaymentRefundLogResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentRefundLog"][];
+        };
+        /** @description 完整原始 JSON 会参与微信签名校验；解析器读取列出的标准字段，并保留对渠道新增签名字段的接收能力。 */
+        PaymentWechatCallbackRequest: {
+            id?: string;
+            create_time?: string;
+            event_type?: string;
+            resource_type?: string;
+            summary?: string;
+            resource: {
+                /** @enum {string} */
+                algorithm: "AEAD_AES_256_GCM";
+                ciphertext: string;
+                nonce: string;
+                associated_data?: string;
+            } & {
+                [key: string]: components["schemas"]["PaymentIgnoredInput"];
+            };
+        } & {
+            [key: string]: components["schemas"]["PaymentIgnoredInput"];
+        };
+        PaymentWechatCallbackAcknowledgement: {
+            /** @enum {string} */
+            code: "SUCCESS";
+            /** @enum {string} */
+            message: "成功";
+        };
+        /** @description 支付宝异步通知表单；列出的字段由当前解析器消费，其他渠道扩展字段仍作为字符串参与 RSA2 验签。 */
+        PaymentAlipayCallbackRequest: {
+            sign: string;
+            /** @enum {string} */
+            sign_type: "RSA2";
+            app_id: string;
+            seller_id: string;
+            out_trade_no: string;
+            trade_no: string;
+            total_amount: string;
+            trade_status: string;
+            notify_time?: string;
+            notify_type?: string;
+            notify_id?: string;
+            buyer_id?: string;
+            buyer_logon_id?: string;
+            receipt_amount?: string;
+            invoice_amount?: string;
+            buyer_pay_amount?: string;
+            point_amount?: string;
+            gmt_create?: string;
+            gmt_payment?: string;
+            subject?: string;
+            body?: string;
+            charset?: string;
+            version?: string;
+        } & {
+            [key: string]: string;
+        };
+        PaymentMemberRechargeConfigData: {
+            /** @enum {integer} */
+            status: 0 | 1;
+            min_amount: string;
+            balance: string;
+            /** @enum {integer} */
+            terminal: 1 | 2 | 3 | 4 | 5 | 6;
+            channels: components["schemas"]["PaymentMemberRechargeChannel"][];
+        };
+        PaymentMemberRechargeChannel: {
+            /** @enum {integer} */
+            pay_way: 2 | 3;
+            name: string;
+            /** @enum {integer} */
+            is_default: 0 | 1;
+        };
+        PaymentMemberRechargeConfigResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentMemberRechargeConfigData"];
+        };
+        /** @description 当前服务只消费 amount/terminal；legacy 校验器未拒绝的其他字段会被忽略。 */
+        PaymentMemberRechargeCreateRequest: {
+            amount: number | string;
+            terminal: (1 | 2 | 3 | 4 | 5 | 6) | ("1" | "2" | "3" | "4" | "5" | "6");
+        } & {
+            [key: string]: components["schemas"]["PaymentIgnoredInput"];
+        };
+        /** @description 当前控制器只消费 order_id/pay_way；legacy 校验器未拒绝的其他字段会被忽略。 */
+        PaymentMemberRechargePrepayRequest: {
+            order_id: number | string;
+            pay_way: (2 | 3) | ("2" | "3");
+        } & {
+            [key: string]: components["schemas"]["PaymentIgnoredInput"];
+        };
+        PaymentRechargeOrderResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentRechargeOrder"];
+        };
+        PaymentWechatJsapiPayload: {
+            appId: string;
+            timeStamp: string;
+            nonceStr: string;
+            package: string;
+            /** @enum {string} */
+            signType: "RSA";
+            paySign: string;
+        };
+        PaymentWechatAppPayload: {
+            appid: string;
+            partnerid: string;
+            prepayid: string;
+            /** @enum {string} */
+            package: "Sign=WXPay";
+            noncestr: string;
+            timestamp: string;
+            sign: string;
+        };
+        PaymentWechatNativePayload: {
+            code_url: string;
+        };
+        PaymentWechatH5Payload: {
+            h5_url: string;
+        };
+        PaymentAlipayAppPayload: {
+            /** @description 支付宝 SDK 所需完整签名订单字符串。 */
+            order_string: string;
+        };
+        PaymentAlipayRedirectPayload: {
+            /**
+             * Format: uri
+             * @description WAP/PAGE 场景由客户端跳转的支付宝网关 URL。
+             */
+            gateway_url: string;
+        };
+        PaymentPrepayPayment: {
+            /** @enum {string} */
+            channel: "wechat";
+            /** @enum {string} */
+            scene: "JSAPI";
+            payload: components["schemas"]["PaymentWechatJsapiPayload"];
+        } | {
+            /** @enum {string} */
+            channel: "wechat";
+            /** @enum {string} */
+            scene: "MWEB";
+            payload: components["schemas"]["PaymentWechatH5Payload"];
+        } | {
+            /** @enum {string} */
+            channel: "wechat";
+            /** @enum {string} */
+            scene: "NATIVE";
+            payload: components["schemas"]["PaymentWechatNativePayload"];
+        } | {
+            /** @enum {string} */
+            channel: "wechat";
+            /** @enum {string} */
+            scene: "APP";
+            payload: components["schemas"]["PaymentWechatAppPayload"];
+        } | {
+            /** @enum {string} */
+            channel: "alipay";
+            /** @enum {string} */
+            scene: "WAP" | "PAGE";
+            payload: components["schemas"]["PaymentAlipayRedirectPayload"];
+        } | {
+            /** @enum {string} */
+            channel: "alipay";
+            /** @enum {string} */
+            scene: "APP";
+            payload: components["schemas"]["PaymentAlipayAppPayload"];
+        };
+        PaymentRechargePrepayData: {
+            order: components["schemas"]["PaymentRechargeOrder"];
+            payment: components["schemas"]["PaymentPrepayPayment"];
+        };
+        PaymentRechargePrepayResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentRechargePrepayData"];
+        };
+        PaymentMemberRechargePageData: {
+            lists: components["schemas"]["PaymentRechargeOrder"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        PaymentMemberRechargeListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["PaymentMemberRechargePageData"];
+        };
+        /** @description 运行时可接收但 Payment 业务不会读取或持久化的扩展输入值。 */
+        PaymentIgnoredInput: (string | number | boolean | components["schemas"]["PaymentIgnoredInput"][] | {
+            [key: string]: components["schemas"]["PaymentIgnoredInput"];
+        }) | null;
+        /** @description 旧控制器保留原始请求；未列字段会被忽略。 */
+        ReferenceCodeLegacyIdentifierRequest: {
+            id: number;
+        };
+        /** @description 旧控制器保留原始请求；未列字段会被忽略。 */
+        ReferenceCodeLegacyStatusRequest: {
+            id: number;
+            /** @enum {integer} */
+            is_disable: 0 | 1;
+        };
+        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        ReferenceCodeLegacyTypeCreateRequest: {
+            name: string;
+            type: string;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+            remark?: string;
+        };
+        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        ReferenceCodeLegacyTypeUpdateRequest: {
+            id: number;
+            name: string;
+            type: string;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+            remark?: string;
+        };
+        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        ReferenceCodeLegacyEntryCreateRequest: {
+            type_id: number;
+            name: string;
+            value: string;
+            sort?: number;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+            remark?: string;
+        };
+        /** @description 服务只写入列出的字段；旧控制器会忽略其他字段。 */
+        ReferenceCodeLegacyEntryUpdateRequest: {
+            id: number;
+            name: string;
+            value: string;
+            sort?: number;
+            /** @enum {integer} */
+            is_disable?: 0 | 1;
+            remark?: string;
+        };
+        ReferenceCodeLegacyTypeRecord: {
+            id: number;
+            name: string;
+            type: string;
+            /** @enum {integer} */
+            is_disable: 0 | 1;
+            remark: string;
+            create_time: number;
+            update_time: number;
+            delete_time: number | null;
+            tenant_id: number;
+            active_type: string | null;
+        };
+        ReferenceCodeLegacyTypeOption: {
+            id: number;
+            name: string;
+            type: string;
+        };
+        ReferenceCodeLegacyEntryRecord: {
+            id: number;
+            name: string;
+            value: string;
+            type_id: number;
+            type_value: string;
+            sort: number;
+            /** @enum {integer} */
+            is_disable: 0 | 1;
+            remark: string;
+            create_time: number;
+            update_time: number;
+            delete_time: number | null;
+            tenant_id: number;
+        };
+        ReferenceCodeLegacyEntryOption: {
+            id: number;
+            name: string;
+            value: string;
+            sort: number;
+            /** @enum {string} */
+            source: "system" | "tenant";
+        };
+        ReferenceCodeLegacyTypePage: {
+            lists: components["schemas"]["ReferenceCodeLegacyTypeRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        ReferenceCodeLegacyEntryPage: {
+            lists: components["schemas"]["ReferenceCodeLegacyEntryRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        ReferenceCodeLegacyMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: unknown[];
+        };
+        ReferenceCodeLegacyTypeListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ReferenceCodeLegacyTypePage"];
+        };
+        ReferenceCodeLegacyTypeOptionsResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ReferenceCodeLegacyTypeOption"][];
+        };
+        ReferenceCodeLegacyTypeDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ReferenceCodeLegacyTypeRecord"];
+        };
+        ReferenceCodeLegacyEntryListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ReferenceCodeLegacyEntryPage"];
+        };
+        ReferenceCodeLegacyEntryOptionsResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ReferenceCodeLegacyEntryOption"][];
+        };
+        ReferenceCodeLegacyEntryDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["ReferenceCodeLegacyEntryRecord"];
+        };
         ReferenceCodeMetadata: {
             [key: string]: (string | null) | number | boolean;
         };
@@ -1316,8 +8981,17 @@ export interface components {
             /** Format: date-time */
             expires_at: string | null;
         };
-        ReferenceCodeCreateRequest: components["schemas"]["ReferenceCodeVersionRequest"] & {
+        ReferenceCodeCreateRequest: {
             code: string;
+            label: string;
+            metadata: components["schemas"]["ReferenceCodeMetadata"];
+            /** @enum {string} */
+            status: "active" | "inactive";
+            sort_order: number;
+            /** Format: date-time */
+            effective_at: string;
+            /** Format: date-time */
+            expires_at: string | null;
         };
         ReferenceCodeSetSummary: {
             module_key: string;
@@ -1378,13 +9052,17 @@ export interface components {
             };
             meta: components["schemas"]["ReferenceCodeMeta"];
         };
+        /** @description 任意 JSON 值；整数同时属于 JSON number，故使用 anyOf 避免 oneOf 重叠。 */
         SettingValue: (string | number | boolean | {
             [key: string]: components["schemas"]["SettingValue"];
         } | components["schemas"]["SettingValue"][]) | null;
+        /** @description 受信任定义加载器要求的 JSON Schema Draft 2020-12 根对象；其余键限于可被 Opis 编译的 JSON Schema 关键字和值。 */
         SettingSchema: {
+            /** @enum {string} */
+            $schema: "https://json-schema.org/draft/2020-12/schema";
             type: ("array" | "boolean" | "integer" | "null" | "number" | "object" | "string") | ("array" | "boolean" | "integer" | "null" | "number" | "object" | "string")[];
         } & {
-            [key: string]: unknown;
+            [key: string]: components["schemas"]["SettingValue"];
         };
         SettingRecord: {
             module_key: string;
@@ -1450,6 +9128,99 @@ export interface components {
         TaskRequestMeta: {
             request_id: string;
         };
+        CrontabPositiveIntegerInput: number | string;
+        CrontabCreateRequest: {
+            name: string;
+            /** @enum {integer} */
+            type: 1;
+            command: string;
+            /** @enum {integer} */
+            status: 1 | 2 | 3;
+            expression: string;
+            params?: string;
+            sort?: number;
+            remark?: string;
+        };
+        CrontabUpdateRequest: {
+            id: components["schemas"]["CrontabPositiveIntegerInput"];
+            name: string;
+            /** @enum {integer} */
+            type: 1;
+            command: string;
+            /** @enum {integer} */
+            status: 1 | 2 | 3;
+            expression: string;
+            params?: string;
+            sort?: number;
+            remark?: string;
+        };
+        CrontabIdentifierRequest: {
+            id: components["schemas"]["CrontabPositiveIntegerInput"];
+        };
+        CrontabOperateRequest: {
+            id: components["schemas"]["CrontabPositiveIntegerInput"];
+            /** @enum {string} */
+            operate: "start" | "stop";
+        };
+        TaskExpressionItem: {
+            time: number;
+            date: string;
+        };
+        CrontabDecimalValue: number | string;
+        CrontabRecord: {
+            id: number;
+            name: string;
+            /** @enum {integer} */
+            type: 1;
+            command: string;
+            params: string;
+            /** @enum {integer} */
+            status: 1 | 2 | 3;
+            expression: string;
+            error: string;
+            /** @description 空字符串或 Y-m-d H:i:s。 */
+            last_time: string;
+            time: components["schemas"]["CrontabDecimalValue"];
+            max_time: components["schemas"]["CrontabDecimalValue"];
+            sort: number;
+            remark: string;
+            create_time: number;
+            update_time: number;
+            delete_time: number | null;
+            tenant_id: number;
+            type_desc: string;
+            status_desc: string;
+        };
+        CrontabPage: {
+            lists: components["schemas"]["CrontabRecord"][];
+            count: number;
+            pageNo: number;
+            pageSize: number;
+        };
+        CrontabListResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["CrontabPage"];
+        };
+        CrontabDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["CrontabRecord"];
+        };
+        TaskMutationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: unknown[];
+        };
+        TaskExpressionResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: components["schemas"]["TaskExpressionItem"][];
+        };
     };
     responses: {
         /** @description Standard Peanut Admin API response */
@@ -1459,6 +9230,28 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["ApiResponse"];
+            };
+        };
+        /** @description 统一 API 错误响应；data.error_code 仅在异常提供稳定错误码时出现。 */
+        ErrorResponse: {
+            headers: {
+                /** @description 请求追踪 ID */
+                "X-Request-Id"?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 统一 API 错误；X-Request-Id 响应头用于追踪。 */
+        ArticleErrorResponse: {
+            headers: {
+                /** @description 请求追踪 ID */
+                "X-Request-Id"?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ArticleErrorEnvelope"];
             };
         };
         /** @description Updated tenant setting with the resulting strong ETag. */
@@ -1475,6 +9268,10 @@ export interface components {
     parameters: {
         PageNo: number;
         PageSize: number;
+        PlatformPage: number;
+        PlatformPageSize: number;
+        IdempotencyKey: string;
+        IfMatchRevision: string;
     };
     requestBodies: never;
     headers: never;
@@ -1491,11 +9288,27 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LoginRequest"];
+                "application/json": components["schemas"]["AdminLoginRequest"];
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminLoginData"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     selectTenant: {
@@ -1507,12 +9320,21 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TenantSelectRequest"];
+                "application/json": components["schemas"]["TenantSessionSelectRequest"];
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAuthHttpResponse"];
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listArticles: {
@@ -1522,6 +9344,7 @@ export interface operations {
                 page_size?: components["parameters"]["PageSize"];
                 cid?: number;
                 keyword?: string;
+                sort?: "default" | "new" | "hot";
             };
             header?: never;
             path?: never;
@@ -1529,7 +9352,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
+            /** @description 公开文章分页 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationArticleListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     articleDetail: {
@@ -1543,7 +9376,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
+            /** @description 公开文章详情 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationArticleDetailResponse"];
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     uploadFile: {
@@ -1563,7 +9406,18 @@ export interface operations {
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
+            /** @description 上传成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileUploadResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     deliverTenantFile: {
@@ -1589,18 +9443,17 @@ export interface operations {
                     "application/octet-stream": string;
                 };
             };
-            /** @description Signature, object state or Tenant state rejected */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listFiles: {
         parameters: {
-            query?: {
+            query: {
+                type: 10 | 20 | 30;
+                cid?: number;
+                name?: string;
+                source?: 0 | 1;
                 page_no?: components["parameters"]["PageNo"];
                 page_size?: components["parameters"]["PageSize"];
             };
@@ -1610,7 +9463,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
+            /** @description 当前租户素材分页 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileListResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     sendVerificationCode: {
@@ -1629,7 +9493,18 @@ export interface operations {
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
+            /** @description 验证码发送请求已受理 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     getFirstRunReadinessChecklist: {
@@ -1641,17 +9516,22 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Readiness checklist */
+            /** @description 成功 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReadinessChecklistResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ReadinessChecklist"];
+                    };
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     exportTenantConfiguration: {
@@ -1672,8 +9552,8 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigurationTransferPackageResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     previewTenantConfigurationImport: {
@@ -1698,9 +9578,9 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigurationTransferPlanResponse"];
                 };
             };
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     applyTenantConfigurationImport: {
@@ -1725,13 +9605,13 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigurationTransferPlanResponse"];
                 };
             };
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
-    getPlatformBackupCenter: {
+    listPlatformBackups: {
         parameters: {
             query?: never;
             header?: never;
@@ -1740,9 +9620,24 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsSnapshot"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getPlatformUpgradeReadiness: {
@@ -1754,62 +9649,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-        };
-    };
-    getPlatformUpgradeExecutions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-        };
-    };
-    getPlatformModuleOperations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-        };
-    };
-    getPlatformProviderQualifications: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Provider qualification snapshot */
+            /** @description 成功 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformProviderQualificationResponse"];
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsSnapshot"];
+                    };
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    getPlatformMaintenanceWindow: {
+    listPlatformUpgrades: {
         parameters: {
             query?: never;
             header?: never;
@@ -1818,104 +9678,274 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsSnapshot"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    schedulePlatformMaintenanceWindow: {
+    listPlatformModuleOperations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsSnapshot"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformOpsProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsSnapshot"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformMaintenance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["NullablePlatformOpsMaintenance"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    schedulePlatformMaintenance: {
         parameters: {
             query?: never;
             header: {
-                "If-Match": string;
-                "Idempotency-Key": string;
+                "If-Match": components["parameters"]["IfMatchRevision"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlatformMaintenanceScheduleRequest"];
+                "application/json": {
+                    reason_key: string;
+                    /** Format: date-time */
+                    starts_at: string;
+                    /** Format: date-time */
+                    ends_at: string;
+                };
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsMaintenance"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    closePlatformMaintenanceWindow: {
+    closePlatformMaintenance: {
         parameters: {
             query?: never;
             header: {
-                "If-Match": string;
-                "Idempotency-Key": string;
+                "If-Match": components["parameters"]["IfMatchRevision"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path: {
                 maintenance_key: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
         responses: {
-            200: components["responses"]["ApiResponse"];
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsMaintenance"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     submitPlatformBackup: {
         parameters: {
             query?: never;
             header: {
-                "Idempotency-Key": string;
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlatformBackupRequest"];
+                "application/json": {
+                    provider_key: string;
+                };
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsTask"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    submitPlatformRestoreVerification: {
+    submitPlatformRestore: {
         parameters: {
             query?: never;
             header: {
-                "Idempotency-Key": string;
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlatformRestoreVerificationRequest"];
+                "application/json": {
+                    provider_key: string;
+                    backup_reference_key: string;
+                    target_key: string;
+                };
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsTask"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    submitPlatformUpgradeExecution: {
+    submitPlatformUpgrade: {
         parameters: {
             query?: never;
             header: {
-                "Idempotency-Key": string;
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
@@ -1926,33 +9956,61 @@ export interface operations {
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsTask"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     submitPlatformModuleOperation: {
         parameters: {
             query?: never;
             header: {
-                "Idempotency-Key": string;
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlatformModuleOperationRequest"];
+                "application/json": {
+                    request_key: string;
+                };
             };
         };
         responses: {
-            200: components["responses"]["ApiResponse"];
-            400: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsTask"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getPlatformOpsTask: {
@@ -1966,10 +10024,5428 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["ApiResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsTask"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getApplicationHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationHomeData"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getApplicationPublicConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationPublicConfig"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getApplicationPolicy: {
+        parameters: {
+            query?: {
+                type?: "privacy" | "service";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationPolicy"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    logoutMemberSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPublicArticleCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationArticleCategory"][];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPublicHotSearches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationHotSearchData"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPublicMobileDecorationPage: {
+        parameters: {
+            query?: {
+                type?: 1 | 2 | 3;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDecorationPage"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getVisibleDecorationTabbar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDecorationTabbar"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPublicPcDecorationPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDecorationPage"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPcPublicConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationPublicConfig"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPcHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationPcHomeData"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPcInformationCenter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationInformationCategory"][];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPcArticleDetail: {
+        parameters: {
+            query?: {
+                id?: number;
+                source?: "default" | "all" | "new" | "hot";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationPcArticleDetail"] | unknown[];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    addArticleCollection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplicationArticleCollectionRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    cancelArticleCollection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplicationArticleCollectionRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listArticleCollections: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationArticleCollectionPage"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    adminLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+        };
+    };
+    getAdminSessionInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminInfo"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminSessionMenu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminMenuNode"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminLoginInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminInfo"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    tenantSessionLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantSessionLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAuthHttpResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createTenantSwitchChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAuthHttpResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    refreshTenantSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantAuthHttpResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    logoutTenantSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 会话已撤销，响应无 body。 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    inspectTenantOwnerInvitation: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InvitationInspection"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            410: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    acceptTenantOwnerInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationAcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InvitationAcceptance"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            410: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAdministrators: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                account?: string;
+                name?: string;
+                role_id?: number;
+                export?: 1 | 2;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminListData"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdministrator: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRecord"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getCurrentAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRecord"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateCurrentAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSelfEditRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteAdministrator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    setAdministratorStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                    /** @enum {integer} */
+                    disable: 0 | 1;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdministratorMenuRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminMenuNode"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAdminMenus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminMenuNode"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAssignableAdminMenus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminMenuNode"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminMenu: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminMenuNode"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createAdminMenu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMenuWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateAdminMenu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminMenuWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteAdminMenu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    setAdminMenuStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                    /** @enum {integer} */
+                    is_disable: 0 | 1;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAdminRoles: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["AdminRole"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAllAdminRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRole"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRole: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRole"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createAdminRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRoleWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateAdminRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRoleWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveAdminRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDepartments: {
+        parameters: {
+            query?: {
+                name?: string;
+                status?: 0 | 1;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["Department"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listActiveDepartments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["Department"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDepartmentLeaderOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            id: number;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getDepartment: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["Department"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createDepartment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateDepartment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveDepartment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    setDepartmentStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                    /** @enum {integer} */
+                    status: 0 | 1;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listJobs: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                code?: string;
+                name?: string;
+                status?: 0 | 1;
+                export?: 1 | 2;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["Job"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        } | components["schemas"]["ExportPageInfo"] | components["schemas"]["ExportFile"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listActiveJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["Job"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["Job"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobWriteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    setJobStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                    /** @enum {integer} */
+                    status: 0 | 1;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getWebsiteConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["WebsiteConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveWebsiteConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebsiteConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAgreementConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AgreementConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveAgreementConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgreementConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getStatisticsConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["StatisticsConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveStatisticsConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatisticsConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getMemberProfileConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["MemberProfileConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveMemberProfileConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberProfileConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getLoginConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["LoginConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveLoginConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getCopyrightConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["CopyrightItemList"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveCopyrightConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyrightConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listMobileDecorationPages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["DecorationPageSummary"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getMobileDecorationPage: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["DecorationPage"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveMobileDecorationPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecorationPageSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPcDecorationPages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["DecorationPageSummary"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPcDecorationPage: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["DecorationPage"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    savePcDecorationPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecorationPageSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDecorationArticleOptions: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ArticleOption"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getDecorationTabbar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["DecorationTabbar"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveDecorationTabbar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecorationTabbar"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeneratorSourceTables: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["GeneratorTable"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeneratorImports: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                keyword?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["GeneratorTable"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeneratorImport: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["GeneratorTable"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    importGeneratorTables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    table_names: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    syncGeneratorImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeneratorImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneratorUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteGeneratorImports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewGeneratorImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["GeneratorPreviewFile"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    generateApplicationCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: number[];
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["GeneratorDownload"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    downloadGeneratedApplicationCode: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 一次性 ZIP 下载 */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeneratorModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["GeneratorTable"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listOperationLogs: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                username?: string;
+                uri?: string;
+                method?: string;
+                ip?: string;
+                start_time?: string;
+                end_time?: string;
+                export?: 1 | 2;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["OperationLog"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        } | components["schemas"]["ExportPageInfo"] | components["schemas"]["ExportFile"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    clearOperationLogs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getHotSearchConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["HotSearchConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveHotSearchConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotSearchConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getTransactionConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["TransactionConfig"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveTransactionConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransactionConfig"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getSystemInformation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["SystemInfo"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    clearSystemCache: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminWorkbench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["Workbench"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    platformSessionLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformAuthentication"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    platformSessionRefresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformAuthentication"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    platformSessionLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["ApplicationDynamicValue"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformSessionInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformSessionInfo"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformTenantCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformCapabilities"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformTenants: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformTenant"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformTenant: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformTenant"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    activatePlatformTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformTenantTransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformTenant"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    suspendPlatformTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformTenantTransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformTenant"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    closePlatformTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformTenantTransitionRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformTenant"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformOperators: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformOperator"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformRoles: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformRole"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformPermissions: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformPermission"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformAuditEvents: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformAuditEvent"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformTenantModules: {
+        parameters: {
+            query: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+                tenant_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformTenantModuleState"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformTenantOwner: {
+        parameters: {
+            query: {
+                tenant_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformTenantOwner"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPlatformOperator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                    display_name: string;
+                    initial_password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOperator"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePlatformOperator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operator_id: number;
+                    expected_revision: number;
+                    display_name: string;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOperator"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replacePlatformOperatorRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operator_id: number;
+                    role_ids: number[];
+                    expected_revision: number;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOperator"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    activatePlatformOperator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operator_id: number;
+                    expected_revision: number;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOperator"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    suspendPlatformOperator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operator_id: number;
+                    expected_revision: number;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOperator"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    closePlatformOperator: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    operator_id: number;
+                    expected_revision: number;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOperator"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPlatformRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    key: string;
+                    name: string;
+                    description?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRole"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePlatformRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role_id: number;
+                    expected_revision: number;
+                    name: string;
+                    description?: string;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRole"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archivePlatformRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role_id: number;
+                    expected_revision: number;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRole"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replacePlatformRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role_id: number;
+                    permission_keys: string[];
+                    expected_revision: number;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformRole"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    provisionPlatformTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tenant_code: string;
+                    tenant_name: string;
+                    /** Format: email */
+                    owner_email: string;
+                    owner_display_name: string;
+                    /** @default 72 */
+                    expires_in_hours?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOwnerInvitation"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformTenantInvitations: {
+        parameters: {
+            query: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+                tenant_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformOwnerInvitation"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    invitePlatformTenantOwner: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tenant_id: number;
+                    /** Format: email */
+                    owner_email: string;
+                    owner_display_name: string;
+                    /** @default 72 */
+                    expires_in_hours?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOwnerInvitation"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    resendPlatformTenantInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    invitation_id: number;
+                    /** @default 72 */
+                    expires_in_hours?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOwnerInvitation"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    revokePlatformTenantInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    invitation_id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformInvitationRevoked"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformTenantEntryBindings: {
+        parameters: {
+            query?: {
+                tenant_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformEntryBinding"][];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    enablePlatformTenantEntryBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tenant_id: number;
+                    host: string;
+                    /** @enum {string} */
+                    client_key: "admin-web" | "member-api";
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformEntryBinding"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    disablePlatformTenantEntryBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    binding_id: number;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformEntryBindingDisabled"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    enablePlatformTenantModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tenant_id: number;
+                    module_key: string;
+                    change_reason: string;
+                    config?: {
+                        [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                    };
+                    /** Format: date-time */
+                    effective_at?: string;
+                    /** Format: date-time */
+                    expires_at?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformTenantModuleRecord"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    disablePlatformTenantModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    tenant_id: number;
+                    module_key: string;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformTenantModuleRecord"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listInstanceModules: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["PlatformPage"];
+                page_size?: components["parameters"]["PlatformPageSize"];
+                module_key?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["PlatformModuleDescriptor"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    installInstanceModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    package: string;
+                    expected_sha256: string;
+                    signature_key_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformModuleLifecycleResult"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createInstanceModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    module_key: string;
+                    vendor?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformModuleLifecycleResult"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    disableInstanceModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    module_key: string;
+                    change_reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformModuleLifecycleResult"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    syncInstanceModuleCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    module_key?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformModuleLifecycleResult"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    uninstallInstanceModule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    module_key: string;
+                    purge: boolean;
+                    /** @enum {boolean} */
+                    preview: true;
+                } | {
+                    module_key: string;
+                    purge: boolean;
+                    /** @enum {boolean} */
+                    preview: false;
+                    change_reason: string;
+                    confirm_plan: {
+                        [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                    };
+                    confirm_plan_digest: string;
+                    confirm_package_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformModuleLifecycleResult"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformDeveloperCatalog: {
+        parameters: {
+            query?: {
+                module_key?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformDeveloperCatalog"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformOpsStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsStatus"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    downloadPlatformDiagnostics: {
+        parameters: {
+            query?: {
+                window_minutes?: 60 | 360 | 1440;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 有界诊断 JSON 附件 */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    "X-Diagnostic-SHA256": string;
+                    "X-Request-Id": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getInstallationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationStatus"];
+                    };
+                };
+            };
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    executeGuidedInstallation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallationExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationResult"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    listArticleCategories: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_type?: 0 | 1;
+                order_by?: "asc" | "desc";
+                field?: "create_time" | "id";
+                name?: string;
+                is_show?: 0 | 1;
+                /** @example 2026-09-01 00:00:00 */
+                start_time?: string;
+                /** @example 2026-09-30 23:59:59 */
+                end_time?: string;
+                start?: number;
+                end?: number;
+                export?: 1 | 2;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleCategoryPageResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    listEnabledArticleCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询全部启用资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleCategoryCollectionResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    getArticleCategory: {
+        parameters: {
+            query: {
+                /**
+                 * @description 资讯分类 ID
+                 * @example 12
+                 */
+                id: components["schemas"]["ArticlePositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询资讯分类详情成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleCategoryDetailResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    createArticleCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleCategoryCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    updateArticleCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleCategoryUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    deleteArticleCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 软删除资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    updateArticleCategoryStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新资讯分类启用状态成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    listRecycledArticleCategories: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_type?: 0 | 1;
+                order_by?: "asc" | "desc";
+                field?: "create_time" | "id";
+                name?: string;
+                is_show?: 0 | 1;
+                /** @example 2026-09-01 00:00:00 */
+                start_time?: string;
+                /** @example 2026-09-30 23:59:59 */
+                end_time?: string;
+                start?: number;
+                end?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询已删除资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleCategoryPageResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    getRecycledArticleCategory: {
+        parameters: {
+            query: {
+                /**
+                 * @description 已删除资讯分类 ID
+                 * @example 12
+                 */
+                id: components["schemas"]["ArticlePositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询已删除资讯分类详情成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleCategoryDetailResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    restoreArticleCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 恢复已删除资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    forceDeleteArticleCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 永久删除资讯分类成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    listAdminArticles: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_type?: 0 | 1;
+                order_by?: "asc" | "desc";
+                field?: "create_time" | "id";
+                title?: string;
+                is_show?: 0 | 1;
+                /** @example 2026-09-01 00:00:00 */
+                start_time?: string;
+                /** @example 2026-09-30 23:59:59 */
+                end_time?: string;
+                start?: number;
+                end?: number;
+                cid?: components["schemas"]["ArticlePositiveIntegerInput"];
+                export?: 1 | 2;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询资讯成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticlePageResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    getAdminArticle: {
+        parameters: {
+            query: {
+                /**
+                 * @description 资讯 ID
+                 * @example 12
+                 */
+                id: components["schemas"]["ArticlePositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询资讯详情成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleDetailResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    createArticle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建资讯成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    updateArticle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新资讯成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    deleteArticle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 软删除资讯成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    updateArticleStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新资讯展示状态成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    listRecycledArticles: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                page_type?: 0 | 1;
+                order_by?: "asc" | "desc";
+                field?: "create_time" | "id";
+                title?: string;
+                is_show?: 0 | 1;
+                /** @example 2026-09-01 00:00:00 */
+                start_time?: string;
+                /** @example 2026-09-30 23:59:59 */
+                end_time?: string;
+                start?: number;
+                end?: number;
+                cid?: components["schemas"]["ArticlePositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询已删除资讯成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticlePageResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    getRecycledArticle: {
+        parameters: {
+            query: {
+                /**
+                 * @description 已删除资讯 ID
+                 * @example 12
+                 */
+                id: components["schemas"]["ArticlePositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询已删除资讯详情成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleDetailResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    restoreArticles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 恢复已删除资讯成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    forceDeleteArticles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleBatchIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 永久删除资讯成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBatchMutationResponse"];
+                };
+            };
+            400: components["responses"]["ArticleErrorResponse"];
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
         };
     };
     listFileAssets: {
@@ -1996,9 +15472,367 @@ export interface operations {
                     "application/json": components["schemas"]["FileAssetListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    uploadAdminImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    cid?: components["schemas"]["FileNonNegativeIntegerInput"];
+                };
+            };
+        };
+        responses: {
+            /** @description 上传成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileUploadResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    uploadAdminVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    cid?: components["schemas"]["FileNonNegativeIntegerInput"];
+                };
+            };
+        };
+        responses: {
+            /** @description 上传成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileUploadResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    uploadMemberImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    cid?: components["schemas"]["FileNonNegativeIntegerInput"];
+                };
+            };
+        };
+        responses: {
+            /** @description 上传成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileUploadResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    moveFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileMoveRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    renameFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileRenameRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileIdsRequest"];
+            };
+        };
+        responses: {
+            /** @description 素材及对应存储对象删除计数 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDeleteResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listFileCategories: {
+        parameters: {
+            query?: {
+                type?: 10 | 20 | 30;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前租户的文件分类树；每个节点保留 ORM 行的全部已声明字段。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileCategoryListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createFileCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileCategoryCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateFileCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileCategoryUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteFileCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 分类子树、素材和存储对象删除计数 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileCategoryDeleteResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    submitOperationLogExport: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Operation-log export accepted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportExportLegacyOperationResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getLegacyImportExportOperation: {
+        parameters: {
+            query: {
+                operation_key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful import/export response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportExportLegacyOperationResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    downloadLegacyImportExportResult: {
+        parameters: {
+            query: {
+                file_key: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the tenant-scoped result URL returned by the file gateway. */
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listImportExportOperations: {
@@ -2023,10 +15857,10 @@ export interface operations {
                     "application/json": components["schemas"]["ImportExportOperationListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     submitImportOperation: {
@@ -2053,12 +15887,12 @@ export interface operations {
                     "application/json": components["schemas"]["ImportExportOperationResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     submitExportOperation: {
@@ -2085,11 +15919,11 @@ export interface operations {
                     "application/json": components["schemas"]["ImportExportOperationResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     cancelImportExportOperation: {
@@ -2118,11 +15952,11 @@ export interface operations {
                     "application/json": components["schemas"]["ImportExportOperationResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     downloadImportExportResult: {
@@ -2145,11 +15979,11 @@ export interface operations {
                 };
                 content?: never;
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     listIntegrationMachines: {
@@ -2170,9 +16004,9 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationMachineListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     createIntegrationMachine: {
@@ -2202,10 +16036,10 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationProvisionedMachineResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     rotateIntegrationMachine: {
@@ -2234,12 +16068,12 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationProvisionedMachineResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     revokeIntegrationMachine: {
@@ -2268,11 +16102,11 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationMachineResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listIntegrationWebhooks: {
@@ -2293,8 +16127,8 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationWebhookListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     createIntegrationWebhook: {
@@ -2324,10 +16158,10 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationProvisionedWebhookResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     rotateIntegrationWebhookSecret: {
@@ -2356,12 +16190,12 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationProvisionedWebhookResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     disableIntegrationWebhook: {
@@ -2390,11 +16224,11 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationWebhookResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listIntegrationDeliveries: {
@@ -2418,9 +16252,9 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationDeliveryListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listIntegrationDeliveryAttempts: {
@@ -2446,9 +16280,9 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationAttemptListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listIntegrationSessions: {
@@ -2469,8 +16303,8 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationSessionListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     revokeIntegrationSession: {
@@ -2497,10 +16331,796 @@ export interface operations {
                     "application/json": components["schemas"]["IntegrationSessionResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAdminMembers: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                page?: number;
+                limit?: number;
+                keyword?: string;
+                channel?: number;
+                create_time_start?: string;
+                create_time_end?: string;
+                status?: 0 | 1;
+                export?: 1 | 2;
+                page_type?: 0 | 1;
+                page_start?: number;
+                page_end?: number;
+                file_name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员列表或导出结果成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberAdminListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminMember: {
+        parameters: {
+            query: {
+                /** @example 17 */
+                id: components["schemas"]["MemberPositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员详情成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberAdminDetailResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createAdminMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAdminCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建会员成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateAdminMemberField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAdminFieldUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新会员字段成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateAdminMemberStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAdminStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新会员状态成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    adjustAdminMemberBalance: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberBalanceAdjustmentRequest"];
+            };
+        };
+        responses: {
+            /** @description 调整会员余额成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    createMemberTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberTagCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建会员标签成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listMemberTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员标签成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberTagListResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateMemberTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberTagUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新会员标签成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteMemberTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 删除会员标签成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAdminMemberBalanceLogs: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+                page_type?: 0 | 1;
+                type?: "um";
+                change_type?: 100 | 101 | 200 | 201;
+                user_info?: string;
+                start_time?: string;
+                end_time?: string;
+                export?: 1 | 2;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员余额流水成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberAdminBalanceLogPageResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getMemberBalanceChangeTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员余额变动类型成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberChangeTypesResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    registerMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description 注册会员账号成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    loginMemberWithAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberAccountLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 会员账号密码登录成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberLoginResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    loginMemberWithMobileCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberMobileCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description 会员手机验证码登录成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberLoginResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+        };
+    };
+    resetMemberPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description 通过手机验证码重置会员密码成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+        };
+    };
+    getMemberCenter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员中心成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberCenterResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    getMemberProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员资料成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberProfileResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateMemberProfileField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberSelfFieldRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新会员本人资料字段成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    changeMemberPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberPasswordChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description 修改会员密码成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    bindMemberMobile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberMobileCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description 绑定或变更会员手机成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    listCurrentMemberBalanceLogs: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询当前会员余额流水成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberSelfBalanceLogPageResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getNotificationChannelConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannelDetailResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveNotificationChannelConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationChannelSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listNotificationScenes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSceneListResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getNotificationScene: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSceneDetailResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveNotificationScene: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSceneSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    listNotificationLogs: {
+        parameters: {
+            query?: {
+                receiver?: string;
+                channel?: 1 | 2 | 3;
+                status?: 0 | 1 | 2 | 3;
+                scene_id?: number;
+                start_time?: number;
+                end_time?: number;
+                page_no?: number;
+                page_size?: number;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationLogListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getNotificationLog: {
+        parameters: {
+            query?: {
+                id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful notification-inbox response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationLogDetailResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     listInboxNotifications: {
@@ -2525,9 +17145,9 @@ export interface operations {
                     "application/json": components["schemas"]["NotificationListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     markInboxNotificationRead: {
@@ -2556,11 +17176,11 @@ export interface operations {
                     "application/json": components["schemas"]["NotificationResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     bulkUpdateInboxNotifications: {
@@ -2589,11 +17209,1641 @@ export interface operations {
                     "application/json": components["schemas"]["NotificationBulkResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getOAuthWebPageConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询 H5 网页渠道配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthWebPageConfigResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceOAuthWebPageConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthWebPageConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存 H5 网页渠道配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getOAuthMiniProgramConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询微信小程序配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMiniProgramConfigResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceOAuthMiniProgramConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthMiniProgramConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存微信小程序配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getOAuthOfficialAccountConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询微信公众号配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthOfficialAccountConfigResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceOAuthOfficialAccountConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthOfficialAccountConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存微信公众号配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getOAuthOfficialAccountMenu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询微信公众号菜单成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMenuResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveOAuthOfficialAccountMenu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthMenuRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存微信公众号菜单成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    publishOAuthOfficialAccountMenu: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthMenuRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存并发布微信公众号菜单成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    listOAuthOfficialAccountReplies: {
+        parameters: {
+            query?: {
+                page_no?: components["parameters"]["PageNo"];
+                page_size?: number;
+                /** @deprecated */
+                page?: number;
+                /** @deprecated */
+                limit?: number;
+                reply_type?: 1 | 2 | 3;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询微信公众号自动回复成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthReplyPageResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getOAuthOfficialAccountReply: {
+        parameters: {
+            query: {
+                id: components["schemas"]["OAuthPositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询微信公众号自动回复详情成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthReplyDetailResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    createOAuthOfficialAccountReply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthReplyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建微信公众号自动回复成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateOAuthOfficialAccountReply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthReplyUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新微信公众号自动回复成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteOAuthOfficialAccountReply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 删除微信公众号自动回复成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateOAuthOfficialAccountReplyStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthReplyStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新微信公众号自动回复状态成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getOAuthOpenPlatformConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询微信开放平台配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthOpenPlatformConfigResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceOAuthOpenPlatformConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthOpenPlatformConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存微信开放平台配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    beginWechatOAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthBeginRequest"];
+            };
+        };
+        responses: {
+            /** @description 发起微信浏览器授权成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthAuthorizationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    completeWechatOAuthCallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description 处理微信浏览器授权回调成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthLoginResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    loginWithWechatMiniProgram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthMiniProgramLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 微信小程序登录成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthLoginResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    completeWechatOAuthProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthCompletionRequest"];
+            };
+        };
+        responses: {
+            /** @description 补全微信登录资料成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthLoginResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    redirectWechatOAuthToPc: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+                error_description?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 重定向到对应 PC/H5 OAuth 回调页。仅转发 code、state、error 和 error_description。 */
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    redirectWechatOAuthToOfficialAccount: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+                error_description?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 重定向到对应 PC/H5 OAuth 回调页。仅转发 code、state、error 和 error_description。 */
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    bindWechatIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthBindRequest"];
+            };
+        };
+        responses: {
+            /** @description 绑定当前会员的微信身份成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    verifyWechatOfficialAccountCallback: {
+        parameters: {
+            query: {
+                signature: string;
+                timestamp: string;
+                nonce: string;
+                echostr: string;
+            };
+            header?: never;
+            path: {
+                binding: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 原样返回微信提供的 echostr。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description 回调绑定、签名、模块状态或消息校验失败。 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": "callback rejected";
+                };
+            };
+        };
+    };
+    receiveWechatOfficialAccountMessage: {
+        parameters: {
+            query: {
+                signature: string;
+                timestamp: string;
+                nonce: string;
+                /** @description 当前实现拒绝值 aes，仅支持明文模式。 */
+                encrypt_type?: string;
+            };
+            header?: never;
+            path: {
+                binding: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/xml": components["schemas"]["OAuthOfficialAccountMessageXml"];
+            };
+        };
+        responses: {
+            /** @description 无回复时返回 success；有文本回复时返回公众号 XML。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": "success";
+                    "application/xml": components["schemas"]["OAuthOfficialAccountMessageXml"];
+                };
+            };
+            /** @description 回调绑定、签名、模块状态或消息校验失败。 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": "callback rejected";
+                };
+            };
+        };
+    };
+    getPaymentSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询支付渠道配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSettingsResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    savePaymentSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentSettingsSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存支付渠道配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPaymentRechargeSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询充值配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRechargeSettingsResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    savePaymentRechargeSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentRechargeSettingsSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description 保存充值配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPaymentRecharges: {
+        parameters: {
+            query?: {
+                page_no?: number;
+                page_size?: number;
+                sn?: string;
+                user_info?: string;
+                pay_way?: 1 | 2 | 3;
+                pay_status?: 0 | 1;
+                start_time?: string;
+                end_time?: string;
+                page_type?: 0 | 1;
+                page_start?: number;
+                page_end?: number;
+                export?: 1 | 2;
+                file_name?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询充值订单成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentAdminRechargeListResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    refundPaymentRecharge: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 退款幂等键；服务按租户和请求摘要登记。 */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentRechargeRefundRequest"];
+            };
+        };
+        responses: {
+            /** @description 发起充值退款成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    retryPaymentRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentRefundRetryRequest"];
+            };
+        };
+        responses: {
+            /** @description 重试失败退款成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPaymentRefundStatistics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询退款统计成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRefundStatisticsResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPaymentRefunds: {
+        parameters: {
+            query?: {
+                page_no?: number;
+                page_size?: number;
+                sn?: string;
+                order_sn?: string;
+                user_info?: string;
+                refund_type?: 1;
+                refund_status?: 0 | 1 | 2;
+                start_time?: string;
+                end_time?: string;
+                page_type?: 0 | 1;
+                export?: 1 | 2;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询退款记录成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRefundListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPaymentRefundLogs: {
+        parameters: {
+            query: {
+                record_id: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询退款操作日志成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRefundLogResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    receiveWechatPaymentCallback: {
+        parameters: {
+            query?: never;
+            header: {
+                "Wechatpay-Timestamp": string;
+                "Wechatpay-Nonce": string;
+                "Wechatpay-Serial": string;
+                "Wechatpay-Signature": string;
+                "Wechatpay-Signature-Type"?: "WECHATPAY2-SHA256-RSA2048";
+            };
+            path: {
+                binding: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentWechatCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description 微信渠道确认 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentWechatCallbackAcknowledgement"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    receiveAlipayPaymentCallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                binding: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["PaymentAlipayCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description 支付宝渠道确认文本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": "success";
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    getMemberRechargeConfig: {
+        parameters: {
+            query: {
+                terminal: 1 | 2 | 3 | 4 | 5 | 6;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询会员充值配置成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMemberRechargeConfigResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createMemberRecharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentMemberRechargeCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建会员充值订单成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRechargeOrderResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    prepayMemberRecharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentMemberRechargePrepayRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建充值预支付参数成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRechargePrepayResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    getMemberRecharge: {
+        parameters: {
+            query: {
+                order_id: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询本人充值订单成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentRechargeOrderResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listMemberRecharges: {
+        parameters: {
+            query?: {
+                page_no?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 查询本人充值订单列表成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMemberRechargeListResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listLegacyDictionaryTypes: {
+        parameters: {
+            query?: {
+                page_no?: number;
+                page_size?: number;
+                page?: number;
+                limit?: number;
+                name?: string;
+                type?: string;
+                is_disable?: 0 | 1;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 字典类型分页列表。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyTypeListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listEnabledLegacyDictionaryTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 全部启用字典类型。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyTypeOptionsResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getLegacyDictionaryType: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 字典类型详情。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyTypeDetailResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createLegacyDictionaryType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyTypeCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典类型创建成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateLegacyDictionaryType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyTypeUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典类型更新成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteLegacyDictionaryType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典类型删除成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    setLegacyDictionaryTypeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典类型状态更新成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    listLegacyDictionaryEntries: {
+        parameters: {
+            query?: {
+                page_no?: number;
+                page_size?: number;
+                page?: number;
+                limit?: number;
+                type_id?: number;
+                name?: string;
+                is_disable?: 0 | 1;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 字典数据分页列表。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyEntryListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listLegacyDictionaryEntriesByType: {
+        parameters: {
+            query?: {
+                type_value?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 按类型标识合并系统与租户启用项。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyEntryOptionsResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getLegacyDictionaryEntry: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 字典数据详情。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyEntryDetailResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createLegacyDictionaryEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyEntryCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典数据创建成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateLegacyDictionaryEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyEntryUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典数据更新成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteLegacyDictionaryEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典数据删除成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    setLegacyDictionaryEntryStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceCodeLegacyStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description 字典数据状态更新成功。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceCodeLegacyMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
     listReferenceCodeSets: {
@@ -2614,8 +18864,8 @@ export interface operations {
                     "application/json": components["schemas"]["ReferenceCodeSetsResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     listReferenceCodes: {
@@ -2645,10 +18895,10 @@ export interface operations {
                     "application/json": components["schemas"]["ReferenceCodeListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createReferenceCode: {
@@ -2680,14 +18930,14 @@ export interface operations {
                     "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            412: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            428: components["responses"]["ApiResponse"];
-            500: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
     getReferenceCode: {
@@ -2715,10 +18965,10 @@ export interface operations {
                     "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     replaceReferenceCode: {
@@ -2751,14 +19001,14 @@ export interface operations {
                     "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            412: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            428: components["responses"]["ApiResponse"];
-            500: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
     retireReferenceCode: {
@@ -2787,14 +19037,14 @@ export interface operations {
                     "application/json": components["schemas"]["ReferenceCodeEntryResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            412: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            428: components["responses"]["ApiResponse"];
-            500: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
         };
     };
     listModuleSettings: {
@@ -2815,10 +19065,10 @@ export interface operations {
                     "application/json": components["schemas"]["SettingsListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     replaceModuleSetting: {
@@ -2844,14 +19094,14 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["SettingRecordResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            412: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            428: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     unsetModuleSetting: {
@@ -2870,14 +19120,14 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["SettingRecordResponse"];
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            412: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            428: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     listTaskJobs: {
@@ -2902,10 +19152,10 @@ export interface operations {
                     "application/json": components["schemas"]["TaskJobListResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     cancelTaskJob: {
@@ -2934,11 +19184,11 @@ export interface operations {
                     "application/json": components["schemas"]["TaskJobResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     retryTaskJob: {
@@ -2967,12 +19217,202 @@ export interface operations {
                     "application/json": components["schemas"]["TaskJobResponse"];
                 };
             };
-            401: components["responses"]["ApiResponse"];
-            403: components["responses"]["ApiResponse"];
-            404: components["responses"]["ApiResponse"];
-            409: components["responses"]["ApiResponse"];
-            422: components["responses"]["ApiResponse"];
-            503: components["responses"]["ApiResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewCrontabExpression: {
+        parameters: {
+            query: {
+                /** @example 0 * * * * */
+                expression: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 未来五次执行时间 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskExpressionResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    listCrontabs: {
+        parameters: {
+            query?: {
+                name?: string;
+                status?: 1 | 2 | 3;
+                page_no?: number;
+                page_size?: number;
+                page?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前租户的定时任务分页列表。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrontabListResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getCrontab: {
+        parameters: {
+            query: {
+                id: components["schemas"]["CrontabPositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前租户的定时任务详情。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrontabDetailResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    createCrontab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrontabCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateCrontab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrontabUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteCrontab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrontabIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    operateCrontab: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrontabOperateRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskMutationResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
 }

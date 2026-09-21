@@ -5,6 +5,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__, 4);
 require_once $root . '/vendor/autoload.php';
 require_once $root . '/tests/Support/ThinkPhpTestConnection.php';
+ThinkPhpTestConnection::fromPdo(new PDO('sqlite::memory:'));
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
@@ -37,6 +38,7 @@ use PeanutAdmin\Modules\Task\Contract\RetryableTaskException;
 
 function same(mixed $expected, mixed $actual, string $message): void
 {
+    $GLOBALS['notificationFeatureChecks'] = ($GLOBALS['notificationFeatureChecks'] ?? 0) + 1;
     if ($expected !== $actual) {
         throw new RuntimeException($message);
     }
@@ -83,6 +85,7 @@ final class MemoryRepository implements NotificationRepository
     public bool $beginFails = false;
     public bool $failureWriteFails = false;
     public bool $inboxDeliveryFails = false;
+    public bool $completeFails = false;
     public int $created = 0;
     public string $smsDigest;
 
@@ -156,6 +159,9 @@ final class MemoryRepository implements NotificationRepository
     }
     public function completeSms(SmsDispatch $dispatch, SmsReceipt $receipt): void
     {
+        if ($this->completeFails) {
+            throw new RuntimeException('database unavailable after provider acceptance');
+        }
         $this->receipt = $receipt;
     }
     public function failSms(SmsDispatch $dispatch, string $safeCode, bool $retryable): void
@@ -224,15 +230,17 @@ same('notification.sms', $submission->handlerKey, 'trusted handler key');
 same(['outbox_key' => 'outbox_' . str_repeat('2', 32)], $submission->payload, 'minimal trusted payload');
 
 $resolver = new class implements SmsRecipientResolver {
-    public function resolve(int $tenantId, int $memberId): SmsRecipient
+    public function resolve(TenantContext $context, int $memberId): SmsRecipient
     {
-        if ($tenantId !== 101 || $memberId !== 501) {
+        if ($context->tenantId !== 101 || $context->accountId !== 301 || $context->memberId !== 501 || $memberId !== 501) {
             throw NotificationException::recipientUnavailable();
         }
         return new SmsRecipient('+8613800138000', str_repeat('k', 32));
     }
 };
 $handler = new SmsTaskHandler($repository, $resolver, $provider);
+$foreignActor = context('manage', 101, 502)->tenantContext;
+expectCode('NOTIFICATION_RECIPIENT_UNAVAILABLE', fn() => $resolver->resolve($foreignActor, 501), 'SMS recipient lookup revalidates actor identity');
 $lease = static function (): void {};
 $execution = new JobExecution(
     'job_' . str_repeat('b', 32),
@@ -260,7 +268,7 @@ $transientLookup = new MemoryRepository();
 $transientLookup->failureWriteFails = true;
 try {
     (new SmsTaskHandler($transientLookup, new class implements SmsRecipientResolver {
-        public function resolve(int $tenantId, int $memberId): SmsRecipient
+        public function resolve(TenantContext $context, int $memberId): SmsRecipient
         {
             throw new RuntimeException('private lookup detail');
         }
@@ -314,6 +322,16 @@ try {
     same(['SMS_DESTINATION_REJECTED', false], $permanentProvider->failure, 'permanent provider classification');
 }
 
+$unknownCommit = new MemoryRepository();
+$unknownCommit->completeFails = true;
+try {
+    (new SmsTaskHandler($unknownCommit, $resolver, new LocalDevSmsProvider()))->handle(context('manage'), $execution);
+    throw new RuntimeException('unknown provider result did not retry');
+} catch (RetryableTaskException $exception) {
+    same('SMS_DELIVERY_COMMIT_UNKNOWN', $exception->safeCode, 'unknown delivery state classification');
+    same(['SMS_DELIVERY_COMMIT_UNKNOWN', true], $unknownCommit->failure, 'unknown delivery state persisted');
+}
+
 same(6, count(Schema::tableNames()), 'owned table count');
 if (!class_exists(NotificationStore::class)) {
     throw new RuntimeException('PDO repository contract does not load');
@@ -328,4 +346,4 @@ if (str_contains($schema, 'phone_e164') || str_contains($schema, 'provider_secre
     throw new RuntimeException('schema stores raw phone or secret');
 }
 
-fwrite(STDOUT, "notification-sms feature harness: PASS\n");
+fwrite(STDOUT, 'notification-sms feature harness: PASS (' . ($GLOBALS['notificationFeatureChecks'] ?? 0) . " checks)\n");

@@ -252,21 +252,6 @@
     default?: boolean;
   }
 
-  const DEFAULT_MODULES: ModuleOption[] = [
-    { key: 'official.article', label: 'Article', default: true },
-    { key: 'official.file', label: 'File', default: true },
-    {
-      key: 'official.import-export',
-      label: 'Import and export',
-      default: true,
-    },
-    { key: 'official.member', label: 'Members', default: true },
-    { key: 'official.notification', label: 'Notifications', default: true },
-    { key: 'official.oauth', label: 'OAuth', default: true },
-    { key: 'official.payment', label: 'Payments', default: true },
-    { key: 'official.task', label: 'Task scheduler', default: true },
-  ];
-
   const router = useRouter();
   const { t } = useI18n();
   const brandStore = useBrandStore();
@@ -281,9 +266,7 @@
     admin_password: '',
     platform_email: '',
     platform_password: '',
-    official_modules: DEFAULT_MODULES.filter((module) => module.default).map(
-      (module) => module.key
-    ),
+    official_modules: [] as string[],
   });
 
   const currentStatus = computed(() => installationStatus.value);
@@ -301,11 +284,26 @@
     const checks = preflight.value?.checks;
     return Array.isArray(checks) ? checks : [];
   });
+  const moduleOptions = computed(() => {
+    const modules =
+      currentStatus.value?.official_modules ||
+      preflight.value?.official_modules ||
+      preflight.value?.modules;
+    return normalizeModuleOptions(modules);
+  });
+  const moduleCatalogMissing = computed(
+    () =>
+      shouldShowInstallation(currentStatus.value) &&
+      preflight.value?.status === 'ready' &&
+      moduleOptions.value.length === 0
+  );
   const blocked = computed(() => {
     if (currentStatus.value?.state === 'blocked') return true;
     return (
       shouldShowInstallation(currentStatus.value) &&
-      (!preflight.value || preflight.value.status !== 'ready')
+      (!preflight.value ||
+        preflight.value.status !== 'ready' ||
+        moduleCatalogMissing.value)
     );
   });
   const readyForForm = computed(
@@ -317,11 +315,14 @@
       : t('installation.mode.standalone')
   );
   const blockedReason = computed(
-    () => preflight.value?.reason || t('installation.preflight.blocked')
+    () =>
+      (moduleCatalogMissing.value
+        ? t('installation.modules.catalogMissing')
+        : preflight.value?.reason) || t('installation.preflight.blocked')
   );
 
   function normalizeModuleOptions(value: unknown): ModuleOption[] {
-    if (!Array.isArray(value) || value.length === 0) return DEFAULT_MODULES;
+    if (!Array.isArray(value) || value.length === 0) return [];
     const options = value.reduce<ModuleOption[]>((result, item) => {
       if (typeof item === 'string' && item.trim()) {
         result.push({ key: item, label: item, default: true });
@@ -339,16 +340,8 @@
       });
       return result;
     }, []);
-    return options.length > 0 ? options : DEFAULT_MODULES;
+    return options;
   }
-
-  const moduleOptions = computed(() => {
-    const modules =
-      currentStatus.value?.official_modules ||
-      preflight.value?.official_modules ||
-      preflight.value?.modules;
-    return normalizeModuleOptions(modules);
-  });
 
   watch(
     moduleOptions,

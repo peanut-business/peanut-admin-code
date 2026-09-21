@@ -9,17 +9,15 @@ use app\common\exception\BusinessException;
 
 /**
  * 交易设置
+ * @property-read TransactionSettingsApplicationService $transactionSettings 当前 App 中声明式解析的控制器依赖。
  */
 class TransactionSettingsController extends BaseAdminController
 {
-    protected function transactionSettings(): TransactionSettingsApplicationService
-    {
-        return $this->app->make(TransactionSettingsApplicationService::class);
-    }
+    protected string $transactionSettingsClass = TransactionSettingsApplicationService::class;
 
     public function getConfig()
     {
-        return $this->data($this->transactionSettings()->getConfig(
+        return $this->data($this->transactionSettings->getConfig(
             $this->tenantAdminContext()
         ));
     }
@@ -48,7 +46,7 @@ class TransactionSettingsController extends BaseAdminController
             }
         }
 
-        $this->transactionSettings()->setConfig(
+        $this->transactionSettings->setConfig(
             $this->tenantAdminContext(),
             $post
         );

@@ -7,17 +7,15 @@ use app\platform\validate\PlatformAccessValidate;
 use PeanutAdmin\Modules\Identity\Platform\PlatformOperatorStatus;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformAccessAdminService;
 
+/** @property-read PlatformAccessAdminService $platformAccess 当前 App 中声明式解析的控制器依赖。 */
 final class PlatformAccessController extends BasePlatformController
 {
-    protected function platformAccess(): PlatformAccessAdminService
-    {
-        return $this->app->make(PlatformAccessAdminService::class);
-    }
+    protected string $platformAccessClass = PlatformAccessAdminService::class;
 
     public function createOperator()
     {
         return $this->mutate('createOperator', function (array $params, object $context): array {
-            return $this->platformAccess()->createOperator(
+            return $this->platformAccess->createOperator(
                 $context->operatorId,
                 $context->accountId,
                 trim((string)$params['email']),
@@ -33,7 +31,7 @@ final class PlatformAccessController extends BasePlatformController
     public function updateOperator()
     {
         return $this->mutate('updateOperator', function (array $params, object $context): array {
-            return $this->platformAccess()->updateOperator(
+            return $this->platformAccess->updateOperator(
                 $context->operatorId,
                 $context->accountId,
                 (int)$params['operator_id'],
@@ -48,7 +46,7 @@ final class PlatformAccessController extends BasePlatformController
     public function replaceOperatorRoles()
     {
         return $this->mutate('replaceOperatorRoles', function (array $params, object $context): array {
-            return $this->platformAccess()->replaceOperatorRoles(
+            return $this->platformAccess->replaceOperatorRoles(
                 $context->operatorId,
                 $context->accountId,
                 (int)$params['operator_id'],
@@ -78,7 +76,7 @@ final class PlatformAccessController extends BasePlatformController
     public function createRole()
     {
         return $this->mutate('createRole', function (array $params, object $context): array {
-            return $this->platformAccess()->createRole(
+            return $this->platformAccess->createRole(
                 $context->operatorId,
                 $context->accountId,
                 trim((string)$params['key']),
@@ -94,7 +92,7 @@ final class PlatformAccessController extends BasePlatformController
     public function updateRole()
     {
         return $this->mutate('updateRole', function (array $params, object $context): array {
-            return $this->platformAccess()->updateRole(
+            return $this->platformAccess->updateRole(
                 $context->operatorId,
                 $context->accountId,
                 (int)$params['role_id'],
@@ -112,7 +110,7 @@ final class PlatformAccessController extends BasePlatformController
     public function archiveRole()
     {
         return $this->mutate('archiveRole', function (array $params, object $context): array {
-            return $this->platformAccess()->archiveRole(
+            return $this->platformAccess->archiveRole(
                 $context->operatorId,
                 $context->accountId,
                 (int)$params['role_id'],
@@ -126,7 +124,7 @@ final class PlatformAccessController extends BasePlatformController
     public function replaceRolePermissions()
     {
         return $this->mutate('replaceRolePermissions', function (array $params, object $context): array {
-            return $this->platformAccess()->replaceRolePermissions(
+            return $this->platformAccess->replaceRolePermissions(
                 $context->operatorId,
                 $context->accountId,
                 (int)$params['role_id'],
@@ -141,7 +139,7 @@ final class PlatformAccessController extends BasePlatformController
     private function transitionOperator(PlatformOperatorStatus $status, string $scene)
     {
         return $this->mutate($scene, function (array $params, object $context) use ($status): array {
-            return $this->platformAccess()->transitionOperator(
+            return $this->platformAccess->transitionOperator(
                 $context->operatorId,
                 $context->accountId,
                 (int)$params['operator_id'],

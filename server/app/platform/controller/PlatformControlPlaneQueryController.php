@@ -8,12 +8,10 @@ use app\platform\query\PlatformControlPlaneQueryService;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 
+/** @property-read PlatformControlPlaneQueryService $queries 当前 App 中声明式解析的控制器依赖。 */
 final class PlatformControlPlaneQueryController extends BasePlatformController
 {
-    protected function queries(): PlatformControlPlaneQueryService
-    {
-        return $this->app->make(PlatformControlPlaneQueryService::class);
-    }
+    protected string $queriesClass = PlatformControlPlaneQueryService::class;
 
     public function operators()
     {
@@ -45,7 +43,7 @@ final class PlatformControlPlaneQueryController extends BasePlatformController
         if ($this->platformContext === null) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication is required.', null, 40100);
         }
-        return $this->data($this->queries()->owner(
+        return $this->data($this->queries->owner(
             $this->platformContext,
             $this->positiveInteger($this->request->get('tenant_id'))
         ));
@@ -62,7 +60,7 @@ final class PlatformControlPlaneQueryController extends BasePlatformController
             throw AdminAccessException::invalid('PAGE_SIZE_INVALID', 'Page size must be at most 100.');
         }
         $request = new PageRequest($page, $pageSize);
-        $query = $this->queries();
+        $query = $this->queries;
         $result = $method === 'moduleStates'
             ? $query->moduleStates($this->platformContext, $this->positiveInteger($this->request->get('tenant_id')), $request)
             : $query->{$method}($this->platformContext, $request);

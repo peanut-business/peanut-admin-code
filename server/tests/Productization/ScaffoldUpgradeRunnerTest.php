@@ -1,15 +1,20 @@
 <?php
 declare(strict_types=1);
 
-use app\common\service\scaffold\ScaffoldUpgradeRunner;
+use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
+use app\platform\infrastructure\plugin\PluginArtifactWriter;
 
 $root=dirname(__DIR__,3);
+require_once $root.'/server/vendor/autoload.php';
 require $root.'/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require $root.'/scripts/scaffold-runtime/ScaffoldManifest.php';
 require $root.'/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
-require $root.'/server/app/platform/service/plugin/PluginLifecycleException.php';
-require $root.'/server/app/platform/service/plugin/PluginDescriptor.php';
-require $root.'/server/app/platform/service/plugin/PluginLockResolver.php';
+require $root.'/server/app/platform/exception/plugin/PluginArtifactToolException.php';
+require $root.'/server/app/platform/exception/plugin/PluginLifecycleException.php';
+require $root.'/server/app/platform/value/plugin/ModuleFrontendLayout.php';
+require $root.'/server/app/platform/value/plugin/PluginDescriptor.php';
+require $root.'/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
+require $root.'/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
 require $root.'/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
 
 const SCAFFOLD_FROM_COMMIT='14412607ba36f1816e39f7117f77eea4a9e7419e';
@@ -88,20 +93,26 @@ function scaffoldInstallV2VersionContract(string $target,string $instanceVersion
 }
 function scaffoldFreshAdopted(string $source,string $releasePath,string $target): void
 {
+    $modern=is_file($source.'/server/app/common/infrastructure/scaffold/ApplicationCreator.php');
+    $guard=$source.($modern?'/server/app/common/validation/scaffold/ScaffoldPathGuard.php':'/server/app/common/service/scaffold/ScaffoldPathGuard.php');
+    $manifest=$source.($modern?'/server/app/common/value/scaffold/ScaffoldManifest.php':'/server/app/common/service/scaffold/ScaffoldManifest.php');
+    $creatorPath=$source.($modern?'/server/app/common/infrastructure/scaffold/ApplicationCreator.php':'/server/app/common/service/scaffold/ApplicationCreator.php');
+    $creatorClass=$modern?'app\\common\\infrastructure\\scaffold\\ApplicationCreator':'app\\common\\service\\scaffold\\ApplicationCreator';
     $code=<<<'PHP'
-require $argv[1].'/server/app/common/service/scaffold/ScaffoldPathGuard.php';
-require $argv[1].'/server/app/common/service/scaffold/ScaffoldManifest.php';
-require $argv[1].'/server/app/common/service/scaffold/ApplicationCreator.php';
-$release=json_decode((string)file_get_contents($argv[2]),true,512,JSON_THROW_ON_ERROR)['release'];
-$creator=new app\common\service\scaffold\ApplicationCreator(
-    $argv[1],
-    $argv[1].'/scaffold/application-template-inventory.json',
+require $argv[1];
+require $argv[2];
+require $argv[3];
+$release=json_decode((string)file_get_contents($argv[5]),true,512,JSON_THROW_ON_ERROR)['release'];
+$class=$argv[4];
+$creator=new $class(
+    $argv[7],
+    $argv[7].'/scaffold/application-template-inventory.json',
     ['commit'=>$release['source_commit'],'tree'=>$release['source_tree']],
-    $argv[2]
+    $argv[5]
 );
-$creator->create('Acme Console','acme-console','acme/acme-console',$argv[3]);
+$creator->create('Acme Console','acme-console','acme/acme-console',$argv[6]);
 PHP;
-    scaffoldRun(['php','-r',$code,$source,$releasePath,$target]);
+    scaffoldRun(['php','-r',$code,$guard,$manifest,$creatorPath,$creatorClass,$releasePath,$target,$source]);
     scaffoldInstallVersionContract($target);
 }
 function scaffoldCopyRelease(string $source,string $target): void { scaffoldCopy(dirname($source),$target); }
@@ -111,6 +122,27 @@ $temporary=$temporaryRoot.'/peanut-scaffold-e2e-'.bin2hex(random_bytes(8));mkdir
 $fromRelease=$root.'/scaffold/releases/v1.0.0/scaffold-manifest.json';$toRelease=$root.'/scaffold/releases/v1.1.0/scaffold-manifest.json';$patchRelease=$root.'/scaffold/releases/v1.1.1/scaffold-manifest.json';$latestRelease=$root.'/scaffold/releases/v1.1.2/scaffold-manifest.json';$nextRelease=$root.'/scaffold/releases/v1.1.3/scaffold-manifest.json';$currentRelease=$root.'/scaffold/releases/v1.1.4/scaffold-manifest.json';$runtimeRelease=$root.'/scaffold/releases/v1.1.5/scaffold-manifest.json';$releaseCandidate=$root.'/scaffold/releases/v1.1.6/scaffold-manifest.json';$productRelease=$root.'/scaffold/releases/v1.1.7/scaffold-manifest.json';$hotfixRelease=$root.'/scaffold/releases/v1.1.8/scaffold-manifest.json';$managedSeederRelease=$root.'/scaffold/releases/v1.1.9/scaffold-manifest.json';
 try{
     try{scaffoldFails(static fn():null=>null,'SCAFFOLD_TEST_EXPECTED_FAILURE');throw new RuntimeException('scaffoldFails accepted a successful callback');}catch(RuntimeException $exception){scaffoldExpect($exception->getMessage()==='expected failure: SCAFFOLD_TEST_EXPECTED_FAILURE','scaffoldFails must reject a successful callback');}
+    $projectionRoot=$temporary.'/plugin-projection';
+    scaffoldCopy($root.'/server/app/modules/official/identity',$projectionRoot.'/server/app/modules/official/identity');
+    scaffoldCopy($root.'/server/app/modules/official/ops',$projectionRoot.'/server/app/modules/official/ops');
+    scaffoldCopy($root.'/platform/src/modules/official-ops',$projectionRoot.'/platform/src/modules/official-ops');
+    $projectionWriter=new PluginArtifactWriter($projectionRoot.'/server',false);
+    $projectionWriter->make('official.identity','4.0.0-dev',['official.identity=server/app/modules/official/identity']);
+    $projectionWriter->make('official.ops','1.0.0',['official.ops=server/app/modules/official/ops']);
+    $projectionWriter->writeLock();
+    $projectionRunner=new ScaffoldUpgradeRunner();
+    $projectionReader=Closure::bind(
+        fn(string $projectRoot):array=>$this->pluginProjection($projectRoot),
+        $projectionRunner,
+        ScaffoldUpgradeRunner::class,
+    );
+    scaffoldExpect(is_callable($projectionReader),'Plugin projection reader is unavailable');
+    $projection=$projectionReader($projectionRoot);
+    scaffoldExpect(
+        ($projection['plugins']['official.identity']['frontend_roots']??null)===[]
+            && ($projection['plugins']['official.ops']['frontend_roots']??null)===['platform/src/modules/official-ops'],
+        'Plugin projection must derive backend-only and platform-only roots from real Module manifests',
+    );
     $source=$temporary.'/from-source';
     scaffoldRun(['git','clone','--quiet','--no-local','--no-checkout',$root,$source]);
     scaffoldRun(['git','checkout','--quiet','--detach',SCAFFOLD_FROM_COMMIT],$source);
@@ -160,7 +192,29 @@ try{
     $toApplication=$temporary.'/to-app';scaffoldFresh($toSource,$toApplication);$toApplicationManifest=json_decode((string)file_get_contents($toApplication.'/.peanut/application-manifest.json'),true,512,JSON_THROW_ON_ERROR);
     scaffoldExpect($toApplicationManifest['template']['source_tree']===$toIdentity['source_tree'],'target create-app tree must match the release source tree');
     foreach($toApplicationManifest['files'] as $file){if(!in_array($file['classification'],['managed','generated-managed'],true))continue;$upgraded=$from.'/'.$file['path'];$generated=$toApplication.'/'.$file['path'];scaffoldExpect(is_file($upgraded)&&hash_equals((string)hash_file('sha256',$generated),(string)hash_file('sha256',$upgraded))&&((fileperms($generated)&0777)===(fileperms($upgraded)&0777)),'upgraded managed tree must exactly equal target create-app: '.$file['path']);}
-    $again=$runner->apply($from,scaffoldPlanPath($from,$plan));scaffoldExpect($again['idempotent']===true,'successful candidate apply must be idempotent');
+    $idempotentBefore=scaffoldFileTree($from,true);
+    $again=$runner->apply($from,scaffoldPlanPath($from,$plan));$verifyAgain=$runner->verify($from,scaffoldPlanPath($from,$plan));
+    scaffoldExpect($again['idempotent']===true&&$verifyAgain['idempotent']===true,'successful candidate apply/verify must be idempotent');
+    scaffoldExpect(hash_equals($idempotentBefore,scaffoldFileTree($from,true)),'idempotent apply/verify must perform no writes');
+    $appliedManifestPath=$from.'/.peanut/application-manifest.json';$appliedManifestBytes=(string)file_get_contents($appliedManifestPath);$appliedManifest=json_decode($appliedManifestBytes,true,512,JSON_THROW_ON_ERROR);
+    $managedDriftFile=null;foreach($appliedManifest['files']as$file){if(in_array($file['classification'],['managed','generated-managed'],true)&&($file['mode']??null)===0644){$managedDriftFile=$file;break;}}
+    scaffoldExpect(is_array($managedDriftFile),'an ordinary managed file is required for repeat drift checks');
+    $managedDriftPath=$from.'/'.$managedDriftFile['path'];$managedDriftBytes=(string)file_get_contents($managedDriftPath);
+    file_put_contents($managedDriftPath,$managedDriftBytes."\nrepeat drift\n");$managedDriftTree=scaffoldFileTree($from,true);
+    scaffoldFails(fn()=>$runner->apply($from,scaffoldPlanPath($from,$plan)),'SCAFFOLD_VERIFY_MANAGED_MISMATCH');
+    scaffoldExpect(hash_equals($managedDriftTree,scaffoldFileTree($from,true)),'repeat apply wrote while rejecting managed content drift');
+    file_put_contents($managedDriftPath,$managedDriftBytes);chmod($managedDriftPath,0600);$managedModeTree=scaffoldFileTree($from,true);
+    scaffoldFails(fn()=>$runner->verify($from,scaffoldPlanPath($from,$plan)),'SCAFFOLD_VERIFY_MANAGED_MISMATCH');
+    scaffoldExpect(hash_equals($managedModeTree,scaffoldFileTree($from,true)),'repeat verify wrote while rejecting managed mode drift');
+    chmod($managedDriftPath,0644);
+    $appOwnedBytes=(string)file_get_contents($from.'/'.$appOwnedPath);file_put_contents($from.'/'.$appOwnedPath,$appOwnedBytes."\n// post-verify drift\n");$appOwnedDriftTree=scaffoldFileTree($from,true);
+    scaffoldFails(fn()=>$runner->apply($from,scaffoldPlanPath($from,$plan)),'SCAFFOLD_VERIFY_APP_OWNED_CHANGED');
+    scaffoldExpect(hash_equals($appOwnedDriftTree,scaffoldFileTree($from,true)),'repeat apply wrote while rejecting app-owned drift');
+    file_put_contents($from.'/'.$appOwnedPath,$appOwnedBytes);
+    $identityDrift=$appliedManifest;$identityDrift['template']['source_commit']=str_repeat('0',40);file_put_contents($appliedManifestPath,json_encode($identityDrift,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n");$identityDriftTree=scaffoldFileTree($from,true);
+    scaffoldFails(fn()=>$runner->verify($from,scaffoldPlanPath($from,$plan)),'SCAFFOLD_VERIFY_APPLICATION_IDENTITY_MISMATCH');
+    scaffoldExpect(hash_equals($identityDriftTree,scaffoldFileTree($from,true)),'repeat verify wrote while rejecting application identity drift');
+    file_put_contents($appliedManifestPath,$appliedManifestBytes);
 
     $blocked=$temporary.'/blocked';scaffoldCopy($temporary.'/from-app',$blocked);
     // Restore a real v1 project for independent scenarios.
@@ -183,7 +237,7 @@ try{
 
     $fault=$temporary.'/fault';scaffoldFresh($source,$fault);
     $faultBefore=scaffoldFileTree($fault);$faultPlan=$runner->preflight($fault,$fromRelease,$toRelease);
-    putenv('PEANUT_SCAFFOLD_FAIL_AFTER_REPLACEMENTS=1');scaffoldFails(fn()=>$runner->apply($fault,scaffoldPlanPath($fault,$faultPlan)),'SCAFFOLD_FAULT_INJECTED');putenv('PEANUT_SCAFFOLD_FAIL_AFTER_REPLACEMENTS');
+    $faultRunner=new ScaffoldUpgradeRunner(1);scaffoldFails(fn()=>$faultRunner->apply($fault,scaffoldPlanPath($fault,$faultPlan)),'SCAFFOLD_FAULT_INJECTED');
     scaffoldExpect(!hash_equals($faultBefore,scaffoldFileTree($fault)),'fault injection must happen after a real replacement');
     $recover=$runner->recover($fault,scaffoldPlanPath($fault,$faultPlan));scaffoldExpect(hash_equals($faultBefore,scaffoldFileTree($fault)),'recovery must restore the exact pre-apply tree and modes');
     $recoverAgain=$runner->recover($fault,scaffoldPlanPath($fault,$faultPlan));scaffoldExpect($recoverAgain['idempotent']===true&&$recover['status']==='recovered','recovery must be idempotent');
@@ -354,6 +408,7 @@ try{
     scaffoldExpect(is_executable($managedSeederApp.'/server/database/seed-demo-data.php')&&str_contains($managedSeederDockerfile,'server/database/seed-demo-data.php')&&str_contains($managedSeederDockerfile,'peanut-seed-demo-data')&&!str_contains($managedSeederDockerfile,'COPY scripts/seed-demo-data'),'v1.1.9 upgrade must install the managed demo seeder without depending on the root wrapper');
     $managedSeederRecover=$runner->recover($managedSeederApp,scaffoldPlanPath($managedSeederApp,$managedSeederPlan));scaffoldExpect($managedSeederRecover['status']==='recovered'&&hash_equals($managedSeederBefore,scaffoldFileTree($managedSeederApp)),'v1.1.9 recovery must restore the exact v1.1.8 tree');
 
+    $releaseCheckTemporary=$temporary.'/release-check-tmp';mkdir($releaseCheckTemporary,0700,true);$_ENV['TMPDIR']=$releaseCheckTemporary;
     $fromCheck=scaffoldRun(['php',$root.'/scripts/build-scaffold-release','--version=1.0.0','--source-commit='.SCAFFOLD_FROM_COMMIT,'--output='.$root.'/scaffold/releases/v1.0.0','--check']);
     $toManifest=json_decode((string)file_get_contents($toRelease),true,512,JSON_THROW_ON_ERROR);$toCheck=scaffoldRun(['php',$root.'/scripts/build-scaffold-release','--version=1.1.0','--source-commit='.$toManifest['release']['source_commit'],'--output='.$root.'/scaffold/releases/v1.1.0','--check']);
     $patchManifest=json_decode((string)file_get_contents($patchRelease),true,512,JSON_THROW_ON_ERROR);$patchCheck=scaffoldRun(['php',$root.'/scripts/build-scaffold-release','--version=1.1.1','--source-commit='.$patchManifest['release']['source_commit'],'--output='.$root.'/scaffold/releases/v1.1.1','--check']);
@@ -366,6 +421,6 @@ try{
     $hotfixManifest=json_decode((string)file_get_contents($hotfixRelease),true,512,JSON_THROW_ON_ERROR);$hotfixCheck=scaffoldRun(['php',$root.'/scripts/build-scaffold-release','--version=1.1.8','--source-commit='.$hotfixManifest['release']['source_commit'],'--output='.$root.'/scaffold/releases/v1.1.8','--check']);
     $managedSeederManifest=json_decode((string)file_get_contents($managedSeederRelease),true,512,JSON_THROW_ON_ERROR);$managedSeederCheck=scaffoldRun(['php',$root.'/scripts/build-scaffold-release','--version=1.1.9','--source-commit='.$managedSeederManifest['release']['source_commit'],'--output='.$root.'/scaffold/releases/v1.1.9','--check']);
     scaffoldExpect(str_contains($fromCheck,'verified')&&str_contains($toCheck,'verified')&&str_contains($patchCheck,'verified')&&str_contains($latestCheck,'verified')&&str_contains($nextCheck,'verified')&&str_contains($currentCheck,'verified')&&str_contains($runtimeCheck,'verified')&&str_contains($releaseCandidateCheck,'verified')&&str_contains($productReleaseCheck,'verified')&&str_contains($hotfixCheck,'verified')&&str_contains($managedSeederCheck,'verified'),'all immutable release trees must exactly regenerate');
-}finally{putenv('PEANUT_SCAFFOLD_FAIL_AFTER_REPLACEMENTS');scaffoldDelete($temporary);}
+}finally{unset($_ENV['TMPDIR']);scaffoldDelete($temporary);}
 
 echo "SCAFFOLD-UPGRADE-E2E-001 passed\n";

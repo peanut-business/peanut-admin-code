@@ -4,6 +4,20 @@ import type { Client, ClientOptions } from 'openapi-fetch';
 import type { paths } from '../../../generated/openapi';
 
 export interface ModuleApiOperations {
+  listLegacyDictionaryTypes: paths['/adminapi/dict/type/lists']['get'];
+  listEnabledLegacyDictionaryTypes: paths['/adminapi/dict/type/all']['get'];
+  getLegacyDictionaryType: paths['/adminapi/dict/type/detail']['get'];
+  createLegacyDictionaryType: paths['/adminapi/dict/type/add']['post'];
+  updateLegacyDictionaryType: paths['/adminapi/dict/type/edit']['post'];
+  deleteLegacyDictionaryType: paths['/adminapi/dict/type/delete']['post'];
+  setLegacyDictionaryTypeStatus: paths['/adminapi/dict/type/status']['post'];
+  listLegacyDictionaryEntries: paths['/adminapi/dict/data/lists']['get'];
+  listLegacyDictionaryEntriesByType: paths['/adminapi/dict/data/byType']['get'];
+  getLegacyDictionaryEntry: paths['/adminapi/dict/data/detail']['get'];
+  createLegacyDictionaryEntry: paths['/adminapi/dict/data/add']['post'];
+  updateLegacyDictionaryEntry: paths['/adminapi/dict/data/edit']['post'];
+  deleteLegacyDictionaryEntry: paths['/adminapi/dict/data/delete']['post'];
+  setLegacyDictionaryEntryStatus: paths['/adminapi/dict/data/status']['post'];
   listReferenceCodeSets: paths['/adminapi/api/v1/reference-code-sets']['get'];
   listReferenceCodes: paths['/adminapi/api/v1/reference-code-sets/{moduleKey}/{setKey}/codes']['get'];
   createReferenceCode: paths['/adminapi/api/v1/reference-code-sets/{moduleKey}/{setKey}/codes']['post'];
@@ -15,6 +29,20 @@ export interface ModuleApiOperations {
 export function createModuleApi(client: Client<paths>) {
   const pathClient = wrapAsPathBasedClient(client);
   return {
+    listLegacyDictionaryTypes: pathClient['/adminapi/dict/type/lists'].GET,
+    listEnabledLegacyDictionaryTypes: pathClient['/adminapi/dict/type/all'].GET,
+    getLegacyDictionaryType: pathClient['/adminapi/dict/type/detail'].GET,
+    createLegacyDictionaryType: pathClient['/adminapi/dict/type/add'].POST,
+    updateLegacyDictionaryType: pathClient['/adminapi/dict/type/edit'].POST,
+    deleteLegacyDictionaryType: pathClient['/adminapi/dict/type/delete'].POST,
+    setLegacyDictionaryTypeStatus: pathClient['/adminapi/dict/type/status'].POST,
+    listLegacyDictionaryEntries: pathClient['/adminapi/dict/data/lists'].GET,
+    listLegacyDictionaryEntriesByType: pathClient['/adminapi/dict/data/byType'].GET,
+    getLegacyDictionaryEntry: pathClient['/adminapi/dict/data/detail'].GET,
+    createLegacyDictionaryEntry: pathClient['/adminapi/dict/data/add'].POST,
+    updateLegacyDictionaryEntry: pathClient['/adminapi/dict/data/edit'].POST,
+    deleteLegacyDictionaryEntry: pathClient['/adminapi/dict/data/delete'].POST,
+    setLegacyDictionaryEntryStatus: pathClient['/adminapi/dict/data/status'].POST,
     listReferenceCodeSets: pathClient['/adminapi/api/v1/reference-code-sets'].GET,
     listReferenceCodes: pathClient['/adminapi/api/v1/reference-code-sets/{moduleKey}/{setKey}/codes'].GET,
     createReferenceCode: pathClient['/adminapi/api/v1/reference-code-sets/{moduleKey}/{setKey}/codes'].POST,

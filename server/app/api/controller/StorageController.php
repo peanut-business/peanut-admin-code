@@ -6,12 +6,10 @@ namespace app\api\controller;
 use app\common\exception\BusinessException;
 use PeanutAdmin\Modules\File\Contract\FileStorage;
 
+/** @property-read FileStorage $storage 当前 App 中声明式解析的控制器依赖。 */
 final class StorageController extends BaseApiController
 {
-    protected function storage(): FileStorage
-    {
-        return $this->app->get(FileStorage::class);
-    }
+    protected string $storageClass = FileStorage::class;
 
     public function delivery()
     {
@@ -24,7 +22,7 @@ final class StorageController extends BaseApiController
             throw new \InvalidArgumentException('文件链接参数无效');
         }
 
-        $file = $this->storage()->authorizedDownload($tenantId, $fileKey, $token);
+        $file = $this->storage->authorizedDownload($tenantId, $fileKey, $token);
 
         try {
             $contents = file_get_contents($file['path']);

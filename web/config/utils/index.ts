@@ -4,9 +4,12 @@
  */
 export default {};
 
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readClientEnvironment } from '../../../scripts/client-environment';
 
+const configDir = dirname(fileURLToPath(import.meta.url));
+
 export function isReportMode(): boolean {
-  return readClientEnvironment(resolve(__dirname, '../../.env.production')).REPORT === 'true';
+  return readClientEnvironment(resolve(configDir, '../../.env.production')).REPORT === 'true';
 }

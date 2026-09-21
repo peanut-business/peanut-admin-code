@@ -43,7 +43,7 @@ export function saveMiniProgramConfig(
   return axios.post('/adminapi/official.oauth.mini-program.save', data);
 }
 
-/** 微信公众号配置（敏感 AppSecret 由服务端以 ****** 掩码返回）。 */
+/** 微信公众号配置（敏感 AppSecret 与回调 Token 只返回固定掩码）。 */
 export interface OfficialAccountConfig {
   name: string;
   original_id: string;
@@ -53,6 +53,7 @@ export interface OfficialAccountConfig {
   app_secret_configured: boolean;
   url: string;
   token: string;
+  token_configured: boolean;
   business_domain: string;
   js_secure_domain: string;
   web_auth_domain: string;

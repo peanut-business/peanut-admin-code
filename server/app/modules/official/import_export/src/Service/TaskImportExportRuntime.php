@@ -9,10 +9,9 @@ use PeanutAdmin\Modules\ImportExport\Contract\ImportExportWorkerRuntime;
 use PeanutAdmin\Modules\ImportExport\Contract\Dto\AsyncExportOperation;
 use PeanutAdmin\Modules\ImportExport\Infrastructure\File\AppFileMediaGateway;
 use PeanutAdmin\Modules\Task\Contract\TaskJobRuntime;
-use PeanutAdmin\Modules\Task\Contract\TaskWorkerDefinition;
 use PeanutAdmin\Modules\ImportExport\Engine\Application\ImportExportService;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use PeanutAdmin\Kernel\Context\authorizationDecision;
+use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 
 final readonly class TaskImportExportRuntime implements ImportExportWorkerRuntime
 {
@@ -21,7 +20,6 @@ final readonly class TaskImportExportRuntime implements ImportExportWorkerRuntim
         private ImportExportQueries $queries,
         private TaskJobRuntime $tasks,
         private AppFileMediaGateway $files,
-        private ImportExportTaskWorkerDefinition $worker,
     ) {
     }
 
@@ -50,16 +48,7 @@ final readonly class TaskImportExportRuntime implements ImportExportWorkerRuntim
 
     public function runTenant(int $tenantId, string $workerId): int
     {
-        return $this->tasks->runTenant(
-            $tenantId,
-            $workerId,
-            $this->workerDefinition(),
-        );
-    }
-
-    public function workerDefinition(): TaskWorkerDefinition
-    {
-        return $this->worker;
+        return $this->tasks->runTenant($tenantId, $workerId);
     }
 
     private function asOperation(AuthorizedOperationContext $source, string $operation): AuthorizedOperationContext

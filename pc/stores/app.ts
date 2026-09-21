@@ -39,16 +39,31 @@ export const useAppStore = defineStore('app', () => {
     version: string
   } | null>(null)
   const website = computed(() => config.value?.website || fallbackWebsite)
+  const loadError = ref<string | null>(null)
+  let configRequest: Promise<void> | null = null
 
   async function loadConfig() {
     if (config.value) return
-    const { get } = useRequest()
-    try {
-      config.value = await get('api/index/config', undefined, false)
-    } catch (error) {
-      console.error('Failed to load config:', error)
-    }
+    if (configRequest) return configRequest
+    configRequest = (async () => {
+      const { get } = useRequest()
+      try {
+        config.value = await get('api/index/config', undefined, false)
+        loadError.value = null
+      } catch {
+        loadError.value = 'TENANT_PUBLIC_CONFIG_UNAVAILABLE'
+        if (import.meta.server) {
+          throw createError({
+            statusCode: 503,
+            statusMessage: loadError.value,
+          })
+        }
+      }
+    })().finally(() => {
+      configRequest = null
+    })
+    return configRequest
   }
 
-  return { config, website, loadConfig }
+  return { config, website, loadError, loadConfig }
 })

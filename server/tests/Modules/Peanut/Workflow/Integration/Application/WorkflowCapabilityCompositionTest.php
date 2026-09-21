@@ -52,6 +52,7 @@ use PeanutAdmin\Modules\Notification\Delivery\Application\TemplateRenderer;
 use PeanutAdmin\Modules\Notification\Delivery\Database\Schema as NotificationSchema;
 use PeanutAdmin\Modules\Notification\Delivery\Package as NotificationPackage;
 use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationStore;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
 use PeanutAdmin\Modules\Task\Job\Database\Schema as TaskJobSchema;
 use PeanutAdmin\Modules\Task\Job\Persistence\TaskJobStore;
 use PeanutAdmin\Modules\Task\Contract\TaskSubmission;
@@ -146,7 +147,7 @@ final class WorkflowCapabilityCompositionTest extends DatabaseTestCase
         $this->createHostFixtureTables();
         $this->seedAuthorities();
         $this->notifications = new NotificationService(
-            new NotificationStore(),
+            new NotificationStore(new ThinkPhpTenantMemberDirectory()),
             new CapabilityRecipientResolver(),
             new CapabilityNotificationAttachments(),
             new TemplateRenderer(),
@@ -621,6 +622,23 @@ SQL);
             'tenant_id' => $this->tenantId,
             'account_id' => $this->accountId,
             'status' => 'active',
+            'created_at' => self::NOW,
+            'updated_at' => self::NOW,
+        ]);
+        $this->insert('pa_tenant_session', [
+            'session_key' => '01J00000000000000000000000',
+            'tenant_id' => $this->tenantId,
+            'account_id' => $this->accountId,
+            'tenant_member_id' => $this->memberId,
+            'client_key' => 'admin-web',
+            'status' => 'active',
+            'account_security_revision' => 1,
+            'tenant_security_revision' => 1,
+            'member_security_revision' => 1,
+            'issued_at' => self::NOW,
+            'last_seen_at' => self::NOW,
+            'idle_expires_at' => '2030-01-01 00:00:00.000',
+            'absolute_expires_at' => '2030-01-02 00:00:00.000',
             'created_at' => self::NOW,
             'updated_at' => self::NOW,
         ]);

@@ -35,9 +35,9 @@ final readonly class ImportExportTaskWorkerDefinition implements TaskWorkerDefin
         return 'create';
     }
 
-    public function handler(): TaskHandler
+    public function handlers(): array
     {
-        return $this->handler;
+        return [$this->handler];
     }
 
     public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext

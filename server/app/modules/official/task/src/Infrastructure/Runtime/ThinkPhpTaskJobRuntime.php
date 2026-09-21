@@ -27,6 +27,7 @@ use PeanutAdmin\Kernel\Tenancy\TenantScope;
 
 final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
 {
+    /** @param list<TaskWorkerDefinition> $workerDefinitions */
     public function __construct(
         private TaskJobStore $repository,
         private string $signingKey,
@@ -36,6 +37,7 @@ final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
         private ModuleExecutionBoundary $modules,
         private CrontabCommandService $commands,
         private Closure $dispatch,
+        private array $workerDefinitions,
         private int $workerLimit,
     ) {
         if (strlen($this->signingKey) < 32) {
@@ -68,21 +70,23 @@ final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
         );
     }
 
-    public function runTenant(int $tenantId, string $workerId, TaskWorkerDefinition ...$definitions): int
+    public function runTenant(int $tenantId, string $workerId): int
     {
         if ($tenantId < 1) {
             throw new \runtimeException('ASYNC_TENANT_INVALID');
         }
 
-        $definitions[] = $this->crontabs();
+        $definitions = [...$this->workerDefinitions, $this->crontabs()];
         $handlers = [];
         foreach ($definitions as $definition) {
-            $handlers[] = new ModuleAwareTaskHandler(
-                $this->modules,
-                $this->executionContexts,
-                $definition->ownerModuleKey(),
-                $definition->handler(),
-            );
+            foreach ($definition->handlers() as $handler) {
+                $handlers[] = new ModuleAwareTaskHandler(
+                    $this->modules,
+                    $this->executionContexts,
+                    $definition->ownerModuleKey(),
+                    $handler,
+                );
+            }
         }
         $worker = new LocalWorker(
             $tenantId,

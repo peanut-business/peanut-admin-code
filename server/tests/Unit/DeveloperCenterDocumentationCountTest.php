@@ -26,6 +26,8 @@ final class DeveloperCenterDocumentationCountTest extends TestCase
             $snapshot = (new DeveloperCenterCatalogService($root . '/server', []))->snapshot();
             self::assertSame(3, $snapshot['summary']['routes']);
             self::assertSame(1, $snapshot['summary']['generated_api_operations']);
+            self::assertSame(0, $snapshot['summary']['complete_api_operations']);
+            self::assertSame(1, $snapshot['summary']['partial_api_operations']);
             self::assertSame(2, $snapshot['summary']['undocumented_routes']);
             self::assertSame('not_checked', $snapshot['status']['runtime_effective']['status']);
             self::assertSame('not_recorded', $snapshot['status']['tests']['status']);

@@ -10,12 +10,10 @@ use app\common\enum\fileEnum;
 use think\file\UploadedFile;
 use app\common\exception\BusinessException;
 
+/** @property-read FileUploads $uploads 当前 App 中声明式解析的控制器依赖。 */
 class UploadController extends BaseAdminController
 {
-    protected function uploads(): FileUploads
-    {
-        return $this->app->get(FileUploads::class);
-    }
+    protected string $uploadsClass = FileUploads::class;
 
     public function image()
     {
@@ -43,7 +41,7 @@ class UploadController extends BaseAdminController
         if (!$uploaded instanceof UploadedFile) {
             throw BusinessException::invalid('UPLOAD_FILE_REQUIRED', '未接收到上传文件');
         }
-        $result = $this->uploads()->{$method}(
+        $result = $this->uploads->{$method}(
             $this->tenantAdminContext(),
             new UploadFile(
                 (string)$uploaded->getPathname(),

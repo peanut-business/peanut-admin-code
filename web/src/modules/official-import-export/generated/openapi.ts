@@ -7,6 +7,9 @@ export interface ModuleApiOperations {
   exportTenantConfiguration: paths['/adminapi/official.import-export.configuration.export']['get'];
   previewTenantConfigurationImport: paths['/adminapi/official.import-export.configuration.dry-run']['post'];
   applyTenantConfigurationImport: paths['/adminapi/official.import-export.configuration.apply']['post'];
+  submitOperationLogExport: paths['/adminapi/official.import-export.operation-log.export']['post'];
+  getLegacyImportExportOperation: paths['/adminapi/official.import-export.operation.status']['get'];
+  downloadLegacyImportExportResult: paths['/adminapi/official.import-export.result.download']['get'];
   listImportExportOperations: paths['/adminapi/api/v1/import-export/operations']['get'];
   submitImportOperation: paths['/adminapi/api/v1/import-export/imports']['post'];
   submitExportOperation: paths['/adminapi/api/v1/import-export/exports']['post'];
@@ -20,6 +23,9 @@ export function createModuleApi(client: Client<paths>) {
     exportTenantConfiguration: pathClient['/adminapi/official.import-export.configuration.export'].GET,
     previewTenantConfigurationImport: pathClient['/adminapi/official.import-export.configuration.dry-run'].POST,
     applyTenantConfigurationImport: pathClient['/adminapi/official.import-export.configuration.apply'].POST,
+    submitOperationLogExport: pathClient['/adminapi/official.import-export.operation-log.export'].POST,
+    getLegacyImportExportOperation: pathClient['/adminapi/official.import-export.operation.status'].GET,
+    downloadLegacyImportExportResult: pathClient['/adminapi/official.import-export.result.download'].GET,
     listImportExportOperations: pathClient['/adminapi/api/v1/import-export/operations'].GET,
     submitImportOperation: pathClient['/adminapi/api/v1/import-export/imports'].POST,
     submitExportOperation: pathClient['/adminapi/api/v1/import-export/exports'].POST,

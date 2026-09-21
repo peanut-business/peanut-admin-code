@@ -139,9 +139,6 @@
       "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\RolePermission",
       "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Tenant",
       "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\TenantEntryBinding",
-      "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\TenantMember",
-      "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\TenantSession",
-      "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\TenantSessionToken",
       "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService",
       "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformTenantAdminService",
       "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformWorkspaceQueryService",
@@ -156,9 +153,14 @@
       "PeanutAdmin\\Modules\\Identity\\Tenancy\\DefaultTenantContextResolver",
       "PeanutAdmin\\Modules\\Identity\\Tenancy\\TenantStatus",
       "PeanutAdmin\\Modules\\Identity\\Contract\\AdminDirectoryQuery",
+      "PeanutAdmin\\Modules\\Identity\\Contract\\Dto\\TenantMemberSummary",
+      "PeanutAdmin\\Modules\\Identity\\Contract\\Dto\\TenantSessionSummary",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuditDiagnosticQuery",
+      "PeanutAdmin\\Modules\\Identity\\Contract\\TenantMemberDirectory",
       "PeanutAdmin\\Modules\\Identity\\Contract\\PlatformAuditDiagnosticQuery",
-      "PeanutAdmin\\Modules\\Identity\\Contract\\PlatformOperatorIdentityQuery"
+      "PeanutAdmin\\Modules\\Identity\\Contract\\PlatformOperatorIdentityQuery",
+      "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccess",
+      "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccessException"
     ],
     "events": []
   },

@@ -43,7 +43,10 @@ class GeneratorService
         }
         $pageResult = $pagination->result($query->order('id', 'desc'));
         $pageResult = GeneratorImportPersistence::arrayPage($pageResult);
-        $lists = $pageResult->items;
+        $lists = array_map(
+            static fn(array $table): array => self::hydrateSoftDelete($table),
+            $pageResult->items,
+        );
         return new PageResult($lists, $pageResult->total, $pageResult->page, $pageResult->pageSize);
     }
 
@@ -118,6 +121,7 @@ class GeneratorService
                 $module = trim((string) $params['module_name']);
                 $entity = trim((string) $params['entity_name']);
                 self::assertModule($module);
+                GeneratorRenderService::assertRegisteredModule($module);
                 self::assertEntity($entity);
 
                 $columns = [];
@@ -128,12 +132,19 @@ class GeneratorService
                     static fn($column): array => $column->toArray(),
                     array_values($columns)
                 ), 'column_name'));
+                $primaryNames = array_values(array_map(
+                    static fn($column): string => (string)$column->column_name,
+                    array_filter($columns, static fn($column): bool => (int)$column->is_pk === 1),
+                ));
                 $relations = $this->normalizeRelations(
                     $adminId,
                     $params['relations'] ?? [],
-                    $columnNames
+                    $columnNames,
+                    $module,
+                    (string)$params['target_edition'],
                 );
                 $tree = self::normalizeTree($params['tree_config'] ?? [], $columnNames, (string) $params['template_type']);
+                $softDelete = self::normalizeSoftDelete($params['soft_delete'] ?? [], $columnNames, $primaryNames);
 
                 $submittedIds = [];
                 $persist = [];
@@ -169,7 +180,7 @@ class GeneratorService
                     'data_owner' => (string) $params['data_owner'],
                     'target_edition' => (string) $params['target_edition'],
                     'author' => trim((string) ($params['author'] ?? '')),
-                    'tree_config' => $tree,
+                    'tree_config' => $tree + ['soft_delete' => $softDelete],
                     'relations' => $relations,
                 ]);
         });
@@ -206,13 +217,34 @@ class GeneratorService
         $ids = array_values(array_unique(array_map('intval', $ids)));
         $tables = $this->snapshotTables($adminId, $ids);
         $files = [];
+        $mergeGuide = [
+            '# Generator merge preview',
+            '',
+            'Create files are stored at their final repository paths. Existing Module-owned files are never overwritten:',
+            'their complete proposed contents are stored under `merge-preview/` and must be applied only after the recorded SHA-256 still matches.',
+            '',
+        ];
         foreach ($tables as $table) {
             foreach (GeneratorRenderService::render($table) as $file) {
                 $path = (string) $file['path'];
-                if (isset($files[$path])) throw new \RuntimeException('生成文件路径冲突：' . $path);
-                $files[$path] = $file;
+                $operation = (string)($file['operation'] ?? 'create');
+                $archivePath = $operation === 'merge' ? 'merge-preview/' . $path : $path;
+                if (isset($files[$archivePath])) {
+                    throw new \RuntimeException('同一批次不能向同一个目标文件生成多个合并预览，请分批生成：' . $path);
+                }
+                $file['path'] = $archivePath;
+                $files[$archivePath] = $file;
+                if ($operation === 'merge') {
+                    $mergeGuide[] = '- target: `' . $path . '`';
+                    $mergeGuide[] = '  preview: `' . $archivePath . '`';
+                    $mergeGuide[] = '  base_sha256: `' . (string)($file['base_sha256'] ?? '') . '`';
+                }
             }
         }
+        $files['GENERATOR-MERGE-GUIDE.md'] = [
+            'path' => 'GENERATOR-MERGE-GUIDE.md',
+            'content' => implode("\n", $mergeGuide) . "\n",
+        ];
 
         $archive = GeneratorArchiveService::create(
             array_values($files),
@@ -267,7 +299,7 @@ class GeneratorService
         if ($withColumns) $query->with('columns');
         $table = $query->findOrEmpty();
         if ($table->isEmpty()) throw new \RuntimeException('生成配置不存在或无权访问');
-        return $this->hydrateRelations($adminId, $table->toArray());
+        return self::hydrateSoftDelete($this->hydrateRelations($adminId, $table->toArray()));
     }
 
     private function ownedTableModel(int $adminId, int $id, bool $lock = false): object
@@ -288,7 +320,9 @@ class GeneratorService
 
     private static function assertModule(string $module): void
     {
-        if (!preg_match('/^[a-z][a-z0-9_]{0,31}$/D', $module)) throw new \InvalidArgumentException('模块名称格式错误');
+        if (!preg_match('/^[a-z][a-z0-9_-]{0,31}(?:\.[a-z][a-z0-9-]{0,31})?$/D', $module)) {
+            throw new \InvalidArgumentException('模块名称格式错误');
+        }
     }
 
     private static function assertEntity(string $entity): void
@@ -299,7 +333,9 @@ class GeneratorService
     private function normalizeRelations(
         int $adminId,
         mixed $relations,
-        array $columnNames
+        array $columnNames,
+        string $module,
+        string $edition,
     ): array
     {
         if (!is_array($relations) || count($relations) > 20) throw new \InvalidArgumentException('关系配置格式错误');
@@ -313,8 +349,16 @@ class GeneratorService
             $this->metadata->assertIdentifier($name, '关系名称');
             $local = (string) ($relation['local_key'] ?? 'id');
             $foreign = (string) ($relation['foreign_key'] ?? 'id');
+            $summaryFields = $relation['summary_fields'] ?? [];
+            if (!is_array($summaryFields) || count($summaryFields) > 12) {
+                throw new \InvalidArgumentException('关系摘要字段配置无效');
+            }
+            $summaryFields = array_values(array_unique(array_map('strval', $summaryFields)));
             $this->metadata->assertIdentifier($local, '本地键');
             $this->metadata->assertIdentifier($foreign, '外键');
+            foreach ($summaryFields as $summaryField) {
+                $this->metadata->assertIdentifier($summaryField, '关系摘要字段');
+            }
             if (!in_array($local, $columnNames, true)) {
                 throw new \InvalidArgumentException('关系本地字段不存在');
             }
@@ -324,6 +368,7 @@ class GeneratorService
                 'type' => $type,
                 'local_key' => $local,
                 'foreign_key' => $foreign,
+                'summary_fields' => $summaryFields,
             ];
         }
         if ($normalized === []) {
@@ -332,17 +377,32 @@ class GeneratorService
 
         $targetIds = array_values(array_unique(array_column($normalized, 'target_table_id')));
         sort($targetIds);
-        $targets = $this->imports->tables($adminId)->whereIn('id', $targetIds)
-            ->order('id', 'asc')->lock(true)->column('id');
+        $targetRows = $this->imports->tables($adminId)->whereIn('id', $targetIds)
+            ->order('id', 'asc')->lock(true)->select();
+        $targets = [];
+        foreach ($targetRows as $target) {
+            $targets[(int)$target->id] = $target;
+        }
         if (count($targets) !== count($targetIds)) {
             throw new \RuntimeException('关系目标配置不存在或无权访问');
         }
         $targetColumns = [];
+        $targetColumnTypes = [];
         foreach ($this->imports->columnsForTables($targetIds)
             ->order(['table_id' => 'asc', 'sort' => 'asc'])->select()->toArray() as $column) {
             $targetColumns[(int)$column['table_id']][] = (string)$column['column_name'];
+            $targetColumnTypes[(int)$column['table_id']][(string)$column['column_name']]
+                = (string)$column['php_type'];
         }
-        foreach ($normalized as $relation) {
+        foreach ($normalized as &$relation) {
+            $target = $targets[(int)$relation['target_table_id']];
+            if ((string)$target->module_name !== $module) {
+                throw new \InvalidArgumentException('不允许跨模块 ORM 关联；请使用目标模块公开 query 合同');
+            }
+            if ((string)$target->data_owner !== 'tenant-orm'
+                || (string)$target->target_edition !== $edition) {
+                throw new \InvalidArgumentException('同模块 ORM 关联必须保持 tenant-orm 所有权且 Edition 一致');
+            }
             if (!in_array(
                 $relation['foreign_key'],
                 $targetColumns[(int)$relation['target_table_id']] ?? [],
@@ -350,7 +410,21 @@ class GeneratorService
             )) {
                 throw new \InvalidArgumentException('关系目标字段不存在');
             }
+            foreach ($relation['summary_fields'] as $summaryField) {
+                if (!in_array($summaryField, $targetColumns[(int)$relation['target_table_id']] ?? [], true)) {
+                    throw new \InvalidArgumentException('关系摘要字段不存在');
+                }
+                if (in_array($summaryField, ['tenant_id', 'delete_time'], true)
+                    || preg_match('/(?:password|passwd|secret|token|credential|private_key|api_key|access_key|refresh_key|salt|digest|hash)$/i', $summaryField) === 1) {
+                    throw new \InvalidArgumentException('关系摘要不能公开租户、删除或秘密字段');
+                }
+            }
+            $relation['summary_types'] = array_intersect_key(
+                $targetColumnTypes[(int)$relation['target_table_id']] ?? [],
+                array_flip($relation['summary_fields']),
+            );
         }
+        unset($relation);
         return $normalized;
     }
 
@@ -377,7 +451,7 @@ class GeneratorService
             }
             $targets = $this->relationTargets($adminId, $tables, true);
             foreach ($tables as &$table) {
-                $table = self::hydrateRelationsFromTargets($table, $targets);
+                $table = self::hydrateSoftDelete(self::hydrateRelationsFromTargets($table, $targets));
             }
             unset($table);
             return $tables;
@@ -441,9 +515,27 @@ class GeneratorService
             $relation['model'] = (string)$target->entity_name;
             $relation['data_owner'] = (string)$target->data_owner;
             $relation['target_edition'] = (string)$target->target_edition;
+            $targetConfig = is_array($target->tree_config ?? null) ? $target->tree_config : [];
+            $targetSoftDelete = is_array($targetConfig['soft_delete'] ?? null)
+                ? $targetConfig['soft_delete']
+                : [];
+            $relation['soft_delete_enabled'] = ($targetSoftDelete['enabled'] ?? false) === true;
+            $relation['soft_delete_field'] = (string)($targetSoftDelete['field'] ?? '');
         }
         unset($relation);
         $table['relations'] = $relations;
+        return $table;
+    }
+
+    /** 将现有 JSON 存储映射为生成定义的稳定顶层字段。 */
+    private static function hydrateSoftDelete(array $table): array
+    {
+        $config = is_array($table['tree_config'] ?? null) ? $table['tree_config'] : [];
+        $softDelete = is_array($config['soft_delete'] ?? null) ? $config['soft_delete'] : [];
+        $table['soft_delete'] = [
+            'enabled' => ($softDelete['enabled'] ?? false) === true,
+            'field' => (string)($softDelete['field'] ?? ''),
+        ];
         return $table;
     }
 
@@ -461,6 +553,32 @@ class GeneratorService
         }
         if ($result['id_field'] === $result['parent_field']) throw new \InvalidArgumentException('树主键和父级字段不能相同');
         return $result;
+    }
+
+    /** @return array{enabled:bool,field:string} */
+    private static function normalizeSoftDelete(mixed $softDelete, array $columnNames, array $primaryNames): array
+    {
+        if (!is_array($softDelete)) {
+            throw new \InvalidArgumentException('软删除配置格式错误');
+        }
+        if (array_diff(array_keys($softDelete), ['enabled', 'field']) !== []) {
+            throw new \InvalidArgumentException('软删除配置包含未声明字段');
+        }
+        $enabled = $softDelete['enabled'] ?? false;
+        if (!is_bool($enabled)) {
+            throw new \InvalidArgumentException('软删除 enabled 必须是布尔值');
+        }
+        $field = trim((string)($softDelete['field'] ?? ''));
+        if (!$enabled) {
+            return ['enabled' => false, 'field' => ''];
+        }
+        if ($field === '' || !in_array($field, $columnNames, true)) {
+            throw new \InvalidArgumentException('启用软删除时必须选择当前表的软删除字段');
+        }
+        if ($field === 'tenant_id' || in_array($field, $primaryNames, true)) {
+            throw new \InvalidArgumentException('主键和租户字段不能作为软删除字段');
+        }
+        return ['enabled' => true, 'field' => $field];
     }
 
     private static function flag($value): int

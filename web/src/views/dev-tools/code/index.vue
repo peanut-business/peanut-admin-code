@@ -221,6 +221,28 @@
               <el-input v-model="editForm.author" />
             </el-form-item>
           </el-col>
+          <el-col :span="8">
+            <el-form-item label="软删除能力">
+              <el-switch v-model="editForm.soft_delete.enabled" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="软删除字段">
+              <el-select
+                v-model="editForm.soft_delete.field"
+                :disabled="!editForm.soft_delete.enabled"
+                clearable
+                placeholder="启用后必须选择"
+              >
+                <el-option
+                  v-for="column in softDeleteColumns"
+                  :key="column.id"
+                  :value="column.column_name"
+                  :label="`${column.column_name}（${column.column_type}）`"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
         </el-row>
 
         <el-divider content-position="left">字段配置</el-divider>
@@ -430,7 +452,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { reactive, ref } from 'vue';
+  import { computed, reactive, ref } from 'vue';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
   import { Plus } from '@element-plus/icons-vue';
@@ -565,6 +587,7 @@
     author: '',
     tree_config: { id_field: '', parent_field: '', name_field: '' },
     relations: [],
+    soft_delete: { enabled: false, field: '' },
     columns: [],
   });
   const formRules = {
@@ -595,9 +618,15 @@
         name_field: data.tree_config?.name_field || '',
       },
       relations: (data.relations || []).map((relation) => ({ ...relation })),
+      soft_delete: {
+        enabled: data.soft_delete?.enabled === true,
+        field: data.soft_delete?.field || '',
+      },
       columns: (data.columns || []).map((column) => ({ ...column })),
     });
-    models.value = modelResult.data.filter((model) => model.id !== data.id);
+    models.value = modelResult.data.filter(
+      (model) => model.id !== data.id && model.module_name === data.module_name
+    );
     editVisible.value = true;
   };
   const handleSave = async () => {
@@ -645,6 +674,11 @@
   const removeRelation = (index: number) => editForm.relations.splice(index, 1);
   const relationKey = (relation: GeneratorRelation, index: number) =>
     `${relation.target_table_id}-${index}`;
+  const softDeleteColumns = computed(() =>
+    editForm.columns.filter(
+      (column) => column.is_pk !== 1 && column.column_name !== 'tenant_id'
+    )
+  );
 
   const handleSync = async (record: GeneratorRecord) => {
     await syncGenerator(record.id);

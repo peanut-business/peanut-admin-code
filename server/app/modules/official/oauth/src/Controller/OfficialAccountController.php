@@ -7,16 +7,14 @@ use app\adminapi\controller\BaseAdminController;
 use PeanutAdmin\Modules\OAuth\Service\OfficialAccountApplicationService;
 use PeanutAdmin\Modules\OAuth\Validation\OfficialAccountValidate;
 
+/** @property-read OfficialAccountApplicationService $officialAccounts 当前 App 中声明式解析的控制器依赖。 */
 class OfficialAccountController extends BaseAdminController
 {
-    protected function officialAccounts(): OfficialAccountApplicationService
-    {
-        return $this->app->make(OfficialAccountApplicationService::class);
-    }
+    protected string $officialAccountsClass = OfficialAccountApplicationService::class;
 
     public function getConfig()
     {
-        return $this->data($this->officialAccounts()->getConfig(
+        return $this->data($this->officialAccounts->getConfig(
             $this->tenantAdminContext(),
             (string)$this->request->domain(),
         ));
@@ -26,7 +24,7 @@ class OfficialAccountController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, OfficialAccountValidate::class);
-        $this->officialAccounts()->setConfig($this->tenantAdminContext(), $params);
+        $this->officialAccounts->setConfig($this->tenantAdminContext(), $params);
         return $this->success('操作成功');
     }
 }

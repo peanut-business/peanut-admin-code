@@ -16,6 +16,9 @@ use think\facade\Db;
 use PeanutAdmin\Modules\Task\Contract\RetryableTaskException;
 use PeanutAdmin\Modules\Task\Contract\JobExecution;
 use PeanutAdmin\Modules\Task\Contract\LeaseLostException;
+use PeanutAdmin\Kernel\Auth\AuthException;
+use PeanutAdmin\Kernel\Module\ModuleException;
+use PeanutAdmin\Modules\Task\Job\Application\TaskJobException;
 use Throwable;
 
 final readonly class CsvOperationRunner
@@ -40,6 +43,7 @@ final readonly class CsvOperationRunner
             $this->audit($context, $operation, 'started', ['attempt' => $attempt]);
             $provider = $this->providers->require($operation->providerKey);
             if (!hash_equals($operation->schemaRevision, $provider->schema()->revision)) {
+                $execution->assertLeaseOwned();
                 $result = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, 0, 'IMPORT_EXPORT_SCHEMA_MISMATCH');
                 $this->audit($context, $result, 'failed', ['error_code' => 'IMPORT_EXPORT_SCHEMA_MISMATCH']);
                 return $result;
@@ -49,9 +53,10 @@ final readonly class CsvOperationRunner
                 : $this->runExport($context, $operation, $execution);
             $this->audit($context, $result, $result->status, ['processed_rows' => $result->processedRows, 'accepted_rows' => $result->acceptedRows, 'rejected_rows' => $result->rejectedRows]);
             return $result;
-        } catch (LeaseLostException $exception) {
+        } catch (LeaseLostException|AuthException|ModuleException|TaskJobException $exception) {
             throw $exception;
         } catch (RetryableTaskException $exception) {
+            $execution->assertLeaseOwned();
             $current = $this->repository->get($operation->tenantId, $operation->operationKey);
             $checkpoint = $this->checkpointProgressOrCancel(
                 $operation->tenantId,
@@ -67,6 +72,7 @@ final readonly class CsvOperationRunner
                 return $checkpoint;
             }
             if ($attempt >= 3) {
+                $execution->assertLeaseOwned();
                 $failed = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, $exception->safeCode);
                 $this->audit($context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => $exception->safeCode]);
                 if ($failed->status === 'cancelled') {
@@ -75,8 +81,10 @@ final readonly class CsvOperationRunner
             }
             throw $exception;
         } catch (ImportExportException $exception) {
+            $execution->assertLeaseOwned();
             if (!in_array($exception->problemCode, ['IMPORT_EXPORT_STATE_CONFLICT', 'IMPORT_EXPORT_PERMISSION_DENIED'], true)) {
                 $current = $this->repository->get($operation->tenantId, $operation->operationKey);
+                $execution->assertLeaseOwned();
                 $failed = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, $exception->problemCode);
                 $this->audit($context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => $exception->problemCode]);
                 if ($failed->status === 'cancelled') {
@@ -85,7 +93,28 @@ final readonly class CsvOperationRunner
             }
             throw $exception;
         } catch (Throwable $exception) {
+            // 保留内部错误位置供运维诊断；不写入异常消息、参数、令牌或原始数据。
+            try {
+                \think\facade\Log::record([
+                    'event' => 'import_export.unexpected_failure',
+                    'tenant_id' => $operation->tenantId,
+                    'operation_key' => $operation->operationKey,
+                    'exception_class' => $exception::class,
+                    'file' => basename($exception->getFile()),
+                    'line' => $exception->getLine(),
+                    'frames' => array_map(static fn(array $frame): array => [
+                        'class' => $frame['class'] ?? null,
+                        'function' => $frame['function'] ?? null,
+                        'file' => isset($frame['file']) ? basename($frame['file']) : null,
+                        'line' => $frame['line'] ?? null,
+                    ], array_slice($exception->getTrace(), 0, 8)),
+                ], 'error');
+            } catch (Throwable) {
+                // 诊断失败不能替换原始业务异常或阻止状态恢复。
+            }
+            $execution->assertLeaseOwned();
             $current = $this->repository->get($operation->tenantId, $operation->operationKey);
+            $execution->assertLeaseOwned();
             $failed = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, 'IMPORT_EXPORT_INTERNAL_ERROR');
             $this->audit($context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => 'IMPORT_EXPORT_INTERNAL_ERROR']);
             if ($failed->status === 'cancelled') {
@@ -216,6 +245,7 @@ final readonly class CsvOperationRunner
         $fileKey = $this->files->storePrivateCsv($context, $operation->operationKey, 'result', $operation->providerKey . '-export.csv', $stream);
         $execution->assertLeaseOwned();
         self::assertFileKey($fileKey);
+        $execution->assertLeaseOwned();
         return $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'succeeded', $fileKey, null, $processed);
     }
 

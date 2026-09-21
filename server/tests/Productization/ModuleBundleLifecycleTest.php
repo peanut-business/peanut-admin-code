@@ -6,14 +6,14 @@ require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
 use app\common\service\runtime\RuntimeNamespace;
-use app\platform\service\plugin\DeterministicTarArchive;
-use app\platform\service\plugin\PluginLifecycleException;
-use app\platform\service\plugin\PluginPackageArchiveService;
-use app\platform\service\plugin\PluginPackageInstaller;
-use app\platform\service\plugin\PlatformModuleRuntimeService;
-use app\platform\service\plugin\PluginCatalogSyncService;
-use app\platform\service\plugin\PluginRuntimeGovernanceService;
-use app\platform\service\plugin\PluginReleaseCompositionGuard;
+use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\infrastructure\plugin\DeterministicTarArchive;
+use app\platform\infrastructure\plugin\PluginPackageInstaller;
+use app\platform\services\plugin\PlatformModuleRuntimeService;
+use app\platform\services\plugin\PluginCatalogSyncService;
+use app\platform\services\plugin\PluginPackageArchiveService;
+use app\platform\services\plugin\PluginRuntimeGovernanceService;
+use app\platform\validation\plugin\PluginReleaseCompositionGuard;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -260,7 +260,15 @@ initializeCoreIdentity(
     'module-bundle@example.test',
     'module-bundle-test-password',
     null,
-    new \app\common\service\DemoAccountPolicy(false, []),
+    new \app\common\policy\DemoAccountPolicy(false, []),
+    [
+        'kind' => 'real-default-tenant',
+        'code' => 'default',
+        'tenant_identity' => 'required',
+        'rbac' => 'required',
+        'execution_context' => \PeanutAdmin\Kernel\Context\TenantSystemContext::class,
+        'module_lifecycle' => 'required',
+    ],
 );
 $serverRoot = dirname(__DIR__, 2);
 $lockSqlOwners = [];
@@ -448,7 +456,7 @@ try {
     try {
         $installer->update($archivePath, $packed['sha256'], null, false);
         throw new RuntimeException('bundle downgrade unexpectedly executed');
-    } catch (\app\platform\service\plugin\PluginPackageException $exception) {
+    } catch (\app\platform\exception\plugin\PluginPackageException $exception) {
         moduleBundleExpect($exception->errorCode === 'PLUGIN_DOWNGRADE_REJECTED', 'bundle downgrade returned another error');
     }
     file_put_contents($source . '/server/app/modules/official/article/Module.php', "\n", FILE_APPEND);
@@ -461,7 +469,7 @@ try {
     try {
         $installer->update($conflictArchivePath, $conflictPacked['sha256'], null, false);
         throw new RuntimeException('same-version conflicting bundle update unexpectedly executed');
-    } catch (\app\platform\service\plugin\PluginPackageException $exception) {
+    } catch (\app\platform\exception\plugin\PluginPackageException $exception) {
         moduleBundleExpect($exception->errorCode === 'PACKAGE_VERSION_IDENTITY_CONFLICT', 'same-version conflict returned another error');
     }
 
@@ -734,7 +742,7 @@ try {
     $privateArchive = $temporary . '/private-fixture.tar';
     $privatePackage = (new PluginPackageArchiveService($projectRoot . '/server'))->packModule('fixture.delivery-record', $privateArchive);
     (new PluginPackageInstaller($target . '/server', $moduleConfig, [], $catalogs))->install($privateArchive, $privatePackage['sha256'], null);
-    $privateLock = new \app\platform\service\plugin\PluginLockResolver($target . '/server', '../plugins.lock');
+    $privateLock = new \app\platform\infrastructure\plugin\PluginLockResolver($target . '/server', '../plugins.lock');
     $profile = new \app\platform\service\module\ProductTenantModuleProfileService(
         new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository(true),
         new \app\platform\service\module\ThinkPhpModuleGovernanceProvider(

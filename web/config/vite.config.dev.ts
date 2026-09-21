@@ -1,9 +1,12 @@
 import { existsSync, readFileSync, readdirSync, realpathSync } from 'fs';
-import { resolve } from 'path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, mergeConfig } from 'vite';
 import eslint from 'vite-plugin-eslint';
 import { createBaseConfig } from './vite.config.base';
 import { readClientEnvironment } from '../../scripts/client-environment';
+
+const configDir = dirname(fileURLToPath(import.meta.url));
 
 interface ModuleManifest {
   key?: unknown;
@@ -39,7 +42,7 @@ function moduleManifestPaths(directory: string): string[] {
 }
 
 export function discoverAdminContributions(
-  projectRoot = resolve(__dirname, '../..')
+  projectRoot = resolve(configDir, '../..')
 ): string[] {
   const modulesRoot = resolve(projectRoot, 'server/app/Modules');
   if (!existsSync(modulesRoot)) {
@@ -104,7 +107,7 @@ export function discoverAdminContributions(
 
 export default defineConfig((configEnv) => {
   const environment = readClientEnvironment(
-    resolve(__dirname, `../.env.${configEnv.mode}`)
+    resolve(configDir, `../.env.${configEnv.mode}`)
   );
   const apiProxyTarget =
     environment.VITE_API_PROXY_TARGET ||

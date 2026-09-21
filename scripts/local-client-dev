@@ -42,7 +42,7 @@ case "$component" in
             printf 'component=platform listen_port=%s api_origin=http://127.0.0.1:%s\n' "$listen_port" "$php_port"
             exit 0
         }
-        clean_exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port "$listen_port" "$@"
+        clean_exec node node_modules/vite/bin/vite.js --configLoader runner --host 127.0.0.1 --port "$listen_port" "$@"
         ;;
     pc)
         listen_port=$(read_env PC_PORT)

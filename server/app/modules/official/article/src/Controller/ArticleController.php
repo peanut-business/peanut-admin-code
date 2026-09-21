@@ -4,17 +4,18 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Article\Controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\http\PageResult;
 use app\common\traits\CrudTrait;
 use PeanutAdmin\Modules\Article\Contract\ArticleAdministration;
 use PeanutAdmin\Modules\Article\Validation\ArticleValidate;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\response\Json;
 
+/** @property-read ArticleAdministration $crud 当前 App 中正式绑定的资讯管理用例。 */
 class ArticleController extends BaseAdminController
 {
     use CrudTrait;
 
+    protected string $crudClass = ArticleAdministration::class;
     protected const CRUD_VALIDATE = ArticleValidate::class;
     protected const CRUD_ADD_SUCCESS_MESSAGE = '添加成功';
     protected const CRUD_EDIT_SUCCESS_MESSAGE = '编辑成功';
@@ -22,58 +23,38 @@ class ArticleController extends BaseAdminController
     protected const CRUD_STATUS_SUCCESS_MESSAGE = '修改成功';
     protected const CRUD_VALIDATE_LISTS = true;
     protected const CRUD_STATUS_FIELD = 'is_show';
-
-    protected function articles(): ArticleAdministration
-    {
-        return $this->app->get(ArticleAdministration::class);
-    }
+    protected const CRUD_SOFT_DELETE = true;
+    protected const CRUD_INPUT_FIELDS = [
+        'lists' => [
+            'page_no', 'page_size', 'page_start', 'page_end', 'page_type', 'order_by',
+            'field', 'title', 'cid', 'is_show', 'start_time', 'end_time', 'start', 'end', 'export',
+        ],
+        'detail' => ['id'],
+        'add' => ['title', 'cid', 'desc', 'abstract', 'image', 'author', 'content', 'click_virtual', 'is_show', 'sort'],
+        'edit' => ['id', 'title', 'cid', 'desc', 'abstract', 'image', 'author', 'content', 'click_virtual', 'is_show', 'sort'],
+        'delete' => ['id'],
+        'status' => ['id', 'is_show'],
+        'recycle' => [
+            'page_no', 'page_size', 'page_start', 'page_end', 'page_type', 'order_by',
+            'field', 'title', 'cid', 'is_show', 'start_time', 'end_time', 'start', 'end',
+        ],
+        'recycleDetail' => ['id'],
+        'restore' => ['id', 'ids'],
+        'forceDelete' => ['id', 'ids'],
+    ];
+    protected const CRUD_WRITABLE_FIELDS = [
+        'add' => ['title', 'cid', 'desc', 'abstract', 'image', 'author', 'content', 'click_virtual', 'is_show', 'sort'],
+        'edit' => ['title', 'cid', 'desc', 'abstract', 'image', 'author', 'content', 'click_virtual', 'is_show', 'sort'],
+        'status' => ['is_show'],
+    ];
 
     protected function resolveCrudContext(): TenantContext
     {
         return $this->tenantAdminContext();
     }
 
-    protected function crudService(): object
-    {
-        return $this->articles();
-    }
-
     protected function renderDetail(array $result): Json
     {
         return $this->data($result);
-    }
-
-    protected function performLists(mixed $_context, array $params): PageResult|array
-    {
-        return $this->articles()->lists($params);
-    }
-
-    protected function performDetail(mixed $_context, array $params): array
-    {
-        return $this->articles()->detail((int)$params['id']);
-    }
-
-    protected function performAdd(mixed $_context, array $params): bool
-    {
-        $this->articles()->add($params);
-        return true;
-    }
-
-    protected function performEdit(mixed $_context, array $params): bool
-    {
-        $this->articles()->edit($params);
-        return true;
-    }
-
-    protected function performDelete(mixed $_context, array $params): bool
-    {
-        $this->articles()->delete((int)$params['id']);
-        return true;
-    }
-
-    protected function performStatusUpdate(mixed $_context, array $params): bool
-    {
-        $this->articles()->updateStatus((int)$params['id'], (int)$params['is_show']);
-        return true;
     }
 }

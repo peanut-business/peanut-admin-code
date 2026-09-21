@@ -31,10 +31,13 @@ export type ArticleCateListRes = PageData<ArticleCateRecord> & {
   extend: [];
 };
 
-export function getArticleCateList(params: ArticleCateListParams = {}) {
+export function getArticleCateList(
+  params: ArticleCateListParams = {},
+  signal?: AbortSignal
+) {
   return axios.get<ArticleCateListRes>(
     '/adminapi/official.article.category.list',
-    { params }
+    { params, signal }
   );
 }
 
@@ -42,30 +45,50 @@ export function getArticleCateAll() {
   return axios.get<ArticleCateOption[]>('/adminapi/official.article.category.all');
 }
 
-export function getArticleCateDetail(id: number) {
+export function getArticleCateDetail(id: number, signal?: AbortSignal) {
   return axios.get<ArticleCateRecord>(
     '/adminapi/official.article.category.detail',
-    { params: { id } }
+    { params: { id }, signal }
   );
 }
 
-export function addArticleCate(data: Partial<ArticleCateRecord>) {
-  return axios.post('/adminapi/official.article.category.add', data);
+export function addArticleCate(
+  data: Partial<ArticleCateRecord>,
+  signal?: AbortSignal
+) {
+  return axios.post('/adminapi/official.article.category.add', data, { signal });
 }
 
-export function editArticleCate(data: Partial<ArticleCateRecord>) {
-  return axios.post('/adminapi/official.article.category.edit', data);
-}
-
-export function deleteArticleCate(id: number) {
-  return axios.post('/adminapi/official.article.category.delete', { id });
-}
-
-export function updateArticleCateStatus(id: number, isShow: number) {
-  return axios.post('/adminapi/official.article.category.update-status', {
-    id,
-    is_show: isShow,
+export function editArticleCate(
+  data: Partial<ArticleCateRecord>,
+  signal?: AbortSignal
+) {
+  return axios.post('/adminapi/official.article.category.edit', data, {
+    signal,
   });
+}
+
+export function deleteArticleCate(id: number, signal?: AbortSignal) {
+  return axios.post(
+    '/adminapi/official.article.category.delete',
+    { id },
+    { signal }
+  );
+}
+
+export function updateArticleCateStatus(
+  id: number,
+  isShow: number,
+  signal?: AbortSignal
+) {
+  return axios.post(
+    '/adminapi/official.article.category.update-status',
+    {
+      id,
+      is_show: isShow,
+    },
+    { signal }
+  );
 }
 
 // ─── 文章 ─────────────────────────────────────────────────────────────────

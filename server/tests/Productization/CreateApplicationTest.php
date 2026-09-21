@@ -1,16 +1,17 @@
 <?php
 declare(strict_types=1);
 
-use app\common\service\scaffold\ApplicationCreator;
-use app\platform\service\plugin\PluginLockResolver;
+use app\common\infrastructure\scaffold\ApplicationCreator;
+use app\platform\infrastructure\plugin\PluginLockResolver;
 
 $root = dirname(__DIR__, 3);
-require_once $root . '/server/app/common/service/scaffold/ScaffoldPathGuard.php';
-require_once $root . '/server/app/common/service/scaffold/ScaffoldManifest.php';
-require_once $root . '/server/app/common/service/scaffold/ApplicationCreator.php';
-require_once $root . '/server/app/platform/service/plugin/PluginLifecycleException.php';
-require_once $root . '/server/app/platform/service/plugin/PluginDescriptor.php';
-require_once $root . '/server/app/platform/service/plugin/PluginLockResolver.php';
+require_once $root . '/server/vendor/autoload.php';
+require_once $root . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
+require_once $root . '/server/app/common/value/scaffold/ScaffoldManifest.php';
+require_once $root . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php';
+require_once $root . '/server/app/platform/exception/plugin/PluginLifecycleException.php';
+require_once $root . '/server/app/platform/value/plugin/PluginDescriptor.php';
+require_once $root . '/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
 
 function createApplicationExpect(bool $condition, string $message): void
 {
@@ -165,7 +166,6 @@ foreach ([
     'CHANGELOG.md' => 'changelog',
     'RELEASE_METADATA.json' => 'release-metadata',
     'resources/project-resources.json' => 'resources',
-    'docs-site/capabilities.md' => 'docs-page',
 ] as $path => $transform) {
     $semanticDigest = hash('sha256', "peanut.create-app-semantic-source.v1\0{$path}\0{$transform}");
     createApplicationExpect(
@@ -177,8 +177,23 @@ foreach ([
         "{$path} semantic digest must not depend on release prose bytes"
     );
 }
+// Generated application documentation has real, content-addressed template inputs, not absent source pages.
+foreach (['docs-site/capabilities.md', 'docs-site/guide/application-module-lifecycle.md', 'SECURITY.md'] as $targetPath) {
+    $sourcePath = 'server/resources/scaffold-application/' . $targetPath . '.stub';
+    $entry = $inventoryByPath[$sourcePath] ?? [];
+    createApplicationExpect(is_file($root . '/' . $sourcePath), 'application documentation template is missing');
+    createApplicationExpect(
+        ($entry['target'] ?? null) === $targetPath && ($entry['classification'] ?? null) === 'app-owned'
+            && ($entry['transform'] ?? null) === 'docs-page'
+            && ($entry['source_sha256'] ?? null) === hash_file('sha256', $root . '/' . $sourcePath),
+        'application documentation must use its real template digest and declared destination',
+    );
+}
 $templateVersion = (string)($inventory['template_version'] ?? '');
-createApplicationExpect(preg_match('/^\d+\.\d+\.\d+$/D', $templateVersion) === 1, 'inventory template version must be SemVer');
+createApplicationExpect(
+    preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', $templateVersion) === 1,
+    'inventory template version must be SemVer'
+);
 $releaseRoot = $temporary . '/current-scaffold-release';
 $releasePath = $releaseRoot . '/scaffold-manifest.json';
 $identity = ['commit' => str_repeat('a', 40), 'tree' => str_repeat('b', 40)];
@@ -282,13 +297,13 @@ try {
     $generatedLock = json_decode((string)file_get_contents($first . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
     $expectedOfficialPlugins = array_values(array_filter(
         $sourcePlugins,
-        static fn(object $plugin): bool => str_starts_with($plugin->key, 'official.')
+        static fn(object $plugin): bool => $plugin->key !== 'fixture.delivery-record'
     ));
     $generatedPlugins = (new PluginLockResolver($first . '/server', '../plugins.lock'))->all();
     createApplicationExpect($expectedOfficialPlugins !== [], 'source lock must contain official Plugins');
     createApplicationExpect(
         array_keys($generatedPlugins) === array_map(static fn(object $plugin): string => $plugin->key, $expectedOfficialPlugins),
-        'generated Plugin lock must contain exactly the official Plugin set'
+        'generated Plugin lock must contain every selected production Plugin and exclude the test fixture'
     );
     createApplicationExpect(
         !array_key_exists('fixture.delivery-record', $generatedPlugins),
@@ -329,7 +344,7 @@ try {
         'Both Editions must retain one Tenant-owned fresh Schema',
     );
     foreach ([
-        'server/database/migrations/20260823-unify-storage-service.sql',
+        'server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql',
         'server/database/migrations/20260824-payment-channel-grants.sql',
     ] as $projectedMigration) {
         $standaloneMigration = (string)file_get_contents($standalone . '/' . $projectedMigration);
@@ -385,10 +400,13 @@ try {
     createApplicationExpect(!str_contains($generatedModulesConfig, 'fixture.delivery-record'), 'demo Module identity leaked into generated deployment config');
     createApplicationExpect(str_contains($generatedModulesConfig, "env('PEANUT_PLUGIN_LOCK', '../plugins.lock')"), 'generated deployment must enable its scaffold-owned official Plugin lock');
     $releaseMetadata = json_decode((string)file_get_contents($first . '/RELEASE_METADATA.json'), true, 512, JSON_THROW_ON_ERROR);
-    $generatedReleaseVersion = ($releaseMetadata['schema_version'] ?? null) === 2
-        && ($releaseMetadata['protocol'] ?? null) === 'peanut.release-metadata.v2'
-        ? ($releaseMetadata['instance_version'] ?? null)
-        : ($releaseMetadata['version'] ?? null);
+    $generatedReleaseVersion = in_array(($releaseMetadata['schema_version'] ?? null), [2, 3], true)
+        && in_array(($releaseMetadata['protocol'] ?? null), [
+            'peanut.release-metadata.v2',
+            'peanut.release-metadata.v3',
+        ], true)
+            ? ($releaseMetadata['instance_version'] ?? null)
+            : ($releaseMetadata['version'] ?? null);
     createApplicationExpect($releaseMetadata['product'] === 'Acme Console' && $generatedReleaseVersion === '0.1.0', 'release metadata must be regenerated for the new application');
     createApplicationExpect(str_contains((string)file_get_contents($first . '/CHANGELOG.md'), "## 0.1.0\n"), 'changelog must use application.version');
     $sbom = json_decode((string)file_get_contents($first . '/RELEASE_SBOM.spdx.json'), true, 512, JSON_THROW_ON_ERROR);
@@ -408,15 +426,24 @@ try {
         512,
         JSON_THROW_ON_ERROR
     );
-    $expectedPublicAdmin = (string)($sourceVersionContract['core_web'] ?? '');
-    createApplicationExpect($expectedPublicAdmin !== '', 'source public admin dependency must be declared');
-    foreach (['web', 'pc', 'uniapp', 'docs-site'] as $client) {
+    $coreWebPackages = $sourceVersionContract['core_web']['packages'] ?? null;
+    createApplicationExpect(is_array($coreWebPackages), 'source Core Web package identities must be declared');
+    $clientCorePackages = [
+        'web' => ['@peanut-admin/ui-vue', '@peanut-admin/vue'],
+        'platform' => ['@peanut-admin/ui-vue', '@peanut-admin/vue'],
+        'pc' => ['@peanut-admin/client', '@peanut-admin/nuxt'],
+        'uniapp' => ['@peanut-admin/client', '@peanut-admin/uniapp'],
+    ];
+    foreach ($clientCorePackages as $client => $packageNames) {
         $package = json_decode((string)file_get_contents($first . "/{$client}/package.json"), true, 512, JSON_THROW_ON_ERROR);
         createApplicationExpect(($package['version'] ?? null) === '0.1.0', "{$client} root package must use application.version");
-        if (in_array($client, ['web', 'pc', 'uniapp'], true)) {
+        foreach ($packageNames as $packageName) {
+            $archive = $coreWebPackages[$packageName]['archive'] ?? null;
+            createApplicationExpect(is_string($archive) && $archive !== '', "{$packageName} archive identity is unavailable");
+            $expected = 'file:../' . $archive;
             createApplicationExpect(
-                ($package['dependencies']['@peanut-admin/admin'] ?? null) === $expectedPublicAdmin,
-                "{$client} public admin dependency must remain {$expectedPublicAdmin}"
+                ($package['dependencies'][$packageName] ?? null) === $expected,
+                "{$client} dependency {$packageName} must remain {$expected}"
             );
         }
     }
@@ -426,12 +453,15 @@ try {
             ($lock['version'] ?? null) === '0.1.0' && ($lock['packages']['']['version'] ?? null) === '0.1.0',
             "{$client} root lock metadata must use application.version"
         );
-        createApplicationExpect(
-            ($lock['packages']['']['dependencies']['@peanut-admin/admin'] ?? null) === $expectedPublicAdmin,
-            "{$client} lock root dependency must remain {$expectedPublicAdmin}"
-        );
+        foreach ($clientCorePackages[$client] as $packageName) {
+            $expected = 'file:../' . $coreWebPackages[$packageName]['archive'];
+            createApplicationExpect(
+                ($lock['packages']['']['dependencies'][$packageName] ?? null) === $expected,
+                "{$client} lock dependency {$packageName} must remain {$expected}"
+            );
+        }
     }
-    foreach (['server/config/project.php', 'server/app/adminapi/application/WorkbenchApplicationService.php', 'server/app/api/application/IndexApplicationService.php'] as $versionSurface) {
+    foreach (['server/config/project.php', 'server/app/adminapi/services/WorkbenchApplicationService.php', 'server/app/api/services/IndexApplicationService.php'] as $versionSurface) {
         createApplicationExpect(
             !str_contains((string)file_get_contents($first . '/' . $versionSurface), "'2.0.1'"),
             $versionSurface . ' must not retain a historical product version'
@@ -511,10 +541,15 @@ try {
     );
 
     $sourceOnlyInventory = $inventory;
+    // Replace one app-owned generated security page with another real source file.
+    // This exercises preserved app-owned customization without mutating any managed bytes.
+    $sourceOnlyInventory['files'] = array_values(array_filter($sourceOnlyInventory['files'],
+        static fn(array $entry): bool => $entry['path'] !== 'SECURITY.md'));
     foreach ($sourceOnlyInventory['files'] as &$entry) {
-        if ($entry['path'] === 'docs-site/index.md') {
+        if ($entry['path'] === 'server/resources/scaffold-application/SECURITY.md.stub') {
+            $entry['path'] = 'SECURITY.md';
             $entry['transform'] = 'copy';
-            $entry['source_sha256'] = hash_file('sha256', $root . '/' . $entry['path']);
+            $entry['source_sha256'] = hash_file('sha256', $root . '/SECURITY.md');
             break;
         }
     }

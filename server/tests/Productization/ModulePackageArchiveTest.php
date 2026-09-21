@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-use app\platform\service\plugin\DeterministicTarArchive;
-use app\platform\service\plugin\ModulePackagePreflight;
-use app\platform\service\plugin\PluginPackageArchiveService;
-use app\platform\service\plugin\PluginPackageException;
-use app\platform\service\plugin\PluginPackageAdoptionService;
-use app\platform\service\plugin\PluginLockResolver;
-use app\platform\service\plugin\PluginArtifactWriter;
-use app\platform\service\plugin\PluginLifecycleException;
+use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\exception\plugin\PluginPackageException;
+use app\platform\infrastructure\plugin\DeterministicTarArchive;
+use app\platform\infrastructure\plugin\PluginArtifactWriter;
+use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\services\plugin\PluginPackageAdoptionService;
+use app\platform\services\plugin\PluginPackageArchiveService;
+use app\platform\validation\plugin\ModulePackagePreflight;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -26,7 +26,12 @@ function modulePackageRejects(callable $operation, string $errorCode): void
         $operation();
         throw new RuntimeException("Expected package rejection: {$errorCode}");
     } catch (PluginPackageException $exception) {
-        modulePackageExpect($exception->errorCode === $errorCode, "Unexpected package rejection: {$exception->errorCode}");
+        $previous = $exception->getPrevious();
+        modulePackageExpect(
+            $exception->errorCode === $errorCode,
+            "Unexpected package rejection: {$exception->errorCode}"
+                . ($previous === null ? '' : ' (' . $previous->getMessage() . ')')
+        );
     }
 }
 
@@ -176,7 +181,8 @@ try {
         modulePackageRewriteTree($backend, [
             'fixture.delivery-record' => $key,
             'fixture-delivery-record' => str_replace('.', '-', $key),
-            'PeanutAdmin\\Fixtures\\DeliveryRecord' => 'PeanutAdmin\\Modules\\' . $class,
+            'PeanutAdmin\\\\Fixtures\\\\DeliveryRecord' => 'Acme\\\\Modules\\\\' . $class,
+            'PeanutAdmin\\Fixtures\\DeliveryRecord' => 'Acme\\Modules\\' . $class,
             'peanut-business/fixture-delivery-record' => 'acme/' . strtolower($class),
             'pa_fixture_delivery_record' => $table,
         ]);
@@ -315,7 +321,7 @@ try {
     symlink($adoptRoot, $alias);
     modulePackageRejects(fn() => (new PluginPackageAdoptionService($alias . '/server', ['fixture-release' => $public], 'development'))->adopt($signedPath, $pin, 'fixture-release'), 'MODULE_PACKAGE_PATH_INVALID');
     unlink($alias);
-    $identities = (new ReflectionClass(\app\platform\service\plugin\PluginReleaseCompositionGuard::class))->newInstanceWithoutConstructor();
+    $identities = (new ReflectionClass(\app\platform\validation\plugin\PluginReleaseCompositionGuard::class))->newInstanceWithoutConstructor();
     $identityColumn = new ReflectionMethod($identities, 'jsonColumn');
     foreach (['{}', '{"0":{"name":"identity"}}'] as $objectIdentity) {
         try {
@@ -375,7 +381,7 @@ try {
     (new PluginArtifactWriter($adoptRoot . '/server'))->checkLock();
     modulePackageRejects(fn() => $adopter->adopt($signedPath, $pin, 'fixture-release'), 'PLUGIN_DOWNGRADE_REJECTED');
     // The same edition generator must retain private manifests when composing the next bundled source lock.
-    $creator = new \app\common\service\scaffold\ApplicationCreator($projectRoot, $projectRoot . '/scaffold/application-template-inventory.json');
+    $creator = new \app\common\infrastructure\scaffold\ApplicationCreator($projectRoot, $projectRoot . '/scaffold/application-template-inventory.json');
     $rebuild = new ReflectionMethod($creator, 'rebuildBundledPluginArtifacts');
     $artifactFiles = [];
     foreach (['plugins/fixture.delivery-record/plugin.json', 'plugins.lock'] as $relative) {
@@ -386,16 +392,33 @@ try {
     modulePackageExpect(isset((new PluginLockResolver($adoptRoot . '/server', '../plugins.lock'))->all()['fixture.delivery-record']), 'edition composition discarded private package identity');
 
     $officialPath = $temporary . '/official-signed.tar';
-    $official = $service->packModule('official.file', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
+    $official = $service->packModule('official.rich-text', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release'), 'MODULE_PACKAGE_PRIVATE_REQUIRED');
     // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
     $bootJournal = $projectRoot . '/.local/module-source-adoption/journal.json';
+    $bootEnvironment = $serverRoot . '/.env.module-package-' . bin2hex(random_bytes(4));
     modulePackageExpect(!file_exists($bootJournal), 'source worktree already has pending adoption');
     if (!is_dir(dirname($bootJournal))) mkdir(dirname($bootJournal), 0700, true);
     file_put_contents($bootJournal, '{"schema_version":0}');
+    file_put_contents(
+        $bootEnvironment,
+        "APP_ENV=development\nAPP_DEBUG=true\nDEPLOYMENT_MODE=multi-tenant\n"
+            . "PEANUT_DATABASE_RESOURCE_ID=p2-module-package-fixture\n"
+            . "DB_HOST=127.0.0.1\nDB_PORT=1\nDB_NAME=p2_module_package_fixture\n"
+            . "DB_USER=p2\nDB_PASS=p2\nDB_PREFIX=pa_\n"
+            . "PEANUT_PLUGIN_LOCK=../plugins.lock\nPEANUT_MODULE_KERNEL_VERSION=1.0.0\n"
+            . "PEANUT_MODULE_TRUSTED_KEYS_JSON={}\n",
+    );
+    chmod($bootEnvironment, 0600);
     try {
         foreach ([['module:adopt-package', '--recover'], ['list']] as $arguments) {
-            $process = proc_open([PHP_BINARY, $serverRoot . '/think', ...$arguments], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $serverRoot);
+            $process = proc_open(
+                [PHP_BINARY, $serverRoot . '/think', ...$arguments],
+                [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes,
+                $serverRoot,
+                ['PATH' => (string)getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $bootEnvironment],
+            );
             modulePackageExpect(is_resource($process), 'cannot start recovery boot check');
             $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
             fclose($pipes[1]); fclose($pipes[2]);
@@ -411,6 +434,7 @@ try {
         }
     } finally {
         unlink($bootJournal);
+        unlink($bootEnvironment);
     }
     echo "MODULE-PACKAGE-ARCHIVE-001 passed sha256={$packedA['sha256']} adoption+crash-recovery\n";
 } finally {

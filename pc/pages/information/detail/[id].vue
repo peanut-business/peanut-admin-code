@@ -25,7 +25,14 @@
         </div>
 
         <!-- Article body -->
-        <div class="prose max-w-none text-gray-700 leading-relaxed" v-html="safeArticleContent" />
+        <div
+          v-if="hydrated"
+          class="prose max-w-none text-gray-700 leading-relaxed"
+          v-html="safeArticleContent"
+        />
+        <p v-else class="prose max-w-none whitespace-pre-line text-gray-700 leading-relaxed">
+          {{ ssrArticleContent }}
+        </p>
       </div>
     </div>
     <el-empty v-else description="文章不存在" />
@@ -33,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import sanitizeRichText from '~/utils/sanitize-rich-text'
+import sanitizeRichText, { richTextToPlainText } from '~/utils/sanitize-rich-text'
 import {
   addArticleCollect,
   cancelArticleCollect,
@@ -46,8 +53,24 @@ const route = useRoute()
 const id = Number(route.params.id)
 const userStore = useUserStore()
 const request = useRequest()
-const article = ref(await getArticleDetail(request, id).catch(() => null))
+const article = ref(
+  Number.isInteger(id) && id > 0
+    ? await getArticleDetail(request, id).catch(() => null)
+    : null,
+)
+if (import.meta.server && !article.value) setResponseStatus(404)
+const hydrated = ref(false)
+onMounted(() => {
+  hydrated.value = true
+})
 const safeArticleContent = computed(() => sanitizeRichText(article.value?.content))
+const ssrArticleContent = computed(() => richTextToPlainText(article.value?.content))
+
+useSeoMeta({
+  title: () => article.value?.title || '文章不存在',
+  description: () => article.value?.abstract || article.value?.desc || ssrArticleContent.value.slice(0, 160),
+  robots: () => article.value ? 'index,follow' : 'noindex,nofollow',
+})
 
 async function toggleCollect() {
   if (!userStore.isLoggedIn) return navigateTo('/login')

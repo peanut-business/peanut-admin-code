@@ -6,6 +6,10 @@ namespace PeanutAdmin\Modules\Task\Job\Application;
 
 use RuntimeException;
 
+/**
+ * 公开任务操作的稳定错误合同；处理者须原样传播权限、状态和不可用错误。
+ * 仅暴露安全错误码与状态，不暴露任务持久化模型或内部存储。
+ */
 final class TaskJobException extends RuntimeException
 {
     private function __construct(public readonly string $problemCode, public readonly int $status)

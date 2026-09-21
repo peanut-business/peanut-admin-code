@@ -175,7 +175,7 @@ final class TaskJobStore
             return null;
         }
         $this->tenantScope->tenantId($row, $tenantId);
-        $payload = $this->payload((string) $row['payload_json']);
+        $payload = $this->payload($row['payload_json']);
         $this->assertPayloadHash($row, $payload);
         $leaseToken = bin2hex(random_bytes(32));
         $leaseHash = hash('sha256', $leaseToken);
@@ -231,7 +231,7 @@ final class TaskJobStore
             || !hash_equals($leaseHash, $attempt['lease_token_hash'])) {
             throw TaskJobException::stateConflict();
         }
-        $payload = $this->payload((string) $job['payload_json']);
+        $payload = $this->payload($job['payload_json']);
         $this->assertPayloadHash($job, $payload);
         if (!hash_equals($this->payloadHash($claim->payload), $this->payloadHash($payload))) {
             throw TaskJobException::internal();
@@ -426,14 +426,26 @@ final class TaskJobStore
     }
 
     /** @return array<string, mixed> */
-    private function payload(string $json): array
+    private function payload(mixed $stored): array
     {
         try {
-            $value = json_decode($json, true, 32, JSON_THROW_ON_ERROR);
+            $value = is_string($stored)
+                ? json_decode($stored, true, 32, JSON_THROW_ON_ERROR)
+                : $stored;
+            if (!is_array($value) || array_is_list($value)) {
+                throw TaskJobException::internal();
+            }
+            $json = json_encode(
+                $value,
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION,
+                512,
+            );
+            if (strlen($json) > 65_535
+                || json_decode($json, true, 32, JSON_THROW_ON_ERROR) !== $value
+            ) {
+                throw TaskJobException::internal();
+            }
         } catch (JsonException) {
-            throw TaskJobException::internal();
-        }
-        if (!is_array($value) || array_is_list($value)) {
             throw TaskJobException::internal();
         }
 

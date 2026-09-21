@@ -6,6 +6,20 @@
       <el-alert type="warning" :closable="false" style="margin-bottom: 16px">
         {{ $t('articleCate.alert') }}
       </el-alert>
+      <el-alert
+        v-if="categoryList.error.value"
+        type="error"
+        :closable="false"
+        :title="categoryList.error.value"
+        style="margin-bottom: 16px"
+      />
+      <el-alert
+        v-if="formAction.error.value && !modalVisible"
+        type="error"
+        :closable="false"
+        :title="formAction.error.value"
+        style="margin-bottom: 16px"
+      />
       <el-button
         v-permission="['official.article.category.add']"
         type="primary"
@@ -15,12 +29,18 @@
       >
         {{ $t('articleCate.button.add') }}
       </el-button>
-      <el-table v-loading="loading" row-key="id" :data="renderData" border>
-        <el-table-column prop="name" :label="$t('articleCate.columns.name')" />
+      <el-table
+        v-loading="categoryList.loading.value"
+        row-key="id"
+        :data="categoryList.items.value"
+        border
+      >
         <el-table-column
-          prop="article_count"
-          :label="$t('articleCate.columns.articleCount')"
-          width="120"
+          v-for="column in articleCategoryResource.columns.slice(0, 2)"
+          :key="column.key"
+          :prop="column.key"
+          :label="$t(column.labelKey)"
+          :width="column.width"
         />
         <el-table-column :label="$t('articleCate.columns.isShow')" width="100">
           <template #default="{ row }">
@@ -32,9 +52,9 @@
           </template>
         </el-table-column>
         <el-table-column
-          prop="sort"
-          :label="$t('articleCate.columns.sort')"
-          width="100"
+          :prop="articleCategoryResource.columns[2].key"
+          :label="$t(articleCategoryResource.columns[2].labelKey)"
+          :width="articleCategoryResource.columns[2].width"
         />
         <el-table-column
           :label="$t('articleCate.columns.operations')"
@@ -73,9 +93,9 @@
       </el-table>
       <div class="pagination-wrapper">
         <el-pagination
-          :current-page="pagination.current"
-          :page-size="pagination.pageSize"
-          :total="pagination.total"
+          :current-page="categoryList.pagination.page"
+          :page-size="categoryList.pagination.pageSize"
+          :total="categoryList.pagination.total"
           layout="total, prev, pager, next"
           @current-change="onPageChange"
         />
@@ -88,6 +108,13 @@
         "
         width="520px"
       >
+        <el-alert
+          v-if="formAction.error.value"
+          type="error"
+          :closable="false"
+          :title="formAction.error.value"
+          style="margin-bottom: 16px"
+        />
         <el-form ref="formRef" :model="form" :rules="rules" label-width="auto">
           <el-form-item prop="name" :label="$t('articleCate.form.name')">
             <el-input
@@ -120,7 +147,11 @@
         </el-form>
         <template #footer>
           <el-button @click="modalVisible = false">取消</el-button>
-          <el-button type="primary" @click="onSubmit">确定</el-button>
+          <el-button
+            type="primary"
+            :loading="formAction.loading.value"
+            @click="onSubmit"
+          >确定</el-button>
         </template>
       </el-dialog>
     </el-card>
@@ -128,50 +159,38 @@
 </template>
 
 <script lang="ts" setup>
-  import { nextTick, reactive, ref } from 'vue';
+  import { nextTick, onUnmounted, ref } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
   import { Plus } from '@element-plus/icons-vue';
-  import useLoading from '@/hooks/loading';
   import {
-    getArticleCateList,
-    getArticleCateDetail,
-    addArticleCate,
-    editArticleCate,
-    deleteArticleCate,
-    updateArticleCateStatus,
+    registerTenantDisposer,
+    useAsyncAction,
+    useAsyncList,
+  } from '@peanut-admin/vue';
+  import {
+    articleCategoryResource,
+    type ArticleCategoryFilters,
+  } from '@/modules/official-article/category-resource';
+  import {
     type ArticleCateRecord,
   } from '@/modules/official-article/api';
 
   const { t } = useI18n();
-  const { loading, setLoading } = useLoading(true);
-  const renderData = ref<ArticleCateRecord[]>([]);
-
-  const pagination = reactive({
-    current: 1,
-    pageSize: 25,
-    total: 0,
-    showTotal: true,
+  const errorMessage = () => t('articleCate.error.request');
+  const categoryList = useAsyncList<
+    ArticleCateRecord,
+    ArticleCategoryFilters
+  >({
+    initialFilters: {},
+    initialPageSize: 25,
+    load: articleCategoryResource.list,
+    errorMessage,
   });
+  const formAction = useAsyncAction(errorMessage);
+  void categoryList.load();
 
-  const fetchData = async (page = 1) => {
-    setLoading(true);
-    try {
-      const { data } = await getArticleCateList({
-        page_no: page,
-        page_size: pagination.pageSize,
-      });
-      renderData.value = data.lists;
-      pagination.current = data.pageNo;
-      pagination.pageSize = data.pageSize;
-      pagination.total = data.count;
-    } finally {
-      setLoading(false);
-    }
-  };
-  fetchData();
-
-  const onPageChange = (current: number) => fetchData(current);
+  const onPageChange = (current: number) => categoryList.load(current);
 
   const formRef = ref<FormInstance>();
   const modalVisible = ref(false);
@@ -212,7 +231,11 @@
   };
 
   const openEdit = async (record: ArticleCateRecord) => {
-    const { data } = await getArticleCateDetail(record.id);
+    const result = await formAction.run(({ signal }) =>
+      articleCategoryResource.detail(record.id, signal)
+    );
+    if (result.status !== 'completed') return;
+    const data = result.data;
     form.value = {
       id: data.id,
       name: data.name,
@@ -227,33 +250,50 @@
   const onSubmit = async () => {
     const valid = await formRef.value?.validate().catch(() => false);
     if (!valid) return;
-    if (form.value.id) {
-      await editArticleCate(form.value);
-    } else {
-      await addArticleCate(form.value);
-    }
+    const result = await formAction.run(({ signal }) =>
+      form.value.id
+        ? articleCategoryResource.update(form.value, signal)
+        : articleCategoryResource.create(form.value, signal)
+    );
+    if (result.status !== 'completed') return;
     ElMessage.success(t('articleCate.message.success'));
     modalVisible.value = false;
-    fetchData(pagination.current);
+    void categoryList.reload();
   };
 
   const onDelete = async (record: ArticleCateRecord) => {
-    await deleteArticleCate(record.id);
+    const result = await formAction.run(({ signal }) =>
+      articleCategoryResource.remove(record.id, signal)
+    );
+    if (result.status !== 'completed') return;
     ElMessage.success(t('articleCate.message.success'));
-    fetchData(pagination.current);
+    void categoryList.reload();
   };
 
   const onStatusChange = async (record: ArticleCateRecord, val: unknown) => {
     const previousStatus = record.is_show;
     const nextStatus = val ? 1 : 0;
-    try {
-      await updateArticleCateStatus(record.id, nextStatus);
-      record.is_show = nextStatus;
-      ElMessage.success(t('articleCate.message.success'));
-    } catch {
+    const result = await formAction.run(({ signal }) =>
+      articleCategoryResource.updateStatus(record.id, nextStatus, signal)
+    );
+    if (result.status !== 'completed') {
       record.is_show = previousStatus;
+      return;
     }
+    record.is_show = nextStatus;
+    ElMessage.success(t('articleCate.message.success'));
   };
+
+  const unregisterTenantDisposer = registerTenantDisposer(
+    'official.article.category.page',
+    () => {
+      categoryList.clear();
+      formAction.cancel();
+      modalVisible.value = false;
+      form.value = generateForm();
+    }
+  );
+  onUnmounted(unregisterTenantDisposer);
 </script>
 
 <script lang="ts">

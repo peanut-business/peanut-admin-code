@@ -14,7 +14,10 @@ const contribution: PluginFrontendContribution = {
         icon: 'icon-file',
         order: 5,
         tenantModuleKey: 'official.article',
-        requiredPermissions: 'official.article.list',
+        requiredPermissions: [
+          'official.article.category.list',
+          'official.article.list',
+        ],
       },
       children: [
         {

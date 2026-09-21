@@ -37,7 +37,15 @@ initializeCoreIdentity(
     'module-catalog@example.test',
     'module-catalog-test-password',
     null,
-    new \app\common\service\DemoAccountPolicy(false, []),
+    new \app\common\policy\DemoAccountPolicy(false, []),
+    [
+        'kind' => 'real-default-tenant',
+        'code' => 'default',
+        'tenant_identity' => 'required',
+        'rbac' => 'required',
+        'execution_context' => \PeanutAdmin\Kernel\Context\TenantSystemContext::class,
+        'module_lifecycle' => 'required',
+    ],
 );
 executeSqlFiles($pdo, [dirname(__DIR__, 2) . '/database/init.sql']);
 

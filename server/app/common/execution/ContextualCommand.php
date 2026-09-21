@@ -10,6 +10,8 @@ use think\console\Output;
 /** Establishes one immutable execution context around every top-level CLI command. */
 abstract class ContextualCommand extends Command
 {
+    private bool $establishedInstanceContext = false;
+
     public function __construct(
         private readonly ?ExecutionContextStore $contexts = null,
         private readonly ?CurrentExecutionContext $executionContext = null,
@@ -32,7 +34,14 @@ abstract class ContextualCommand extends Command
                     'console.' . $this->getName(),
                     'cli-' . getmypid() . '-' . bin2hex(random_bytes(8)),
                 ),
-                fn(): int => $this->handle($input, $output),
+                function () use ($input, $output): int {
+                    $this->establishedInstanceContext = true;
+                    try {
+                        return $this->handle($input, $output);
+                    } finally {
+                        $this->establishedInstanceContext = false;
+                    }
+                },
             );
         } finally {
             if (!$this->contexts->isEmpty()) {
@@ -45,6 +54,12 @@ abstract class ContextualCommand extends Command
     {
         return $this->executionContext
             ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
+    }
+
+    /** True only while this command's execute() owns the current instance context. */
+    final protected function establishedInstanceContext(): bool
+    {
+        return $this->establishedInstanceContext;
     }
 
     abstract protected function handle(Input $input, Output $output): int;

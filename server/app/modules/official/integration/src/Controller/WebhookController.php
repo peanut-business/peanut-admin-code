@@ -8,17 +8,15 @@ use PeanutAdmin\Modules\Integration\Application\WebhookEndpoint;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\response\Json;
 
+/** @property-read IntegrationAdminApplicationService $webhooks 当前 App 中声明式解析的控制器依赖。 */
 final class WebhookController extends IntegrationAdminController
 {
-    protected function webhooks(): IntegrationAdminApplicationService
-    {
-        return $this->app->make(IntegrationAdminApplicationService::class);
-    }
+    protected string $webhooksClass = IntegrationAdminApplicationService::class;
 
     public function index(): Json
     {
         try {
-            $items = $this->webhooks()->webhooks($this->tenantAdminContext(), $this->tenantAdminActor());
+            $items = $this->webhooks->webhooks($this->tenantAdminContext(), $this->tenantAdminActor());
             return $this->response(['items' => array_map($this->endpoint(...), $items)]);
         } catch (IntegrationSecurityException $exception) {
             throw $this->problem($exception);
@@ -34,7 +32,7 @@ final class WebhookController extends IntegrationAdminController
             ) {
                 throw IntegrationSecurityException::invalid();
             }
-            $created = $this->webhooks()->createWebhook(
+            $created = $this->webhooks->createWebhook(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $body['name'],
@@ -54,7 +52,7 @@ final class WebhookController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            $rotated = $this->webhooks()->rotateWebhookSecret(
+            $rotated = $this->webhooks->rotateWebhookSecret(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $endpointKey,
@@ -73,7 +71,7 @@ final class WebhookController extends IntegrationAdminController
     {
         try {
             $body = $this->body(['revision']);
-            return $this->response($this->endpoint($this->webhooks()->disableWebhook(
+            return $this->response($this->endpoint($this->webhooks->disableWebhook(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $endpointKey,

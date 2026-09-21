@@ -8,17 +8,15 @@ use PeanutAdmin\Modules\Integration\Application\SessionDevice;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use think\response\Json;
 
+/** @property-read IntegrationAdminApplicationService $sessions 当前 App 中声明式解析的控制器依赖。 */
 final class SessionSecurityController extends IntegrationAdminController
 {
-    protected function sessions(): IntegrationAdminApplicationService
-    {
-        return $this->app->make(IntegrationAdminApplicationService::class);
-    }
+    protected string $sessionsClass = IntegrationAdminApplicationService::class;
 
     public function index(): Json
     {
         try {
-            $items = $this->sessions()->sessions($this->tenantAdminContext(), $this->tenantAdminActor());
+            $items = $this->sessions->sessions($this->tenantAdminContext(), $this->tenantAdminActor());
             return $this->response(['items' => array_map($this->session(...), $items)]);
         } catch (IntegrationSecurityException $exception) {
             throw $this->problem($exception);
@@ -29,7 +27,7 @@ final class SessionSecurityController extends IntegrationAdminController
     {
         try {
             $this->body([]);
-            return $this->response($this->session($this->sessions()->revokeSession(
+            return $this->response($this->session($this->sessions->revokeSession(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $sessionKey,

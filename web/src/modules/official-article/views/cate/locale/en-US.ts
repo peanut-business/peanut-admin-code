@@ -25,4 +25,5 @@ export default {
   'articleCate.form.sort.min': 'Sort cannot be less than 0',
   'articleCate.form.isShow': 'Visible',
   'articleCate.message.success': 'Success',
+  'articleCate.error.request': 'The article category request failed. Please retry.',
 };

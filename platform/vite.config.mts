@@ -1,10 +1,12 @@
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { readClientEnvironment } from '../scripts/client-environment';
 
 export default defineConfig(({ mode }) => {
-  const environment = readClientEnvironment(resolve(__dirname, `.env.${mode}`));
+  // Native ESM location also works with Vite's module-runner config loader.
+  const environment = readClientEnvironment(resolve(dirname(fileURLToPath(import.meta.url)), `.env.${mode}`));
   const allowedHosts = (environment.VITE_ALLOWED_HOSTS || '')
     .split(',')
     .map((host) => host.trim())

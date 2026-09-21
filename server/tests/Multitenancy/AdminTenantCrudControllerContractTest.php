@@ -35,36 +35,45 @@ expectAdminTenantCrud(trait_exists($trait), $trait . ' is not autoloadable');
 foreach ([
     'PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController' => [
         'service' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Service\\DictTypeApplicationService',
+        'property' => 'dictionaryTypes',
         'validate' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Validation\\DictTypeValidate',
         'extra' => ['all'],
     ],
     'PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController' => [
         'service' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Service\\DictDataApplicationService',
+        'property' => 'dictionaryData',
         'validate' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Validation\\DictDataValidate',
         'extra' => ['byType'],
     ],
     'PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController' => [
         'service' => 'PeanutAdmin\\Modules\\OAuth\\Service\\OfficialAccountReplyApplicationService',
+        'property' => 'replies',
         'validate' => 'PeanutAdmin\\Modules\\OAuth\\Validation\\OfficialAccountReplyValidate',
         'extra' => [],
     ],
     'PeanutAdmin\\Modules\\Article\\Controller\\ArticleController' => [
         'service' => 'PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration',
+        'property' => 'crud',
         'validate' => 'PeanutAdmin\\Modules\\Article\\Validation\\ArticleValidate',
         'extra' => [],
+        'soft_delete' => true,
     ],
     'PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController' => [
-        'service' => 'PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration',
+        'service' => 'PeanutAdmin\\Modules\\Article\\Contract\\ArticleCategoryAdministration',
+        'property' => 'crud',
         'validate' => 'PeanutAdmin\\Modules\\Article\\Validation\\ArticleCateValidate',
         'extra' => ['all'],
+        'soft_delete' => true,
     ],
     'app\\adminapi\\controller\\dept\\DeptController' => [
         'service' => 'app\\adminapi\\services\\dept\\DeptApplicationService',
+        'property' => 'departments',
         'validate' => null,
         'extra' => ['all', 'leaderDept'],
     ],
     'app\\adminapi\\controller\\dept\\JobsController' => [
         'service' => 'app\\adminapi\\services\\dept\\JobsApplicationService',
+        'property' => 'jobs',
         'validate' => null,
         'extra' => ['all'],
     ],
@@ -80,13 +89,27 @@ foreach ([
             && $constructor->getParameters()[0]->getType()?->getName() === think\App::class,
         $className . ' must inherit the native App constructor',
     );
-    $getters = array_filter(
-        $class->getMethods(ReflectionMethod::IS_PROTECTED),
-        static fn(ReflectionMethod $method): bool => $method->getDeclaringClass()->getName() === $class->getName()
-            && $method->getNumberOfParameters() === 0
-            && $method->getReturnType()?->getName() === $contract['service'],
+    $propertyName = $contract['property'];
+    $property = $class->getProperty($propertyName . 'Class');
+    expectAdminTenantCrud(
+        $property->isProtected()
+            && !$property->isStatic()
+            && $property->getType()?->getName() === 'string'
+            && $property->getDefaultValue() === $contract['service'],
+        $className . ' must expose protected string $' . $propertyName . 'Class',
     );
-    expectAdminTenantCrud(count($getters) === 1, $className . ' must expose one fixed typed service getter');
+    expectAdminTenantCrud(
+        str_contains(
+            (string)$class->getDocComment(),
+            '@property-read ' . basename(str_replace('\\', '/', $contract['service'])) . ' $' . $propertyName,
+        ),
+        $className . ' must expose the accurate readonly property type',
+    );
+    if (($contract['soft_delete'] ?? false) === true) {
+        foreach (['recycleLists', 'recycleDetail', 'restore', 'forceDelete'] as $softDeleteAction) {
+            expectAdminTenantCrud($class->hasMethod($softDeleteAction), $className . ' is missing ' . $softDeleteAction . '()');
+        }
+    }
     if ($contract['validate'] !== null) {
         expectCrudConstant($class, 'CRUD_VALIDATE', $contract['validate']);
     }
@@ -102,6 +125,44 @@ foreach ([
     foreach ($contract['extra'] as $method) {
         expectAdminTenantCrud($class->hasMethod($method), $className . ' is missing ' . $method . '()');
     }
+}
+
+$articleBindings = (new \PeanutAdmin\Modules\Article\ModuleProvider())->bindings();
+expectAdminTenantCrud(
+    ($articleBindings[\PeanutAdmin\Modules\Article\Contract\ArticleAdministration::class] ?? null)
+        === \PeanutAdmin\Modules\Article\Service\ArticleAdministrationService::class,
+    'ArticleAdministration binding changed',
+);
+expectAdminTenantCrud(
+    ($articleBindings[\PeanutAdmin\Modules\Article\Contract\ArticleCategoryAdministration::class] ?? null)
+        === \PeanutAdmin\Modules\Article\Service\ArticleCategoryAdministrationService::class,
+    'ArticleCategoryAdministration binding changed',
+);
+
+$articleModuleRoot = dirname(__DIR__, 2) . '/app/modules/official/article';
+$articleRoutes = (string)file_get_contents($articleModuleRoot . '/route/app.php');
+$articlePermissions = json_decode(
+    (string)file_get_contents($articleModuleRoot . '/resources/permissions.json'),
+    true,
+    64,
+    JSON_THROW_ON_ERROR,
+);
+$articlePermissionKeys = array_column($articlePermissions, 'key');
+foreach ([
+    'official.article.category.recycle.list',
+    'official.article.category.recycle.detail',
+    'official.article.category.restore',
+    'official.article.category.force-delete',
+    'official.article.recycle.list',
+    'official.article.recycle.detail',
+    'official.article.restore',
+    'official.article.force-delete',
+] as $permission) {
+    expectAdminTenantCrud(
+        str_contains($articleRoutes, "'{$permission}'")
+            && in_array($permission, $articlePermissionKeys, true),
+        'Article soft-delete action is not both routed and permission-registered: ' . $permission,
+    );
 }
 
 foreach ([

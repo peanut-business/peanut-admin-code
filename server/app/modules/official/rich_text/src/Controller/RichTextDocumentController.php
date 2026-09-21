@@ -11,6 +11,7 @@ use PeanutAdmin\Modules\RichText\Validation\RichTextDocumentValidate;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\response\Json;
 
+/** @property-read RichTextDocumentService $documents 当前 App 中声明式解析的控制器依赖。 */
 final class RichTextDocumentController extends BaseAdminController
 {
     use CrudTrait;
@@ -21,10 +22,7 @@ final class RichTextDocumentController extends BaseAdminController
     protected const CRUD_EDIT_SUCCESS_MESSAGE = '文档已保存';
     protected const CRUD_DELETE_SUCCESS_MESSAGE = '文档已删除';
 
-    protected function documents(): RichTextDocumentService
-    {
-        return $this->app->make(RichTextDocumentService::class);
-    }
+    protected string $documentsClass = RichTextDocumentService::class;
 
     public function collaboration(): Json
     {
@@ -33,7 +31,7 @@ final class RichTextDocumentController extends BaseAdminController
             'collaboration',
             $this->request->get(),
         );
-        return $this->data($this->documents()->collaboration((int)$params['id']));
+        return $this->data($this->documents->collaboration((int)$params['id']));
     }
 
     protected function resolveCrudContext(): TenantContext
@@ -43,31 +41,31 @@ final class RichTextDocumentController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->documents();
+        return $this->documents;
     }
 
     protected function performLists(mixed $_context, array $params): PageResult
     {
-        return $this->documents()->lists($params);
+        return $this->documents->lists($params);
     }
 
     protected function performDetail(mixed $_context, array $params): array
     {
-        return $this->documents()->detail((int)$params['id']);
+        return $this->documents->detail((int)$params['id']);
     }
 
     protected function performAdd(mixed $_context, array $params): bool
     {
-        return $this->documents()->add($params);
+        return $this->documents->add($params);
     }
 
     protected function performEdit(mixed $_context, array $params): bool
     {
-        return $this->documents()->edit($params);
+        return $this->documents->edit($params);
     }
 
     protected function performDelete(mixed $_context, array $params): bool
     {
-        return $this->documents()->delete((int)$params['id']);
+        return $this->documents->delete((int)$params['id']);
     }
 }

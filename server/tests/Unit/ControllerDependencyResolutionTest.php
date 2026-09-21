@@ -20,7 +20,7 @@ use think\App;
 use think\Container;
 use think\Request;
 
-/** 真实 CrudTrait Controller 的固定类型 Getter 与当前 App 绑定回归；不连接数据库。 */
+/** 真实 CrudTrait Controller 的 xxClass 只读属性与当前 App 绑定回归；不连接数据库。 */
 final class ControllerDependencyResolutionTest extends TestCase
 {
     private Container $previousContainer;
@@ -47,11 +47,17 @@ final class ControllerDependencyResolutionTest extends TestCase
     public function testRealCrudControllerUsesTheCurrentAppsReplaceableInterfaceBinding(): void
     {
         $first = $this->createMock(ArticleAdministration::class);
-        $first->expects(self::once())->method('lists')->with([])->willReturn(
+        $first->expects(self::once())->method('lists')->with(
+            self::isInstanceOf(TenantContext::class),
+            [],
+        )->willReturn(
             new PageResult([['source' => 'first']], 1, 1, 20),
         );
         $second = $this->createMock(ArticleAdministration::class);
-        $second->expects(self::once())->method('lists')->with([])->willReturn(
+        $second->expects(self::once())->method('lists')->with(
+            self::isInstanceOf(TenantContext::class),
+            [],
+        )->willReturn(
             new PageResult([['source' => 'second']], 1, 1, 20),
         );
         $this->app->instance(ArticleAdministration::class, $first);
@@ -62,6 +68,11 @@ final class ControllerDependencyResolutionTest extends TestCase
             static fn(\ReflectionParameter $parameter): ?string => $parameter->getType()?->getName(),
             $constructor?->getParameters() ?? [],
         ));
+        $declaration = (new \ReflectionClass(ArticleController::class))->getProperty('crudClass');
+        self::assertTrue($declaration->isProtected());
+        self::assertFalse($declaration->isStatic());
+        self::assertSame('string', $declaration->getType()?->getName());
+        self::assertSame(ArticleAdministration::class, $declaration->getDefaultValue());
 
         $responses = $this->contexts->run($this->adminContext(), function () use ($second): array {
             $controller = new ArticleController($this->app);

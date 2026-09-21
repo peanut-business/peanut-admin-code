@@ -3,6 +3,11 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Service;
 
+use app\common\contract\authorization\AdminAuthorizationQuery;
+use app\common\dto\authorization\AdminPrincipal;
+use app\common\exception\BusinessException;
+use app\common\execution\CurrentExecutionContext;
+
 use app\common\contract\idempotency\IdempotencyCommand;
 use app\common\contract\idempotency\IdempotencyReceipt;
 use app\common\contract\idempotency\IdempotentCommandExecutor;
@@ -26,11 +31,14 @@ final readonly class SettingsHttpApplicationService
         private SettingResolver $resolver,
         private IdempotentCommandExecutor $idempotency,
         private ModuleRuntimeRepository $modules,
+        private CurrentExecutionContext $execution,
+        private AdminAuthorizationQuery $authorization,
     ) {}
 
     /** @return array{items:list<array<string,mixed>>} */
     public function list(TenantContext $context): array
     {
+        $this->assertPermission($context, 'official.settings.read');
         $items = [];
         $asOf = self::now();
         foreach ($this->definitions->all() as $definition) {
@@ -51,6 +59,7 @@ final readonly class SettingsHttpApplicationService
         ?string $ifNoneMatch,
         string $idempotencyKey,
     ): array {
+        $this->assertPermission($context, 'official.settings.manage');
         $definition = $this->tenantDefinition($context, $moduleKey, $settingKey);
         return $this->command($context, 'settings.replace', $idempotencyKey, [
             'module_key' => $moduleKey,
@@ -82,6 +91,7 @@ final readonly class SettingsHttpApplicationService
         ?string $ifMatch,
         string $idempotencyKey,
     ): array {
+        $this->assertPermission($context, 'official.settings.manage');
         $definition = $this->tenantDefinition($context, $moduleKey, $settingKey);
         return $this->command($context, 'settings.unset', $idempotencyKey, [
             'module_key' => $moduleKey,
@@ -161,6 +171,25 @@ final readonly class SettingsHttpApplicationService
             $record['value'] = $setting->value;
         }
         return $record;
+    }
+
+    /** 管理入口自行核对可信执行者及固定动作；直接调用服务不能绕过路由权限。 */
+    private function assertPermission(TenantContext $context, string $permission): void
+    {
+        try {
+            $current = $this->execution->tenantAdmin();
+            $actor = AdminPrincipal::fromArray($this->execution->tenantAdminPrincipal());
+        } catch (\DomainException) {
+            throw BusinessException::forbidden('SETTING_PERMISSION_DENIED', '无权管理设置');
+        }
+        if ($current->tenantId !== $context->tenantId
+            || $current->memberId !== $context->memberId
+            || $current->accountId !== $context->accountId
+            || $current->authorizationRevision !== $context->authorizationRevision
+            || !$this->authorization->decide($context, $actor, $permission)->allowed
+        ) {
+            throw BusinessException::forbidden('SETTING_PERMISSION_DENIED', '无权管理设置');
+        }
     }
 
     private static function now(): DateTimeImmutable

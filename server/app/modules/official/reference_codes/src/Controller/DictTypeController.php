@@ -10,14 +10,12 @@ use app\common\traits\CrudTrait;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\response\Json;
 
+/** @property-read DictTypeApplicationService $dictionaryTypes 当前 App 中声明式解析的控制器依赖。 */
 class DictTypeController extends BaseAdminController
 {
     use CrudTrait;
 
-    protected function dictionaryTypes(): DictTypeApplicationService
-    {
-        return $this->app->make(DictTypeApplicationService::class);
-    }
+    protected string $dictionaryTypesClass = DictTypeApplicationService::class;
     protected const CRUD_VALIDATE = DictTypeValidate::class;
     protected const CRUD_NOT_FOUND_MESSAGE = '字典类型不存在';
 
@@ -28,11 +26,11 @@ class DictTypeController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->dictionaryTypes();
+        return $this->dictionaryTypes;
     }
 
     public function all(): Json
     {
-        return $this->data($this->dictionaryTypes()->all($this->resolveCrudContext()));
+        return $this->data($this->dictionaryTypes->all($this->resolveCrudContext()));
     }
 }

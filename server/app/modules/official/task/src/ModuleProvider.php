@@ -10,9 +10,9 @@ use PeanutAdmin\Modules\Task\Infrastructure\Runtime\ThinkPhpTaskJobRuntime;
 use PeanutAdmin\Modules\Task\Contract\TaskJobRuntime;
 use PeanutAdmin\Modules\Task\Contract\TaskScheduler;
 use PeanutAdmin\Modules\Task\Contract\TaskBootstrapCommands;
-use PeanutAdmin\Modules\Task\Contract\TaskWorkerDefinition;
 use PeanutAdmin\Modules\Task\Contract\TaskDiagnosticQuery;
 use PeanutAdmin\Modules\Task\Service\TaskDiagnosticService;
+use PeanutAdmin\Modules\Task\Service\TaskWorkerDefinitionRegistry;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
@@ -34,10 +34,9 @@ final class ModuleProvider implements ModuleProviderContract
     public function scheduler(
         TaskJobRuntime $tasks,
         CrontabSchedulerService $crontabs,
-        TaskWorkerDefinition ...$definitions,
     ): TaskScheduler
     {
-        return new TaskSchedulerService($tasks, $crontabs, ...$definitions);
+        return new TaskSchedulerService($tasks, $crontabs);
     }
 
     public function jobs(
@@ -49,6 +48,7 @@ final class ModuleProvider implements ModuleProviderContract
         ModuleExecutionBoundary $modules,
         CrontabCommandService $commands,
         Closure $dispatch,
+        array $workerDefinitions,
         int $workerLimit,
     ): TaskJobRuntime
     {
@@ -61,6 +61,7 @@ final class ModuleProvider implements ModuleProviderContract
             $modules,
             $commands,
             $dispatch,
+            $workerDefinitions,
             $workerLimit,
         );
     }
@@ -77,6 +78,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(ModuleExecutionBoundary::class),
                 $app->make(CrontabCommandService::class),
                 Closure::fromCallable([$app->make('console'), 'call']),
+                $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app),
                 (int)$app->config->get('async.worker_limit', 25),
             ),
             TaskBootstrapCommands::class => TaskBootstrapService::class,

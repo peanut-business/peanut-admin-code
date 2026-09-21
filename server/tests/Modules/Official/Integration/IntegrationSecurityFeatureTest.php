@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
+require_once dirname(__DIR__, 4) . '/tests/Support/ThinkPhpTestConnection.php';
+
+ThinkPhpTestConnection::fromPdo(new PDO('sqlite::memory:'));
 
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use PeanutAdmin\Modules\Integration\Application\IntegrationSecurityPage;
@@ -11,13 +14,15 @@ use PeanutAdmin\Modules\Integration\Application\MachineIdentityService;
 use PeanutAdmin\Modules\Integration\Application\MachineScopeCatalog;
 use PeanutAdmin\Modules\Integration\Application\MachineScopeGrantPolicy;
 use PeanutAdmin\Modules\Integration\Contract\MachineScopeGrantResolver;
-use PeanutAdmin\Modules\Integration\Application\SessionDevice;
 use PeanutAdmin\Modules\Integration\Application\SessionSecurityService;
 use PeanutAdmin\Modules\Integration\Application\WebhookEndpoint;
 use PeanutAdmin\Modules\Integration\Application\WebhookService;
 use PeanutAdmin\IntegrationSecurity\Crypto\AesGcmWebhookSecretProtector;
 use PeanutAdmin\Modules\Integration\Package;
 use PeanutAdmin\Modules\Integration\Contract\IntegrationSecurityRepository;
+use PeanutAdmin\Modules\Identity\Contract\Dto\TenantSessionSummary;
+use PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess;
+use PeanutAdmin\Modules\Identity\Contract\TenantSessionAccessException;
 use PeanutAdmin\IntegrationSecurity\Webhook\HostAddressResolver;
 use PeanutAdmin\Modules\Integration\Webhook\TrustedWebhookEvent;
 use PeanutAdmin\Modules\Integration\Webhook\TrustedWebhookPublisher;
@@ -34,12 +39,14 @@ use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 
 function same(mixed $expected, mixed $actual, string $message): void
 {
+    $GLOBALS['integrationFeatureChecks'] = ($GLOBALS['integrationFeatureChecks'] ?? 0) + 1;
     if ($expected !== $actual) {
         throw new RuntimeException($message . ': ' . var_export($actual, true));
     }
 }
 function truth(bool $condition, string $message): void
 {
+    $GLOBALS['integrationFeatureChecks'] = ($GLOBALS['integrationFeatureChecks'] ?? 0) + 1;
     if (!$condition) {
         throw new RuntimeException($message);
     }
@@ -177,14 +184,6 @@ final class MemoryRepository implements IntegrationSecurityRepository
     {
         return new IntegrationSecurityPage([], $page, $pageSize, 0);
     }
-    public function sessionDevices(int $tenantId, int $accountId, string $currentSessionKey): array
-    {
-        return [new SessionDevice($currentSessionKey, 'admin-web', 'active', true, '203.0.113.*', str_repeat('a', 12), '2026-07-24T10:00:00.000Z', '2026-07-24T10:00:00.000Z', '2026-07-25T10:00:00.000Z', null)];
-    }
-    public function revokeOwnSession(TenantContext $context, string $sessionKey): SessionDevice
-    {
-        return new SessionDevice($sessionKey, 'admin-web', 'revoked', hash_equals($context->sessionKey, $sessionKey), null, null, '2026-07-24T10:00:00.000Z', '2026-07-24T10:00:00.000Z', '2026-07-25T10:00:00.000Z', '2026-07-24T10:01:00.000Z');
-    }
 }
 
 $publicResolver = new class implements HostAddressResolver {
@@ -280,9 +279,47 @@ truth($transport->request !== null, 'request captured');
 same(false, $transport->request?->followRedirects, 'redirect disabled');
 truth(preg_match('/^v1=[0-9a-f]{64}$/D', $transport->request?->headers['X-Peanut-Signature'] ?? '') === 1, 'signature shape');
 
-$sessions = new SessionSecurityService($repository);
+$sessionAccess = new class implements TenantSessionAccess {
+    public function ownedSessions(TenantContext $context): array
+    {
+        if ($context->tenantId !== 101 || $context->accountId !== 301 || $context->memberId !== 501) {
+            throw TenantSessionAccessException::denied();
+        }
+        return [$this->summary($context->sessionKey, 'active', true, null)];
+    }
+
+    public function revokeOwnedSession(TenantContext $context, string $sessionKey): TenantSessionSummary
+    {
+        if ($context->tenantId !== 101 || $context->accountId !== 301 || $context->memberId !== 501
+            || !hash_equals('01J00000000000000000000000', $sessionKey)
+        ) {
+            throw TenantSessionAccessException::notFound();
+        }
+        return $this->summary($sessionKey, 'revoked', hash_equals($context->sessionKey, $sessionKey), '2026-07-24T10:01:00.000Z');
+    }
+
+    private function summary(string $sessionKey, string $status, bool $current, ?string $revokedAt): TenantSessionSummary
+    {
+        return new TenantSessionSummary(
+            $sessionKey,
+            'admin-web',
+            $status,
+            $current,
+            '203.0.113.*',
+            str_repeat('a', 12),
+            '2026-07-24T10:00:00.000Z',
+            '2026-07-24T10:00:00.000Z',
+            '2026-07-25T10:00:00.000Z',
+            $revokedAt,
+            1,
+        );
+    }
+};
+$sessions = new SessionSecurityService($sessionAccess);
 same(1, count($sessions->list(context('session-read'))), 'self sessions listed');
 same('revoked', $sessions->revoke(context('session-revoke'), '01J00000000000000000000000')->status, 'self session revoked');
 expectCode('INTEGRATION_PERMISSION_DENIED', fn() => $sessions->list(context('machine-read')), 'session permission denied');
+expectCode('INTEGRATION_PERMISSION_DENIED', fn() => $sessions->list(context('session-read', 102, 302, 502)), 'cross-Tenant session query denied');
+expectCode('SESSION_DEVICE_NOT_FOUND', fn() => $sessions->revoke(context('session-revoke'), '01J00000000000000000000001'), 'foreign session hidden');
 
-echo "integration-security feature harness: PASS\n";
+echo 'integration-security feature harness: PASS (' . ($GLOBALS['integrationFeatureChecks'] ?? 0) . " checks)\n";

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$error = ['$ref' => '#/components/responses/ApiResponse'];
+$error = ['$ref' => '#/components/responses/ErrorResponse'];
 $moduleKey = ['name' => 'moduleKey', 'in' => 'path', 'required' => true, 'schema' => [
     'type' => 'string', 'maxLength' => 96, 'pattern' => '^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$',
 ]];
@@ -51,19 +51,26 @@ return [
     ],
     'components' => ['schemas' => [
         'SettingValue' => [
+            'description' => '任意 JSON 值；整数同时属于 JSON number，故使用 anyOf 避免 oneOf 重叠。',
             'nullable' => true,
-            'oneOf' => [
+            'anyOf' => [
                 ['type' => 'string'], ['type' => 'number'], ['type' => 'integer'], ['type' => 'boolean'],
                 ['type' => 'object', 'additionalProperties' => ['$ref' => '#/components/schemas/SettingValue']],
                 ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/SettingValue']],
             ],
         ],
         'SettingSchema' => [
-            'type' => 'object', 'additionalProperties' => true, 'required' => ['type'],
-            'properties' => ['type' => ['oneOf' => [
-                ['type' => 'string', 'enum' => ['array', 'boolean', 'integer', 'null', 'number', 'object', 'string']],
-                ['type' => 'array', 'minItems' => 1, 'uniqueItems' => true, 'items' => ['type' => 'string', 'enum' => ['array', 'boolean', 'integer', 'null', 'number', 'object', 'string']]],
-            ]]],
+            'type' => 'object',
+            'description' => '受信任定义加载器要求的 JSON Schema Draft 2020-12 根对象；其余键限于可被 Opis 编译的 JSON Schema 关键字和值。',
+            'additionalProperties' => ['$ref' => '#/components/schemas/SettingValue'],
+            'required' => ['$schema', 'type'],
+            'properties' => [
+                '$schema' => ['type' => 'string', 'enum' => ['https://json-schema.org/draft/2020-12/schema']],
+                'type' => ['oneOf' => [
+                    ['type' => 'string', 'enum' => ['array', 'boolean', 'integer', 'null', 'number', 'object', 'string']],
+                    ['type' => 'array', 'minItems' => 1, 'uniqueItems' => true, 'items' => ['type' => 'string', 'enum' => ['array', 'boolean', 'integer', 'null', 'number', 'object', 'string']]],
+                ]],
+            ],
         ],
         'SettingRecord' => [
             'type' => 'object', 'additionalProperties' => false,

@@ -5,11 +5,19 @@ declare(strict_types=1);
 $root = dirname(__DIR__, 4);
 require_once $root . '/vendor/autoload.php';
 require_once $root . '/tests/Support/ThinkPhpTestConnection.php';
+require_once $root . '/tests/Support/RegisteredMysqlTestResource.php';
+
+define('NOTIFICATION_MYSQL_DATABASE', RegisteredMysqlTestResource::configuredDatabaseName());
 use PeanutAdmin\Kernel\Async\TrustedEnvelopeCodec;
+use PeanutAdmin\Kernel\Async\AsyncAuthorizationRevalidator;
+use PeanutAdmin\Kernel\Async\JobHandlerAdapter;
+use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
+use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
 use think\facade\Db;
 use PeanutAdmin\Modules\Notification\Delivery\Application\AttachmentReference;
 use PeanutAdmin\Modules\Notification\Delivery\Application\AttachmentResolver;
@@ -24,23 +32,39 @@ use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationStore;
 use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsRecipient;
 use PeanutAdmin\Modules\Notification\Delivery\Task\NotificationOutboxDispatcher;
 use PeanutAdmin\Modules\Notification\Delivery\Task\OutboxTaskSubmissionProvider;
+use PeanutAdmin\Modules\Notification\Delivery\Task\InboxTaskHandler;
 use PeanutAdmin\Modules\Task\Job\Database\Schema as TaskJobSchema;
+use PeanutAdmin\Modules\Task\Contract\JobExecution;
+use PeanutAdmin\Modules\Task\Contract\TaskHandler;
+use PeanutAdmin\Modules\Task\Job\Execution\LocalWorker;
+use PeanutAdmin\Modules\Task\Job\Execution\TaskHandlerRegistry;
 use PeanutAdmin\Modules\Task\Job\Persistence\TaskJobStore;
 use PeanutAdmin\Modules\Task\Job\Submission\TaskSubmissionRegistry;
 use PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher;
 
 function same(mixed $expected, mixed $actual, string $message): void
 {
+    $GLOBALS['notificationMysqlChecks'] = ($GLOBALS['notificationMysqlChecks'] ?? 0) + 1;
     if ($expected !== $actual) {
         throw new RuntimeException($message . ': ' . var_export($actual, true));
     }
 }
 
+function guardedNotificationDatabase(PDO $pdo): string
+{
+    $database = $pdo->query('SELECT DATABASE()')->fetchColumn();
+    if ($database !== NOTIFICATION_MYSQL_DATABASE) {
+        throw new RuntimeException('Refusing destructive SQL outside the registered Task/Notification database.');
+    }
+    return $database;
+}
+
 function operation(string $name, int $tenantId, int $accountId, int $memberId): AuthorizedOperationContext
 {
+    $sessionKey = $tenantId === 101 ? '01J00000000000000000000000' : '01J00000000000000000000001';
     $session = new ValidatedTenantSession(
         $tenantId,
-        'sess_' . str_pad((string) $tenantId, 32, '0'),
+        $sessionKey,
         $tenantId,
         $accountId,
         $memberId,
@@ -57,49 +81,31 @@ function operation(string $name, int $tenantId, int $accountId, int $memberId): 
     ));
 }
 
-$dsn = getenv('B03_MYSQL_DSN');
-$user = getenv('B03_MYSQL_USER');
-$password = getenv('B03_MYSQL_PASSWORD');
-if (!is_string($dsn) || $dsn === '' || !is_string($user) || !is_string($password)) {
-    throw new RuntimeException('B03 MySQL environment is incomplete.');
-}
-$pdo = new PDO($dsn, $user, $password, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES => false,
-]);
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase(NOTIFICATION_MYSQL_DATABASE);
 $connection = ThinkPhpTestConnection::fromPdo($pdo);
+same(NOTIFICATION_MYSQL_DATABASE, guardedNotificationDatabase($pdo), 'registered Task/Notification database selected');
 
 $drop = array_reverse(Schema::tableNames());
 $taskDrop = array_reverse(TaskJobSchema::tableNames());
 try {
+    guardedNotificationDatabase($pdo);
     foreach ($drop as $table) {
         $pdo->exec(Schema::dropSql($table));
     }
     foreach ($taskDrop as $table) {
         $pdo->exec(TaskJobSchema::dropSql($table));
     }
+    $pdo->exec('DROP TABLE IF EXISTS pa_tenant_session');
     $pdo->exec('DROP TABLE IF EXISTS pa_tenant_member');
+    $pdo->exec('DROP TABLE IF EXISTS pa_account');
     $pdo->exec('DROP TABLE IF EXISTS pa_tenant');
-    $pdo->exec(<<<'SQL'
-CREATE TABLE pa_tenant (
-  id BIGINT UNSIGNED NOT NULL,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB
-SQL);
-    $pdo->exec(<<<'SQL'
-CREATE TABLE pa_tenant_member (
-  id BIGINT UNSIGNED NOT NULL,
-  tenant_id BIGINT UNSIGNED NOT NULL,
-  account_id BIGINT UNSIGNED NOT NULL,
-  status VARCHAR(16) NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_tenant_member_tenant_id (tenant_id, id),
-  CONSTRAINT fk_b03_member_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT
-) ENGINE=InnoDB
-SQL);
-    $pdo->exec("INSERT INTO pa_tenant (id) VALUES (101), (202)");
-    $pdo->exec("INSERT INTO pa_tenant_member (id, tenant_id, account_id, status) VALUES (501,101,301,'active'), (502,202,302,'active')");
+    foreach (['pa_account', 'pa_tenant', 'pa_tenant_member', 'pa_tenant_session'] as $table) {
+        $pdo->exec(KernelSchema::createSql($table));
+    }
+    $pdo->exec("INSERT INTO pa_account(id,display_name,status,created_at,updated_at) VALUES (301,'Tenant A member','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(302,'Tenant B member','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
+    $pdo->exec("INSERT INTO pa_tenant(id,code,name,display_name,status,activated_at,created_at,updated_at) VALUES (101,'tenant-a','Tenant A','Tenant A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(202,'tenant-b','Tenant B','Tenant B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
+    $pdo->exec("INSERT INTO pa_tenant_member(id,tenant_id,account_id,display_name,status,joined_at,created_at,updated_at) VALUES (501,101,301,'Tenant A member','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(502,202,302,'Tenant B member','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
+    $pdo->exec("INSERT INTO pa_tenant_session(session_key,tenant_id,account_id,tenant_member_id,client_key,status,account_security_revision,tenant_security_revision,member_security_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,created_at,updated_at) VALUES ('01J00000000000000000000000',101,301,501,'admin-web','active',1,1,1,'2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2030-01-01 00:00:00.000','2030-01-02 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),('01J00000000000000000000001',202,302,502,'admin-web','active',1,1,1,'2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2030-01-01 00:00:00.000','2030-01-02 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
     foreach (TaskJobSchema::tableNames() as $table) {
         $pdo->exec(TaskJobSchema::createSql($table));
     }
@@ -107,7 +113,7 @@ SQL);
         $pdo->exec(Schema::createSql($table));
     }
 
-    $repository = new NotificationStore();
+    $repository = new NotificationStore(new ThinkPhpTenantMemberDirectory());
     $digestKey = str_repeat('k', 32);
     $service = new NotificationService(
         $repository,
@@ -182,6 +188,71 @@ SQL);
         new TrustedEnvelopeCodec(str_repeat('e', 32)),
     );
     $dispatcher = new NotificationOutboxDispatcher($repository, $publisher);
+    $inboxOutbox = null;
+    foreach ($created['outbox'] as $outbox) {
+        if ($outbox->channel === 'inbox') {
+            $inboxOutbox = $outbox;
+            break;
+        }
+    }
+    if ($inboxOutbox === null) {
+        throw new RuntimeException('published notification did not create an inbox outbox');
+    }
+    $inboxJob = $dispatcher->dispatch($manage101, $inboxOutbox->outboxKey);
+    $replayedInboxJob = $dispatcher->dispatch($manage101, $inboxOutbox->outboxKey);
+    same($inboxJob->jobKey, $replayedInboxJob->jobKey, 'inbox dispatch idempotency');
+    same(1, (int)$pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn(), 'inbox dispatch creates one job');
+    $revalidator = new class implements AsyncAuthorizationRevalidator {
+        public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext
+        {
+            return operation($envelope->operation, $envelope->tenantId, $envelope->accountId, $envelope->memberId);
+        }
+    };
+    $inboxHandler = new InboxTaskHandler($repository);
+    $leaseLosingHandler = new class ($pdo, $inboxHandler) implements TaskHandler {
+        public function __construct(private readonly PDO $pdo, private readonly InboxTaskHandler $inner) {}
+        public function key(): string
+        {
+            return $this->inner->key();
+        }
+        public function handle(AuthorizedOperationContext $context, JobExecution $execution): void
+        {
+            $statement = $this->pdo->prepare(
+                'UPDATE pa_task_job SET lease_expires_at=TIMESTAMPADD(SECOND,-1,UTC_TIMESTAMP(3)) WHERE job_key=?',
+            );
+            $statement->execute([$execution->jobKey]);
+            $this->inner->handle($context, $execution);
+        }
+    };
+    $lostWorker = new LocalWorker(
+        101,
+        'notification-lease-loss',
+        new TaskJobStore(),
+        new TaskHandlerRegistry([$leaseLosingHandler]),
+        new JobHandlerAdapter(new TrustedEnvelopeCodec(str_repeat('e', 32)), $revalidator),
+        30,
+    );
+    same('lease_lost', $lostWorker->runOnce(), 'expired inbox claim is fenced');
+    same('queued', $pdo->query(
+        'SELECT status FROM pa_notification_outbox WHERE outbox_key=' . $pdo->quote($inboxOutbox->outboxKey),
+    )->fetchColumn(), 'lost claim leaves inbox outbox queued');
+    $recoveryWorker = new LocalWorker(
+        101,
+        'notification-lease-recovery',
+        new TaskJobStore(),
+        new TaskHandlerRegistry([$inboxHandler]),
+        new JobHandlerAdapter(new TrustedEnvelopeCodec(str_repeat('e', 32)), $revalidator),
+        30,
+    );
+    same('succeeded', $recoveryWorker->runOnce(), 'expired inbox claim is recovered and consumed');
+    same(null, $recoveryWorker->runOnce(), 'delivered inbox job is not consumed twice');
+    same('delivered', $pdo->query(
+        'SELECT status FROM pa_notification_outbox WHERE outbox_key=' . $pdo->quote($inboxOutbox->outboxKey),
+    )->fetchColumn(), 'inbox outbox delivered after recovery');
+    same(1, (int)$pdo->query(
+        "SELECT COUNT(*) FROM pa_notification_event WHERE event_key='tenant.notification.delivered'",
+    )->fetchColumn(), 'inbox delivery event is de-duplicated');
+
     $messageCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_notification_message')->fetchColumn();
     $outboxCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_notification_outbox')->fetchColumn();
     $notificationEventCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_notification_event')->fetchColumn();
@@ -195,7 +266,7 @@ SQL);
                 $dispatcher->dispatch($manage101, $outbox->outboxKey);
             }
             same(2, (int) $pdo->query('SELECT COUNT(*) FROM pa_notification_message')->fetchColumn(), 'outer transaction sees notification');
-            same(2, (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn(), 'outer transaction sees dispatch jobs');
+            same(3, (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn(), 'outer transaction sees existing and transactional dispatch jobs');
             same(2, (int) $pdo->query("SELECT COUNT(*) FROM pa_notification_outbox WHERE status = 'queued'")->fetchColumn(), 'outer transaction binds dispatch jobs');
             throw new RuntimeException('EXPECTED_OUTER_ROLLBACK');
         });
@@ -204,18 +275,11 @@ SQL);
     }
     same($messageCount, (int) $pdo->query('SELECT COUNT(*) FROM pa_notification_message')->fetchColumn(), 'outer rollback removes notification');
     same($outboxCount, (int) $pdo->query('SELECT COUNT(*) FROM pa_notification_outbox')->fetchColumn(), 'outer rollback removes outbox rows');
-    same(0, (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn(), 'outer rollback removes dispatch jobs');
-    same(0, (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job_event')->fetchColumn(), 'outer rollback removes task events');
+    same(1, (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn(), 'outer rollback removes only transactional dispatch jobs');
+    same(5, (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job_event')->fetchColumn(), 'outer rollback removes transactional task events');
     same($notificationEventCount, (int) $pdo->query('SELECT COUNT(*) FROM pa_notification_event')->fetchColumn(), 'outer rollback removes notification event');
 
-    fwrite(STDOUT, "notification-sms MySQL harness: PASS\n");
+    fwrite(STDOUT, 'notification-sms MySQL harness: PASS (' . ($GLOBALS['notificationMysqlChecks'] ?? 0) . " checks)\n");
 } finally {
-    foreach ($drop as $table) {
-        $pdo->exec(Schema::dropSql($table));
-    }
-    foreach ($taskDrop as $table) {
-        $pdo->exec(TaskJobSchema::dropSql($table));
-    }
-    $pdo->exec('DROP TABLE IF EXISTS pa_tenant_member');
-    $pdo->exec('DROP TABLE IF EXISTS pa_tenant');
+    RegisteredMysqlTestResource::cleanup($pdo, NOTIFICATION_MYSQL_DATABASE, $createdDatabase);
 }

@@ -1472,11 +1472,11 @@
       },
       {
         "stable_resource_id": "peanut-admin-a1-review-mysql84",
-        "purpose": "A1 review repairs: exclusive synthetic member-session and Scope regression; no customer data",
+        "purpose": "Multi-tenant productization: task-owned synthetic database, HTTP and module consumer qualification; no customer data",
         "environments": [
           "development-test"
         ],
-        "owner": "a1-review-repair-20260921",
+        "owner": "mt-lifecycle-20260922",
         "service_type": "mysql",
         "version": "8.4.10",
         "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
@@ -1492,12 +1492,12 @@
         "health_check": "task-owned PDO SELECT VERSION()",
         "fallback": "none",
         "lifecycle": "ephemeral",
-        "application_runtime": false,
+        "application_runtime": true,
         "claim_precondition": "exclusive lease before container creation",
-        "cleanup_responsibility": "a1-review-repair-20260921 removes only exact container and its anonymous volume, credentials and lease",
+        "cleanup_responsibility": "mt-lifecycle-20260922 removes only its labelled container, anonymous volume, private credentials and lease",
         "backup_responsibility": "not applicable; synthetic only",
-        "failure_retention_policy": "2026-09-21 closed: tool safety check blocked database validation before execution; own container and anonymous volume removed, credentials deleted and lease released. Sanitized diagnostics retained in task worktree; no DB qualification.",
-        "lease_gate": "a1-review-focused",
+        "failure_retention_policy": "Keep sanitized diagnostics; report each actual result. Only this task may clean the labelled container and exact synthetic namespaces after verification.",
+        "lease_gate": "mt-lifecycle",
         "deployment_modes": [
           "standalone",
           "multi-tenant"
@@ -1507,6 +1507,16 @@
             "peanut_a1_review",
             "peanut_admin_scope_review_20260921",
             "peanut_a1_member_session_review"
+          ],
+          "mt_lifecycle": [
+            "peanut_admin_mt02_article_mt20260922",
+            "peanut_admin_mt_integration_20260922",
+            "peanut_admin_mt_notifications_20260922",
+            "peanut_admin_development_p0e_mt20260922_plugin_lifecycle",
+            "peanut_admin_development_p0e_mt20260922_consumer_module_cycle",
+            "peanut_admin_development_p0e_mt20260922_reference",
+            "peanut_mt_lifecycle_a",
+            "peanut_mt_lifecycle_b"
           ]
         },
         "upstream_endpoint": {
@@ -1517,7 +1527,8 @@
             "host"
           ],
           "network_scope": "task-owned loopback only"
-        }
+        },
+        "application_runtime_scope": "Task-owned generated/test applications on explicit loopback listeners only; no shared or production runtime"
       }
     ],
     "local_listeners": [

@@ -103,7 +103,7 @@ final readonly class PlatformModuleRuntimeService
     }
 
     /** @return array<string,mixed> */
-    public function install(string $archivePath, string $expectedSha256, ?string $signatureKeyId): array
+    public function install(string $archivePath, ?string $expectedSha256, ?string $signatureKeyId): array
     {
         $result = (new PluginPackageInstaller(
             $this->serverRoot,
@@ -121,6 +121,21 @@ final readonly class PlatformModuleRuntimeService
         $result['operation'] = $operation;
         $result['catalog_revision'] = $catalog->catalogRevision();
         return $result;
+    }
+
+    /** @return array<string,mixed> */
+    public function update(
+        string $archivePath,
+        ?string $expectedSha256,
+        ?string $signatureKeyId,
+        bool $dryRun,
+    ): array {
+        return (new PluginPackageInstaller(
+            $this->serverRoot,
+            $this->moduleConfig,
+            $this->trustedPublicKeys,
+            $this->catalogs,
+        ))->update($archivePath, $expectedSha256, $signatureKeyId, $dryRun);
     }
 
     /** @return array<string,mixed> */

@@ -10,7 +10,6 @@ use PeanutAdmin\Modules\Integration\Contract\IntegrationSecurityRepository;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use PeanutAdmin\Modules\Integration\Application\IntegrationSecurityPage;
 use PeanutAdmin\Modules\Integration\Application\MachineIdentity;
-use PeanutAdmin\Modules\Integration\Application\SessionDevice;
 use PeanutAdmin\Modules\Integration\Application\WebhookAttemptRecord;
 use PeanutAdmin\Modules\Integration\Application\WebhookDeliveryRecord;
 use PeanutAdmin\Modules\Integration\Application\WebhookEndpoint;
@@ -22,8 +21,6 @@ use PeanutAdmin\Modules\Integration\Model\IntegrationWebhookEndpointRecord;
 use PeanutAdmin\Modules\Integration\Webhook\TrustedWebhookEvent;
 use PeanutAdmin\Modules\Integration\Webhook\WebhookDelivery;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use PeanutAdmin\Modules\Identity\Persistence\Model\TenantSession;
-use PeanutAdmin\Modules\Identity\Persistence\Model\TenantSessionToken;
 use think\db\Raw;
 use think\facade\Db;
 
@@ -442,11 +439,12 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
 
     public function deliveryRecords(int $tenantId, int $page, int $pageSize): IntegrationSecurityPage
     {
-        $query = IntegrationWebhookDeliveryRecord::where('tenant_id', $tenantId);
+        // 联表后两侧都有 tenant_id；限定主表并让计数与数据读取共用同一租户关联。
+        $query = IntegrationWebhookDeliveryRecord::alias('delivery')
+            ->where('delivery.tenant_id', $tenantId)
+            ->join('integration_webhook_endpoint endpoint', 'endpoint.tenant_id = delivery.tenant_id AND endpoint.id = delivery.endpoint_id');
         $total = (int) (clone $query)->count();
-        $rows = $query->alias('delivery')
-            ->join('integration_webhook_endpoint endpoint', 'endpoint.tenant_id = delivery.tenant_id AND endpoint.id = delivery.endpoint_id')
-            ->order('delivery.created_at', 'desc')->order('delivery.id', 'desc')
+        $rows = $query->order('delivery.created_at', 'desc')->order('delivery.id', 'desc')
             ->page($page, $pageSize)->field([
                 'delivery.delivery_key', 'endpoint.endpoint_key', 'delivery.event_type', 'delivery.status',
                 'delivery.attempt_count', 'delivery.last_status_code', 'delivery.last_error_code',
@@ -487,40 +485,6 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
         ), $rows));
 
         return new IntegrationSecurityPage($items, $page, $pageSize, $total);
-    }
-
-    public function sessionDevices(int $tenantId, int $accountId, string $currentSessionKey): array
-    {
-        return array_values(array_map(fn(array $row): SessionDevice => $this->sessionRow($row, $currentSessionKey),
-            TenantSession::where('tenant_id', $tenantId)->where('account_id', $accountId)
-                ->order('last_seen_at', 'desc')->order('id', 'desc')->select()->toArray()));
-    }
-
-    public function revokeOwnSession(TenantContext $context, string $sessionKey): SessionDevice
-    {
-        return Db::transaction(function () use ($context, $sessionKey): SessionDevice {
-            $row = TenantSession::where('tenant_id', $context->tenantId)
-                ->where('account_id', $context->accountId)->where('session_key', $sessionKey)->lock(true)->find()?->toArray();
-            if ($row === null) {
-                throw IntegrationSecurityException::sessionNotFound();
-            }
-            if ($row['status'] === 'active') {
-                $now = $this->format(new DateTimeImmutable('now'));
-                TenantSession::where('id', (int) $row['id'])->where('status', 'active')->update([
-                    'status' => 'revoked', 'revoked_at' => $now,
-                    'revoke_reason' => 'user_device_revoked', 'updated_at' => $now,
-                ]);
-                TenantSessionToken::where('session_id', (int) $row['id'])->where('status', 'active')
-                    ->update(['status' => 'revoked', 'revoked_at' => $now]);
-                $this->audit($context, 'tenant.integration.session_revoked', 'session', $sessionKey, [
-                    'current' => hash_equals($context->sessionKey, $sessionKey),
-                ]);
-            }
-            $updated = TenantSession::where('id', (int) $row['id'])->find()?->toArray()
-                ?? throw IntegrationSecurityException::sessionNotFound();
-
-            return $this->sessionRow($updated, $context->sessionKey);
-        });
     }
 
     /** @return array<string, mixed>|null */
@@ -565,36 +529,6 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
             $this->stringList($row['events_json']), (string) $row['status'],
             (int) $row['revision'], $this->instant((string) $row['created_at']),
         );
-    }
-
-    /** @param array<string, mixed> $row */
-    private function sessionRow(array $row, string $currentSessionKey): SessionDevice
-    {
-        $ip = is_string($row['ip_address']) ? $this->maskIp($row['ip_address']) : null;
-        $agent = is_string($row['user_agent_hash']) ? substr($row['user_agent_hash'], 0, 12) : null;
-
-        return new SessionDevice(
-            (string) $row['session_key'], (string) $row['client_key'], (string) $row['status'],
-            hash_equals($currentSessionKey, (string) $row['session_key']), $ip, $agent,
-            $this->instant((string) $row['issued_at']), $this->instant((string) $row['last_seen_at']),
-            $this->instant((string) $row['absolute_expires_at']),
-            $row['revoked_at'] === null ? null : $this->instant((string) $row['revoked_at']),
-        );
-    }
-
-    private function maskIp(string $ip): ?string
-    {
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            $parts = explode('.', $ip);
-            $parts[3] = '*';
-
-            return implode('.', $parts);
-        }
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-            return implode(':', array_slice(explode(':', $ip), 0, 3)) . ':*';
-        }
-
-        return null;
     }
 
     /** @param array<string, scalar|null> $metadata */

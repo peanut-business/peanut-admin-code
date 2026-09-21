@@ -1,0 +1,321 @@
+<?php
+declare(strict_types=1);
+
+namespace PeanutAdmin\Modules\Article\Service;
+
+use app\common\contract\authorization\AdminAuthorizationQuery;
+use app\common\dto\authorization\AdminPrincipal;
+use app\common\exception\BusinessException;
+use app\common\execution\CurrentExecutionContext;
+use app\common\http\PageResult;
+use app\common\support\PaginationInput;
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Modules\Article\Contract\ArticleCategoryAdministration;
+use PeanutAdmin\Modules\Article\Model\Article;
+use PeanutAdmin\Modules\Article\Model\ArticleCate;
+use think\db\BaseQuery;
+use think\facade\Db;
+
+/** 资讯分类后台用例；分类与资讯各自采用统一 CRUD 合同。 */
+final class ArticleCategoryAdministrationService implements ArticleCategoryAdministration
+{
+    private const PAGE_SIZE_DEFAULT = 25;
+    private const PAGE_SIZE_MAX = 25000;
+
+    public function __construct(
+        private readonly CurrentExecutionContext $executionContext,
+        private readonly AdminAuthorizationQuery $authorization,
+    ) {}
+
+    public function lists(TenantContext $context, array $params): PageResult
+    {
+        $this->assertPermission($context, 'official.article.category.list');
+        if (in_array((int)($params['export'] ?? 0), [1, 2], true)) {
+            throw BusinessException::invalid('ARTICLE_CATEGORY_EXPORT_UNSUPPORTED', '该列表不支持导出');
+        }
+        return $this->categoryLists($params, false);
+    }
+
+    public function all(TenantContext $context): array
+    {
+        $this->assertPermission($context, 'official.article.category.all');
+        $rows = ArticleCate::where([])->where('is_show', 1)
+            ->field(self::fields())->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
+        return array_map([self::class, 'formatRow'], $rows);
+    }
+
+    public function detail(TenantContext $context, int $id): array
+    {
+        $this->assertPermission($context, 'official.article.category.detail');
+        return $this->findRow($id, false);
+    }
+
+    public function add(TenantContext $context, array $params): bool
+    {
+        $this->assertPermission($context, 'official.article.category.add');
+        $category = new ArticleCate();
+        if (!$category->save(self::writeData($params))) {
+            throw new \LogicException('ARTICLE_CATEGORY_CREATE_FAILED');
+        }
+        return true;
+    }
+
+    public function edit(TenantContext $context, array $params): bool
+    {
+        $this->assertPermission($context, 'official.article.category.edit');
+        return Db::transaction(function () use ($params): bool {
+            $category = ArticleCate::where([])->where('id', (int)$params['id'])->lock(true)->findOrEmpty();
+            if ($category->isEmpty()) {
+                throw BusinessException::notFound('ARTICLE_CATEGORY_NOT_FOUND', '资讯分类不存在');
+            }
+            $category->save(self::writeData($params));
+            return true;
+        });
+    }
+
+    public function delete(TenantContext $context, int $id): bool
+    {
+        $this->assertPermission($context, 'official.article.category.delete');
+        return Db::transaction(function () use ($id): bool {
+            $category = ArticleCate::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
+            if ($category->isEmpty()) {
+                throw BusinessException::notFound('ARTICLE_CATEGORY_NOT_FOUND', '资讯分类不存在');
+            }
+            if ($category->trashed()) {
+                return true;
+            }
+            if (!Article::where([])->where('cid', $id)->lock(true)->findOrEmpty()->isEmpty()) {
+                throw BusinessException::conflict(
+                    'ARTICLE_CATEGORY_IN_USE',
+                    '资讯分类已使用，请先删除绑定该资讯分类的资讯',
+                );
+            }
+            if (!$category->delete()) {
+                throw new \LogicException('ARTICLE_CATEGORY_SOFT_DELETE_FAILED');
+            }
+            return true;
+        });
+    }
+
+    public function updateStatus(TenantContext $context, int $id, int $isShow): bool
+    {
+        $this->assertPermission($context, 'official.article.category.update-status');
+        return Db::transaction(function () use ($id, $isShow): bool {
+            $category = ArticleCate::where([])->where('id', $id)->lock(true)->findOrEmpty();
+            if ($category->isEmpty()) {
+                throw BusinessException::notFound('ARTICLE_CATEGORY_NOT_FOUND', '资讯分类不存在');
+            }
+            if ((int)$category->is_show !== $isShow) {
+                $category->save(['is_show' => $isShow]);
+            }
+            return true;
+        });
+    }
+
+    public function recycleLists(TenantContext $context, array $params): PageResult
+    {
+        $this->assertPermission($context, 'official.article.category.recycle.list');
+        return $this->categoryLists($params, true);
+    }
+
+    public function recycleDetail(TenantContext $context, int $id): array
+    {
+        $this->assertPermission($context, 'official.article.category.recycle.detail');
+        return $this->findRow($id, true);
+    }
+
+    public function restore(TenantContext $context, array $ids): array
+    {
+        $this->assertPermission($context, 'official.article.category.restore');
+        return $this->batch($ids, 'restored', static function (int $id): string {
+            return Db::transaction(static function () use ($id): string {
+                $category = ArticleCate::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
+                if ($category->isEmpty()) {
+                    throw BusinessException::notFound('ARTICLE_CATEGORY_NOT_FOUND', '资讯分类不存在');
+                }
+                if (!$category->trashed()) {
+                    return 'already_active';
+                }
+                if (!$category->restore()) {
+                    throw new \LogicException('ARTICLE_CATEGORY_RESTORE_FAILED');
+                }
+                return 'restored';
+            });
+        });
+    }
+
+    public function forceDelete(TenantContext $context, array $ids): array
+    {
+        $this->assertPermission($context, 'official.article.category.force-delete');
+        return $this->batch($ids, 'deleted', static function (int $id): string {
+            return Db::transaction(static function () use ($id): string {
+                $category = ArticleCate::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
+                if ($category->isEmpty()) {
+                    throw BusinessException::notFound('ARTICLE_CATEGORY_NOT_FOUND', '资讯分类不存在');
+                }
+                if (!$category->trashed()) {
+                    throw BusinessException::conflict(
+                        'ARTICLE_CATEGORY_FORCE_DELETE_REQUIRES_TRASHED',
+                        '仅回收站分类可永久删除',
+                    );
+                }
+                if (!Article::withTrashed()->where('cid', $id)
+                    ->lock(true)->findOrEmpty()->isEmpty()
+                ) {
+                    throw BusinessException::conflict(
+                        'ARTICLE_CATEGORY_REFERENCE_EXISTS',
+                        '分类仍有关联资讯，不能永久删除',
+                    );
+                }
+                if (!$category->force(true)->delete()) {
+                    throw new \LogicException('ARTICLE_CATEGORY_FORCE_DELETE_FAILED');
+                }
+                return 'deleted';
+            });
+        });
+    }
+
+    private function categoryLists(array $params, bool $onlyTrashed): PageResult
+    {
+        $query = $onlyTrashed ? ArticleCate::onlyTrashed() : ArticleCate::where([]);
+        $query->field(self::fields());
+        if (isset($params['name']) && $params['name'] !== '') {
+            $query->whereLike('name', '%' . trim((string)$params['name']) . '%');
+        }
+        if (isset($params['is_show']) && $params['is_show'] !== '') {
+            $query->where('is_show', (int)$params['is_show']);
+        }
+        $this->applyOrder($query, $params);
+        $page = $this->paginate($query, $params)
+            ->map(static fn(mixed $item): array => self::formatRow(
+                $item instanceof \think\Model ? $item->toArray() : (array)$item,
+            ));
+        $rows = $page->items;
+        $counts = $this->articleCounts(array_column($rows, 'id'), $onlyTrashed);
+        foreach ($rows as &$row) {
+            $row['article_count'] = $counts[(int)$row['id']] ?? 0;
+        }
+        unset($row);
+        return new PageResult($rows, $page->total, $page->page, $page->pageSize);
+    }
+
+    private function findRow(int $id, bool $onlyTrashed): array
+    {
+        $query = $onlyTrashed ? ArticleCate::onlyTrashed() : ArticleCate::where([]);
+        $category = $query->field(self::fields())->where('id', $id)->findOrEmpty();
+        return $category->isEmpty() ? [] : self::formatRow($category->toArray());
+    }
+
+    /** @return list<string> */
+    private static function fields(): array
+    {
+        return ['id', 'name', 'sort', 'is_show', 'create_time', 'update_time', 'delete_time'];
+    }
+
+    /** @return array<string,int|string> */
+    private static function writeData(array $params): array
+    {
+        return [
+            'name' => trim((string)$params['name']),
+            'sort' => (int)($params['sort'] ?? 0),
+            'is_show' => (int)($params['is_show'] ?? 1),
+        ];
+    }
+
+    private function paginate(BaseQuery $query, array $params): PageResult
+    {
+        if ((int)($params['page_type'] ?? 1) === 0) {
+            return PageResult::fromPaginator($query->paginate([
+                'list_rows' => self::PAGE_SIZE_MAX,
+                'page' => 1,
+                'var_page' => 'page_no',
+            ]), 1);
+        }
+        return PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->result($query);
+    }
+
+    private function applyOrder(BaseQuery $query, array $params): void
+    {
+        $field = (string)($params['field'] ?? '');
+        $orderBy = strtolower((string)($params['order_by'] ?? ''));
+        if (in_array($field, ['create_time', 'id'], true)
+            && in_array($orderBy, ['asc', 'desc'], true)) {
+            $query->order($field, $orderBy);
+            return;
+        }
+        $query->order(['sort' => 'desc', 'id' => 'desc']);
+    }
+
+    /** @return array<int,int> */
+    private function articleCounts(array $categoryIds, bool $includeTrashed): array
+    {
+        $categoryIds = array_values(array_unique(array_map('intval', $categoryIds)));
+        if ($categoryIds === []) {
+            return [];
+        }
+        $query = $includeTrashed ? Article::withTrashed() : Article::where([]);
+        $rows = $query->whereIn('cid', $categoryIds)->field('cid, COUNT(*) AS article_count')
+            ->group('cid')->select()->toArray();
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int)$row['cid']] = (int)$row['article_count'];
+        }
+        return $counts;
+    }
+
+    /** @param array<string,mixed> $row */
+    private static function formatRow(array $row): array
+    {
+        $row['id'] = (int)$row['id'];
+        $row['sort'] = (int)$row['sort'];
+        $row['is_show'] = (int)$row['is_show'];
+        foreach (['create_time', 'update_time', 'delete_time'] as $field) {
+            $value = $row[$field] ?? 0;
+            $row[$field] = empty($value) ? '' : (is_numeric($value)
+                ? date('Y-m-d H:i:s', (int)$value)
+                : (string)$value);
+        }
+        return $row;
+    }
+
+    /** @param list<int> $ids @return array<string,mixed> */
+    private function batch(array $ids, string $successKey, callable $operation): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn(int $id): bool => $id > 0)));
+        if ($ids === [] || count($ids) > 100) {
+            throw BusinessException::invalid('ARTICLE_CATEGORY_BATCH_IDS_INVALID', '操作对象数量须在 1 到 100 之间');
+        }
+        $result = ['requested' => $ids, $successKey => [], 'already_active' => [], 'failed' => []];
+        foreach ($ids as $id) {
+            try {
+                $status = $operation($id);
+                $result[$status][] = $id;
+            } catch (BusinessException $exception) {
+                $result['failed'][] = [
+                    'id' => $id,
+                    'code' => $exception->errorCode,
+                    'message' => $exception->getMessage(),
+                ];
+            }
+        }
+        return $result;
+    }
+
+    private function assertPermission(TenantContext $context, string $permission): void
+    {
+        try {
+            $current = $this->executionContext->tenantAdmin();
+            $actor = AdminPrincipal::fromArray($this->executionContext->tenantAdminPrincipal());
+        } catch (\Throwable) {
+            throw BusinessException::forbidden('ARTICLE_CATEGORY_ADMIN_PERMISSION_DENIED', '无权管理资讯分类');
+        }
+        if ($current->tenantId !== $context->tenantId
+            || $current->accountId !== $context->accountId
+            || $current->memberId !== $context->memberId
+            || $current->authorizationRevision !== $context->authorizationRevision
+            || !$this->authorization->decide($context, $actor, $permission)->allowed
+        ) {
+            throw BusinessException::forbidden('ARTICLE_CATEGORY_ADMIN_PERMISSION_DENIED', '无权管理资讯分类');
+        }
+    }
+}

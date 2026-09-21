@@ -23,6 +23,8 @@ use PeanutAdmin\FileMedia\Delivery\SignedDeliveryTokenService;
 use PeanutAdmin\FileMedia\Storage\StorageObjectKey;
 use PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver;
 use think\db\BaseQuery;
+use think\db\Raw;
+use think\facade\Db;
 
 final readonly class StorageService implements FileStorage
 {
@@ -339,10 +341,11 @@ final readonly class StorageService implements FileStorage
         }
         FileObject::create([
             ...$data,
+            ...($this->dataScopePolicy->usesTenantColumn() ? ['tenant_id' => $tenantId] : []),
             'status' => 'pending_write',
             'revision' => 1,
-            'created_at' => FileObject::raw('UTC_TIMESTAMP(3)'),
-            'updated_at' => FileObject::raw('UTC_TIMESTAMP(3)'),
+            'created_at' => new Raw('UTC_TIMESTAMP(3)'),
+            'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
             'archived_at' => null,
         ]);
     }
@@ -363,9 +366,9 @@ final readonly class StorageService implements FileStorage
             ->where('file_key', $fileKey)->where('status', 'ready')
             ->update([
                 'status' => 'archived',
-                'archived_at' => FileObject::raw('UTC_TIMESTAMP(3)'),
-                'updated_at' => FileObject::raw('UTC_TIMESTAMP(3)'),
-                'revision' => FileObject::raw('revision+1'),
+                'archived_at' => new Raw('UTC_TIMESTAMP(3)'),
+                'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
+                'revision' => new Raw('revision+1'),
             ]) === 1;
     }
 
@@ -376,8 +379,8 @@ final readonly class StorageService implements FileStorage
             ->update([
                 'status' => 'ready',
                 'archived_at' => null,
-                'updated_at' => FileObject::raw('UTC_TIMESTAMP(3)'),
-                'revision' => FileObject::raw('revision+1'),
+                'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
+                'revision' => new Raw('revision+1'),
             ]);
     }
 
@@ -400,8 +403,8 @@ final readonly class StorageService implements FileStorage
             ->where('file_key', $fileKey)->where('status', $from)
             ->update([
                 'status' => $to,
-                'updated_at' => FileObject::raw('UTC_TIMESTAMP(3)'),
-                'revision' => FileObject::raw('revision+1'),
+                'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
+                'revision' => new Raw('revision+1'),
             ]) === 1;
     }
 
@@ -440,15 +443,28 @@ final readonly class StorageService implements FileStorage
         return 'tenants/v1/' . $tenantId . '/';
     }
 
+    /**
+     * 文件模块自己的受控读取边界：私有读取固定租户，公开查询固定 public。
+     * 签名交付没有员工会话，不从全局登录上下文推导范围，也不提供通用过滤开关。
+     */
     private function objectQuery(?int $tenantId): BaseQuery
     {
-        $query = FileObject::alias('f')
+        if ($tenantId !== null && $tenantId < 1) {
+            throw new \DomainException('STORAGE_TENANT_INVALID');
+        }
+        $query = Db::name('file_object')->alias('f')
             ->join('storage_space s', 's.id=f.storage_space_id')
             ->join('storage_account a', 'a.id=s.account_id')
             ->field('f.*,a.id AS account_id,a.account_key,a.driver,a.name AS account_name,a.credential_ciphertext,a.credential_key_version,a.status AS account_status')
             ->field('s.space_key,s.name AS space_name,s.bucket,s.region,s.endpoint,s.access_domain,s.local_path,s.status AS space_status');
         if ($tenantId !== null) {
             $query->whereLike('f.object_key', $this->ownerPrefix($tenantId) . '%');
+            if ($this->dataScopePolicy->usesTenantColumn()) {
+                $query->where('f.tenant_id', $tenantId);
+            }
+        } else {
+            // 无指定租户仅用于公共资源查找，不能返回私有对象。
+            $query->where('f.access_type', 'public');
         }
         if (!$this->dataScopePolicy->usesTenantColumn()) {
             if (!is_int($tenantId) || $tenantId < 1) {

@@ -7,6 +7,8 @@
 deploy/production.env
 /.env
 /.local/
+**/__pycache__/
+*.py[cod]
 /docs/maintenance/fact-audit-2026-09-09/conversation-coverage.json
 /docs/maintenance/fact-audit-2026-09-09/execution-state.json
 

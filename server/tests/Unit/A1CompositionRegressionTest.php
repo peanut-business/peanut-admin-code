@@ -44,7 +44,7 @@ final class A1CompositionRegressionTest extends TestCase
             new TaskJobStore(), str_repeat('fixture-', 8), $contexts, $current,
             new AdminDirectoryQuery($current),
             new ModuleExecutionBoundary($current, $this->createStub(ModuleRuntimeRepository::class)),
-            new CrontabCommandService([], []), static fn(): int => 0, 1,
+            new CrontabCommandService([], []), static fn(): int => 0, [], 1,
         );
         self::assertInstanceOf(TrustedJobPublisher::class, $runtime->publisher());
         self::assertInstanceOf(TaskJobService::class, $runtime->jobs());
