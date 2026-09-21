@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Official\Member\Application\MemberBalanceService;
+use PeanutAdmin\Modules\Member\Service\MemberBalanceService;
 use app\common\service\Money;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -15,13 +15,13 @@ function expectMemberFinance(bool $condition, string $message): void
 
 $serverRoot = dirname(__DIR__, 2);
 $repositoryRoot = dirname($serverRoot);
-$balanceServicePath = $serverRoot . '/app/Modules/Official/Member/Application/MemberBalanceService.php';
+$balanceServicePath = $serverRoot . '/app/modules/official/member/src/Service/MemberBalanceService.php';
 $balanceService = (string)file_get_contents($balanceServicePath);
-$balanceContractPath = $serverRoot . '/app/Modules/Official/Member/Application/MemberBalanceContractService.php';
+$balanceContractPath = $serverRoot . '/app/modules/official/member/src/Service/MemberBalanceContractService.php';
 $balanceContract = (string)file_get_contents($balanceContractPath);
-$memberManifest = (string)file_get_contents($serverRoot . '/app/Modules/Official/Member/module.json');
-$memberProvider = (string)file_get_contents($serverRoot . '/app/Modules/Official/Member/ModuleProvider.php');
-$administration = (string)file_get_contents($serverRoot . '/app/Modules/Official/Member/Application/MemberAdministrationService.php');
+$memberManifest = (string)file_get_contents($serverRoot . '/app/modules/official/member/module.json');
+$memberProvider = (string)file_get_contents($serverRoot . '/app/modules/official/member/src/ModuleProvider.php');
+$administration = (string)file_get_contents($serverRoot . '/app/modules/official/member/src/Service/MemberAdministrationService.php');
 $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
 
 expectMemberFinance(Money::toCents('10.10') === 1010, 'decimal amount conversion changed');
@@ -70,8 +70,8 @@ expectMemberFinance(
 );
 
 $callers = [
-    'app/Modules/Official/Payment/Application/RechargeApplicationService.php',
-    'app/Modules/Official/Payment/Application/RechargeAdministrationService.php',
+    'app/modules/official/payment/src/Service/RechargeApplicationService.php',
+    'app/modules/official/payment/src/Service/RechargeAdministrationService.php',
 ];
 expectMemberFinance(
     $balanceCallers === [$balanceContractPath],
@@ -105,7 +105,7 @@ foreach ($callers as $relativePath) {
     expectMemberFinance(!str_contains($source, 'MemberBalanceLog::create'), 'caller writes the ledger directly: ' . $relativePath);
 }
 
-$settle = (string)file_get_contents($serverRoot . '/app/Modules/Official/Payment/Application/RechargeApplicationService.php');
+$settle = (string)file_get_contents($serverRoot . '/app/modules/official/payment/src/Service/RechargeApplicationService.php');
 $paidGuard = strpos($settle, 'pay_status === RechargeOrder::PAY_STATUS_PAID');
 $credit = strpos($settle, 'memberBalances->applyInTransaction');
 expectMemberFinance($paidGuard !== false && $credit !== false && $paidGuard < $credit, 'paid callback guard must precede credit');
@@ -115,7 +115,7 @@ expectMemberFinance(
     'Payment must query Member through the public contract'
 );
 
-$refund = (string)file_get_contents($serverRoot . '/app/Modules/Official/Payment/Application/RechargeAdministrationService.php');
+$refund = (string)file_get_contents($serverRoot . '/app/modules/official/payment/src/Service/RechargeAdministrationService.php');
 $retryStart = strpos($refund, 'public function refundAgain');
 $retryEnd = strpos($refund, 'private static function assertRefundableOrder', $retryStart ?: 0);
 expectMemberFinance($retryStart !== false && $retryEnd !== false, 'refund retry boundary is missing');

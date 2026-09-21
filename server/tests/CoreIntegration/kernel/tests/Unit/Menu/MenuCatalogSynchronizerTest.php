@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Kernel\Tests\Unit\Menu;
 
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
-use PeanutAdmin\Kernel\Menu\MenuCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Menu\MenuCatalogSynchronizer;
 use PeanutAdmin\Kernel\Menu\MenuDefinition;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PHPUnit\Framework\TestCase;

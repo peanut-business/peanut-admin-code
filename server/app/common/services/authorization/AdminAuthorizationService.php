@@ -11,14 +11,14 @@ use app\common\dto\authorization\AdminAccessData;
 use app\common\dto\authorization\AdminPrincipal;
 use app\common\dto\authorization\PermissionDecision;
 use app\common\model\auth\SystemMenu;
-use app\modules\official\import_export\engine\Application\ImportExportService;
+use PeanutAdmin\Modules\ImportExport\Engine\Application\ImportExportService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
-use PeanutAdmin\Kernel\Persistence\Model\MemberRole;
-use PeanutAdmin\Kernel\Persistence\Model\TenantMember;
-use PeanutAdmin\Kernel\Platform\InstanceControlPlanePolicy;
+use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
+use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
+use PeanutAdmin\Modules\Identity\Platform\InstanceControlPlanePolicy;
 
 /** Tenant Admin identity, RBAC and access projection service. */
 final class AdminAuthorizationService implements AdminAuthorizationQuery, AuthorizedOperationFactory

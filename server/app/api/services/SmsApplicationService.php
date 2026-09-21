@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace app\api\services;
 
-use app\modules\official\notification\contracts\VerificationCodeCommands;
-use app\modules\official\member\contracts\MemberIdentityCommands;
+use PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands;
+use PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands;
 use app\common\enum\notice\NoticeSceneEnum;
 use app\common\exception\BusinessException;
 use PeanutAdmin\Kernel\Auth\TenantContext;

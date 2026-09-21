@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\import_export\controller\OperationLogExportController;
-use app\modules\official\import_export\controller\configurationTransferController;
-use app\modules\official\import_export\controller\ImportExportOperationController;
+use PeanutAdmin\Modules\ImportExport\Controller\OperationLogExportController;
+use PeanutAdmin\Modules\ImportExport\Controller\ConfigurationTransferController;
+use PeanutAdmin\Modules\ImportExport\Controller\ImportExportOperationController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;

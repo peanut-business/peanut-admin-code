@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\common\services\authorization;
 
-use PeanutAdmin\Kernel\Persistence\Model\RolePermission;
+use PeanutAdmin\Modules\Identity\Persistence\Model\RolePermission;
 
 /** Read boundary for checking whether a menu permission is assigned to a role. */
 final class MenuPermissionUsageQuery

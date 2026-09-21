@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\notification\controller\NoticeChannelController;
-use app\modules\official\notification\controller\NoticeLogController;
-use app\modules\official\notification\controller\NoticeSceneController;
-use app\modules\official\notification\controller\NotificationInboxController;
+use PeanutAdmin\Modules\Notification\Controller\NoticeChannelController;
+use PeanutAdmin\Modules\Notification\Controller\NoticeLogController;
+use PeanutAdmin\Modules\Notification\Controller\NoticeSceneController;
+use PeanutAdmin\Modules\Notification\Controller\NotificationInboxController;
 use app\api\controller\SmsController as ApiSmsController;
 use app\api\middleware\PublicTenantModuleMiddleware;
 use app\adminapi\http\middleware\AuthMiddleware;

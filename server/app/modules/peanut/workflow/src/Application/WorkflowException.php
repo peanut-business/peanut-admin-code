@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Application;
+namespace PeanutAdmin\Modules\Workflow\Application;
 
 use RuntimeException;
 
+/** Stable public workflow failure contract shared with Modules that implement workflow SPIs. */
 final class WorkflowException extends RuntimeException
 {
     private function __construct(

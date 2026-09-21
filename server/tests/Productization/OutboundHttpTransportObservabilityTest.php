@@ -6,7 +6,7 @@ use app\common\execution\ExecutionContextStore;
 use app\common\service\http\GuzzleOutboundHttpTransport;
 use app\common\service\http\OutboundHttpException;
 use app\common\service\http\OutboundHttpRequest;
-use app\modules\official\file\composition\storage\QcloudStorageClientFactory;
+use PeanutAdmin\Modules\File\Composition\Storage\QcloudStorageClientFactory;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\HandlerStack;

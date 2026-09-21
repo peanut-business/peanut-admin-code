@@ -40,16 +40,16 @@ expectReferenceCodes(($frontendEvidence['cleanup']['dict_types'] ?? -1) === 0, '
 expectReferenceCodes(($frontendEvidence['cleanup']['dict_data'] ?? -1) === 0, 'T01 data fixtures must be zero');
 
 $ownedFiles = [
-    'app/modules/official/reference_codes/controllers/DictTypeController.php',
-    'app/modules/official/reference_codes/controllers/DictDataController.php',
-    'app/modules/official/reference_codes/validation/DictTypeValidate.php',
-    'app/modules/official/reference_codes/validation/DictDataValidate.php',
-    'app/modules/official/reference_codes/services/DictTypeApplicationService.php',
-    'app/modules/official/reference_codes/services/DictDataApplicationService.php',
-    'app/modules/official/reference_codes/model/DictType.php',
-    'app/modules/official/reference_codes/model/DictData.php',
-    'app/modules/official/reference_codes/infrastructure/ThinkPhpTenantDictionaryProvider.php',
-    'app/modules/official/reference_codes/infrastructure/ThinkPhpSystemDictionaryProvider.php',
+    'app/modules/official/reference_codes/src/Controller/DictTypeController.php',
+    'app/modules/official/reference_codes/src/Controller/DictDataController.php',
+    'app/modules/official/reference_codes/src/Validation/DictTypeValidate.php',
+    'app/modules/official/reference_codes/src/Validation/DictDataValidate.php',
+    'app/modules/official/reference_codes/src/Service/DictTypeApplicationService.php',
+    'app/modules/official/reference_codes/src/Service/DictDataApplicationService.php',
+    'app/modules/official/reference_codes/src/Model/DictType.php',
+    'app/modules/official/reference_codes/src/Model/DictData.php',
+    'app/modules/official/reference_codes/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php',
+    'app/modules/official/reference_codes/src/Infrastructure/ThinkPhpSystemDictionaryProvider.php',
 ];
 $sources = [];
 foreach ($ownedFiles as $relativePath) {
@@ -58,9 +58,9 @@ foreach ($ownedFiles as $relativePath) {
     $sources[$relativePath] = (string)file_get_contents($absolutePath);
 }
 
-$typeLogic = $sources['app/modules/official/reference_codes/services/DictTypeApplicationService.php'];
-$dataLogic = $sources['app/modules/official/reference_codes/services/DictDataApplicationService.php'];
-$tenantProvider = $sources['app/modules/official/reference_codes/infrastructure/ThinkPhpTenantDictionaryProvider.php'];
+$typeLogic = $sources['app/modules/official/reference_codes/src/Service/DictTypeApplicationService.php'];
+$dataLogic = $sources['app/modules/official/reference_codes/src/Service/DictDataApplicationService.php'];
+$tenantProvider = $sources['app/modules/official/reference_codes/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php'];
 expectReferenceCodes(str_contains($tenantProvider, 'Db::transaction('), 'type mutations must retain a transaction');
 expectReferenceCodes(str_contains($tenantProvider, '->lock(true)'), 'type mutations must retain row locks');
 expectReferenceCodes(

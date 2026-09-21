@@ -10,7 +10,7 @@ use app\platform\service\ops\PlatformDiagnosticBundleService;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
-use app\modules\official\ops\domain\Logs\TenantDiagnosticAttributes;
+use PeanutAdmin\Modules\Ops\Domain\Logs\TenantDiagnosticAttributes;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';

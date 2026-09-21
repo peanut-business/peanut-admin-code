@@ -32,7 +32,7 @@
         "qiniu/php-sdk": "^7.4",
         "aliyuncs/oss-sdk-php": "^2.4",
         "qcloud/cos-sdk-v5": "^2.5",
-        "peanut-admin/core": "dev-dev#7a8c15e66c441048b740961dc743e7379921faec",
+        "peanut-admin/core": "dev-dev#98500eac433dddf71f93c45fa04e318a27ac88b9",
         "symfony/html-sanitizer": "^7.3",
         "composer/semver": "^3.4",
         "opis/json-schema": "^2.6"
@@ -45,28 +45,33 @@
     "autoload": {
         "psr-4": {
             "app\\": "app",
-            "PeanutAdmin\\ArtifactRevision\\": [
-                "app/modules/peanut/artifact_revision/src/"
-            ],
-            "PeanutAdmin\\DataPermission\\": [
-                "app/modules/official/identity/access/data-permission/"
-            ],
-            "PeanutAdmin\\EntitlementQuota\\": [
-                "app/modules/peanut/entitlement_quota/src/"
-            ],
-            "PeanutAdmin\\Kernel\\": [
-                "app/modules/official/identity/access/kernel/",
-                "app/modules/official/identity/audit/kernel/",
-                "app/modules/official/identity/identity/kernel/",
-                "app/modules/official/identity/organization/kernel/",
-                "app/modules/official/identity/tenancy/kernel/"
-            ],
-            "PeanutAdmin\\Workflow\\": [
-                "app/modules/peanut/workflow/src/"
-            ]
+            "PeanutAdmin\\Modules\\Article\\": "app/modules/official/article/src/",
+            "PeanutAdmin\\Modules\\File\\": "app/modules/official/file/src/",
+            "PeanutAdmin\\Modules\\Identity\\": "app/modules/official/identity/src/",
+            "PeanutAdmin\\Modules\\ImportExport\\": "app/modules/official/import_export/src/",
+            "PeanutAdmin\\Modules\\Integration\\": "app/modules/official/integration/src/",
+            "PeanutAdmin\\Modules\\Member\\": "app/modules/official/member/src/",
+            "PeanutAdmin\\Modules\\Notification\\": "app/modules/official/notification/src/",
+            "PeanutAdmin\\Modules\\OAuth\\": "app/modules/official/oauth/src/",
+            "PeanutAdmin\\Modules\\Ops\\": "app/modules/official/ops/src/",
+            "PeanutAdmin\\Modules\\Payment\\": "app/modules/official/payment/src/",
+            "PeanutAdmin\\Modules\\ReferenceCodes\\": "app/modules/official/reference_codes/src/",
+            "PeanutAdmin\\Modules\\RichText\\": "app/modules/official/rich_text/src/",
+            "PeanutAdmin\\Modules\\Settings\\": "app/modules/official/settings/src/",
+            "PeanutAdmin\\Modules\\Task\\": "app/modules/official/task/src/",
+            "PeanutAdmin\\Modules\\ArtifactRevision\\": "app/modules/peanut/artifact_revision/src/",
+            "PeanutAdmin\\Modules\\EntitlementQuota\\": "app/modules/peanut/entitlement_quota/src/",
+            "PeanutAdmin\\Modules\\Workflow\\": "app/modules/peanut/workflow/src/",
+            "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "app/modules/fixture/delivery_record/src/"
         },
         "classmap": [
             "database/schema/"
+        ],
+        "exclude-from-classmap": [
+            "app/modules/*/*/database/migrations/",
+            "app/modules/*/*/*/database/migrations/",
+            "tests/Modules/Official/ImportExport/feature-harness.php",
+            "tests/Modules/Official/Notification/feature-harness.php"
         ]
     },
     "config": {

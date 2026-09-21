@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\article\controller\ArticleCateController;
-use app\modules\official\article\controller\ArticleController;
+use PeanutAdmin\Modules\Article\Controller\ArticleCateController;
+use PeanutAdmin\Modules\Article\Controller\ArticleController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;

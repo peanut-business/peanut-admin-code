@@ -3961,7 +3961,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\MachineIdentityController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\MachineIdentityController",
             "action": "revoke",
             "auth": {
                 "mode": "tenant_permission",
@@ -4034,7 +4034,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\WebhookController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\WebhookController",
             "action": "disable",
             "auth": {
                 "mode": "tenant_permission",
@@ -4107,7 +4107,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\ReferenceCodesController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\ReferenceCodesController",
             "action": "retire",
             "auth": {
                 "mode": "tenant_permission",
@@ -4183,7 +4183,7 @@
                 "type": "module",
                 "key": "official.settings"
             },
-            "controller": "app\\modules\\official\\settings\\controllers\\SettingsController",
+            "controller": "PeanutAdmin\\Modules\\Settings\\Controller\\SettingsController",
             "action": "unset",
             "auth": {
                 "mode": "tenant_permission",
@@ -4451,7 +4451,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\ImportExportOperationController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ImportExportOperationController",
             "action": "download",
             "auth": {
                 "mode": "tenant_permission",
@@ -4524,7 +4524,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "assets",
             "auth": {
                 "mode": "tenant_permission",
@@ -4595,7 +4595,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\ImportExportOperationController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ImportExportOperationController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -4667,7 +4667,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\WebhookDeliveryController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\WebhookDeliveryController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -4738,7 +4738,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\WebhookDeliveryController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\WebhookDeliveryController",
             "action": "attempts",
             "auth": {
                 "mode": "tenant_permission",
@@ -4809,7 +4809,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\MachineIdentityController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\MachineIdentityController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -4880,7 +4880,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\SessionSecurityController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\SessionSecurityController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -4950,7 +4950,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\WebhookController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\WebhookController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -5020,7 +5020,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NotificationInboxController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NotificationInboxController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -5091,7 +5091,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\ReferenceCodesController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\ReferenceCodesController",
             "action": "sets",
             "auth": {
                 "mode": "tenant_permission",
@@ -5161,7 +5161,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\ReferenceCodesController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\ReferenceCodesController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -5233,7 +5233,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\ReferenceCodesController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\ReferenceCodesController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -5305,7 +5305,7 @@
                 "type": "module",
                 "key": "official.settings"
             },
-            "controller": "app\\modules\\official\\settings\\controllers\\SettingsController",
+            "controller": "PeanutAdmin\\Modules\\Settings\\Controller\\SettingsController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -5377,7 +5377,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\TaskJobController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\TaskJobController",
             "action": "index",
             "auth": {
                 "mode": "tenant_permission",
@@ -6473,7 +6473,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictDataController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
             "action": "byType",
             "auth": {
                 "mode": "tenant_permission",
@@ -6537,7 +6537,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictDataController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -6601,7 +6601,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictDataController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -6665,7 +6665,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictTypeController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
             "action": "all",
             "auth": {
                 "mode": "tenant_permission",
@@ -6729,7 +6729,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictTypeController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -6793,7 +6793,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictTypeController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -7753,7 +7753,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleCateController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController",
             "action": "all",
             "auth": {
                 "mode": "tenant_permission",
@@ -7828,7 +7828,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleCateController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -7903,7 +7903,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleCateController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -7978,7 +7978,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -8053,7 +8053,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -8128,7 +8128,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "listCate",
             "auth": {
                 "mode": "tenant_permission",
@@ -8203,7 +8203,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -8273,7 +8273,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\configurationTransferController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ConfigurationTransferController",
             "action": "export",
             "auth": {
                 "mode": "tenant_permission",
@@ -8343,7 +8343,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\OperationLogExportController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\OperationLogExportController",
             "action": "exportStatus",
             "auth": {
                 "mode": "tenant_permission",
@@ -8418,7 +8418,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\OperationLogExportController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\OperationLogExportController",
             "action": "exportDownload",
             "auth": {
                 "mode": "tenant_permission",
@@ -8493,7 +8493,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\AccountLogController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\AccountLogController",
             "action": "getUmChangeType",
             "auth": {
                 "mode": "tenant_permission",
@@ -8568,7 +8568,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\AccountLogController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\AccountLogController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -8643,7 +8643,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -8718,7 +8718,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -8793,7 +8793,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberTagController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberTagController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -8868,7 +8868,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NoticeChannelController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NoticeChannelController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -8943,7 +8943,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NoticeLogController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NoticeLogController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -9018,7 +9018,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NoticeLogController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NoticeLogController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -9093,7 +9093,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NoticeSceneController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NoticeSceneController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -9168,7 +9168,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NoticeSceneController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NoticeSceneController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -9243,7 +9243,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\MiniProgramController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\MiniProgramController",
             "action": "getConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -9318,7 +9318,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountController",
             "action": "getConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -9393,7 +9393,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountMenuController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountMenuController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -9468,7 +9468,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountReplyController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -9543,7 +9543,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountReplyController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -9618,7 +9618,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OpenPlatformController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OpenPlatformController",
             "action": "getConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -9693,7 +9693,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\WebPageController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\WebPageController",
             "action": "getConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -9768,7 +9768,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RechargeSettingController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RechargeSettingController",
             "action": "config",
             "auth": {
                 "mode": "tenant_permission",
@@ -9843,7 +9843,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RechargeController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RechargeController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -9918,7 +9918,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RefundController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RefundController",
             "action": "record",
             "auth": {
                 "mode": "tenant_permission",
@@ -9993,7 +9993,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RefundController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RefundController",
             "action": "log",
             "auth": {
                 "mode": "tenant_permission",
@@ -10068,7 +10068,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RefundController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RefundController",
             "action": "stat",
             "auth": {
                 "mode": "tenant_permission",
@@ -10143,7 +10143,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\PayConfigController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\PayConfigController",
             "action": "getConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -10218,7 +10218,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\CrontabController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\CrontabController",
             "action": "detail",
             "auth": {
                 "mode": "tenant_permission",
@@ -10293,7 +10293,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\CrontabController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\CrontabController",
             "action": "expression",
             "auth": {
                 "mode": "tenant_permission",
@@ -10368,7 +10368,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\CrontabController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\CrontabController",
             "action": "lists",
             "auth": {
                 "mode": "tenant_permission",
@@ -14237,7 +14237,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\ImportExportOperationController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ImportExportOperationController",
             "action": "submitExport",
             "auth": {
                 "mode": "tenant_permission",
@@ -14310,7 +14310,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\ImportExportOperationController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ImportExportOperationController",
             "action": "submitImport",
             "auth": {
                 "mode": "tenant_permission",
@@ -14384,7 +14384,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\ImportExportOperationController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ImportExportOperationController",
             "action": "cancel",
             "auth": {
                 "mode": "tenant_permission",
@@ -14457,7 +14457,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\MachineIdentityController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\MachineIdentityController",
             "action": "create",
             "auth": {
                 "mode": "tenant_permission",
@@ -14529,7 +14529,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\MachineIdentityController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\MachineIdentityController",
             "action": "rotate",
             "auth": {
                 "mode": "tenant_permission",
@@ -14603,7 +14603,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\SessionSecurityController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\SessionSecurityController",
             "action": "revoke",
             "auth": {
                 "mode": "tenant_permission",
@@ -14675,7 +14675,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\WebhookController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\WebhookController",
             "action": "create",
             "auth": {
                 "mode": "tenant_permission",
@@ -14747,7 +14747,7 @@
                 "type": "module",
                 "key": "official.integration"
             },
-            "controller": "app\\modules\\official\\integration\\controller\\WebhookController",
+            "controller": "PeanutAdmin\\Modules\\Integration\\Controller\\WebhookController",
             "action": "rotateSecret",
             "auth": {
                 "mode": "tenant_permission",
@@ -14821,7 +14821,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NotificationInboxController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NotificationInboxController",
             "action": "markRead",
             "auth": {
                 "mode": "tenant_permission",
@@ -14894,7 +14894,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NotificationInboxController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NotificationInboxController",
             "action": "bulk",
             "auth": {
                 "mode": "tenant_permission",
@@ -14967,7 +14967,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\ReferenceCodesController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\ReferenceCodesController",
             "action": "create",
             "auth": {
                 "mode": "tenant_permission",
@@ -15043,7 +15043,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\TaskJobController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\TaskJobController",
             "action": "cancel",
             "auth": {
                 "mode": "tenant_permission",
@@ -15116,7 +15116,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\TaskJobController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\TaskJobController",
             "action": "retry",
             "auth": {
                 "mode": "tenant_permission",
@@ -16022,7 +16022,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictDataController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -16086,7 +16086,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictDataController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -16150,7 +16150,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictDataController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -16214,7 +16214,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictDataController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController",
             "action": "updateStatus",
             "auth": {
                 "mode": "tenant_permission",
@@ -16278,7 +16278,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictTypeController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -16342,7 +16342,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictTypeController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -16406,7 +16406,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictTypeController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -16470,7 +16470,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\DictTypeController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController",
             "action": "updateStatus",
             "auth": {
                 "mode": "tenant_permission",
@@ -17494,7 +17494,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -17569,7 +17569,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleCateController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -17644,7 +17644,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleCateController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -17719,7 +17719,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleCateController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -17794,7 +17794,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleCateController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController",
             "action": "updateStatus",
             "auth": {
                 "mode": "tenant_permission",
@@ -17869,7 +17869,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -17944,7 +17944,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -18019,7 +18019,7 @@
                 "type": "module",
                 "key": "official.article"
             },
-            "controller": "app\\modules\\official\\article\\controller\\ArticleController",
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
             "action": "updateStatus",
             "auth": {
                 "mode": "tenant_permission",
@@ -18094,7 +18094,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "addCate",
             "auth": {
                 "mode": "tenant_permission",
@@ -18169,7 +18169,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "delCate",
             "auth": {
                 "mode": "tenant_permission",
@@ -18244,7 +18244,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "editCate",
             "auth": {
                 "mode": "tenant_permission",
@@ -18319,7 +18319,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -18394,7 +18394,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "move",
             "auth": {
                 "mode": "tenant_permission",
@@ -18469,7 +18469,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\FileController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
             "action": "rename",
             "auth": {
                 "mode": "tenant_permission",
@@ -18544,7 +18544,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\UploadController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\UploadController",
             "action": "file",
             "auth": {
                 "mode": "tenant_permission",
@@ -18614,7 +18614,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\UploadController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\UploadController",
             "action": "image",
             "auth": {
                 "mode": "tenant_permission",
@@ -18689,7 +18689,7 @@
                 "type": "module",
                 "key": "official.file"
             },
-            "controller": "app\\modules\\official\\file\\controller\\UploadController",
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\UploadController",
             "action": "video",
             "auth": {
                 "mode": "tenant_permission",
@@ -18764,7 +18764,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\configurationTransferController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ConfigurationTransferController",
             "action": "apply",
             "auth": {
                 "mode": "tenant_permission",
@@ -18836,7 +18836,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\configurationTransferController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\ConfigurationTransferController",
             "action": "dryRun",
             "auth": {
                 "mode": "tenant_permission",
@@ -18907,7 +18907,7 @@
                 "type": "module",
                 "key": "official.import-export"
             },
-            "controller": "app\\modules\\official\\import_export\\controller\\OperationLogExportController",
+            "controller": "PeanutAdmin\\Modules\\ImportExport\\Controller\\OperationLogExportController",
             "action": "export",
             "auth": {
                 "mode": "tenant_permission",
@@ -18982,7 +18982,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -19057,7 +19057,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberController",
             "action": "adjustMoney",
             "auth": {
                 "mode": "tenant_permission",
@@ -19132,7 +19132,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -19207,7 +19207,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberTagController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberTagController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -19282,7 +19282,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberTagController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberTagController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -19357,7 +19357,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberTagController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberTagController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -19432,7 +19432,7 @@
                 "type": "module",
                 "key": "official.member"
             },
-            "controller": "app\\modules\\official\\member\\controller\\MemberController",
+            "controller": "PeanutAdmin\\Modules\\Member\\Controller\\MemberController",
             "action": "updateStatus",
             "auth": {
                 "mode": "tenant_permission",
@@ -19507,7 +19507,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NoticeChannelController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NoticeChannelController",
             "action": "save",
             "auth": {
                 "mode": "tenant_permission",
@@ -19582,7 +19582,7 @@
                 "type": "module",
                 "key": "official.notification"
             },
-            "controller": "app\\modules\\official\\notification\\controller\\NoticeSceneController",
+            "controller": "PeanutAdmin\\Modules\\Notification\\Controller\\NoticeSceneController",
             "action": "save",
             "auth": {
                 "mode": "tenant_permission",
@@ -19657,7 +19657,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\MiniProgramController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\MiniProgramController",
             "action": "setConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -19732,7 +19732,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountMenuController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountMenuController",
             "action": "saveAndPublish",
             "auth": {
                 "mode": "tenant_permission",
@@ -19807,7 +19807,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountMenuController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountMenuController",
             "action": "save",
             "auth": {
                 "mode": "tenant_permission",
@@ -19882,7 +19882,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountReplyController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -19957,7 +19957,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountReplyController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -20032,7 +20032,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountReplyController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -20107,7 +20107,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountReplyController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController",
             "action": "updateStatus",
             "auth": {
                 "mode": "tenant_permission",
@@ -20182,7 +20182,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OfficialAccountController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountController",
             "action": "setConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -20257,7 +20257,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\OpenPlatformController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\OpenPlatformController",
             "action": "setConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -20332,7 +20332,7 @@
                 "type": "module",
                 "key": "official.oauth"
             },
-            "controller": "app\\modules\\official\\oauth\\controller\\WebPageController",
+            "controller": "PeanutAdmin\\Modules\\OAuth\\Controller\\WebPageController",
             "action": "setConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -20407,7 +20407,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RechargeSettingController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RechargeSettingController",
             "action": "save",
             "auth": {
                 "mode": "tenant_permission",
@@ -20482,7 +20482,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RechargeController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RechargeController",
             "action": "refund",
             "auth": {
                 "mode": "tenant_permission",
@@ -20557,7 +20557,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\RechargeController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\RechargeController",
             "action": "refundAgain",
             "auth": {
                 "mode": "tenant_permission",
@@ -20632,7 +20632,7 @@
                 "type": "module",
                 "key": "official.payment"
             },
-            "controller": "app\\modules\\official\\payment\\controller\\PayConfigController",
+            "controller": "PeanutAdmin\\Modules\\Payment\\Controller\\PayConfigController",
             "action": "setConfig",
             "auth": {
                 "mode": "tenant_permission",
@@ -20707,7 +20707,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\CrontabController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\CrontabController",
             "action": "add",
             "auth": {
                 "mode": "tenant_permission",
@@ -20782,7 +20782,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\CrontabController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\CrontabController",
             "action": "delete",
             "auth": {
                 "mode": "tenant_permission",
@@ -20857,7 +20857,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\CrontabController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\CrontabController",
             "action": "edit",
             "auth": {
                 "mode": "tenant_permission",
@@ -20932,7 +20932,7 @@
                 "type": "module",
                 "key": "official.task"
             },
-            "controller": "app\\modules\\official\\task\\controller\\CrontabController",
+            "controller": "PeanutAdmin\\Modules\\Task\\Controller\\CrontabController",
             "action": "operate",
             "auth": {
                 "mode": "tenant_permission",
@@ -25216,7 +25216,7 @@
                 "type": "module",
                 "key": "official.reference-codes"
             },
-            "controller": "app\\modules\\official\\reference_codes\\controllers\\ReferenceCodesController",
+            "controller": "PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\ReferenceCodesController",
             "action": "replace",
             "auth": {
                 "mode": "tenant_permission",
@@ -25292,7 +25292,7 @@
                 "type": "module",
                 "key": "official.settings"
             },
-            "controller": "app\\modules\\official\\settings\\controllers\\SettingsController",
+            "controller": "PeanutAdmin\\Modules\\Settings\\Controller\\SettingsController",
             "action": "replace",
             "auth": {
                 "mode": "tenant_permission",

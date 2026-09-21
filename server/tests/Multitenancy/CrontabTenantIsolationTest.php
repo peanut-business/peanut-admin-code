@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Official\Task\Application\CrontabApplicationService;
-use app\Modules\Official\Task\Application\CrontabTaskDefinition;
-use app\Modules\Official\Task\ModuleProvider as TaskModuleProvider;
+use PeanutAdmin\Modules\Task\Service\CrontabApplicationService;
+use PeanutAdmin\Modules\Task\Service\CrontabTaskDefinition;
+use PeanutAdmin\Modules\Task\ModuleProvider as TaskModuleProvider;
 use app\common\enum\CrontabEnum;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
-use app\Modules\Official\Task\Model\Crontab;
+use PeanutAdmin\Modules\Task\Model\Crontab;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
@@ -68,7 +68,7 @@ SQL);
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$manifest = (new ManifestLoader())->load($serverRoot . '/app/Modules/Official/Task');
+$manifest = (new ManifestLoader())->load($serverRoot . '/app/modules/official/task');
 $taskVersion = (string)($manifest->data['version'] ?? '');
 $taskDigest = $manifest->digest;
 expectCrontabTenant($taskVersion !== '' && $taskDigest !== '', 'official.task manifest is unavailable');
@@ -219,7 +219,7 @@ SQL);
     );
     $scheduler = $taskProvider->scheduler(
         $tasks,
-        app(\app\Modules\Official\Task\Application\CrontabSchedulerService::class),
+        app(\PeanutAdmin\Modules\Task\Service\CrontabSchedulerService::class),
     );
     $scheduler->runDue($windowNow);
 
@@ -328,9 +328,9 @@ SQL)->fetchAll();
             && $betaJob['last_error_code'] === 'CRONTAB_EXECUTION_FAILED',
         'terminal Crontab failure is absent from the existing diagnostics projection',
     );
-    $schedulerSource = (string)file_get_contents($serverRoot . '/app/Modules/Official/Task/Application/CrontabSchedulerService.php');
+    $schedulerSource = (string)file_get_contents($serverRoot . '/app/modules/official/task/src/Service/CrontabSchedulerService.php');
     $commandSource = (string)file_get_contents($serverRoot . '/app/command/Crontab.php');
-    $runtimeSource = (string)file_get_contents($serverRoot . '/app/Modules/Official/Task/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php');
+    $runtimeSource = (string)file_get_contents($serverRoot . '/app/modules/official/task/src/Infrastructure/Runtime/ThinkPhpTaskJobRuntime.php');
     expectCrontabTenant(
         !str_contains($schedulerSource, 'Console::call')
             && !str_contains($commandSource, 'Console::call')

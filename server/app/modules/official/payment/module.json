@@ -31,7 +31,7 @@
     }
   ],
   "backend": {
-    "provider": "app\\modules\\official\\payment\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\Payment\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -51,10 +51,10 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\payment\\contracts\\PaymentChannelGrantCommands",
-      "app\\modules\\official\\payment\\contracts\\RechargeCommands",
-      "app\\modules\\official\\payment\\contracts\\RechargeQueries",
-      "app\\modules\\official\\payment\\contracts\\RefundReconciliationCommands"
+      "PeanutAdmin\\Modules\\Payment\\Contract\\PaymentChannelGrantCommands",
+      "PeanutAdmin\\Modules\\Payment\\Contract\\RechargeCommands",
+      "PeanutAdmin\\Modules\\Payment\\Contract\\RechargeQueries",
+      "PeanutAdmin\\Modules\\Payment\\Contract\\RefundReconciliationCommands"
     ],
     "events": []
   },

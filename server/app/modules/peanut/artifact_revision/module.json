@@ -19,7 +19,7 @@
         }
     ],
     "backend": {
-        "provider": "app\\modules\\peanut\\artifact_revision\\ModuleProvider",
+        "provider": "PeanutAdmin\\Modules\\ArtifactRevision\\ModuleProvider",
         "migrations": "database/migrations"
     },
     "frontend": {},
@@ -31,8 +31,8 @@
     },
     "contracts": {
         "exports": [
-            "PeanutAdmin\\ArtifactRevision\\Application\\ArtifactRevisionService",
-            "PeanutAdmin\\ArtifactRevision\\Workflow\\ArtifactSubjectRevisionReader"
+            "PeanutAdmin\\Modules\\ArtifactRevision\\Application\\ArtifactRevisionService",
+            "PeanutAdmin\\Modules\\ArtifactRevision\\Workflow\\ArtifactSubjectRevisionReader"
         ],
         "events": []
     },

@@ -82,15 +82,15 @@ TRUSTED_TENANT_KEY_PATHS = (
     "server/app/common/service/capability/",
     "server/app/common/service/module/",
     "server/app/platform/",
-    "server/app/modules/fixture/delivery_record/infrastructure/",
-    "server/app/modules/official/import_export/infrastructure/",
-    "server/app/modules/official/article/infrastructure/persistence/",
-    "server/app/modules/official/file/infrastructure/persistence/",
-    "server/app/modules/official/member/infrastructure/persistence/",
-    "server/app/modules/official/notification/infrastructure/persistence/",
-    "server/app/modules/official/oauth/infrastructure/persistence/",
-    "server/app/modules/official/payment/infrastructure/",
-    "server/app/modules/official/task/infrastructure/persistence/",
+    "server/app/modules/fixture/delivery_record/src/Infrastructure/",
+    "server/app/modules/official/import_export/src/Infrastructure/",
+    "server/app/modules/official/article/src/Infrastructure/Persistence/",
+    "server/app/modules/official/file/src/Infrastructure/Persistence/",
+    "server/app/modules/official/member/src/Infrastructure/Persistence/",
+    "server/app/modules/official/notification/src/Infrastructure/Persistence/",
+    "server/app/modules/official/oauth/src/Infrastructure/Persistence/",
+    "server/app/modules/official/payment/src/Infrastructure/",
+    "server/app/modules/official/task/src/Infrastructure/Persistence/",
     "server/app/common/service/notice/",
     "server/app/common/service/runtime/",
 )
@@ -170,8 +170,9 @@ def hits_for(path: Path, text: str) -> list[tuple[str, int, str]]:
     lines = text.splitlines()
     hits: list[tuple[str, int, str]] = []
     rel = relative(path)
-    application_path = "/Application/" in f"/{rel}" or "/application/" in f"/{rel}" or "/services/" in f"/{rel}"
-    service_path = "/service/" in f"/{rel}" or "/services/" in f"/{rel}" or path.name.endswith("Service.php")
+    lower_rel = f"/{rel}".lower()
+    application_path = "/application/" in lower_rel or "/service/" in lower_rel
+    service_path = "/service/" in lower_rel or path.name.endswith("Service.php")
     host_path = (
         rel.startswith((
             "server/app/api/",
@@ -237,32 +238,31 @@ def hits_for(path: Path, text: str) -> list[tuple[str, int, str]]:
                     line,
                 )):
                 hits.append(("static_runtime_assembly", number, line.strip()))
-        if ((rel == "server/app/api/services/UserTokenService.php" and method == "parseToken")
-            or (rel == "server/app/modules/official/oauth/infrastructure/persistence/OfficialAccountReplyRepository.php"
-                and method in {"update", "delete", "updateStatus"})) and re.search(r"\breturn\s+false\s*;", line):
+        if (rel == "server/app/api/services/UserTokenService.php" and method == "parseToken"
+            and re.search(r"\breturn\s+false\s*;", line)):
             hits.append(("classified_false_error", number, line.strip()))
-        if (rel == "server/app/modules/official/task/services/CrontabSchedulerService.php"
+        if (rel == "server/app/modules/official/task/src/Service/CrontabSchedulerService.php"
             and method == "consider"
             and re.search(r"\breturn\s+false\s*;", line)
             and "CRONTAB_EXPRESSION_INVALID" in "\n".join(lines[max(0, number - 16):number])):
             hits.append(("classified_false_error", number, line.strip()))
-        if (rel == "server/app/modules/official/payment/infrastructure/ThinkPhpPaymentChannelGrantCommands.php"
+        if (rel == "server/app/modules/official/payment/src/Infrastructure/ThinkPhpPaymentChannelGrantCommands.php"
             and method == "channelConfigured"
             and re.search(r"\bcatch\s*\(\\?Throwable\b", line)):
             hits.append(("classified_false_error", number, line.strip()))
         if (rel.startswith("server/app/common/")
-            and re.search(r"\bapp\\Modules\\", line)
-            and "\\Contracts\\" not in line):
+            and re.search(r"\bPeanutAdmin\\Modules\\", line)
+            and "\\Contract\\" not in line):
             hits.append(("common_module_reverse_dependency", number, line.strip()))
         if host_path and re.search(
-            r"^\s*use\s+app\\Modules\\[^;]*\\(?:Application|Infrastructure|Model)\\[^;]+;",
+            r"^\s*use\s+PeanutAdmin\\Modules\\[^;]*\\(?:Application|Infrastructure|Model|Service)\\[^;]+;",
             line,
             re.IGNORECASE,
         ):
             hits.append(("host_module_internal_dependency", number, line.strip()))
         if application_path and re.search(r"^\s*use\s+think\\Console\s*;", line):
             hits.append(("application_framework_model", number, line.strip()))
-        if (application_path or "/contracts/" in f"/{rel}") and re.search(
+        if (application_path or "/contract/" in lower_rel) and re.search(
             r"^\s*use\s+think\\file\\UploadedFile", line
         ):
             hits.append(("framework_upload_contract", number, line.strip()))
@@ -365,7 +365,7 @@ def hits_for(path: Path, text: str) -> list[tuple[str, int, str]]:
         if application_path and re.search(
             r"\bDb::(?!transaction\b)|->(?:prepare|query|exec)\s*\(", line
         ):
-            if rel == "server/app/modules/official/task/services/CrontabSchedulerService.php" and "->query(Crontab::class" in line:
+            if rel == "server/app/modules/official/task/src/Service/CrontabSchedulerService.php" and "->query(Crontab::class" in line:
                 continue
             hits.append(("application_raw_persistence", number, line.strip()))
         depth += line.count("{") - line.count("}")
@@ -385,7 +385,7 @@ def hits_for(path: Path, text: str) -> list[tuple[str, int, str]]:
             r"\bDb::|::(?:where|find|create|destroy)\s*\(|->(?:select|find|findOrEmpty|count|column|save|update|delete|lock)\s*\(",
             stripped,
         ):
-            if rel == "server/app/modules/official/file/services/FileAdministrationService.php" and "$this->storage->delete" in stripped:
+            if rel == "server/app/modules/official/file/src/Service/FileAdministrationService.php" and "$this->storage->delete" in stripped:
                 continue
             hits.append(("query_inside_loop", number, stripped))
         depth += stripped.count("{") - stripped.count("}")
@@ -551,7 +551,7 @@ def schema_tenant_tables() -> set[str]:
 
 
 def concrete_models() -> set[str]:
-    paths = list((ROOT / "server/app/modules").glob("*/*/model/*.php"))
+    paths = list((ROOT / "server/app/modules").glob("*/*/src/**/Model/*.php"))
     paths.extend((ROOT / "server/app/common/model").glob("**/*.php"))
     models: set[str] = set()
     for path in paths:

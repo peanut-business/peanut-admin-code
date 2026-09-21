@@ -6,10 +6,10 @@ namespace Tests\Modules\Official\Settings\Integration\Application;
 
 use DateTimeImmutable;
 use ThinkPhpTestConnection;
-use app\modules\official\settings\Application\EffectiveSetting;
-use app\modules\official\settings\Application\SettingAdminService;
-use app\modules\official\settings\Application\SettingException;
-use app\modules\official\settings\Definition\SettingDefinitionSynchronizer;
+use PeanutAdmin\Modules\Settings\Application\EffectiveSetting;
+use PeanutAdmin\Modules\Settings\Application\SettingAdminService;
+use PeanutAdmin\Modules\Settings\Application\SettingException;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
 use PeanutAdmin\Settings\Secret\SodiumSecretProtector;
 use Tests\Modules\Official\Settings\Integration\Support\SettingsDatabaseTestCase;
 
@@ -715,9 +715,9 @@ SQL);
 
 declare(strict_types=1);
 
-use app\modules\official\settings\Application\SettingException;
-use app\modules\official\settings\Application\SettingAdminService;
-use app\modules\official\settings\Definition\SettingDefinition;
+use PeanutAdmin\Modules\Settings\Application\SettingException;
+use PeanutAdmin\Modules\Settings\Application\SettingAdminService;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinition;
 use PeanutAdmin\Settings\Secret\SecretProtector;
 use PeanutAdmin\Settings\Secret\SecretStorageContext;
 

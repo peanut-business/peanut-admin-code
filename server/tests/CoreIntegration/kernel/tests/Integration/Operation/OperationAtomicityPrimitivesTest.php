@@ -7,7 +7,7 @@ namespace PeanutAdmin\Kernel\Tests\Integration\Operation;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyKey;

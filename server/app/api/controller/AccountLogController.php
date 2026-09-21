@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
-use app\modules\official\member\contracts\MemberQueries;
+use PeanutAdmin\Modules\Member\Contract\MemberQueries;
 use think\App;
 use app\common\execution\CurrentExecutionContext;
 

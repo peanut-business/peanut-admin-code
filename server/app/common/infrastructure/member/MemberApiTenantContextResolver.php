@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\common\infrastructure\member;
 
-use app\modules\official\member\contracts\MemberSubjectLookup;
+use PeanutAdmin\Modules\Member\Contract\MemberSubjectLookup;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use think\facade\Db;
 

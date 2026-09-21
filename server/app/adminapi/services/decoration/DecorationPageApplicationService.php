@@ -5,7 +5,7 @@ namespace app\adminapi\services\decoration;
 
 use app\common\exception\BusinessException;
 use app\common\services\ProductAssetReferenceService;
-use app\modules\official\article\contracts\ArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
 use app\common\services\decoration\DecorationReadService;
 use app\common\services\decoration\DecorationSchemaService;
 use app\common\model\decoration\DecoratePage;

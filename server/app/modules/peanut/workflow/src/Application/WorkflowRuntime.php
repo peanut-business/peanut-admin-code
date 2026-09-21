@@ -2,33 +2,33 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Application;
+namespace PeanutAdmin\Modules\Workflow\Application;
 
 use DateTimeImmutable;
 use DateTimeZone;
 use JsonException;
 use PeanutAdmin\Kernel\Api\ApiException;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyKey;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyService;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
-use PeanutAdmin\Workflow\Adapter\WorkflowAssignmentResolver;
-use PeanutAdmin\Workflow\Adapter\WorkflowAttachmentResolver;
-use PeanutAdmin\Workflow\Adapter\WorkflowAuthorizationResolver;
-use PeanutAdmin\Workflow\Adapter\WorkflowNotificationIntent;
-use PeanutAdmin\Workflow\Adapter\WorkflowSideEffectPublisher;
-use PeanutAdmin\Workflow\Adapter\WorkflowSubjectRevisionResolver;
-use PeanutAdmin\Workflow\Adapter\WorkflowTaskIntent;
-use PeanutAdmin\Workflow\Adapter\WorkflowTransitionEffects;
-use PeanutAdmin\Workflow\Definition\WorkflowGraph;
-use PeanutAdmin\Workflow\Definition\WorkflowNode;
-use PeanutAdmin\Workflow\Definition\WorkflowTransition;
-use PeanutAdmin\Workflow\Instance\WorkflowInstance;
-use PeanutAdmin\Workflow\Instance\WorkflowWorkItem;
-use PeanutAdmin\Workflow\Package;
-use PeanutAdmin\Workflow\Persistence\ThinkPhpWorkflowRepository;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowAssignmentResolver;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowAttachmentResolver;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowAuthorizationResolver;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowNotificationIntent;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowSideEffectPublisher;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowSubjectRevisionResolver;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowTaskIntent;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowTransitionEffects;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowGraph;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowNode;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowTransition;
+use PeanutAdmin\Modules\Workflow\Instance\WorkflowInstance;
+use PeanutAdmin\Modules\Workflow\Instance\WorkflowWorkItem;
+use PeanutAdmin\Modules\Workflow\Package;
+use PeanutAdmin\Modules\Workflow\Persistence\ThinkPhpWorkflowRepository;
 use Throwable;
 use think\facade\Db;
 

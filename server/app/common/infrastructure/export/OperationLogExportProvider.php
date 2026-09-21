@@ -4,12 +4,12 @@ declare(strict_types=1);
 namespace app\common\infrastructure\export;
 
 use app\common\model\log\OperationLog;
-use app\modules\official\import_export\engine\Application\ImportExportException;
-use app\modules\official\import_export\engine\Contract\ColumnDefinition;
-use app\modules\official\import_export\engine\Contract\DataProvider;
-use app\modules\official\import_export\engine\Contract\ExportBatch;
-use app\modules\official\import_export\engine\Contract\RowIssue;
-use app\modules\official\import_export\engine\Contract\SchemaDefinition;
+use PeanutAdmin\Modules\ImportExport\Engine\Application\ImportExportException;
+use PeanutAdmin\Modules\ImportExport\Engine\Contract\ColumnDefinition;
+use PeanutAdmin\Modules\ImportExport\Engine\Contract\DataProvider;
+use PeanutAdmin\Modules\ImportExport\Engine\Contract\ExportBatch;
+use PeanutAdmin\Modules\ImportExport\Engine\Contract\RowIssue;
+use PeanutAdmin\Modules\ImportExport\Engine\Contract\SchemaDefinition;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 
 final readonly class OperationLogExportProvider implements DataProvider

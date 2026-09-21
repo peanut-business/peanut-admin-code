@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\task\controller\CrontabController;
-use app\modules\official\task\controller\TaskJobController;
+use PeanutAdmin\Modules\Task\Controller\CrontabController;
+use PeanutAdmin\Modules\Task\Controller\TaskJobController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;

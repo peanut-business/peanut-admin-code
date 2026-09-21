@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\modules\official\notification\services\VerificationCodeService;
+use PeanutAdmin\Modules\Notification\Service\VerificationCodeService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 

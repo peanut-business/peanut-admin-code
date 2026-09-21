@@ -31,7 +31,7 @@
     }
   ],
   "backend": {
-    "provider": "app\\modules\\official\\import_export\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\ImportExport\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -48,11 +48,11 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\import_export\\contracts\\ImportExportCommands",
-      "app\\modules\\official\\import_export\\contracts\\ImportExportQueries",
-      "app\\modules\\official\\import_export\\contracts\\ImportExportWorkerRuntime",
-      "app\\modules\\official\\import_export\\contracts\\ConfigurationTransferCommands",
-      "app\\modules\\official\\import_export\\contracts\\ConfigurationTransferQueries"
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportCommands",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportQueries",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportWorkerRuntime",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferCommands",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferQueries"
     ],
     "events": []
   },

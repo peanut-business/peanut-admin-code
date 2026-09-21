@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota;
+namespace PeanutAdmin\Modules\EntitlementQuota;
 
 final class Package
 {

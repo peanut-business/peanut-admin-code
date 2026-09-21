@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Kernel\Tests\Unit\Governance;
 
-use PeanutAdmin\Kernel\Audit\GovernanceAuditMetadata;
+use PeanutAdmin\Modules\Identity\Audit\GovernanceAuditMetadata;
 use PeanutAdmin\Kernel\Authorization\Governance\GovernanceException;
 use PeanutAdmin\Kernel\Authorization\Governance\GovernancePermission;
 use PeanutAdmin\Kernel\Authorization\Governance\GovernancePermissionCatalog;

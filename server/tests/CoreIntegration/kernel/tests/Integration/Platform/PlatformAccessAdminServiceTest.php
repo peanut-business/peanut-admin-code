@@ -6,13 +6,13 @@ namespace PeanutAdmin\Kernel\Tests\Integration\Platform;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Kernel\Platform\Application\PlatformAccessAdminService;
-use PeanutAdmin\Kernel\Platform\PlatformOperatorStatus;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformAccessAdminService;
+use PeanutAdmin\Modules\Identity\Platform\PlatformOperatorStatus;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\api\services;
 
-use app\modules\official\member\contracts\MemberSessions;
+use PeanutAdmin\Modules\Member\Contract\MemberSessions;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 

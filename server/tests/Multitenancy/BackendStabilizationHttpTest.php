@@ -6,8 +6,8 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
-use PeanutAdmin\Kernel\Auth\TenantAuthService;
-use app\modules\official\notification\delivery\Application\VerificationCodeSecret;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
+use PeanutAdmin\Modules\Notification\Delivery\Application\VerificationCodeSecret;
 
 $serverRoot = dirname(__DIR__, 2);
 if (($argv[1] ?? '') === '--request') {

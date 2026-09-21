@@ -13,13 +13,13 @@ function expectChannelBindingTenant(bool $condition, string $message): void
 $serverRoot = dirname(__DIR__, 2);
 $read = static fn(string $path): string => (string)file_get_contents($serverRoot . '/' . $path);
 
-$noticeController = $read('app/Modules/Official/Notification/Http/Controller/NoticeChannelController.php');
-$notificationApplication = $read('app/Modules/Official/Notification/Application/NotificationApplicationService.php');
+$noticeController = $read('app/modules/official/notification/src/Controller/NoticeChannelController.php');
+$notificationApplication = $read('app/modules/official/notification/src/Service/NotificationApplicationService.php');
 $noticeService = $read('app/common/services/notice/NoticeChannelService.php');
 $sender = $read('app/common/infrastructure/notice/ApplicationNoticeSmsSender.php');
-$verification = $read('app/Modules/Official/Notification/Application/VerificationCodeService.php');
-$menuController = $read('app/Modules/Official/Oauth/Http/Controller/OfficialAccountMenuController.php');
-$menuLogic = $read('app/Modules/Official/Oauth/Application/OfficialAccountMenuApplicationService.php');
+$verification = $read('app/modules/official/notification/src/Service/VerificationCodeService.php');
+$menuController = $read('app/modules/official/oauth/src/Controller/OfficialAccountMenuController.php');
+$menuLogic = $read('app/modules/official/oauth/src/Service/OfficialAccountMenuApplicationService.php');
 
 foreach ([$noticeController, $menuController] as $controller) {
     expectChannelBindingTenant(

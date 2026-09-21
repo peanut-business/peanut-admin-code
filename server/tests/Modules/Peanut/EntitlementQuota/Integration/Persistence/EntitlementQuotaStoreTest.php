@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Tests\Integration\Persistence;
+namespace PeanutAdmin\Modules\EntitlementQuota\Tests\Integration\Persistence;
 
 use PDO;
 use ThinkPhpTestConnection;
-use PeanutAdmin\EntitlementQuota\Database\Schema;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementPolicyRevision;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementUsageWindow;
-use PeanutAdmin\EntitlementQuota\Persistence\ThinkPhpEntitlementQuotaRepository;
+use PeanutAdmin\Modules\EntitlementQuota\Database\Schema;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementPolicyRevision;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementUsageWindow;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\ThinkPhpEntitlementQuotaRepository;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use think\db\PDOConnection;

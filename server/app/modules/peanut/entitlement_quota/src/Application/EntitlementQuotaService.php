@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Application;
+namespace PeanutAdmin\Modules\EntitlementQuota\Application;
 
 use DateTimeImmutable;
 use DateTimeZone;
 use JsonException;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementGrantSnapshot;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementMeter;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementMeterRegistry;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementPolicyProvider;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementPolicyRevision;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementReservation;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementUsageWindow;
-use PeanutAdmin\EntitlementQuota\Package;
-use PeanutAdmin\EntitlementQuota\Persistence\ThinkPhpEntitlementQuotaRepository;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementGrantSnapshot;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementMeter;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementMeterRegistry;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementPolicyProvider;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementPolicyRevision;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementReservation;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementUsageWindow;
+use PeanutAdmin\Modules\EntitlementQuota\Package;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\ThinkPhpEntitlementQuotaRepository;
 use PeanutAdmin\Kernel\Api\ApiException;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\Clock;
 use PeanutAdmin\Kernel\Auth\SystemClock;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;

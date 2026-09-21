@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Persistence;
+namespace PeanutAdmin\Modules\EntitlementQuota\Persistence;
 
 use InvalidArgumentException;
 use PDO;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementGrant;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementPolicyRevision;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementReservation;
-use PeanutAdmin\EntitlementQuota\Model\EntitlementUsageWindow;
-use PeanutAdmin\EntitlementQuota\Persistence\Model\EntitlementGrantRecord;
-use PeanutAdmin\EntitlementQuota\Persistence\Model\EntitlementPolicyRevisionRecord;
-use PeanutAdmin\EntitlementQuota\Persistence\Model\EntitlementReservationRecord;
-use PeanutAdmin\EntitlementQuota\Persistence\Model\EntitlementUsageLedgerRecord;
-use PeanutAdmin\EntitlementQuota\Persistence\Model\EntitlementUsageWindowRecord;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementGrant;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementPolicyRevision;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementReservation;
+use PeanutAdmin\Modules\EntitlementQuota\Model\EntitlementUsageWindow;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\Model\EntitlementGrantRecord;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\Model\EntitlementPolicyRevisionRecord;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\Model\EntitlementReservationRecord;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\Model\EntitlementUsageLedgerRecord;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\Model\EntitlementUsageWindowRecord;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use RuntimeException;
 use think\db\exception\PDOException;

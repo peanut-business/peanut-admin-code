@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\common\services;
 
-use app\modules\official\file\contracts\FileReferences;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;

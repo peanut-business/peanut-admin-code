@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Modules\Official\Settings\Integration\Schema;
 
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
-use app\modules\official\settings\Database\Schema;
+use PeanutAdmin\Modules\Settings\Database\Schema;
 use Tests\Modules\Official\Settings\Integration\Support\SettingsDatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Support/SettingsDatabaseTestCase.php';

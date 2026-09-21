@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\plugin;
 
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use app\platform\infrastructure\plugin\ModuleUninstallPlanCodec;
@@ -12,7 +13,6 @@ use app\platform\value\plugin\PluginDescriptor;
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
-use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 use think\facade\Db;
 
@@ -272,7 +272,7 @@ final class PluginRuntimeGovernanceService
             ->order('module_key')->column('manifest_digest', 'module_key');
         $affected = [];
         $seenTables = [];
-        $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+        $layout = ModuleHostLayoutFactory::pathLayout();
         foreach ($plugin['modules'] as $module) {
             if (!is_array($module) || !is_string($module['key'] ?? null) || !is_string($module['root'] ?? null)) {
                 throw new PluginLifecycleException('MODULE_QUARANTINE_INVALID', 'Retired Module package scope is invalid.');
@@ -507,7 +507,7 @@ final class PluginRuntimeGovernanceService
 
         $quarantine = $projectRoot . '/.local/module-quarantine/' . $packageKey . '-' . strtolower($digest);
         $paths = ['plugins/' . $packageKey];
-        $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+        $layout = ModuleHostLayoutFactory::pathLayout();
         foreach ($this->confirmedModuleKeys($plan) as $moduleKey) {
             $key = ModuleKey::fromString($moduleKey);
             $paths[] = rtrim($layout->backendRelativePath($key), '/');

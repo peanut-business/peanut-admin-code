@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace PeanutAdmin\Kernel\Tests\Unit\Domain;
 
 use DomainException;
-use PeanutAdmin\Kernel\Identity\AccountStatus;
-use PeanutAdmin\Kernel\Identity\CredentialStatus;
-use PeanutAdmin\Kernel\Membership\TenantMemberStatus;
-use PeanutAdmin\Kernel\Platform\PlatformOperatorStatus;
-use PeanutAdmin\Kernel\Tenancy\TenantStatus;
+use PeanutAdmin\Modules\Identity\Identity\AccountStatus;
+use PeanutAdmin\Modules\Identity\Identity\CredentialStatus;
+use PeanutAdmin\Modules\Identity\Membership\TenantMemberStatus;
+use PeanutAdmin\Modules\Identity\Platform\PlatformOperatorStatus;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use UnitEnum;

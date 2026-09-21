@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision;
+namespace PeanutAdmin\Modules\ArtifactRevision;
 
 final class Package
 {

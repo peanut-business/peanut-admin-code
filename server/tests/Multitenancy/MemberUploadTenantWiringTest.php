@@ -61,7 +61,7 @@ SQL);
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$routeSource = (string)file_get_contents($serverRoot . '/app/Modules/Official/File/Http/routes.php');
+$routeSource = (string)file_get_contents($serverRoot . '/app/modules/official/file/route/app.php');
 $uploadRoute = "Route::post('upload/image', [ApiUploadController::class, 'image'])";
 expectMemberUpload(substr_count($routeSource, $uploadRoute) === 1, 'member upload route is missing or duplicated');
 expectMemberUpload(

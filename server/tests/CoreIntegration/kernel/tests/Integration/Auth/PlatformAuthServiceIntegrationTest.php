@@ -7,14 +7,14 @@ namespace PeanutAdmin\Kernel\Tests\Integration\Auth;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Auth\AuthException;
-use PeanutAdmin\Kernel\Auth\Persistence\ThinkPhpPlatformAuthRepository;
-use PeanutAdmin\Kernel\Auth\Persistence\ThinkPhpTenantAuthRepository;
-use PeanutAdmin\Kernel\Auth\PlatformAuthService;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpTenantAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
-use PeanutAdmin\Kernel\Auth\TenantAuthService;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
-use PeanutAdmin\Kernel\Platform\Bootstrap\BootstrapService;
+use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';
@@ -267,7 +267,7 @@ SQL);
         self::assertSame('2026-07-16 03:15:00.000', $lastSeen);
     }
 
-    private function login(): \PeanutAdmin\Kernel\Auth\PlatformAuthentication
+    private function login(): \PeanutAdmin\Modules\Identity\Auth\PlatformAuthentication
     {
         return $this->platformAuth->login(
             'platform@example.com',

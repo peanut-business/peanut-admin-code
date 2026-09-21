@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Schema;
 
 use PDO;
-use app\modules\official\reference_codes\Versioned\Database\Schema;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Database\Schema;
 use Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Support\ReferenceCodesDatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Support/ReferenceCodesDatabaseTestCase.php';
@@ -111,7 +111,7 @@ SQL);
             'lifecycle' => 'active', 'revision' => 1, 'retired_at' => self::NOW,
             'created_by_member_id' => $tenant['member_id'], 'updated_by_member_id' => $tenant['member_id'],
         ]));
-        self::assertInstanceOf(\app\modules\official\reference_codes\Versioned\Persistence\ReferenceCodeStore::class, $repository);
+        self::assertInstanceOf(\PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore::class, $repository);
     }
 
     public function testChecksRejectInvalidStatusSortIntervalAndForeignKeys(): void

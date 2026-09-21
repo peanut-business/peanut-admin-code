@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Application;
+namespace PeanutAdmin\Modules\Workflow\Application;
 
 final readonly class WorkflowReceipt
 {

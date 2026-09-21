@@ -7,10 +7,10 @@ use app\platform\contract\TenantOwnerAdminProvisioner;
 use app\common\exception\BusinessException;
 use app\platform\identity\PlatformOperatorIdentityPort;
 use DateTimeImmutable;
-use PeanutAdmin\Kernel\Platform\Application\PlatformTenantAdminService;
-use PeanutAdmin\Kernel\Platform\Application\TenantOwnerAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
 use think\facade\Db;
-use PeanutAdmin\Kernel\Tenancy\TenantStatus;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 
 /**
  * Application adapter for the instance-local Tenant control plane.

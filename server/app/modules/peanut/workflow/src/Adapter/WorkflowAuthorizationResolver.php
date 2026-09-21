@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Adapter;
+namespace PeanutAdmin\Modules\Workflow\Adapter;
 
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 

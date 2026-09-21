@@ -9,11 +9,11 @@ use PeanutAdmin\Kernel\Authorization\PermissionRequirement;
 use PeanutAdmin\Kernel\Host\AuthorizedExternalOperation;
 use PeanutAdmin\Kernel\Host\ExternalOperationDefinition;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
-use app\modules\official\settings\Application\SettingAdminService;
-use app\modules\official\settings\Application\SettingException;
-use app\modules\official\settings\Application\SettingResolver;
-use app\modules\official\settings\Application\TargetSettingWriter;
-use app\modules\official\settings\Cache\ArrayRevisionedSettingCache;
+use PeanutAdmin\Modules\Settings\Application\SettingAdminService;
+use PeanutAdmin\Modules\Settings\Application\SettingException;
+use PeanutAdmin\Modules\Settings\Application\SettingResolver;
+use PeanutAdmin\Modules\Settings\Application\TargetSettingWriter;
+use PeanutAdmin\Modules\Settings\Cache\ArrayRevisionedSettingCache;
 use PeanutAdmin\Settings\Secret\SodiumSecretProtector;
 use Tests\Modules\Official\Settings\Integration\Support\SettingsDatabaseTestCase;
 
@@ -530,7 +530,7 @@ SQL,
         );
     }
 
-    /** @return array{\app\modules\official\settings\Definition\SettingDefinition, \app\modules\official\settings\Definition\SettingDefinitionSynchronizer, SodiumSecretProtector} */
+    /** @return array{\PeanutAdmin\Modules\Settings\Definition\SettingDefinition, \PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer, SodiumSecretProtector} */
     private function runtime(): array
     {
         $registry = $this->registry([$this->definition()], targets: [[

@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Fixture\DeliveryRecord\Contracts\DeliveryRecordCommands;
-use app\Modules\Fixture\DeliveryRecord\Http\DeliveryRecordHttpHandler;
+use PeanutAdmin\Fixtures\DeliveryRecord\Contract\DeliveryRecordCommands;
+use PeanutAdmin\Fixtures\DeliveryRecord\Controller\DeliveryRecordHttpHandler;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -82,7 +82,7 @@ fixtureHttpExpect($disabledCommands->calls === 1, 'system actor reached the Modu
 fixtureHttpExpect($contexts->isEmpty(), 'system actor refusal leaked execution context');
 
 $routeSource = (string)file_get_contents(dirname(__DIR__, 2)
-    . '/app/Modules/Fixture/DeliveryRecord/Http/routes.php');
+    . '/app/modules/fixture/delivery_record/route/app.php');
 $routeBootstrap = (string)file_get_contents(dirname(__DIR__, 2)
     . '/route/fixture_delivery_record.php');
 fixtureHttpExpect(

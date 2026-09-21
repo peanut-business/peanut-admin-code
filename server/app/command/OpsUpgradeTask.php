@@ -5,7 +5,7 @@ namespace app\command;
 
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\modules\official\ops\infrastructure\ThinkPhpUpgradeTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpUpgradeTaskExecutionService;
 use app\common\execution\ContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;

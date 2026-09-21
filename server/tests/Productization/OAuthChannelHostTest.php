@@ -46,9 +46,9 @@ expectOAuthChannelHost(
     'official-account callback bridge target is invalid'
 );
 
-$oauthLogic = (string)file_get_contents($serverRoot . '/app/Modules/Official/Oauth/Application/OAuthCommandService.php');
-$oauthProvider = (string)file_get_contents($serverRoot . '/app/Modules/Official/Oauth/ModuleProvider.php');
-$rechargeApplication = (string)file_get_contents($serverRoot . '/app/Modules/Official/Payment/Application/RechargeApplicationService.php');
+$oauthLogic = (string)file_get_contents($serverRoot . '/app/modules/official/oauth/src/Service/OAuthCommandService.php');
+$oauthProvider = (string)file_get_contents($serverRoot . '/app/modules/official/oauth/src/ModuleProvider.php');
+$rechargeApplication = (string)file_get_contents($serverRoot . '/app/modules/official/payment/src/Service/RechargeApplicationService.php');
 expectOAuthChannelHost(
     str_contains($oauthProvider, 'OAuthQueries::class =>')
         && str_contains($rechargeApplication, 'private readonly OAuthQueries $oauth')
@@ -94,7 +94,7 @@ expectOAuthChannelHost(
 $routeSource = peanut_route_registry_source($serverRoot);
 $routeInventory = peanut_route_endpoint_inventory($serverRoot);
 $oauthRouteSource = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Oauth/Http/routes.php'
+    $serverRoot . '/app/modules/official/oauth/route/app.php'
 );
 foreach (['setting/channel/config', 'setting/channel/save'] as $legacyRoute) {
     expectOAuthChannelHost(
@@ -122,7 +122,7 @@ foreach ([
 }
 
 $officialAccountConfig = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Oauth/Application/OfficialAccountApplicationService.php'
+    $serverRoot . '/app/modules/official/oauth/src/Service/OfficialAccountApplicationService.php'
 );
 $officialAccountApi = (string)file_get_contents($repositoryRoot . '/web/src/modules/official-oauth/api.ts');
 $officialAccountView = (string)file_get_contents(

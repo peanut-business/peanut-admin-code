@@ -235,7 +235,7 @@ SQL);
     public function testSharedMasterVisibilityUsageAndMissingProviderAreFailClosed(): void
     {
         $query = Db::table('fixture_reference')->alias('reference');
-        (new ThinkPhpQueryConstraintApplier(new \app\modules\official\identity\access\infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($query, $this->fixture->engine->queryConstraint(
+        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($query, $this->fixture->engine->queryConstraint(
             $this->fixture->alphaContext,
             'fixture.reference',
             'list',
@@ -243,7 +243,7 @@ SQL);
         self::assertSame(['PRIVATE_A', 'PUBLIC'], $query->order('id')->column('id'));
 
         $targeted = Db::table('fixture_reference')->alias('reference');
-        (new ThinkPhpQueryConstraintApplier(new \app\modules\official\identity\access\infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($targeted, $this->fixture->engine->queryConstraint(
+        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($targeted, $this->fixture->engine->queryConstraint(
             $this->fixture->alphaContext,
             'fixture.reference',
             'list',

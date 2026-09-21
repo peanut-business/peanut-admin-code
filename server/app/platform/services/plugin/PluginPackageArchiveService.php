@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\plugin;
 
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\exception\plugin\PluginArtifactToolException;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\exception\plugin\PluginPackageException;
@@ -13,7 +14,6 @@ use app\platform\infrastructure\plugin\VerifiedPluginPackage;
 use app\platform\validation\plugin\ModulePackagePreflight;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
-use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
 /** Builds and verifies self-contained single-Module and multi-Module tar packages. */
@@ -600,7 +600,7 @@ final class PluginPackageArchiveService
         } catch (\InvalidArgumentException) {
             return null;
         }
-        $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+        $layout = ModuleHostLayoutFactory::pathLayout();
         $path = $this->projectRoot() . '/' . $layout->backendRelativePath($key) . 'module.json';
         if (!is_file($path)) {
             return null;

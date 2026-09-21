@@ -274,7 +274,7 @@ try {
         'generated docs must not reference the source-only product status projection'
     );
     createApplicationExpect(!is_dir($first . '/plugins/fixture.delivery-record'), 'demo Plugin artifact must remain source-only');
-    createApplicationExpect(!is_dir($first . '/server/app/Modules/Fixture/DeliveryRecord'), 'demo backend Module must remain source-only');
+    createApplicationExpect(!is_dir($first . '/server/app/modules/fixture/delivery_record'), 'demo backend Module must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/fixtures/plugin-module-lifecycle'), 'demo lifecycle runner must remain source-only');
     createApplicationExpect(!is_dir($first . '/web/src/modules/fixture-delivery-record'), 'demo frontend Module must remain source-only');
     $sourcePlugins = (new PluginLockResolver($root . '/server', '../plugins.lock'))->all();

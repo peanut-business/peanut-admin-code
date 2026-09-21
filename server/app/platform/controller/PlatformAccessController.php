@@ -5,8 +5,8 @@ namespace app\platform\controller;
 
 use app\common\execution\CurrentExecutionContext;
 use app\platform\validate\PlatformAccessValidate;
-use PeanutAdmin\Kernel\Platform\PlatformOperatorStatus;
-use PeanutAdmin\Kernel\Platform\Application\PlatformAccessAdminService;
+use PeanutAdmin\Modules\Identity\Platform\PlatformOperatorStatus;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformAccessAdminService;
 use think\App;
 
 final class PlatformAccessController extends BasePlatformController

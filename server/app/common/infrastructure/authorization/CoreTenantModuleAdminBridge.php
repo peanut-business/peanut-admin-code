@@ -10,9 +10,9 @@ use PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository;
 use PeanutAdmin\Kernel\Menu\MenuDefinition;
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Menu\MenuRegistry;
-use PeanutAdmin\Kernel\Persistence\Model\MemberRole;
-use PeanutAdmin\Kernel\Persistence\Model\Permission;
-use PeanutAdmin\Kernel\Persistence\Model\Tenant;
+use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 
 /**
  * Adapts the Core Module/TenantModule catalog to the Admin Shell menu payload.

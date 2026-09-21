@@ -15,7 +15,7 @@
         }
     ],
     "backend": {
-        "provider": "app\\modules\\peanut\\workflow\\ModuleProvider",
+        "provider": "PeanutAdmin\\Modules\\Workflow\\ModuleProvider",
         "migrations": "database/migrations"
     },
     "frontend": {},
@@ -30,11 +30,13 @@
     },
     "contracts": {
         "exports": [
-            "PeanutAdmin\\Workflow\\Application\\WorkflowRuntime",
-            "PeanutAdmin\\Workflow\\Application\\WorkflowQueryService",
-            "PeanutAdmin\\Workflow\\Adapter\\WorkflowAuthorizationResolver",
-            "PeanutAdmin\\Workflow\\Adapter\\WorkflowAssignmentResolver",
-            "PeanutAdmin\\Workflow\\Adapter\\WorkflowSideEffectPublisher"
+            "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowRuntime",
+            "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowQueryService",
+            "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowException",
+            "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowAuthorizationResolver",
+            "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowAssignmentResolver",
+            "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowSideEffectPublisher",
+            "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowSubjectRevisionResolver"
         ],
         "events": []
     },

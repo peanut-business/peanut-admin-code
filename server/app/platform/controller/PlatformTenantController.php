@@ -11,7 +11,7 @@ use app\platform\services\TenantGovernanceService;
 use app\platform\validate\PlatformTenantLifecycleValidate;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
-use PeanutAdmin\Kernel\Tenancy\TenantStatus;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 use think\App;
 
 final class PlatformTenantController extends BasePlatformController

@@ -2,11 +2,11 @@
 declare(strict_types=1);
 
 use app\common\service\authorization\AdminAuthorizationService;
-use app\Modules\Official\ImportExport\Contracts\ImportExportWorkerRuntime;
-use app\Modules\Official\ImportExport\Infrastructure\Authorization\AdminAsyncAuthorization;
-use app\Modules\Official\ImportExport\Contracts\Dto\CsvExportOperation;
-use app\modules\official\file\services\storage\StorageService;
-use app\modules\official\import_export\engine\Application\ImportExportService;
+use PeanutAdmin\Modules\ImportExport\Contract\ImportExportWorkerRuntime;
+use PeanutAdmin\Modules\ImportExport\Infrastructure\Authorization\AdminAsyncAuthorization;
+use PeanutAdmin\Modules\ImportExport\Contract\Dto\CsvExportOperation;
+use PeanutAdmin\Modules\File\Service\Storage\StorageService;
+use PeanutAdmin\Modules\ImportExport\Engine\Application\ImportExportService;
 use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
@@ -71,8 +71,8 @@ SQL);
 
 $serverRoot = dirname(__DIR__, 2);
 $manifestLoader = new PeanutAdmin\Kernel\Module\ManifestLoader();
-$taskManifest = $manifestLoader->load($serverRoot . '/app/Modules/Official/Task');
-$importExportManifest = $manifestLoader->load($serverRoot . '/app/Modules/Official/ImportExport');
+$taskManifest = $manifestLoader->load($serverRoot . '/app/modules/official/task');
+$importExportManifest = $manifestLoader->load($serverRoot . '/app/modules/official/import_export');
 $taskVersion = (string)($taskManifest->data['version'] ?? '');
 $importExportVersion = (string)($importExportManifest->data['version'] ?? '');
 $taskManifestDigest = $taskManifest->digest;

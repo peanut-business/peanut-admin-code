@@ -5,16 +5,16 @@ require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
-use PeanutAdmin\Kernel\Auth\Persistence\ThinkPhpTenantAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpTenantAuthRepository;
 use PeanutAdmin\Kernel\Auth\SystemClock;
-use PeanutAdmin\Kernel\Auth\TenantAuthService;
-use PeanutAdmin\Kernel\Auth\TenantAuthentication;
-use PeanutAdmin\Kernel\Auth\TenantSelectionRequired;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthentication;
+use PeanutAdmin\Modules\Identity\Auth\TenantSelectionRequired;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
-use PeanutAdmin\Kernel\Platform\Bootstrap\BootstrapService;
+use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';

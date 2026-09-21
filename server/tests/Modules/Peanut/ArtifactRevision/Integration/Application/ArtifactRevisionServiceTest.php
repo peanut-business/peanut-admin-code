@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Tests\Integration\Application;
+namespace PeanutAdmin\Modules\ArtifactRevision\Tests\Integration\Application;
 
 use DateTimeImmutable;
 use PDO;
 use ThinkPhpTestConnection;
-use PeanutAdmin\ArtifactRevision\Application\ArtifactRevisionException;
-use PeanutAdmin\ArtifactRevision\Application\ArtifactRevisionReceipt;
-use PeanutAdmin\ArtifactRevision\Application\ArtifactRevisionService;
-use PeanutAdmin\ArtifactRevision\Database\Schema;
-use PeanutAdmin\ArtifactRevision\Persistence\ThinkPhpArtifactRevisionRepository;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\ArtifactRevision\Application\ArtifactRevisionException;
+use PeanutAdmin\Modules\ArtifactRevision\Application\ArtifactRevisionReceipt;
+use PeanutAdmin\Modules\ArtifactRevision\Application\ArtifactRevisionService;
+use PeanutAdmin\Modules\ArtifactRevision\Database\Schema;
+use PeanutAdmin\Modules\ArtifactRevision\Persistence\ThinkPhpArtifactRevisionRepository;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;

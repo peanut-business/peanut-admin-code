@@ -6,9 +6,9 @@ namespace PeanutAdmin\Kernel\Tests\Integration\Domain;
 
 use DomainException;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
-use PeanutAdmin\Kernel\Membership\TenantMemberStatus;
-use PeanutAdmin\Kernel\Platform\Bootstrap\BootstrapService;
-use PeanutAdmin\Kernel\Tenancy\TenantStatus;
+use PeanutAdmin\Modules\Identity\Membership\TenantMemberStatus;
+use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';

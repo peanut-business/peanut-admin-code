@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Schema;
 
 use PDO;
-use app\modules\official\reference_codes\Versioned\Database\Schema;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Database\Schema;
 
 final readonly class ReferenceCodesMigrationRunner
 {

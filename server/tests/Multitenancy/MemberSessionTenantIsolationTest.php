@@ -4,11 +4,11 @@ declare(strict_types=1);
 namespace tests\Multitenancy;
 
 use app\api\services\UserTokenService;
-use app\modules\official\member\contracts\MemberSessionStore;
-use app\modules\official\member\contracts\MemberSubjectLookup;
-use app\modules\official\member\contracts\dto\MemberSessionRecord;
-use app\modules\official\member\contracts\dto\MemberSessionSubject;
-use app\modules\official\member\services\MemberSessionService;
+use PeanutAdmin\Modules\Member\Contract\MemberSessionStore;
+use PeanutAdmin\Modules\Member\Contract\MemberSubjectLookup;
+use PeanutAdmin\Modules\Member\Contract\Dto\MemberSessionRecord;
+use PeanutAdmin\Modules\Member\Contract\Dto\MemberSessionSubject;
+use PeanutAdmin\Modules\Member\Service\MemberSessionService;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use PHPUnit\Framework\TestCase;

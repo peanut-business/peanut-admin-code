@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
 
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\value\plugin\PluginDescriptor;
 use app\platform\value\plugin\ModuleFrontendLayout;
-use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
 /** Resolves only explicitly locked Plugin manifests; it never scans vendor or application directories. */
@@ -470,7 +470,7 @@ final class PluginLockResolver
                 throw new PluginLifecycleException('PLUGIN_MODULE_CONFLICT', "Duplicate Module key: {$key}");
             }
             $root = $this->text($module['root'] ?? null);
-            $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+            $layout = ModuleHostLayoutFactory::pathLayout();
             if ($root !== rtrim($layout->backendRelativePath(ModuleKey::fromString($key)), '/')) {
                 throw new PluginLifecycleException('PLUGIN_MANIFEST_INVALID', "Module root is not key-derived: {$key}");
             }
@@ -483,6 +483,16 @@ final class PluginLockResolver
             if (!is_dir($roots[$key]) || !is_file($roots[$key] . '/module.json')) {
                 throw new PluginLifecycleException('PLUGIN_MANIFEST_INVALID', "Module root is unavailable: {$key}");
             }
+        }
+        try {
+            ModuleHostLayoutFactory::fromModuleRoots($roots);
+        } catch (\InvalidArgumentException $exception) {
+            throw new PluginLifecycleException(
+                'PLUGIN_MODULE_CONFLICT',
+                'Locked Module PHP namespaces overlap or claim a reserved prefix.',
+                0,
+                $exception,
+            );
         }
         ksort($roots, SORT_STRING);
         return $roots;

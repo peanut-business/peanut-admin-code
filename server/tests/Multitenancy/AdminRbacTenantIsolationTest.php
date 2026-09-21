@@ -66,7 +66,7 @@ SQL);
     expectRbacTenant($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
     $moduleMigration = (string)file_get_contents(
-        $serverRoot . '/app/Modules/Official/ImportExport/Database/Migrations/20260826-namespace-permission-keys.sql'
+        $serverRoot . '/app/modules/official/import_export/database/migrations/20260826-namespace-permission-keys.sql'
     );
     expectRbacTenant($moduleMigration !== '', 'Import/Export permission migration is missing');
     $pdo->exec($moduleMigration);
@@ -76,7 +76,8 @@ $serverRoot = dirname(__DIR__, 2);
 $manifestLoader = new ManifestLoader();
 $moduleIdentities = [];
 foreach (['File' => 'official.file', 'Task' => 'official.task', 'ImportExport' => 'official.import-export'] as $directory => $moduleKey) {
-    $manifest = $manifestLoader->load($serverRoot . '/app/Modules/Official/' . $directory);
+    $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $directory));
+    $manifest = $manifestLoader->load($serverRoot . '/app/modules/official/' . $directory);
     $version = (string)($manifest->data['version'] ?? '');
     if (preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/D', $version) !== 1
         || preg_match('/^[a-f0-9]{64}$/D', $manifest->digest) !== 1

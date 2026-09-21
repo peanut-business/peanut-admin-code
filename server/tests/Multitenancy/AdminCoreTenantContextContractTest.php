@@ -50,19 +50,19 @@ function expectContextCalls(string $source, string $service, array $methods): vo
 }
 
 expectFirstTenantContext(
-    PeanutAdmin\Kernel\Authorization\Application\RoleAdminService::class,
+    PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService::class,
     ['create', 'update', 'archive', 'replacePermissions'],
 );
 expectFirstTenantContext(
-    PeanutAdmin\Kernel\Organization\Application\DepartmentAdminService::class,
+    PeanutAdmin\Modules\Identity\Organization\Application\DepartmentAdminService::class,
     ['create', 'update', 'move', 'archive'],
 );
 expectFirstTenantContext(
-    PeanutAdmin\Kernel\Membership\Application\MemberAdminService::class,
+    PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService::class,
     ['createAdministrator', 'updateAdministrator', 'activate', 'suspend', 'leave'],
 );
 expectFirstTenantContext(
-    PeanutAdmin\Kernel\Identity\SelfService\AccountSelfService::class,
+    PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService::class,
     ['profile', 'updateProfile', 'changePassword'],
 );
 

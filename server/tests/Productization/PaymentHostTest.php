@@ -130,7 +130,7 @@ foreach ([$wechatPrepay, $wechatRefund] as $source) {
     );
 }
 
-$settlement = (string)file_get_contents($serverRoot . '/app/Modules/Official/Payment/Application/RechargeApplicationService.php');
+$settlement = (string)file_get_contents($serverRoot . '/app/modules/official/payment/src/Service/RechargeApplicationService.php');
 foreach (["where('sn', \$orderSn)->lock(true)", "\$currency !== 'CNY'",
     '$callbackCents !== $orderCents', '支付渠道不一致', '支付交易流水冲突'] as $marker) {
     expectPaymentHost(str_contains($settlement, $marker), 'settlement invariant missing: ' . $marker);
@@ -142,9 +142,9 @@ expectPaymentHost(
     'settlement does not use the public Member balance contract'
 );
 $adminRefund = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Payment/Application/RechargeAdministrationService.php'
+    $serverRoot . '/app/modules/official/payment/src/Service/RechargeAdministrationService.php'
 );
-$reconcile = (string)file_get_contents($serverRoot . '/app/Modules/Official/Payment/Infrastructure/ThinkPhpRefundReconciliationCommands.php');
+$reconcile = (string)file_get_contents($serverRoot . '/app/modules/official/payment/src/Infrastructure/ThinkPhpRefundReconciliationCommands.php');
 foreach ([$adminRefund, $reconcile] as $source) {
     expectPaymentHost(
         str_contains($source, 'PaymentServiceFactory'),
@@ -169,7 +169,7 @@ expectPaymentHost(
 );
 
 $payConfig = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Payment/Application/PayConfigApplicationService.php'
+    $serverRoot . '/app/modules/official/payment/src/Service/PayConfigApplicationService.php'
 );
 foreach (['wx_pay_secret', 'ali_pay_private_key', "'******'", 'transactions->run'] as $marker) {
     expectPaymentHost(str_contains($payConfig, $marker), 'payment config boundary missing: ' . $marker);

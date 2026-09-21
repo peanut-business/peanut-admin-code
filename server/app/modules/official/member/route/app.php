@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\member\controller\MemberController;
-use app\modules\official\member\controller\MemberTagController;
-use app\modules\official\member\controller\AccountLogController;
+use PeanutAdmin\Modules\Member\Controller\MemberController;
+use PeanutAdmin\Modules\Member\Controller\MemberTagController;
+use PeanutAdmin\Modules\Member\Controller\AccountLogController;
 use app\api\controller\LoginController as ApiLoginController;
 use app\api\controller\UserController as ApiUserController;
 use app\api\controller\AccountLogController as ApiAccountLogController;

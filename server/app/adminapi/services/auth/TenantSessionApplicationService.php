@@ -8,8 +8,8 @@ use app\common\execution\CurrentExecutionContext;
 use app\platform\http\PlatformRequest;
 use PeanutAdmin\Kernel\Auth\AuthException;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
-use PeanutAdmin\Kernel\Http\TenantAuthEndpoint;
-use PeanutAdmin\Kernel\Http\TenantAuthResponse;
+use PeanutAdmin\Modules\Identity\Http\TenantAuthEndpoint;
+use PeanutAdmin\Modules\Identity\Http\TenantAuthResponse;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
 final readonly class TenantSessionApplicationService

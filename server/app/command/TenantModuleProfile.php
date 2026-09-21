@@ -7,7 +7,7 @@ use app\common\services\audit\AuditContractHost;
 use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use app\common\execution\ModuleContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;

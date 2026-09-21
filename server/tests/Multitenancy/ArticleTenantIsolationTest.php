@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Official\Article\Contracts\ArticleAdministration;
-use app\Modules\Official\Article\Contracts\ArticleQueries;
-use app\Modules\Official\Article\Contracts\PublicArticleQueries;
-use app\Modules\Official\Article\Model\Article;
-use app\Modules\Official\Article\Model\ArticleCate;
+use PeanutAdmin\Modules\Article\Contract\ArticleAdministration;
+use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
+use PeanutAdmin\Modules\Article\Model\Article;
+use PeanutAdmin\Modules\Article\Model\ArticleCate;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\service\decoration\DecorationSchemaService;
@@ -159,15 +159,15 @@ if (in_array('--collect-member-fk', $argv ?? [], true)) {
 $serverRoot = dirname(__DIR__, 2);
 foreach ([
     'app/common/execution/CurrentExecutionContext.php',
-    'app/Modules/Official/Article/Model/Article.php',
-    'app/Modules/Official/Article/Model/ArticleCate.php',
-    'app/Modules/Official/Article/Model/ArticleCollect.php',
-    'app/Modules/Official/Article/Http/Controller/ArticleController.php',
-    'app/Modules/Official/Article/Http/Controller/ArticleCateController.php',
-    'app/Modules/Official/Article/Application/ArticleAdministrationService.php',
-    'app/Modules/Official/Article/Contracts/ArticleAdministration.php',
-    'app/Modules/Official/Article/Validation/ArticleValidate.php',
-    'app/Modules/Official/Article/Validation/ArticleCateValidate.php',
+    'app/modules/official/article/src/Model/Article.php',
+    'app/modules/official/article/src/Model/ArticleCate.php',
+    'app/modules/official/article/src/Model/ArticleCollect.php',
+    'app/modules/official/article/src/Controller/ArticleController.php',
+    'app/modules/official/article/src/Controller/ArticleCateController.php',
+    'app/modules/official/article/src/Service/ArticleAdministrationService.php',
+    'app/modules/official/article/src/Contract/ArticleAdministration.php',
+    'app/modules/official/article/src/Validation/ArticleValidate.php',
+    'app/modules/official/article/src/Validation/ArticleCateValidate.php',
     'app/adminapi/controller/decoration/DecorationPageController.php',
     'app/adminapi/controller/decoration/DecorationTabbarController.php',
     'app/adminapi/application/decoration/DecorationPageApplicationService.php',
@@ -177,8 +177,8 @@ foreach ([
     'app/api/controller/IndexController.php',
     'app/api/controller/PcController.php',
     'app/api/controller/UserController.php',
-    'app/Modules/Official/Article/Application/PublicArticleService.php',
-    'app/Modules/Official/Article/Contracts/PublicArticleQueries.php',
+    'app/modules/official/article/src/Service/PublicArticleService.php',
+    'app/modules/official/article/src/Contract/PublicArticleQueries.php',
     'app/api/application/IndexApplicationService.php',
     'app/api/application/PcApplicationService.php',
     'app/api/application/UserApplicationService.php',

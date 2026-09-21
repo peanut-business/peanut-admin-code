@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Application;
 
 use DateTimeImmutable;
-use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetRegistry;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegistry;
 use Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Support\ReferenceCodesDatabaseTestCase;
 use RuntimeException;
 
@@ -16,7 +16,7 @@ final class ReferenceCodeAdminServiceTest extends ReferenceCodesDatabaseTestCase
     public function testSynchronizesDefinitionsIdempotently(): void
     {
         $definition = $this->definition();
-        $repository = new \app\modules\official\reference_codes\Versioned\Persistence\ReferenceCodeStore($this->connection);
+        $repository = new \PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore($this->connection);
         self::assertSame(
             ['inserted' => 1, 'updated' => 0, 'retired' => 0, 'reactivated' => 0],
             $repository->synchronize($this->registry($definition), new DateTimeImmutable(self::NOW)),
@@ -341,7 +341,7 @@ final class ReferenceCodeAdminServiceTest extends ReferenceCodesDatabaseTestCase
         self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM pa_reference_code_entry_version'));
     }
 
-    /** @return array{\app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetDefinition, \app\modules\official\reference_codes\Versioned\Application\ReferenceCodeAdminService, array{tenant_id:int, member_id:int, context:\PeanutAdmin\Kernel\Auth\TenantContext}, \app\modules\official\reference_codes\Versioned\Application\EffectiveReferenceCode} */
+    /** @return array{\PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetDefinition, \PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeAdminService, array{tenant_id:int, member_id:int, context:\PeanutAdmin\Kernel\Auth\TenantContext}, \PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\EffectiveReferenceCode} */
     private function createdFixture(string $tenantCode): array
     {
         $definition = $this->definition();

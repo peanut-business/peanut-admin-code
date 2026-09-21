@@ -8,9 +8,9 @@ use app\common\model\provider\ProviderQualificationEvidence;
 use app\platform\value\provider\ProviderQualificationSubject;
 use DateTimeImmutable;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use app\modules\official\ops\domain\Application\OpsConsoleException;
-use app\modules\official\ops\domain\Application\PlatformPermissionChecker;
-use app\modules\official\ops\domain\Package;
+use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
+use PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker;
+use PeanutAdmin\Modules\Ops\Domain\Package;
 
 /** Secret-free, read-only Platform projection. Contributors never run probes here. */
 final class PlatformProviderQualificationService

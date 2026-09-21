@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Tests\Unit\Definition;
+namespace PeanutAdmin\Modules\Workflow\Tests\Unit\Definition;
 
-use PeanutAdmin\Workflow\Application\WorkflowException;
-use PeanutAdmin\Workflow\Definition\WorkflowGraph;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowGraph;
 use PHPUnit\Framework\TestCase;
 
 final class WorkflowGraphTest extends TestCase

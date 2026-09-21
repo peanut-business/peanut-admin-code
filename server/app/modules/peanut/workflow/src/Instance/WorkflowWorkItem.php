@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Instance;
+namespace PeanutAdmin\Modules\Workflow\Instance;
 
 final readonly class WorkflowWorkItem
 {

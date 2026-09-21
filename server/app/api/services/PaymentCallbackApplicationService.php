@@ -7,10 +7,10 @@ use app\common\dto\payment\CallbackRequest;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\modules\official\integration\contracts\ExternalProvider;
-use app\modules\official\integration\contracts\ExternalTenantResolutionService;
-use app\modules\official\payment\contracts\PaymentMethod;
-use app\modules\official\payment\contracts\RechargeCommands;
+use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
+use PeanutAdmin\Modules\Payment\Contract\PaymentMethod;
+use PeanutAdmin\Modules\Payment\Contract\RechargeCommands;
 
 /**
  * 支付回调应用入口。保留绑定解析→验签→受限上下文→模块许可→原充值状态机的顺序。

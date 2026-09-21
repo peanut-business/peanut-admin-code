@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace app\adminapi\services;
 
 use app\common\services\authorization\AdminAuthorizationService;
-use app\modules\official\file\contracts\FileReferences;
-use app\modules\official\settings\services\WebsiteConfigService;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 class WorkbenchApplicationService

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Application;
+namespace PeanutAdmin\Modules\EntitlementQuota\Application;
 
-use PeanutAdmin\EntitlementQuota\Package;
+use PeanutAdmin\Modules\EntitlementQuota\Package;
 
 final readonly class EntitlementQuotaReceipt
 {

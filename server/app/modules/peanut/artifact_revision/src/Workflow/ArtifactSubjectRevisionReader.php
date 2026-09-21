@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Workflow;
+namespace PeanutAdmin\Modules\ArtifactRevision\Workflow;
 
-use PeanutAdmin\ArtifactRevision\Model\ArtifactRevision;
+use PeanutAdmin\Modules\ArtifactRevision\Model\ArtifactRevision;
 
 /** Read-only artifact boundary consumed by Workflow revision pinning. */
 interface ArtifactSubjectRevisionReader

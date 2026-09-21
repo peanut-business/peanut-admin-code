@@ -94,7 +94,7 @@ final class RoleApplicationService
         );
     }
 
-    private function service(): \PeanutAdmin\Kernel\Authorization\Application\RoleAdminService
+    private function service(): \PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService
     {
         return $this->runtime->service();
     }

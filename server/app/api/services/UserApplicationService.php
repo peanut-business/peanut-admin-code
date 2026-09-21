@@ -3,16 +3,16 @@ declare(strict_types=1);
 
 namespace app\api\services;
 
-use app\modules\official\notification\contracts\VerificationCodeCommands;
-use app\modules\official\article\contracts\PublicArticleQueries;
-use app\modules\official\member\contracts\MemberIdentityCommands;
-use app\modules\official\member\contracts\MemberProfileCommands;
-use app\modules\official\member\contracts\MemberQueries;
+use PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands;
+use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
+use PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands;
+use PeanutAdmin\Modules\Member\Contract\MemberProfileCommands;
+use PeanutAdmin\Modules\Member\Contract\MemberQueries;
 use app\common\validate\MemberProfileSelfFieldValidate;
 use app\common\exception\BusinessException;
 use app\common\enum\notice\NoticeSceneEnum;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use app\modules\official\file\contracts\FileReferences;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
 use PeanutAdmin\Kernel\Module\ModuleException;
 
 class UserApplicationService

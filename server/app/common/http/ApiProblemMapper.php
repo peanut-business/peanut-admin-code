@@ -16,7 +16,7 @@ use PeanutAdmin\Kernel\Auth\AuthException;
 use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use app\modules\official\ops\domain\Application\OpsConsoleException;
+use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use think\exception\ValidateException;
 
 /** Maps stable domain failures into the single public API error type. */

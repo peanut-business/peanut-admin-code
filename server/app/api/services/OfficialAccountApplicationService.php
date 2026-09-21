@@ -6,9 +6,9 @@ namespace app\api\services;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\modules\official\integration\contracts\ExternalProvider;
-use app\modules\official\integration\contracts\ExternalTenantResolutionService;
-use app\modules\official\oauth\contracts\OfficialAccountCallbacks;
+use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
+use PeanutAdmin\Modules\OAuth\Contract\OfficialAccountCallbacks;
 
 /** 公众号回调用例；控制器保留原文读取和响应格式，本入口拥有验签后的范围及模块编排。 */
 final readonly class OfficialAccountApplicationService

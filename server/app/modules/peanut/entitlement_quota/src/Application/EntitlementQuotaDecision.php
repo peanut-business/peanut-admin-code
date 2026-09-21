@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Application;
+namespace PeanutAdmin\Modules\EntitlementQuota\Application;
 
 final readonly class EntitlementQuotaDecision
 {

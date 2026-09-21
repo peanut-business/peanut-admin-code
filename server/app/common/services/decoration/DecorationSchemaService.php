@@ -5,7 +5,7 @@ namespace app\common\services\decoration;
 
 use app\common\enum\decoration\DecorationEnum;
 use app\common\services\ProductAssetReferenceService;
-use app\modules\official\article\contracts\ArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
 
 /** 业务装修 Schema、链接语义与资源 URI 的单一边界。 */
 class DecorationSchemaService

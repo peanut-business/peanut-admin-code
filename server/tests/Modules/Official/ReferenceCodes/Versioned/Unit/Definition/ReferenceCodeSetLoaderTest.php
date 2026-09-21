@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Modules\Official\ReferenceCodes\Versioned\Unit\Definition;
 
-use app\modules\official\reference_codes\Versioned\Application\ReferenceCodeException;
-use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetDefinition;
-use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetLoader;
-use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetRegistry;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeException;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetDefinition;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetLoader;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegistry;
 use PHPUnit\Framework\TestCase;
 
 final class ReferenceCodeSetLoaderTest extends TestCase

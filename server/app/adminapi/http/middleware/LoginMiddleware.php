@@ -9,7 +9,7 @@ use app\common\execution\ExecutionContextStore;
 use app\common\http\RequestTrace;
 use app\common\services\authorization\AdminAuthorizationService;
 use app\common\http\JsonResponseFactory;
-use PeanutAdmin\Kernel\Auth\TenantAuthService;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 

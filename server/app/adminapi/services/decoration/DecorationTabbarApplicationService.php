@@ -9,7 +9,7 @@ use app\common\services\decoration\DecorationSchemaService;
 use app\common\model\decoration\DecorateTabbar;
 use app\common\model\decoration\DecorationTabbarSetting;
 use think\facade\Db;
-use app\modules\official\article\contracts\ArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 class DecorationTabbarApplicationService

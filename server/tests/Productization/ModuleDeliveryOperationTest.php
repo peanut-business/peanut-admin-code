@@ -5,23 +5,23 @@ require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
-use app\modules\official\ops\services\DeploymentModuleRequestService;
+use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
 use app\common\services\audit\AuditContractHost;
-use app\modules\official\ops\infrastructure\ThinkPhpModuleOperationTaskExecutionService;
-use app\modules\official\ops\infrastructure\ThinkPhpMaintenanceWindowStore;
-use app\modules\official\ops\infrastructure\ThinkPhpOpsTaskDispatcher;
-use app\modules\official\ops\infrastructure\PairedBackupProvider;
-use app\modules\official\ops\domain\Task\BackupRestoreProviderRegistry;
-use app\modules\official\identity\identity\query\ThinkPhpPlatformOperatorIdentityQuery;
-use app\modules\official\ops\services\PlatformModuleOperationExecutionService;
-use app\modules\official\ops\infrastructure\authorization\PlatformOpsPermissionChecker;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpModuleOperationTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpMaintenanceWindowStore;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpOpsTaskDispatcher;
+use PeanutAdmin\Modules\Ops\Infrastructure\PairedBackupProvider;
+use PeanutAdmin\Modules\Ops\Domain\Task\BackupRestoreProviderRegistry;
+use PeanutAdmin\Modules\Identity\Identity\Query\ThinkPhpPlatformOperatorIdentityQuery;
+use PeanutAdmin\Modules\Ops\Service\PlatformModuleOperationExecutionService;
+use PeanutAdmin\Modules\Ops\Infrastructure\Authorization\PlatformOpsPermissionChecker;
 use app\platform\service\plugin\PluginPackageArchiveService;
 use app\platform\service\plugin\PluginPackageInstaller;
 use app\platform\service\plugin\PluginRuntimeGovernanceService;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Kernel\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -67,7 +67,8 @@ function moduleDeliveryRemoveTree(string $path): void
 
 function moduleDeliverySetVersion(string $root, string $module, string $version): void
 {
-    $backend = $root . '/server/app/Modules/Official/' . $module;
+    $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
+    $backend = $root . '/server/app/modules/official/' . $directory;
     foreach ([$backend . '/module.json', $backend . '/composer.json'] as $path) {
         $document = json_decode((string)file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
         $document['version'] = $version;
@@ -148,9 +149,10 @@ $completed = false;
 
 try {
     foreach (['Article', 'File'] as $module) {
+        $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
         moduleDeliveryCopyTree(
-            $projectRoot . '/server/app/Modules/Official/' . $module,
-            $source . '/server/app/Modules/Official/' . $module,
+            $projectRoot . '/server/app/modules/official/' . $directory,
+            $source . '/server/app/modules/official/' . $directory,
         );
         moduleDeliveryCopyTree(
             $projectRoot . '/web/src/modules/official-' . strtolower($module),

@@ -1,16 +1,16 @@
 {
-  "name": "peanut-business/fixture-delivery-record",
-  "description": "Fixture delivery record Module backend",
-  "type": "library",
-  "version": "1.0.0",
-  "license": "Apache-2.0",
-  "require": {
-    "php": "^8.3",
-    "peanut-admin/core": "0.1.0-alpha.5"
-  },
-  "autoload": {
-    "psr-4": {
-      "app\\modules\\fixture\\delivery_record\\": "./"
+    "name": "peanut-business/fixture-delivery-record",
+    "description": "Fixture delivery record Module backend",
+    "type": "library",
+    "version": "1.0.0",
+    "license": "Apache-2.0",
+    "require": {
+        "php": "^8.3",
+        "peanut-admin/core": "0.1.0-alpha.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "src/"
+        }
     }
-  }
 }

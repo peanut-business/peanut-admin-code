@@ -5,7 +5,7 @@ use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
 use app\common\infrastructure\module\OfficialModuleMiddleware;
-use app\modules\official\settings\controllers\SettingsController;
+use PeanutAdmin\Modules\Settings\Controller\SettingsController;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) !== 'adminapi') return;

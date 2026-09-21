@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace PeanutAdmin\Kernel\Tests\Integration\Module;
 
 use DateTimeImmutable;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
-use PeanutAdmin\Kernel\Module\TenantModuleConfigurationService;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\TenantModuleConfigurationService;
 use PeanutAdmin\Kernel\Module\TenantModuleConfigValidator;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 

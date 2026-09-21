@@ -3,11 +3,12 @@ declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
 
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
+use app\common\value\module\ModulePhpNamespace;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\platform\value\plugin\ModuleFrontendLayout;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
-use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
 
@@ -26,6 +27,7 @@ final readonly class DevelopmentModuleDiscovery
             throw new PluginLifecycleException('MODULE_REGISTRY_UNAVAILABLE', 'Development Module source root is unavailable.');
         }
         $manifests = [];
+        $phpNamespaces = [];
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($modulesRoot, \FilesystemIterator::SKIP_DOTS),
         );
@@ -51,7 +53,7 @@ final readonly class DevelopmentModuleDiscovery
             if (isset($manifests[$key->value()])) {
                 throw new PluginLifecycleException('MODULE_REGISTRY_CONFLICT', 'Development Module key is duplicated.');
             }
-            $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+            $layout = ModuleHostLayoutFactory::pathLayout();
             $expectedRoot = $this->projectRoot . '/' . rtrim($layout->backendRelativePath($key), '/');
             $actualRoot = realpath($entry->getPath());
             if ($actualRoot === false || $actualRoot !== realpath($expectedRoot)) {
@@ -68,6 +70,19 @@ final readonly class DevelopmentModuleDiscovery
             if (($manifest->data['key'] ?? null) !== $key->value()) {
                 throw new PluginLifecycleException('MODULE_PATH_INVALID', 'Development Module key differs from its manifest path.');
             }
+            try {
+                $phpNamespace = ModulePhpNamespace::fromModuleRoot($actualRoot);
+            } catch (\InvalidArgumentException $exception) {
+                throw new PluginLifecycleException('MODULE_MANIFEST_INVALID', 'Development Module PHP namespace is invalid.', 0, $exception);
+            }
+            $namespaceKey = strtolower($phpNamespace);
+            if (isset($phpNamespaces[$namespaceKey])) {
+                throw new PluginLifecycleException(
+                    'MODULE_REGISTRY_CONFLICT',
+                    "Development Module PHP namespace is duplicated by {$phpNamespaces[$namespaceKey]} and {$key->value()}.",
+                );
+            }
+            $phpNamespaces[$namespaceKey] = $key->value();
             $frontend = is_array($manifest->data['frontend'] ?? null) ? $manifest->data['frontend'] : [];
             try {
                 $contributions = ModuleFrontendLayout::contributions($frontend, $key->value());
@@ -90,6 +105,16 @@ final readonly class DevelopmentModuleDiscovery
         }
         if ($manifests === []) {
             throw new PluginLifecycleException('MODULE_REGISTRY_UNAVAILABLE', 'No development Module manifest was discovered.');
+        }
+        try {
+            ModuleHostLayoutFactory::fromModuleRoots($manifests);
+        } catch (\InvalidArgumentException $exception) {
+            throw new PluginLifecycleException(
+                'MODULE_REGISTRY_CONFLICT',
+                'Development Module PHP namespaces overlap or claim a reserved prefix.',
+                0,
+                $exception,
+            );
         }
         ksort($manifests, SORT_STRING);
         return $manifests;

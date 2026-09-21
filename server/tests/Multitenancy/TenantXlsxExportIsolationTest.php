@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 use app\common\services\XlsxExportService;
 use app\common\execution\ExecutionContextStore;
-use app\modules\official\file\services\storage\StorageService;
+use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
@@ -156,8 +156,8 @@ try {
     expectTenantXlsx(is_file($betaPath), 'Alpha cleanup deleted Beta export');
 
     foreach ([
-        'app/Modules/Official/Member/Application/MemberAdministrationService.php',
-        'app/Modules/Official/Payment/Application/RechargeAdministrationService.php',
+        'app/modules/official/member/src/Service/MemberAdministrationService.php',
+        'app/modules/official/payment/src/Service/RechargeAdministrationService.php',
         'app/adminapi/application/log/OperationLogApplicationService.php',
     ] as $relativePath) {
         $source = (string)file_get_contents($serverRoot . '/' . $relativePath);

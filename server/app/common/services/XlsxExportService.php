@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\common\services;
 
 use app\common\execution\CurrentExecutionContext;
-use app\modules\official\file\contracts\FileStorage;
+use PeanutAdmin\Modules\File\Contract\FileStorage;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use ZipArchive;
 

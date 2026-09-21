@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Tests\Unit\Database;
+namespace PeanutAdmin\Modules\EntitlementQuota\Tests\Unit\Database;
 
 use InvalidArgumentException;
-use PeanutAdmin\EntitlementQuota\Database\Schema;
+use PeanutAdmin\Modules\EntitlementQuota\Database\Schema;
 use PHPUnit\Framework\TestCase;
 
 final class SchemaTest extends TestCase

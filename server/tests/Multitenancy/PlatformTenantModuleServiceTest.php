@@ -12,14 +12,14 @@ use app\platform\service\PlatformOperatorSessionService;
 use app\platform\service\TenantGovernanceService;
 use app\platform\service\TenantOwnerAdminProvisioner;
 use Opis\JsonSchema\Validator;
-use PeanutAdmin\Kernel\Audit\AuditService;
-use PeanutAdmin\Kernel\Auth\Persistence\ThinkPhpPlatformAuthRepository;
-use PeanutAdmin\Kernel\Auth\PlatformAuthService;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Auth\SystemClock;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
-use PeanutAdmin\Kernel\Authorization\Persistence\Schema\AuthorizationSchema;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
@@ -30,16 +30,16 @@ use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
 use PeanutAdmin\Kernel\Module\ModuleRegistryCompiler;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\TenantModuleManager;
 use PeanutAdmin\Kernel\Module\VersionConstraintMatcher;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
-use PeanutAdmin\Kernel\Platform\Application\PlatformTenantAdminService;
-use PeanutAdmin\Kernel\Platform\Application\TenantOwnerAdminService;
-use PeanutAdmin\Kernel\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
-use PeanutAdmin\Kernel\Platform\Bootstrap\BootstrapService;
-use PeanutAdmin\Kernel\Tenancy\TenantStatus;
+use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
@@ -131,7 +131,7 @@ function pm01ModuleCompiler(string $schemaPath): ModuleRegistryCompiler
         new ModuleHostLayout('server/tests/Fixtures/PlatformTenantModule', 'Fixture', 'web/src/modules'),
         [...KernelSchema::tableNames(), ...AuthorizationSchema::tableNames(), ...ModuleSchema::tableNames()],
         ['admin-web', 'platform-web'],
-        [...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM],
+        [...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM],
     );
 }
 

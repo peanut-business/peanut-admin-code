@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\settings\infrastructure\BrandDefaults;
-use app\modules\official\settings\Application\WebsiteConfigService;
-use app\modules\official\settings\Contract\WebsiteConfigStore;
+use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
+use PeanutAdmin\Modules\Settings\Application\WebsiteConfigService;
+use PeanutAdmin\Modules\Settings\Contract\WebsiteConfigStore;
 
 require dirname(__DIR__, 4) . '/vendor/autoload.php';
 

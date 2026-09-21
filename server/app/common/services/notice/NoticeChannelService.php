@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace app\common\services\notice;
 
 use app\common\context\notice\NoticeTenantContext;
-use app\modules\official\integration\contracts\ExternalChannelBindings;
-use app\modules\official\integration\contracts\ExternalTenantContext;
+use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantContext;
 use app\common\infrastructure\notice\sms\AliyunSms;
 use app\common\contract\notice\sms\SmsDriver;
 use app\common\value\notice\sms\SmsDriverResult;
@@ -14,8 +14,8 @@ use app\common\contract\http\OutboundHttpTransport;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use app\modules\official\integration\contracts\ExternalTenantResolutionException;
-use app\modules\official\integration\contracts\ExternalTenantResolutionService;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
 
 /** Tenant 短信凭据、默认 Provider、驱动选择与回执脱敏的唯一 Host。 */
 final class NoticeChannelService

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\platform\value\ops;
 
-use app\modules\official\ops\infrastructure\PairedBackupProvider;
+use PeanutAdmin\Modules\Ops\Infrastructure\PairedBackupProvider;
 use DateTimeImmutable;
 use InvalidArgumentException;
 

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Persistence\Model;
+namespace PeanutAdmin\Modules\EntitlementQuota\Persistence\Model;
 
 use PeanutAdmin\Kernel\Persistence\Model\TenantModel;
 

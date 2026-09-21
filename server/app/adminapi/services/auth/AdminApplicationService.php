@@ -4,16 +4,16 @@ declare(strict_types=1);
 namespace app\adminapi\services\auth;
 
 use app\common\exception\BusinessException;
-use app\modules\official\file\contracts\FileReferences;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
 use app\common\services\XlsxExportService;
-use app\modules\official\identity\contracts\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Kernel\Context\TenantContextRequirement;
 use app\common\runtime\org\TenantAdminRuntime;
 use app\common\support\ExportPageInfo;
 use app\common\support\PaginationInput;
 use app\common\support\PositiveIds;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use PeanutAdmin\Kernel\Membership\Application\MemberAdminService;
+use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
 
 /** 管理员界面编排；账户、成员资料、角色及状态由 Core 聚合命令原子写入。 */
 final class AdminApplicationService

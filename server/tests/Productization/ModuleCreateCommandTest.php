@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use app\platform\service\plugin\DevelopmentModuleDiscovery;
+use app\platform\infrastructure\plugin\DevelopmentModuleDiscovery;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
@@ -82,10 +82,10 @@ function moduleCreateRunViteDiscovery(string $projectRoot): array
 
 $serverRoot = dirname(__DIR__, 2);
 $projectRoot = dirname($serverRoot);
-$layout = new ModuleHostLayout('server/app/Modules', 'app\\Modules', 'web/src/modules');
+$layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
 $suffix = bin2hex(random_bytes(6));
 $officialKey = 'official.generated-' . $suffix;
-$customKey = 'acme.generated-' . $suffix;
+$customKey = 'acme.custom-generated-' . $suffix;
 $officialModuleKey = ModuleKey::fromString($officialKey);
 $customModuleKey = ModuleKey::fromString($customKey);
 $officialBackend = $projectRoot . '/' . rtrim($layout->backendRelativePath($officialModuleKey), '/');
@@ -94,30 +94,33 @@ $customBackend = $projectRoot . '/' . rtrim($layout->backendRelativePath($custom
 $customFrontend = $projectRoot . '/' . rtrim($layout->frontendRelativePath($customModuleKey), '/');
 $officialTests = $projectRoot . '/server/tests/Modules/' . implode('/', $officialModuleKey->pascalSegments());
 $customTests = $projectRoot . '/server/tests/Modules/' . implode('/', $customModuleKey->pascalSegments());
-$customVendorRoot = $projectRoot . '/server/app/Modules/Acme';
+$customVendorRoot = $projectRoot . '/server/app/modules/acme';
 $customVendorRootExisted = is_dir($customVendorRoot);
 
 try {
     $official = moduleCreateRun($serverRoot, [$officialKey]);
     moduleCreateExpect($official['code'] === 0, 'default Official Module creation failed: ' . $official['output']);
     moduleCreateExpect(($official['json']['module_key'] ?? null) === $officialKey, 'Official creation returned another key');
-    moduleCreateExpect(($official['json']['vendor'] ?? null) === 'Official', 'Official vendor was not derived');
+    moduleCreateExpect(($official['json']['vendor'] ?? null) === 'official', 'Official vendor was not derived');
 
-    $custom = moduleCreateRun($serverRoot, [$customKey, '--vendor=Acme']);
+    $custom = moduleCreateRun($serverRoot, [$customKey, '--vendor=acme']);
     moduleCreateExpect($custom['code'] === 0, 'custom vendor Module creation failed: ' . $custom['output']);
     moduleCreateExpect(($custom['json']['module_key'] ?? null) === $customKey, 'custom creation returned another key');
-    moduleCreateExpect(($custom['json']['vendor'] ?? null) === 'Acme', 'custom vendor changed');
+    moduleCreateExpect(($custom['json']['vendor'] ?? null) === 'acme', 'custom vendor changed');
 
-    $expectedBackendFiles = [
-        'module.json', 'ModuleProvider.php', 'Contracts/Generated' . ucfirst($suffix) . 'Commands.php',
-        'Http/routes.php', 'Http/Controller/.gitkeep',
-        'Services/.gitkeep', 'Infrastructure/Persistence/.gitkeep', 'Model/.gitkeep',
-        'Resources/permissions.json', 'Resources/menus.json',
-        'Resources/setting-definitions.json', 'Database/Migrations/README.md', 'composer.json',
-    ];
     $expectedFrontendFiles = ['contribution.ts', 'views/.gitkeep', 'api.ts', 'package.json'];
     $expectedTestFiles = ['TenantSecurityDriver.php', 'TenantSecurityTest.php'];
-    foreach ([$officialBackend, $customBackend] as $root) {
+    foreach ([
+        [$officialBackend, 'Generated' . ucfirst($suffix)],
+        [$customBackend, 'CustomGenerated' . ucfirst($suffix)],
+    ] as [$root, $moduleName]) {
+        $expectedBackendFiles = [
+            'module.json', 'src/ModuleProvider.php', 'src/Contract/' . $moduleName . 'Commands.php',
+            'src/Controller/.gitkeep', 'src/Validation/.gitkeep', 'src/Service/.gitkeep',
+            'src/Infrastructure/.gitkeep', 'src/Model/.gitkeep', 'route/app.php',
+            'resources/permissions.json', 'resources/menus.json',
+            'resources/setting-definitions.json', 'database/migrations/README.md', 'composer.json',
+        ];
         foreach ($expectedBackendFiles as $relative) {
             moduleCreateExpect(is_file($root . '/' . $relative), "generated backend file is missing: {$relative}");
         }
@@ -141,20 +144,20 @@ try {
 
     $officialManifest = json_decode((string)file_get_contents($officialBackend . '/module.json'), true, 64, JSON_THROW_ON_ERROR);
     moduleCreateExpect(($officialManifest['frontend']['entry'] ?? null) === 'web/src/modules/' . $officialModuleKey->slug() . '/contribution.ts', 'frontend.entry is not key-derived');
-    moduleCreateExpect(($officialManifest['backend']['migrations'] ?? null) === 'Database/Migrations', 'generated migrations declaration is missing');
-    moduleCreateExpect(($officialManifest['backend']['setting_definitions'] ?? null) === 'Resources/setting-definitions.json', 'generated setting definitions declaration is missing');
-    moduleCreateExpect(($officialManifest['contracts']['exports'][0] ?? null) === 'app\\Modules\\Official\\Generated' . ucfirst($suffix) . '\\Contracts\\Generated' . ucfirst($suffix) . 'Commands', 'generated command contract export is missing');
+    moduleCreateExpect(($officialManifest['backend']['migrations'] ?? null) === 'database/migrations', 'generated migrations declaration is missing');
+    moduleCreateExpect(($officialManifest['backend']['setting_definitions'] ?? null) === 'resources/setting-definitions.json', 'generated setting definitions declaration is missing');
+    moduleCreateExpect(($officialManifest['contracts']['exports'][0] ?? null) === 'PeanutAdmin\\Modules\\Generated' . ucfirst($suffix) . '\\Contract\\Generated' . ucfirst($suffix) . 'Commands', 'generated command contract export is missing');
     moduleCreateExpect(($officialManifest['lifecycle']['protected'] ?? null) === false, 'generated Module must be removable by default');
     $customComposer = json_decode((string)file_get_contents($customBackend . '/composer.json'), true, 32, JSON_THROW_ON_ERROR);
-    moduleCreateExpect(isset($customComposer['autoload']['psr-4']['app\\Modules\\Acme\\Generated' . ucfirst($suffix) . '\\']), 'custom Composer namespace is not key-derived');
-    $customProviderSource = (string)file_get_contents($customBackend . '/ModuleProvider.php');
+    moduleCreateExpect(($customComposer['autoload']['psr-4']['Acme\\Modules\\CustomGenerated' . ucfirst($suffix) . '\\'] ?? null) === 'src/', 'custom Composer namespace is not key-derived');
+    $customProviderSource = (string)file_get_contents($customBackend . '/src/ModuleProvider.php');
     moduleCreateExpect(!str_contains($customProviderSource, '${'), 'backend template placeholder remains');
-    require_once $customBackend . '/ModuleProvider.php';
-    $customProviderClass = 'app\\Modules\\Acme\\Generated' . ucfirst($suffix) . '\\ModuleProvider';
+    require_once $customBackend . '/src/ModuleProvider.php';
+    $customProviderClass = 'Acme\\Modules\\CustomGenerated' . ucfirst($suffix) . '\\ModuleProvider';
     moduleCreateExpect((new $customProviderClass())->bindings() === [], 'generated Module bindings must default to empty');
     moduleCreateExpect(!str_contains((string)file_get_contents($customFrontend . '/contribution.ts'), '${'), 'frontend template placeholder remains');
     moduleCreateExpect(!str_contains((string)file_get_contents($customTests . '/TenantSecurityTest.php'), '${'), 'test template placeholder remains');
-    moduleCreateExpect(($custom['json']['test_path'] ?? null) === 'server/tests/Modules/Acme/Generated' . ucfirst($suffix), 'test path is not key-derived');
+    moduleCreateExpect(($custom['json']['test_path'] ?? null) === 'server/tests/Modules/Acme/CustomGenerated' . ucfirst($suffix), 'test path is not key-derived');
 
     $roots = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
     moduleCreateExpect(($roots[$officialKey] ?? null) === realpath($officialBackend), 'generated Official Module was not discovered');
@@ -169,6 +172,10 @@ try {
     moduleCreateExpect($duplicate['code'] === 1, 'duplicate Module creation was accepted');
     moduleCreateExpect(($duplicate['json']['error'] ?? null) === 'MODULE_CREATE_TARGET_EXISTS', 'duplicate failure code changed');
     moduleCreateExpect($beforeDuplicate === $afterDuplicate, 'duplicate creation changed the existing Module');
+
+    $namespaceCollision = moduleCreateRun($serverRoot, ['acme.generated-' . $suffix, '--vendor=acme']);
+    moduleCreateExpect($namespaceCollision['code'] === 1, 'cross-vendor PHP namespace collision was accepted');
+    moduleCreateExpect(($namespaceCollision['json']['error'] ?? null) === 'MODULE_CREATE_NAMESPACE_CONFLICT', 'namespace collision failure code changed');
 
     $invalid = moduleCreateRun($serverRoot, ['Invalid/../key']);
     moduleCreateExpect($invalid['code'] === 1, 'invalid Module key was accepted');

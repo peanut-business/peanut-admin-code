@@ -27,7 +27,7 @@ $contexts = new ExecutionContextStore();
 $current = new CurrentExecutionContext($contexts);
 $audit = (new ReflectionClass(AuditContractHost::class))->newInstanceWithoutConstructor();
 $trustedKey = str_repeat('k', SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES);
-$app->config->set(['official.article' => ['root' => 'app/Modules/Official/Article']], 'modules');
+$app->config->set(['official.article' => ['root' => 'app/modules/official/article']], 'modules');
 $app->config->set(['trusted_ed25519_keys' => ['c01-test' => base64_encode($trustedKey)]], 'module_packages');
 $app->instance(ExecutionContextStore::class, $contexts);
 $app->instance(CurrentExecutionContext::class, $current);
@@ -51,7 +51,7 @@ expectOpsModuleWiring(
 $requests = $app->make(DeploymentModuleRequestService::class);
 $moduleConfigProperty = new ReflectionProperty(DeploymentModuleRequestService::class, 'moduleConfig');
 expectOpsModuleWiring(
-    $moduleConfigProperty->getValue($requests) === ['official.article' => ['root' => 'app/Modules/Official/Article']],
+    $moduleConfigProperty->getValue($requests) === ['official.article' => ['root' => 'app/modules/official/article']],
     'AppService did not provide Module configuration to the request service',
 );
 $trustedKeysProperty = new ReflectionProperty(DeploymentModuleRequestService::class, 'trustedKeys');

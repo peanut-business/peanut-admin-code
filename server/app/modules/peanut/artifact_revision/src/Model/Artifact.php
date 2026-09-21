@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Model;
+namespace PeanutAdmin\Modules\ArtifactRevision\Model;
 
 final readonly class Artifact
 {

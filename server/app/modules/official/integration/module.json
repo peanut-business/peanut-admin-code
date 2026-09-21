@@ -17,7 +17,7 @@
     "protected": true
   },
   "backend": {
-    "provider": "app\\modules\\official\\integration\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\Integration\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json"
@@ -34,14 +34,14 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\integration\\contracts\\ExternalTenantBindingRepository",
-      "app\\modules\\official\\integration\\contracts\\ExternalTenantBinding",
-      "app\\modules\\official\\integration\\contracts\\ExternalTenantContext",
-      "app\\modules\\official\\integration\\contracts\\ExternalTenantResolutionService",
-      "app\\modules\\official\\integration\\contracts\\ExternalTenantResolutionException",
-      "app\\modules\\official\\integration\\contracts\\ExternalChannelBindings",
-      "app\\modules\\official\\integration\\contracts\\ExternalChannelBindingStore",
-      "app\\modules\\official\\integration\\contracts\\ExternalProvider"
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantBindingRepository",
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantBinding",
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantContext",
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantResolutionService",
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantResolutionException",
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalChannelBindings",
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalChannelBindingStore",
+      "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalProvider"
     ],
     "events": []
   },

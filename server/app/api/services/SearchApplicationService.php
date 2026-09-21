@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\api\services;
 
-use app\modules\official\settings\services\TenantApplicationSettingService;
+use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
 use app\common\model\setting\HotSearch;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;

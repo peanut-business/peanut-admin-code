@@ -11,19 +11,19 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\modules\official\file\contracts\FileReferences;
-use app\modules\official\integration\contracts\ExternalProvider;
-use app\modules\official\integration\contracts\ExternalTenantBinding;
-use app\modules\official\integration\contracts\ExternalTenantResolution;
-use app\modules\official\integration\contracts\ExternalTenantResolutionService;
-use app\modules\official\member\contracts\dto\MemberIdentitySnapshot;
-use app\modules\official\oauth\contracts\OAuthCallbackLocator;
-use app\modules\official\oauth\contracts\OAuthCommands;
-use app\modules\official\oauth\contracts\OfficialAccountCallbacks;
-use app\modules\official\oauth\contracts\dto\OAuthAuthorizationResult;
-use app\modules\official\oauth\contracts\dto\OAuthLoginResult;
-use app\modules\official\payment\contracts\PaymentMethod;
-use app\modules\official\payment\contracts\RechargeCommands;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
+use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBinding;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolution;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
+use PeanutAdmin\Modules\Member\Contract\Dto\MemberIdentitySnapshot;
+use PeanutAdmin\Modules\OAuth\Contract\OAuthCallbackLocator;
+use PeanutAdmin\Modules\OAuth\Contract\OAuthCommands;
+use PeanutAdmin\Modules\OAuth\Contract\OfficialAccountCallbacks;
+use PeanutAdmin\Modules\OAuth\Contract\Dto\OAuthAuthorizationResult;
+use PeanutAdmin\Modules\OAuth\Contract\Dto\OAuthLoginResult;
+use PeanutAdmin\Modules\Payment\Contract\PaymentMethod;
+use PeanutAdmin\Modules\Payment\Contract\RechargeCommands;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Module\ModuleException;
@@ -74,9 +74,9 @@ final class CallbackApplicationServicesTest extends TestCase
     private function tokens(): UserTokenService
     {
         // 本组测试OAuth编排，会员持久会话由独立测试验证；这里仅替换其公开边界。
-        $sessions = $this->createStub(\app\modules\official\member\contracts\MemberSessions::class);
+        $sessions = $this->createStub(\PeanutAdmin\Modules\Member\Contract\MemberSessions::class);
         $sessions->method('issue')->willReturnCallback(
-            static fn(int $memberId, int $issuedAt, int $expiresAt) => new \app\modules\official\member\contracts\dto\MemberSessionGrant(
+            static fn(int $memberId, int $issuedAt, int $expiresAt) => new \PeanutAdmin\Modules\Member\Contract\Dto\MemberSessionGrant(
                 str_repeat('a', 43), 17, $memberId, 1, $issuedAt, $expiresAt,
             ),
         );

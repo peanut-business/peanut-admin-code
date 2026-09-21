@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace app\api\services;
 
 use app\common\http\PageResult;
-use app\modules\official\payment\contracts\RechargeCommands;
-use app\modules\official\payment\contracts\RechargeQueries;
+use PeanutAdmin\Modules\Payment\Contract\RechargeCommands;
+use PeanutAdmin\Modules\Payment\Contract\RechargeQueries;
 
 /** Member API facade for the Payment Module's recharge use cases. */
 final readonly class RechargeApplicationService

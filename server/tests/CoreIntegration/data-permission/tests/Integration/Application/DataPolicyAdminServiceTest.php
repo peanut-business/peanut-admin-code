@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\DataPermission\Tests\Integration\Application;
 
 use DateTimeImmutable;
-use PeanutAdmin\DataPermission\Application\DataPolicyAdminService;
+use PeanutAdmin\Modules\Identity\DataPermission\Application\DataPolicyAdminService;
 use PeanutAdmin\DataPermission\Target\ResolvedResourceTargets;
 use PeanutAdmin\DataPermission\Target\ResourceTargetResolver;
 use PeanutAdmin\DataPermission\Target\TargetResolverRegistry;
@@ -15,9 +15,9 @@ use PeanutAdmin\DataPermission\Tests\Integration\Schema\DataPermissionMigrationR
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 

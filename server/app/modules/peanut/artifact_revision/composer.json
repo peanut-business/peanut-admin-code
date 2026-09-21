@@ -1,17 +1,16 @@
 {
-  "name": "peanut-business/artifact-revision",
-  "description": "版本化业务制品与不可变修订；保留原模块编号与审计、幂等语义。",
-  "type": "peanut-admin-module",
-  "version": "4.0.0-dev",
-  "license": "Apache-2.0",
-  "require": {
-    "php": "^8.3",
-    "peanut-admin/core": "dev-dev"
-  },
-  "autoload": {
-    "psr-4": {
-      "app\\modules\\peanut\\artifact_revision\\": "./",
-      "PeanutAdmin\\ArtifactRevision\\": "src/"
+    "name": "peanut-business/artifact-revision",
+    "description": "版本化业务制品与不可变修订；保留原模块编号与审计、幂等语义。",
+    "type": "peanut-admin-module",
+    "version": "4.0.0-dev",
+    "license": "Apache-2.0",
+    "require": {
+        "php": "^8.3",
+        "peanut-admin/core": "dev-dev"
+    },
+    "autoload": {
+        "psr-4": {
+            "PeanutAdmin\\Modules\\ArtifactRevision\\": "src/"
+        }
     }
-  }
 }

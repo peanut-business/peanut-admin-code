@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Kernel\Tests\Unit\Authorization;
 
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalog;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog;
 use PHPUnit\Framework\TestCase;
 
 final class CorePermissionCatalogTest extends TestCase

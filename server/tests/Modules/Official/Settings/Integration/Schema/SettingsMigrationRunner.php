@@ -6,7 +6,7 @@ namespace Tests\Modules\Official\Settings\Integration\Schema;
 
 use PDO;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
-use app\modules\official\settings\Database\Schema;
+use PeanutAdmin\Modules\Settings\Database\Schema;
 
 final readonly class SettingsMigrationRunner
 {

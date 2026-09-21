@@ -31,9 +31,9 @@ files=(
   plugins.lock
   plugins/official.notification/plugin.json
   plugins/official.task/plugin.json
-  server/app/modules/official/notification/services/NotificationBootstrapDefaults.php
-  server/app/modules/official/notification/services/NotificationBootstrapService.php
-  server/app/modules/official/task/services/TaskBootstrapService.php
+  server/app/modules/official/notification/src/Service/NotificationBootstrapDefaults.php
+  server/app/modules/official/notification/src/Service/NotificationBootstrapService.php
+  server/app/modules/official/task/src/Service/TaskBootstrapService.php
   server/app/platform/infrastructure/ThinkPhpTenantApplicationBootstrapPersistence.php
   server/app/platform/infrastructure/ops/ApplicationRuntimeStatusProvider.php
   server/database/seed-multi-tenant-demo.php

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Database;
+namespace PeanutAdmin\Modules\EntitlementQuota\Database;
 
 use InvalidArgumentException;
 

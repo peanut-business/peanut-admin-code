@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Definition;
+namespace PeanutAdmin\Modules\Workflow\Definition;
 
-use PeanutAdmin\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
 
 final readonly class WorkflowDefinitionVersion
 {

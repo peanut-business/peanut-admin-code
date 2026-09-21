@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Tests\Integration\Workflow;
+namespace PeanutAdmin\Modules\ArtifactRevision\Tests\Integration\Workflow;
 
 use DateTimeImmutable;
-use PeanutAdmin\ArtifactRevision\Model\ArtifactRevision;
-use PeanutAdmin\ArtifactRevision\Workflow\ArtifactSubjectRevisionReader;
-use PeanutAdmin\ArtifactRevision\Workflow\ArtifactWorkflowSubjectRevisionResolver;
+use PeanutAdmin\Modules\ArtifactRevision\Model\ArtifactRevision;
+use PeanutAdmin\Modules\ArtifactRevision\Workflow\ArtifactSubjectRevisionReader;
+use PeanutAdmin\Modules\ArtifactRevision\Workflow\ArtifactWorkflowSubjectRevisionResolver;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
-use PeanutAdmin\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
 use PHPUnit\Framework\TestCase;
 use UnexpectedValueException;
 

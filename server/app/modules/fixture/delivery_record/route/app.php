@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\fixture\delivery_record\controller\DeliveryRecordController;
+use PeanutAdmin\Fixtures\DeliveryRecord\Controller\DeliveryRecordController;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
 use app\common\infrastructure\module\OfficialModuleMiddleware;

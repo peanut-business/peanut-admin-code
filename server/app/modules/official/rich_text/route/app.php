@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\rich_text\controller\RichTextDocumentController;
+use PeanutAdmin\Modules\RichText\Controller\RichTextDocumentController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Definition;
+namespace PeanutAdmin\Modules\Workflow\Definition;
 
 final readonly class WorkflowTransition
 {

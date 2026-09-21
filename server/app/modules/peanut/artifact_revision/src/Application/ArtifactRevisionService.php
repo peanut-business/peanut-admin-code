@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Application;
+namespace PeanutAdmin\Modules\ArtifactRevision\Application;
 
 use DateTimeImmutable;
 use DateTimeZone;
 use JsonException;
-use PeanutAdmin\ArtifactRevision\Model\ArtifactRevision;
-use PeanutAdmin\ArtifactRevision\Package;
-use PeanutAdmin\ArtifactRevision\Persistence\ThinkPhpArtifactRevisionRepository;
+use PeanutAdmin\Modules\ArtifactRevision\Model\ArtifactRevision;
+use PeanutAdmin\Modules\ArtifactRevision\Package;
+use PeanutAdmin\Modules\ArtifactRevision\Persistence\ThinkPhpArtifactRevisionRepository;
 use PeanutAdmin\Kernel\Api\ApiException;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyKey;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyService;

@@ -23,7 +23,7 @@
     }
   ],
   "backend": {
-    "provider": "app\\modules\\official\\notification\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\Notification\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -47,11 +47,11 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\notification\\contracts\\NotificationBootstrapCommands",
-      "app\\modules\\official\\notification\\contracts\\NotificationCommands",
-      "app\\modules\\official\\notification\\contracts\\NotificationQueries",
-      "app\\modules\\official\\notification\\contracts\\VerificationCodeCommands",
-      "app\\modules\\official\\notification\\contracts\\NoticeSmsSender"
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationBootstrapCommands",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationCommands",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationQueries",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\VerificationCodeCommands",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NoticeSmsSender"
     ],
     "events": []
   },

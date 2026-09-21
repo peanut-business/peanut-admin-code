@@ -6,7 +6,7 @@ namespace Tests\Modules\Official\ReferenceCodes\Versioned\Security;
 
 use DateTimeImmutable;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetRegistry;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegistry;
 use Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Support\ReferenceCodesDatabaseTestCase;
 use ReflectionClass;
 use ReflectionNamedType;
@@ -136,7 +136,7 @@ final class ReferenceCodesIsolationTest extends ReferenceCodesDatabaseTestCase
             try {
                 $operation();
                 self::fail('Expected non-enumerating not-found failure.');
-            } catch (\app\modules\official\reference_codes\Versioned\Application\ReferenceCodeException $exception) {
+            } catch (\PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeException $exception) {
                 self::assertStringNotContainsString('secret-code', $exception->getMessage());
                 self::assertStringNotContainsString('SELECT', $exception->getMessage());
             }
@@ -146,8 +146,8 @@ final class ReferenceCodesIsolationTest extends ReferenceCodesDatabaseTestCase
     public function testPublicTenantOperationsRequireTrustedTenantContext(): void
     {
         foreach ([
-            \app\modules\official\reference_codes\Versioned\Application\ReferenceCodeAdminService::class => ['create', 'replace', 'retire'],
-            \app\modules\official\reference_codes\Versioned\Application\ReferenceCodeQuery::class => ['get', 'list', 'resolve', 'listActiveCandidates'],
+            \PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeAdminService::class => ['create', 'replace', 'retire'],
+            \PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeQuery::class => ['get', 'list', 'resolve', 'listActiveCandidates'],
         ] as $class => $methods) {
             $reflection = new ReflectionClass($class);
             foreach ($methods as $method) {
@@ -168,7 +168,7 @@ final class ReferenceCodesIsolationTest extends ReferenceCodesDatabaseTestCase
         }
     }
 
-    /** @return array{\app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetDefinition, \app\modules\official\reference_codes\Versioned\Persistence\ReferenceCodeStore, array{tenant_id:int, member_id:int, context:TenantContext}, array{tenant_id:int, member_id:int, context:TenantContext}} */
+    /** @return array{\PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetDefinition, \PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore, array{tenant_id:int, member_id:int, context:TenantContext}, array{tenant_id:int, member_id:int, context:TenantContext}} */
     private function twoTenants(string $prefix): array
     {
         $definition = $this->definition();

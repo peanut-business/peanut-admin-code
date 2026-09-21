@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use app\modules\official\integration\infrastructure\ThinkPhpExternalTenantBindingRepository;
-use app\modules\official\integration\contracts\ExternalTenantAudit;
-use app\modules\official\integration\contracts\ExternalTenantBinding;
-use app\modules\official\integration\contracts\ExternalTenantBindingRepository;
-use app\modules\official\integration\services\ExternalTenantResolver;
-use app\modules\official\integration\contracts\ExternalTenantResolutionException;
+use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantAudit;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBinding;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository;
+use PeanutAdmin\Modules\Integration\Service\ExternalTenantResolver;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 
 function externalExpect(bool $condition, string $message): void
 {
@@ -203,7 +203,7 @@ $oauthController = (string)file_get_contents($root . '/app/api/controller/OAuthC
 $paymentApplication = (string)file_get_contents($root . '/app/api/services/PaymentCallbackApplicationService.php');
 $officialApplication = (string)file_get_contents($root . '/app/api/services/OfficialAccountApplicationService.php');
 $oauthApplication = (string)file_get_contents($root . '/app/api/services/OAuthApplicationService.php');
-$settlement = (string)file_get_contents($root . '/app/Modules/Official/Payment/Application/RechargeApplicationService.php');
+$settlement = (string)file_get_contents($root . '/app/modules/official/payment/src/Service/RechargeApplicationService.php');
 $schema = (string)file_get_contents($root . '/database/init.sql');
 $bindingRepository = (string)file_get_contents($root . '/app/common/service/external/ThinkPhpExternalTenantBindingRepository.php');
 $bootstrapService = (string)file_get_contents($root . '/app/platform/service/ApplicationTenantBootstrapService.php');

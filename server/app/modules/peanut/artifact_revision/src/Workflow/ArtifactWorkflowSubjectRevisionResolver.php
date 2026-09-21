@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Workflow;
+namespace PeanutAdmin\Modules\ArtifactRevision\Workflow;
 
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use PeanutAdmin\Workflow\Adapter\WorkflowSubjectRevisionResolver;
-use PeanutAdmin\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowSubjectRevisionResolver;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
 use Throwable;
 use UnexpectedValueException;
 

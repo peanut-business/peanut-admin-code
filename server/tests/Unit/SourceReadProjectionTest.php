@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\identity\access\source_read\SourceReadCapability;
-use app\modules\official\identity\access\source_read\SourceReadProjection;
+use PeanutAdmin\Modules\Identity\access\SourceRead\SourceReadCapability;
+use PeanutAdmin\Modules\Identity\access\SourceRead\SourceReadProjection;
 use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
 use PHPUnit\Framework\TestCase;
 

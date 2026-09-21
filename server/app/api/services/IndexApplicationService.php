@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace app\api\services;
 
-use app\modules\official\article\contracts\PublicArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use app\common\services\RichTextResourceService;
-use app\modules\official\settings\services\TenantApplicationSettingService;
-use app\modules\official\settings\services\WebsiteConfigService;
+use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use app\common\enum\decoration\DecorationEnum;
 use app\common\services\decoration\DecorationReadService;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;

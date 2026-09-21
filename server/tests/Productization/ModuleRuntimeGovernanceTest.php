@@ -40,11 +40,11 @@ function moduleGovernanceRemoveTree(string $path): void
 
 function moduleGovernanceProject(string $sourceRoot, string $targetRoot): void
 {
-    moduleGovernanceCopyTree($sourceRoot . '/server/app/Modules/Fixture/DeliveryRecord', $targetRoot . '/server/app/Modules/Fixture/DeliveryRecord');
+    moduleGovernanceCopyTree($sourceRoot . '/server/app/modules/fixture/delivery_record', $targetRoot . '/server/app/modules/fixture/delivery_record');
     moduleGovernanceCopyTree($sourceRoot . '/web/src/modules/fixture-delivery-record', $targetRoot . '/web/src/modules/fixture-delivery-record');
     if (!is_dir($targetRoot . '/server/resources/schemas')) mkdir($targetRoot . '/server/resources/schemas', 0777, true);
     copy($sourceRoot . '/server/resources/schemas/plugin.schema.json', $targetRoot . '/server/resources/schemas/plugin.schema.json');
-    $manifestPath = $targetRoot . '/server/app/Modules/Fixture/DeliveryRecord/module.json';
+    $manifestPath = $targetRoot . '/server/app/modules/fixture/delivery_record/module.json';
     $manifest = json_decode((string)file_get_contents($manifestPath), true, 64, JSON_THROW_ON_ERROR);
     $manifest['database']['owned_tables'] = ['pa_fixture_delivery_record', 'pa_fixture_delivery_aux'];
     file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\modules\official\ops\domain\Logs\TenantDiagnosticAttributes;
+use PeanutAdmin\Modules\Ops\Domain\Logs\TenantDiagnosticAttributes;
 use app\common\infrastructure\runtime\OperationalLog;
 use PeanutAdmin\Kernel\Tenancy\ScheduledTenantContext;
 use app\common\execution\ContextualCommand;

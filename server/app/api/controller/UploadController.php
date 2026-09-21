@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace app\api\controller;
 
-use app\modules\official\file\contracts\FileUploads;
-use app\modules\official\file\contracts\dto\UploadFile;
+use PeanutAdmin\Modules\File\Contract\FileUploads;
+use PeanutAdmin\Modules\File\Contract\Dto\UploadFile;
 use app\common\enum\FileEnum;
 use app\common\execution\CurrentExecutionContext;
 use think\file\UploadedFile;

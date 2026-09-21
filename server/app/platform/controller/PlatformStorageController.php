@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\platform\controller;
 
 use app\common\execution\CurrentExecutionContext;
-use app\modules\official\file\contracts\StorageConfiguration;
+use PeanutAdmin\Modules\File\Contract\StorageConfiguration;
 use app\platform\context\PlatformOperatorContext;
 use think\App;
 

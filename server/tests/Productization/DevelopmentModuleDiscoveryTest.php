@@ -28,7 +28,7 @@ $second = (new DevelopmentModuleDiscovery($projectRoot))->moduleRoots();
 developmentDiscoveryExpect($first === $second, 'development Module discovery is not deterministic');
 developmentDiscoveryExpect(isset($first['official.article']), 'official.article was not discovered without plugins.lock');
 developmentDiscoveryExpect(
-    $first['official.article'] === $projectRoot . '/server/app/Modules/Official/Article',
+    $first['official.article'] === $projectRoot . '/server/app/modules/official/article',
     'official.article backend path was not derived from its key',
 );
 $manifestCount = iterator_count(new CallbackFilterIterator(

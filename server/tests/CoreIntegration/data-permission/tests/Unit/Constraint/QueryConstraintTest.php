@@ -95,7 +95,7 @@ final class QueryConstraintTest extends TestCase
     public function testUnknownConstraintTypesFailClosed(): void
     {
         $this->expectException(DataAuthorizationException::class);
-        (new ThinkPhpQueryConstraintApplier(new \app\modules\official\identity\access\infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply(
+        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply(
             Db::table('item')->alias('item'),
             new class implements QueryConstraint {},
         );
@@ -106,7 +106,7 @@ final class QueryConstraintTest extends TestCase
         $query = new Query(Db::connect());
         $query->table('item');
         $query->alias('item');
-        (new ThinkPhpQueryConstraintApplier(new \app\modules\official\identity\access\infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($query, $constraint);
+        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($query, $constraint);
 
         return $query;
     }

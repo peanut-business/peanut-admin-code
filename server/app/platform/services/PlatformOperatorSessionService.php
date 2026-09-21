@@ -6,9 +6,9 @@ namespace app\platform\services;
 use app\platform\exception\PlatformRefreshCredentialException;
 use app\common\exception\BusinessException;
 use app\platform\context\PlatformOperatorContext;
-use PeanutAdmin\Kernel\Auth\PlatformAuthentication;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthentication;
 use PeanutAdmin\Kernel\Auth\AuthException;
-use PeanutAdmin\Kernel\Auth\PlatformAuthService;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
 

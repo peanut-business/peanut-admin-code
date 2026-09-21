@@ -9,7 +9,7 @@ use app\common\services\authorization\MenuPermissionUsageQuery;
 use app\common\exception\BusinessException;
 use app\common\model\auth\SystemMenu;
 use think\facade\Db;
-use PeanutAdmin\Kernel\Platform\InstanceControlPlanePolicy;
+use PeanutAdmin\Modules\Identity\Platform\InstanceControlPlanePolicy;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 class MenuApplicationService

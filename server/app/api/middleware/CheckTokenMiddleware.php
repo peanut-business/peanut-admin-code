@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace app\api\middleware;
 
 use app\api\services\UserTokenService;
-use app\modules\official\member\contracts\MemberQueries;
+use PeanutAdmin\Modules\Member\Contract\MemberQueries;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\RequestTrace;

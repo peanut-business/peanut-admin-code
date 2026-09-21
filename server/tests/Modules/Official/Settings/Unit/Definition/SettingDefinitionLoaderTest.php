@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Modules\Official\Settings\Unit\Definition;
 
-use app\modules\official\settings\Application\SettingException;
-use app\modules\official\settings\Definition\SettingDefinition;
-use app\modules\official\settings\Definition\SettingDefinitionLoader;
-use app\modules\official\settings\Definition\SettingDefinitionRegistry;
+use PeanutAdmin\Modules\Settings\Application\SettingException;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinition;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionLoader;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

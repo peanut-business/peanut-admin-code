@@ -14,7 +14,7 @@ function expectContentDecoration(bool $condition, string $message): void
 
 $serverRoot = dirname(__DIR__, 2);
 $repositoryRoot = dirname($serverRoot);
-$fileService = (new ReflectionClass(\app\modules\official\file\services\FileService::class))->newInstanceWithoutConstructor();
+$fileService = (new ReflectionClass(\PeanutAdmin\Modules\File\Service\FileService::class))->newInstanceWithoutConstructor();
 $assetReferences = new ProductAssetReferenceService($fileService, 'https://app.example');
 
 expectContentDecoration(
@@ -56,7 +56,7 @@ expectContentDecoration(
     'HTTP scheme casing must not turn an absolute resource into a relative URI'
 );
 
-$articleModel = (string)file_get_contents($serverRoot . '/app/Modules/Official/Article/Model/Article.php');
+$articleModel = (string)file_get_contents($serverRoot . '/app/modules/official/article/src/Model/Article.php');
 $decorationSchema = (string)file_get_contents(
     $serverRoot . '/app/common/service/decoration/DecorationSchemaService.php'
 );
@@ -76,7 +76,7 @@ foreach ([$articleModel, $decorationSchema] as $source) {
 }
 
 $articleValidate = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Article/Validation/ArticleValidate.php'
+    $serverRoot . '/app/modules/official/article/src/Validation/ArticleValidate.php'
 );
 expectContentDecoration(
     str_contains($articleValidate, "'cid'        => 'require|integer|gt:0|checkCategory'"),
@@ -88,7 +88,7 @@ expectContentDecoration(
 );
 
 $articleAdministration = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Article/Application/ArticleAdministrationService.php'
+    $serverRoot . '/app/modules/official/article/src/Service/ArticleAdministrationService.php'
 );
 expectContentDecoration(str_contains($articleAdministration, 'ArticleCate::where([])'), 'category delete bypasses Tenant-first ownership');
 expectContentDecoration(str_contains($articleAdministration, 'Article::where([])'), 'occupied category check bypasses Tenant-first ownership');

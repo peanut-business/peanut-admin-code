@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace PeanutAdmin\Testing\Authorization;
 
 use DateTimeImmutable;
-use PeanutAdmin\DataPermission\Catalog\ThinkPhpResourceOperationCatalog;
+use PeanutAdmin\Modules\Identity\DataPermission\Catalog\ThinkPhpResourceOperationCatalog;
 use PeanutAdmin\DataPermission\Constraint\ColumnReference;
 use PeanutAdmin\DataPermission\Engine\DataPermissionEngine;
 use PeanutAdmin\DataPermission\Policy\PolicyCache;
-use PeanutAdmin\DataPermission\Policy\ThinkPhpPolicyRepository;
+use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
 use PeanutAdmin\DataPermission\Provider\ConditionProviderRegistry;
-use PeanutAdmin\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
-use PeanutAdmin\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
+use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
+use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
 use PeanutAdmin\DataPermission\Provider\ProviderColumnMap;
 use PeanutAdmin\DataPermission\Provider\ResourceProviderRegistry;
 use PeanutAdmin\DataPermission\Provider\SharedMasterScopeProviderRegistry;
@@ -21,9 +21,9 @@ use PeanutAdmin\DataPermission\Target\TargetCatalogProviderRegistry;
 use PeanutAdmin\DataPermission\Target\TargetResolverRegistry;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\ThinkPhpTenantAuthorizationRepository;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
@@ -89,7 +89,7 @@ final class AuthorizationAcceptanceFixture
             $engine,
             $alphaContext,
             $betaContext,
-            new ResourceProviderContractHarness($engine, $alphaContext, $trace, constraints: new \PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier(new \app\modules\official\identity\access\infrastructure\ThinkPhpTargetSetConstraintApplier())),
+            new ResourceProviderContractHarness($engine, $alphaContext, $trace, constraints: new \PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier())),
             $trace,
             $this->accountId,
             $this->alphaTenant,

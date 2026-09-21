@@ -327,7 +327,7 @@ final class InstallationExecutionHost
             ];
         }
         $profile = (new ProductTenantModuleProfileService(
-            new \PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository(
+            new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository(
                 $this->definitionRegistry(),
                 true,
             ),

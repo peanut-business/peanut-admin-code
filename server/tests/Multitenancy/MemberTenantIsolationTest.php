@@ -2,13 +2,13 @@
 declare(strict_types=1);
 
 use app\common\enum\AccountLogEnum;
-use app\Modules\Official\Member\Model\Member;
-use app\Modules\Official\Member\Model\MemberBalanceLog;
-use app\Modules\Official\Member\Model\MemberTag;
-use app\Modules\Official\Member\Model\MemberTagRelation;
-use app\Modules\Official\Member\Application\MemberProfileContractService;
-use app\Modules\Official\Member\Application\MemberTagContractService;
-use app\Modules\Official\Member\Application\MemberBalanceService;
+use PeanutAdmin\Modules\Member\Model\Member;
+use PeanutAdmin\Modules\Member\Model\MemberBalanceLog;
+use PeanutAdmin\Modules\Member\Model\MemberTag;
+use PeanutAdmin\Modules\Member\Model\MemberTagRelation;
+use PeanutAdmin\Modules\Member\Service\MemberProfileContractService;
+use PeanutAdmin\Modules\Member\Service\MemberTagContractService;
+use PeanutAdmin\Modules\Member\Service\MemberBalanceService;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;

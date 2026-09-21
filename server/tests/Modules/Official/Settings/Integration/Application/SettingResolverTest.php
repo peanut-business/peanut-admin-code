@@ -9,13 +9,13 @@ use PeanutAdmin\Kernel\Authorization\PermissionRequirement;
 use PeanutAdmin\Kernel\Host\AuthorizedExternalOperation;
 use PeanutAdmin\Kernel\Host\ExternalOperationDefinition;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
-use app\modules\official\settings\Application\EffectiveSetting;
-use app\modules\official\settings\Application\SettingAdminService;
-use app\modules\official\settings\Application\SettingException;
-use app\modules\official\settings\Application\SettingResolver;
-use app\modules\official\settings\Application\TargetSettingWriter;
-use app\modules\official\settings\Cache\ArrayRevisionedSettingCache;
-use app\modules\official\settings\Cache\RevisionedSettingCache;
+use PeanutAdmin\Modules\Settings\Application\EffectiveSetting;
+use PeanutAdmin\Modules\Settings\Application\SettingAdminService;
+use PeanutAdmin\Modules\Settings\Application\SettingException;
+use PeanutAdmin\Modules\Settings\Application\SettingResolver;
+use PeanutAdmin\Modules\Settings\Application\TargetSettingWriter;
+use PeanutAdmin\Modules\Settings\Cache\ArrayRevisionedSettingCache;
+use PeanutAdmin\Modules\Settings\Cache\RevisionedSettingCache;
 use PeanutAdmin\Settings\Secret\SecretProtector;
 use PeanutAdmin\Settings\Secret\SecretStorageContext;
 use PeanutAdmin\Settings\Secret\SodiumSecretProtector;
@@ -593,7 +593,7 @@ SQL);
         self::assertSame(2, $protector->revealCalls);
     }
 
-    /** @return array{\app\modules\official\settings\Definition\SettingDefinitionRegistry, \app\modules\official\settings\Definition\SettingDefinitionSynchronizer, SodiumSecretProtector} */
+    /** @return array{\PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry, \PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer, SodiumSecretProtector} */
     private function runtime(): array
     {
         $targets = [[

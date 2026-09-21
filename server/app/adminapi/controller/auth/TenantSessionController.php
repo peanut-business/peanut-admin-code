@@ -5,7 +5,7 @@ namespace app\adminapi\controller\auth;
 
 use app\adminapi\services\auth\TenantSessionApplicationService;
 use app\BaseController;
-use PeanutAdmin\Kernel\Http\TenantAuthResponse;
+use PeanutAdmin\Modules\Identity\Http\TenantAuthResponse;
 use think\App;
 
 final class TenantSessionController extends BaseController

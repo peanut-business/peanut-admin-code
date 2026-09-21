@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace app\common\services\readiness;
 
-use app\modules\official\notification\contracts\NotificationQueries;
+use PeanutAdmin\Modules\Notification\Contract\NotificationQueries;
 use app\common\security\ApplicationPasswordPolicy;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
-use app\modules\official\settings\infrastructure\BrandDefaults;
-use app\modules\official\settings\services\WebsiteConfigService;
+use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use app\modules\official\file\contracts\StorageConfiguration;
+use PeanutAdmin\Modules\File\Contract\StorageConfiguration;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\facade\Db;
 

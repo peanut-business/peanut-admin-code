@@ -1,11 +1,11 @@
 {
-  "name": "peanut-business/official-article",
-  "version": "1.0.0",
-  "type": "peanut-admin-module",
-  "license": "Apache-2.0",
-  "autoload": {
-    "psr-4": {
-      "app\\modules\\official\\article\\": "./"
+    "name": "peanut-business/official-article",
+    "version": "1.0.0",
+    "type": "peanut-admin-module",
+    "license": "Apache-2.0",
+    "autoload": {
+        "psr-4": {
+            "PeanutAdmin\\Modules\\Article\\": "src/"
+        }
     }
-  }
 }

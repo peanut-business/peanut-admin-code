@@ -3,11 +3,11 @@ declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
 
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\exception\plugin\PluginArtifactToolException;
 use app\platform\value\plugin\ModuleFrontendLayout;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
-use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
 /** Builds deterministic Plugin manifests and the repository Plugin lock without runtime services. */
@@ -134,7 +134,8 @@ final readonly class PluginArtifactWriter
         $npm = [];
         $frontend = [];
         $contentRoots = [];
-        $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+        $layout = ModuleHostLayoutFactory::pathLayout();
+        $moduleSources = [];
         foreach ($moduleRoots as $moduleKey => $root) {
             $expectedRoot = rtrim($layout->backendRelativePath(ModuleKey::fromString($moduleKey)), '/');
             if ($root !== $expectedRoot) {
@@ -152,6 +153,7 @@ final readonly class PluginArtifactWriter
                 'sha256' => $this->digest($absoluteRoot . '/composer.json'),
             ];
             $contentRoots[] = $absoluteRoot;
+            $moduleSources[$moduleKey] = $absoluteRoot;
 
             $moduleManifest = $this->readJson($absoluteRoot . '/module.json');
             try {
@@ -187,6 +189,11 @@ final readonly class PluginArtifactWriter
                 ];
                 $contentRoots[] = $absoluteFrontendRoot;
             }
+        }
+        try {
+            ModuleHostLayoutFactory::fromModuleRoots($moduleSources);
+        } catch (\InvalidArgumentException $exception) {
+            throw new PluginArtifactToolException('Module PHP namespaces overlap or claim a reserved prefix.', 0, $exception);
         }
         $this->sortIdentities($composer, 'name');
         $this->sortIdentities($npm, 'name');

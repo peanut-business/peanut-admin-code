@@ -13,7 +13,7 @@
     {"module_key": "official.file", "version": "^1.0"}
   ],
   "backend": {
-    "provider": "app\\modules\\official\\settings\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\Settings\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -31,11 +31,11 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\settings\\contracts\\TenantSettingsCommands",
-      "app\\modules\\official\\settings\\contracts\\TenantSettingsQuery",
-      "app\\modules\\official\\settings\\contracts\\TenantApplicationSettings",
-      "app\\modules\\official\\settings\\contracts\\DeploymentSettingsTransfer",
-      "app\\modules\\official\\settings\\contracts\\DeploymentSettingsTransferException"
+      "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingsCommands",
+      "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingsQuery",
+      "PeanutAdmin\\Modules\\Settings\\Contract\\TenantApplicationSettings",
+      "PeanutAdmin\\Modules\\Settings\\Contract\\DeploymentSettingsTransfer",
+      "PeanutAdmin\\Modules\\Settings\\Contract\\DeploymentSettingsTransferException"
     ],
     "events": []
   },

@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Persistence;
+namespace PeanutAdmin\Modules\Workflow\Persistence;
 
 use JsonException;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
-use PeanutAdmin\Workflow\Application\WorkflowException;
-use PeanutAdmin\Workflow\Definition\WorkflowDefinition;
-use PeanutAdmin\Workflow\Definition\WorkflowDefinitionVersion;
-use PeanutAdmin\Workflow\Definition\WorkflowGraph;
-use PeanutAdmin\Workflow\Instance\WorkflowEvent;
-use PeanutAdmin\Workflow\Instance\WorkflowInstance;
-use PeanutAdmin\Workflow\Instance\WorkflowWorkItem;
-use PeanutAdmin\Workflow\Persistence\Model\WorkflowDefinitionRecord;
-use PeanutAdmin\Workflow\Persistence\Model\WorkflowDefinitionVersionRecord;
-use PeanutAdmin\Workflow\Persistence\Model\WorkflowEventRecord;
-use PeanutAdmin\Workflow\Persistence\Model\WorkflowInstanceRecord;
-use PeanutAdmin\Workflow\Persistence\Model\WorkflowWorkItemRecord;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowDefinition;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowDefinitionVersion;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowGraph;
+use PeanutAdmin\Modules\Workflow\Instance\WorkflowEvent;
+use PeanutAdmin\Modules\Workflow\Instance\WorkflowInstance;
+use PeanutAdmin\Modules\Workflow\Instance\WorkflowWorkItem;
+use PeanutAdmin\Modules\Workflow\Persistence\Model\WorkflowDefinitionRecord;
+use PeanutAdmin\Modules\Workflow\Persistence\Model\WorkflowDefinitionVersionRecord;
+use PeanutAdmin\Modules\Workflow\Persistence\Model\WorkflowEventRecord;
+use PeanutAdmin\Modules\Workflow\Persistence\Model\WorkflowInstanceRecord;
+use PeanutAdmin\Modules\Workflow\Persistence\Model\WorkflowWorkItemRecord;
 use think\db\Raw;
 use think\db\exception\PDOException;
 use think\Model;

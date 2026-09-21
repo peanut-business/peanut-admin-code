@@ -4,7 +4,7 @@ declare(strict_types=1);
 use app\common\value\installation\ApplicationReleaseVersions;
 use app\common\value\scaffold\EditionProfile;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
-use PeanutAdmin\Kernel\Platform\Bootstrap\BootstrapService;
+use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\App;
 use think\Container;
 

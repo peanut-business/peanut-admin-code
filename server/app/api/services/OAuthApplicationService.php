@@ -7,13 +7,13 @@ use app\common\exception\BusinessException;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\modules\official\file\contracts\FileReferences;
-use app\modules\official\integration\contracts\ExternalProvider;
-use app\modules\official\integration\contracts\ExternalTenantResolutionService;
-use app\modules\official\oauth\contracts\OAuthCallbackLocator;
-use app\modules\official\oauth\contracts\OAuthCommands;
-use app\modules\official\oauth\contracts\dto\OAuthLoginResult;
-use app\modules\official\oauth\services\OAuthBrowserCallbackService;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
+use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
+use PeanutAdmin\Modules\OAuth\Contract\OAuthCallbackLocator;
+use PeanutAdmin\Modules\OAuth\Contract\OAuthCommands;
+use PeanutAdmin\Modules\OAuth\Contract\Dto\OAuthLoginResult;
+use PeanutAdmin\Modules\OAuth\Service\OAuthBrowserCallbackService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 
 /**

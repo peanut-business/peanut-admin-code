@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace PeanutAdmin\Kernel\Tests\Integration\Tenancy;
 
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
-use PeanutAdmin\Kernel\Audit\GovernanceAuditFilter;
+use PeanutAdmin\Modules\Identity\Audit\GovernanceAuditFilter;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
-use PeanutAdmin\Kernel\Tenancy\Application\TenantWorkspaceQueryService;
+use PeanutAdmin\Modules\Identity\Tenancy\Application\TenantWorkspaceQueryService;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';

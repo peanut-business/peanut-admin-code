@@ -74,7 +74,8 @@ function moduleBundleRemoveTree(string $path): void
 
 function moduleBundleSetVersion(string $root, string $module, string $version): void
 {
-    $backend = $root . '/server/app/Modules/Official/' . $module;
+    $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
+    $backend = $root . '/server/app/modules/official/' . $directory;
     foreach ([$backend . '/module.json', $backend . '/composer.json'] as $path) {
         $document = json_decode((string)file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
         $document['version'] = $version;
@@ -298,9 +299,10 @@ $completed = false;
 
 try {
     foreach (['Article', 'File', 'Notification', 'Task'] as $module) {
+        $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
         moduleBundleCopyTree(
-            $projectRoot . "/server/app/Modules/Official/{$module}",
-            $source . "/server/app/Modules/Official/{$module}",
+            $projectRoot . "/server/app/modules/official/{$directory}",
+            $source . "/server/app/modules/official/{$directory}",
         );
         $slug = 'official-' . strtolower($module);
         moduleBundleCopyTree($projectRoot . "/web/src/modules/{$slug}", $source . "/web/src/modules/{$slug}");
@@ -449,7 +451,7 @@ try {
     } catch (\app\platform\service\plugin\PluginPackageException $exception) {
         moduleBundleExpect($exception->errorCode === 'PLUGIN_DOWNGRADE_REJECTED', 'bundle downgrade returned another error');
     }
-    file_put_contents($source . '/server/app/Modules/Official/Article/Module.php', "\n", FILE_APPEND);
+    file_put_contents($source . '/server/app/modules/official/article/Module.php', "\n", FILE_APPEND);
     $conflictPacked = $archive->packBundle(
         'official-content-bundle',
         '2.0.0',
@@ -476,11 +478,11 @@ try {
     ];
     $catalogExpected = array_fill_keys(array_keys($catalogTables), 0);
     foreach ($moduleKeys as $moduleKey) {
-        $root = $target . '/server/app/Modules/Official/' . ($moduleKey === 'official.article' ? 'Article' : 'File');
+        $root = $target . '/server/app/modules/official/' . ($moduleKey === 'official.article' ? 'article' : 'file');
         $manifest = (new ManifestLoader())->load($root);
         $catalogExpected['permissions'] += count((array)($manifest->data['catalog']['permissions'] ?? []));
         $catalogExpected['menus'] += count((array)($manifest->data['catalog']['menus'] ?? []));
-        $definitions = json_decode((string)file_get_contents($root . '/Resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
+        $definitions = json_decode((string)file_get_contents($root . '/resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
         $catalogExpected['settings'] += count((array)$definitions);
     }
     foreach ($catalogTables as $name => $table) {
@@ -542,7 +544,7 @@ try {
     moduleBundleExpect(moduleBundleExistingTableCount($pdo, $ownedTables) === count($ownedTables), 'blocked content bundle purge changed owned tables');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_migration', $moduleKeys) === $migrationCount, 'blocked content bundle purge changed migration ledger');
 
-    $taskManifestPath = $source . '/server/app/Modules/Official/Task/module.json';
+    $taskManifestPath = $source . '/server/app/modules/official/task/module.json';
     $taskManifest = json_decode((string)file_get_contents($taskManifestPath), true, 64, JSON_THROW_ON_ERROR);
     $taskManifest['dependencies'] = [[
         'module_key' => 'official.file',
@@ -572,13 +574,13 @@ try {
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_tenant_module', $recoverableModuleKeys) === 0, 'recoverable package install changed TenantModule enablement');
 
     $recoverableCatalogExpected = array_fill_keys(array_keys($catalogTables), 0);
-    $recoverableDirectories = ['official.notification' => 'Notification', 'official.task' => 'Task'];
+    $recoverableDirectories = ['official.notification' => 'notification', 'official.task' => 'task'];
     foreach ($recoverableModuleKeys as $moduleKey) {
-        $root = $target . '/server/app/Modules/Official/' . $recoverableDirectories[$moduleKey];
+        $root = $target . '/server/app/modules/official/' . $recoverableDirectories[$moduleKey];
         $manifest = (new ManifestLoader())->load($root);
         $recoverableCatalogExpected['permissions'] += count((array)($manifest->data['catalog']['permissions'] ?? []));
         $recoverableCatalogExpected['menus'] += count((array)($manifest->data['catalog']['menus'] ?? []));
-        $definitions = json_decode((string)file_get_contents($root . '/Resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
+        $definitions = json_decode((string)file_get_contents($root . '/resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
         $recoverableCatalogExpected['settings'] += count((array)$definitions);
     }
     foreach ($catalogTables as $name => $table) {
@@ -734,7 +736,7 @@ try {
     (new PluginPackageInstaller($target . '/server', $moduleConfig, [], $catalogs))->install($privateArchive, $privatePackage['sha256'], null);
     $privateLock = new \app\platform\service\plugin\PluginLockResolver($target . '/server', '../plugins.lock');
     $profile = new \app\platform\service\module\ProductTenantModuleProfileService(
-        new \PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository(true),
+        new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository(true),
         new \app\platform\service\module\ThinkPhpModuleGovernanceProvider(
             $target . '/server',
             $moduleConfig + ['plugin_lock' => '../plugins.lock'],

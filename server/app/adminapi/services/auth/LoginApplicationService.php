@@ -8,9 +8,9 @@ use app\common\http\RequestTrace;
 use app\common\services\authorization\AdminAuthorizationService;
 use app\common\exception\BusinessException;
 use PeanutAdmin\Kernel\Auth\AuthException;
-use PeanutAdmin\Kernel\Auth\TenantAuthentication;
-use PeanutAdmin\Kernel\Auth\TenantAuthService;
-use PeanutAdmin\Kernel\Auth\TenantSelectionRequired;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthentication;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
+use PeanutAdmin\Modules\Identity\Auth\TenantSelectionRequired;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 

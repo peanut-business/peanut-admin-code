@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace app\common\infrastructure\module;
 
 use app\common\exception\module\ModuleScaffoldException;
+use app\common\value\module\ModulePhpNamespace;
 use app\platform\validation\plugin\ModulePackagePreflight;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
@@ -13,14 +14,14 @@ final class ModuleScaffoldGenerator
 {
     private const BACKEND_FILES = [
         'module.json' => 'backend/module.json.stub',
-        'ModuleProvider.php' => 'backend/ModuleProvider.php.stub',
-        'contracts/${MODULE}Commands.php' => 'backend/contracts/ModuleCommands.php.stub',
-        'controller/.gitkeep' => null,
-        'validate/.gitkeep' => null,
-        'services/.gitkeep' => null,
+        'src/ModuleProvider.php' => 'backend/ModuleProvider.php.stub',
+        'src/Contract/${MODULE}Commands.php' => 'backend/Contract/ModuleCommands.php.stub',
+        'src/Controller/.gitkeep' => null,
+        'src/Validation/.gitkeep' => null,
+        'src/Service/.gitkeep' => null,
         'route/app.php' => 'backend/route/app.php.stub',
-        'infrastructure/.gitkeep' => null,
-        'model/.gitkeep' => null,
+        'src/Infrastructure/.gitkeep' => null,
+        'src/Model/.gitkeep' => null,
         'resources/permissions.json' => 'backend/empty-array.json.stub',
         'resources/menus.json' => 'backend/empty-array.json.stub',
         'resources/setting-definitions.json' => 'backend/empty-array.json.stub',
@@ -59,7 +60,7 @@ final class ModuleScaffoldGenerator
             throw new ModuleScaffoldException('MODULE_CREATE_TEMPLATE_INVALID', 'Module scaffold template is unavailable.');
         }
         $this->templateRoot = $resolvedTemplates;
-        $this->layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+        $this->layout = ModuleHostLayoutFactory::pathLayout();
     }
 
     /**
@@ -111,8 +112,15 @@ final class ModuleScaffoldGenerator
 
         $vendorKey = $rawSegments[0];
         $slug = $key->slug();
-        $namespace = rtrim($this->layout->backendNamespace($key), '\\');
-        $vendorNamespace = 'app\\modules\\' . str_replace('-', '_', $vendor);
+        try {
+            $namespace = rtrim(ModulePhpNamespace::generated(
+                $vendor,
+                $pascalSegments[array_key_last($pascalSegments)],
+            ), '\\');
+        } catch (\InvalidArgumentException $exception) {
+            throw new ModuleScaffoldException('MODULE_CREATE_NAMESPACE_INVALID', 'Module PHP namespace cannot be derived.', 0, $exception);
+        }
+        $this->assertNamespaceAvailable($moduleKey, $namespace . '\\');
         $displayName = implode(' ', array_map(
             static fn(string $segment): string => implode(' ', array_map('ucfirst', explode('-', $segment))),
             $rawSegments,
@@ -127,7 +135,6 @@ final class ModuleScaffoldGenerator
             '${MODULE_KEY}' => $moduleKey,
             '${VENDOR}' => $vendor,
             '${MODULE}' => $pascalSegments[array_key_last($pascalSegments)],
-            '${VENDOR_NAMESPACE}' => $vendorNamespace,
             '${FRONTEND_SLUG}' => $slug,
             '${FRONTEND_ENTRY}' => $frontendEntry,
             '${PHP_NAMESPACE}' => $namespace,
@@ -137,7 +144,7 @@ final class ModuleScaffoldGenerator
             '${PHP_PACKAGE_JSON}' => $this->jsonString($phpPackage),
             '${WEB_PACKAGE_JSON}' => $this->jsonString($webPackage),
             '${BACKEND_PROVIDER_JSON}' => $this->jsonString($namespace . '\\ModuleProvider'),
-            '${COMMANDS_CONTRACT_JSON}' => $this->jsonString($namespace . '\\contracts\\' . $pascalSegments[array_key_last($pascalSegments)] . 'Commands'),
+            '${COMMANDS_CONTRACT_JSON}' => $this->jsonString($namespace . '\\Contract\\' . $pascalSegments[array_key_last($pascalSegments)] . 'Commands'),
             '${FRONTEND_ENTRY_JSON}' => $this->jsonString($frontendEntry),
             '${AUTOLOAD_NAMESPACE_JSON}' => $this->jsonString($namespace . '\\'),
             '${TABLE_NAME}' => $tableName,
@@ -207,6 +214,44 @@ final class ModuleScaffoldGenerator
         }
     }
 
+    private function assertNamespaceAvailable(string $moduleKey, string $namespace): void
+    {
+        $roots = [];
+        foreach (glob($this->projectRoot . '/server/app/modules/*/*/composer.json') ?: [] as $composerPath) {
+            try {
+                $moduleRoot = dirname($composerPath);
+                $manifest = json_decode(
+                    (string)file_get_contents($moduleRoot . '/module.json'),
+                    true,
+                    32,
+                    JSON_THROW_ON_ERROR,
+                );
+                $existingKey = is_array($manifest) ? ($manifest['key'] ?? null) : null;
+                if (!is_string($existingKey) || isset($roots[$existingKey])) {
+                    throw new \InvalidArgumentException('Existing Module identity is invalid.');
+                }
+                $roots[$existingKey] = $moduleRoot;
+            } catch (\InvalidArgumentException|\JsonException $exception) {
+                throw new ModuleScaffoldException(
+                    'MODULE_CREATE_NAMESPACE_INVALID',
+                    'An existing Module PHP namespace declaration is invalid.',
+                    0,
+                    $exception,
+                );
+            }
+        }
+        try {
+            ModuleHostLayoutFactory::assertNamespaceAvailable($moduleKey, $namespace, $roots);
+        } catch (\InvalidArgumentException $exception) {
+            throw new ModuleScaffoldException(
+                'MODULE_CREATE_NAMESPACE_CONFLICT',
+                'Module PHP namespace overlaps an existing Module, host, or Core prefix.',
+                0,
+                $exception,
+            );
+        }
+    }
+
     /** @param array<string,?string> $files @param array<string,string> $replacements */
     private function writeFiles(string $targetRoot, array $files, array $replacements): void
     {
@@ -245,8 +290,9 @@ final class ModuleScaffoldGenerator
 
     private function postflight(string $moduleKey, string $backendRoot): void
     {
-        foreach (['module.json', 'composer.json', 'contracts', 'controller', 'validate', 'services', 'route/app.php',
-            'infrastructure', 'model', 'resources/permissions.json', 'resources/menus.json',
+        foreach (['module.json', 'composer.json', 'src/ModuleProvider.php', 'src/Contract', 'src/Controller',
+            'src/Validation', 'src/Service', 'route/app.php', 'src/Infrastructure', 'src/Model',
+            'resources/permissions.json', 'resources/menus.json',
             'resources/setting-definitions.json', 'database/migrations/README.md'] as $relative) {
             if (!file_exists($backendRoot . '/' . $relative)) {
                 throw new ModuleScaffoldException('MODULE_CREATE_POSTCHECK_FAILED', 'Generated Module backend is incomplete.');

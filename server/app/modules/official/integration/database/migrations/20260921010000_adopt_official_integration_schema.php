@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\integration\database\Schema;
+use PeanutAdmin\Modules\Integration\Database\Schema;
 use think\facade\Db;
 use think\migration\Migrator;
 

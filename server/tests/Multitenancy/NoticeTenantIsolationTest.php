@@ -1,16 +1,16 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\notification\services\NotificationApplicationService;
-use app\modules\official\notification\validate\NoticeSceneValidate;
-use app\modules\official\notification\model\NoticeLog;
-use app\modules\official\notification\model\NoticeScene;
+use PeanutAdmin\Modules\Notification\Service\NotificationApplicationService;
+use PeanutAdmin\Modules\Notification\Validation\NoticeSceneValidate;
+use PeanutAdmin\Modules\Notification\Model\NoticeLog;
+use PeanutAdmin\Modules\Notification\Model\NoticeScene;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\context\notice\NoticeTenantContext;
-use app\modules\official\notification\delivery\Application\VerificationCodeSecret;
-use app\modules\official\notification\contracts\NoticeSmsSender;
-use app\modules\official\notification\services\VerificationCodeService;
+use PeanutAdmin\Modules\Notification\Delivery\Application\VerificationCodeSecret;
+use PeanutAdmin\Modules\Notification\Contract\NoticeSmsSender;
+use PeanutAdmin\Modules\Notification\Service\VerificationCodeService;
 use app\api\services\VerificationAttemptRateLimiter;
 use app\api\services\LoginApplicationService;
 use app\common\exception\BusinessException;
@@ -439,7 +439,7 @@ SQL);
         fn() => $barrierService->send($barrierOwner, 'login_code', '13800000005'),
     );
     expectNoticeTenant($barrierOwnerResult->success, $barrierOwnerResult->error);
-    expectNoticeTenant($contendingResult instanceof \app\Modules\Official\Notification\Contracts\DeliveryResult
+    expectNoticeTenant($contendingResult instanceof \PeanutAdmin\Modules\Notification\Contract\DeliveryResult
         && !$contendingResult->success, 'Provider barrier contender was not rejected');
     expectNoticeTenant($barrierSender->calls === 1, 'Provider barrier allowed duplicate delivery');
     expectNoticeTenant(
@@ -634,7 +634,7 @@ SQL);
         ),
         'password reset did not consume the verified code through its application service',
     );
-    $resetHash = (string)runNoticeTenant($alpha, 'test.notice.member.reset-password', fn() => \app\modules\official\member\model\Member::where([])->where('mobile', $loginMobile)->value('password'));
+    $resetHash = (string)runNoticeTenant($alpha, 'test.notice.member.reset-password', fn() => \PeanutAdmin\Modules\Member\Model\Member::where([])->where('mobile', $loginMobile)->value('password'));
     expectNoticeTenant(password_verify('ResetPassword2026', $resetHash), 'password reset did not update the member credential');
 
     // 路由注册、公共租户中间件和控制器限流依赖共同构成两个 HTTP 入口的装配合同。

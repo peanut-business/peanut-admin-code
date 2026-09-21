@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Tests\Unit\Database;
+namespace PeanutAdmin\Modules\ArtifactRevision\Tests\Unit\Database;
 
 use InvalidArgumentException;
-use PeanutAdmin\ArtifactRevision\Database\Schema;
+use PeanutAdmin\Modules\ArtifactRevision\Database\Schema;
 use PHPUnit\Framework\TestCase;
 
 final class SchemaTest extends TestCase

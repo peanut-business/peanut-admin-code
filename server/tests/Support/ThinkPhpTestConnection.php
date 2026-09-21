@@ -35,7 +35,7 @@ final class ThinkPhpTestConnection
     {
         $connection = self::fromPdo($pdo);
         return new \app\platform\infrastructure\plugin\ModuleCatalogApplier(
-            new \app\modules\official\settings\Definition\SettingDefinitionSynchronizer(),
+            new \PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer(),
         );
     }
 }

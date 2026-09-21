@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Persistence\Model;
+namespace PeanutAdmin\Modules\Workflow\Persistence\Model;
 
 use PeanutAdmin\Kernel\Persistence\Model\TenantModel;
 

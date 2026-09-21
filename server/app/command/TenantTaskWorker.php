@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\modules\official\import_export\contracts\ImportExportWorkerRuntime;
+use PeanutAdmin\Modules\ImportExport\Contract\ImportExportWorkerRuntime;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\runtime\OperationalLog;

@@ -5,7 +5,7 @@ namespace app\api\services;
 
 use app\common\enum\decoration\DecorationEnum;
 use app\common\services\decoration\DecorationReadService;
-use app\modules\official\article\contracts\PublicArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 

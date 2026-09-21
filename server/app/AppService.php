@@ -14,7 +14,7 @@ use app\adminapi\infrastructure\generator\GeneratorImportPersistence;
 use app\api\services\IndexApplicationService;
 use app\api\services\LoginApplicationService as MemberLoginApplicationService;
 use app\api\services\UserTokenService;
-use app\modules\official\article\contracts\PublicArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 use app\common\composition\ModuleComposition;
 use app\common\contract\AdminPermissionPolicy;
 use app\common\contract\authorization\AdminAuthorizationQuery;
@@ -36,26 +36,26 @@ use app\common\security\ApplicationPasswordPolicy;
 use app\common\composition\CoreServiceOverrides;
 use app\common\services\CrontabCommandService;
 use app\common\policy\DemoAccountPolicy;
-use app\modules\official\file\services\FileService;
+use PeanutAdmin\Modules\File\Service\FileService;
 use app\common\services\ProductAssetReferenceService;
 use app\common\services\authorization\MenuPermissionUsageQuery;
 use app\common\runtime\authorization\RoleAdministrationRuntime;
-use app\modules\official\identity\contracts\AdminDirectoryQuery;
-use app\modules\official\identity\contracts\TenantAuditDiagnosticQuery;
-use app\modules\official\identity\contracts\PlatformAuditDiagnosticQuery;
-use app\modules\official\identity\contracts\PlatformOperatorIdentityQuery;
-use app\modules\official\task\contracts\TaskDiagnosticQuery;
-use app\modules\official\identity\access\source_read\SourceReadCapabilityRegistry;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuditDiagnosticQuery;
+use PeanutAdmin\Modules\Identity\Contract\PlatformAuditDiagnosticQuery;
+use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
+use PeanutAdmin\Modules\Task\Contract\TaskDiagnosticQuery;
+use PeanutAdmin\Modules\Identity\access\SourceRead\SourceReadCapabilityRegistry;
 use app\common\runtime\org\TenantAdminRuntime;
 use app\common\services\tenant\TenantIdentityQuery;
-use app\modules\official\file\composition\storage\AliyunStorageClientFactory;
-use app\modules\official\file\infrastructure\storage\FailClosedStorageCredentialResolver;
-use app\modules\official\file\composition\storage\QcloudStorageClientFactory;
-use app\modules\official\file\infrastructure\storage\QiniuStorageHttpTransport;
+use PeanutAdmin\Modules\File\Composition\Storage\AliyunStorageClientFactory;
+use PeanutAdmin\Modules\File\Infrastructure\Storage\FailClosedStorageCredentialResolver;
+use PeanutAdmin\Modules\File\Composition\Storage\QcloudStorageClientFactory;
+use PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuStorageHttpTransport;
 use app\common\contract\storage\StorageCredentialResolver;
-use app\modules\official\file\services\storage\StorageConfigurationService;
-use app\modules\official\file\composition\storage\StorageDriverFactory;
-use app\modules\official\file\services\storage\StorageService;
+use PeanutAdmin\Modules\File\Service\Storage\StorageConfigurationService;
+use PeanutAdmin\Modules\File\Composition\Storage\StorageDriverFactory;
+use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use app\common\tenancy\DataScopePolicy;
 use app\common\tenancy\DefaultTenantEntryBindingLookup;
 use app\common\tenancy\MultiTenantDataScopePolicy;
@@ -74,21 +74,21 @@ use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
 use app\platform\validation\module\OpisTenantModuleConfigValidator;
 use app\platform\services\module\PlatformTenantModuleService;
 use app\platform\infrastructure\module\VerifiedTenantModuleRepository;
-use app\modules\official\ops\services\PlatformOpsApplicationService;
-use app\modules\official\ops\infrastructure\ApplicationRuntimeStatusProvider;
-use app\modules\official\ops\services\DeploymentModuleRequestService;
-use app\modules\official\ops\infrastructure\PairedBackupProvider;
-use app\modules\official\ops\infrastructure\ThinkPhpMaintenanceWindowStore;
-use app\modules\official\ops\infrastructure\ThinkPhpModuleOperationTaskExecutionService;
-use app\modules\official\ops\infrastructure\ThinkPhpOpsTaskDispatcher;
-use app\modules\official\ops\infrastructure\ThinkPhpUpgradeTaskExecutionService;
-use app\modules\official\ops\infrastructure\PlatformAuditRuntimeLogProvider;
-use app\modules\official\ops\services\PlatformBackupCenterService;
-use app\modules\official\ops\services\PlatformDiagnosticBundleService;
-use app\modules\official\ops\services\PlatformModuleOperationExecutionService;
-use app\modules\official\ops\infrastructure\authorization\PlatformOpsPermissionChecker;
-use app\modules\official\ops\services\PlatformUpgradeExecutionService;
-use app\modules\official\ops\services\PlatformUpgradeReadinessService;
+use PeanutAdmin\Modules\Ops\Service\PlatformOpsApplicationService;
+use PeanutAdmin\Modules\Ops\Infrastructure\ApplicationRuntimeStatusProvider;
+use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
+use PeanutAdmin\Modules\Ops\Infrastructure\PairedBackupProvider;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpMaintenanceWindowStore;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpModuleOperationTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpOpsTaskDispatcher;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpUpgradeTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Infrastructure\PlatformAuditRuntimeLogProvider;
+use PeanutAdmin\Modules\Ops\Service\PlatformBackupCenterService;
+use PeanutAdmin\Modules\Ops\Service\PlatformDiagnosticBundleService;
+use PeanutAdmin\Modules\Ops\Service\PlatformModuleOperationExecutionService;
+use PeanutAdmin\Modules\Ops\Infrastructure\Authorization\PlatformOpsPermissionChecker;
+use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeExecutionService;
+use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeReadinessService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\services\plugin\PlatformModuleRuntimeService;
 use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
@@ -104,51 +104,51 @@ use app\platform\infrastructure\provider\StorageQualificationContributor;
 use think\Service;
 use think\Model;
 use think\facade\Config;
-use PeanutAdmin\Kernel\Auth\Persistence\ThinkPhpTenantAuthRepository;
-use PeanutAdmin\Kernel\Auth\Persistence\ThinkPhpPlatformAuthRepository;
-use PeanutAdmin\Kernel\Auth\PlatformAuthRepository;
-use PeanutAdmin\Kernel\Auth\TenantAuthRepository;
-use PeanutAdmin\Kernel\Auth\PlatformAuthService;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpTenantAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Auth\SystemClock;
-use PeanutAdmin\Kernel\Auth\TenantAuthService;
+use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
-use PeanutAdmin\Kernel\Authorization\Application\RoleAdminService;
+use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
-use PeanutAdmin\Kernel\Authorization\ThinkPhpTenantAuthorizationRepository;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
-use PeanutAdmin\Kernel\Identity\SelfService\AccountSelfService;
+use PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyService;
-use PeanutAdmin\Kernel\Http\TenantAuthEndpoint;
-use PeanutAdmin\Kernel\Membership\Application\MemberAdminService;
-use PeanutAdmin\Kernel\Organization\Application\DepartmentAdminService;
+use PeanutAdmin\Modules\Identity\Http\TenantAuthEndpoint;
+use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
+use PeanutAdmin\Modules\Identity\Organization\Application\DepartmentAdminService;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
-use PeanutAdmin\Kernel\Module\TenantModuleConfigurationService;
+use PeanutAdmin\Modules\Identity\Module\TenantModuleConfigurationService;
 use PeanutAdmin\Kernel\Module\TenantModuleManager;
-use PeanutAdmin\Kernel\Menu\ThinkPhpMenuCatalogRepository;
-use PeanutAdmin\Kernel\Platform\Application\PlatformTenantAdminService;
-use PeanutAdmin\Kernel\Platform\Application\TenantOwnerAdminService;
-use PeanutAdmin\Kernel\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
-use PeanutAdmin\Kernel\Tenancy\DefaultTenantContextResolver;
+use PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
-use app\modules\official\ops\domain\Application\PlatformPermissionChecker;
-use app\modules\official\ops\domain\Logs\RuntimeLogProviderRegistry;
-use app\modules\official\ops\domain\Logs\RuntimeLogService;
-use app\modules\official\ops\domain\Logs\SafeLogMessageCatalog;
-use app\modules\official\ops\domain\Maintenance\MaintenanceReasonRegistry;
-use app\modules\official\ops\domain\Maintenance\MaintenanceService;
-use app\modules\official\ops\domain\Maintenance\MaintenanceWindowStore;
-use app\modules\official\ops\domain\Status\OpsStatusService;
-use app\modules\official\ops\domain\Status\RuntimeStatusProvider;
-use app\modules\official\ops\domain\Task\BackupRestoreProviderRegistry;
-use app\modules\official\ops\domain\Task\OpsTaskDispatcher;
-use app\modules\official\ops\domain\Task\OpsTaskService;
-use app\modules\official\settings\Definition\SettingDefinitionSynchronizer;
+use PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker;
+use PeanutAdmin\Modules\Ops\Domain\Logs\RuntimeLogProviderRegistry;
+use PeanutAdmin\Modules\Ops\Domain\Logs\RuntimeLogService;
+use PeanutAdmin\Modules\Ops\Domain\Logs\SafeLogMessageCatalog;
+use PeanutAdmin\Modules\Ops\Domain\Maintenance\MaintenanceReasonRegistry;
+use PeanutAdmin\Modules\Ops\Domain\Maintenance\MaintenanceService;
+use PeanutAdmin\Modules\Ops\Domain\Maintenance\MaintenanceWindowStore;
+use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusService;
+use PeanutAdmin\Modules\Ops\Domain\Status\RuntimeStatusProvider;
+use PeanutAdmin\Modules\Ops\Domain\Task\BackupRestoreProviderRegistry;
+use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskDispatcher;
+use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskService;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
 use app\common\persistence\TenantPersistenceConfiguration;
 
 /** 应用组合根，集中注册 Host 基础设施、业务服务与官方 Module Runtime。 */
@@ -238,7 +238,7 @@ class AppService extends Service
         $this->app->bind(UserTokenService::class, fn(): UserTokenService => new UserTokenService(
             (string)Config::get('jwt.secret', ''),
             (int)Config::get('jwt.expire', 0),
-            $this->app->make(\app\modules\official\member\contracts\MemberSessions::class),
+            $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberSessions::class),
         ));
     }
 
@@ -330,7 +330,7 @@ class AppService extends Service
             }
             $lookup = $mode === DeploymentMode::Standalone
                 ? $this->app->make(DefaultTenantEntryBindingLookup::class)
-                : $this->app->make(\app\modules\official\identity\tenancy\infrastructure\ThinkPhpTenantEntryBindingLookup::class);
+                : $this->app->make(\PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup::class);
             return new TenantEntryBindingResolver(
                 null,
                 true,
@@ -532,16 +532,16 @@ class AppService extends Service
         $this->app->bind(WorkbenchApplicationService::class, fn(): WorkbenchApplicationService => new WorkbenchApplicationService(
             $this->app->make(AdminAuthorizationService::class),
             $this->app->make(FileService::class),
-            $this->app->make(\app\modules\official\settings\services\WebsiteConfigService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
             (string)Config::get('project.version', ''),
             (string)Config::get('project.based', ''),
             (array)Config::get('project.default_image', []),
         ));
         $this->app->bind(ConfigApplicationService::class, fn(): ConfigApplicationService => new ConfigApplicationService(
-            $this->app->make(\app\modules\official\settings\services\TenantApplicationSettingService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
             $this->app->make(FileService::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
-            $this->app->make(\app\modules\official\settings\services\WebsiteConfigService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
             (string)Config::get('project.default_image.user_avatar', ''),
         ));
         $this->app->bind(GeneratorService::class, fn(): GeneratorService => new GeneratorService(
@@ -551,11 +551,11 @@ class AppService extends Service
         ));
         $this->app->bind(IndexApplicationService::class, fn(): IndexApplicationService => new IndexApplicationService(
             $this->app->make(TenantIdentityQuery::class),
-            $this->app->make(\app\modules\official\settings\services\TenantApplicationSettingService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
             $this->app->make(PublicArticleQueries::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\app\common\services\decoration\DecorationReadService::class),
-            $this->app->make(\app\modules\official\settings\services\WebsiteConfigService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
             (string)Config::get('project.version', ''),
             [
                 'enabled' => $this->app->make(DemoAccountPolicy::class)->enabled(),
@@ -568,9 +568,9 @@ class AppService extends Service
             ],
         ));
         $this->app->bind(MemberLoginApplicationService::class, fn(): MemberLoginApplicationService => new MemberLoginApplicationService(
-            $this->app->make(\app\modules\official\member\contracts\MemberIdentityCommands::class),
-            $this->app->make(\app\modules\official\notification\contracts\VerificationCodeCommands::class),
-            $this->app->make(\app\modules\official\settings\services\TenantApplicationSettingService::class),
+            $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands::class),
+            $this->app->make(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
             $this->app->make(FileService::class),
             $this->app->make(UserTokenService::class),
             (string)Config::get('project.default_image.user_avatar', ''),

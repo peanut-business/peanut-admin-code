@@ -1,0 +1,755 @@
+#!/opt/homebrew/bin/php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Peanut Admin 模块命名空间一次性迁移工具。
+ *
+ * 设计约束：
+ * - 只扫描当前仓库登记的 18 个模块，不扫描 vendor、历史 scaffold 或发布快照；
+ * - 只按实际声明生成逐符号映射，不做 PeanutAdmin\\Kernel 等无边界前缀替换；
+ * - 生产模块进入 PeanutAdmin\\Modules\\<ModuleName>，fixture 保持独立测试前缀；
+ * - 数据库迁移和资源留在模块根，普通类进入 src/ 的精确 PSR-4 路径；
+ * - apply 必须消费已保存的 plan，并复核 HEAD、源声明和目标碰撞。
+ */
+
+const EXPECTED_HEAD = '1f7f9d060774f5bfafcae4ef9af472ed7a134f73';
+const EXPECTED_BRANCH = 'refactor/module-namespace-20260921';
+
+/** @return array<string,array{key:string,prefix:string,legacy:list<array{prefix:string,relative_prefix:string}>}> */
+function moduleDefinitions(): array
+{
+    $production = [
+        'server/app/modules/official/article' => ['official.article', 'Article'],
+        'server/app/modules/official/file' => ['official.file', 'File'],
+        'server/app/modules/official/identity' => ['official.identity', 'Identity'],
+        'server/app/modules/official/import_export' => ['official.import-export', 'ImportExport'],
+        'server/app/modules/official/integration' => ['official.integration', 'Integration'],
+        'server/app/modules/official/member' => ['official.member', 'Member'],
+        'server/app/modules/official/notification' => ['official.notification', 'Notification'],
+        'server/app/modules/official/oauth' => ['official.oauth', 'OAuth'],
+        'server/app/modules/official/ops' => ['official.ops', 'Ops'],
+        'server/app/modules/official/payment' => ['official.payment', 'Payment'],
+        'server/app/modules/official/reference_codes' => ['official.reference-codes', 'ReferenceCodes'],
+        'server/app/modules/official/rich_text' => ['official.rich-text', 'RichText'],
+        'server/app/modules/official/settings' => ['official.settings', 'Settings'],
+        'server/app/modules/official/task' => ['official.task', 'Task'],
+        'server/app/modules/peanut/artifact_revision' => ['peanut.artifact-revision', 'ArtifactRevision'],
+        'server/app/modules/peanut/entitlement_quota' => ['peanut.entitlement-quota', 'EntitlementQuota'],
+        'server/app/modules/peanut/workflow' => ['peanut.workflow', 'Workflow'],
+    ];
+
+    $definitions = [];
+    foreach ($production as $root => [$key, $name]) {
+        $segments = explode('/', $root);
+        $vendor = $segments[3];
+        $directory = $segments[4];
+        $legacy = [[
+            'prefix' => "app\\modules\\{$vendor}\\{$directory}\\",
+            'relative_prefix' => '',
+        ]];
+        if ($name === 'ArtifactRevision') {
+            $legacy[] = ['prefix' => 'PeanutAdmin\\ArtifactRevision\\', 'relative_prefix' => ''];
+        } elseif ($name === 'EntitlementQuota') {
+            $legacy[] = ['prefix' => 'PeanutAdmin\\EntitlementQuota\\', 'relative_prefix' => ''];
+        } elseif ($name === 'Workflow') {
+            $legacy[] = ['prefix' => 'PeanutAdmin\\Workflow\\', 'relative_prefix' => ''];
+        } elseif ($name === 'Identity') {
+            $legacy[] = ['prefix' => 'PeanutAdmin\\DataPermission\\', 'relative_prefix' => 'DataPermission\\'];
+            $legacy[] = ['prefix' => 'PeanutAdmin\\Kernel\\', 'relative_prefix' => ''];
+        }
+        $definitions[$root] = [
+            'key' => $key,
+            'prefix' => "PeanutAdmin\\Modules\\{$name}\\",
+            'legacy' => $legacy,
+        ];
+    }
+
+    $definitions['server/app/modules/fixture/delivery_record'] = [
+        'key' => 'fixture.delivery-record',
+        'prefix' => 'PeanutAdmin\\Fixtures\\DeliveryRecord\\',
+        'legacy' => [[
+            'prefix' => 'app\\modules\\fixture\\delivery_record\\',
+            'relative_prefix' => '',
+        ]],
+    ];
+
+    return $definitions;
+}
+
+/** @return never */
+function fail(string $message): void
+{
+    fwrite(STDERR, "ERROR: {$message}\n");
+    exit(1);
+}
+
+function command(string $command, string $root): string
+{
+    $output = [];
+    $status = 0;
+    exec('cd ' . escapeshellarg($root) . ' && ' . $command . ' 2>&1', $output, $status);
+    if ($status !== 0) {
+        fail("命令失败：{$command}\n" . implode("\n", $output));
+    }
+    return trim(implode("\n", $output));
+}
+
+/** @return array{namespace:string,symbols:list<array{name:string,kind:string}>} */
+function declarations(string $path): array
+{
+    $source = file_get_contents($path);
+    if (!is_string($source)) fail("无法读取 {$path}");
+    $tokens = token_get_all($source);
+    $namespace = '';
+    $symbols = [];
+    $count = count($tokens);
+    for ($index = 0; $index < $count; $index++) {
+        $token = $tokens[$index];
+        if (!is_array($token)) continue;
+        if ($token[0] === T_NAMESPACE) {
+            $first = null;
+            for ($cursor = $index + 1; $cursor < $count; $cursor++) {
+                $candidate = $tokens[$cursor];
+                if (is_array($candidate) && in_array($candidate[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) continue;
+                $first = $candidate;
+                break;
+            }
+            if (!is_array($first) || !in_array($first[0], [T_STRING, T_NAME_QUALIFIED, T_NS_SEPARATOR], true)) {
+                continue;
+            }
+            $value = '';
+            for ($cursor = $index + 1; $cursor < $count; $cursor++) {
+                $part = $tokens[$cursor];
+                if ($part === ';' || $part === '{') break;
+                if (is_array($part) && in_array($part[0], [T_STRING, T_NAME_QUALIFIED, T_NS_SEPARATOR], true)) {
+                    $value .= $part[1];
+                }
+            }
+            // T_NAMESPACE 也可能来自名为 NAMESPACE 的类常量；只有实际命名空间声明才更新。
+            if ($value !== '') $namespace = trim($value, '\\');
+            continue;
+        }
+        $kinds = [T_CLASS => 'class', T_INTERFACE => 'interface', T_TRAIT => 'trait'];
+        if (defined('T_ENUM')) $kinds[T_ENUM] = 'enum';
+        if (!isset($kinds[$token[0]])) continue;
+        for ($cursor = $index + 1; $cursor < $count; $cursor++) {
+            $part = $tokens[$cursor];
+            if (is_array($part) && in_array($part[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT, T_FINAL, T_ABSTRACT, T_READONLY], true)) {
+                continue;
+            }
+            if (is_array($part) && $part[0] === T_STRING) {
+                $symbols[] = ['name' => $part[1], 'kind' => $kinds[$token[0]]];
+            }
+            break;
+        }
+    }
+    return ['namespace' => $namespace, 'symbols' => $symbols];
+}
+
+function normalizeRelativeNamespace(string $relative): string
+{
+    if ($relative === '') return '';
+    $renames = [
+        'application' => 'Application', 'audit' => 'Audit', 'authorization' => 'Authorization', 'cache' => 'Cache',
+        'composition' => 'Composition', 'contract' => 'Contract', 'contracts' => 'Contract',
+        'controller' => 'Controller', 'controllers' => 'Controller', 'database' => 'Database',
+        'definition' => 'Definition', 'delivery' => 'Delivery', 'diagnostic' => 'Diagnostic',
+        'domain' => 'Domain', 'dto' => 'Dto', 'engine' => 'Engine', 'execution' => 'Execution',
+        'file' => 'File', 'infrastructure' => 'Infrastructure', 'instance' => 'Instance',
+        'identity' => 'Identity', 'job' => 'Job', 'migrations' => 'Migrations', 'model' => 'Model', 'persistence' => 'Persistence',
+        'provider' => 'Provider', 'query' => 'Query', 'runtime' => 'Runtime', 'services' => 'Service',
+        'source_read' => 'SourceRead', 'storage' => 'Storage', 'tenancy' => 'Tenancy', 'validate' => 'Validation',
+        'validation' => 'Validation', 'value' => 'Value', 'webhook' => 'Webhook',
+    ];
+    $segments = explode('\\', trim($relative, '\\'));
+    foreach ($segments as &$segment) {
+        $segment = $renames[$segment] ?? $segment;
+    }
+    unset($segment);
+    return implode('\\', $segments);
+}
+
+/** @param array{prefix:string,legacy:list<array{prefix:string,relative_prefix:string}>} $module */
+function mapSymbol(string $old, array $module): string
+{
+    foreach ($module['legacy'] as $rule) {
+        if (!str_starts_with($old . '\\', $rule['prefix'])) continue;
+        $relative = substr($old, strlen($rule['prefix']));
+        $relative = $rule['relative_prefix'] . $relative;
+        return rtrim($module['prefix'], '\\') . '\\' . normalizeRelativeNamespace($relative);
+    }
+    fail("模块声明不在允许的旧前缀内：{$old}");
+}
+
+/** @return list<string> */
+function phpFiles(string $absoluteRoot): array
+{
+    $files = [];
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
+        $absoluteRoot,
+        FilesystemIterator::SKIP_DOTS,
+    ));
+    foreach ($iterator as $entry) {
+        if ($entry instanceof SplFileInfo && $entry->isFile() && $entry->getExtension() === 'php') {
+            $files[] = $entry->getPathname();
+        }
+    }
+    sort($files, SORT_STRING);
+    return $files;
+}
+
+/** @return array<string,string> */
+function coreDeclarations(string $root): array
+{
+    $coreRoot = $root . '/server/vendor/peanut-admin/core';
+    if (!is_dir($coreRoot)) return [];
+    $symbols = [];
+    foreach (phpFiles($coreRoot) as $file) {
+        $parsed = declarations($file);
+        foreach ($parsed['symbols'] as $symbol) {
+            $fqcn = ltrim(($parsed['namespace'] === '' ? '' : $parsed['namespace'] . '\\') . $symbol['name'], '\\');
+            $symbols[strtolower($fqcn)] = substr($file, strlen($root) + 1);
+        }
+    }
+    return $symbols;
+}
+
+/** @return array<string,mixed> */
+function buildPlan(string $root): array
+{
+    $definitions = moduleDefinitions();
+    $core = coreDeclarations($root);
+    $symbols = [];
+    $files = [];
+    $seenOld = [];
+    $seenNew = [];
+    $seenTarget = [];
+    $shortNames = [];
+    $coreOverlaps = [];
+    $namespacedWithoutSymbols = [];
+    $globalMigrationSymbols = [];
+    $moduleCounts = [];
+
+    foreach ($definitions as $moduleRoot => $module) {
+        $absoluteModuleRoot = $root . '/' . $moduleRoot;
+        if (!is_dir($absoluteModuleRoot)) fail("模块目录不存在：{$moduleRoot}");
+        $moduleCounts[$module['key']] = ['php_files' => 0, 'symbol_files' => 0, 'symbols' => 0];
+        foreach (phpFiles($absoluteModuleRoot) as $absoluteFile) {
+            $oldFile = substr($absoluteFile, strlen($root) + 1);
+            $moduleCounts[$module['key']]['php_files']++;
+            $parsed = declarations($absoluteFile);
+            $migrationResource = str_contains('/' . $oldFile . '/', '/database/migrations/');
+            if ($parsed['symbols'] === []) {
+                if ($parsed['namespace'] !== '') $namespacedWithoutSymbols[] = $oldFile;
+                continue;
+            }
+            if ($parsed['namespace'] === '') {
+                if (!$migrationResource) fail("模块普通源码存在全局类声明：{$oldFile}");
+                foreach ($parsed['symbols'] as $symbol) {
+                    $globalMigrationSymbols[] = [
+                        'symbol' => $symbol['name'],
+                        'kind' => $symbol['kind'],
+                        'file' => $oldFile,
+                        'module_key' => $module['key'],
+                        'preserved' => true,
+                    ];
+                }
+                continue;
+            }
+            $moduleCounts[$module['key']]['symbol_files']++;
+            $newSymbols = [];
+            foreach ($parsed['symbols'] as $symbol) {
+                $old = ltrim(($parsed['namespace'] === '' ? '' : $parsed['namespace'] . '\\') . $symbol['name'], '\\');
+                $new = mapSymbol($old, $module);
+                $oldKey = strtolower($old);
+                $newKey = strtolower($new);
+                if (isset($seenOld[$oldKey])) fail("旧符号重复声明：{$old} ({$seenOld[$oldKey]} / {$oldFile})");
+                if (isset($seenNew[$newKey])) fail("新符号大小写碰撞：{$new} ({$seenNew[$newKey]} / {$old})");
+                $seenOld[$oldKey] = $oldFile;
+                $seenNew[$newKey] = $old;
+                $newSymbols[] = $new;
+                $short = strtolower($symbol['name']);
+                $shortNames[$module['key']][$short][] = $new;
+                if (isset($core[$oldKey])) {
+                    $coreOverlaps[] = ['old_fqcn' => $old, 'module_file' => $oldFile, 'core_file' => $core[$oldKey]];
+                }
+                $symbols[] = [
+                    'old_fqcn' => $old,
+                    'new_fqcn' => $new,
+                    'kind' => $symbol['kind'],
+                    'old_file' => $oldFile,
+                    'module_key' => $module['key'],
+                ];
+                $moduleCounts[$module['key']]['symbols']++;
+            }
+            $primary = $newSymbols[0];
+            $prefix = $module['prefix'];
+            if (!str_starts_with($primary . '\\', $prefix)) fail("目标符号不属于模块前缀：{$primary}");
+            $relative = str_replace('\\', '/', substr($primary, strlen($prefix)));
+            $newFile = $moduleRoot . '/src/' . $relative . '.php';
+            $targetKey = strtolower($newFile);
+            if (isset($seenTarget[$targetKey]) && $seenTarget[$targetKey] !== $oldFile) {
+                fail("目标路径大小写碰撞：{$newFile} ({$seenTarget[$targetKey]} / {$oldFile})");
+            }
+            $seenTarget[$targetKey] = $oldFile;
+            $files[$oldFile] = [
+                'old_file' => $oldFile,
+                'new_file' => $newFile,
+                'old_namespace' => $parsed['namespace'],
+                'new_namespace' => substr($newSymbols[0], 0, strrpos($newSymbols[0], '\\')),
+                'module_key' => $module['key'],
+                'symbols' => $newSymbols,
+                'migration_resource' => false,
+            ];
+        }
+    }
+
+    foreach ($symbols as &$symbol) {
+        $symbol['new_file'] = $files[$symbol['old_file']]['new_file'];
+    }
+    unset($symbol);
+    usort($symbols, static fn(array $a, array $b): int => strcmp($a['old_fqcn'], $b['old_fqcn']));
+    ksort($files, SORT_STRING);
+    ksort($moduleCounts, SORT_STRING);
+    usort($coreOverlaps, static fn(array $a, array $b): int => strcmp($a['old_fqcn'], $b['old_fqcn']));
+
+    $shortNameCollisions = [];
+    foreach ($shortNames as $moduleKey => $names) {
+        foreach ($names as $short => $candidates) {
+            if (count($candidates) > 1) {
+                sort($candidates, SORT_STRING);
+                $shortNameCollisions[] = ['module_key' => $moduleKey, 'short_name' => $short, 'symbols' => $candidates];
+            }
+        }
+    }
+
+    $head = command('git rev-parse HEAD', $root);
+    $branch = command('git branch --show-current', $root);
+    return [
+        'schema_version' => 1,
+        'source' => ['head' => $head, 'branch' => $branch],
+        'policy' => [
+            'production_prefix' => 'PeanutAdmin\\Modules\\<ModuleName>\\',
+            'fixture_prefix' => 'PeanutAdmin\\Fixtures\\DeliveryRecord\\',
+            'class_root' => 'src/',
+            'resource_roots_preserved' => ['composer.json', 'module.json', 'database/', 'resources/', 'route/'],
+        ],
+        'modules' => array_map(
+            static fn(array $definition): array => ['module_key' => $definition['key'], 'prefix' => $definition['prefix']],
+            $definitions,
+        ),
+        'counts' => [
+            'modules' => count($definitions),
+            'php_files' => array_sum(array_column($moduleCounts, 'php_files')),
+            'symbol_files' => count($files),
+            'symbols' => count($symbols),
+            'file_moves' => count(array_filter($files, static fn(array $file): bool => $file['old_file'] !== $file['new_file'])),
+            'core_fqcn_overlaps' => count($coreOverlaps),
+            'short_name_collisions' => count($shortNameCollisions),
+        ],
+        'module_counts' => $moduleCounts,
+        'symbols' => $symbols,
+        'files' => array_values($files),
+        'diagnostics' => [
+            'core_fqcn_overlaps' => $coreOverlaps,
+            'short_name_collisions' => $shortNameCollisions,
+            'namespaced_files_without_symbols' => $namespacedWithoutSymbols,
+            'global_migration_symbols_preserved' => $globalMigrationSymbols,
+            'fqcn_collisions' => [],
+            'path_case_collisions' => [],
+        ],
+    ];
+}
+
+function writeJson(string $path, array $data): void
+{
+    $directory = dirname($path);
+    if (!is_dir($directory) && !mkdir($directory, 0755, true)) fail("无法创建目录 {$directory}");
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    if (file_put_contents($path, $json, LOCK_EX) !== strlen($json)) fail("无法写入 {$path}");
+}
+
+function assertWorkspace(string $root, bool $allowDirty): void
+{
+    $head = command('git rev-parse HEAD', $root);
+    $branch = command('git branch --show-current', $root);
+    if ($head !== EXPECTED_HEAD) fail("HEAD 不符：{$head}");
+    if ($branch !== EXPECTED_BRANCH) fail("分支不符：{$branch}");
+    if (!$allowDirty) {
+        $dirty = command('git status --short --untracked-files=no', $root);
+        if ($dirty !== '' && $dirty !== '?? scripts/migrate-module-namespaces') {
+            fail("plan 前工作树必须无既有跟踪修改：\n{$dirty}");
+        }
+    }
+}
+
+/** @param array<string,mixed> $plan */
+function applyPlan(string $root, array $plan): void
+{
+    if (($plan['source']['head'] ?? null) !== EXPECTED_HEAD || ($plan['source']['branch'] ?? null) !== EXPECTED_BRANCH) {
+        fail('映射来源与批准的分支/起点不一致。');
+    }
+    $current = buildPlan($root);
+    if (($current['symbols'] ?? null) !== ($plan['symbols'] ?? null) || ($current['files'] ?? null) !== ($plan['files'] ?? null)) {
+        fail('当前声明与已保存映射不一致；拒绝应用过期映射。');
+    }
+
+    $symbolReplacements = [];
+    $pathReplacements = [];
+    foreach ($plan['symbols'] as $symbol) {
+        $symbolReplacements[$symbol['old_fqcn']] = $symbol['new_fqcn'];
+    }
+    foreach ($plan['files'] as $file) {
+        if ($file['old_file'] === $file['new_file']) continue;
+        $pathReplacements[$file['old_file']] = $file['new_file'];
+        if (str_starts_with($file['old_file'], 'server/')) {
+            $pathReplacements[substr($file['old_file'], 7)] = substr($file['new_file'], 7);
+        }
+    }
+    uksort($symbolReplacements, static fn(string $a, string $b): int => strlen($b) <=> strlen($a) ?: strcmp($a, $b));
+    uksort($pathReplacements, static fn(string $a, string $b): int => strlen($b) <=> strlen($a) ?: strcmp($a, $b));
+
+    $tracked = preg_split('/\R/', command('git ls-files', $root)) ?: [];
+    $excludedPrefixes = ['scaffold/releases/', 'server/vendor/', 'node_modules/', '.git/', '.local/'];
+    foreach ($tracked as $relative) {
+        if ($relative === '' || !is_file($root . '/' . $relative)) continue;
+        foreach ($excludedPrefixes as $prefix) {
+            if (str_starts_with($relative, $prefix)) continue 2;
+        }
+        if (str_ends_with($relative, '.tgz') || $relative === 'server/composer.lock') continue;
+        $absolute = $root . '/' . $relative;
+        $contents = file_get_contents($absolute);
+        if (!is_string($contents) || str_contains($contents, "\0")) continue;
+        $updated = replaceMappedReferences($contents, $symbolReplacements, $pathReplacements, $relative);
+        $updated = replaceLegacyLogicalFqcn($updated, $plan, $relative);
+        $updated = replaceLegacyLogicalPaths($updated, $plan, $relative);
+        if ($updated !== $contents && file_put_contents($absolute, $updated, LOCK_EX) !== strlen($updated)) {
+            fail("无法更新消费者 {$relative}");
+        }
+    }
+
+    foreach ($plan['files'] as $file) {
+        $old = $root . '/' . $file['old_file'];
+        if (!is_file($old)) fail("源文件已缺失：{$file['old_file']}");
+        $contents = file_get_contents($old);
+        if (!is_string($contents)) fail("无法读取：{$file['old_file']}");
+        $oldNamespace = $file['old_namespace'];
+        $newNamespace = $file['new_namespace'];
+        $count = 0;
+        $contents = preg_replace(
+            '/(?m)^namespace\\s+' . preg_quote($oldNamespace, '/') . '\\s*;/',
+            'namespace ' . str_replace('\\', '\\\\', $newNamespace) . ';',
+            $contents,
+            1,
+            $count,
+        );
+        if (!is_string($contents) || $count !== 1) fail("namespace 精确替换失败：{$file['old_file']}");
+        $contents = replaceMappedReferences($contents, $symbolReplacements, $pathReplacements, $file['old_file']);
+        if (file_put_contents($old, $contents, LOCK_EX) !== strlen($contents)) fail("无法更新：{$file['old_file']}");
+    }
+
+    foreach ($plan['files'] as $file) {
+        if ($file['old_file'] === $file['new_file']) continue;
+        $source = $root . '/' . $file['old_file'];
+        $target = $root . '/' . $file['new_file'];
+        if (file_exists($target) && realpath($target) !== realpath($source)) fail("目标已存在：{$file['new_file']}");
+        if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0755, true)) fail("无法创建目标目录：{$file['new_file']}");
+        if (!rename($source, $target)) fail("移动失败：{$file['old_file']} -> {$file['new_file']}");
+    }
+
+    updateComposerManifests($root);
+    removeEmptyModuleDirectories($root);
+}
+
+/** @param array<string,mixed> $plan */
+function replaceLegacyLogicalFqcn(string $contents, array $plan, string $source): string
+{
+    $moduleAliases = [];
+    foreach (moduleDefinitions() as $root => $definition) {
+        $segments = explode('/', $root);
+        $vendor = strtolower($segments[3]);
+        $module = strtolower(str_replace(['_', '-'], '', $segments[4]));
+        $moduleAliases[$vendor . ':' . $module] = $definition['key'];
+    }
+    $shortNames = [];
+    foreach ($plan['symbols'] as $symbol) {
+        $parts = explode('\\', $symbol['old_fqcn']);
+        $shortNames[$symbol['module_key']][strtolower((string)end($parts))][] = $symbol['new_fqcn'];
+    }
+
+    foreach ([1, 2] as $slashCount) {
+        $separator = str_repeat('\\', $slashCount);
+        $pattern = '/(?<![A-Za-z0-9_\\\\])(?<leading>' . preg_quote($separator, '/') . '?)'
+            . preg_quote('app' . $separator . 'Modules' . $separator, '/')
+            . '(?<vendor>Official|Peanut|Fixture)' . preg_quote($separator, '/')
+            . '(?<module>[A-Za-z0-9_]+)' . preg_quote($separator, '/')
+            . '(?:[A-Za-z0-9_]+' . preg_quote($separator, '/') . ')*'
+            . '(?<short>[A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])/i';
+        $updated = preg_replace_callback($pattern, static function (array $match) use (
+            $moduleAliases,
+            $shortNames,
+            $separator,
+            $source,
+        ): string {
+            $alias = strtolower($match['vendor']) . ':'
+                . strtolower(str_replace(['_', '-'], '', $match['module']));
+            $moduleKey = $moduleAliases[$alias] ?? null;
+            if ($moduleKey === null) return $match[0];
+            $candidates = array_values(array_unique($shortNames[$moduleKey][strtolower($match['short'])] ?? []));
+            if ($candidates === []) return $match[0];
+            if (count($candidates) !== 1) {
+                fail("旧逻辑类名短名不唯一：{$source} / {$match[0]}");
+            }
+            $canonical = str_replace('\\', $separator, $candidates[0]);
+            return $match['leading'] . $canonical;
+        }, $contents);
+        if (!is_string($updated)) fail("旧逻辑类名替换失败：{$source}");
+        $contents = $updated;
+    }
+    return $contents;
+}
+
+/** @param array<string,mixed> $plan */
+function replaceLegacyLogicalPaths(string $contents, array $plan, string $source): string
+{
+    $moduleAliases = [];
+    $shortNames = [];
+    foreach (moduleDefinitions() as $root => $definition) {
+        $segments = explode('/', $root);
+        $vendor = strtolower($segments[3]);
+        $directory = strtolower(str_replace(['_', '-'], '', $segments[4]));
+        $moduleAliases[$vendor . ':' . $directory] = $definition['key'];
+        $prefix = explode('\\', trim($definition['prefix'], '\\'));
+        $display = (string)end($prefix);
+        $legacyRoot = 'server/app/Modules/' . ucfirst($segments[3]) . '/' . $display;
+        foreach ([[$legacyRoot, $root], [substr($legacyRoot, 7), substr($root, 7)]] as [$oldRoot, $newRoot]) {
+            $pattern = '/(?<![A-Za-z0-9_.-])' . preg_quote($oldRoot, '/') . '(?![A-Za-z0-9_.-])/i';
+            $updated = preg_replace_callback($pattern, static fn(): string => $newRoot, $contents);
+            if (!is_string($updated)) fail("模块根路径替换失败：{$source} / {$oldRoot}");
+            $contents = $updated;
+            foreach ([
+                '/Http/routes.php' => '/route/app.php',
+                '/Resources/' => '/resources/',
+                '/Database/Migrations/' => '/database/migrations/',
+            ] as $oldSuffix => $newSuffix) {
+                $pattern = '/' . preg_quote($newRoot . $oldSuffix, '/') . '/i';
+                $updated = preg_replace_callback($pattern, static fn(): string => $newRoot . $newSuffix, $contents);
+                if (!is_string($updated)) fail("模块资源路径替换失败：{$source} / {$newRoot}{$oldSuffix}");
+                $contents = $updated;
+            }
+        }
+    }
+    foreach ($plan['symbols'] as $symbol) {
+        $parts = explode('\\', $symbol['old_fqcn']);
+        $shortNames[$symbol['module_key']][strtolower((string)end($parts))][] = $symbol['new_file'];
+    }
+    $pattern = '#(?<![A-Za-z0-9_.-])(?<server>server/)?app/[Mm]odules/'
+        . '(?<vendor>official|peanut|fixture)/(?<module>[A-Za-z0-9_-]+)/'
+        . '(?:[A-Za-z0-9_-]+/)*(?<short>[A-Za-z_][A-Za-z0-9_]*)\.php(?![A-Za-z0-9_.-])#i';
+    $updated = preg_replace_callback($pattern, static function (array $match) use (
+        $moduleAliases,
+        $shortNames,
+    ): string {
+        $alias = strtolower($match['vendor']) . ':'
+            . strtolower(str_replace(['_', '-'], '', $match['module']));
+        $moduleKey = $moduleAliases[$alias] ?? null;
+        if ($moduleKey === null) return $match[0];
+        $candidates = array_values(array_unique($shortNames[$moduleKey][strtolower($match['short'])] ?? []));
+        if (count($candidates) !== 1) return $match[0];
+        return ($match['server'] ?? '') === '' ? substr($candidates[0], 7) : $candidates[0];
+    }, $contents);
+    if (!is_string($updated)) fail("旧逻辑类路径替换失败：{$source}");
+    $contents = $updated;
+
+    return $contents;
+}
+
+/** @param array<string,mixed> $plan */
+function repairMappedReferences(string $root, array $plan): void
+{
+    $symbolReplacements = [];
+    $pathReplacements = [];
+    foreach ($plan['symbols'] as $symbol) {
+        $symbolReplacements[$symbol['old_fqcn']] = $symbol['new_fqcn'];
+    }
+    foreach ($plan['files'] as $file) {
+        if ($file['old_file'] === $file['new_file']) continue;
+        $pathReplacements[$file['old_file']] = $file['new_file'];
+        if (str_starts_with($file['old_file'], 'server/')) {
+            $pathReplacements[substr($file['old_file'], 7)] = substr($file['new_file'], 7);
+        }
+    }
+    uksort($symbolReplacements, static fn(string $a, string $b): int => strlen($b) <=> strlen($a) ?: strcmp($a, $b));
+    uksort($pathReplacements, static fn(string $a, string $b): int => strlen($b) <=> strlen($a) ?: strcmp($a, $b));
+
+    $files = preg_split('/\R/', command('git ls-files', $root)) ?: [];
+    foreach (array_keys(moduleDefinitions()) as $moduleRoot) {
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(
+            $root . '/' . $moduleRoot,
+            FilesystemIterator::SKIP_DOTS,
+        ));
+        foreach ($iterator as $entry) {
+            if ($entry instanceof SplFileInfo && $entry->isFile()) {
+                $files[] = substr($entry->getPathname(), strlen($root) + 1);
+            }
+        }
+    }
+    $files = array_values(array_unique($files));
+    sort($files, SORT_STRING);
+    foreach ($files as $relative) {
+        if ($relative === '' || !is_file($root . '/' . $relative)) continue;
+        if (str_starts_with($relative, 'scaffold/releases/') || str_starts_with($relative, 'server/vendor/')
+            || str_contains($relative, '/node_modules/') || str_starts_with($relative, '.local/')
+            || str_ends_with($relative, '.tgz') || $relative === 'server/composer.lock') {
+            continue;
+        }
+        $absolute = $root . '/' . $relative;
+        $contents = file_get_contents($absolute);
+        if (!is_string($contents) || str_contains($contents, "\0")) continue;
+        $updated = replaceMappedReferences($contents, $symbolReplacements, $pathReplacements, $relative);
+        $updated = replaceLegacyLogicalFqcn($updated, $plan, $relative);
+        $updated = replaceLegacyLogicalPaths($updated, $plan, $relative);
+        if ($updated !== $contents && file_put_contents($absolute, $updated, LOCK_EX) !== strlen($updated)) {
+            fail("无法修复消费者 {$relative}");
+        }
+    }
+}
+
+/**
+ * @param array<string,string> $symbols
+ * @param array<string,string> $paths
+ */
+function replaceMappedReferences(string $contents, array $symbols, array $paths, string $source): string
+{
+    foreach ($symbols as $old => $new) {
+        foreach ([
+            [$old, $new],
+            [str_replace('\\', '\\\\', $old), str_replace('\\', '\\\\', $new)],
+        ] as [$needle, $replacement]) {
+            $leadingPattern = '/(?<![A-Za-z0-9_\\\\])' . preg_quote('\\' . $needle, '/') . '(?![A-Za-z0-9_])/i';
+            $updated = preg_replace_callback(
+                $leadingPattern,
+                static fn(): string => '\\' . $replacement,
+                $contents,
+            );
+            if (!is_string($updated)) fail("全限定符号替换失败：{$source} / {$old}");
+            $contents = $updated;
+            $pattern = '/(?<![A-Za-z0-9_\\\\])' . preg_quote($needle, '/') . '(?![A-Za-z0-9_])/i';
+            $updated = preg_replace_callback(
+                $pattern,
+                static fn(): string => $replacement,
+                $contents,
+            );
+            if (!is_string($updated)) fail("符号替换失败：{$source} / {$old}");
+            $contents = $updated;
+        }
+    }
+    foreach ($paths as $old => $new) {
+        $pattern = '/(?<![A-Za-z0-9_.-])' . preg_quote($old, '/') . '(?![A-Za-z0-9_.-])/i';
+        $updated = preg_replace_callback($pattern, static fn(): string => $new, $contents);
+        if (!is_string($updated)) fail("路径替换失败：{$source} / {$old}");
+        $contents = $updated;
+    }
+    return $contents;
+}
+
+function updateComposerManifests(string $root): void
+{
+    $definitions = moduleDefinitions();
+    foreach ($definitions as $moduleRoot => $module) {
+        $path = $root . '/' . $moduleRoot . '/composer.json';
+        $data = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($data)) fail("Composer 文件不是对象：{$path}");
+        $data['autoload'] = ['psr-4' => [$module['prefix'] => 'src/']];
+        writeJson($path, $data);
+    }
+    $path = $root . '/server/composer.json';
+    $data = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($data) || !is_array($data['autoload'] ?? null)) fail('宿主 Composer autoload 缺失。');
+    $psr4 = ['app\\' => 'app'];
+    foreach ($definitions as $moduleRoot => $module) {
+        $psr4[$module['prefix']] = substr($moduleRoot, strlen('server/')) . '/src/';
+    }
+    $data['autoload']['psr-4'] = $psr4;
+    writeJson($path, $data);
+}
+
+function removeEmptyModuleDirectories(string $root): void
+{
+    foreach (array_keys(moduleDefinitions()) as $moduleRoot) {
+        $absoluteRoot = $root . '/' . $moduleRoot;
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($absoluteRoot, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($iterator as $entry) {
+            if (!$entry instanceof SplFileInfo || !$entry->isDir() || $entry->isLink()) continue;
+            $path = $entry->getPathname();
+            if ((scandir($path) ?: []) === ['.', '..']) @rmdir($path);
+        }
+    }
+}
+
+function verifyApplied(string $root, array $plan): void
+{
+    $failures = [];
+    $caseTargets = [];
+    foreach ($plan['symbols'] as $symbol) {
+        $path = $root . '/' . $symbol['new_file'];
+        if (!is_file($path)) $failures[] = "目标文件缺失：{$symbol['new_file']}";
+        $key = strtolower($symbol['new_file']);
+        if (isset($caseTargets[$key]) && $caseTargets[$key] !== $symbol['new_file']) {
+            $failures[] = "目标路径大小写碰撞：{$caseTargets[$key]} / {$symbol['new_file']}";
+        }
+        $caseTargets[$key] = $symbol['new_file'];
+    }
+    foreach (moduleDefinitions() as $moduleRoot => $module) {
+        $composer = json_decode((string)file_get_contents($root . '/' . $moduleRoot . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        if (($composer['autoload']['psr-4'] ?? null) !== [$module['prefix'] => 'src/']) {
+            $failures[] = "模块 Composer 前缀不正确：{$moduleRoot}";
+        }
+    }
+    if ($failures !== []) fail(implode("\n", $failures));
+    fwrite(STDOUT, json_encode([
+        'status' => 'verified',
+        'symbols' => count($plan['symbols']),
+        'files' => count($plan['files']),
+        'modules' => count(moduleDefinitions()),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+}
+
+$root = dirname(__DIR__);
+$mode = $argv[1] ?? 'plan';
+$mappingRelative = $argv[2] ?? '.local/controller-namespace/namespace/mapping.json';
+$mappingPath = str_starts_with($mappingRelative, '/') ? $mappingRelative : $root . '/' . $mappingRelative;
+
+if ($mode === 'plan') {
+    assertWorkspace($root, false);
+    $plan = buildPlan($root);
+    writeJson($mappingPath, $plan);
+    fwrite(STDOUT, json_encode($plan['counts'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+    exit(0);
+}
+if (!is_file($mappingPath)) fail("映射不存在：{$mappingPath}");
+$plan = json_decode((string)file_get_contents($mappingPath), true, 512, JSON_THROW_ON_ERROR);
+if (!is_array($plan)) fail('映射内容无效。');
+if ($mode === 'apply') {
+    assertWorkspace($root, true);
+    applyPlan($root, $plan);
+    verifyApplied($root, $plan);
+    exit(0);
+}
+if ($mode === 'repair') {
+    assertWorkspace($root, true);
+    repairMappedReferences($root, $plan);
+    verifyApplied($root, $plan);
+    exit(0);
+}
+if ($mode === 'verify') {
+    assertWorkspace($root, true);
+    verifyApplied($root, $plan);
+    exit(0);
+}
+fail('用法：scripts/migrate-module-namespaces [plan|apply|repair|verify] [mapping.json]');

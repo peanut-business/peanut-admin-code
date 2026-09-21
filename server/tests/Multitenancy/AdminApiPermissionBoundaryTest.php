@@ -128,8 +128,8 @@ expectAdminApiBoundary(!str_contains($platformLoginSource, 'AdminTokenService'),
 
 $schema = strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/database/init.sql'));
 $officialPermissions = $schema
-    . strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/app/Modules/Official/Payment/Resources/permissions.json'))
-    . strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/app/Modules/Official/ImportExport/Resources/permissions.json'));
+    . strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/payment/resources/permissions.json'))
+    . strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/import_export/resources/permissions.json'));
 foreach (['admin/status', 'official.payment.recharge.refund', 'official.payment.refund.stat', 'official.import-export.operation.status'] as $exactPermission) {
     expectAdminApiBoundary(str_contains($officialPermissions, $exactPermission), 'exact status permission is missing: ' . $exactPermission);
 }

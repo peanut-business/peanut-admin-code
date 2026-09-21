@@ -9,9 +9,9 @@ use app\common\execution\SystemExecutionMetadata;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use app\modules\official\task\contracts\JobExecution;
-use app\modules\official\task\contracts\TaskHandler;
-use app\modules\official\task\job\Application\TaskJobException;
+use PeanutAdmin\Modules\Task\Contract\JobExecution;
+use PeanutAdmin\Modules\Task\Contract\TaskHandler;
+use PeanutAdmin\Modules\Task\Job\Application\TaskJobException;
 use PeanutAdmin\Kernel\Auth\AuthException;
 use PeanutAdmin\Kernel\Module\ModuleException;
 

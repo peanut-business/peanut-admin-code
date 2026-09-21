@@ -143,7 +143,7 @@ try {
     $currentPlugin = editionUpgradePluginTree(
         $project,
         'fixture.upgrade-boundary',
-        'server/app/Modules/Fixture/UpgradeBoundary',
+        'server/app/modules/fixture/upgrade_boundary',
         '1.0.0',
         'installed',
     );
@@ -230,7 +230,7 @@ try {
     $targetPlugin = editionUpgradePluginTree(
         $targetPluginRoot,
         'fixture.upgrade-boundary',
-        'server/app/Modules/Fixture/UpgradeBoundary',
+        'server/app/modules/fixture/upgrade_boundary',
         '1.1.0',
         'target',
     );
@@ -424,14 +424,14 @@ try {
     editionUpgradePluginTree(
         $newPluginTemplate,
         'fixture.upgrade-boundary',
-        'server/app/Modules/Fixture/UpgradeBoundary',
+        'server/app/modules/fixture/upgrade_boundary',
         '1.1.0',
         'target',
     );
     $newPlugin = editionUpgradePluginTree(
         $newPluginTemplate,
         'fixture.new-plugin',
-        'server/app/Modules/Fixture/NewPlugin',
+        'server/app/modules/fixture/new_plugin',
         '1.0.0',
         'new-plugin',
     );

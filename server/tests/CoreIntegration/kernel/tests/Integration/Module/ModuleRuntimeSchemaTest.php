@@ -6,7 +6,7 @@ namespace PeanutAdmin\Kernel\Tests\Integration\Module;
 
 use DateTimeImmutable;
 use PeanutAdmin\Kernel\Module\ModuleGuard;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
 require_once dirname(__DIR__) . '/Schema/DatabaseTestCase.php';

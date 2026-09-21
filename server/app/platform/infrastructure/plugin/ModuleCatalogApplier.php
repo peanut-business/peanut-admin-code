@@ -6,18 +6,18 @@ namespace app\platform\infrastructure\plugin;
 use app\platform\exception\plugin\PluginLifecycleException;
 use DateTimeImmutable;
 use DateTimeZone;
-use PeanutAdmin\Kernel\Authorization\ModuleAuthorizationCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
-use PeanutAdmin\Kernel\Menu\MenuCatalogSynchronizer;
-use PeanutAdmin\Kernel\Menu\ThinkPhpMenuCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Menu\MenuCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
-use app\modules\official\settings\Definition\SettingDefinitionLoader;
-use app\modules\official\settings\Definition\SettingDefinitionRegistry;
-use app\modules\official\settings\Definition\SettingDefinitionSynchronizer;
-use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetLoader;
-use app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetRegistry;
-use app\modules\official\reference_codes\Versioned\Persistence\ReferenceCodeStore;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionLoader;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetLoader;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegistry;
+use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore;
 use think\facade\Db;
 
 /** The single application entry point for applying, retiring, and purging Module catalog contributions. */

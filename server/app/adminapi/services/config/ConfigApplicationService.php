@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace app\adminapi\services\config;
 
-use app\modules\official\file\contracts\FileReferences;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
 use app\common\services\RichTextResourceService;
-use app\modules\official\settings\services\TenantApplicationSettingService;
-use app\modules\official\settings\services\WebsiteConfigService;
+use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 

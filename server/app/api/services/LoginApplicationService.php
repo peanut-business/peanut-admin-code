@@ -3,13 +3,13 @@ declare(strict_types=1);
 
 namespace app\api\services;
 
-use app\modules\official\notification\contracts\VerificationCodeCommands;
-use app\modules\official\member\contracts\dto\MemberIdentitySnapshot;
-use app\modules\official\member\contracts\MemberIdentityCommands;
+use PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands;
+use PeanutAdmin\Modules\Member\Contract\Dto\MemberIdentitySnapshot;
+use PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands;
 use app\api\services\UserTokenService;
 use app\common\enum\notice\NoticeSceneEnum;
-use app\modules\official\file\contracts\FileReferences;
-use app\modules\official\settings\services\TenantApplicationSettingService;
+use PeanutAdmin\Modules\File\Contract\FileReferences;
+use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
 use app\common\exception\BusinessException;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;

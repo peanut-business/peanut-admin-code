@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\payment\controller\PayConfigController;
-use app\modules\official\payment\controller\RechargeSettingController;
-use app\modules\official\payment\controller\RechargeController;
-use app\modules\official\payment\controller\RefundController;
+use PeanutAdmin\Modules\Payment\Controller\PayConfigController;
+use PeanutAdmin\Modules\Payment\Controller\RechargeSettingController;
+use PeanutAdmin\Modules\Payment\Controller\RechargeController;
+use PeanutAdmin\Modules\Payment\Controller\RefundController;
 use app\api\controller\PaymentNotifyController as ApiPaymentNotifyController;
 use app\api\controller\RechargeController as ApiRechargeController;
 use app\api\middleware\CheckTokenMiddleware;

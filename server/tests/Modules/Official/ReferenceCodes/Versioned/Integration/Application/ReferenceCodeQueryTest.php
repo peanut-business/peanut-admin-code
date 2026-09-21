@@ -228,7 +228,7 @@ final class ReferenceCodeQueryTest extends ReferenceCodesDatabaseTestCase
         self::assertSame(1, $created->revision);
     }
 
-    /** @return array{\app\modules\official\reference_codes\Versioned\Definition\ReferenceCodeSetDefinition, \app\modules\official\reference_codes\Versioned\Persistence\ReferenceCodeStore, array{tenant_id:int, member_id:int, context:\PeanutAdmin\Kernel\Auth\TenantContext}} */
+    /** @return array{\PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetDefinition, \PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore, array{tenant_id:int, member_id:int, context:\PeanutAdmin\Kernel\Auth\TenantContext}} */
     private function fixture(string $tenantCode): array
     {
         $definition = $this->definition();

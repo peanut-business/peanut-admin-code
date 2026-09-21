@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Adapter;
+namespace PeanutAdmin\Modules\Workflow\Adapter;
 
 use JsonException;
-use PeanutAdmin\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
 
 final readonly class WorkflowTransitionEffects
 {

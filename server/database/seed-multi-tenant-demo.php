@@ -6,10 +6,10 @@ use app\common\policy\DemoAccountPolicy;
 use app\platform\contract\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Kernel\Platform\Application\PlatformTenantAdminService;
-use PeanutAdmin\Kernel\Platform\Application\TenantOwnerAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Application\TenantOwnerAdminService;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
-use PeanutAdmin\Kernel\Tenancy\TenantStatus;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 use think\App;
 use think\facade\Db;
 

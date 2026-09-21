@@ -11,7 +11,7 @@ use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\exception\plugin\PluginLifecycleException;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use think\console\Input;
 use think\console\Output;
 use think\console\input\Option;

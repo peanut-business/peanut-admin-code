@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\adminapi\services\dept;
 
-use PeanutAdmin\Kernel\Organization\Application\DepartmentAdminService;
+use PeanutAdmin\Modules\Identity\Organization\Application\DepartmentAdminService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 

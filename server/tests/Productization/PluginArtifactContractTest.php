@@ -22,9 +22,9 @@ function pluginArtifactExpect(bool $condition, string $message): void
 function pluginArtifactRejects(string $repoRoot, callable $mutate, string $expectedCode): void
 {
     $fixtureRoot = sys_get_temp_dir() . '/pa-plugin-artifact-' . bin2hex(random_bytes(8));
-    $moduleRoot = $fixtureRoot . '/server/app/Modules/Fixture/DeliveryRecord';
+    $moduleRoot = $fixtureRoot . '/server/app/modules/fixture/delivery_record';
     mkdir($moduleRoot, 0777, true);
-    $sourceRoot = $repoRoot . '/server/app/Modules/Fixture/DeliveryRecord';
+    $sourceRoot = $repoRoot . '/server/app/modules/fixture/delivery_record';
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($sourceRoot, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::SELF_FIRST
@@ -110,17 +110,17 @@ $sameJson = \Closure::bind(
 pluginArtifactExpect(is_callable($sameJson), 'Plugin manifest comparator is unavailable');
 pluginArtifactExpect($sameJson(
     [
-        ['key' => 'fixture.alpha', 'root' => 'server/app/Modules/Fixture/Alpha'],
-        ['key' => 'fixture.beta', 'root' => 'server/app/Modules/Fixture/Beta'],
+        ['key' => 'fixture.alpha', 'root' => 'server/app/modules/fixture/alpha'],
+        ['key' => 'fixture.beta', 'root' => 'server/app/modules/fixture/beta'],
     ],
     [
-        ['root' => 'server/app/Modules/Fixture/Beta', 'key' => 'fixture.beta'],
-        ['root' => 'server/app/Modules/Fixture/Alpha', 'key' => 'fixture.alpha'],
+        ['root' => 'server/app/modules/fixture/beta', 'key' => 'fixture.beta'],
+        ['root' => 'server/app/modules/fixture/alpha', 'key' => 'fixture.alpha'],
     ]
 ), 'multi-Module manifest comparison depends on declaration order');
 pluginArtifactExpect(!$sameJson(
-    [['key' => 'fixture.alpha', 'root' => 'server/app/Modules/Fixture/Alpha']],
-    [['key' => 'fixture.alpha', 'root' => 'server/app/Modules/Fixture/Changed']]
+    [['key' => 'fixture.alpha', 'root' => 'server/app/modules/fixture/alpha']],
+    [['key' => 'fixture.alpha', 'root' => 'server/app/modules/fixture/changed']]
 ), 'multi-Module manifest comparison ignored a changed root');
 
 $validator = new Validator();

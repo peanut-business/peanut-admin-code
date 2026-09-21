@@ -33,25 +33,25 @@ foreach ([
     'admin_login_application' => 'app/adminapi/application/auth/LoginApplicationService.php',
     'authenticated_member_context_core' => 'vendor/peanut-admin/core/kernel/src/Context/AuthenticatedMemberContext.php',
     'member_context' => 'app/common/service/member/MemberApiTenantContextResolver.php',
-    'member_subject_lookup' => 'app/Modules/Official/Member/Infrastructure/Persistence/ThinkPhpMemberSubjectLookup.php',
+    'member_subject_lookup' => 'app/modules/official/member/src/Infrastructure/Persistence/ThinkPhpMemberSubjectLookup.php',
     'member_middleware' => 'app/api/middleware/CheckTokenMiddleware.php',
-    'file_model' => 'app/Modules/Official/File/Model/File.php',
+    'file_model' => 'app/modules/official/file/src/Model/File.php',
     'file_namespace_core' => 'vendor/peanut-admin/core/file-media/src/Storage/TenantObjectNamespace.php',
-    'article_model' => 'app/Modules/Official/Article/Model/Article.php',
+    'article_model' => 'app/modules/official/article/src/Model/Article.php',
     'decoration_model' => 'app/common/model/decoration/DecoratePage.php',
-    'notice_model' => 'app/Modules/Official/Notification/Model/NoticeLog.php',
-    'oauth_repository' => 'app/Modules/Official/Oauth/Infrastructure/Persistence/ThinkPhpOAuthPersistence.php',
-    'oauth_attempt_model' => 'app/Modules/Official/Oauth/Model/OAuthAttempt.php',
-    'oauth_completion_model' => 'app/Modules/Official/Oauth/Model/OAuthCompletionTicket.php',
-    'oauth_identity_model' => 'app/Modules/Official/Oauth/Model/OAuthIdentity.php',
-    'oauth_principal_model' => 'app/Modules/Official/Oauth/Model/OAuthPrincipal.php',
-    'oauth_queries' => 'app/Modules/Official/Oauth/Application/OAuthQueryService.php',
-    'oauth_module_provider' => 'app/Modules/Official/Oauth/ModuleProvider.php',
+    'notice_model' => 'app/modules/official/notification/src/Model/NoticeLog.php',
+    'oauth_repository' => 'app/modules/official/oauth/src/Infrastructure/Persistence/ThinkPhpOAuthPersistence.php',
+    'oauth_attempt_model' => 'app/modules/official/oauth/src/Model/OAuthAttempt.php',
+    'oauth_completion_model' => 'app/modules/official/oauth/src/Model/OAuthCompletionTicket.php',
+    'oauth_identity_model' => 'app/modules/official/oauth/src/Model/OAuthIdentity.php',
+    'oauth_principal_model' => 'app/modules/official/oauth/src/Model/OAuthPrincipal.php',
+    'oauth_queries' => 'app/modules/official/oauth/src/Service/OAuthQueryService.php',
+    'oauth_module_provider' => 'app/modules/official/oauth/src/ModuleProvider.php',
     'external_resolver_core' => 'vendor/peanut-admin/core/integration-security/src/External/ExternalTenantResolver.php',
     'external_binding_adapter' => 'app/common/service/external/ThinkPhpExternalTenantBindingRepository.php',
     'external_audit_adapter' => 'app/common/service/external/ThinkPhpExternalTenantAudit.php',
-    'finance_model' => 'app/Modules/Official/Payment/Model/RefundRecord.php',
-    'recharge_settings' => 'app/Modules/Official/Payment/Application/RechargeTenantSettingService.php',
+    'finance_model' => 'app/modules/official/payment/src/Model/RefundRecord.php',
+    'recharge_settings' => 'app/modules/official/payment/src/Service/RechargeTenantSettingService.php',
     'tenant_settings' => 'app/common/service/tenant/TenantSettingService.php',
     'tenant_settings_provider' => 'app/common/service/tenant/ThinkPhpTenantSettingsProvider.php',
     'application_tenant_bootstrap' => 'app/platform/service/ApplicationTenantBootstrapService.php',
@@ -60,25 +60,25 @@ foreach ([
     'platform_storage' => 'vendor/peanut-admin/core/kernel/src/Platform/InstanceControlPlanePolicy.php',
     'platform_storage_controller' => 'app/platform/controller/PlatformStorageController.php',
     'admin_permissions' => 'app/common/service/authorization/AdminAuthorizationService.php',
-    'crontab_scheduler' => 'app/Modules/Official/Task/Application/CrontabSchedulerService.php',
-    'crontab_model' => 'app/Modules/Official/Task/Model/Crontab.php',
-    'crontab_task_definition' => 'app/Modules/Official/Task/Application/CrontabTaskDefinition.php',
+    'crontab_scheduler' => 'app/modules/official/task/src/Service/CrontabSchedulerService.php',
+    'crontab_model' => 'app/modules/official/task/src/Model/Crontab.php',
+    'crontab_task_definition' => 'app/modules/official/task/src/Service/CrontabTaskDefinition.php',
     'scheduled_context_core' => 'vendor/peanut-admin/core/kernel/src/Tenancy/ScheduledTenantContext.php',
     'tenant_scope_core' => 'vendor/peanut-admin/core/kernel/src/Tenancy/TenantScope.php',
-    'async_authorization' => 'app/Modules/Official/ImportExport/Infrastructure/Authorization/AdminAsyncAuthorization.php',
-    'async_runtime' => 'app/Modules/Official/ImportExport/Application/TaskImportExportRuntime.php',
-    'async_module_provider' => 'app/Modules/Official/ImportExport/ModuleProvider.php',
-    'async_worker_definition' => 'app/Modules/Official/ImportExport/Application/ImportExportTaskWorkerDefinition.php',
-    'async_files' => 'app/Modules/Official/ImportExport/Infrastructure/File/AppFileMediaGateway.php',
+    'async_authorization' => 'app/modules/official/import_export/src/Infrastructure/Authorization/AdminAsyncAuthorization.php',
+    'async_runtime' => 'app/modules/official/import_export/src/Service/TaskImportExportRuntime.php',
+    'async_module_provider' => 'app/modules/official/import_export/src/ModuleProvider.php',
+    'async_worker_definition' => 'app/modules/official/import_export/src/Service/ImportExportTaskWorkerDefinition.php',
+    'async_files' => 'app/modules/official/import_export/src/Infrastructure/File/AppFileMediaGateway.php',
     'storage_path' => 'app/common/value/storage/StoragePath.php',
     'routes' => 'route/registry_source.php',
-    'official_file_routes' => 'app/Modules/Official/File/Http/routes.php',
-    'official_notification_routes' => 'app/Modules/Official/Notification/Http/routes.php',
-    'official_oauth_routes' => 'app/Modules/Official/Oauth/Http/routes.php',
-    'official_payment_routes' => 'app/Modules/Official/Payment/Http/routes.php',
-    'official_member_routes' => 'app/Modules/Official/Member/Http/routes.php',
-    'official_task_routes' => 'app/Modules/Official/Task/Http/routes.php',
-    'official_import_export_routes' => 'app/Modules/Official/ImportExport/Http/routes.php',
+    'official_file_routes' => 'app/modules/official/file/route/app.php',
+    'official_notification_routes' => 'app/modules/official/notification/route/app.php',
+    'official_oauth_routes' => 'app/modules/official/oauth/route/app.php',
+    'official_payment_routes' => 'app/modules/official/payment/route/app.php',
+    'official_member_routes' => 'app/modules/official/member/route/app.php',
+    'official_task_routes' => 'app/modules/official/task/route/app.php',
+    'official_import_export_routes' => 'app/modules/official/import_export/route/app.php',
     'official_module_middleware' => 'app/common/service/module/OfficialModuleMiddleware.php',
     'module_execution_boundary' => 'app/common/service/module/ModuleExecutionBoundary.php',
     'module_execution_context_core' => 'vendor/peanut-admin/core/kernel/src/Module/ModuleExecutionContext.php',
@@ -94,8 +94,8 @@ foreach ([
     'module_manifest' => 'vendor/peanut-admin/core/kernel/src/Module/ManifestLoader.php',
     'module_availability' => 'vendor/peanut-admin/core/kernel/src/Host/ModuleAvailabilityAdapter.php',
     'deployed_module_registry' => 'app/platform/service/module/DeployedTenantModuleRegistry.php',
-    'fixture_module_access' => 'app/Modules/Fixture/DeliveryRecord/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php',
-    'official_article_manifest' => 'app/Modules/Official/Article/module.json',
+    'fixture_module_access' => 'app/modules/fixture/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php',
+    'official_article_manifest' => 'app/modules/official/article/module.json',
     'official_article_public' => 'app/api/middleware/PublicTenantModuleMiddleware.php',
     'member_token' => 'app/api/service/UserTokenService.php',
     'jwt_config' => 'config/jwt.php',
@@ -144,7 +144,7 @@ qualificationExpect(
     'async exports lost private Tenant namespace'
 );
 qualificationExpect(
-    str_contains($sources['app_service'], 'use PeanutAdmin\\Kernel\\Tenancy\\DefaultTenantContextResolver;')
+    str_contains($sources['app_service'], 'use PeanutAdmin\\Modules\\Identity\\Tenancy\\DefaultTenantContextResolver;')
         && str_contains($sources['public_tenant_module_middleware'], 'RequestTrace::id($this->executionContext, $request, \'public\')')
         && !is_file($root . '/app/common/service/tenant/DefaultTenantContextResolver.php')
         && str_contains($sources['default_context_core'], "code = 'default'")
@@ -313,7 +313,7 @@ qualificationExpect(
 );
 qualificationExpect(
     str_contains($sources['platform_storage_controller'], 'StorageConfigurationService')
-        && str_contains($sources['admin_permissions'], 'use PeanutAdmin\\Kernel\\Platform\\InstanceControlPlanePolicy;')
+        && str_contains($sources['admin_permissions'], 'use PeanutAdmin\\Modules\\Identity\\Platform\\InstanceControlPlanePolicy;')
         && str_contains($sources['admin_permissions'], 'InstanceControlPlanePolicy::isTenantAdminRoute')
         && str_contains($sources['admin_permissions'], 'InstanceControlPlanePolicy::tenantAdminPermissions()')
         && !is_file($root . '/app/common/service/platform/InstanceControlPlanePolicy.php')

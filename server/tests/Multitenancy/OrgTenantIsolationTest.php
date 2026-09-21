@@ -348,8 +348,8 @@ try {
     expectOrgTenant($pdo->query("SELECT status FROM pa_department WHERE id={$childDept}")->fetchColumn() === 'archived', 'department archive did not persist');
 
     $admins = app(AdminApplicationService::class);
-    $auth = app(\PeanutAdmin\Kernel\Auth\TenantAuthService::class);
-    $self = app(\PeanutAdmin\Kernel\Identity\SelfService\AccountSelfService::class);
+    $auth = app(\PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+    $self = app(\PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService::class);
     $memberBefore = $pdo->query("SELECT authorization_revision,security_revision FROM pa_tenant_member WHERE id={$alphaAdmin}")->fetch(PDO::FETCH_ASSOC);
     expectOrgTenant($run('test.admin.edit', fn() => $admins->edit($alpha, [
         'id' => $alphaAdmin, 'name' => 'Edited Admin', 'role_id' => [$alphaRole], 'dept_id' => [$alphaDept], 'disable' => 0,

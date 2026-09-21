@@ -28,7 +28,7 @@ function platformAuthResolve(string $platformKey, string $tenantKey = '', bool $
     $service = new \app\AppService($app);
     (new ReflectionMethod(\app\AppService::class, 'registerPlatform'))->invoke($service);
     try {
-        return $app->make(\PeanutAdmin\Kernel\Auth\PlatformAuthService::class);
+        return $app->make(\PeanutAdmin\Modules\Identity\Auth\PlatformAuthService::class);
     } catch (Throwable $exception) {
         return $exception;
     }
@@ -44,10 +44,10 @@ foreach ([['', false], ['', true], ['   ', true], [str_repeat('s', 31), true]] a
 }
 $platformAuth = platformAuthResolve(str_repeat('v', 32));
 platformAuthConfigurationExpect(
-    $platformAuth instanceof \PeanutAdmin\Kernel\Auth\PlatformAuthService,
+    $platformAuth instanceof \PeanutAdmin\Modules\Identity\Auth\PlatformAuthService,
     'platform auth must accept a valid 32-byte HMAC key',
 );
-$keyProperty = new ReflectionProperty(\PeanutAdmin\Kernel\Auth\PlatformAuthService::class, 'identifierHmacKey');
+$keyProperty = new ReflectionProperty(\PeanutAdmin\Modules\Identity\Auth\PlatformAuthService::class, 'identifierHmacKey');
 $keyProperty->setAccessible(true);
 platformAuthConfigurationExpect(
     $keyProperty->getValue($platformAuth) === str_repeat('v', 32),
@@ -61,6 +61,6 @@ $standalone->config->set(['identifier_hmac_key' => str_repeat('t', 32)], 'tenant
 $standaloneService = new \app\AppService($standalone);
 (new ReflectionMethod(\app\AppService::class, 'registerAuthentication'))->invoke($standaloneService);
 (new ReflectionMethod(\app\AppService::class, 'registerPlatform'))->invoke($standaloneService);
-$standalone->make(\PeanutAdmin\Kernel\Auth\TenantAuthService::class);
+$standalone->make(\PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
 
 echo "D04 platform auth configuration passed; assertions={$platformAuthAssertionCount}; scenarios=7\n";

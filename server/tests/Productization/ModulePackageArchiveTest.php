@@ -147,12 +147,12 @@ try {
         'MODULE_PACKAGE_PATH_INVALID',
     );
 
-    $fixtureBackend = $projectRoot . '/server/app/Modules/Fixture/DeliveryRecord';
+    $fixtureBackend = $projectRoot . '/server/app/modules/fixture/delivery_record';
     $fixtureFrontend = $projectRoot . '/web/src/modules/fixture-delivery-record';
     $badRoot = $temporary . '/bad-project';
-    modulePackageCopyTree($fixtureBackend, $badRoot . '/server/app/Modules/Fixture/DeliveryRecord');
+    modulePackageCopyTree($fixtureBackend, $badRoot . '/server/app/modules/fixture/delivery_record');
     modulePackageCopyTree($fixtureFrontend, $badRoot . '/web/src/modules/fixture-delivery-record');
-    $badManifestPath = $badRoot . '/server/app/Modules/Fixture/DeliveryRecord/module.json';
+    $badManifestPath = $badRoot . '/server/app/modules/fixture/delivery_record/module.json';
     $badManifest = json_decode((string)file_get_contents($badManifestPath), true, 64, JSON_THROW_ON_ERROR);
     $badManifest['frontend']['entry'] = 'web/src/modules/fixture-delivery-record/index.ts';
     file_put_contents($badManifestPath, json_encode($badManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
@@ -168,14 +168,15 @@ try {
         'acme.first' => ['First', 'pa_acme_first'],
         'acme.second' => ['Second', 'pa_acme_second'],
     ] as $key => [$class, $table]) {
-        $backend = $bundleRoot . '/server/app/Modules/Acme/' . $class;
+        $directory = strtolower($class);
+        $backend = $bundleRoot . '/server/app/modules/acme/' . $directory;
         $frontend = $bundleRoot . '/web/src/modules/' . str_replace('.', '-', $key);
         modulePackageCopyTree($fixtureBackend, $backend);
         modulePackageCopyTree($fixtureFrontend, $frontend);
         modulePackageRewriteTree($backend, [
             'fixture.delivery-record' => $key,
             'fixture-delivery-record' => str_replace('.', '-', $key),
-            'Fixture\\DeliveryRecord' => 'Acme\\' . $class,
+            'PeanutAdmin\\Fixtures\\DeliveryRecord' => 'PeanutAdmin\\Modules\\' . $class,
             'peanut-business/fixture-delivery-record' => 'acme/' . strtolower($class),
             'pa_fixture_delivery_record' => $table,
         ]);
@@ -185,14 +186,14 @@ try {
             '@peanut-admin/fixture-delivery-record' => '@acme/' . strtolower($class),
         ]);
     }
-    $firstManifestPath = $bundleRoot . '/server/app/Modules/Acme/First/module.json';
+    $firstManifestPath = $bundleRoot . '/server/app/modules/acme/first/module.json';
     $firstManifest = json_decode((string)file_get_contents($firstManifestPath), true, 64, JSON_THROW_ON_ERROR);
     $firstManifest['dependencies'] = [['module_key' => 'acme.second', 'version' => '^1.0']];
     file_put_contents($firstManifestPath, json_encode($firstManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     $bundleService = new PluginPackageArchiveService($bundleRoot . '/server');
     $bundlePath = $temporary . '/acme-bundle.tar';
     foreach (['.env.production', 'id_ed25519', 'node_modules/vendor-runtime.js'] as $forbiddenRelative) {
-        $forbiddenSource = $bundleRoot . '/server/app/Modules/Acme/First/' . $forbiddenRelative;
+        $forbiddenSource = $bundleRoot . '/server/app/modules/acme/first/' . $forbiddenRelative;
         if (!is_dir(dirname($forbiddenSource))) mkdir(dirname($forbiddenSource), 0700, true);
         file_put_contents($forbiddenSource, "VENDOR_SECRET=must-not-be-packed\n");
         modulePackageRejects(
@@ -207,7 +208,7 @@ try {
     $bundleExtracted = $temporary . '/bundle-extracted';
     $tar->extract($bundlePath, $bundleEntries, $bundleExtracted);
     $bundleFiles = [];
-    foreach (['server/app/Modules/Acme/First', 'server/app/Modules/Acme/Second', 'web/src/modules/acme-first', 'web/src/modules/acme-second'] as $root) {
+    foreach (['server/app/modules/acme/first', 'server/app/modules/acme/second', 'web/src/modules/acme-first', 'web/src/modules/acme-second'] as $root) {
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($bundleExtracted . '/' . $root, FilesystemIterator::SKIP_DOTS),
         );
@@ -220,7 +221,7 @@ try {
     }
     ksort($bundleFiles, SORT_STRING);
     $bundleSourceFiles = [];
-    foreach (['server/app/Modules/Acme/First', 'server/app/Modules/Acme/Second', 'web/src/modules/acme-first', 'web/src/modules/acme-second'] as $root) {
+    foreach (['server/app/modules/acme/first', 'server/app/modules/acme/second', 'web/src/modules/acme-first', 'web/src/modules/acme-second'] as $root) {
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($bundleRoot . '/' . $root, FilesystemIterator::SKIP_DOTS),
         );
@@ -324,7 +325,7 @@ try {
             modulePackageExpect($exception->errorCode === 'PLUGIN_RELEASE_CURRENT_IDENTITY_INVALID', 'object identity rejection changed');
         }
     }
-    $backendParent = $adoptRoot . '/server/app/Modules/Fixture';
+    $backendParent = $adoptRoot . '/server/app/modules/fixture';
     rename($backendParent, $backendParent . '-real');
     symlink($backendParent . '-real', $backendParent);
     modulePackageRejects(fn() => $adopter->recover(), 'MODULE_PACKAGE_PATH_INVALID');
@@ -335,17 +336,17 @@ try {
     $upgradeRoot = realpath($temporary) . '/upgrade-source';
     mkdir($upgradeRoot . '/server/resources/schemas', 0700, true);
     copy($serverRoot . '/resources/schemas/plugin.schema.json', $upgradeRoot . '/server/resources/schemas/plugin.schema.json');
-    modulePackageCopyTree($fixtureBackend, $upgradeRoot . '/server/app/Modules/Fixture/DeliveryRecord');
+    modulePackageCopyTree($fixtureBackend, $upgradeRoot . '/server/app/modules/fixture/delivery_record');
     modulePackageCopyTree($fixtureFrontend, $upgradeRoot . '/web/src/modules/fixture-delivery-record');
     modulePackageRewriteTree($upgradeRoot, ['"version": "1.0.0"' => '"version": "1.1.0"']);
-    $routeDirectory = $upgradeRoot . '/server/app/Modules/Fixture/DeliveryRecord/Http';
+    $routeDirectory = $upgradeRoot . '/server/app/modules/fixture/delivery_record/Http';
     if (!is_dir($routeDirectory)) mkdir($routeDirectory, 0700, true);
     file_put_contents($routeDirectory . '/routes.php', "<?php\n// Explicit application route composition fixture.\n");
     $upgradePath = $temporary . '/upgrade.tar';
     $upgrade = (new PluginPackageArchiveService($upgradeRoot . '/server'))->packModule('fixture.delivery-record', $upgradePath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     $oldLock = (string)file_get_contents($adoptRoot . '/plugins.lock');
     $updated = $adopter->adopt($upgradePath, $upgrade['sha256'], 'fixture-release');
-    modulePackageExpect($updated['route_contributions'] === ['server/app/Modules/Fixture/DeliveryRecord/Http/routes.php'], 'conventional route contribution was not reported');
+    modulePackageExpect($updated['route_contributions'] === ['server/app/modules/fixture/delivery_record/route/app.php'], 'conventional route contribution was not reported');
     $receipts = glob($adoptRoot . '/.local/module-source-adoption/*/transaction.json') ?: [];
     $upgradeReceiptPath = array_values(array_diff($receipts, [$receiptPath]))[0];
     $upgradeReceipt = (string)file_get_contents($upgradeReceiptPath);

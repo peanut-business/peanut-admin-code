@@ -12,7 +12,7 @@
     {"module_key": "official.identity", "version": "4.0.0-dev"}
   ],
   "backend": {
-    "provider": "app\\modules\\official\\reference_codes\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -32,9 +32,9 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\reference_codes\\contracts\\DictionaryQuery",
-      "app\\modules\\official\\reference_codes\\contracts\\TenantDictionaryCommands",
-      "app\\modules\\official\\reference_codes\\contracts\\SystemReferenceCodeQuery"
+      "PeanutAdmin\\Modules\\ReferenceCodes\\Contract\\DictionaryQuery",
+      "PeanutAdmin\\Modules\\ReferenceCodes\\Contract\\TenantDictionaryCommands",
+      "PeanutAdmin\\Modules\\ReferenceCodes\\Contract\\SystemReferenceCodeQuery"
     ],
     "events": []
   },

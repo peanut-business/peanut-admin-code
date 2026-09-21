@@ -10,8 +10,8 @@ use app\common\contract\audit\AuditEvent;
 use app\common\contract\audit\AuditResource;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
-use PeanutAdmin\Kernel\Audit\Model\PlatformAuditEventRecord;
-use PeanutAdmin\Kernel\Audit\Model\TenantAuditEventRecord;
+use PeanutAdmin\Modules\Identity\Audit\Model\PlatformAuditEventRecord;
+use PeanutAdmin\Modules\Identity\Audit\Model\TenantAuditEventRecord;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\facade\Db;
 

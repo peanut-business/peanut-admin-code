@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-use app\modules\official\notification\delivery\Application\VerificationCodeSecret;
+use PeanutAdmin\Modules\Notification\Delivery\Application\VerificationCodeSecret;
 use app\common\service\scaffold\EditionProfile;
 use app\common\service\scaffold\EditionProjector;
 
@@ -38,13 +38,13 @@ expectNotificationHost(
     'SMS Host bypasses the External Channel binding owner'
 );
 $applicationService = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Notification/Application/NotificationApplicationService.php'
+    $serverRoot . '/app/modules/official/notification/src/Service/NotificationApplicationService.php'
 );
 $notificationProvider = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Notification/ModuleProvider.php'
+    $serverRoot . '/app/modules/official/notification/src/ModuleProvider.php'
 );
 $sceneValidator = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Notification/Validation/NoticeSceneValidate.php'
+    $serverRoot . '/app/modules/official/notification/src/Validation/NoticeSceneValidate.php'
 );
 $readinessHost = (string)file_get_contents(
     $serverRoot . '/app/common/service/readiness/FirstRunReadinessHost.php'
@@ -73,7 +73,7 @@ expectNotificationHost(
 );
 foreach ([
     'Login' => '/app/api/application/LoginApplicationService.php',
-    'OAuth' => '/app/Modules/Official/Oauth/Application/OAuthCommandService.php',
+    'OAuth' => '/app/modules/official/oauth/src/Service/OAuthCommandService.php',
     'Sms' => '/app/api/application/SmsApplicationService.php',
     'User' => '/app/api/application/UserApplicationService.php',
 ] as $application => $path) {
@@ -92,7 +92,7 @@ expectNotificationHost(
 );
 
 $verificationService = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Notification/Application/VerificationCodeService.php'
+    $serverRoot . '/app/modules/official/notification/src/Service/VerificationCodeService.php'
 );
 foreach ([
     '$this->sender->send', "['code' => '****']", 'verify_code_hash',
@@ -105,7 +105,7 @@ $applicationSender = (string)file_get_contents(
     $serverRoot . '/app/common/infrastructure/notice/ApplicationNoticeSmsSender.php'
 );
 $notificationProvider = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Notification/ModuleProvider.php'
+    $serverRoot . '/app/modules/official/notification/src/ModuleProvider.php'
 );
 expectNotificationHost(
     str_contains($applicationSender, '$this->channels->sendSms('),
@@ -144,7 +144,7 @@ foreach (['ConfigService::get', 'new AliyunSms', 'new TencentSms', "'verify_code
     expectNotificationHost(!str_contains($verificationService, $forbidden), 'verification service bypasses Host: ' . $forbidden);
 }
 
-$logModel = (string)file_get_contents($serverRoot . '/app/Modules/Official/Notification/Model/NoticeLog.php');
+$logModel = (string)file_get_contents($serverRoot . '/app/modules/official/notification/src/Model/NoticeLog.php');
 expectNotificationHost(
     str_contains($logModel, "protected \$hidden = ['verify_code_hash', 'extra']"),
     'secret hash or provider response can be serialized'
@@ -269,8 +269,8 @@ foreach ($tenantSources as $source) {
         'PeanutAdmin\\Kernel\\Auth\\TenantContext',
         'PeanutAdmin\\Kernel\\Context\\AuthenticatedMemberContext',
         'PeanutAdmin\\Kernel\\Context\\TenantSystemContext',
-        'app\\modules\\official\\notification\\delivery\\Application\\VerificationCodeSecret',
-        'app\\modules\\official\\notification\\contracts\\NoticeSmsSender',
+        'PeanutAdmin\\Modules\\Notification\\Delivery\\Application\\VerificationCodeSecret',
+        'PeanutAdmin\\Modules\\Notification\\Contract\\NoticeSmsSender',
     ], '', $source);
     expectNotificationHost(
         !str_contains($withoutAllowedContextTypes, 'PeanutAdmin\\'),

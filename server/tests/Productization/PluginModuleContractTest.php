@@ -4,8 +4,8 @@ declare(strict_types=1);
 use app\platform\service\module\OpisManifestSchemaValidator;
 use app\platform\service\module\ReflectionContractInspector;
 use app\platform\service\module\StrictVersionConstraintMatcher;
-use PeanutAdmin\DataPermission\Persistence\Schema\DataPermissionSchema;
-use PeanutAdmin\Kernel\Authorization\Persistence\Schema\AuthorizationSchema;
+use PeanutAdmin\Modules\Identity\DataPermission\Persistence\Schema\DataPermissionSchema;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
 use PeanutAdmin\Kernel\Idempotency\IdempotencySchema;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -19,16 +19,16 @@ use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use app\common\composition\ModuleComposition;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\Modules\Official\Article\Application\ArticleQueryService;
-use app\Modules\Official\Article\Contracts\ArticleQueries;
+use PeanutAdmin\Modules\Article\Service\ArticleQueryService;
+use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
 use think\App;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/app/Modules/Fixture/DeliveryRecord/Contracts/DeliveryRecordCommands.php';
-require dirname(__DIR__, 2) . '/app/Modules/Fixture/DeliveryRecord/Application/DeliveryRecordAccess.php';
-require dirname(__DIR__, 2) . '/app/Modules/Fixture/DeliveryRecord/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php';
-require dirname(__DIR__, 2) . '/app/Modules/Fixture/DeliveryRecord/Application/DeliveryRecordService.php';
-require dirname(__DIR__, 2) . '/app/Modules/Fixture/DeliveryRecord/ModuleProvider.php';
+require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Contract/DeliveryRecordCommands.php';
+require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Service/DeliveryRecordAccess.php';
+require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Infrastructure/Authorization/ThinkPhpDeliveryRecordAccess.php';
+require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/Service/DeliveryRecordService.php';
+require dirname(__DIR__, 2) . '/app/modules/fixture/delivery_record/src/ModuleProvider.php';
 
 interface PluginModuleAutowireContract {}
 
@@ -117,9 +117,9 @@ function pluginModuleContractMakeOfficial(App $app, string $abstract, string $co
 {
     $controlledImplementations = [
         \app\common\contract\idempotency\IdempotentCommandExecutor::class => \app\common\service\idempotency\ThinkPhpIdempotentCommandExecutor::class,
-        \app\Modules\Official\Task\Contracts\TaskJobRuntime::class => \app\Modules\Official\Task\Infrastructure\Runtime\ThinkPhpTaskJobRuntime::class,
+        \PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class => \PeanutAdmin\Modules\Task\Infrastructure\Runtime\ThinkPhpTaskJobRuntime::class,
         \app\common\service\http\OutboundHttpTransport::class => \app\common\service\http\GuzzleOutboundHttpTransport::class,
-        \app\modules\official\integration\contracts\ExternalTenantAudit::class => \app\modules\official\integration\infrastructure\ThinkPhpExternalTenantAudit::class,
+        \PeanutAdmin\Modules\Integration\Contract\ExternalTenantAudit::class => \PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantAudit::class,
         \app\common\service\payment\contract\PaymentTransportInterface::class => \app\common\service\payment\transport\CurlPaymentTransport::class,
     ];
     $reflection = new ReflectionClass($concrete);
@@ -141,11 +141,11 @@ function pluginModuleContractMakeOfficial(App $app, string $abstract, string $co
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$moduleRoot = $serverRoot . '/app/Modules/Fixture/DeliveryRecord';
-$officialModuleRoots = glob($serverRoot . '/app/Modules/Official/*', GLOB_ONLYDIR) ?: [];
+$moduleRoot = $serverRoot . '/app/modules/fixture/delivery_record';
+$officialModuleRoots = glob($serverRoot . '/app/modules/official/*', GLOB_ONLYDIR) ?: [];
 sort($officialModuleRoots, SORT_STRING);
 $moduleRoots = [$moduleRoot, ...$officialModuleRoots];
-$layout = new ModuleHostLayout('server/app/Modules', 'app\Modules', 'web/src/modules');
+$layout = new ModuleHostLayout('server/app/modules', 'app\modules', 'web/src/modules');
 $kernelRoot = dirname((new ReflectionClass(\PeanutAdmin\Kernel\Module\ModuleProvider::class))->getFileName(), 3);
 $compiler = new ModuleRegistryCompiler(
     new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
@@ -173,7 +173,7 @@ $compiler = new ModuleRegistryCompiler(
         ...DataPermissionSchema::tableNames(),
     ],
     ['admin-web', 'platform-web'],
-        [...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM],
+        [...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM],
 );
 
 $loader = new ManifestLoader();
@@ -201,31 +201,31 @@ pluginModuleContractExpect(
     $app->make(ArticleQueries::class) === $app->make(ArticleQueryService::class),
     'native ThinkPHP alias did not preserve ArticleQueries object identity',
 );
-$fixtureProvider = new \app\Modules\Fixture\DeliveryRecord\ModuleProvider();
+$fixtureProvider = new \PeanutAdmin\Fixtures\DeliveryRecord\ModuleProvider();
 pluginModuleContractExpect(
     !in_array('app\\common\\composition\\Module' . 'BindingContributor', class_implements($fixtureProvider) ?: [], true),
     'Fixture ModuleProvider still depends on the retired binding marker',
 );
 
 $officialAutowireTargets = [
-    \app\Modules\Official\Article\Contracts\PublicArticleQueries::class => \app\Modules\Official\Article\Application\PublicArticleService::class,
-    \app\Modules\Official\Article\Contracts\ArticleAdministration::class => \app\Modules\Official\Article\Application\ArticleAdministrationService::class,
-    \app\Modules\Official\File\Contracts\FileAdministration::class => \app\Modules\Official\File\Application\FileAdministrationService::class,
-    \app\Modules\Official\File\Contracts\FileUploads::class => \app\Modules\Official\File\Application\FileUploadService::class,
-    \app\Modules\Official\Member\Contracts\MemberQueries::class => \app\Modules\Official\Member\Application\MemberQueryService::class,
-    \app\Modules\Official\Member\Contracts\MemberSubjectLookup::class => \app\Modules\Official\Member\Infrastructure\Persistence\ThinkPhpMemberSubjectLookup::class,
-    \app\Modules\Official\Member\Contracts\MemberAdministration::class => \app\Modules\Official\Member\Application\MemberAdministrationService::class,
-    \app\Modules\Official\ImportExport\Application\TenantConfigurationTransferService::class => \app\Modules\Official\ImportExport\Application\TenantConfigurationTransferService::class,
-    \app\Modules\Official\ImportExport\Infrastructure\File\AppFileMediaGateway::class => \app\Modules\Official\ImportExport\Infrastructure\File\AppFileMediaGateway::class,
-    \app\Modules\Official\ImportExport\Contracts\ImportExportWorkerRuntime::class => \app\Modules\Official\ImportExport\Application\TaskImportExportRuntime::class,
-    \app\Modules\Official\ImportExport\Application\OperationLogExportApplicationService::class => \app\Modules\Official\ImportExport\Application\OperationLogExportApplicationService::class,
+    \PeanutAdmin\Modules\Article\Contract\PublicArticleQueries::class => \PeanutAdmin\Modules\Article\Service\PublicArticleService::class,
+    \PeanutAdmin\Modules\Article\Contract\ArticleAdministration::class => \PeanutAdmin\Modules\Article\Service\ArticleAdministrationService::class,
+    \PeanutAdmin\Modules\File\Contract\FileAdministration::class => \PeanutAdmin\Modules\File\Service\FileAdministrationService::class,
+    \PeanutAdmin\Modules\File\Contract\FileUploads::class => \PeanutAdmin\Modules\File\Service\FileUploadService::class,
+    \PeanutAdmin\Modules\Member\Contract\MemberQueries::class => \PeanutAdmin\Modules\Member\Service\MemberQueryService::class,
+    \PeanutAdmin\Modules\Member\Contract\MemberSubjectLookup::class => \PeanutAdmin\Modules\Member\Infrastructure\Persistence\ThinkPhpMemberSubjectLookup::class,
+    \PeanutAdmin\Modules\Member\Contract\MemberAdministration::class => \PeanutAdmin\Modules\Member\Service\MemberAdministrationService::class,
+    \PeanutAdmin\Modules\ImportExport\Service\TenantConfigurationTransferService::class => \PeanutAdmin\Modules\ImportExport\Service\TenantConfigurationTransferService::class,
+    \PeanutAdmin\Modules\ImportExport\Infrastructure\File\AppFileMediaGateway::class => \PeanutAdmin\Modules\ImportExport\Infrastructure\File\AppFileMediaGateway::class,
+    \PeanutAdmin\Modules\ImportExport\Contract\ImportExportWorkerRuntime::class => \PeanutAdmin\Modules\ImportExport\Service\TaskImportExportRuntime::class,
+    \PeanutAdmin\Modules\ImportExport\Service\OperationLogExportApplicationService::class => \PeanutAdmin\Modules\ImportExport\Service\OperationLogExportApplicationService::class,
     \app\common\services\notice\NoticeChannelService::class => \app\common\services\notice\NoticeChannelService::class,
-    \app\Modules\Official\Notification\Contracts\NotificationCommands::class => \app\Modules\Official\Notification\Application\NotificationApplicationService::class,
-    \app\modules\official\integration\contracts\ExternalTenantBindingRepository::class => \app\modules\official\integration\infrastructure\ThinkPhpExternalTenantBindingRepository::class,
-    \app\modules\official\integration\contracts\ExternalTenantResolutionService::class => \app\modules\official\integration\services\ExternalTenantResolver::class,
-    \app\modules\official\integration\contracts\ExternalChannelBindings::class => \app\modules\official\integration\services\ExternalChannelBindingService::class,
+    \PeanutAdmin\Modules\Notification\Contract\NotificationCommands::class => \PeanutAdmin\Modules\Notification\Service\NotificationApplicationService::class,
+    \PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository::class => \PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository::class,
+    \PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService::class => \PeanutAdmin\Modules\Integration\Service\ExternalTenantResolver::class,
+    \PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings::class => \PeanutAdmin\Modules\Integration\Service\ExternalChannelBindingService::class,
     \app\common\service\payment\PaymentServiceFactory::class => \app\common\service\payment\PaymentServiceFactory::class,
-    \app\Modules\Official\Payment\Contracts\PaymentChannelGrantCommands::class => \app\Modules\Official\Payment\Infrastructure\ThinkPhpPaymentChannelGrantCommands::class,
+    \PeanutAdmin\Modules\Payment\Contract\PaymentChannelGrantCommands::class => \PeanutAdmin\Modules\Payment\Infrastructure\ThinkPhpPaymentChannelGrantCommands::class,
 ];
 foreach ($officialAutowireTargets as $abstract => $concrete) {
     $officialApp = new App($serverRoot);
@@ -241,24 +241,24 @@ foreach ($officialAutowireTargets as $abstract => $concrete) {
 $importAliasApp = new App($serverRoot);
 (new ModuleComposition($importAliasApp))->register($registry);
 $importAliasApp->instance(
-    \app\Modules\Official\ImportExport\Application\ImportExportApplicationService::class,
-    pluginModuleContractControlledObject(\app\Modules\Official\ImportExport\Application\ImportExportApplicationService::class),
+    \PeanutAdmin\Modules\ImportExport\Service\ImportExportApplicationService::class,
+    pluginModuleContractControlledObject(\PeanutAdmin\Modules\ImportExport\Service\ImportExportApplicationService::class),
 );
 pluginModuleContractExpect(
-    $importAliasApp->make(\app\Modules\Official\ImportExport\Contracts\ImportExportCommands::class)
-        === $importAliasApp->make(\app\Modules\Official\ImportExport\Contracts\ImportExportQueries::class),
+    $importAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ImportExportCommands::class)
+        === $importAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ImportExportQueries::class),
     'ImportExport Commands and Queries aliases did not share their controlled production implementation',
 );
 
 $configurationAliasApp = new App($serverRoot);
 (new ModuleComposition($configurationAliasApp))->register($registry);
 $configurationAliasApp->instance(
-    \app\Modules\Official\ImportExport\Application\ConfigurationTransferApplicationService::class,
-    pluginModuleContractControlledObject(\app\Modules\Official\ImportExport\Application\ConfigurationTransferApplicationService::class),
+    \PeanutAdmin\Modules\ImportExport\Service\ConfigurationTransferApplicationService::class,
+    pluginModuleContractControlledObject(\PeanutAdmin\Modules\ImportExport\Service\ConfigurationTransferApplicationService::class),
 );
 pluginModuleContractExpect(
-    $configurationAliasApp->make(\app\Modules\Official\ImportExport\Contracts\ConfigurationTransferCommands::class)
-        === $configurationAliasApp->make(\app\Modules\Official\ImportExport\Contracts\ConfigurationTransferQueries::class),
+    $configurationAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ConfigurationTransferCommands::class)
+        === $configurationAliasApp->make(\PeanutAdmin\Modules\ImportExport\Contract\ConfigurationTransferQueries::class),
     'Configuration transfer Commands and Queries aliases did not share their controlled production implementation',
 );
 
@@ -267,11 +267,11 @@ $notificationAliasApp->bind(require $serverRoot . '/app/adminapi/provider.php');
 (new ModuleComposition($notificationAliasApp))->register($registry);
 $notification = pluginModuleContractMakeOfficial(
     $notificationAliasApp,
-    \app\Modules\Official\Notification\Contracts\NotificationCommands::class,
-    \app\Modules\Official\Notification\Application\NotificationApplicationService::class,
+    \PeanutAdmin\Modules\Notification\Contract\NotificationCommands::class,
+    \PeanutAdmin\Modules\Notification\Service\NotificationApplicationService::class,
 );
 pluginModuleContractExpect(
-    $notification === $notificationAliasApp->make(\app\Modules\Official\Notification\Contracts\NotificationQueries::class),
+    $notification === $notificationAliasApp->make(\PeanutAdmin\Modules\Notification\Contract\NotificationQueries::class),
     'Notification Commands and Queries aliases did not preserve production object identity',
 );
 

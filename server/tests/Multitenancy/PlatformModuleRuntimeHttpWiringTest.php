@@ -7,12 +7,12 @@ require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Authorization\AuthorizationException;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalog;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Kernel\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';

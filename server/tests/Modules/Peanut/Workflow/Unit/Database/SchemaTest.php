@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Tests\Unit\Database;
+namespace PeanutAdmin\Modules\Workflow\Tests\Unit\Database;
 
 use InvalidArgumentException;
-use PeanutAdmin\Workflow\Database\Schema;
+use PeanutAdmin\Modules\Workflow\Database\Schema;
 use PHPUnit\Framework\TestCase;
 
 final class SchemaTest extends TestCase

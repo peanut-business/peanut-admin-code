@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Fixture\DeliveryRecord\ModuleProvider;
+use PeanutAdmin\Fixtures\DeliveryRecord\ModuleProvider;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
@@ -64,7 +64,7 @@ function pluginLifecycleCanonicalDigest(string $projectRoot, array $roots): stri
 function pluginLifecycleFailureArtifact(string $projectRoot): array
 {
     $migration = $projectRoot
-        . '/server/app/Modules/Fixture/DeliveryRecord/Database/Migrations/20260814999999_failure_fixture.sql';
+        . '/server/app/modules/fixture/delivery_record/database/migrations/20260814999999_failure_fixture.sql';
     file_put_contents($migration, "THIS IS AN INTENTIONAL FIXTURE FAILURE;\n");
     $manifest = json_decode(
         (string)file_get_contents($projectRoot . '/plugins/fixture.delivery-record/plugin.json'),
@@ -73,7 +73,7 @@ function pluginLifecycleFailureArtifact(string $projectRoot): array
         JSON_THROW_ON_ERROR
     );
     $digest = pluginLifecycleCanonicalDigest($projectRoot, [
-        $projectRoot . '/server/app/Modules/Fixture/DeliveryRecord',
+        $projectRoot . '/server/app/modules/fixture/delivery_record',
         $projectRoot . '/web/src/modules/fixture-delivery-record',
     ]);
     $manifest['source']['sha256'] = $digest;
@@ -105,7 +105,7 @@ function pluginLifecycleFailureArtifact(string $projectRoot): array
 function pluginLifecycleRepairArtifact(string $projectRoot): array
 {
     $migration = $projectRoot
-        . '/server/app/Modules/Fixture/DeliveryRecord/Database/Migrations/20260815000000_failure_repair.sql';
+        . '/server/app/modules/fixture/delivery_record/database/migrations/20260815000000_failure_repair.sql';
     file_put_contents(
         $migration,
         "-- peanut-admin-repairs: fixture.delivery-record:20260814999999_failure_fixture\nSELECT 1;\n",
@@ -118,7 +118,7 @@ function pluginLifecycleRepairArtifact(string $projectRoot): array
     );
     $manifest['version'] = '1.0.1';
     $manifest['source']['sha256'] = pluginLifecycleCanonicalDigest($projectRoot, [
-        $projectRoot . '/server/app/Modules/Fixture/DeliveryRecord',
+        $projectRoot . '/server/app/modules/fixture/delivery_record',
         $projectRoot . '/web/src/modules/fixture-delivery-record',
     ]);
     $manifestPath = tempnam(sys_get_temp_dir(), 'pa-plugin-repair-manifest-');

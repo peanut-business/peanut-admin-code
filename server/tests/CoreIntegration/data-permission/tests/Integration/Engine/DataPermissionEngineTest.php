@@ -7,16 +7,16 @@ namespace PeanutAdmin\DataPermission\Tests\Integration\Engine;
 use DateTimeImmutable;
 use PDO;
 use ThinkPhpTestConnection;
-use PeanutAdmin\DataPermission\Catalog\ThinkPhpResourceOperationCatalog;
+use PeanutAdmin\Modules\Identity\DataPermission\Catalog\ThinkPhpResourceOperationCatalog;
 use PeanutAdmin\DataPermission\Constraint\ColumnReference;
 use PeanutAdmin\DataPermission\Constraint\ThinkPhpQueryConstraintApplier;
 use PeanutAdmin\DataPermission\Engine\DataPermissionEngine;
 use PeanutAdmin\DataPermission\Exception\DataAuthorizationException;
-use PeanutAdmin\DataPermission\Policy\ThinkPhpPolicyRepository;
+use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
 use PeanutAdmin\DataPermission\Policy\PolicyCache;
 use PeanutAdmin\DataPermission\Provider\ConditionProviderRegistry;
-use PeanutAdmin\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
-use PeanutAdmin\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
+use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider;
+use PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider;
 use PeanutAdmin\DataPermission\Provider\ProviderColumnMap;
 use PeanutAdmin\DataPermission\Provider\ResourceProviderRegistry;
 use PeanutAdmin\DataPermission\Provider\SharedMasterScopeProviderRegistry;
@@ -30,9 +30,9 @@ use PeanutAdmin\DataPermission\Target\TypedResourceTargetSet;
 use PeanutAdmin\DataPermission\Tests\Integration\Schema\DataPermissionMigrationRunner;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\ThinkPhpTenantAuthorizationRepository;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\ThinkPhpTenantAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;
@@ -565,7 +565,7 @@ SQL);
         $query = new Query($this->connection);
         $query->table('test_work_item');
         $query->alias('work_item');
-        (new ThinkPhpQueryConstraintApplier(new \app\modules\official\identity\access\infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($query, $this->engine->queryConstraint(
+        (new ThinkPhpQueryConstraintApplier(new \PeanutAdmin\Modules\Identity\access\Infrastructure\ThinkPhpTargetSetConstraintApplier()))->apply($query, $this->engine->queryConstraint(
             $this->context,
             'example.work-item',
             $operation,

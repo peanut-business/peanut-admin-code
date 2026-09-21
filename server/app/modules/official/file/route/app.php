@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\file\controller\FileController;
-use app\modules\official\file\controller\UploadController;
+use PeanutAdmin\Modules\File\Controller\FileController;
+use PeanutAdmin\Modules\File\Controller\UploadController;
 use app\api\controller\UploadController as ApiUploadController;
 use app\api\controller\StorageController as ApiStorageController;
 use app\platform\controller\PlatformStorageController;

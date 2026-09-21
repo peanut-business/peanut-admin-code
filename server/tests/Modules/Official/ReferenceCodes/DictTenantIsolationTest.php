@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-use app\modules\official\reference_codes\services\DictDataApplicationService;
-use app\modules\official\reference_codes\services\DictTypeApplicationService;
+use PeanutAdmin\Modules\ReferenceCodes\Service\DictDataApplicationService;
+use PeanutAdmin\Modules\ReferenceCodes\Service\DictTypeApplicationService;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use PeanutAdmin\Kernel\Auth\TenantContext;

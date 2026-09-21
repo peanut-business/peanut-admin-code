@@ -5,7 +5,7 @@ namespace app\platform\services;
 
 use app\platform\context\PlatformOperatorContext;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
-use PeanutAdmin\Kernel\Platform\Application\PlatformWorkspaceQueryService;
+use PeanutAdmin\Modules\Identity\Platform\Application\PlatformWorkspaceQueryService;
 
 final readonly class PlatformTenantQueryService
 {

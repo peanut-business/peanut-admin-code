@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\modules\official\payment\contracts\RefundReconciliationCommands;
+use PeanutAdmin\Modules\Payment\Contract\RefundReconciliationCommands;
 use app\common\context\payment\PaymentScheduledTenantContext;
 use app\common\infrastructure\payment\PaymentTenantDiagnostics;
 use app\common\execution\ContextualCommand;

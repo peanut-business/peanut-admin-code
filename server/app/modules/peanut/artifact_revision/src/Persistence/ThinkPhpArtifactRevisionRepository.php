@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Persistence;
+namespace PeanutAdmin\Modules\ArtifactRevision\Persistence;
 
-use PeanutAdmin\ArtifactRevision\Model\Artifact;
-use PeanutAdmin\ArtifactRevision\Model\ArtifactRevision;
-use PeanutAdmin\ArtifactRevision\Persistence\Model\ArtifactRecord;
-use PeanutAdmin\ArtifactRevision\Persistence\Model\ArtifactRevisionRecord;
-use PeanutAdmin\ArtifactRevision\Workflow\ArtifactSubjectRevisionReader;
+use PeanutAdmin\Modules\ArtifactRevision\Model\Artifact;
+use PeanutAdmin\Modules\ArtifactRevision\Model\ArtifactRevision;
+use PeanutAdmin\Modules\ArtifactRevision\Persistence\Model\ArtifactRecord;
+use PeanutAdmin\Modules\ArtifactRevision\Persistence\Model\ArtifactRevisionRecord;
+use PeanutAdmin\Modules\ArtifactRevision\Workflow\ArtifactSubjectRevisionReader;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use RuntimeException;
 use think\db\exception\PDOException;

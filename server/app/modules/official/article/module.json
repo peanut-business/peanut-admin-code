@@ -12,7 +12,7 @@
     {"module_key": "official.file", "version": "^1.0"}
   ],
   "backend": {
-    "provider": "app\\modules\\official\\article\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\Article\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -26,9 +26,9 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\article\\contracts\\ArticleAdministration",
-      "app\\modules\\official\\article\\contracts\\ArticleQueries",
-      "app\\modules\\official\\article\\contracts\\PublicArticleQueries"
+      "PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration",
+      "PeanutAdmin\\Modules\\Article\\Contract\\ArticleQueries",
+      "PeanutAdmin\\Modules\\Article\\Contract\\PublicArticleQueries"
     ],
     "events": []
   },

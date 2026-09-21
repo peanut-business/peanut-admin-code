@@ -43,8 +43,8 @@ foreach ([
 ] as $table) {
     $expect(str_contains($bootstrap, $table), 'new Tenant bootstrap omits ' . $table);
 }
-$notificationCommands = $read($root . '/server/app/Modules/Official/Notification/Contracts/NotificationBootstrapCommands.php');
-$notificationApplication = $read($root . '/server/app/Modules/Official/Notification/Application/NotificationBootstrapService.php');
+$notificationCommands = $read($root . '/server/app/modules/official/notification/src/Contract/NotificationBootstrapCommands.php');
+$notificationApplication = $read($root . '/server/app/modules/official/notification/src/Service/NotificationBootstrapService.php');
 $expect(
     str_contains($bootstrap, 'NotificationBootstrapCommands')
         && str_contains($bootstrap, '->provisionTenantDefaults(')
@@ -119,9 +119,9 @@ $overlayFiles = [
     'plugins.lock',
     'plugins/official.notification/plugin.json',
     'plugins/official.task/plugin.json',
-    'server/app/Modules/Official/Notification/Application/NotificationBootstrapDefaults.php',
-    'server/app/Modules/Official/Notification/Application/NotificationBootstrapService.php',
-    'server/app/Modules/Official/Task/Application/TaskBootstrapService.php',
+    'server/app/modules/official/notification/src/Service/NotificationBootstrapDefaults.php',
+    'server/app/modules/official/notification/src/Service/NotificationBootstrapService.php',
+    'server/app/modules/official/task/src/Service/TaskBootstrapService.php',
     'server/app/platform/infrastructure/ThinkPhpTenantApplicationBootstrapPersistence.php',
     'server/app/platform/service/ops/ApplicationRuntimeStatusProvider.php',
     'server/database/seed-multi-tenant-demo.php',

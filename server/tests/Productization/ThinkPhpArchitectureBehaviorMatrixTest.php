@@ -16,7 +16,7 @@ use app\adminapi\service\generator\GeneratorRenderService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use think\Container;
 use think\DbManager;
 use think\Model;
@@ -456,19 +456,19 @@ spec.loader.exec_module(scanner)
 cases = {
     "host_application": (
         "server/app/adminapi/application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Application\\CrontabApplicationService;\n",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Service\\CrontabApplicationService;\n",
     ),
     "platform_adapter_model": (
         "server/app/platform/infrastructure/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Model\\Crontab;\n",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Model\\Crontab;\n",
     ),
     "host_contract": (
         "server/app/api/application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Contracts\\TaskJobRuntime;\n",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Contract\\TaskJobRuntime;\n",
     ),
     "module_internal": (
-        "server/app/Modules/Official/Task/Application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
+        "server/app/modules/official/task/Application/Probe.php",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
     ),
     "application_console": (
         "server/app/adminapi/application/ConsoleProbe.php",
@@ -479,15 +479,15 @@ cases = {
         "<?php\nuse think\\Console;\n",
     ),
     "application_transport": (
-        "server/app/Modules/Official/Oauth/Application/TransportProbe.php",
+        "server/app/modules/official/oauth/Application/TransportProbe.php",
         "<?php\nfinal class TransportProbe { public function run(): void { new WechatOAuthTransport(); } }\n",
     ),
     "tenant_join_missing": (
-        "server/app/Modules/Official/Article/Application/JoinProbe.php",
+        "server/app/modules/official/article/Application/JoinProbe.php",
         "<?php\n$query->join('article a', 'a.id = c.article_id');\n",
     ),
     "tenant_join_scoped": (
-        "server/app/Modules/Official/Article/Application/ScopedJoinProbe.php",
+        "server/app/modules/official/article/Application/ScopedJoinProbe.php",
         "<?php\n$query->leftJoin('article a', 'a.tenant_id = c.tenant_id AND a.id = c.article_id');\n",
     ),
     "tenant_join_global": (

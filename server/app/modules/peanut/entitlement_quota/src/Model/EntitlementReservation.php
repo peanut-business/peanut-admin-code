@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Model;
+namespace PeanutAdmin\Modules\EntitlementQuota\Model;
 
 final readonly class EntitlementReservation
 {

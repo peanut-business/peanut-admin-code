@@ -43,19 +43,19 @@ foreach ([
         'validate' => 'app\\adminapi\\validate\\dict\\DictDataValidate',
         'extra' => ['byType'],
     ],
-    'app\\Modules\\Official\\Oauth\\Http\\Controller\\OfficialAccountReplyController' => [
-        'service' => 'app\\Modules\\Official\\Oauth\\Application\\OfficialAccountReplyApplicationService',
-        'validate' => 'app\\Modules\\Official\\Oauth\\Validation\\OfficialAccountReplyValidate',
+    'PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController' => [
+        'service' => 'PeanutAdmin\\Modules\\OAuth\\Service\\OfficialAccountReplyApplicationService',
+        'validate' => 'PeanutAdmin\\Modules\\OAuth\\Validation\\OfficialAccountReplyValidate',
         'extra' => [],
     ],
-    'app\\Modules\\Official\\Article\\Http\\Controller\\ArticleController' => [
-        'service' => 'app\\Modules\\Official\\Article\\Contracts\\ArticleAdministration',
-        'validate' => 'app\\Modules\\Official\\Article\\Validation\\ArticleValidate',
+    'PeanutAdmin\\Modules\\Article\\Controller\\ArticleController' => [
+        'service' => 'PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration',
+        'validate' => 'PeanutAdmin\\Modules\\Article\\Validation\\ArticleValidate',
         'extra' => [],
     ],
-    'app\\Modules\\Official\\Article\\Http\\Controller\\ArticleCateController' => [
-        'service' => 'app\\Modules\\Official\\Article\\Contracts\\ArticleAdministration',
-        'validate' => 'app\\Modules\\Official\\Article\\Validation\\ArticleCateValidate',
+    'PeanutAdmin\\Modules\\Article\\Controller\\ArticleCateController' => [
+        'service' => 'PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration',
+        'validate' => 'PeanutAdmin\\Modules\\Article\\Validation\\ArticleCateValidate',
         'extra' => ['all'],
     ],
     'app\\adminapi\\controller\\dept\\DeptController' => [
@@ -98,7 +98,7 @@ foreach ([
 foreach ([
     dirname(__DIR__, 2) . '/app/adminapi/controller/AbstractTenantCrudController.php',
     dirname(__DIR__, 2) . '/app/adminapi/controller/dept/AbstractOrgCrudController.php',
-    dirname(__DIR__, 2) . '/app/Modules/Official/Article/Http/Controller/AbstractArticleCrudController.php',
+    dirname(__DIR__, 2) . '/app/modules/official/article/Http/Controller/AbstractArticleCrudController.php',
 ] as $removedBase) {
     expectAdminTenantCrud(!is_file($removedBase), 'obsolete CRUD base remains: ' . $removedBase);
 }

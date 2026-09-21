@@ -5,7 +5,7 @@ namespace app\api\controller;
 
 use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
-use app\modules\official\file\contracts\FileStorage;
+use PeanutAdmin\Modules\File\Contract\FileStorage;
 use think\App;
 
 final class StorageController extends BaseApiController

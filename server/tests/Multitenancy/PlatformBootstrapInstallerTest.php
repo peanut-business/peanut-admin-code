@@ -4,13 +4,13 @@ declare(strict_types=1);
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
 use app\platform\service\PlatformOperatorSessionService;
-use PeanutAdmin\Kernel\Auth\Persistence\ThinkPhpPlatformAuthRepository;
-use PeanutAdmin\Kernel\Auth\PlatformAuthService;
+use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
+use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Auth\SystemClock;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
-use PeanutAdmin\Kernel\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';

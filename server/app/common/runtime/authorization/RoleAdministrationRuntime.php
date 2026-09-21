@@ -6,8 +6,8 @@ namespace app\common\runtime\authorization;
 use app\common\services\authorization\AdminAuthorizationService;
 use app\common\model\auth\SystemMenu;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use PeanutAdmin\Kernel\Authorization\Application\RoleAdminService;
-use PeanutAdmin\Kernel\Persistence\Model\MemberRole;
+use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
+use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
 
 /** Container-owned assembly and read projections for native Tenant roles. */
 final readonly class RoleAdministrationRuntime

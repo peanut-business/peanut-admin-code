@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use app\modules\official\ops\infrastructure\ThinkPhpRestoreTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpRestoreTaskExecutionService;
 use app\common\execution\ContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;

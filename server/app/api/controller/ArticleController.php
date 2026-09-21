@@ -8,7 +8,7 @@ use app\common\execution\CurrentExecutionContext;
 
 use app\common\validate\ListsValidate;
 use app\common\exception\BusinessException;
-use app\modules\official\article\contracts\PublicArticleQueries;
+use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 
 class ArticleController extends BaseApiController
 {

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Tests\Unit\Adapter;
+namespace PeanutAdmin\Modules\Workflow\Tests\Unit\Adapter;
 
-use PeanutAdmin\Workflow\Adapter\WorkflowAttachment;
-use PeanutAdmin\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowAttachment;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
 use PHPUnit\Framework\TestCase;
 
 final class WorkflowAttachmentTest extends TestCase

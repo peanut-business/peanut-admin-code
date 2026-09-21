@@ -5,10 +5,10 @@ use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
 use app\common\infrastructure\module\OfficialModuleMiddleware;
-use app\modules\official\integration\controller\MachineIdentityController;
-use app\modules\official\integration\controller\SessionSecurityController;
-use app\modules\official\integration\controller\WebhookController;
-use app\modules\official\integration\controller\WebhookDeliveryController;
+use PeanutAdmin\Modules\Integration\Controller\MachineIdentityController;
+use PeanutAdmin\Modules\Integration\Controller\SessionSecurityController;
+use PeanutAdmin\Modules\Integration\Controller\WebhookController;
+use PeanutAdmin\Modules\Integration\Controller\WebhookDeliveryController;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) !== 'adminapi') {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Database;
+namespace PeanutAdmin\Modules\ArtifactRevision\Database;
 
 use InvalidArgumentException;
 

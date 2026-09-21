@@ -22,7 +22,7 @@
     "protected": true
   },
   "backend": {
-    "provider": "app\\modules\\official\\ops\\ModuleProvider"
+    "provider": "PeanutAdmin\\Modules\\Ops\\ModuleProvider"
   },
   "frontend": {
     "clients": {
@@ -45,9 +45,9 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\ops\\domain\\Maintenance\\MaintenanceService",
-      "app\\modules\\official\\ops\\domain\\Status\\OpsStatusService",
-      "app\\modules\\official\\ops\\domain\\Task\\OpsTaskService"
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Maintenance\\MaintenanceService",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Status\\OpsStatusService",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Task\\OpsTaskService"
     ],
     "events": []
   },

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
-use app\modules\official\ops\domain\Logs\TenantDiagnosticAttributes;
+use PeanutAdmin\Modules\Ops\Domain\Logs\TenantDiagnosticAttributes;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -28,7 +28,7 @@ expectTenantDiagnostics(
 $serverRoot = dirname(__DIR__, 2);
 $refund = (string)file_get_contents($serverRoot . '/app/command/RefundReconcile.php');
 $refundService = (string)file_get_contents(
-    $serverRoot . '/app/Modules/Official/Payment/Infrastructure/ThinkPhpRefundReconciliationCommands.php'
+    $serverRoot . '/app/modules/official/payment/src/Infrastructure/ThinkPhpRefundReconciliationCommands.php'
 );
 $demo = (string)file_get_contents($serverRoot . '/app/command/CrontabDemo.php');
 expectTenantDiagnostics($refund !== '' && $demo !== '', 'Tenant-aware command source is unavailable');

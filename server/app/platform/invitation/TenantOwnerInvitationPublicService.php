@@ -11,7 +11,7 @@ use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use PeanutAdmin\Kernel\Identity\EmailAddress;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use think\facade\Db;
-use PeanutAdmin\Kernel\Tenancy\TenantStatus;
+use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 
 final class TenantOwnerInvitationPublicService
 {

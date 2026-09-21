@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Tests\Integration\Application;
+namespace PeanutAdmin\Modules\EntitlementQuota\Tests\Integration\Application;
 
 use DateTimeImmutable;
 use DateTimeZone;
 use PDO;
 use ThinkPhpTestConnection;
-use PeanutAdmin\EntitlementQuota\Application\EntitlementQuotaException;
-use PeanutAdmin\EntitlementQuota\Application\EntitlementQuotaReceipt;
-use PeanutAdmin\EntitlementQuota\Application\EntitlementQuotaService;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementGrantSnapshot;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementMeter;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementMeterRegistry;
-use PeanutAdmin\EntitlementQuota\Contract\EntitlementPolicyProvider;
-use PeanutAdmin\EntitlementQuota\Database\Schema;
-use PeanutAdmin\EntitlementQuota\Package;
-use PeanutAdmin\EntitlementQuota\Persistence\ThinkPhpEntitlementQuotaRepository;
-use PeanutAdmin\Kernel\Audit\AuditService;
+use PeanutAdmin\Modules\EntitlementQuota\Application\EntitlementQuotaException;
+use PeanutAdmin\Modules\EntitlementQuota\Application\EntitlementQuotaReceipt;
+use PeanutAdmin\Modules\EntitlementQuota\Application\EntitlementQuotaService;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementGrantSnapshot;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementMeter;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementMeterRegistry;
+use PeanutAdmin\Modules\EntitlementQuota\Contract\EntitlementPolicyProvider;
+use PeanutAdmin\Modules\EntitlementQuota\Database\Schema;
+use PeanutAdmin\Modules\EntitlementQuota\Package;
+use PeanutAdmin\Modules\EntitlementQuota\Persistence\ThinkPhpEntitlementQuotaRepository;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\Clock;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;

@@ -7,7 +7,7 @@ use app\platform\service\module\OpisManifestSchemaValidator;
 use app\platform\service\module\ReflectionContractInspector;
 use app\platform\service\module\StrictVersionConstraintMatcher;
 use Opis\JsonSchema\Validator;
-use PeanutAdmin\Kernel\Authorization\Persistence\Schema\AuthorizationSchema;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
@@ -43,7 +43,7 @@ $registry = (new ModuleRegistryCompiler(
     new ModuleHostLayout('server/tests/Fixtures', 'Fixture', 'web/src/modules'),
     [...KernelSchema::tableNames(), ...AuthorizationSchema::tableNames(), ...ModuleSchema::tableNames()],
     ['admin-web', 'platform-web'],
-        [...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM],
+        [...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM],
 ))->compile([$document]);
 pm01ModuleHttpExpect($registry->moduleKeys() === ['fixture.content'], 'deployed Module did not compile');
 

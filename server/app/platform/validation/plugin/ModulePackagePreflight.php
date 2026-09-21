@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace app\platform\validation\plugin;
 
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\exception\plugin\PluginPackageException;
 use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
@@ -19,7 +20,7 @@ final readonly class ModulePackagePreflight
 
     public function __construct(private string $projectRoot)
     {
-        $this->layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
+        $this->layout = ModuleHostLayoutFactory::pathLayout();
     }
 
     /**
@@ -76,8 +77,14 @@ final readonly class ModulePackagePreflight
                 throw new PluginPackageException('MODULE_PACKAGE_PATH_MISSING', "Module backend.{$field} source is unavailable.");
             }
         }
+        try {
+            $moduleLayout = ModuleHostLayoutFactory::fromModuleRoots([$moduleKey => $backendRoot]);
+            $phpNamespace = $moduleLayout->backendNamespace($key);
+        } catch (\InvalidArgumentException $exception) {
+            throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module PHP namespace declaration is not canonical.', 0, $exception);
+        }
         $provider = $backend['provider'] ?? null;
-        if (!is_string($provider) || !str_starts_with($provider, $this->layout->backendNamespace($key))) {
+        if (!is_string($provider) || $provider !== $phpNamespace . 'ModuleProvider') {
             throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module provider namespace is not canonical.');
         }
         $route = $backendRoot . '/route/app.php';

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow;
+namespace PeanutAdmin\Modules\Workflow;
 
 final class Package
 {

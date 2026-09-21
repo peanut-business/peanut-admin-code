@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace PeanutAdmin\Kernel\Tests\Integration\Schema;
 
 use DomainException;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationRevisionRepository;
 use PeanutAdmin\Kernel\Authorization\Persistence\PermissionDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ProtectedResourceDefinition;
 use PeanutAdmin\Kernel\Authorization\Persistence\ResourceOperationDefinition;

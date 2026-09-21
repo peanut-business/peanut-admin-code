@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\EntitlementQuota\Contract;
+namespace PeanutAdmin\Modules\EntitlementQuota\Contract;
 
 final readonly class EntitlementMeter
 {

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Tests\Integration\Persistence;
+namespace PeanutAdmin\Modules\ArtifactRevision\Tests\Integration\Persistence;
 
 use PDO;
 use PDOException;
 use ThinkPhpTestConnection;
-use PeanutAdmin\ArtifactRevision\Database\Schema;
-use PeanutAdmin\ArtifactRevision\Model\ArtifactRevision;
-use PeanutAdmin\ArtifactRevision\Persistence\ThinkPhpArtifactRevisionRepository;
+use PeanutAdmin\Modules\ArtifactRevision\Database\Schema;
+use PeanutAdmin\Modules\ArtifactRevision\Model\ArtifactRevision;
+use PeanutAdmin\Modules\ArtifactRevision\Persistence\ThinkPhpArtifactRevisionRepository;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use think\db\PDOConnection;

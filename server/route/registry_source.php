@@ -276,9 +276,19 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
             || preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]+$/D', $provider) !== 1) {
             throw new RuntimeException('Route inventory Module manifest is invalid: ' . $manifestPath);
         }
+        $composerPath = dirname($manifestPath) . '/composer.json';
+        $composer = json_decode((string)file_get_contents($composerPath), true, 32, JSON_THROW_ON_ERROR);
+        $psr4 = is_array($composer) && is_array($composer['autoload']['psr-4'] ?? null)
+            ? $composer['autoload']['psr-4']
+            : null;
+        $namespace = is_array($psr4) && count($psr4) === 1 ? array_key_first($psr4) : null;
+        if (!is_string($namespace) || ($psr4[$namespace] ?? null) !== 'src/'
+            || !str_ends_with($namespace, '\\') || !str_starts_with($provider, $namespace)) {
+            throw new RuntimeException('Route inventory Module Composer namespace is invalid: ' . $composerPath);
+        }
 
         $relative = substr(dirname($manifestPath), strlen($resolvedRoot . '/app/modules/'));
-        $moduleNamespaces['app\\modules\\' . str_replace('/', '\\', $relative) . '\\'] = $moduleKey;
+        $moduleNamespaces[$namespace] = $moduleKey;
         $moduleSources['server/app/modules/' . $relative . '/'] = $moduleKey;
     }
 

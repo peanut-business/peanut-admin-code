@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\ArtifactRevision\Application;
+namespace PeanutAdmin\Modules\ArtifactRevision\Application;
 
 use RuntimeException;
 

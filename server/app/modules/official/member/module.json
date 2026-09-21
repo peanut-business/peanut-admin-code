@@ -19,7 +19,7 @@
     }
   ],
   "backend": {
-    "provider": "app\\modules\\official\\member\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\Member\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -39,19 +39,19 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\member\\contracts\\MemberAdministration",
-      "app\\modules\\official\\member\\contracts\\MemberQueries",
-      "app\\modules\\official\\member\\contracts\\MemberBalanceCommands",
-      "app\\modules\\official\\member\\contracts\\MemberProfileCommands",
-      "app\\modules\\official\\member\\contracts\\MemberIdentityCommands",
-      "app\\modules\\official\\member\\contracts\\MemberTagCommands",
-      "app\\modules\\official\\member\\contracts\\dto\\MemberBalanceMutation",
-      "app\\modules\\official\\member\\contracts\\dto\\MemberBalanceSnapshot",
-      "app\\modules\\official\\member\\contracts\\dto\\MemberIdentitySnapshot",
-      "app\\modules\\official\\member\\contracts\\MemberSubjectLookup",
-      "app\\modules\\official\\member\\contracts\\MemberSessions",
-      "app\\modules\\official\\member\\contracts\\dto\\MemberSessionGrant",
-      "app\\modules\\official\\member\\contracts\\dto\\MemberSessionSubject"
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberAdministration",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberQueries",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberBalanceCommands",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberProfileCommands",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberIdentityCommands",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberTagCommands",
+      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberBalanceMutation",
+      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberBalanceSnapshot",
+      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberIdentitySnapshot",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberSubjectLookup",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberSessions",
+      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionGrant",
+      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionSubject"
     ],
     "events": []
   },

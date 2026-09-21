@@ -3,21 +3,21 @@ declare(strict_types=1);
 
 namespace app\platform\services;
 
-use app\modules\official\notification\contracts\NotificationBootstrapCommands;
-use app\modules\official\task\contracts\TaskBootstrapCommands;
-use app\modules\official\integration\contracts\ExternalChannelBindingStore;
+use PeanutAdmin\Modules\Notification\Contract\NotificationBootstrapCommands;
+use PeanutAdmin\Modules\Task\Contract\TaskBootstrapCommands;
+use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
-use app\modules\official\settings\infrastructure\BrandDefaults;
+use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
 use app\common\model\decoration\DecoratePage;
 use app\common\model\decoration\DecorateTabbar;
 use app\common\model\decoration\DecorationTabbarSetting;
 use app\common\model\setting\TransactionSetting;
 use app\common\model\setting\CustomerServiceSetting;
-use app\modules\official\settings\services\TenantSettingService;
+use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use PeanutAdmin\Kernel\Persistence\Model\Permission;
-use PeanutAdmin\Kernel\Persistence\Model\RolePermission;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
+use PeanutAdmin\Modules\Identity\Persistence\Model\RolePermission;
 use think\DbManager;
 use think\db\PDOConnection;
 use think\db\Raw;

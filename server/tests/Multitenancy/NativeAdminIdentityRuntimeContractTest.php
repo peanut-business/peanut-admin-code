@@ -7,7 +7,7 @@ $runtimeFiles = [
     'app/common/service/authorization',
     'app/common/service/org/AdminDirectoryQuery.php',
     'app/platform/service/CoreTenantOwnerAdminProvisioner.php',
-    'app/Modules/Official/ImportExport/Infrastructure/Authorization/AdminAsyncAuthorization.php',
+    'app/modules/official/import_export/src/Infrastructure/Authorization/AdminAsyncAuthorization.php',
 ];
 $forbidden = [
     'pa_legacy_admin_tenant_map',

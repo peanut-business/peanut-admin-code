@@ -4,8 +4,8 @@ declare(strict_types=1);
 use app\common\execution\ConsumerExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\exception\BusinessException;
-use app\modules\official\member\model\Member;
-use app\modules\official\member\services\MemberProfileContractService;
+use PeanutAdmin\Modules\Member\Model\Member;
+use PeanutAdmin\Modules\Member\Service\MemberProfileContractService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';

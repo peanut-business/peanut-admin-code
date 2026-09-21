@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 use app\api\middleware\CheckTokenMiddleware;
 use app\api\services\UserTokenService;
-use app\modules\official\member\contracts\MemberSessions;
-use app\modules\official\member\contracts\dto\MemberSessionGrant;
+use PeanutAdmin\Modules\Member\Contract\MemberSessions;
+use PeanutAdmin\Modules\Member\Contract\Dto\MemberSessionGrant;
 use Firebase\JWT\Key;
 use Firebase\JWT\JWT;
 

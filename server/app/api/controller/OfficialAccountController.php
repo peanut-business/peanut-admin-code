@@ -7,7 +7,7 @@ use app\api\services\OfficialAccountApplicationService;
 use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\RequestTrace;
-use app\modules\official\integration\contracts\ExternalTenantResolutionException;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use think\App;
 

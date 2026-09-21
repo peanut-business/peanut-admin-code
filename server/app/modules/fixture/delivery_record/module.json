@@ -10,7 +10,7 @@
   "web_package": "@peanut-admin/fixture-delivery-record",
   "dependencies": [],
   "backend": {
-    "provider": "app\\modules\\fixture\\delivery_record\\ModuleProvider",
+    "provider": "PeanutAdmin\\Fixtures\\DeliveryRecord\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -23,7 +23,7 @@
     "owned_tables": ["pa_fixture_delivery_record"]
   },
   "contracts": {
-    "exports": ["app\\modules\\fixture\\delivery_record\\contracts\\DeliveryRecordCommands"],
+    "exports": ["PeanutAdmin\\Fixtures\\DeliveryRecord\\Contract\\DeliveryRecordCommands"],
     "events": []
   },
   "tenant": {

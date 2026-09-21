@@ -9,31 +9,31 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use app\modules\official\notification\delivery\Application\AttachmentReference;
-use app\modules\official\notification\delivery\Application\AttachmentResolver;
-use app\modules\official\notification\delivery\Application\NotificationException;
-use app\modules\official\notification\delivery\Application\NotificationMessage;
-use app\modules\official\notification\delivery\Application\NotificationService;
-use app\modules\official\notification\delivery\Application\OutboxRecord;
-use app\modules\official\notification\delivery\Application\RecipientResolver;
-use app\modules\official\notification\delivery\Application\RecipientSnapshot;
-use app\modules\official\notification\delivery\Application\TemplateRenderer;
-use app\modules\official\notification\delivery\Database\Schema;
-use app\modules\official\notification\delivery\Package;
-use app\modules\official\notification\delivery\Persistence\NotificationRepository;
-use app\modules\official\notification\delivery\Persistence\NotificationStore;
-use app\modules\official\notification\delivery\Persistence\SmsDispatch;
-use app\modules\official\notification\delivery\Sms\LocalDevSmsProvider;
-use app\modules\official\notification\delivery\Sms\SmsProvider;
-use app\modules\official\notification\delivery\Sms\SmsProviderException;
-use app\modules\official\notification\delivery\Sms\SmsReceipt;
-use app\modules\official\notification\delivery\Sms\SmsRecipient;
-use app\modules\official\notification\delivery\Sms\SmsRecipientResolver;
-use app\modules\official\notification\delivery\Task\InboxTaskHandler;
-use app\modules\official\notification\delivery\Task\OutboxTaskSubmissionProvider;
-use app\modules\official\notification\delivery\Task\SmsTaskHandler;
-use app\modules\official\task\contracts\JobExecution;
-use app\modules\official\task\contracts\RetryableTaskException;
+use PeanutAdmin\Modules\Notification\Delivery\Application\AttachmentReference;
+use PeanutAdmin\Modules\Notification\Delivery\Application\AttachmentResolver;
+use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationException;
+use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationMessage;
+use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationService;
+use PeanutAdmin\Modules\Notification\Delivery\Application\OutboxRecord;
+use PeanutAdmin\Modules\Notification\Delivery\Application\RecipientResolver;
+use PeanutAdmin\Modules\Notification\Delivery\Application\RecipientSnapshot;
+use PeanutAdmin\Modules\Notification\Delivery\Application\TemplateRenderer;
+use PeanutAdmin\Modules\Notification\Delivery\Database\Schema;
+use PeanutAdmin\Modules\Notification\Delivery\Package;
+use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationRepository;
+use PeanutAdmin\Modules\Notification\Delivery\Persistence\NotificationStore;
+use PeanutAdmin\Modules\Notification\Delivery\Persistence\SmsDispatch;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\LocalDevSmsProvider;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsProvider;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsProviderException;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsReceipt;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsRecipient;
+use PeanutAdmin\Modules\Notification\Delivery\Sms\SmsRecipientResolver;
+use PeanutAdmin\Modules\Notification\Delivery\Task\InboxTaskHandler;
+use PeanutAdmin\Modules\Notification\Delivery\Task\OutboxTaskSubmissionProvider;
+use PeanutAdmin\Modules\Notification\Delivery\Task\SmsTaskHandler;
+use PeanutAdmin\Modules\Task\Contract\JobExecution;
+use PeanutAdmin\Modules\Task\Contract\RetryableTaskException;
 
 function same(mixed $expected, mixed $actual, string $message): void
 {
@@ -179,7 +179,7 @@ if (str_contains(json_encode($recipient, JSON_THROW_ON_ERROR), '+8613800138000')
     throw new RuntimeException('raw phone serialized');
 }
 $provider = new LocalDevSmsProvider();
-$request = new \app\modules\official\notification\delivery\Sms\SmsSendRequest('job_' . str_repeat('a', 32), 101, 'outbox_' . str_repeat('2', 32), '+8613800138000', 'Test body');
+$request = new \PeanutAdmin\Modules\Notification\Delivery\Sms\SmsSendRequest('job_' . str_repeat('a', 32), 101, 'outbox_' . str_repeat('2', 32), '+8613800138000', 'Test body');
 same('{}', json_encode($request, JSON_THROW_ON_ERROR), 'provider request is not implicitly serializable');
 same($provider->send($request)->providerMessageKey, $provider->send($request)->providerMessageKey, 'provider idempotency');
 same(1, $provider->acceptedCount(), 'provider deduplicates job key');
@@ -303,7 +303,7 @@ try {
         {
             return 'test-provider';
         }
-        public function send(\app\modules\official\notification\delivery\Sms\SmsSendRequest $request): SmsReceipt
+        public function send(\PeanutAdmin\Modules\Notification\Delivery\Sms\SmsSendRequest $request): SmsReceipt
         {
             throw SmsProviderException::permanent('SMS_DESTINATION_REJECTED');
         }

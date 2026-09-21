@@ -7,7 +7,7 @@ use app\api\services\OAuthApplicationService;
 use app\api\validate\OAuthValidate;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\RequestTrace;
-use app\modules\official\oauth\services\OAuthBrowserCallbackService;
+use PeanutAdmin\Modules\OAuth\Service\OAuthBrowserCallbackService;
 use think\App;
 
 /** OAuth HTTP 适配：解析输入及映射响应，用例负责可信绑定和模块调用。 */

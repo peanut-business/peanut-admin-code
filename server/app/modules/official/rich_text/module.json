@@ -13,7 +13,7 @@
     "protected": false
   },
   "backend": {
-    "provider": "app\\modules\\official\\rich_text\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\RichText\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json"

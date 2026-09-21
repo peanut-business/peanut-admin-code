@@ -15,9 +15,9 @@ use app\common\infrastructure\payment\WechatPayGateway;
 use app\common\infrastructure\payment\WechatRefundGateway;
 use app\common\infrastructure\payment\CurlPaymentTransport;
 use app\common\contract\http\OutboundHttpTransport;
-use app\modules\official\integration\contracts\ExternalTenantContext;
-use app\modules\official\integration\contracts\ExternalTenantResolutionService;
-use app\modules\official\integration\contracts\ExternalProvider;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantContext;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
+use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
 
 /** Peanut 自有支付边界工厂，不承载参考系统的路由或参数兼容。 */
 final class PaymentServiceFactory

@@ -3,19 +3,19 @@ declare(strict_types=1);
 
 namespace app\platform\composition\plugin;
 
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\platform\validation\module\ReflectionContractInspector;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
-use PeanutAdmin\DataPermission\Persistence\Schema\DataPermissionSchema;
-use PeanutAdmin\Kernel\Authorization\Persistence\Schema\AuthorizationSchema;
+use PeanutAdmin\Modules\Identity\DataPermission\Persistence\Schema\DataPermissionSchema;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
 use PeanutAdmin\Kernel\Idempotency\IdempotencySchema;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ModuleBoundaryChecker;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
 use PeanutAdmin\Kernel\Module\ModuleRegistryCompiler;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
@@ -92,8 +92,26 @@ final readonly class ModuleDefinitionRegistryFactory
             throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'Module deployment metadata is invalid.');
         }
 
+        $loader = new ManifestLoader();
+        $documents = array_map(
+            static fn(string $root) => $loader->load($root),
+            $roots,
+        );
+        $moduleRoots = [];
+        foreach ($documents as $document) {
+            $moduleKey = $document->data['key'] ?? null;
+            if (!is_string($moduleKey) || isset($moduleRoots[$moduleKey])) {
+                throw new ModuleException('MODULE_REGISTRY_CONFLICT', 'Module namespace owner is missing or duplicated.');
+            }
+            $moduleRoots[$moduleKey] = $document->root;
+        }
+        try {
+            $layout = ModuleHostLayoutFactory::registerRuntimeAutoload($moduleRoots, $this->serverRoot);
+        } catch (\InvalidArgumentException $exception) {
+            throw new ModuleException('MODULE_REGISTRY_CONFLICT', $exception->getMessage(), 0, $exception);
+        }
+
         $kernelRoot = dirname((new \ReflectionClass(ModuleProvider::class))->getFileName(), 3);
-        $layout = new ModuleHostLayout('server/app/modules', 'app\\modules', 'web/src/modules');
         $compiler = new ModuleRegistryCompiler(
             new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
             new StrictVersionConstraintMatcher(),
@@ -110,15 +128,10 @@ final readonly class ModuleDefinitionRegistryFactory
             ],
             $clients,
             [
-                ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::TENANT,
-                ...\PeanutAdmin\Kernel\Authorization\CorePermissionCatalog::PLATFORM,
+                ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT,
+                ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM,
             ],
             $this->historicalBusinessTableOwners(),
-        );
-        $loader = new ManifestLoader();
-        $documents = array_map(
-            static fn(string $root) => $loader->load($root),
-            $roots,
         );
         $registry = $compiler->compile($documents);
         (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();

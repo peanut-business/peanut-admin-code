@@ -8,12 +8,17 @@
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-file",
   "web_package": "@peanut-admin/official-file",
-  "dependencies": [],
+  "dependencies": [
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    }
+  ],
   "lifecycle": {
     "protected": true
   },
   "backend": {
-    "provider": "app\\modules\\official\\file\\ModuleProvider",
+    "provider": "PeanutAdmin\\Modules\\File\\ModuleProvider",
     "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
@@ -37,19 +42,21 @@
   },
   "contracts": {
     "exports": [
-      "app\\modules\\official\\file\\contracts\\FileAdministration",
-      "app\\modules\\official\\file\\contracts\\FileUploads",
-      "app\\modules\\official\\file\\contracts\\FileReferences",
-      "app\\modules\\official\\file\\contracts\\FileDerivatives",
-      "app\\modules\\official\\file\\contracts\\FileStorage",
-      "app\\modules\\official\\file\\contracts\\dto\\UploadFile",
-      "app\\modules\\official\\file\\contracts\\StorageConfiguration"
+      "PeanutAdmin\\Modules\\File\\Contract\\FileAdministration",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileUploads",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileReferences",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileDerivatives",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileStorage",
+      "PeanutAdmin\\Modules\\File\\Contract\\Dto\\UploadFile",
+      "PeanutAdmin\\Modules\\File\\Contract\\StorageConfiguration"
     ],
     "events": []
   },
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": []
+    "requires": [
+      "official.identity"
+    ]
   }
 }

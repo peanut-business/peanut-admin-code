@@ -12,7 +12,7 @@ function officialArticleExpect(bool $condition, string $message): void
 
 $serverRoot = dirname(__DIR__, 2);
 $repoRoot = dirname($serverRoot);
-$moduleRoot = $serverRoot . '/app/Modules/Official/Article';
+$moduleRoot = $serverRoot . '/app/modules/official/article';
 $manifest = json_decode(
     (string)file_get_contents($moduleRoot . '/module.json'),
     true,
@@ -32,9 +32,9 @@ officialArticleExpect(
 );
 officialArticleExpect(
     ($manifest['contracts']['exports'] ?? null) === [
-        'app\\Modules\\Official\\Article\\Contracts\\ArticleAdministration',
-        'app\\Modules\\Official\\Article\\Contracts\\ArticleQueries',
-        'app\\Modules\\Official\\Article\\Contracts\\PublicArticleQueries',
+        'PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration',
+        'PeanutAdmin\\Modules\\Article\\Contract\\ArticleQueries',
+        'PeanutAdmin\\Modules\\Article\\Contract\\PublicArticleQueries',
     ],
     'official Article public contracts did not converge to three consumed interfaces',
 );

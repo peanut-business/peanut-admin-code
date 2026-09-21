@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Official\Article\Model\Article;
-use app\Modules\Official\Article\Model\ArticleCate;
+use PeanutAdmin\Modules\Article\Model\Article;
+use PeanutAdmin\Modules\Article\Model\ArticleCate;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\service\module\ModuleExecutionBoundary;

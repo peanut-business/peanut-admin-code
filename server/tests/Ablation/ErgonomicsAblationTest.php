@@ -5,7 +5,7 @@ namespace tests\Ablation;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
-use app\Modules\Official\Article\Http\Controller\ArticleController;
+use PeanutAdmin\Modules\Article\Controller\ArticleController;
 use ReflectionClass;
 
 /**

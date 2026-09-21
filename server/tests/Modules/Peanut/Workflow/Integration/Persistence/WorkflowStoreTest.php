@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Tests\Integration\Persistence;
+namespace PeanutAdmin\Modules\Workflow\Tests\Integration\Persistence;
 
 use PDO;
 use ThinkPhpTestConnection;
-use PeanutAdmin\Workflow\Application\WorkflowException;
-use PeanutAdmin\Workflow\Database\Schema;
-use PeanutAdmin\Workflow\Definition\WorkflowGraph;
-use PeanutAdmin\Workflow\Persistence\ThinkPhpWorkflowRepository;
+use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
+use PeanutAdmin\Modules\Workflow\Database\Schema;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowGraph;
+use PeanutAdmin\Modules\Workflow\Persistence\ThinkPhpWorkflowRepository;
 use PeanutAdmin\Workflow\Tests\Unit\Definition\WorkflowGraphTest;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Official\File\Contracts\FileAdministration;
-use app\Modules\Official\File\Contracts\FileUploads;
-use app\Modules\Official\File\Contracts\Dto\UploadFile;
+use PeanutAdmin\Modules\File\Contract\FileAdministration;
+use PeanutAdmin\Modules\File\Contract\FileUploads;
+use PeanutAdmin\Modules\File\Contract\Dto\UploadFile;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use app\modules\official\file\value\storage\StoragePath;
-use app\Modules\Official\File\Model\File;
-use app\Modules\Official\File\Model\FileCate;
+use PeanutAdmin\Modules\File\Value\Storage\StoragePath;
+use PeanutAdmin\Modules\File\Model\File;
+use PeanutAdmin\Modules\File\Model\FileCate;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;

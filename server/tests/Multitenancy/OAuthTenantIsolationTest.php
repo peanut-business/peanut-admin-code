@@ -1,16 +1,16 @@
 <?php
 declare(strict_types=1);
 
-use app\Modules\Official\Oauth\Contracts\OAuthQueries;
-use app\Modules\Official\Member\Application\MemberIdentityContractService;
-use app\Modules\Official\Member\Contracts\Dto\MemberIdentitySnapshot;
-use app\Modules\Official\Oauth\Application\OAuthCommandService;
-use app\Modules\Official\Oauth\Contracts\OAuthPersistence;
+use PeanutAdmin\Modules\OAuth\Contract\OAuthQueries;
+use PeanutAdmin\Modules\Member\Service\MemberIdentityContractService;
+use PeanutAdmin\Modules\Member\Contract\Dto\MemberIdentitySnapshot;
+use PeanutAdmin\Modules\OAuth\Service\OAuthCommandService;
+use PeanutAdmin\Modules\OAuth\Contract\OAuthPersistence;
 use app\common\execution\ExecutionContextStore;
-use app\modules\official\integration\contracts\ExternalTenantBinding;
-use app\modules\official\integration\context\ExternalTenantContext;
-use app\modules\official\integration\services\ExternalTenantResolver;
-use app\Modules\Official\Oauth\Contracts\OAuthCallbackLocator;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBinding;
+use PeanutAdmin\Modules\Integration\Contract\ExternalTenantContext;
+use PeanutAdmin\Modules\Integration\Service\ExternalTenantResolver;
+use PeanutAdmin\Modules\OAuth\Contract\OAuthCallbackLocator;
 use PeanutAdmin\IntegrationSecurity\OAuth\OAuthProfile;
 use PeanutAdmin\IntegrationSecurity\OAuth\OAuthTransport;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -132,10 +132,10 @@ function oauthRunTenant(TenantContext $context, string $operationId, callable $o
 function oauthCommands(OAuthTransport $transport): OAuthCommandService
 {
     return new OAuthCommandService(
-        app(\app\Modules\Official\Member\Contracts\MemberQueries::class),
-        app(\app\Modules\Official\Member\Contracts\MemberIdentityCommands::class),
-        app(\app\Modules\Official\Member\Contracts\MemberProfileCommands::class),
-        app(\app\Modules\Official\Notification\Contracts\VerificationCodeCommands::class),
+        app(\PeanutAdmin\Modules\Member\Contract\MemberQueries::class),
+        app(\PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands::class),
+        app(\PeanutAdmin\Modules\Member\Contract\MemberProfileCommands::class),
+        app(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class),
         app(\app\common\persistence\AdvisoryLockExecution::class),
         app(\app\common\service\config\TenantApplicationSettingService::class),
         app(ExternalTenantResolver::class),
@@ -390,9 +390,9 @@ SQL);
         'OAuth begin does not use the trusted external binding and module boundary');
     foreach ([
         'app/api/application/LoginApplicationService.php',
-        'app/Modules/Official/Oauth/Application/OAuthCommandService.php',
+        'app/modules/official/oauth/src/Service/OAuthCommandService.php',
         'app/api/middleware/CheckTokenMiddleware.php',
-        'app/Modules/Official/Oauth/Infrastructure/Persistence/ThinkPhpOAuthPersistence.php',
+        'app/modules/official/oauth/src/Infrastructure/Persistence/ThinkPhpOAuthPersistence.php',
     ] as $relative) {
         $source = (string)file_get_contents($serverRoot . '/' . $relative);
         expectOAuthTenant(!str_contains($source, 'Member\\Model\\Member'), 'Member model leaked outside its owner: ' . $relative);

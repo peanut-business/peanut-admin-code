@@ -15,7 +15,7 @@
         }
     ],
     "backend": {
-        "provider": "app\\modules\\peanut\\entitlement_quota\\ModuleProvider",
+        "provider": "PeanutAdmin\\Modules\\EntitlementQuota\\ModuleProvider",
         "migrations": "database/migrations"
     },
     "frontend": {},
@@ -30,9 +30,9 @@
     },
     "contracts": {
         "exports": [
-            "PeanutAdmin\\EntitlementQuota\\Application\\EntitlementQuotaService",
-            "PeanutAdmin\\EntitlementQuota\\Contract\\EntitlementMeterRegistry",
-            "PeanutAdmin\\EntitlementQuota\\Contract\\EntitlementPolicyProvider"
+            "PeanutAdmin\\Modules\\EntitlementQuota\\Application\\EntitlementQuotaService",
+            "PeanutAdmin\\Modules\\EntitlementQuota\\Contract\\EntitlementMeterRegistry",
+            "PeanutAdmin\\Modules\\EntitlementQuota\\Contract\\EntitlementPolicyProvider"
         ],
         "events": []
     },

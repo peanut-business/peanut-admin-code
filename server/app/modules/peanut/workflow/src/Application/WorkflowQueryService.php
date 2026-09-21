@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace PeanutAdmin\Workflow\Application;
+namespace PeanutAdmin\Modules\Workflow\Application;
 
 use PeanutAdmin\Kernel\Api\ApiException;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
-use PeanutAdmin\Workflow\Adapter\WorkflowAuthorizationResolver;
-use PeanutAdmin\Workflow\Definition\WorkflowDefinition;
-use PeanutAdmin\Workflow\Definition\WorkflowDefinitionVersion;
-use PeanutAdmin\Workflow\Instance\WorkflowEvent;
-use PeanutAdmin\Workflow\Instance\WorkflowInstance;
-use PeanutAdmin\Workflow\Package;
-use PeanutAdmin\Workflow\Persistence\ThinkPhpWorkflowRepository;
+use PeanutAdmin\Modules\Workflow\Adapter\WorkflowAuthorizationResolver;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowDefinition;
+use PeanutAdmin\Modules\Workflow\Definition\WorkflowDefinitionVersion;
+use PeanutAdmin\Modules\Workflow\Instance\WorkflowEvent;
+use PeanutAdmin\Modules\Workflow\Instance\WorkflowInstance;
+use PeanutAdmin\Modules\Workflow\Package;
+use PeanutAdmin\Modules\Workflow\Persistence\ThinkPhpWorkflowRepository;
 use Throwable;
 
 final readonly class WorkflowQueryService

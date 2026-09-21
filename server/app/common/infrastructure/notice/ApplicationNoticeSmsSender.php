@@ -8,7 +8,7 @@ use app\common\services\notice\NoticeChannelService;
 use app\common\value\notice\sms\SmsDriverResult;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use app\modules\official\notification\contracts\NoticeSmsSender;
+use PeanutAdmin\Modules\Notification\Contract\NoticeSmsSender;
 
 /** Keeps Tenant-owned provider credentials behind the notification Host. */
 final class ApplicationNoticeSmsSender implements NoticeSmsSender

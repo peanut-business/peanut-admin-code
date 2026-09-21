@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 use app\api\services\VerificationAttemptRateLimiter;
-use app\modules\official\notification\services\VerificationCodeService;
+use PeanutAdmin\Modules\Notification\Service\VerificationCodeService;
 
 return [
     'verification' => [

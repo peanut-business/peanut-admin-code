@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace app\common\runtime\org;
 
 use app\common\policy\DemoAccountPolicy;
-use PeanutAdmin\Kernel\Identity\SelfService\AccountSelfService;
-use PeanutAdmin\Kernel\Membership\Application\MemberAdminService;
+use PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService;
+use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
 
 /** Composition root for native Tenant administration services. */
 final readonly class TenantAdminRuntime

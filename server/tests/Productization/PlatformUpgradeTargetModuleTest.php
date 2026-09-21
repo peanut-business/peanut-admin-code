@@ -13,12 +13,12 @@ use app\platform\service\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\service\plugin\PluginLockResolver;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
-use PeanutAdmin\Kernel\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
-use app\modules\official\ops\domain\Maintenance\MaintenanceReasonRegistry;
-use app\modules\official\ops\domain\Maintenance\MaintenanceService;
-use app\modules\official\ops\domain\Task\BackupRestoreProviderRegistry;
-use app\modules\official\ops\domain\Task\OpsTaskService;
+use PeanutAdmin\Modules\Ops\Domain\Maintenance\MaintenanceReasonRegistry;
+use PeanutAdmin\Modules\Ops\Domain\Maintenance\MaintenanceService;
+use PeanutAdmin\Modules\Ops\Domain\Task\BackupRestoreProviderRegistry;
+use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskService;
 use think\Config as ThinkConfig;
 use think\Container;
 use think\facade\Config;
@@ -169,17 +169,17 @@ $temporary = sys_get_temp_dir() . '/pa-upgrade-target-module-' . bin2hex(random_
 $projectRoot = $temporary . '/application';
 $targetRoot = $projectRoot . '/.peanut/upgrade-target';
 $releaseRoot = $targetRoot . '/release';
-$currentModule = $projectRoot . '/server/app/Modules/Fixture/DeliveryRecord';
+$currentModule = $projectRoot . '/server/app/modules/fixture/delivery_record';
 $currentFrontend = $projectRoot . '/web/src/modules/fixture-delivery-record';
-$targetModule = $releaseRoot . '/server/app/Modules/Fixture/DeliveryRecord';
+$targetModule = $releaseRoot . '/server/app/modules/fixture/delivery_record';
 $targetFrontend = $releaseRoot . '/web/src/modules/fixture-delivery-record';
 
 mkdir($temporary, 0700, true);
 try {
     foreach ([
-        [$sourceRoot . '/server/app/Modules/Fixture/DeliveryRecord', $currentModule],
+        [$sourceRoot . '/server/app/modules/fixture/delivery_record', $currentModule],
         [$sourceRoot . '/web/src/modules/fixture-delivery-record', $currentFrontend],
-        [$sourceRoot . '/server/app/Modules/Fixture/DeliveryRecord', $targetModule],
+        [$sourceRoot . '/server/app/modules/fixture/delivery_record', $targetModule],
         [$sourceRoot . '/web/src/modules/fixture-delivery-record', $targetFrontend],
     ] as [$source, $target]) {
         upgradeTargetCopyTree($source, $target);
@@ -375,7 +375,7 @@ try {
     Container::setInstance($container);
     $container->instance('config', new ThinkConfig());
     Config::set([
-        'roots' => ['app/Modules/Fixture/DeliveryRecord'],
+        'roots' => ['app/modules/fixture/delivery_record'],
         'kernel_version' => '1.0.0',
         'registered_client_keys' => ['admin-web', 'platform-web'],
     ], 'modules');
@@ -398,7 +398,7 @@ CREATE TABLE pa_plugin_module (
 );
 SQL);
     $currentManifest = (new ManifestLoader())->load(
-        $sourceRoot . '/server/app/Modules/Fixture/DeliveryRecord',
+        $sourceRoot . '/server/app/modules/fixture/delivery_record',
     );
     $statement = $pdo->prepare(
         'INSERT INTO pa_module_installation '
