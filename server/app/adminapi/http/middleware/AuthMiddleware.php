@@ -15,7 +15,8 @@ use app\common\execution\CurrentExecutionContext;
 /**
  * 权限中间件（原生 TP 风格）
  *
- * 必须在 LoginMiddleware 之后执行（依赖 $request->adminInfo）。
+ * 必须在路由级 LoginMiddleware 之后执行，从 CurrentExecutionContext 获取已验证人员；
+ * 不从 Request 动态属性或客户端参数恢复可信身份。
  * 只有版本化 authenticated 元数据或启用的精确权限节点可以放行。
  * root 只绕过角色授权，不能绕过路由登记、登录、TenantContext 或身份边界。
  */

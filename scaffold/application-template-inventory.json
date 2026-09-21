@@ -40,7 +40,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b5ba3b5f8ca431cb0ea5f49070ca5a2caf9561032aff5ced3497a0ea8f800b2"
+            "source_sha256": "60efbd79d9bc70b4082e4acd2b387a4fa8b9bdf63b17c917a78d621a2c133693"
         },
         {
             "path": ".env.example",
@@ -463,7 +463,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6d46f5bab13bb17c71f33fef7608747e7d6cd3d3f6ef31f3489372639333674c"
+            "source_sha256": "1483c5d83e94bb55660bc9fb0c83718849c791bc45a98eb565dc166b9e79a989"
         },
         {
             "path": "deploy/local-stack.env.example",
@@ -1603,7 +1603,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f35478ed33492212caea60c3222f5cf034f3e76f0af11cbab6d8496c80b0bdb6"
+            "source_sha256": "083624f4e169f2c8043934208bfab5d894926d0244aadf3a685cbf8e5570787c"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -1713,7 +1713,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b321bd9f4a629f5459608eb19b018ef4247cedbd386706df8b376604d8d3c22"
+            "source_sha256": "a2dbc7c95c988ca26c67da040234a5a49e016c1d91fd5588f38784d4988e002f"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -1783,7 +1783,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1d1e00f7ee26b4bfa8d73a95befbd7cc7188d915deec674f2ca636513a2461b"
+            "source_sha256": "e984c77d7e1a667f659bcb35b1394c89c2025d821de168fe87a3fbb76d1dfd6c"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -1839,7 +1839,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4044da7409a677eddec24cfc296c85634a8a8aefe1a7044e5c27997251c21b8c"
+            "source_sha256": "be6876f7e7100f1bf486d3fd98ec107ee29e3b462983a66c97d5e570ccbe058f"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -2896,7 +2896,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e65541a3943bb84bdd98c9c1d74586b8f52f18ec7f3d39520ca076af0e824ffb"
+            "source_sha256": "e32358a81431d9b9f5b2088ba8fbd6ae05deaa387ff765658d47d8d667c56e20"
         },
         {
             "path": "server/app/BaseController.php",
@@ -3218,7 +3218,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b2ee1876c68d09d3a9c2b016e34b32841ef7001e9aa988dd356f0e453116a504"
+            "source_sha256": "cf724e2176ca512872f9442f84575f5a915020c614dd38792658bfe27d1f5d01"
         },
         {
             "path": "server/app/adminapi/http/middleware/LoginMiddleware.php",
@@ -3246,7 +3246,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "deaf9ccd41621520829232b3d3d939998e202e00e05427dabdb4444725e0930a"
+            "source_sha256": "857dbf78415c4f8fb283c004c6965cd1e2bf6755a9d35e4aa95b542aac94dcda"
         },
         {
             "path": "server/app/adminapi/infrastructure/AdminApiAccessRegistry.php",
@@ -5768,7 +5768,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6cfd28720b21d7a70efebb53bfc5550f7295be9772035490b674c01f5d9330ef"
+            "source_sha256": "1c4abbde908e087ce6d67c224615cc3abd54328f250b3d51f29103f4281ebaac"
         },
         {
             "path": "server/app/common/infrastructure/audit/OperationLogProjection.php",
@@ -6497,7 +6497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "307d41ae12a69b2c846c24b3f48f3ed0dbd45a06e6e3b3d814fffdf4d164bb23"
+            "source_sha256": "78d1e69cbc748f09c01669b74a0bca4bff28161a175681b763549064d2b1b899"
         },
         {
             "path": "server/app/common/policy/DemoAccountPolicy.php",
@@ -6852,6 +6852,20 @@
             "source_sha256": "4a3b89ddfaec161be713fc5dd0eee4e805449f381a90e65768dbc0097ac138c6"
         },
         {
+            "path": "server/app/common/tenancy/DefaultTenantEntryBindingLookup.php",
+            "target": "server/app/common/tenancy/DefaultTenantEntryBindingLookup.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b5902125f2da5d4b29c5d939a8e47d5eac63620f183a30ac8fbb69ff8dcb2bf7"
+        },
+        {
             "path": "server/app/common/tenancy/MultiTenantDataScopePolicy.php",
             "target": "server/app/common/tenancy/MultiTenantDataScopePolicy.php",
             "classification": "app-owned",
@@ -6878,20 +6892,6 @@
                 "full"
             ],
             "source_sha256": "1fde8296240609d715dd648d6e312bca80f50ab8a3fce9576664ddbcc87d4922"
-        },
-        {
-            "path": "server/app/common/tenancy/StandaloneDataScopePolicy.php",
-            "target": "server/app/common/tenancy/StandaloneDataScopePolicy.php",
-            "classification": "app-owned",
-            "owner": "application",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "47d5ead42b612a3f9ce4c10f3d82f90058f2c4bad86f2c92237c77063f77788a"
         },
         {
             "path": "server/app/common/traits/ApiResponseTrait.php",
@@ -7143,7 +7143,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dee951f87278024ab5a9cc9b512fba8fe124ccc2982788502b4033e1fd4fb612"
+            "source_sha256": "2f77e6703963554d4447a6c288ece7f8c3919a1b1249b63c3d4c50e30c4ee612"
         },
         {
             "path": "server/app/common/value/scaffold/ScaffoldManifest.php",
@@ -11818,7 +11818,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "93288302afb084ba2c89e58c0b07eb049821d65570af32bb90759d1ede97875b"
+            "source_sha256": "b6def8816cca8a050b402cd7b2fe31aa30513be01c897536c7357716226a1efb"
         },
         {
             "path": "server/app/modules/official/member/ModuleProvider.php",
@@ -14900,7 +14900,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b7bc95f1311099962111828256ca654c69a1049aa39fc9ee816f75b3e73b0e1"
+            "source_sha256": "5f0d0b6d5c1036249bd43a57fba338034218233e628f86586ff936eb60bc2a30"
         },
         {
             "path": "server/app/modules/official/payment/controller/RechargeSettingController.php",
@@ -16865,7 +16865,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "407764da5fac63179209b5c39cbdac33acca7ff783e576a2b91799becce73aa1"
+            "source_sha256": "2b085d830d1f1af440840f8f2874ad3acc9a4c00d8325c7ba3c5c8f5e4893567"
         },
         {
             "path": "server/app/modules/official/task/contracts/JobRecord.php",
@@ -17131,7 +17131,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34a6c099782f6f8d456cf0b692a55b86fa2f958406fb94722aeb15cdc2e8d308"
+            "source_sha256": "cb908f56927c6d4ddcc1dbecaa1d94f416da3e1702714d2030694553f848ba67"
         },
         {
             "path": "server/app/modules/official/task/job/Application/TaskJobException.php",
@@ -17162,6 +17162,20 @@
             "source_sha256": "ac848f6cf92f30c4eb2e1d6667ef4a74c21786cc99449586a5e6ddaf672b4209"
         },
         {
+            "path": "server/app/modules/official/task/job/Execution/JobAuthorizationFence.php",
+            "target": "server/app/modules/official/task/job/Execution/JobAuthorizationFence.php",
+            "classification": "app-owned",
+            "owner": "application",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2b183b176412167553efe8438640652b1bcd540771ff7ec1d464b38967fbe3d7"
+        },
+        {
             "path": "server/app/modules/official/task/job/Execution/JobClaim.php",
             "target": "server/app/modules/official/task/job/Execution/JobClaim.php",
             "classification": "app-owned",
@@ -17187,7 +17201,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "348067d839d57fd24a6bfe9b000c2468297f6427428b91ea57296d17bb8b9c47"
+            "source_sha256": "d9287d8de2467769553967bbe4facd55eed36fdec5205594d895c98c7c0e7f37"
         },
         {
             "path": "server/app/modules/official/task/job/Execution/TaskHandlerRegistry.php",
@@ -19896,7 +19910,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2c164c58f669139239d868bb34b33104382318a5e36f745826cb741daef5b9a9"
+            "source_sha256": "aed2b3aad83e5850253f7f44a2ce7802b16fff324c4a9eaa8acdd8fec9a52f48"
         },
         {
             "path": "server/config/async.php",
@@ -20190,7 +20204,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbbdf05cdf00fed31d6b4b2af187a7700cda5ba290108d0b8203595262b7cbaf"
+            "source_sha256": "68b54b43553d3914e1a5a531901cc3ecbe95b50a15e5f1e93f06f88c95c3d713"
         },
         {
             "path": "server/config/session.php",
@@ -23770,6 +23784,71 @@
         {
             "path": "server/tests/Support/ThinkPhpTestConnection.php",
             "target": "server/tests/Support/ThinkPhpTestConnection.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/A1CompositionRegressionTest.php",
+            "target": "server/tests/Unit/A1CompositionRegressionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/A1ControllerLifecycleTest.php",
+            "target": "server/tests/Unit/A1ControllerLifecycleTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/A1EditionArchitectureTest.php",
+            "target": "server/tests/Unit/A1EditionArchitectureTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/A1EditionDockerProjectionTest.php",
+            "target": "server/tests/Unit/A1EditionDockerProjectionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/A1WorkerAuthorizationLifecycleTest.php",
+            "target": "server/tests/Unit/A1WorkerAuthorizationLifecycleTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

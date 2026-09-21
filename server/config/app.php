@@ -23,6 +23,7 @@ return [
     // 禁止URL访问的应用列表（自动多应用模式有效）
     'deny_app_list'    => [
         'Modules',
+        'modules', // 模块源码目录不是可由 URL 选择的 ThinkPHP 应用。
         'command',
         'common',
         'controller',

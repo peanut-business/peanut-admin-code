@@ -8,8 +8,8 @@ return [
     'pathinfo_depr'         => '/',
     // 是否开启路由延迟解析
     'url_lazy_route'        => false,
-    // 是否强制使用路由
-    'url_route_must'        => false,
+    // 所有 HTTP 入口必须显式登记路由；禁止自动派发到未挂身份／权限中间件的控制器。
+    'url_route_must'        => true,
     // 是否区分大小写
     'url_case_sensitive'    => false,
     // 自动扫描子目录分组

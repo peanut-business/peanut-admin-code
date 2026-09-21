@@ -7,6 +7,9 @@ namespace app\modules\official\integration\webhook;
 use DateTimeImmutable;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
 use PeanutAdmin\IntegrationSecurity\Crypto\WebhookSecretProtector;
+use PeanutAdmin\IntegrationSecurity\Webhook\WebhookDestinationPolicy;
+use PeanutAdmin\IntegrationSecurity\Webhook\WebhookRequest;
+use PeanutAdmin\IntegrationSecurity\Webhook\WebhookTransport;
 use app\modules\official\integration\contracts\IntegrationSecurityRepository;
 use Throwable;
 

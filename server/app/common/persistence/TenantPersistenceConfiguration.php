@@ -9,14 +9,11 @@ use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 final readonly class TenantPersistenceConfiguration
 {
     public function __construct(
-        public TenantPersistenceMode $mode,
-        public ?int $instanceTenantId,
+        public TenantPersistenceMode $mode = TenantPersistenceMode::TenantScoped,
+        public ?int $instanceTenantId = null,
     ) {
-        if ($mode === TenantPersistenceMode::InstanceScoped && ($instanceTenantId === null || $instanceTenantId < 1)) {
-            throw new \RuntimeException('TENANT_PERSISTENCE_INSTANCE_TENANT_UNAVAILABLE');
-        }
-        if ($mode === TenantPersistenceMode::TenantScoped && $instanceTenantId !== null) {
-            throw new \RuntimeException('TENANT_PERSISTENCE_SCOPE_INVALID');
+        if ($mode !== TenantPersistenceMode::TenantScoped || $instanceTenantId !== null) {
+            throw new \RuntimeException('TENANTLESS_LEGACY_SCHEMA_MANUAL_MIGRATION_REQUIRED');
         }
     }
 }

@@ -57,8 +57,8 @@ use app\modules\official\file\services\storage\StorageConfigurationService;
 use app\modules\official\file\composition\storage\StorageDriverFactory;
 use app\modules\official\file\services\storage\StorageService;
 use app\common\tenancy\DataScopePolicy;
+use app\common\tenancy\DefaultTenantEntryBindingLookup;
 use app\common\tenancy\MultiTenantDataScopePolicy;
-use app\common\tenancy\StandaloneDataScopePolicy;
 use app\common\validate\InputValidator;
 use app\platform\invitation\OwnerInvitationDeliveryPort;
 use app\platform\invitation\OwnerInvitationRuntimePolicy;
@@ -150,7 +150,6 @@ use app\modules\official\ops\domain\Task\OpsTaskDispatcher;
 use app\modules\official\ops\domain\Task\OpsTaskService;
 use app\modules\official\settings\Definition\SettingDefinitionSynchronizer;
 use app\common\persistence\TenantPersistenceConfiguration;
-use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
 
 /** 应用组合根，集中注册 Host 基础设施、业务服务与官方 Module Runtime。 */
 class AppService extends Service
@@ -178,21 +177,6 @@ class AppService extends Service
         $this->app->bind(ModuleCatalogApplier::class, fn(): ModuleCatalogApplier => new ModuleCatalogApplier(
             $this->app->make(SettingDefinitionSynchronizer::class),
         ));
-        $this->app->bind(TenantPersistenceConfiguration::class, function (): TenantPersistenceConfiguration {
-            $mode = DeploymentMode::fromConfiguredValue(Config::get('deployment.mode'));
-            if (!$mode instanceof DeploymentMode) {
-                throw new \RuntimeException('TENANT_PERSISTENCE_DEPLOYMENT_MODE_INVALID');
-            }
-            $storageMode = $mode === DeploymentMode::Standalone
-                ? TenantPersistenceMode::InstanceScoped
-                : TenantPersistenceMode::TenantScoped;
-            $instanceTenantId = $mode === DeploymentMode::Standalone
-                ? $this->app->make(DefaultTenantContextResolver::class)
-                    ->system('peanut-admin', 'resolve-instance-tenant', 'core-tenant-persistence')->tenantId
-                : null;
-
-            return new TenantPersistenceConfiguration($storageMode, $instanceTenantId);
-        });
         $this->app->bind(IdempotencyService::class, fn(): IdempotencyService => new IdempotencyService(
             $this->app->make(TenantPersistenceConfiguration::class)->mode,
             $this->app->make(TenantPersistenceConfiguration::class)->instanceTenantId,
@@ -341,16 +325,16 @@ class AppService extends Service
             ));
         $this->app->bind(TenantEntryBindingResolver::class, function (): TenantEntryBindingResolver {
             $mode = DeploymentMode::fromConfiguredValue(Config::get('deployment.mode'));
-            $defaultSystem = $mode === DeploymentMode::Standalone
-                && (bool)Config::get('deployment.public_default_tenant_fallback', true)
-                ? fn(string $actor, string $operation, string $operationId) => $this->app
-                    ->make(DefaultTenantContextResolver::class)
-                    ->system($actor, $operation, $operationId)
-                : null;
+            if (!$mode instanceof DeploymentMode) {
+                throw new \RuntimeException('DEPLOYMENT_MODE_UNCONFIGURED');
+            }
+            $lookup = $mode === DeploymentMode::Standalone
+                ? $this->app->make(DefaultTenantEntryBindingLookup::class)
+                : $this->app->make(\app\modules\official\identity\tenancy\infrastructure\ThinkPhpTenantEntryBindingLookup::class);
             return new TenantEntryBindingResolver(
-                $defaultSystem,
-                $mode === DeploymentMode::MultiTenant,
-                $this->app->make(\app\modules\official\identity\tenancy\infrastructure\ThinkPhpTenantEntryBindingLookup::class),
+                null,
+                true,
+                $lookup,
             );
         });
         $this->app->bind(ApplicationHostPolicy::class, fn(): ApplicationHostPolicy => new ApplicationHostPolicy(
@@ -361,13 +345,12 @@ class AppService extends Service
         ));
         $this->app->bind(DataScopePolicy::class, function (): DataScopePolicy {
             $mode = DeploymentMode::fromConfiguredValue(Config::get('deployment.mode'));
-            return match ($mode) {
-                DeploymentMode::MultiTenant => new MultiTenantDataScopePolicy(
-                    $this->app->make(CurrentExecutionContext::class),
-                ),
-                DeploymentMode::Standalone => new StandaloneDataScopePolicy(),
-                default => throw new \RuntimeException('DEPLOYMENT_MODE_UNCONFIGURED'),
-            };
+            if (!$mode instanceof DeploymentMode) {
+                throw new \RuntimeException('DEPLOYMENT_MODE_UNCONFIGURED');
+            }
+            return new MultiTenantDataScopePolicy(
+                $this->app->make(CurrentExecutionContext::class),
+            );
         });
         $this->app->bind(TenantAuthRepository::class, ThinkPhpTenantAuthRepository::class);
         $this->app->bind(PlatformAuthRepository::class, ThinkPhpPlatformAuthRepository::class);

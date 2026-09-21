@@ -12,7 +12,6 @@ use app\common\service\module\ModuleExecutionBoundary;
 use app\common\tenancy\DataScopePolicy;
 use app\common\tenancy\MultiTenantDataScopePolicy;
 use app\common\tenancy\PlatformTenantDataGateway;
-use app\common\tenancy\StandaloneDataScopePolicy;
 use app\adminapi\service\generator\GeneratorRenderService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
@@ -311,7 +310,7 @@ expectTpq51(
     'explicit Platform Tenant gateway did not preserve its audited scope bypass',
 );
 
-tpq51InstallDataScopePolicy(new StandaloneDataScopePolicy());
+tpq51InstallDataScopePolicy(new MultiTenantDataScopePolicy($current));
 $connection->resetStatements();
 $standalone = new Tpq51Child([
     'id' => 5,
@@ -327,13 +326,13 @@ $store->run(
     static fn() => Tpq51Child::alias('child')->where('child.id', '>', 0)->select(),
 );
 expectTpq51(
-    !array_key_exists('tenant_id', $standalone->getData())
-        && tpq51SqlCount($connection->statements[0]['sql'] ?? '', 'tenant_id') === 0,
-    'Standalone write unexpectedly referenced the projected Tenant column',
+    (int)$standalone->getData('tenant_id') === 101
+        && tpq51SqlCount($connection->statements[0]['sql'] ?? '', 'tenant_id') === 1,
+    'Standalone write lost the shared Tenant ownership column',
 );
 expectTpq51(
-    tpq51SqlCount($connection->statements[1]['sql'] ?? '', 'tenant_id') === 0,
-    'Standalone read unexpectedly added a Tenant predicate',
+    tpq51SqlCount($connection->statements[1]['sql'] ?? '', 'tenant_id') === 1,
+    'Standalone read lost the shared Tenant predicate',
 );
 
 $paginator = new Bootstrap([

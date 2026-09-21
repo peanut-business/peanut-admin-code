@@ -220,11 +220,10 @@ try {
     $projector->project($projectionStage, $projectionEntry, $smsReservationMigration, $standaloneProfile);
     $projectedMigration = (string)file_get_contents($projectionStage . '/' . $migrationPath);
     expectNotificationHost(
-        !str_contains($projectedMigration, '`tenant_id`')
-            && str_contains($projectedMigration, 'SELECT `channel`, `receiver`, MAX(`id`) AS `id`')
-            && str_contains($projectedMigration, 'GROUP BY `channel`, `receiver`')
-            && str_contains($projectedMigration, '(`channel`, `receiver_hash`, `reservation_active`)'),
-        'Standalone SMS reservation migration projection is not tenantless',
+        $projectedMigration === $smsReservationMigration
+            && str_contains($projectedMigration, 'GROUP BY `tenant_id`, `channel`, `receiver`')
+            && str_contains($projectedMigration, '(`tenant_id`, `channel`, `receiver_hash`, `reservation_active`)'),
+        'Standalone SMS reservation migration lost shared Tenant ownership',
     );
 } finally {
     $projectedPath = $projectionStage . '/' . $migrationPath;

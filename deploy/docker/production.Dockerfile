@@ -1,19 +1,31 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:20.19.4-bookworm-slim AS admin-builder
+FROM node:22.22.0-bookworm-slim AS client-base
+
+COPY packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz \
+    packages/core-web/peanut-admin-nuxt-4.0.0-dev.0.tgz \
+    packages/core-web/peanut-admin-testing-4.0.0-dev.0.tgz \
+    packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz \
+    packages/core-web/peanut-admin-uniapp-4.0.0-dev.0.tgz \
+    packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz \
+    /build/packages/core-web/
+
+FROM client-base AS admin-builder
 
 WORKDIR /build/web
-RUN corepack enable && corepack prepare pnpm@9.15.6 --activate
+RUN corepack enable && corepack prepare pnpm@10.15.0 --activate
 COPY web/package.json web/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY plugins.lock /build/plugins.lock
 COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY web/ ./
-RUN pnpm exec vue-tsc --noEmit \
+RUN printf '%s\n' 'VITE_DEPLOYMENT_MODE=standalone' 'VITE_API_BASE_URL=' > .env.standalone \
+    && printf '%s\n' 'VITE_DEPLOYMENT_MODE=multi-tenant' 'VITE_API_BASE_URL=' > .env.multi-tenant \
+    && pnpm exec vue-tsc --noEmit \
     && PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/standalone \
     && PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/multi-tenant
 
-FROM node:20.19.4-bookworm-slim AS mobile-builder
+FROM client-base AS mobile-builder
 
 WORKDIR /build/uniapp
 COPY uniapp/package.json uniapp/package-lock.json ./
@@ -22,7 +34,7 @@ COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY uniapp/ ./
 RUN npm run build:h5
 
-FROM node:20.19.4-bookworm-slim AS platform-builder
+FROM client-base AS platform-builder
 
 WORKDIR /build/platform
 COPY platform/package.json platform/package-lock.json ./
@@ -31,7 +43,7 @@ COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY platform/ ./
 RUN npm run build
 
-FROM node:20.19.4-bookworm-slim AS pc-builder
+FROM client-base AS pc-builder
 
 WORKDIR /build/pc
 COPY pc/package.json pc/package-lock.json ./
@@ -44,6 +56,8 @@ FROM composer:2.8 AS composer-deps
 
 WORKDIR /build/server
 COPY server/composer.json server/composer.lock ./
+COPY server/app app
+COPY server/database/schema database/schema
 RUN composer install \
     --no-dev \
     --prefer-dist \
@@ -75,6 +89,7 @@ COPY resources/project-resources.json resources/project-resources.json
 COPY plugins.lock plugins.lock
 COPY plugins plugins
 COPY web/src/modules web/src/modules
+COPY platform/src/modules platform/src/modules
 COPY server/app server/app
 COPY server/bootstrap server/bootstrap
 COPY server/config server/config

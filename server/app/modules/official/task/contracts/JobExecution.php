@@ -7,17 +7,32 @@ namespace app\modules\official\task\contracts;
 use Closure;
 use Throwable;
 
-final readonly class JobExecution
+final class JobExecution
 {
+    /** @var list<Closure(): void> */
+    private array $authorizationChecks = [];
+
     /** @param array<string, mixed> $payload */
     public function __construct(
-        public string $jobKey,
-        public int $tenantId,
-        public int $attemptNumber,
-        public array $payload,
-        private Closure $renewLease,
-        private Closure $assertLeaseOwned,
+        public readonly string $jobKey,
+        public readonly int $tenantId,
+        public readonly int $attemptNumber,
+        public readonly array $payload,
+        private readonly Closure $renewLease,
+        private readonly Closure $assertLeaseOwned,
+        private readonly ?Closure $reauthorize = null,
     ) {}
+
+    /**
+     * Adds a current authorization condition owned by an outer execution boundary.
+     * Checks can only tighten execution and are shared by the final worker fence.
+     *
+     * @param Closure(): void $check
+     */
+    public function addAuthorizationCheck(Closure $check): void
+    {
+        $this->authorizationChecks[] = $check;
+    }
 
     /**
      * Renew the current claim before the next bounded batch or side effect.
@@ -30,6 +45,7 @@ final readonly class JobExecution
         } catch (Throwable $exception) {
             throw new LeaseLostException(previous: $exception);
         }
+        $this->assertAuthorized();
     }
 
     /**
@@ -41,6 +57,19 @@ final readonly class JobExecution
             ($this->assertLeaseOwned)();
         } catch (Throwable $exception) {
             throw new LeaseLostException(previous: $exception);
+        }
+        $this->assertAuthorized();
+    }
+
+    private function assertAuthorized(): void
+    {
+        // The null default is only for direct non-authorized fixtures. LocalWorker
+        // always supplies signed-envelope reauthorization in production.
+        if ($this->reauthorize !== null) {
+            ($this->reauthorize)();
+        }
+        foreach ($this->authorizationChecks as $check) {
+            $check();
         }
     }
 }

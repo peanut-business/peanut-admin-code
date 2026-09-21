@@ -495,7 +495,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "5b8e9b47074519667f8aa8102b0296438f4f6b05674499488cfc2f1121f8fd46"
+                "sha256": "3282ba5c9ad8811ba8aedc210400b65471ecbf4c313ce3d6f5491b098989e194"
             },
             "trust": {
                 "channel": "bundled",
@@ -579,7 +579,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "1b321bd9f4a629f5459608eb19b018ef4247cedbd386706df8b376604d8d3c22"
+            "manifest_sha256": "a2dbc7c95c988ca26c67da040234a5a49e016c1d91fd5588f38784d4988e002f"
         },
         {
             "key": "official.member",
@@ -1010,7 +1010,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "3d84a34f2d36618b35d16060ffefe1ff9b0a461d73d414a0899254778afbcda6"
+                "sha256": "bef946920aff0c6b654478f39eaf82a8d59a79c31a0427b558ad2ba2b65a4f09"
             },
             "trust": {
                 "channel": "bundled",
@@ -1115,7 +1115,7 @@
                 }
             ],
             "manifest": "plugins/official.payment/plugin.json",
-            "manifest_sha256": "c1d1e00f7ee26b4bfa8d73a95befbd7cc7188d915deec674f2ca636513a2461b"
+            "manifest_sha256": "e984c77d7e1a667f659bcb35b1394c89c2025d821de168fe87a3fbb76d1dfd6c"
         },
         {
             "key": "official.reference-codes",
@@ -1413,7 +1413,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "088a14b6631dad3fb1a5c83b53aa920408c0bb8ddbacf3b1f7b1c7960d48e2ef"
+                "sha256": "7021b556715c64b90d00bf1a5c81143da1726c031aba45525e90de3cfc8cc9dd"
             },
             "trust": {
                 "channel": "bundled",
@@ -1506,7 +1506,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "4044da7409a677eddec24cfc296c85634a8a8aefe1a7044e5c27997251c21b8c"
+            "manifest_sha256": "be6876f7e7100f1bf486d3fd98ec107ee29e3b462983a66c97d5e570ccbe058f"
         },
         {
             "key": "peanut.artifact-revision",

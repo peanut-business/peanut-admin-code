@@ -39,7 +39,7 @@ final readonly class EditionProfile
             || array_keys($document) !== ['schema_version', 'protocol', 'generator_version', 'editions']
             || ($document['schema_version'] ?? null) !== 1
             || ($document['protocol'] ?? null) !== 'peanut.edition-profiles.v1'
-            || ($document['generator_version'] ?? null) !== 2
+            || ($document['generator_version'] ?? null) !== 3
             || !is_array($document['editions'] ?? null)
             || array_keys($document['editions']) !== self::EDITIONS
             || !is_string($raw)) {
@@ -76,32 +76,6 @@ final readonly class EditionProfile
         ];
     }
 
-    /** @return list<string> */
-    public function schemaSources(): array
-    {
-        $sources = [];
-        foreach ($this->definition['schema']['table_rules'] as $rule) {
-            foreach ($rule['sources'] as $source) {
-                $sources[$source] = true;
-            }
-        }
-        $sources = array_keys($sources);
-        sort($sources, SORT_STRING);
-        return $sources;
-    }
-
-    /** @return array<string,array{action:string,sources:list<string>}> */
-    public function tableRulesForSource(string $source): array
-    {
-        $rules = [];
-        foreach ($this->definition['schema']['table_rules'] as $table => $rule) {
-            if (in_array($source, $rule['sources'], true)) {
-                $rules[$table] = $rule;
-            }
-        }
-        return $rules;
-    }
-
     /** @param mixed $definition */
     private static function assertDefinition(string $edition, mixed $definition): void
     {
@@ -124,55 +98,23 @@ final readonly class EditionProfile
             ]
             || !is_array($definition['schema'] ?? null)
             || array_keys($definition['schema']) !== [
-                'projection', 'retains_core_tenant_identity', 'table_rules',
+                'projection', 'retains_core_tenant_identity',
+                'legacy_tenantless_upgrade', 'table_rules',
             ]
             || ($definition['schema']['retains_core_tenant_identity'] ?? null) !== true
-            || !is_array($definition['schema']['table_rules'] ?? null)
-            || ($definition['schema']['table_rules'] !== []
-                && array_is_list($definition['schema']['table_rules']))) {
+            || ($definition['schema']['projection'] ?? null) !== 'tenant-owned-v1'
+            || ($definition['schema']['table_rules'] ?? null) !== []) {
             throw new RuntimeException('CREATE_APP_EDITION_PROFILE_SCHEMA_INVALID');
         }
 
-        $expectedPolicy = $edition === 'standalone'
-            ? 'app\\common\\tenancy\\StandaloneDataScopePolicy'
-            : 'app\\common\\tenancy\\MultiTenantDataScopePolicy';
-        $expectedProjection = $edition === 'standalone'
-            ? 'single-organization-v1'
-            : 'tenant-owned-v1';
-        if (($definition['data_scope_policy'] ?? null) !== $expectedPolicy
-            || ($definition['schema']['projection'] ?? null) !== $expectedProjection
+        $expectedLegacyUpgrade = $edition === 'standalone'
+            ? 'blocked-manual-migration-required'
+            : 'not-applicable';
+        if (($definition['data_scope_policy'] ?? null) !== 'app\\common\\tenancy\\MultiTenantDataScopePolicy'
+            || ($definition['schema']['legacy_tenantless_upgrade'] ?? null) !== $expectedLegacyUpgrade
             || ($edition === 'standalone' && $definition['platform_bundle'] !== false)
             || ($edition === 'multi-tenant' && $definition['platform_bundle'] !== true)) {
             throw new RuntimeException('CREATE_APP_EDITION_PROFILE_SCHEMA_INVALID');
-        }
-
-        $rules = $definition['schema']['table_rules'];
-        $tables = array_keys($rules);
-        $sortedTables = $tables;
-        sort($sortedTables, SORT_STRING);
-        if ($tables !== $sortedTables) {
-            throw new RuntimeException('CREATE_APP_EDITION_PROFILE_TABLES_INVALID');
-        }
-        foreach ($rules as $table => $rule) {
-            if (!is_string($table) || preg_match('/^pa_[a-z][a-z0-9_]*$/D', $table) !== 1
-                || !is_array($rule) || array_is_list($rule)
-                || array_keys($rule) !== ['action', 'sources']
-                || !in_array($rule['action'] ?? null, ['strip_tenant_column', 'exclude_table'], true)
-                || !is_array($rule['sources'] ?? null) || !array_is_list($rule['sources'])
-                || $rule['sources'] === []
-                || array_values(array_unique($rule['sources'], SORT_STRING)) !== $rule['sources']) {
-                throw new RuntimeException('CREATE_APP_EDITION_PROFILE_TABLES_INVALID');
-            }
-            foreach ($rule['sources'] as $source) {
-                if (!is_string($source)
-                    || preg_match('#^server/(?:database/migrations/[^/]+|database/init|app/modules/[a-z][a-z0-9-]*/[a-z][a-z0-9_]*/database/migrations/[^/]+)\.sql$#D', $source) !== 1) {
-                    throw new RuntimeException('CREATE_APP_EDITION_PROFILE_TABLES_INVALID');
-                }
-            }
-        }
-        if (($edition === 'standalone' && $rules === [])
-            || ($edition === 'multi-tenant' && $rules !== [])) {
-            throw new RuntimeException('CREATE_APP_EDITION_PROFILE_TABLES_INVALID');
         }
     }
 }

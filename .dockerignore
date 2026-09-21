@@ -21,3 +21,18 @@ uniapp/dist
 uniapp/node_modules
 web/dist
 web/node_modules
+# Ignore local dependencies and private configuration at every client depth.
+**/node_modules
+**/vendor
+**/.local
+**/.worktrees
+**/.env
+**/.env.*
+!**/.env.example
+server/tests
+web/tests
+platform/tests
+pc/tests
+uniapp/tests
+# Module-owned fixtures remain part of the canonical Plugin source digest.
+# Do not strip files under */src/modules independently of PluginArtifactWriter.

@@ -300,15 +300,15 @@ try {
         'admin production builder must copy the fail-closed Plugin lock to the repository root before Vite build'
     );
     createApplicationExpect(
-        str_contains($generatedProductionDockerfile, 'VITE_DEPLOYMENT_MODE=multi-tenant')
-            && !str_contains($generatedProductionDockerfile, 'VITE_DEPLOYMENT_MODE=standalone')
+        str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
+            && !str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
             && !str_contains($generatedProductionDockerfile, 'seed-multi-tenant-demo.php'),
         'multi-tenant artifact must compile only its selected admin bundle without source-only demo tooling'
     );
     $standaloneDockerfile = (string)file_get_contents($standalone . '/deploy/docker/production.Dockerfile');
     createApplicationExpect(
-        str_contains($standaloneDockerfile, 'VITE_DEPLOYMENT_MODE=standalone')
-            && !str_contains($standaloneDockerfile, 'VITE_DEPLOYMENT_MODE=multi-tenant')
+        str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
+            && !str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
             && !str_contains($standaloneDockerfile, 'AS platform-builder')
             && !str_contains($standaloneDockerfile, '/server/public/platform'),
         'Standalone artifact must omit the multi-tenant admin and Platform bundles'
@@ -320,58 +320,30 @@ try {
             && str_contains((string)file_get_contents($first . '/server/.env.example'), 'DEPLOYMENT_MODE=multi-tenant'),
         'Edition route and environment composition changed outside the selected profile'
     );
-    $editionProfiles = json_decode(
-        (string)file_get_contents($root . '/scaffold/edition-profiles.json'),
-        true,
-        64,
-        JSON_THROW_ON_ERROR,
-    );
     $standaloneSchema = (string)file_get_contents($standalone . '/server/database/init.sql');
     $multiTenantSchema = (string)file_get_contents($first . '/server/database/init.sql');
-    foreach ($editionProfiles['editions']['standalone']['schema']['table_rules'] as $table => $rule) {
-        if (!in_array('server/database/init.sql', $rule['sources'], true)) {
-            continue;
-        }
-        $tablePattern = '/CREATE TABLE `' . preg_quote($table, '/') . '` \(.*?\n\) ENGINE=.*?;(?=\n)/s';
-        if ($rule['action'] === 'exclude_table') {
-            createApplicationExpect(
-                preg_match($tablePattern, $standaloneSchema) === 0
-                    && preg_match($tablePattern, $multiTenantSchema) === 1,
-                'Standalone schema did not exclusively remove ' . $table,
-            );
-            continue;
-        }
-        createApplicationExpect(
-            preg_match($tablePattern, $standaloneSchema, $standaloneTable) === 1
-                && !str_contains($standaloneTable[0], '`tenant_id`'),
-            'Standalone schema retained Tenant ownership on ' . $table,
-        );
-        createApplicationExpect(
-            preg_match($tablePattern, $multiTenantSchema, $multiTenantTable) === 1
-                && str_contains($multiTenantTable[0], '`tenant_id`'),
-            'Multi-tenant schema lost Tenant ownership on ' . $table,
-        );
-    }
+    createApplicationExpect(
+        $standaloneSchema === $multiTenantSchema
+            && str_contains($standaloneSchema, '`tenant_id`')
+            && str_contains($standaloneSchema, 'FOREIGN KEY (`tenant_id`)'),
+        'Both Editions must retain one Tenant-owned fresh Schema',
+    );
     foreach ([
         'server/database/migrations/20260823-unify-storage-service.sql',
         'server/database/migrations/20260824-payment-channel-grants.sql',
     ] as $projectedMigration) {
+        $standaloneMigration = (string)file_get_contents($standalone . '/' . $projectedMigration);
+        $multiTenantMigration = (string)file_get_contents($first . '/' . $projectedMigration);
         createApplicationExpect(
-            !str_contains((string)file_get_contents($standalone . '/' . $projectedMigration), '`tenant_id`')
-                && str_contains((string)file_get_contents($first . '/' . $projectedMigration), '`tenant_id`'),
-            'Edition migration projection did not remove only Standalone Tenant persistence: ' . $projectedMigration,
+            $standaloneMigration === $multiTenantMigration
+                && str_contains($standaloneMigration, '`tenant_id`'),
+            'Edition migration projection changed shared Tenant persistence: ' . $projectedMigration,
         );
     }
     createApplicationExpect(
-        !str_contains(
-            (string)file_get_contents($standalone . '/server/database/migrations/20260828-provider-qualification-evidence.sql'),
-            '`pa_provider_qualification_evidence`',
-        )
-            && str_contains(
-                (string)file_get_contents($first . '/server/database/migrations/20260828-provider-qualification-evidence.sql'),
-                '`pa_provider_qualification_evidence`',
-            ),
-        'Standalone must exclude the Platform-only Provider qualification table',
+        (string)file_get_contents($standalone . '/server/database/migrations/20260828-provider-qualification-evidence.sql')
+            === (string)file_get_contents($first . '/server/database/migrations/20260828-provider-qualification-evidence.sql'),
+        'Edition projection must not fork migration history',
     );
     createApplicationExpect(
         str_contains($generatedProductionDockerfile, 'nginx-select-admin.sh /docker-entrypoint.d/40-select-admin.sh')

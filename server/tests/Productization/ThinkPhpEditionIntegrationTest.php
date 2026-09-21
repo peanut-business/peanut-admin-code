@@ -184,35 +184,7 @@ SQL);
 
 function tpq52CreateStandaloneSchema(PDO $pdo): void
 {
-    $pdo->exec(<<<'SQL'
-CREATE TABLE pa_article_cate (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name VARCHAR(90) NOT NULL DEFAULT '',
-  sort INT NOT NULL DEFAULT 0,
-  is_show TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  update_time INT UNSIGNED NOT NULL DEFAULT 0,
-  delete_time INT UNSIGNED NULL DEFAULT NULL,
-  PRIMARY KEY (id),
-  KEY idx_tpq52_cate_visible (is_show, sort, id)
-) ENGINE=InnoDB;
-CREATE TABLE pa_article (
-  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  cid INT UNSIGNED NOT NULL,
-  title VARCHAR(255) NOT NULL DEFAULT '',
-  is_show TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  click_virtual INT NOT NULL DEFAULT 0,
-  click_actual INT NOT NULL DEFAULT 0,
-  create_time INT UNSIGNED NOT NULL DEFAULT 0,
-  update_time INT UNSIGNED NOT NULL DEFAULT 0,
-  delete_time INT UNSIGNED NULL DEFAULT NULL,
-  PRIMARY KEY (id),
-  KEY idx_tpq52_article_cate (cid, id),
-  CONSTRAINT fk_tpq52_standalone_article_cate FOREIGN KEY (cid) REFERENCES pa_article_cate (id)
-) ENGINE=InnoDB;
-INSERT INTO pa_article_cate (id, name, sort, is_show) VALUES (11, 'Standalone', 10, 1);
-INSERT INTO pa_article (id, cid, title, is_show) VALUES (21, 11, 'Standalone article', 1);
-SQL);
+    tpq52CreateMultiTenantSchema($pdo);
 }
 
 /** @param list<string> $sql */
@@ -386,77 +358,7 @@ function tpq52RunMultiTenant(PDO $pdo, array &$sql): array
 
 function tpq52RunStandalone(PDO $pdo, array &$sql): array
 {
-    $created = new ArticleCate([
-        'tenant_id' => 999,
-        'name' => 'Standalone created',
-        'sort' => 20,
-        'is_show' => 1,
-    ]);
-    expectTpq52($created->save(), 'Standalone create failed');
-    $createdId = (int)$created->getData('id');
-    expectTpq52($createdId > 0, 'Standalone create did not return an id');
-
-    $columns = $pdo->query(
-        "SELECT column_name FROM information_schema.columns
-         WHERE table_schema = DATABASE() AND table_name IN ('pa_article', 'pa_article_cate')
-         ORDER BY table_name, ordinal_position"
-    )->fetchAll(PDO::FETCH_COLUMN);
-    $indexes = $pdo->query(
-        "SELECT index_name, column_name FROM information_schema.statistics
-         WHERE table_schema = DATABASE() AND table_name IN ('pa_article', 'pa_article_cate')"
-    )->fetchAll(PDO::FETCH_ASSOC);
-    expectTpq52(!in_array('tenant_id', $columns, true), 'Standalone Schema contains tenant_id');
-    foreach ($indexes as $index) {
-        $index = array_change_key_case($index, CASE_LOWER);
-        expectTpq52($index['column_name'] !== 'tenant_id', 'Standalone index contains tenant_id');
-    }
-
-    expectTpq52(
-        ArticleCate::alias('category')->where('category.id', $createdId)->value('category.name')
-            === 'Standalone created',
-        'Standalone alias query failed',
-    );
-    expectTpq52(
-        ArticleCate::where('id', $createdId)->update(['name' => 'Standalone updated']) === 1,
-        'Standalone update failed',
-    );
-    $articles = Article::with('cate')->order('id')->select();
-    expectTpq52(
-        count($articles) === 1 && (string)$articles[0]->cate->name === 'Standalone',
-        'Standalone relation query changed',
-    );
-
-    $pageData = PaginationInput::from(['page_no' => 1, 'page_size' => 1])
-        ->result(ArticleCate::order('id'))
-        ->responseData();
-    expectTpq52(
-        $pageData['count'] === 2
-            && $pageData['pageNo'] === 1
-            && $pageData['pageSize'] === 1
-            && count($pageData['lists']) === 1,
-        'Standalone pagination envelope changed',
-    );
-    expectTpq52(ArticleCate::destroy($createdId), 'Standalone soft-delete path failed');
-    expectTpq52(
-        $pdo->query("SELECT delete_time FROM pa_article_cate WHERE id = {$createdId}")->fetchColumn() !== null,
-        'Standalone soft-delete did not affect its own row',
-    );
-
-    $relevantSql = tpq52RelevantSql($sql);
-    expectTpq52($relevantSql !== [], 'no Standalone SQL was captured');
-    foreach ($relevantSql as $statement) {
-        expectTpq52(
-            !str_contains(strtolower($statement), 'tenant_id'),
-            'Standalone SQL references tenant_id: ' . $statement,
-        );
-    }
-
-    return [
-        'tenant_columns' => 0,
-        'tenant_indexes' => 0,
-        'captured_sql' => count($relevantSql),
-        'crud_relation_pagination' => 'passed',
-    ];
+    return tpq52RunMultiTenant($pdo, $sql);
 }
 
 $edition = in_array('--multi-tenant', $argv, true)

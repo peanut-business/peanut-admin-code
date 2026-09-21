@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
   "protocol": "peanut.edition-profiles.v1",
-  "generator_version": 2,
+  "generator_version": 3,
   "editions": {
     "standalone": {
       "deployment_mode": "standalone",
-      "data_scope_policy": "app\\common\\tenancy\\StandaloneDataScopePolicy",
+      "data_scope_policy": "app\\common\\tenancy\\MultiTenantDataScopePolicy",
       "admin_bundle": "standalone",
       "platform_bundle": false,
       "module_profile": "official-default",
@@ -18,56 +18,10 @@
         "module_lifecycle": "required"
       },
       "schema": {
-        "projection": "single-organization-v1",
+        "projection": "tenant-owned-v1",
         "retains_core_tenant_identity": true,
-        "table_rules": {
-          "pa_article": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_article_cate": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_article_collect": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_crontab": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_customer_service_setting": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_decorate_page": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_decorate_tabbar": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_decorate_tabbar_setting": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_dict_data": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_dict_type": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_external_channel_binding": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_file": {"action":"strip_tenant_column","sources":["server/database/init.sql","server/database/migrations/20260823-unify-storage-service.sql"]},
-          "pa_file_cate": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_file_object": {"action":"strip_tenant_column","sources":["server/database/init.sql","server/database/migrations/20260823-unify-storage-service.sql"]},
-          "pa_hot_search": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_import_export_operation": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_import_export_row_error": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_jobs": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_member": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_member_balance_log": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_member_tag": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_member_tag_relation": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_notice_log": {"action":"strip_tenant_column","sources":["server/database/init.sql","server/database/migrations/20260909-notification-sms-reservation.sql"]},
-          "pa_notice_scene": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_notice_template": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_oauth_attempt": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_oauth_completion_ticket": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_oauth_identity": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_oauth_principal": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_official_account_reply": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_operation_log": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_payment_tenant_channel_grant": {"action":"strip_tenant_column","sources":["server/database/migrations/20260824-payment-channel-grants.sql"]},
-          "pa_provider_qualification_evidence": {"action":"exclude_table","sources":["server/database/migrations/20260828-provider-qualification-evidence.sql"]},
-          "pa_recharge_order": {"action":"strip_tenant_column","sources":["server/database/init.sql","server/database/migrations/20260824-payment-channel-grants.sql"]},
-          "pa_refund_log": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_refund_record": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_setting_target_value": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_setting_tenant_value": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_task_job": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_task_job_attempt": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_task_job_event": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_tenant_entry_binding": {"action":"exclude_table","sources":["server/database/init.sql"]},
-          "pa_tenant_idempotency_record": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_tenant_owner_invitation": {"action":"exclude_table","sources":["server/database/init.sql"]},
-          "pa_tenant_setting": {"action":"strip_tenant_column","sources":["server/database/init.sql"]},
-          "pa_transaction_setting": {"action":"strip_tenant_column","sources":["server/database/init.sql"]}
-        }
+        "legacy_tenantless_upgrade": "blocked-manual-migration-required",
+        "table_rules": {}
       }
     },
     "multi-tenant": {
@@ -87,6 +41,7 @@
       "schema": {
         "projection": "tenant-owned-v1",
         "retains_core_tenant_identity": true,
+        "legacy_tenantless_upgrade": "not-applicable",
         "table_rules": {}
       }
     }

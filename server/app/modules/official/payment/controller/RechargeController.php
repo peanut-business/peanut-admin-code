@@ -25,7 +25,8 @@ class RechargeController extends BaseAdminController
         $this->validate($params, RechargeValidate::class . '.lists');
         $result = $this->recharges->lists($context, $params);
         if ((int)($params['export'] ?? 0) === 2) {
-            return JsonService::success('', $result, 2);
+            // 沿用当前统一响应合同；旧 JsonService/show 参数已退出，不能当成响应 code。
+            return JsonResponseFactory::success('', $result);
         }
         return $this->data($result);
     }

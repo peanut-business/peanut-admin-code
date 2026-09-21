@@ -18,10 +18,10 @@ use PeanutAdmin\Kernel\Async\JobHandlerAdapter;
 use PeanutAdmin\Kernel\Async\TrustedEnvelopeCodec;
 use app\modules\official\task\contracts\TaskJobService;
 use app\modules\official\task\job\Execution\LocalWorker;
-use app\modules\official\task\contracts\TaskHandlerRegistry;
+use app\modules\official\task\job\Execution\TaskHandlerRegistry;
 use app\modules\official\task\job\Persistence\TaskJobStore;
 use app\modules\official\task\contracts\TaskSubmissionProvider;
-use app\modules\official\task\contracts\TaskSubmissionRegistry;
+use app\modules\official\task\job\Submission\TaskSubmissionRegistry;
 use app\modules\official\task\contracts\TrustedJobPublisher;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 

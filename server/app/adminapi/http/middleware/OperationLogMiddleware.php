@@ -14,7 +14,8 @@ use app\modules\official\ops\domain\Logs\TenantDiagnosticAttributes;
 /**
  * 操作日志中间件（原生 TP 风格）
  *
- * 必须在 LoginMiddleware 之后执行（依赖 $request->adminInfo）。
+ * 必须在路由级 LoginMiddleware 已建立 CurrentExecutionContext 的范围内执行；
+ * finally 留痕必须先于外层登录中间件释放当前执行上下文。
  * 记录 POST/PUT/PATCH/DELETE；GET 等只读请求不入库。
  * finally 保证正常失败 envelope 与异常写请求都尝试留痕，日志失败不影响主流程。
  */
