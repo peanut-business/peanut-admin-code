@@ -3,23 +3,20 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use PeanutAdmin\Modules\OAuth\Service\WebPageApplicationService;
 use PeanutAdmin\Modules\OAuth\Validation\WebPageValidate;
 
 class WebPageController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly WebPageApplicationService $webPages)
+    protected function webPages(): WebPageApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(WebPageApplicationService::class);
     }
 
     public function getConfig()
     {
-        return $this->data($this->webPages->getConfig(
+        return $this->data($this->webPages()->getConfig(
             $this->tenantAdminContext(),
             (string)$this->request->domain(),
         ));
@@ -29,7 +26,7 @@ class WebPageController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, WebPageValidate::class);
-        $this->webPages->setConfig($this->tenantAdminContext(), $params);
+        $this->webPages()->setConfig($this->tenantAdminContext(), $params);
         return $this->success('操作成功');
     }
 }

@@ -4,28 +4,26 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\File\Controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\File\Contract\FileAdministration;
 use PeanutAdmin\Modules\File\Validation\FileCateValidate;
-use think\App;
 use app\common\exception\BusinessException;
 
 class FileController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly FileAdministration $files)
+    protected function files(): FileAdministration
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->get(FileAdministration::class);
     }
 
     // ---- 文件 ----
     public function lists()
     {
-        return $this->data($this->files->lists($this->request->get()));
+        return $this->data($this->files()->lists($this->request->get()));
     }
 
     public function assets()
     {
-        $page = $this->files->imageAssets($this->request->get());
+        $page = $this->files()->imageAssets($this->request->get());
         return json([
             'data' => ['items' => $page->items],
             'meta' => [
@@ -40,7 +38,7 @@ class FileController extends BaseAdminController
     public function move()
     {
         $ids = (array)$this->request->post('ids', []);
-        $this->files->move(
+        $this->files()->move(
             array_map('intval', $ids),
             $this->integerValue($this->request->post('cid', 0), '目标分类无效'),
         );
@@ -56,7 +54,7 @@ class FileController extends BaseAdminController
         if (mb_strlen($name) > 20) {
             throw BusinessException::invalid('FILE_NAME_TOO_LONG', '名称最多 20 个字符');
         }
-        $this->files->rename(
+        $this->files()->rename(
             $this->integerValue($this->request->post('id'), '素材 ID 无效'),
             $name,
         );
@@ -66,14 +64,14 @@ class FileController extends BaseAdminController
     public function delete()
     {
         $ids = (array)$this->request->post('ids', []);
-        $result = $this->files->delete(array_map('intval', $ids));
+        $result = $this->files()->delete(array_map('intval', $ids));
         return $this->success('操作成功', $result);
     }
 
     // ---- 分类 ----
     public function listCate()
     {
-        return $this->data($this->files->categoryLists(
+        return $this->data($this->files()->categoryLists(
             $this->integerValue($this->request->get('type', 10), '文件类型无效'),
         ));
     }
@@ -81,20 +79,20 @@ class FileController extends BaseAdminController
     public function addCate()
     {
         $this->validate($this->request->post(), FileCateValidate::class . '.add');
-        $this->files->addCategory($this->request->post());
+        $this->files()->addCategory($this->request->post());
         return $this->success('操作成功');
     }
 
     public function editCate()
     {
         $this->validate($this->request->post(), FileCateValidate::class . '.edit');
-        $this->files->editCategory($this->request->post());
+        $this->files()->editCategory($this->request->post());
         return $this->success('操作成功');
     }
 
     public function delCate()
     {
-        $result = $this->files->deleteCategory(
+        $result = $this->files()->deleteCategory(
             $this->integerValue($this->request->post('id'), '分类 ID 无效'),
         );
         return $this->success('操作成功', $result);

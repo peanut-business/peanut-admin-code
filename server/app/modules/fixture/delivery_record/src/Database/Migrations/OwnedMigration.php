@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Fixtures\DeliveryRecord\Database\Migrations;
 
-/** Static ownership metadata for the append-only SQL migration beside this class. */
+/** SQL 仍在模块根 database/migrations；此类只提供稳定的迁移归属元数据。 */
 final class OwnedMigration
 {
     public const KEY = '20260814050101_create_fixture_delivery_records';

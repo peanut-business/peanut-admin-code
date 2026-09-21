@@ -8,7 +8,7 @@
         },
         {
             "path": "server/app/modules/official/article/route/app.php",
-            "sha256": "caa7d6eff56f6b337f42b1d73e5c5b90b80651ee112c50dcc2d7bf5fe6eb86f6"
+            "sha256": "9a85ec506de7fa523c26d98b8f08d5fd67293f87e546647d8bd5c5fbca9e5a55"
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
@@ -16,7 +16,7 @@
         },
         {
             "path": "server/app/modules/official/file/route/app.php",
-            "sha256": "3bbea83e9de2687d4d0c5708d54f1815a9f2110b4e5b29b40b96f2dec1058507"
+            "sha256": "e33da910847f8776d46773b1a75fdbe627329a2948dc3c03e6d4eb80959c3ca1"
         },
         {
             "path": "server/app/modules/official/import_export/api/metadata/openapi.php",
@@ -24,7 +24,7 @@
         },
         {
             "path": "server/app/modules/official/import_export/route/app.php",
-            "sha256": "fd12b150c8ac3b91bf175e85ce01de7f554841e18d76ef4483d0b97c7d7ea41f"
+            "sha256": "d819682f95d817be0a473295f89dd8741bc77902c4a56f27a22572f78dec67e6"
         },
         {
             "path": "server/app/modules/official/integration/api/metadata/openapi.php",
@@ -32,11 +32,11 @@
         },
         {
             "path": "server/app/modules/official/integration/route/app.php",
-            "sha256": "0048981bf171a61c8e192e3ca82c8552611060abc9b68b060717dbd2efdabdeb"
+            "sha256": "69330511849ec7793bf5b2e0d60c5228ab00740125786f00737949f1634ba024"
         },
         {
             "path": "server/app/modules/official/member/route/app.php",
-            "sha256": "7c3fedd67c1f944bee30caee4abcb95e8ccff69493c44a21cb0be84ab78a9966"
+            "sha256": "a150ba1efe8468567a324a9249c7923553e5abfb649d9a63b44d55f283ac3f80"
         },
         {
             "path": "server/app/modules/official/notification/api/metadata/openapi.php",
@@ -44,15 +44,15 @@
         },
         {
             "path": "server/app/modules/official/notification/route/app.php",
-            "sha256": "1330f5c63d9db41b8877b2ebbf83ff14dd4e6515e1dee5aa55b940f3b4e26eb4"
+            "sha256": "74954c2469fda0b6d3d41c7cd64e169070ae11e973f7d69a0f228a8c32fc098b"
         },
         {
             "path": "server/app/modules/official/oauth/route/app.php",
-            "sha256": "c33c5e9cb524b445a73a98c52489d0beffb341674664aa23b642db4972ee6447"
+            "sha256": "c48062280458aa1978367e8ec421b7eeff6a74ef81239bcdce49f54a230093d8"
         },
         {
             "path": "server/app/modules/official/payment/route/app.php",
-            "sha256": "ae756da5e002853e4805f4e2c6bc642ad08da19277239ca6d0a27622d3a328de"
+            "sha256": "16cfb71d709c164eed44099936b14a205483f59c5899aa25fdee3cd0b4494257"
         },
         {
             "path": "server/app/modules/official/reference_codes/api/metadata/openapi.php",
@@ -60,7 +60,7 @@
         },
         {
             "path": "server/app/modules/official/reference_codes/route/app.php",
-            "sha256": "5fec7755e596768e4408450f02e29f7b9c74a8980b10d5d6a98ee424ef0db6b9"
+            "sha256": "6c5b399c7a58fb5037d5b92e23ef9a564e2c8222b10eac1e4b0ffcd7ed84a0fc"
         },
         {
             "path": "server/app/modules/official/settings/api/metadata/openapi.php",
@@ -68,7 +68,7 @@
         },
         {
             "path": "server/app/modules/official/settings/route/app.php",
-            "sha256": "cbc1caf9bed85c1c01b35edcb74cf32a569edb9001bce11c18d4eb0e87f06203"
+            "sha256": "a504cff18fd1f882fce44896f2e82cbbcfc491137f32aaf512366518c68d23d5"
         },
         {
             "path": "server/app/modules/official/task/api/metadata/openapi.php",
@@ -76,7 +76,7 @@
         },
         {
             "path": "server/app/modules/official/task/route/app.php",
-            "sha256": "eefc9ad7b566e7144c76a1405d5db583bb868077e41288b9042f7dcfca1211ef"
+            "sha256": "01557ad5e338c7d1afef987b097af9b34222eff1077c9ca193fdc7559e98f83c"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -84,7 +84,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "57a4e1aa75f51b8692db6b92416e88a10e755ff51b1710123d8c152a73267e54"
+            "sha256": "0aea3d5dbba945f3410469f9147d883072febf379be3d519d3ba16adefd7b1e2"
         },
         {
             "path": "server/route/app.php",
@@ -100,7 +100,7 @@
         },
         {
             "path": "server/route/registry_source.php",
-            "sha256": "ea2e8086a7e395afa79fa7cbdee0a81151a2fda774e1579313c6ea811f123027"
+            "sha256": "df7356c2d439c96842b7aa71f76180a92fda4a0c30cd1f66cb03cbc3c213528c"
         },
         {
             "path": "server/route/tenant.php",

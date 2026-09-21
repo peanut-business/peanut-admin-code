@@ -402,7 +402,8 @@ $assertGeneratedServiceOutput = static function (array $files): void {
         || !str_contains($byPath[$servicePath], 'namespace app\\adminapi\\services\\demo;')
         || !str_contains($byPath[$servicePath], 'class ArticleService')
         || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'use app\\adminapi\\services\\demo\\ArticleService;')
-        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'ArticleService $service')) {
+        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'function service(): ArticleService')
+        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', '$this->app->make(ArticleService::class)')) {
         throw new RuntimeException('generator services output contract violated');
     }
     foreach (array_keys($byPath) as $path) {
@@ -423,7 +424,8 @@ expectTpq51(
 $controllerContent = $generatedByPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '';
 expectTpq51(
     str_contains($controllerContent, 'use app\\adminapi\\services\\demo\\ArticleService;')
-        && str_contains($controllerContent, 'ArticleService $service'),
+        && str_contains($controllerContent, 'function service(): ArticleService')
+        && str_contains($controllerContent, '$this->app->make(ArticleService::class)'),
     'generator controller did not import the services class',
 );
 foreach (array_keys($generatedByPath) as $path) {
@@ -456,19 +458,19 @@ spec.loader.exec_module(scanner)
 cases = {
     "host_application": (
         "server/app/adminapi/application/Probe.php",
-        "<?php\nuse PeanutAdmin\\Modules\\Task\\Service\\CrontabApplicationService;\n",
+        "<?php\nuse app\\Modules\\Official\\Task\\Application\\CrontabApplicationService;\n",
     ),
     "platform_adapter_model": (
         "server/app/platform/infrastructure/Probe.php",
-        "<?php\nuse PeanutAdmin\\Modules\\Task\\Model\\Crontab;\n",
+        "<?php\nuse app\\Modules\\Official\\Task\\Model\\Crontab;\n",
     ),
     "host_contract": (
         "server/app/api/application/Probe.php",
-        "<?php\nuse PeanutAdmin\\Modules\\Task\\Contract\\TaskJobRuntime;\n",
+        "<?php\nuse app\\Modules\\Official\\Task\\Contracts\\TaskJobRuntime;\n",
     ),
     "module_internal": (
-        "server/app/modules/official/task/Application/Probe.php",
-        "<?php\nuse PeanutAdmin\\Modules\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
+        "server/app/Modules/Official/Task/Application/Probe.php",
+        "<?php\nuse app\\Modules\\Official\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
     ),
     "application_console": (
         "server/app/adminapi/application/ConsoleProbe.php",
@@ -479,15 +481,15 @@ cases = {
         "<?php\nuse think\\Console;\n",
     ),
     "application_transport": (
-        "server/app/modules/official/oauth/Application/TransportProbe.php",
+        "server/app/Modules/Official/Oauth/Application/TransportProbe.php",
         "<?php\nfinal class TransportProbe { public function run(): void { new WechatOAuthTransport(); } }\n",
     ),
     "tenant_join_missing": (
-        "server/app/modules/official/article/Application/JoinProbe.php",
+        "server/app/Modules/Official/Article/Application/JoinProbe.php",
         "<?php\n$query->join('article a', 'a.id = c.article_id');\n",
     ),
     "tenant_join_scoped": (
-        "server/app/modules/official/article/Application/ScopedJoinProbe.php",
+        "server/app/Modules/Official/Article/Application/ScopedJoinProbe.php",
         "<?php\n$query->leftJoin('article a', 'a.tenant_id = c.tenant_id AND a.id = c.article_id');\n",
     ),
     "tenant_join_global": (

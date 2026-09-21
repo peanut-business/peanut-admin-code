@@ -310,22 +310,17 @@ namespace app\adminapi\services\generator;
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\{{module}}\{{entity}}Service;
 use app\adminapi\validate\{{module}}\{{entity}}Validate;
-use app\common\execution\CurrentExecutionContext;
-use think\App;
 
 class {{entity}}Controller extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly {{entity}}Service $service,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function service(): {{entity}}Service
+    {
+        return $this->app->make({{entity}}Service::class);
     }
 
     public function lists()
     {
-        $result = $this->service->lists($this->request->get());
+        $result = $this->service()->lists($this->request->get());
         {{listResponse}}
     }
 
@@ -333,14 +328,14 @@ class {{entity}}Controller extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, {{entity}}Validate::class . '.detail');
-        return $this->data($this->service->detail($params['{{primary}}']));
+        return $this->data($this->service()->detail($params['{{primary}}']));
     }
 
     public function add()
     {
         $params = $this->request->post();
         $this->validate($params, {{entity}}Validate::class . '.add');
-        $this->service->add($params);
+        $this->service()->add($params);
         return $this->success('操作成功');
     }
 
@@ -348,7 +343,7 @@ class {{entity}}Controller extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, {{entity}}Validate::class . '.edit');
-        $this->service->edit($params);
+        $this->service()->edit($params);
         return $this->success('操作成功');
     }
 
@@ -356,7 +351,7 @@ class {{entity}}Controller extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, {{entity}}Validate::class . '.delete');
-        $this->service->delete($params['{{primary}}']);
+        $this->service()->delete($params['{{primary}}']);
         return $this->success('操作成功');
     }
 }

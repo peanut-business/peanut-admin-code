@@ -3,27 +3,22 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Controller;
 
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Integration\Application\IntegrationAdminApplicationService;
 use PeanutAdmin\Modules\Integration\Application\SessionDevice;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
-use think\App;
 use think\response\Json;
 
 final class SessionSecurityController extends IntegrationAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly IntegrationAdminApplicationService $sessions,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function sessions(): IntegrationAdminApplicationService
+    {
+        return $this->app->make(IntegrationAdminApplicationService::class);
     }
 
     public function index(): Json
     {
         try {
-            $items = $this->sessions->sessions($this->tenantAdminContext(), $this->tenantAdminActor());
+            $items = $this->sessions()->sessions($this->tenantAdminContext(), $this->tenantAdminActor());
             return $this->response(['items' => array_map($this->session(...), $items)]);
         } catch (IntegrationSecurityException $exception) {
             throw $this->problem($exception);
@@ -34,7 +29,7 @@ final class SessionSecurityController extends IntegrationAdminController
     {
         try {
             $this->body([]);
-            return $this->response($this->session($this->sessions->revokeSession(
+            return $this->response($this->session($this->sessions()->revokeSession(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $sessionKey,

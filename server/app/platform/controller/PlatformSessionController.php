@@ -3,28 +3,23 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
-use app\common\execution\CurrentExecutionContext;
 use app\platform\http\PlatformRequest;
 use app\platform\services\PlatformOperatorSessionService;
 use app\platform\validate\PlatformLoginValidate;
 use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
-use think\App;
 
 final class PlatformSessionController extends BasePlatformController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $execution,
-        private readonly PlatformOperatorSessionService $sessions,
-    ) {
-        parent::__construct($app, $execution);
+    protected function sessions(): PlatformOperatorSessionService
+    {
+        return $this->app->make(PlatformOperatorSessionService::class);
     }
 
     public function login()
     {
         $params = $this->request->post();
         $this->validate($params, PlatformLoginValidate::class);
-        $authentication = $this->sessions->login(
+        $authentication = $this->sessions()->login(
             trim((string)$params['email']),
             (string)$params['password'],
             $this->request->ip(),
@@ -39,7 +34,7 @@ final class PlatformSessionController extends BasePlatformController
     public function refresh()
     {
         $token = PlatformRequest::refreshToken($this->request);
-        $authentication = $this->sessions->refresh(
+        $authentication = $this->sessions()->refresh(
             $token,
             $this->request->ip(),
             $this->request->header('User-Agent'),
@@ -54,7 +49,7 @@ final class PlatformSessionController extends BasePlatformController
     {
         $token = PlatformRequest::bearerToken($this->request);
         if ($token !== '') {
-            $this->sessions->logout($token);
+            $this->sessions()->logout($token);
         }
 
         return $this->success('success')->header(['Set-Cookie' => PlatformRefreshCookie::clear()]);
@@ -65,7 +60,7 @@ final class PlatformSessionController extends BasePlatformController
         if ($this->platformContext === null) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication is required.', null, 40100);
         }
-        $permissions = $this->sessions->permissionKeys($this->platformContext);
+        $permissions = $this->sessions()->permissionKeys($this->platformContext);
 
         return $this->data([
             'audience' => 'platform',

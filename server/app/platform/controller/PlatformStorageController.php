@@ -3,55 +3,50 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\File\Contract\StorageConfiguration;
 use app\platform\context\PlatformOperatorContext;
-use think\App;
 
 final class PlatformStorageController extends BasePlatformController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $execution,
-        private readonly StorageConfiguration $storage,
-    ) {
-        parent::__construct($app, $execution);
+    protected function storage(): StorageConfiguration
+    {
+        return $this->app->get(StorageConfiguration::class);
     }
 
     public function snapshot()
     {
-        return $this->data($this->storage->snapshot());
+        return $this->data($this->storage()->snapshot());
     }
 
     public function createAccount()
     {
         return $this->data([
-            'id' => $this->storage->createAccount($this->context(), $this->request->post()),
+            'id' => $this->storage()->createAccount($this->context(), $this->request->post()),
         ]);
     }
 
     public function updateAccount()
     {
-        $this->storage->updateAccount($this->context(), $this->request->post());
+        $this->storage()->updateAccount($this->context(), $this->request->post());
         return $this->success('存储账号已更新');
     }
 
     public function createSpace()
     {
         return $this->data([
-            'id' => $this->storage->createSpace($this->context(), $this->request->post()),
+            'id' => $this->storage()->createSpace($this->context(), $this->request->post()),
         ]);
     }
 
     public function updateSpace()
     {
-        $this->storage->updateSpace($this->context(), $this->request->post());
+        $this->storage()->updateSpace($this->context(), $this->request->post());
         return $this->success('Space 已更新');
     }
 
     public function setRoute()
     {
-        $this->storage->setRoute($this->context(), $this->request->post());
+        $this->storage()->setRoute($this->context(), $this->request->post());
         return $this->success('存储路由已更新');
     }
 

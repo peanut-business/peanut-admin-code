@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "159ad16c18d11657e1275b7da105b57110bc28a644ebb4acbba39b9b42b5f525"
+        "sha256": "85ad7b4aa624da72b01de2ee061d495ad4195751d6ca1a7b85342e1a933e6f50"
     },
     "trust": {
         "channel": "bundled",
@@ -72,7 +72,7 @@
         {
             "name": "peanut-business/artifact-revision",
             "version": "4.0.0-dev",
-            "sha256": "e236d2b82b9418edbdf673bf73a2daa98e55baf7aad0a5833c1013deadad4e8c"
+            "sha256": "3b0b11f39e0fe092ef25382f94767c97a248f640d8498e3b64d32c8f1941ccd1"
         }
     ],
     "npm": [],

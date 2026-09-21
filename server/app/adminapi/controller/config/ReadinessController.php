@@ -5,20 +5,18 @@ namespace app\adminapi\controller\config;
 
 use app\adminapi\controller\BaseAdminController;
 use app\common\services\readiness\FirstRunReadinessHost;
-use think\App;
-use app\common\execution\CurrentExecutionContext;
 use think\response\Json;
 
 final class ReadinessController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly FirstRunReadinessHost $readiness)
+    protected function readiness(): FirstRunReadinessHost
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(FirstRunReadinessHost::class);
     }
 
     public function checklist(): Json
     {
-        return $this->data($this->readiness->checklist(
+        return $this->data($this->readiness()->checklist(
             $this->tenantAdminContext(),
             (string)$this->request->domain(),
             (string)config('deployment.mode'),

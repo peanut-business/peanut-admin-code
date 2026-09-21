@@ -6,19 +6,17 @@ namespace app\api\controller;
 use PeanutAdmin\Modules\File\Contract\FileUploads;
 use PeanutAdmin\Modules\File\Contract\Dto\UploadFile;
 use app\common\enum\FileEnum;
-use app\common\execution\CurrentExecutionContext;
 use think\file\UploadedFile;
 use app\common\exception\BusinessException;
-use think\App;
 
 /**
  * 用户端上传
  */
 class UploadController extends BaseApiController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly FileUploads $uploads)
+    protected function uploads(): FileUploads
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->get(FileUploads::class);
     }
 
     public function image()
@@ -31,7 +29,7 @@ class UploadController extends BaseApiController
         if (!$uploaded instanceof UploadedFile) {
             throw BusinessException::invalid('UPLOAD_FILE_REQUIRED', '未接收到上传文件');
         }
-        $result = $this->uploads->image(
+        $result = $this->uploads()->image(
             $this->memberContext(),
             new UploadFile(
                 (string)$uploaded->getPathname(),

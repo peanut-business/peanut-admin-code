@@ -3,27 +3,22 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Controller;
 
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Integration\Application\IntegrationAdminApplicationService;
 use PeanutAdmin\Modules\Integration\Application\IntegrationSecurityPage;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
-use think\App;
 use think\response\Json;
 
 final class WebhookDeliveryController extends IntegrationAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly IntegrationAdminApplicationService $deliveries,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function deliveries(): IntegrationAdminApplicationService
+    {
+        return $this->app->make(IntegrationAdminApplicationService::class);
     }
 
     public function index(): Json
     {
         try {
-            return $this->response($this->deliveries->deliveries(
+            return $this->response($this->deliveries()->deliveries(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $this->positiveInteger($this->request->get('page', 1)),
@@ -37,7 +32,7 @@ final class WebhookDeliveryController extends IntegrationAdminController
     public function attempts(string $deliveryKey): Json
     {
         try {
-            return $this->response($this->deliveries->deliveryAttempts(
+            return $this->response($this->deliveries()->deliveryAttempts(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $deliveryKey,

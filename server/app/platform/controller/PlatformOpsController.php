@@ -4,42 +4,37 @@ declare(strict_types=1);
 namespace app\platform\controller;
 
 use app\common\http\JsonResponseFactory;
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Ops\Service\PlatformOpsApplicationService;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
-use think\App;
 use think\Response;
 use think\response\Json;
 
 /** Platform-only Ops Console Host; PC20 reads plus the bounded PC21 artifact. */
 final class PlatformOpsController extends BasePlatformController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $execution,
-        private readonly PlatformOpsApplicationService $operations,
-    ) {
-        parent::__construct($app, $execution);
+    protected function operations(): PlatformOpsApplicationService
+    {
+        return $this->app->make(PlatformOpsApplicationService::class);
     }
 
     public function status(): Json
     {
-        return $this->run(fn(): array => $this->operations->status($this->context()));
+        return $this->run(fn(): array => $this->operations()->status($this->context()));
     }
 
     public function upgradeReadiness(): Json
     {
-        return $this->run(fn(): array => $this->operations->upgradeReadiness($this->context()));
+        return $this->run(fn(): array => $this->operations()->upgradeReadiness($this->context()));
     }
 
     public function providers(): Json
     {
-        return $this->run(fn(): array => $this->operations->providers($this->context()));
+        return $this->run(fn(): array => $this->operations()->providers($this->context()));
     }
 
     public function maintenance(): Json
     {
-        return $this->run(fn(): ?array => $this->operations->maintenance($this->context()));
+        return $this->run(fn(): ?array => $this->operations()->maintenance($this->context()));
     }
 
     public function scheduleMaintenance(): Json
@@ -56,7 +51,7 @@ final class PlatformOpsController extends BasePlatformController
                 throw OpsConsoleException::invalid();
             }
 
-            return $this->operations->scheduleMaintenance(
+            return $this->operations()->scheduleMaintenance(
                 $this->context(),
                 $params['reason_key'],
                 $params['starts_at'],
@@ -74,7 +69,7 @@ final class PlatformOpsController extends BasePlatformController
                 throw OpsConsoleException::invalid();
             }
 
-            return $this->operations->closeMaintenance(
+            return $this->operations()->closeMaintenance(
                 $this->context(),
                 $maintenance_key,
                 $this->ifMatchRevision(false),
@@ -86,7 +81,7 @@ final class PlatformOpsController extends BasePlatformController
     public function diagnostics(): Response
     {
         $requestId = $this->requestId();
-        $artifact = $this->operations->diagnostics(
+        $artifact = $this->operations()->diagnostics(
             $this->context(),
             $this->windowMinutes($this->request->get('window_minutes', 60)),
             $requestId,
@@ -110,7 +105,7 @@ final class PlatformOpsController extends BasePlatformController
             if (array_keys($params) !== ['provider_key'] || !is_string($params['provider_key'])) {
                 throw OpsConsoleException::invalid();
             }
-            return $this->operations->submitBackup(
+            return $this->operations()->submitBackup(
                 $this->context(),
                 $params['provider_key'],
                 $this->idempotencyKey()
@@ -131,7 +126,7 @@ final class PlatformOpsController extends BasePlatformController
             ) {
                 throw OpsConsoleException::invalid();
             }
-            return $this->operations->submitRestore(
+            return $this->operations()->submitRestore(
                 $this->context(),
                 $params['provider_key'],
                 $params['backup_reference_key'],
@@ -147,7 +142,7 @@ final class PlatformOpsController extends BasePlatformController
             if ($this->request->post() !== []) {
                 throw OpsConsoleException::invalid();
             }
-            return $this->operations->submitUpgrade($this->context(), $this->idempotencyKey());
+            return $this->operations()->submitUpgrade($this->context(), $this->idempotencyKey());
         });
     }
 
@@ -158,7 +153,7 @@ final class PlatformOpsController extends BasePlatformController
             if (array_keys($params) !== ['request_key'] || !is_string($params['request_key'])) {
                 throw OpsConsoleException::invalid();
             }
-            return $this->operations->submitModuleOperation(
+            return $this->operations()->submitModuleOperation(
                 $this->context(),
                 $params['request_key'],
                 $this->idempotencyKey(),
@@ -168,22 +163,22 @@ final class PlatformOpsController extends BasePlatformController
 
     public function moduleOperations(): Json
     {
-        return $this->run(fn(): array => $this->operations->moduleOperations($this->context()));
+        return $this->run(fn(): array => $this->operations()->moduleOperations($this->context()));
     }
 
     public function upgrades(): Json
     {
-        return $this->run(fn(): array => $this->operations->upgrades($this->context()));
+        return $this->run(fn(): array => $this->operations()->upgrades($this->context()));
     }
 
     public function backups(): Json
     {
-        return $this->run(fn(): array => $this->operations->backups($this->context()));
+        return $this->run(fn(): array => $this->operations()->backups($this->context()));
     }
 
     public function task(string $task_key): Json
     {
-        return $this->run(fn(): array => $this->operations->task($this->context(), $task_key));
+        return $this->run(fn(): array => $this->operations()->task($this->context(), $task_key));
     }
 
     private function run(callable $operation): Json

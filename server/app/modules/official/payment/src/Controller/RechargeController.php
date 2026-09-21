@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Controller;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use PeanutAdmin\Modules\Payment\Service\RechargeAdministrationService;
 use PeanutAdmin\Modules\Payment\Validation\RechargeValidate;
@@ -13,9 +10,9 @@ use app\common\http\JsonResponseFactory;
 
 class RechargeController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly RechargeAdministrationService $recharges)
+    protected function recharges(): RechargeAdministrationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(RechargeAdministrationService::class);
     }
 
     public function lists()
@@ -23,7 +20,7 @@ class RechargeController extends BaseAdminController
         $params = $this->request->get();
         $context = $this->tenantAdminContext();
         $this->validate($params, RechargeValidate::class . '.lists');
-        $result = $this->recharges->lists($context, $params);
+        $result = $this->recharges()->lists($context, $params);
         if ((int)($params['export'] ?? 0) === 2) {
             // 沿用当前统一响应合同；旧 JsonService/show 参数已退出，不能当成响应 code。
             return JsonResponseFactory::success('', $result);
@@ -36,7 +33,7 @@ class RechargeController extends BaseAdminController
         $params = $this->request->post();
         $context = $this->tenantAdminContext();
         $this->validate($params, RechargeValidate::class . '.refund');
-        $message = $this->recharges->refund(
+        $message = $this->recharges()->refund(
             $context,
             $params,
             $this->adminId,
@@ -50,7 +47,7 @@ class RechargeController extends BaseAdminController
         $params = $this->request->post();
         $context = $this->tenantAdminContext();
         $this->validate($params, RechargeValidate::class . '.again');
-        $message = $this->recharges->refundAgain($context, $params, $this->adminId);
+        $message = $this->recharges()->refundAgain($context, $params, $this->adminId);
         return $this->success($message);
     }
 

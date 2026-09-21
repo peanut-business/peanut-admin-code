@@ -33,14 +33,14 @@ $actions = ['lists', 'detail', 'add', 'edit', 'delete', 'updateStatus'];
 
 expectAdminTenantCrud(trait_exists($trait), $trait . ' is not autoloadable');
 foreach ([
-    'app\\adminapi\\controller\\dict\\DictTypeController' => [
-        'service' => 'app\\adminapi\\application\\dict\\DictTypeApplicationService',
-        'validate' => 'app\\adminapi\\validate\\dict\\DictTypeValidate',
+    'PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictTypeController' => [
+        'service' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Service\\DictTypeApplicationService',
+        'validate' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Validation\\DictTypeValidate',
         'extra' => ['all'],
     ],
-    'app\\adminapi\\controller\\dict\\DictDataController' => [
-        'service' => 'app\\adminapi\\application\\dict\\DictDataApplicationService',
-        'validate' => 'app\\adminapi\\validate\\dict\\DictDataValidate',
+    'PeanutAdmin\\Modules\\ReferenceCodes\\Controller\\DictDataController' => [
+        'service' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Service\\DictDataApplicationService',
+        'validate' => 'PeanutAdmin\\Modules\\ReferenceCodes\\Validation\\DictDataValidate',
         'extra' => ['byType'],
     ],
     'PeanutAdmin\\Modules\\OAuth\\Controller\\OfficialAccountReplyController' => [
@@ -59,12 +59,12 @@ foreach ([
         'extra' => ['all'],
     ],
     'app\\adminapi\\controller\\dept\\DeptController' => [
-        'service' => 'app\\adminapi\\application\\dept\\DeptApplicationService',
+        'service' => 'app\\adminapi\\services\\dept\\DeptApplicationService',
         'validate' => null,
         'extra' => ['all', 'leaderDept'],
     ],
     'app\\adminapi\\controller\\dept\\JobsController' => [
-        'service' => 'app\\adminapi\\application\\dept\\JobsApplicationService',
+        'service' => 'app\\adminapi\\services\\dept\\JobsApplicationService',
         'validate' => null,
         'extra' => ['all'],
     ],
@@ -73,11 +73,20 @@ foreach ([
     expectAdminTenantCrud($class->getParentClass()?->getName() === $base, $className . ' must extend BaseAdminController directly');
     expectAdminTenantCrud(in_array($trait, class_uses($className), true), $className . ' must compose CrudTrait directly');
 
-    $parameters = $class->getConstructor()?->getParameters() ?? [];
+    $constructor = $class->getConstructor();
     expectAdminTenantCrud(
-        count($parameters) === 3 && $parameters[2]->getType()?->getName() === $contract['service'],
-        $className . ' must inject ' . $contract['service'],
+        $constructor?->getDeclaringClass()->getName() === app\BaseController::class
+            && count($constructor->getParameters()) === 1
+            && $constructor->getParameters()[0]->getType()?->getName() === think\App::class,
+        $className . ' must inherit the native App constructor',
     );
+    $getters = array_filter(
+        $class->getMethods(ReflectionMethod::IS_PROTECTED),
+        static fn(ReflectionMethod $method): bool => $method->getDeclaringClass()->getName() === $class->getName()
+            && $method->getNumberOfParameters() === 0
+            && $method->getReturnType()?->getName() === $contract['service'],
+    );
+    expectAdminTenantCrud(count($getters) === 1, $className . ' must expose one fixed typed service getter');
     if ($contract['validate'] !== null) {
         expectCrudConstant($class, 'CRUD_VALIDATE', $contract['validate']);
     }
@@ -98,7 +107,7 @@ foreach ([
 foreach ([
     dirname(__DIR__, 2) . '/app/adminapi/controller/AbstractTenantCrudController.php',
     dirname(__DIR__, 2) . '/app/adminapi/controller/dept/AbstractOrgCrudController.php',
-    dirname(__DIR__, 2) . '/app/modules/official/article/Http/Controller/AbstractArticleCrudController.php',
+    dirname(__DIR__, 2) . '/app/Modules/Official/Article/Http/Controller/AbstractArticleCrudController.php',
 ] as $removedBase) {
     expectAdminTenantCrud(!is_file($removedBase), 'obsolete CRUD base remains: ' . $removedBase);
 }

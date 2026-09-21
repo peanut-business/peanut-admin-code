@@ -4,28 +4,26 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Member\Controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Member\Contract\MemberAdministration;
 use PeanutAdmin\Modules\Member\Validation\MemberTagValidate;
-use think\App;
 
 class MemberTagController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly MemberAdministration $members)
+    protected function members(): MemberAdministration
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->get(MemberAdministration::class);
     }
 
     public function lists()
     {
-        return $this->data($this->members->tags());
+        return $this->data($this->members()->tags());
     }
 
     public function add()
     {
         $params = $this->request->post();
         $this->validate($params, MemberTagValidate::class . '.add');
-        $this->members->createTag($params);
+        $this->members()->createTag($params);
         return $this->success('操作成功');
     }
 
@@ -33,13 +31,13 @@ class MemberTagController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, MemberTagValidate::class . '.edit');
-        $this->members->updateTag($params);
+        $this->members()->updateTag($params);
         return $this->success('操作成功');
     }
 
     public function delete()
     {
-        $this->members->deleteTag((int)$this->request->post('id'));
+        $this->members()->deleteTag((int)$this->request->post('id'));
         return $this->success('操作成功');
     }
 }

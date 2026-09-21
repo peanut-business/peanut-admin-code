@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace tests\Unit\A1Lifecycle;
 
 use app\adminapi\controller\BaseAdminController;
+use app\adminapi\controller\WorkbenchController;
+use app\adminapi\services\WorkbenchApplicationService;
+use app\BaseController;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
@@ -69,8 +72,29 @@ final class A1ControllerLifecycleTest extends TestCase
             'route.before', 'controller.initialize', 'controller.before',
             'action.service', 'action', 'controller.after', 'route.after',
         ], LifecycleTrace::$events);
-        self::assertSame(BaseAdminController::class,
+        self::assertSame(BaseController::class,
             (new \ReflectionClass(ActionInjectedController::class))->getConstructor()->getDeclaringClass()->getName());
+        self::assertTrue($this->contexts->isEmpty());
+    }
+
+    public function testRealWorkbenchActionUsesFrameworkMethodInjection(): void
+    {
+        $service = $this->createMock(WorkbenchApplicationService::class);
+        $service->expects(self::once())->method('index')->willReturnCallback(
+            static function (TenantContext $context): array {
+                self::assertSame(101, $context->tenantId);
+                return ['fixture' => 'real-action-injection'];
+            },
+        );
+        $this->app->instance(WorkbenchApplicationService::class, $service);
+        $request = $this->request('workbench/index')->withGet(['workbench' => 'untrusted-http-value']);
+        $route = new Route($this->app);
+        $route->get('workbench/index', [WorkbenchController::class, 'index'])
+            ->middleware(AuthenticatedFixtureMiddleware::class);
+
+        $response = $route->dispatch($request);
+        self::assertSame(200, $response->getCode());
+        self::assertSame('real-action-injection', $response->getData()['data']['fixture'] ?? null);
         self::assertTrue($this->contexts->isEmpty());
     }
 

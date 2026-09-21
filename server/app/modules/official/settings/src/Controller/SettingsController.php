@@ -4,24 +4,22 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Settings\Controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
 use PeanutAdmin\Modules\Settings\Application\SettingException;
 use PeanutAdmin\Modules\Settings\Service\SettingsHttpApplicationService;
-use think\App;
 use think\response\Json;
 
 final class SettingsController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $context, private readonly SettingsHttpApplicationService $settings)
+    protected function settings(): SettingsHttpApplicationService
     {
-        parent::__construct($app, $context);
+        return $this->app->make(SettingsHttpApplicationService::class);
     }
 
     public function index(): Json
     {
         try {
-            return $this->response(['items' => $this->settings->list($this->tenantAdminContext())['items']]);
+            return $this->response(['items' => $this->settings()->list($this->tenantAdminContext())['items']]);
         } catch (SettingException $exception) {
             throw $this->problem($exception);
         }
@@ -31,7 +29,7 @@ final class SettingsController extends BaseAdminController
     {
         $body = $this->jsonBody(['value']);
         try {
-            $record = $this->settings->replace(
+            $record = $this->settings()->replace(
                 $this->tenantAdminContext(), $moduleKey, $settingKey, $body['value'],
                 $this->header('If-Match'), $this->header('If-None-Match'), $this->requiredHeader('Idempotency-Key'),
             );
@@ -44,7 +42,7 @@ final class SettingsController extends BaseAdminController
     public function unset(string $moduleKey, string $settingKey): Json
     {
         try {
-            $record = $this->settings->unset(
+            $record = $this->settings()->unset(
                 $this->tenantAdminContext(), $moduleKey, $settingKey,
                 $this->header('If-Match'), $this->requiredHeader('Idempotency-Key'),
             );

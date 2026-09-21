@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "3282ba5c9ad8811ba8aedc210400b65471ecbf4c313ce3d6f5491b098989e194"
+        "sha256": "e8320b16766d40dc8bd741937b90a4d2daacd4c4f4d5d53fb6010616ed7bee49"
     },
     "trust": {
         "channel": "bundled",
@@ -63,7 +63,7 @@
         {
             "name": "peanut-business/official-integration",
             "version": "1.0.0",
-            "sha256": "b7c7960918377e82cc3edc7d07c2841cff70a4e7657dd9232de62d9a57caa098"
+            "sha256": "1070c5608c8674f8806130063d602af2a4a6b0e1f5530ebe8f91b394c2ba20c9"
         }
     ],
     "npm": [

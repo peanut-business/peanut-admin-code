@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\setting;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\setting\TransactionSettingsApplicationService;
 use app\common\exception\BusinessException;
@@ -15,14 +12,14 @@ use app\common\exception\BusinessException;
  */
 class TransactionSettingsController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly TransactionSettingsApplicationService $transactionSettings)
+    protected function transactionSettings(): TransactionSettingsApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(TransactionSettingsApplicationService::class);
     }
 
     public function getConfig()
     {
-        return $this->data($this->transactionSettings->getConfig(
+        return $this->data($this->transactionSettings()->getConfig(
             $this->tenantAdminContext()
         ));
     }
@@ -51,7 +48,7 @@ class TransactionSettingsController extends BaseAdminController
             }
         }
 
-        $this->transactionSettings->setConfig(
+        $this->transactionSettings()->setConfig(
             $this->tenantAdminContext(),
             $post
         );

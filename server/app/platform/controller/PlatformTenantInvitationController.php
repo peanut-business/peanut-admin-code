@@ -3,28 +3,23 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
 use app\platform\http\PlatformRequest;
 use app\platform\invitation\TenantOwnerInvitationAdminService;
 use app\platform\validate\TenantOwnerInvitationValidate;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
-use think\App;
 
 final class PlatformTenantInvitationController extends BasePlatformController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $execution,
-        private readonly TenantOwnerInvitationAdminService $invitations,
-    ) {
-        parent::__construct($app, $execution);
+    protected function invitations(): TenantOwnerInvitationAdminService
+    {
+        return $this->app->make(TenantOwnerInvitationAdminService::class);
     }
 
     public function provision()
     {
         return $this->mutate('provision', function (array $params): array {
-            return $this->invitations->provision(
+            return $this->invitations()->provision(
                 $this->platformContext,
                 trim((string)$params['tenant_code']),
                 trim((string)$params['tenant_name']),
@@ -38,7 +33,7 @@ final class PlatformTenantInvitationController extends BasePlatformController
     public function invite()
     {
         return $this->mutate('invite', function (array $params): array {
-            return $this->invitations->invite(
+            return $this->invitations()->invite(
                 $this->platformContext,
                 (int)$params['tenant_id'],
                 trim((string)$params['owner_email']),
@@ -57,7 +52,7 @@ final class PlatformTenantInvitationController extends BasePlatformController
         $this->validate($params, TenantOwnerInvitationValidate::class . '.lists');
         $page = (int)($params['page'] ?? 1);
         $pageSize = (int)($params['page_size'] ?? 20);
-        $result = $this->invitations->invitations(
+        $result = $this->invitations()->invitations(
             $this->platformContext,
             (int)$params['tenant_id'],
             new PageRequest($page, $pageSize)
@@ -68,7 +63,7 @@ final class PlatformTenantInvitationController extends BasePlatformController
     public function resend()
     {
         return $this->mutate('resend', function (array $params): array {
-            return $this->invitations->resend(
+            return $this->invitations()->resend(
                 $this->platformContext,
                 (int)$params['invitation_id'],
                 (int)($params['expires_in_hours'] ?? 72)
@@ -79,7 +74,7 @@ final class PlatformTenantInvitationController extends BasePlatformController
     public function revoke()
     {
         return $this->mutate('revoke', function (array $params): array {
-            return $this->invitations->revoke(
+            return $this->invitations()->revoke(
                 $this->platformContext,
                 (int)$params['invitation_id']
             );

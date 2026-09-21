@@ -5,10 +5,8 @@ namespace app\adminapi\controller;
 
 use app\BaseController;
 use app\common\traits\ApiResponseTrait;
-use app\common\execution\CurrentExecutionContext;
 use app\common\execution\AdminExecutionContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use think\App;
 
 abstract class BaseAdminController extends BaseController
 {
@@ -16,28 +14,14 @@ abstract class BaseAdminController extends BaseController
 
     protected int   $adminId   = 0;
     protected array $adminInfo = [];
-    protected readonly CurrentExecutionContext $executionContext;
-
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-    ) {
-        $this->executionContext = $executionContext;
-        parent::__construct($app);
-    }
 
     public function initialize(): void
     {
-        $current = $this->executionContext;
+        $current = $this->executionContext();
         if ($current->current() instanceof AdminExecutionContext) {
             $this->adminInfo = $current->tenantAdminPrincipal();
             $this->adminId = (int)($this->adminInfo['id'] ?? 0);
         }
-    }
-
-    protected function executionContext(): CurrentExecutionContext
-    {
-        return $this->executionContext;
     }
 
     /** 供业务入口使用的类型化人员摘要；真实授权仍由业务服务核验。 */
@@ -45,7 +29,7 @@ abstract class BaseAdminController extends BaseController
     {
         $tenant = $this->tenantAdminContext();
         $actor = \app\common\dto\authorization\AdminPrincipal::fromArray(
-            $this->executionContext->tenantAdminPrincipal(),
+            $this->executionContext()->tenantAdminPrincipal(),
         );
         if ($actor->id !== $tenant->memberId || $actor->tenantId !== $tenant->tenantId
             || $actor->accountId !== $tenant->accountId) {
@@ -56,6 +40,6 @@ abstract class BaseAdminController extends BaseController
 
     protected function tenantAdminContext(): TenantContext
     {
-        return $this->executionContext->tenantAdmin();
+        return $this->executionContext()->tenantAdmin();
     }
 }

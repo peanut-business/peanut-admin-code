@@ -4,24 +4,19 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Notification\Controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Notification\Service\NotificationAdminApplicationService;
 use PeanutAdmin\Modules\Notification\Validation\NoticeSceneValidate;
-use think\App;
 
 class NoticeSceneController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly NotificationAdminApplicationService $notifications,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function notifications(): NotificationAdminApplicationService
+    {
+        return $this->app->make(NotificationAdminApplicationService::class);
     }
 
     public function lists()
     {
-        return $this->data($this->notifications->scenes(
+        return $this->data($this->notifications()->scenes(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
         ));
@@ -31,7 +26,7 @@ class NoticeSceneController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, NoticeSceneValidate::class . '.detail');
-        return $this->data($this->notifications->scene(
+        return $this->data($this->notifications()->scene(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
             (int)$params['id'],
@@ -42,7 +37,7 @@ class NoticeSceneController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, NoticeSceneValidate::class . '.save');
-        $this->notifications->saveScene(
+        $this->notifications()->saveScene(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
             $params,

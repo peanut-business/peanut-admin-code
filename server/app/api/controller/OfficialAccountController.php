@@ -5,28 +5,23 @@ namespace app\api\controller;
 
 use app\api\services\OfficialAccountApplicationService;
 use app\common\exception\BusinessException;
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\RequestTrace;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use think\App;
 
 /** 公众号协议适配：用例负责验签及执行范围，这里只保留 HTTP 输入和响应映射。 */
 class OfficialAccountController extends BaseApiController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly OfficialAccountApplicationService $application,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function application(): OfficialAccountApplicationService
+    {
+        return $this->app->make(OfficialAccountApplicationService::class);
     }
 
     public function verify()
     {
         $params = $this->request->get();
         try {
-            $this->application->verify((string)$this->request->route('binding'), $params, $this->operationId());
+            $this->application()->verify((string)$this->request->route('binding'), $params, $this->operationId());
         } catch (ExternalTenantResolutionException|ModuleException) {
             return response('callback rejected', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
@@ -37,7 +32,7 @@ class OfficialAccountController extends BaseApiController
     {
         $params = $this->request->get();
         try {
-            $result = $this->application->callback(
+            $result = $this->application()->callback(
                 (string)$this->request->route('binding'), $params,
                 (string)$this->request->getContent(), $this->operationId(),
             );
@@ -50,6 +45,6 @@ class OfficialAccountController extends BaseApiController
 
     private function operationId(): string
     {
-        return RequestTrace::id($this->executionContext, $this->request, 'wechat');
+        return RequestTrace::id($this->executionContext(), $this->request, 'wechat');
     }
 }

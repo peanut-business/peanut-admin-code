@@ -43,6 +43,7 @@ final class ModuleHostLayoutFactory
     public static function registerRuntimeAutoload(array $moduleRoots, string $serverRoot): ModuleHostLayout
     {
         $namespaces = ModulePhpNamespace::map($moduleRoots);
+        $layout = self::fromNamespaces($namespaces);
         $vendorRoot = realpath(rtrim($serverRoot, '/') . '/vendor');
         if ($vendorRoot === false) {
             throw new InvalidArgumentException('Host Composer vendor root is unavailable.');
@@ -59,13 +60,16 @@ final class ModuleHostLayoutFactory
         }
 
         $registered = $loader->getPrefixesPsr4();
+        $pending = [];
         foreach ($namespaces as $moduleKey => $prefix) {
+            $moduleRoot = realpath($moduleRoots[$moduleKey]);
             $source = realpath($moduleRoots[$moduleKey] . '/src');
-            if ($source === false || !is_dir($source)) {
+            if ($moduleRoot === false || $source === false || !is_dir($source)
+                || !str_starts_with($source, $moduleRoot . DIRECTORY_SEPARATOR)) {
                 throw new InvalidArgumentException("Module PHP source root is unavailable: {$moduleKey}.");
             }
             foreach ($registered as $existingPrefix => $directories) {
-                $samePrefix = strcasecmp($prefix, $existingPrefix) === 0;
+                $samePrefix = $prefix === $existingPrefix;
                 $overlaps = str_starts_with(strtolower($prefix), strtolower($existingPrefix))
                     || str_starts_with(strtolower($existingPrefix), strtolower($prefix));
                 $sameSource = $samePrefix && count($directories) === 1
@@ -76,10 +80,14 @@ final class ModuleHostLayoutFactory
                     );
                 }
             }
-            $loader->setPsr4($prefix, [$source]);
+            $pending[$prefix] = [$source];
             $registered[$prefix] = [$source];
         }
-        return self::fromNamespaces($namespaces);
+        // 先核验完整集合，再变更当前加载器；后一模块失败不能留下部分注册。
+        foreach ($pending as $prefix => $sources) {
+            $loader->setPsr4($prefix, $sources);
+        }
+        return $layout;
     }
 
     /** @param array<string,string> $namespaces */

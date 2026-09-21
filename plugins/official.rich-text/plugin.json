@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "2e1cef0b98ea29e2a95964b30b824296b623acbdcb4806dc8fd4f9440bb2445e"
+        "sha256": "d2174f11b04b95e02a554149a41db94cb37d0d03bb2d5c7c978225c8b1566033"
     },
     "trust": {
         "channel": "bundled",
@@ -63,7 +63,7 @@
         {
             "name": "peanut-business/official-rich-text",
             "version": "1.0.1",
-            "sha256": "f3e79546f6ab40d9950692019ddb97a256d91685a863efc9515d9ca097ff3c21"
+            "sha256": "591b3f9ad743f8276657da50824c9e34994382a41e1693c963c12ad60d860a28"
         }
     ],
     "npm": [

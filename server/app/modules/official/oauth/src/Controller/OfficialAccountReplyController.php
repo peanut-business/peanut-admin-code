@@ -7,9 +7,7 @@ use app\adminapi\controller\BaseAdminController;
 use app\common\traits\CrudTrait;
 use PeanutAdmin\Modules\OAuth\Service\OfficialAccountReplyApplicationService;
 use PeanutAdmin\Modules\OAuth\Validation\OfficialAccountReplyValidate;
-use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use think\App;
 
 class OfficialAccountReplyController extends BaseAdminController
 {
@@ -21,12 +19,9 @@ class OfficialAccountReplyController extends BaseAdminController
     protected const CRUD_VALIDATE_LISTS = true;
     protected const CRUD_STATUS_FIELD = 'status';
 
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly OfficialAccountReplyApplicationService $replies,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function replies(): OfficialAccountReplyApplicationService
+    {
+        return $this->app->make(OfficialAccountReplyApplicationService::class);
     }
 
     protected function resolveCrudContext(): TenantContext
@@ -36,6 +31,6 @@ class OfficialAccountReplyController extends BaseAdminController
 
     protected function crudService(): object
     {
-        return $this->replies;
+        return $this->replies();
     }
 }

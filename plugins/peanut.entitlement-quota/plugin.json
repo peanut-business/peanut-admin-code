@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "485def6dcd1330bd820816b64d5a91367afd6cdfdcbde5b783203bce13399b97"
+        "sha256": "bc53f9a010a44eb1a68ec30f4f2d0edc95a13bd7a7b5b932f3fb3178e70ee5ff"
     },
     "trust": {
         "channel": "bundled",
@@ -68,7 +68,7 @@
         {
             "name": "peanut-business/entitlement-quota",
             "version": "4.0.0-dev",
-            "sha256": "8da77d70014587c08e1e72e8980e3328e94b9723d16298432a33768681adb64c"
+            "sha256": "28c2b736f5e46b16efd82f8df3a19d2c6ef40a7efaca45b553df0fc987d950d0"
         }
     ],
     "npm": [],

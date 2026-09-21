@@ -5,7 +5,7 @@ declare(strict_types=1);
 use app\common\value\module\ModulePhpNamespace;
 
 $root = dirname(__DIR__, 3);
-$mappingPath = $argv[1] ?? $root . '/.local/controller-namespace/namespace/mapping.json';
+$mappingPath = $argv[1] ?? $root . '/server/tests/fixtures/module-namespace-migration-map.json';
 require $root . '/server/vendor/autoload.php';
 
 function namespaceCheck(bool $condition, string $message): void

@@ -5,24 +5,19 @@ namespace PeanutAdmin\Modules\ImportExport\Controller;
 
 use PeanutAdmin\Modules\ImportExport\Service\TenantConfigurationTransferService;
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
-use think\App;
 use app\common\exception\BusinessException;
 
 /** Tenant-scoped, path-free configuration package HTTP Host. */
 final class ConfigurationTransferController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly TenantConfigurationTransferService $transfers,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function transfers(): TenantConfigurationTransferService
+    {
+        return $this->app->make(TenantConfigurationTransferService::class);
     }
 
     public function export()
     {
-        return $this->data($this->transfers->export(
+        return $this->data($this->transfers()->export(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
         ));
@@ -31,7 +26,7 @@ final class ConfigurationTransferController extends BaseAdminController
     public function dryRun()
     {
         [$package, $secretBindings, $conflictPolicy] = $this->requestPayload();
-        return $this->data($this->transfers->dryRun(
+        return $this->data($this->transfers()->dryRun(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
             $package,
@@ -43,7 +38,7 @@ final class ConfigurationTransferController extends BaseAdminController
     public function apply()
     {
         [$package, $secretBindings, $conflictPolicy] = $this->requestPayload();
-        return $this->data($this->transfers->apply(
+        return $this->data($this->transfers()->apply(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
             $package,

@@ -3,17 +3,10 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
-use app\common\execution\CurrentExecutionContext;
 use app\platform\services\developer\DeveloperCenterCatalogService;
-use think\App;
 
 final class PlatformDeveloperCenterController extends BasePlatformController
 {
-    public function __construct(App $app, CurrentExecutionContext $execution)
-    {
-        parent::__construct($app, $execution);
-    }
-
     public function catalog()
     {
         $service = new DeveloperCenterCatalogService(

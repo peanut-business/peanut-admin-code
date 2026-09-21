@@ -4,22 +4,17 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Notification\Controller;
 
 use app\adminapi\controller\BaseAdminController;
-use app\common\execution\CurrentExecutionContext;
 use app\common\http\ApiProblem;
 use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationException;
 use PeanutAdmin\Modules\Notification\Delivery\Application\NotificationMessage;
 use PeanutAdmin\Modules\Notification\Service\NotificationAdminApplicationService;
-use think\App;
 use think\response\Json;
 
 final class NotificationInboxController extends BaseAdminController
 {
-    public function __construct(
-        App $app,
-        CurrentExecutionContext $executionContext,
-        private readonly NotificationAdminApplicationService $notifications,
-    ) {
-        parent::__construct($app, $executionContext);
+    protected function notifications(): NotificationAdminApplicationService
+    {
+        return $this->app->make(NotificationAdminApplicationService::class);
     }
 
     public function index(): Json
@@ -28,7 +23,7 @@ final class NotificationInboxController extends BaseAdminController
             $status = trim((string)$this->request->get('status', 'all'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
-            $result = $this->notifications->messages(
+            $result = $this->notifications()->messages(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $status,
@@ -56,7 +51,7 @@ final class NotificationInboxController extends BaseAdminController
     {
         try {
             $revision = $this->revisionHeader();
-            $message = $this->notifications->markRead(
+            $message = $this->notifications()->markRead(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $messageKey,
@@ -79,7 +74,7 @@ final class NotificationInboxController extends BaseAdminController
             if (!is_array($keys) || !array_is_list($keys)) {
                 throw NotificationException::invalid();
             }
-            $changed = $this->notifications->bulk(
+            $changed = $this->notifications()->bulk(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
                 $keys,

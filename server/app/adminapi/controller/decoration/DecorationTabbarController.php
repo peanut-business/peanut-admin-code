@@ -3,23 +3,20 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\decoration;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\decoration\DecorationTabbarApplicationService;
 use app\adminapi\validate\decoration\DecorationTabbarValidate;
 
 class DecorationTabbarController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly DecorationTabbarApplicationService $decorationTabbars)
+    protected function decorationTabbars(): DecorationTabbarApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(DecorationTabbarApplicationService::class);
     }
 
     public function detail()
     {
-        return $this->data($this->decorationTabbars->detail(
+        return $this->data($this->decorationTabbars()->detail(
             $this->tenantAdminContext()
         ));
     }
@@ -28,7 +25,7 @@ class DecorationTabbarController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, DecorationTabbarValidate::class);
-        $this->decorationTabbars->save(
+        $this->decorationTabbars()->save(
             $this->tenantAdminContext(),
             (array)$params['style'],
             (array)$params['list']

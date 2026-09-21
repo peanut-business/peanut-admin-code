@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace app\adminapi\controller\system;
 
-use think\App;
-use app\common\execution\CurrentExecutionContext;
-
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\system\SystemApplicationService;
 use app\common\validation\instance\InstanceToolAccessGuard;
@@ -19,9 +16,9 @@ use think\response\Json;
  */
 class SystemController extends BaseAdminController
 {
-    public function __construct(App $app, CurrentExecutionContext $executionContext, private readonly SystemApplicationService $system)
+    protected function system(): SystemApplicationService
     {
-        parent::__construct($app, $executionContext);
+        return $this->app->make(SystemApplicationService::class);
     }
 
     /** 系统环境信息 */
@@ -31,7 +28,7 @@ class SystemController extends BaseAdminController
         if ($denial !== null) {
             return $denial;
         }
-        return $this->data($this->system->getInfo((string)$this->request->server('SERVER_SOFTWARE', '')));
+        return $this->data($this->system()->getInfo((string)$this->request->server('SERVER_SOFTWARE', '')));
     }
 
     /** 清除系统缓存 */
@@ -42,7 +39,7 @@ class SystemController extends BaseAdminController
             return $denial;
         }
 
-        $this->system->clearCache();
+        $this->system()->clearCache();
         return $this->success('清除成功');
     }
 

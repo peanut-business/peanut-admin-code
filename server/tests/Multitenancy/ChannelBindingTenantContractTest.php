@@ -21,14 +21,24 @@ $verification = $read('app/modules/official/notification/src/Service/Verificatio
 $menuController = $read('app/modules/official/oauth/src/Controller/OfficialAccountMenuController.php');
 $menuLogic = $read('app/modules/official/oauth/src/Service/OfficialAccountMenuApplicationService.php');
 
-foreach ([$noticeController, $menuController] as $controller) {
+foreach ([
+    PeanutAdmin\Modules\Notification\Controller\NoticeChannelController::class,
+    PeanutAdmin\Modules\OAuth\Controller\OfficialAccountMenuController::class,
+] as $controller) {
+    $constructor = (new ReflectionClass($controller))->getConstructor();
     expectChannelBindingTenant(
-        str_contains($controller, 'CurrentExecutionContext $executionContext'),
-        'admin controller does not inject its trusted Tenant context'
+        $constructor?->getDeclaringClass()->getName() === app\BaseController::class
+            && count($constructor->getParameters()) === 1
+            && $constructor->getParameters()[0]->getType()?->getName() === think\App::class,
+        'admin controller does not inherit the current-App execution context contract'
     );
 }
 expectChannelBindingTenant(
-    str_contains($noticeController, 'NotificationQueries $queries')
+    (new ReflectionMethod(
+        PeanutAdmin\Modules\Notification\Controller\NoticeChannelController::class,
+        'notifications',
+    ))->getReturnType()?->getName() === PeanutAdmin\Modules\Notification\Service\NotificationAdminApplicationService::class
+        && str_contains($noticeController, '$this->tenantAdminContext()')
         && str_contains($notificationApplication, '$this->executionContext->tenantAdmin()'),
     'notification application service drops the trusted Tenant context'
 );
@@ -62,7 +72,7 @@ expectChannelBindingTenant(
 );
 
 foreach (['$this->bindings->config(', '$this->bindings->update(',
-    'ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK'] as $marker) {
+    'ExternalProvider::WECHAT_OFFICIAL_CALLBACK'] as $marker) {
     expectChannelBindingTenant(str_contains($menuLogic, $marker), 'official-account menu binding invariant missing: ' . $marker);
 }
 expectChannelBindingTenant(

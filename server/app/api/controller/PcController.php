@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace app\api\controller;
 
 use think\App;
-use app\common\execution\CurrentExecutionContext;
 use app\api\services\PcApplicationService;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
@@ -14,11 +13,11 @@ use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 class PcController extends BaseApiController
 {
     public function __construct(
-        App $app, CurrentExecutionContext $executionContext,
+        App $app,
         private readonly PcApplicationService $pcApplication,
         private readonly TenantEntryBindingResolver $entryBindings,
     ) {
-        parent::__construct($app, $executionContext);
+        parent::__construct($app);
     }
 
 
