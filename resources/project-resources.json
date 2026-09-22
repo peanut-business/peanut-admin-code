@@ -1492,7 +1492,7 @@
         "freshness_requirement": "container, listener, anonymous volume and exact schemas are absent before claim-bound creation; only the active lease owner may create or remove this resource",
         "health_check": "docker inspect the exact name, immutable image, label, health state and anonymous volume; credential-backed PDO SELECT VERSION(), SELECT DATABASE() and exact schema allowlist checks",
         "fallback": "none",
-        "lifecycle": "single dual-edition acceptance batch",
+      "lifecycle": "ephemeral",
         "application_runtime": true,
         "claim_precondition": "active lease covers this stable resource, exact container, port, label, all synthetic schemas, worktree and output/cache paths before Docker creation or database use",
         "cleanup_responsibility": "dual-db-acceptance-20260922 removes only the exact labelled container, its anonymous volume, generated mode-0600 credential file and exact listed schemas after evidence capture",
