@@ -1961,6 +1961,140 @@
           "network_scope": "task-owned loopback only"
         },
         "application_runtime_scope": "Task-owned generated/test applications on explicit loopback listeners only; no shared or production runtime"
+      },
+      {
+        "stable_resource_id": "peanut-admin-product-q03-single-mysql84",
+        "purpose": "Fixed Edition package A/B install, module delivery, Docker upgrade, recovery and browser qualification",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "productization-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20361,
+        "container_name": "peanut-product-q03-single-mysql-1",
+        "database": "peanut_product_q03_single_a",
+        "schema": "pa_ tables in exact A/B/restore schema allowlist",
+        "namespace": "peanut-product-q03-single_mysql-data",
+        "credential_ref": ".local/productization/private/q03-single.json and q03-single.env (0600)",
+        "data_source": "previously absent synthetic schemas in a newly created candidate-owned Compose volume",
+        "freshness_requirement": "absent project, volume, port and all schemas before first creation; never reuse a failed candidate",
+        "health_check": "exact Compose labels/image/volume and credential-backed version/schema checks",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": false,
+        "lease_gate": "productization-package-qualification",
+        "deployment_modes": [
+          "standalone"
+        ],
+        "synthetic_databases": {
+          "q03": [
+            "peanut_product_q03_single_a",
+            "peanut_product_q03_single_b",
+            "peanut_product_q03_single_restore"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-product-q03-single-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20361,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "qualification loopback endpoint"
+        },
+        "container_endpoint": {
+          "endpoint_id": "peanut-admin-product-q03-single-mysql84-container",
+          "host": "mysql",
+          "port": 3306,
+          "consumers": [
+            "container"
+          ],
+          "network_scope": "exclusive peanut-product-q03-single_default Compose network"
+        },
+        "compose_project": "peanut-product-q03-single",
+        "http_endpoint": {
+          "host": "127.0.0.1",
+          "port": 20363,
+          "scheme": "http",
+          "allowed_hosts": [
+            "admin.q03-single.localhost",
+            "platform.q03-single.localhost",
+            "alpha.q03-single.localhost",
+            "beta.q03-single.localhost"
+          ]
+        },
+        "cleanup_responsibility": "productization-20260922 after receipts; preserve failed candidate data",
+        "backup_responsibility": "signed product upgrade pairs DB plus public/private storage volumes; validate restoration before online replacement"
+      },
+      {
+        "stable_resource_id": "peanut-admin-product-q03-multi-mysql84",
+        "purpose": "Fixed Edition package A/B install, module delivery, Docker upgrade, recovery and browser qualification",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "productization-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20362,
+        "container_name": "peanut-product-q03-multi-mysql-1",
+        "database": "peanut_product_q03_multi_a",
+        "schema": "pa_ tables in exact A/B/restore schema allowlist",
+        "namespace": "peanut-product-q03-multi_mysql-data",
+        "credential_ref": ".local/productization/private/q03-multi.json and q03-multi.env (0600)",
+        "data_source": "previously absent synthetic schemas in a newly created candidate-owned Compose volume",
+        "freshness_requirement": "absent project, volume, port and all schemas before first creation; never reuse a failed candidate",
+        "health_check": "exact Compose labels/image/volume and credential-backed version/schema checks",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": false,
+        "lease_gate": "productization-package-qualification",
+        "deployment_modes": [
+          "multi-tenant"
+        ],
+        "synthetic_databases": {
+          "q03": [
+            "peanut_product_q03_multi_a",
+            "peanut_product_q03_multi_b",
+            "peanut_product_q03_multi_restore"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-product-q03-multi-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20362,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "qualification loopback endpoint"
+        },
+        "container_endpoint": {
+          "endpoint_id": "peanut-admin-product-q03-multi-mysql84-container",
+          "host": "mysql",
+          "port": 3306,
+          "consumers": [
+            "container"
+          ],
+          "network_scope": "exclusive peanut-product-q03-multi_default Compose network"
+        },
+        "compose_project": "peanut-product-q03-multi",
+        "http_endpoint": {
+          "host": "127.0.0.1",
+          "port": 20364,
+          "scheme": "http",
+          "allowed_hosts": [
+            "admin.q03-multi.localhost",
+            "platform.q03-multi.localhost",
+            "alpha.q03-multi.localhost",
+            "beta.q03-multi.localhost"
+          ]
+        },
+        "cleanup_responsibility": "productization-20260922 after receipts; preserve failed candidate data",
+        "backup_responsibility": "signed product upgrade pairs DB plus public/private storage volumes; validate restoration before online replacement"
       }
     ],
     "local_listeners": [

@@ -121,7 +121,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cb544e559120fce0e106b56c1e35a1a463dee00fb0f651358de8cf94e7971919"
+            "source_sha256": "d22941f49c52d4bc307ddd9301434f2ef643369d0e910fbc9ca23d2a99dc23f6"
         },
         {
             "path": ".github/workflows/repository-policy.yml",
@@ -22045,7 +22045,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "090199b80abbdb2bec26ce9a5ebcb9507619ecc5dd5494b16e67b11e55705287"
+            "source_sha256": "57e72d889706b33270ae8306aab3cffba76d90108b901afb48733e1a4aa5ee49"
         },
         {
             "path": "server/generated/openapi.json",
