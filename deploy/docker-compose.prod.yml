@@ -60,6 +60,7 @@ services:
         condition: service_healthy
         required: false
     volumes:
+      - ${PEANUT_DEPLOYMENT_RECEIPT_FILE:?set PEANUT_DEPLOYMENT_RECEIPT_FILE for the deployment receipt}:/var/www/peanut-admin/DEPLOYMENT_RECEIPT.json:ro
       - ${PEANUT_SERVER_ENV_FILE:-../server/.env}:/var/www/peanut-admin/server/.env.source:ro
       - php-runtime:/var/www/peanut-admin/server/runtime
       - php-storage:/var/www/peanut-admin/server/public/storage
@@ -84,6 +85,7 @@ services:
     ports:
       - "127.0.0.1:${HTTP_PORT:-18092}:80"
     volumes:
+      - ${PEANUT_DEPLOYMENT_RECEIPT_FILE:?set PEANUT_DEPLOYMENT_RECEIPT_FILE for the deployment receipt}:/var/www/peanut-admin/DEPLOYMENT_RECEIPT.json:ro
       - ${PEANUT_SERVER_ENV_FILE:-../server/.env}:/var/www/peanut-admin/server/.env.source:ro
       - php-storage:/var/www/peanut-admin/server/public/storage:ro
     depends_on:
@@ -130,6 +132,7 @@ services:
     environment:
       PEANUT_SERVER_ENV_FILE: /var/www/peanut-admin/server/.env.source
     volumes:
+      - ${PEANUT_DEPLOYMENT_RECEIPT_FILE:?set PEANUT_DEPLOYMENT_RECEIPT_FILE for the deployment receipt}:/var/www/peanut-admin/DEPLOYMENT_RECEIPT.json:ro
       - ${PEANUT_SERVER_ENV_FILE:-../server/.env}:/var/www/peanut-admin/server/.env.source:ro
       - php-runtime:/var/www/peanut-admin/server/runtime
       - php-storage:/var/www/peanut-admin/server/public/storage

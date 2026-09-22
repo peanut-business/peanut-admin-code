@@ -354,7 +354,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b8c6fc3420b93394c0ef7ad2808f40f3f5fc05f11d2ce3fda43099c3c392ebeb"
+            "source_sha256": "df829f45ab6d9a5a65230e4910b37f161ed168487dd51f8534283881e341982a"
         },
         {
             "path": "deploy/docker-compose.remote-development.yml",
@@ -504,6 +504,20 @@
                 "full"
             ],
             "source_sha256": "2a404317b712cce4573f0065b1987d3a6a119a36c91e5225ddcf4526be1ef2d4"
+        },
+        {
+            "path": "deploy/tests/deploy-release-candidate-contract.sh",
+            "target": "deploy/tests/deploy-release-candidate-contract.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4f1a2af3427ddd1596bcab5c56150008fa9c712c2767dd0ad2db4911564a1901"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -2524,7 +2538,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6499fe7715a85620b86c3d495e144b8bdb8dfca07f3af0e068130411c31d70e0"
+            "source_sha256": "84d61511facf775dc473a2c7a3acef1919ee3002e60acb9be87d4056b27a3ff0"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
@@ -21124,7 +21138,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "55564965427f3039c5faf5fd630787c2ad1f1cd579d5941722a422744404adba"
+            "source_sha256": "339263e42ab5509f29558ac5639c1015d2c0812113d9ab751faca5f4be4d8259"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -24547,7 +24561,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2745359b77c9e398a59948d22c71fddadc78a4946959aecb28838e15bcd64e40"
+            "source_sha256": "f7246ec66dab0e11e64d02a3490ec0efa116966123b58a9b11ceaeea6af45056"
         },
         {
             "path": "server/tests/Productization/InstallerBootstrapTest.php",
@@ -25293,6 +25307,19 @@
         {
             "path": "server/tests/Unit/MemberSessionTokenTest.php",
             "target": "server/tests/Unit/MemberSessionTokenTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/MigrationTargetIdentityTest.php",
+            "target": "server/tests/Unit/MigrationTargetIdentityTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

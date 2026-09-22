@@ -1492,7 +1492,7 @@
         "freshness_requirement": "container, listener, anonymous volume and exact schemas are absent before claim-bound creation; only the active lease owner may create or remove this resource",
         "health_check": "docker inspect the exact name, immutable image, label, health state and anonymous volume; credential-backed PDO SELECT VERSION(), SELECT DATABASE() and exact schema allowlist checks",
         "fallback": "none",
-      "lifecycle": "ephemeral",
+        "lifecycle": "ephemeral",
         "application_runtime": true,
         "claim_precondition": "active lease covers this stable resource, exact container, port, label, all synthetic schemas, worktree and output/cache paths before Docker creation or database use",
         "cleanup_responsibility": "dual-db-acceptance-20260922 removes only the exact labelled container, its anonymous volume, generated mode-0600 credential file and exact listed schemas after evidence capture",
@@ -1983,7 +1983,8 @@
         "services": {
           "php": "peanut-admin-php-1",
           "cron": "peanut-admin-cron-1",
-          "nginx": "peanut-admin-nginx-1"
+          "nginx": "peanut-admin-nginx-1",
+          "pc": "peanut-admin-pc-1"
         },
         "network": "peanut-admin_default",
         "published_endpoint": {
@@ -2000,12 +2001,13 @@
         "database": "peanut_admin",
         "schema": "pa_ table prefix",
         "namespace": "peanut-admin-production",
-        "service_type": "Docker Compose PHP/Nginx/cron application stack",
+        "service_type": "Docker Compose PHP/Nginx/cron and per-request Node SSR application stack",
         "credential_ref": "oracle3:/www/docker/peanut-admin/server/.env (root-owned mode 0600; secret values are not stored in Git)",
         "data_source": "release source and images under /www/docker/peanut-admin on oracle3",
         "persistent_volumes": [
           "peanut-admin_php-runtime",
-          "peanut-admin_php-storage"
+          "peanut-admin_php-storage",
+          "peanut-admin_php-private-storage"
         ],
         "freshness_requirement": "v3.0 is fresh-only: verify the exact release checkout and images, explicitly recreate the registered target, then pass the KernelSchema plus init.sql baseline guard",
         "health_check": {
@@ -2014,7 +2016,26 @@
         },
         "fallback": "none",
         "cleanup_responsibility": "Peanut Admin production deployment owner; no automatic cleanup and destructive cleanup requires an explicit gate",
-        "backup_responsibility": "Peanut Admin production deployment owner archives peanut-admin_php-storage in the same quiesced window as the bundled database dump"
+        "backup_responsibility": "Peanut Admin production deployment owner archives peanut-admin_php-storage in the same quiesced window as the bundled database dump",
+        "ssr": {
+          "service": "pc",
+          "internal_port": 3000,
+          "network": "peanut-admin_default",
+          "upstream_origin": "http://nginx",
+          "public_scheme": "https",
+          "trusted_hosts": [
+            "peanut-admin.007345.xyz"
+          ],
+          "health_path": "/pc/healthz",
+          "public_listener": "uses registered Nginx endpoint; no new host port"
+        },
+        "acceptance_preflight": {
+          "compose_project_prefix": "peanut-admin-candidate-preflight-",
+          "purpose": "fixed candidate fresh installation and migration before target replacement",
+          "published_ports": [],
+          "storage": "only its own ephemeral Compose volumes; never existing target volumes",
+          "cleanup": "remove only this exact preflight project and volumes"
+        }
       },
       {
         "stable_resource_id": "peanut-admin-production-bundled-mysql84-container",
@@ -2053,7 +2074,8 @@
         "services": {
           "php": "peanut-admin-candidate-php-1",
           "cron": "peanut-admin-candidate-cron-1",
-          "nginx": "peanut-admin-candidate-nginx-1"
+          "nginx": "peanut-admin-candidate-nginx-1",
+          "pc": "peanut-admin-candidate-pc-1"
         },
         "published_endpoint": {
           "host": "127.0.0.1",
@@ -2068,7 +2090,7 @@
         "database": "peanut_admin_candidate",
         "schema": "pa_ table prefix",
         "namespace": "peanut-admin-production-candidate",
-        "service_type": "Docker Compose PHP/Nginx/cron application stack",
+        "service_type": "Docker Compose PHP/Nginx/cron and per-request Node SSR application stack",
         "credential_ref": "oracle3:/www/docker/peanut-admin-candidate/server/.env (root-owned mode 0600; secret values are not stored in Git)",
         "data_source": "v3.0.14 release commit e30b667bbfc25d70281ddf1864b99883850afa24/tree c956641c976ce4e35d7a1abdc159bb3ee2fd958e plus demo overlay 20a284d7bf4acc88313f29b8fe094033bf635c5c under /www/docker/peanut-admin-candidate on oracle3",
         "deployed_image_tag": "3.0.14-demo-153dba557cd5",
@@ -2076,7 +2098,8 @@
         "deployment_receipt_verified_at": "2026-09-09",
         "persistent_volumes": [
           "peanut-admin-candidate_php-runtime",
-          "peanut-admin-candidate_php-storage"
+          "peanut-admin-candidate_php-storage",
+          "peanut-admin-candidate_php-private-storage"
         ],
         "freshness_requirement": "verify the exact release commit/tree, overlay commit/archive SHA-256, host/runtime DEPLOYMENT_RECEIPT.json byte equality, images, multi-tenant environment selectors and origin port before start",
         "health_check": {
@@ -2085,7 +2108,29 @@
         },
         "fallback": "none",
         "cleanup_responsibility": "Peanut Admin production candidate deployment owner; no automatic cleanup and destructive cleanup requires explicit approval",
-        "backup_responsibility": "not required for the first empty synthetic demo install; this fresh-only target must be rebuilt rather than upgraded"
+        "backup_responsibility": "not required for the first empty synthetic demo install; this fresh-only target must be rebuilt rather than upgraded",
+        "ssr": {
+          "service": "pc",
+          "internal_port": 3000,
+          "network": "peanut-admin-candidate_default",
+          "upstream_origin": "http://nginx",
+          "public_scheme": "https",
+          "trusted_hosts": [
+            "pa-platform.007345.xyz",
+            "pa-admin.007345.xyz",
+            "pa-tenant-a.007345.xyz",
+            "pa-tenant-b.007345.xyz"
+          ],
+          "health_path": "/pc/healthz",
+          "public_listener": "uses registered Nginx endpoint; no new host port"
+        },
+        "acceptance_preflight": {
+          "compose_project_prefix": "peanut-admin-candidate-candidate-preflight-",
+          "purpose": "fixed candidate fresh installation and migration before target replacement",
+          "published_ports": [],
+          "storage": "only its own ephemeral Compose volumes; never existing target volumes",
+          "cleanup": "remove only this exact preflight project and volumes"
+        }
       },
       {
         "stable_resource_id": "peanut-admin-production-candidate-mysql84-container",
@@ -2455,7 +2500,9 @@
           "DB_HOST": "mysql",
           "DB_PORT": 3306,
           "DB_NAME": "peanut_admin",
-          "HTTP_PORT": 18092
+          "HTTP_PORT": 18092,
+          "PEANUT_PUBLIC_SCHEME": "https",
+          "PEANUT_TRUSTED_HOSTS": "peanut-admin.007345.xyz"
         },
         "runtime_resource_ids": [
           "peanut-admin-production-application-containers",
@@ -2504,7 +2551,12 @@
         "fallback": "none",
         "lifecycle": "persistent",
         "cleanup_responsibility": "Peanut Admin production deployment owner; no automatic cleanup and destructive cleanup requires an explicit gate",
-        "backup_responsibility": "Peanut Admin production deployment owner creates and verifies the peanut-admin-production-backups pair before destructive fresh reinstallation"
+        "backup_responsibility": "Peanut Admin production deployment owner creates and verifies the peanut-admin-production-backups pair before destructive fresh reinstallation",
+        "disposable_demo_reset_authorization": {
+          "date": "2026-09-22",
+          "scope": "user explicitly allows discarding and rebuilding both registered demos; no unrelated service, domain or volume",
+          "execution": "exact target, paired backup, candidate identity and isolated install preflight required"
+        }
       },
       {
         "stable_resource_id": "peanut-admin-production-candidate-deployment",
@@ -2545,7 +2597,9 @@
           "HTTP_PORT": 18093,
           "PLATFORM_HOSTS": "pa-platform.007345.xyz",
           "TENANT_ADMIN_HOSTS": "pa-admin.007345.xyz",
-          "OWNER_INVITATION_DELIVERY_MODE": "manual"
+          "OWNER_INVITATION_DELIVERY_MODE": "manual",
+          "PEANUT_PUBLIC_SCHEME": "https",
+          "PEANUT_TRUSTED_HOSTS": "pa-platform.007345.xyz,pa-admin.007345.xyz,pa-tenant-a.007345.xyz,pa-tenant-b.007345.xyz"
         },
         "runtime_resource_ids": [
           "peanut-admin-production-candidate-application-containers",
@@ -2586,7 +2640,12 @@
         "fallback": "none",
         "lifecycle": "persistent disposable demo",
         "cleanup_responsibility": "Peanut Admin production candidate deployment owner; no automatic cleanup and destructive cleanup requires explicit approval",
-        "backup_responsibility": "not required before the first empty synthetic installation; this fresh-only target must be rebuilt rather than upgraded"
+        "backup_responsibility": "not required before the first empty synthetic installation; this fresh-only target must be rebuilt rather than upgraded",
+        "disposable_demo_reset_authorization": {
+          "date": "2026-09-22",
+          "scope": "user explicitly allows discarding and rebuilding both registered demos; no unrelated service, domain or volume",
+          "execution": "exact target, paired backup, candidate identity and isolated install preflight required"
+        }
       },
       {
         "stable_resource_id": "peanut-admin-production-restore-verification-deployment",

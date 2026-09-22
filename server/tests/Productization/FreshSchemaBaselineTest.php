@@ -12,7 +12,7 @@ $serverRoot = dirname(__DIR__, 2);
 $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
 $installer = (string)file_get_contents($serverRoot . '/database/install.php');
 $installationHost = (string)file_get_contents(
-    $serverRoot . '/app/common/service/installation/InstallationExecutionHost.php'
+    $serverRoot . '/app/common/services/installation/InstallationExecutionHost.php'
 );
 $guard = (string)file_get_contents($serverRoot . '/database/environment-guard.php');
 preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $schema, $matches);

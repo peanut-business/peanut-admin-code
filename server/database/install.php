@@ -626,9 +626,8 @@ function migrationReleaseIdentity(string $sql, string $applicationVersion): arra
  */
 function migrateDatabase(string $serverDir, string $targetVersion, bool $dryRun = false): array
 {
-    if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $targetVersion) !== 1) {
-        throw new RuntimeException('目标版本必须是 X.Y.Z');
-    }
+    // 版本格式由已固定的 ApplicationReleaseVersions 校验，CLI 目标必须逐字匹配。
+    // 开发候选与正式版本共用同一权威来源；不得用旧 RELEASE_METADATA 代替候选迁移目标。
     $versions = applicationReleaseVersions($serverDir);
     $targetVersion = validatedMigrationTargetVersion($serverDir, $targetVersion, $versions);
     loadCoreRuntime($serverDir);
@@ -723,7 +722,7 @@ function migrationArguments(array $arguments): ?array
         }
     }
     if ($target === null) {
-        throw new RuntimeException('--migrate requires --target-version=X.Y.Z');
+        throw new RuntimeException('--migrate requires --target-version matching the adopted scaffold identity');
     }
     return [$target, $dryRun];
 }

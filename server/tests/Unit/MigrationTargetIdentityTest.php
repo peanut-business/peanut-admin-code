@@ -1,0 +1,63 @@
+<?php
+declare(strict_types=1);
+
+namespace tests\Unit;
+
+use PHPUnit\Framework\TestCase;
+
+/** 真正加载安装器，但每次子进程只给无数据库凭据的明确配置；不污染测试父进程。 */
+final class MigrationTargetIdentityTest extends TestCase
+{
+    public function testDevelopmentTargetIsExactlyTheAdoptedScaffoldIdentity(): void
+    {
+        $result = $this->installerCall(            '$versions = applicationReleaseVersions($server);'
+            . '$target = applicationMigrationTargetVersion($server, $versions);'
+            . 'echo json_encode([$versions["scaffold_template"], validatedMigrationTargetVersion($server, $target, $versions)], JSON_THROW_ON_ERROR);'
+        );
+        self::assertSame('4.0.0-dev', $result[0]);
+        self::assertSame($result[0], $result[1]);
+    }
+
+    public function testForeignAndMalformedTargetsFailBeforeAnyDatabaseAccess(): void
+    {
+        $result = $this->installerCall(            '$errors = []; foreach (["", "../schema", "latest", "4.0.0-dev; DROP TABLE x", "4.0.0-dev ", "3.1.0"] as $wrong) {'
+            . 'try { migrateDatabase($server, $wrong, true); $errors[] = "unexpected-success"; }'
+            . 'catch (RuntimeException $exception) { $errors[] = $exception->getMessage(); }}'
+            . 'echo json_encode($errors, JSON_THROW_ON_ERROR);'
+        );
+        self::assertCount(6, $result);
+        foreach ($result as $error) self::assertSame('MIGRATION_TARGET_CONTRACT_MISMATCH', $error);
+    }
+
+    public function testCliRetainsTheExactPrereleaseValue(): void
+    {
+        $result = $this->installerCall(            'echo json_encode([migrationArguments(["--migrate", "--target-version=4.0.0-dev", "--dry-run"]), migrationArguments(["--preflight"])], JSON_THROW_ON_ERROR);'
+        );
+        self::assertSame([['4.0.0-dev', true], null], $result);
+    }
+
+    private function installerCall(string $body): array
+    {
+        $server = dirname(__DIR__, 2);
+        $path = $server . '/.env.migration-test-' . bin2hex(random_bytes(8));
+        $file = fopen($path, 'x');
+        self::assertIsResource($file);
+        chmod($path, 0600);
+        fwrite($file, "APP_ENV=development\nAPP_DEBUG=false\n");
+        fclose($file);
+        try {
+            $source = '$server = ' . var_export($server, true) . '; require $server . "/vendor/autoload.php"; require $server . "/database/install.php"; ' . $body;
+            $process = proc_open([PHP_BINARY, '-r', $source], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname($server), [
+                'PATH' => (string)getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $path,
+            ]);
+            self::assertIsResource($process);
+            $output = stream_get_contents($pipes[1]);
+            $error = stream_get_contents($pipes[2]);
+            fclose($pipes[1]); fclose($pipes[2]);
+            self::assertSame(0, proc_close($process), $error . $output);
+            return json_decode($output, true, 512, JSON_THROW_ON_ERROR);
+        } finally {
+            unlink($path);
+        }
+    }
+}
