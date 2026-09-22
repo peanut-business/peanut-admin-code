@@ -87,7 +87,16 @@ final readonly class ModuleCatalogApplier
                     : [];
                 $referenceCodes->registerModule($key, $definitions);
             }
-            (new ReferenceCodeStore())->synchronize($referenceCodes, $now);
+            // 字典账本由其业务模块迁移创建。未安装且无字典贡献时不访问不存在的表；
+            // 实际声明了字典的模块必须先满足依赖，不把缺表静默当成同步成功。
+            if (self::referenceCodeTableExists()) {
+                (new ReferenceCodeStore())->synchronize($referenceCodes, $now);
+            } elseif ($referenceCodes->all() !== []) {
+                throw new PluginLifecycleException(
+                    'MODULE_REFERENCE_CODE_STORAGE_REQUIRED',
+                    'Install the declared reference-code dependency before registering its contributions.',
+                );
+            }
 
             $mutations = new ModuleCatalogMutationRepository();
             $mutations->retireMissing($selected);

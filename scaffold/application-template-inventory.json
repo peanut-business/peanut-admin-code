@@ -7088,7 +7088,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e16997439fc1f25023e0f26b3eb1f0d695ee89476358d621dadceadfbdd135f8"
+            "source_sha256": "9835718df1c6b5331c03ed0859815c091301ca668f381599a1ce307df886a227"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -19752,7 +19752,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db5bfc7e93cedc297d90b83ba3f352141fece3dcfa5a18d4d648d63483b651b9"
+            "source_sha256": "c2fd81fda5755a0477a83cfebc0c667647b1b60487a26ffe0ba72eaaef32b017"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",

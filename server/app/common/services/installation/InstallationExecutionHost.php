@@ -271,7 +271,19 @@ final class InstallationExecutionHost
             }
         }
         $modules = array_values(array_unique($modules));
-        sort($modules, SORT_STRING);
+        $selected = array_fill_keys($modules, true);
+        $definitions = [];
+        foreach ($this->definitionRegistry()->modules as $manifest) {
+            $key = (string)$manifest->data['key'];
+            if (isset($selected[$key])) {
+                $definitions[$key] = [
+                    'version' => (string)$manifest->data['version'],
+                    'dependencies' => $manifest->data['dependencies'] ?? [],
+                ];
+            }
+        }
+        // 与独立模块包使用同一依赖/版本规则，且在创建数据库之前完成校验。
+        $modules = (new \app\platform\validation\plugin\ModulePackagePreflight())->dependencyOrder($definitions, []);
         $credentials = array_intersect_key($input, array_flip([
             'admin_email', 'admin_password', 'platform_email', 'platform_password',
         ]));
