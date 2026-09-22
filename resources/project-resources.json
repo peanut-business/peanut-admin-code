@@ -11,6 +11,25 @@
   "resources": {
     "tooling": [
       {
+        "stable_resource_id": "peanut-admin-product-linux-host",
+        "purpose": "Linux execution of the package-shipped Docker upgrade host during isolated product qualification",
+        "environments": ["development-test", "qualification"],
+        "owner": "productization-20260922",
+        "host": "Docker Desktop local engine",
+        "port": null,
+        "database": null,
+        "schema": null,
+        "namespace": "peanut-product-linux-host:20260922; container peanut-product-linux-host",
+        "service_type": "PHP CLI Debian Bookworm with Docker CLI/Compose and GNU host tools",
+        "version": "php:8.3-cli-bookworm@sha256:013e2a0fab922e925d12c1546a58ab8ca4480ac22507894a1f18025707098414; docker:29.8.0-cli@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921bb66",
+        "credential_ref": "none; local Docker socket is a privileged tool connection, no remote credentials",
+        "data_source": "digest-pinned upstream images plus local Dockerfile and package manifests recorded in .local/productization/linux-host",
+        "freshness_requirement": "record built image ID, installed tool versions and package manifest before use; exact task-owned mounts and lease",
+        "health_check": "PHP version/extensions, Docker CLI/Compose versions and shared engine identity",
+        "fallback": "none",
+        "cleanup_responsibility": "productization-20260922 removes only its own labelled tooling container/image after evidence capture"
+      },
+      {
         "stable_resource_id": "peanut-admin-product-docker29",
         "purpose": "Isolated product candidate image, database and recovery qualification",
         "environments": ["development-test", "qualification"],
