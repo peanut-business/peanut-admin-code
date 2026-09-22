@@ -4,39 +4,145 @@ set -euo pipefail
 die() { printf 'p0e-browser-smoke: %s\n' "$*" >&2; exit 1; }
 
 MODE=""
+PROFILE="baseline"
 TENANT_ADMIN_URL=""
+TENANT_BETA_URL=""
 PLATFORM_URL=""
 DOCS_URL=""
 OUTPUT_DIR=""
 SESSION=""
 ENV_FILE=""
+IDENTITY_FILE=""
 PLAYWRIGHT_CLI=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode) MODE="${2:-}"; shift 2 ;;
+    --profile) PROFILE="${2:-}"; shift 2 ;;
     --tenant-admin-url) TENANT_ADMIN_URL="${2:-}"; shift 2 ;;
+    --tenant-beta-url) TENANT_BETA_URL="${2:-}"; shift 2 ;;
     --platform-url) PLATFORM_URL="${2:-}"; shift 2 ;;
     --docs-url) DOCS_URL="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --session) SESSION="${2:-}"; shift 2 ;;
     --env-file) ENV_FILE="${2:-}"; shift 2 ;;
+    --identity-file) IDENTITY_FILE="${2:-}"; shift 2 ;;
     --playwright-cli) PLAYWRIGHT_CLI="${2:-}"; shift 2 ;;
     *) die "unknown option: $1" ;;
   esac
 done
 
 [[ "$MODE" == standalone || "$MODE" == multi-tenant ]] || die '--mode must be standalone or multi-tenant'
-[[ "$TENANT_ADMIN_URL" =~ ^http://admin\.p0e\.localhost:[0-9]{1,5}$ ]] || die '--tenant-admin-url must use the registered Admin localhost alias'
-[[ "$PLATFORM_URL" =~ ^http://platform\.p0e\.localhost:[0-9]{1,5}$ ]] || die '--platform-url must use the registered Platform localhost alias'
-[[ "$DOCS_URL" =~ ^http://127\.0\.0\.1:[0-9]{1,5}$ ]] || die '--docs-url must be an explicit registered loopback URL'
+[[ "$PROFILE" == baseline || "$PROFILE" == release ]] || die '--profile must be baseline or release'
+local_url() {
+  node - "$1" <<'NODE'
+const value = process.argv[2];
+let parsed;
+try { parsed = new URL(value); } catch { process.exit(1); }
+const local = parsed.hostname === '127.0.0.1'
+  || parsed.hostname === '::1'
+  || parsed.hostname === 'localhost'
+  || parsed.hostname.endsWith('.localhost');
+if (!local || !['http:', 'https:'].includes(parsed.protocol) || !parsed.port
+  || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash) process.exit(1);
+NODE
+}
+local_url "${TENANT_ADMIN_URL%/}/" || die '--tenant-admin-url must be an explicit registered loopback/.localhost origin with a port'
+local_url "${PLATFORM_URL%/}/" || die '--platform-url must be an explicit registered loopback/.localhost origin with a port'
+if [[ "$PROFILE" == baseline ]]; then
+  local_url "${DOCS_URL%/}/" || die '--docs-url must be an explicit registered loopback/.localhost origin with a port'
+elif [[ -n "$DOCS_URL" ]]; then
+  local_url "${DOCS_URL%/}/" || die '--docs-url must be an explicit registered loopback/.localhost origin with a port when supplied'
+fi
 [[ "$OUTPUT_DIR" == /* && -d "$OUTPUT_DIR" ]] || die '--output-dir must be an existing absolute directory'
 [[ "$SESSION" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || die '--session is invalid'
 [[ -x "$PLAYWRIGHT_CLI" ]] || die '--playwright-cli must name an executable Playwright CLI wrapper'
 [[ "$ENV_FILE" == /* && -f "$ENV_FILE" && ! -L "$ENV_FILE" ]] || die '--env-file must name an absolute regular file'
 [[ "$(stat -f '%Lp' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE")" == 600 ]] || die '--env-file must have mode 0600'
-for name in P0E_ADMIN_INITIAL_EMAIL P0E_ADMIN_INITIAL_PASSWORD P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD; do
+required_values=(P0E_ADMIN_INITIAL_EMAIL P0E_ADMIN_INITIAL_PASSWORD P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD)
+if [[ "$PROFILE" == release ]]; then
+  if [[ "$MODE" == multi-tenant ]]; then
+    local_url "${TENANT_BETA_URL%/}/" || die '--tenant-beta-url must be an explicit registered loopback/.localhost origin with a port'
+  fi
+  [[ "$IDENTITY_FILE" == /* && -f "$IDENTITY_FILE" && ! -L "$IDENTITY_FILE" ]] || die '--identity-file must name an absolute regular file for the release profile'
+  [[ "$(stat -f '%Lp' "$IDENTITY_FILE" 2>/dev/null || stat -c '%a' "$IDENTITY_FILE")" == 600 ]] || die '--identity-file must have mode 0600'
+  required_values=(
+    P0E_TENANT_ALPHA_EMAIL P0E_TENANT_ALPHA_PASSWORD
+    P0E_TENANT_RESTRICTED_EMAIL P0E_TENANT_RESTRICTED_PASSWORD
+    P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD
+  )
+  if [[ "$MODE" == multi-tenant ]]; then
+    required_values+=(P0E_TENANT_BETA_EMAIL P0E_TENANT_BETA_PASSWORD)
+  fi
+fi
+for name in "${required_values[@]}"; do
   grep -q "^${name}=." "$ENV_FILE" || die "missing file value: $name"
 done
+if [[ "$PROFILE" == release ]]; then
+  node - "$IDENTITY_FILE" "$MODE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" <<'NODE' || die 'release identity file is invalid or does not match the registered origins'
+const fs = require('node:fs');
+const [path, mode, alphaUrl, betaUrl, platformUrl] = process.argv.slice(2);
+const value = JSON.parse(fs.readFileSync(path, 'utf8'));
+const own = (subject, key) => Object.prototype.hasOwnProperty.call(subject, key);
+const array = (subject, key) => Array.isArray(subject?.[key]) && subject[key].length > 0;
+const same = (left, right) => left.replace(/\/$/u, '') === right.replace(/\/$/u, '');
+const localOrigin = (input) => {
+  let url;
+  try { url = new URL(input); } catch { return false; }
+  return ['http:', 'https:'].includes(url.protocol) && url.port !== ''
+    && !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash
+    && (url.hostname === '127.0.0.1' || url.hostname === '::1' || url.hostname === 'localhost' || url.hostname.endsWith('.localhost'));
+};
+const secretKey = (input) => Object.entries(input || {}).some(([key, child]) =>
+  /password|secret|token|credential/i.test(key)
+  || (child && typeof child === 'object' && secretKey(child)));
+if (value.schema_version !== 1 || secretKey(value)) throw new Error('identity must contain no credentials');
+if (!same(value.tenants?.alpha?.admin_url || '', alphaUrl)
+  || !same(value.platform_url || '', platformUrl)) throw new Error('origin mismatch');
+if (mode === 'multi-tenant' && !same(value.tenants?.beta?.admin_url || '', betaUrl)) throw new Error('Beta origin mismatch');
+const tenantNames = mode === 'multi-tenant' ? ['alpha', 'beta', 'restricted'] : ['alpha', 'restricted'];
+for (const name of tenantNames) {
+  const tenant = value.tenants?.[name];
+  if (!tenant || !localOrigin(`${String(tenant.admin_url || '').replace(/\/$/u, '')}/`)
+    || !array(tenant.menu, 'required') || !array(tenant.menu, 'forbidden')
+    || !tenant.menu.required.every((item) => typeof item === 'string' && item !== '')
+    || !tenant.menu.forbidden.every((item) => typeof item === 'string' && item !== '')) throw new Error(`invalid ${name} menu contract`);
+}
+if (!same(value.tenants.restricted.admin_url, alphaUrl)
+  && !(mode === 'multi-tenant' && same(value.tenants.restricted.admin_url, betaUrl))) {
+  throw new Error('restricted account must use the registered Alpha or Beta origin');
+}
+const packageIdentity = value.package_identity;
+if (!packageIdentity || !/^[a-f0-9]{40}$/u.test(packageIdentity.commit || '')
+  || !/^[a-f0-9]{40}$/u.test(packageIdentity.tree || '')
+  || !(packageIdentity.release_key === null || /^v[0-9]+\.[0-9]+\.[0-9]+$/u.test(packageIdentity.release_key || ''))) {
+  throw new Error('invalid package identity');
+}
+for (const key of ['rbac_denials', 'scope_allowed', 'scope_denials']) {
+  if (!array(value.probes, key)) throw new Error(`missing ${key}`);
+  for (const probe of value.probes[key]) {
+    if (!probe || typeof probe.name !== 'string' || probe.name === '' || probe.actor !== 'restricted'
+      || !(mode === 'multi-tenant' ? ['alpha', 'beta'] : ['alpha']).includes(probe.base)
+      || !/^(GET|POST|PUT|PATCH|DELETE)$/u.test(probe.method || '')
+      || typeof probe.path !== 'string' || !probe.path.startsWith('/adminapi/')) throw new Error(`invalid ${key} probe`);
+    const statuses = probe.expect?.statuses;
+    const codes = probe.expect?.codes;
+    if ((!Array.isArray(statuses) || statuses.length === 0) && (!Array.isArray(codes) || codes.length === 0)) {
+      throw new Error(`${key} probe has no expected status/code`);
+    }
+    if (key === 'scope_allowed' && (!Array.isArray(probe.expect?.contains) || probe.expect.contains.length === 0
+      || !Array.isArray(probe.expect?.absent) || probe.expect.absent.length === 0)) {
+      throw new Error('scope_allowed must prove both visible and excluded data');
+    }
+  }
+}
+if (!value.ssr || !/^\/[A-Za-z0-9._~!$&'()*+,;=:@%\/-]*$/u.test(value.ssr.path || '')
+  || !array(value.ssr.alpha, 'required') || !array(value.ssr.alpha, 'forbidden')
+  || (mode === 'multi-tenant' && (!array(value.ssr.beta, 'required') || !array(value.ssr.beta, 'forbidden')))) {
+  throw new Error('invalid SSR contract');
+}
+if (!own(value, 'package_identity')) throw new Error('missing package identity');
+NODE
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 FIXTURE="$ROOT/server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js"
@@ -62,18 +168,27 @@ cli open "$TENANT_ADMIN_URL/admin/login" >"$LOG" 2>&1
 OPENED=1
 cli resize 1440 1000 >>"$LOG" 2>&1
 cli snapshot >"$OUTPUT_DIR/$MODE-initial-snapshot.txt" 2>>"$LOG"
-browser_environment="$(node - "$ENV_FILE" "$MODE" "$TENANT_ADMIN_URL" "$PLATFORM_URL" "$DOCS_URL" "$OUTPUT_DIR" <<'NODE'
+browser_environment="$(node - "$ENV_FILE" "$MODE" "$PROFILE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$OUTPUT_DIR" "$IDENTITY_FILE" <<'NODE'
 const fs = require('node:fs');
-const [path, mode, tenantAdminUrl, platformUrl, docsUrl, outputDir] = process.argv.slice(2);
+const [path, mode, profile, tenantAdminUrl, tenantBetaUrl, platformUrl, docsUrl, outputDir, identityPath] = process.argv.slice(2);
 const values = Object.fromEntries(fs.readFileSync(path, 'utf8').trim().split(/\r?\n/u).map((line) => line.split(/=(.*)/s, 2)));
 process.stdout.write(JSON.stringify({
   P0E_BROWSER_MODE: mode,
+  P0E_BROWSER_PROFILE: profile,
   P0E_BROWSER_TENANT_ADMIN_URL: tenantAdminUrl,
+  P0E_BROWSER_TENANT_BETA_URL: tenantBetaUrl,
   P0E_BROWSER_PLATFORM_URL: platformUrl,
   P0E_BROWSER_DOCS_URL: docsUrl,
   P0E_BROWSER_OUTPUT_DIR: outputDir,
+  P0E_BROWSER_IDENTITY_JSON: identityPath ? fs.readFileSync(identityPath, 'utf8') : '',
   P0E_ADMIN_INITIAL_EMAIL: values.P0E_ADMIN_INITIAL_EMAIL || '',
   P0E_ADMIN_INITIAL_PASSWORD: values.P0E_ADMIN_INITIAL_PASSWORD || '',
+  P0E_TENANT_ALPHA_EMAIL: values.P0E_TENANT_ALPHA_EMAIL || '',
+  P0E_TENANT_ALPHA_PASSWORD: values.P0E_TENANT_ALPHA_PASSWORD || '',
+  P0E_TENANT_BETA_EMAIL: values.P0E_TENANT_BETA_EMAIL || '',
+  P0E_TENANT_BETA_PASSWORD: values.P0E_TENANT_BETA_PASSWORD || '',
+  P0E_TENANT_RESTRICTED_EMAIL: values.P0E_TENANT_RESTRICTED_EMAIL || '',
+  P0E_TENANT_RESTRICTED_PASSWORD: values.P0E_TENANT_RESTRICTED_PASSWORD || '',
   P0E_PLATFORM_INITIAL_EMAIL: values.P0E_PLATFORM_INITIAL_EMAIL || '',
   P0E_PLATFORM_INITIAL_PASSWORD: values.P0E_PLATFORM_INITIAL_PASSWORD || '',
 }));
@@ -88,7 +203,8 @@ chmod 600 "$RUNTIME_FIXTURE"
   printf '%s\n' '}'
 } >"$RUNTIME_FIXTURE"
 cli run-code --filename "$RUNTIME_FIXTURE" >>"$LOG" 2>&1
+grep -q '"status":"passed"' "$LOG" || die 'browser fixture did not emit its successful completion record'
 cli snapshot >"$OUTPUT_DIR/$MODE-final-snapshot.txt" 2>>"$LOG"
 cli close >>"$LOG" 2>&1
 OPENED=0
-printf 'browser_mode=%s\nstatus=passed\nlog=%s\n' "$MODE" "$LOG"
+printf 'browser_mode=%s\nbrowser_profile=%s\nstatus=passed\nlog=%s\n' "$MODE" "$PROFILE" "$LOG"
