@@ -28,7 +28,7 @@ jq empty "$ROOT_DIR/resources/project-resources.json"
 legacy_helper="$ROOT_DIR/deploy/legacy-env-migrate"
 [[ -x "$legacy_helper" ]] || fail 'legacy environment helper is not executable'
 bash -n "$legacy_helper"
-legacy_fixture="$(mktemp -d /private/tmp/peanut-legacy-layout-contract.XXXXXX)"
+legacy_fixture="$(mktemp -d "${TMPDIR:-/tmp}/peanut-legacy-layout-contract.XXXXXX")"
 trap 'rm -rf -- "$legacy_fixture"' EXIT
 
 run_legacy_helper() {
@@ -115,10 +115,11 @@ rg -Fq 'DB_ROOT_PASS=split-root-secret' "$split_output_backend" \
 expect_legacy_fail() {
   local name="$1" pattern="$2" root_env="$3" output_root="$4" output_backend="$5"
   shift 5
-  local before after output rc
+  local before after output rc target="$1"
+  shift
   before="$(shasum -a 256 "$root_env" | awk '{print $1}')"
   set +e
-  output="$(run_legacy_helper "$root_env" "$@" "$output_root" "$output_backend" 2>&1)"
+  output="$(run_legacy_helper "$root_env" "$target" "$output_root" "$output_backend" "$@" 2>&1)"
   rc=$?
   set -e
   [[ $rc -ne 0 ]] || fail "$name unexpectedly succeeded"
