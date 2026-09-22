@@ -1055,6 +1055,7 @@ if [[ "$mode" == update ]]; then
     and .candidate == $candidate and .plan_sha256 == $plan
     and (.idempotent | type == "boolean")
     and (.health_evidence_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+    and (.activation_evidence_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
   ' <<<"$upgrade_apply_json" >/dev/null \
     || fail 'product upgrade workflow did not return bound completion evidence'
   curl --fail --silent --show-error --retry 12 --retry-delay 2 \
@@ -1078,8 +1079,10 @@ if [[ "$mode" == update ]]; then
     and .images == {php:$php,nginx:$nginx,pc:$pc}
   ' "$root/DEPLOYMENT_RECEIPT.json" >/dev/null \
     || fail 'upgraded runtime receipt does not bind the completed plan and running images'
-  printf 'upgrade_workflow=completed\nupgrade_candidate=%s\nupgrade_plan_sha256=%s\nhealth_evidence_sha256=%s\n' \
-    "$upgrade_candidate" "$upgrade_plan_sha" "$(jq -r '.health_evidence_sha256' <<<"$upgrade_apply_json")"
+  printf 'upgrade_workflow=completed\nupgrade_candidate=%s\nupgrade_plan_sha256=%s\nhealth_evidence_sha256=%s\nactivation_evidence_sha256=%s\n' \
+    "$upgrade_candidate" "$upgrade_plan_sha" \
+    "$(jq -r '.health_evidence_sha256' <<<"$upgrade_apply_json")" \
+    "$(jq -r '.activation_evidence_sha256' <<<"$upgrade_apply_json")"
   sudo -n rm -f -- "$archive" "$upgrade_trust"
   exit 0
 fi
