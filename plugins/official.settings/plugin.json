@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "ca6c6a6c229d564cace4d6a0b34ef1eccd29c2e531ad3c6cfd01b4a3f7303b92"
+        "sha256": "c84afe6db41b8899b77665c1bbe99b9e5f024c76a1c662bffbd39849bcf6506e"
     },
     "trust": {
         "channel": "bundled",

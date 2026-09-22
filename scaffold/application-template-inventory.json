@@ -121,7 +121,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "252838939e75527282e1c7be5d3d30918436c389b1223c734fd21d9d617e7cd2"
+            "source_sha256": "cb544e559120fce0e106b56c1e35a1a463dee00fb0f651358de8cf94e7971919"
         },
         {
             "path": ".github/workflows/repository-policy.yml",
@@ -354,7 +354,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d4bb046a5c7c997b1785f74ce3c1d2e2fd293b517c1b93eef6dcbe9135c2227e"
+            "source_sha256": "59cbef94f21b0d04ee61ec1adca493e8876b25ea54cf5e912dd5dc52d0d4f138"
         },
         {
             "path": "deploy/docker-compose.remote-development.yml",
@@ -1898,7 +1898,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "204efb77948c27a74ba415442ca6f10962a24dc002a9a36a9425e7f5bd9799bf"
+            "source_sha256": "842f4e06597006fa7f12d8c76e8cd0f0df99d5faff751101015dc1d37131e6f4"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2120,7 +2120,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01cdfedd784f61a5fb307deff0cb654ecd3f5887c74089aaf144707312741942"
+            "source_sha256": "e88e62e22d37e21c758f83cba5fc0c1723e0d94f98224054cfcd7cdd95cb9bc1"
         },
         {
             "path": "plugins/official.task/plugin.json",
@@ -2406,7 +2406,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "55859759edbede93a8c65f4b14ca1601f8cc34ec8d36619835f4409924df4fd6"
+            "source_sha256": "21f00057ed0a67e42f87c8d102de1637f7806457bef939d4f1198abc7f84ed68"
         },
         {
             "path": "scripts/check-openapi",
@@ -2502,7 +2502,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b577b9e178f1367478ab2224aa476676c74de76114ab33ec6bbd31b26c3f9051"
+            "source_sha256": "a30b32828b7f6361279f7e82dede04a5bd63a82989f4124ce3399ceee8b28e03"
         },
         {
             "path": "scripts/ci-summary",
@@ -7732,7 +7732,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5afe51fc328803200250b061c2a603f0920f7f76e3669f2158d812e54fcc546"
+            "source_sha256": "b240e2ea00ea17ad02588515119fa59ba10a253e31979a003319604ec203ee43"
         },
         {
             "path": "server/app/controller/Index.php",
@@ -16922,20 +16922,6 @@
             "source_sha256": "7e5d7d1f5163262fa4b8387370a3a5d711d454a4440e1872f0294c2e6acbdf1d"
         },
         {
-            "path": "server/app/modules/official/settings/Database/migrations/20260921-adopt-settings-schema.sql",
-            "target": "server/app/modules/official/settings/Database/migrations/20260921-adopt-settings-schema.sql",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "74c07e8118dd83a20791300f2eeb63cff5718033d41dd8f1cba200ed6610255b"
-        },
-        {
             "path": "server/app/modules/official/settings/LICENSE",
             "target": "server/app/modules/official/settings/LICENSE",
             "classification": "managed",
@@ -16976,6 +16962,20 @@
                 "full"
             ],
             "source_sha256": "542214ac0626100a542c9cb793dd39aff8f87d3aeb78373fa37b5045fca7d212"
+        },
+        {
+            "path": "server/app/modules/official/settings/database/migrations/20260921-adopt-settings-schema.sql",
+            "target": "server/app/modules/official/settings/database/migrations/20260921-adopt-settings-schema.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "74c07e8118dd83a20791300f2eeb63cff5718033d41dd8f1cba200ed6610255b"
         },
         {
             "path": "server/app/modules/official/settings/module.json",
@@ -20885,7 +20885,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77b2ce97e2b59664a55565d24894bfd681c0e7381244711e52e32437150c057a"
+            "source_sha256": "106f6e9ff649894e5fdde9e1151f75af186b676fff0ea9ea3289eeeb1a3249f5"
         },
         {
             "path": "server/composer.lock",
@@ -20899,7 +20899,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89e76f2405057e37d88c7d4eb863a6a8f3fc0ae2d19a3613681b162e05b8ba27"
+            "source_sha256": "1740795f86bc1f7aaceb47e7e24978a22299982ffa4e3e64d15d93d763ba9be6"
         },
         {
             "path": "server/config/admin_api_access.php",
