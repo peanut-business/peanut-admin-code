@@ -173,7 +173,11 @@ service_identities() {
       json="$(jq -c --arg service "$service" --arg id "$(docker inspect --format '{{.Id}}' "$container")" \
         --arg image "$(docker inspect --format '{{.Image}}' "$container")" \
         --arg status "$(docker inspect --format '{{.State.Status}}' "$container")" \
-        '. + {($service):{container_id:$id,image_id:$image,status:$status}}' <<<"$json")"
+        --arg started_at "$(docker inspect --format '{{.State.StartedAt}}' "$container")" \
+        --arg finished_at "$(docker inspect --format '{{.State.FinishedAt}}' "$container")" \
+        --argjson restart_count "$(docker inspect --format '{{.RestartCount}}' "$container")" \
+        '. + {($service):{container_id:$id,image_id:$image,status:$status,
+          started_at:$started_at,finished_at:$finished_at,restart_count:$restart_count}}' <<<"$json")"
     fi
   done
   printf '%s' "$json"
@@ -285,13 +289,17 @@ prepare_phase() {
   emit "$payload"
 }
 
-stop_writers() {
-  "${compose_current[@]}" stop --timeout 60 nginx cron php pc >/dev/null
+assert_writers_stopped() {
   running="$("${compose_current[@]}" ps --status running --services | sort | paste -sd, -)"
   [[ "$running" == mysql ]] || die 'writer drain did not leave only the database service running'
   unexpected="$(docker ps --filter "label=com.docker.compose.project=$compose_project" \
     --format '{{.Label "com.docker.compose.service"}}' | grep -Ev '^(mysql)?$' || true)"
   [[ -z "$unexpected" ]] || die 'a Compose one-off or application writer remained active'
+}
+
+stop_writers() {
+  "${compose_current[@]}" stop --timeout 60 nginx cron php pc >/dev/null
+  assert_writers_stopped
 }
 
 start_previous_writers() {
@@ -306,12 +314,23 @@ verify_backup() {
   (cd "$backup_root" && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz \
     && tar -tzf php-storage.tar.gz >/dev/null) || die 'bound product-upgrade backup failed verification'
   jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
-    '.protocol == "peanut.product-upgrade-backup.v1" and .candidate == $candidate and .plan_sha256 == $plan' \
+    '.protocol == "peanut.product-upgrade-backup.v1" and .candidate == $candidate and .plan_sha256 == $plan
+      and (.runtime.quiesced_services | type == "object")' \
     "$backup_root/manifest.json" >/dev/null || die 'backup manifest is bound to another upgrade'
+}
+
+assert_backup_quiescence_continuity() {
+  local current_services
+  assert_writers_stopped
+  current_services="$(service_identities)"
+  jq -e --argjson current "$current_services" '.runtime.quiesced_services == $current' \
+    "$backup_root/manifest.json" >/dev/null \
+    || die 'a writer container changed after the bound backup; stale backup reuse is forbidden'
 }
 
 backup_payload() {
   verify_backup
+  assert_backup_quiescence_continuity
   jq -n --arg manifest "$backup_root/manifest.json" \
     --arg manifest_sha "sha256:$(sha256sum "$backup_root/manifest.json" | awk '{print $1}')" \
     --arg database "$backup_root/database.sql.gz" \
@@ -326,7 +345,10 @@ backup_payload() {
 }
 
 backup_phase() {
-  if [[ -d "$backup_root" ]]; then emit "$(backup_payload)"; return; fi
+  if [[ -d "$backup_root" ]]; then
+    emit "$(backup_payload)"
+    return
+  fi
   mkdir -p "$(dirname "$backup_root")"
   mkdir -m 0700 "$backup_root"
   database_name="$(env_value "$backend_env" DB_NAME)"
@@ -336,34 +358,50 @@ backup_phase() {
   [[ -d "$storage_mount" ]] || die 'registered application storage volume is unavailable'
   before="$(service_identities)"
   stopped=0
-  resume_on_failure() { local status=$?; if (( stopped == 1 )); then start_previous_writers >/dev/null 2>&1 || true; fi; exit "$status"; }
+  backup_complete=0
+  resume_on_failure() {
+    local status=$?
+    if (( backup_complete == 0 )); then
+      find "$backup_root" -mindepth 1 -delete >/dev/null 2>&1 || true
+      rmdir "$backup_root" >/dev/null 2>&1 || true
+    fi
+    if (( stopped == 1 && backup_complete == 0 )); then
+      start_previous_writers >/dev/null 2>&1 || true
+    fi
+    exit "$status"
+  }
   trap resume_on_failure EXIT
-  stop_writers; stopped=1
+  stopped=1
+  stop_writers
   "${compose_current[@]}" exec -T mysql sh -c \
     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --quick --routines --events --triggers --hex-blob --set-gtid-purged=OFF -uroot "$1"' \
     sh "$database_name" | gzip -9 >"$backup_root/database.sql.gz"
   tar --one-file-system --numeric-owner -C "$storage_mount" -czf "$backup_root/php-storage.tar.gz" .
   database_sha="$(sha256sum "$backup_root/database.sql.gz" | awk '{print $1}')"
   files_sha="$(sha256sum "$backup_root/php-storage.tar.gz" | awk '{print $1}')"
+  quiesced="$(service_identities)"
   jq -n --arg candidate "$candidate" --arg plan "$plan_sha256" \
     --arg database_name "$database_name" --arg storage_volume "$storage_volume" \
     --arg database_sha "sha256:$database_sha" --arg files_sha "sha256:$files_sha" \
-    --argjson services "$before" --arg created_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --argjson services "$before" --argjson quiesced "$quiesced" \
+    --arg created_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{schema_version:1,protocol:"peanut.product-upgrade-backup.v1",candidate:$candidate,plan_sha256:$plan,
-      runtime:{database_name:$database_name,storage_volume:$storage_volume,services:$services},
+      runtime:{database_name:$database_name,storage_volume:$storage_volume,
+        services_before_backup:$services,quiesced_services:$quiesced},
       artifacts:{database:{filename:"database.sql.gz",sha256:$database_sha},files:{filename:"php-storage.tar.gz",sha256:$files_sha}},created_at:$created_at}' \
     >"$backup_root/manifest.json"
   (cd "$backup_root" && sha256sum database.sql.gz php-storage.tar.gz manifest.json >SHA256SUMS)
   chmod 600 "$backup_root"/*
   verify_backup
-  start_previous_writers; stopped=0
+  backup_complete=1
   trap - EXIT
   emit "$(backup_payload)"
 }
 
 quiesce_phase() {
+  verify_backup
+  assert_backup_quiescence_continuity
   before="$(service_identities)"
-  stop_writers
   marker="$runtime_root/write-gate.json"
   payload="$(jq -n --arg kind stopped-compose-writers --arg project "$compose_project" \
     --arg marker "$marker" --argjson before "$before" --argjson after "$(service_identities)" \
