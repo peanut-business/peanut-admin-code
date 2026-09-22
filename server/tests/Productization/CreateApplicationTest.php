@@ -312,6 +312,18 @@ try {
     createApplicationExpect(!is_dir($first . '/docs/product-status'), 'source product capability ledger must be excluded');
     createApplicationExpect(!is_file($first . '/docs-site/.vitepress/theme/ProductStatus.vue'), 'source product status component must be excluded');
     createApplicationExpect(!is_file($first . '/docs-site/product-status.md'), 'source product status page must be excluded');
+    foreach ([
+        'scripts/deploy-release',
+        'scripts/ops-backup-worker',
+        'scripts/ops-restore-worker',
+        'scripts/ops-upgrade-worker',
+        'scripts/ops-module-worker',
+    ] as $maintainerOperation) {
+        createApplicationExpect(
+            !is_file($first . '/' . $maintainerOperation),
+            'maintainer-only operation tool leaked into generated application: ' . $maintainerOperation,
+        );
+    }
     $generatedDocsConfig = (string)file_get_contents($first . '/docs-site/.vitepress/config.ts');
     $generatedDocsTheme = (string)file_get_contents($first . '/docs-site/.vitepress/theme/index.ts');
     createApplicationExpect(
