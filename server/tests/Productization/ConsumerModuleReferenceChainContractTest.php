@@ -61,7 +61,7 @@ foreach ([
 foreach ([
     'PlatformTenantAdminService::class',
     'RoleAdministrationRuntime::class',
-    'Acme\\ReferenceChain\\Contract\\ReferenceChainCommands::class',
+    'Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands::class',
 ] as $service) {
     referenceChainContractExpect(
         str_contains($helper, $service),

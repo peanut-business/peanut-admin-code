@@ -422,7 +422,7 @@ def author_module_v1(author: Path) -> tuple[Path, Path]:
         """<?php
 declare(strict_types=1);
 
-namespace Acme\\ReferenceChain\\Contract;
+namespace Acme\\Modules\\ReferenceChain\\Contract;
 
 use PeanutAdmin\\Kernel\\Auth\\TenantContext;
 
@@ -441,9 +441,9 @@ interface ReferenceChainCommands
         """<?php
 declare(strict_types=1);
 
-namespace Acme\\ReferenceChain\\Service;
+namespace Acme\\Modules\\ReferenceChain\\Service;
 
-use Acme\\ReferenceChain\\Contract\\ReferenceChainCommands;
+use Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands;
 use app\\common\\contract\\authorization\\AdminAuthorizationQuery;
 use PeanutAdmin\\Kernel\\Auth\\TenantContext;
 use RuntimeException;
@@ -517,10 +517,10 @@ final readonly class ReferenceChainService implements ReferenceChainCommands
         """<?php
 declare(strict_types=1);
 
-namespace Acme\\ReferenceChain;
+namespace Acme\\Modules\\ReferenceChain;
 
-use Acme\\ReferenceChain\\Contract\\ReferenceChainCommands;
-use Acme\\ReferenceChain\\Service\\ReferenceChainService;
+use Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands;
+use Acme\\Modules\\ReferenceChain\\Service\\ReferenceChainService;
 use PeanutAdmin\\Kernel\\Module\\ModuleProvider as ModuleProviderContract;
 
 final class ModuleProvider implements ModuleProviderContract
@@ -669,7 +669,7 @@ if ($action === 'provision-default') {
     $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
     $role = $roles->create($context, 'reference-owner', 'Reference Owner', 'CR21 service-owned role');
     $role = $roles->replacePermissions($context, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['authorization_revision']);
-    $records = $app->make(Acme\ReferenceChain\Contract\ReferenceChainCommands::class);
+    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class);
     $created = $records->create($context, 'tenant-a');
     echo json_encode($snapshot() + ['service_write' => $created, 'service_read' => $records->list($context), 'role_service' => $role], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
@@ -690,7 +690,7 @@ if ($action === 'disable-tenants') {
     exit(0);
 }
 if ($action === 'service-read-default') {
-    $records = $app->make(Acme\ReferenceChain\Contract\ReferenceChainCommands::class)->list($tenantContext('default'));
+    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class)->list($tenantContext('default'));
     echo json_encode($snapshot() + ['service_read' => $records], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
@@ -981,11 +981,10 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         install_dependencies(consumer, cache, consumer_env, logs / "composer-b.log")
         if args.author_database:
             author_install = author / "server/.env.cr21.installation"
-            author_install.write_text(
-                "ADMIN_INITIAL_EMAIL=author@example.test\nADMIN_INITIAL_PASSWORD=" + secrets.token_urlsafe(24)
-                + "\nPLATFORM_INITIAL_EMAIL=author-platform@example.test\nPLATFORM_INITIAL_PASSWORD="
-                + secrets.token_urlsafe(24) + "\n", encoding="utf-8",
-            )
+            author_credentials = "ADMIN_INITIAL_EMAIL=author@example.test\nADMIN_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
+            if args.edition == "multi-tenant":
+                author_credentials += "PLATFORM_INITIAL_EMAIL=author-platform@example.test\nPLATFORM_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
+            author_install.write_text(author_credentials, encoding="utf-8")
             author_install.chmod(0o600)
             try:
                 author_initialized = json_output(command(
