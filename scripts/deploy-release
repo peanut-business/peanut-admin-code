@@ -1035,7 +1035,7 @@ if [[ "$mode" == fresh ]]; then
     esac
   done < <("${current_compose[@]}" config --volumes)
   target_stopped=1
-  "${current_compose[@]}" down --remove-orphans
+  "${current_compose[@]}" down
   for registered_volume in "${registered_volumes[@]}"; do
     if sudo -n docker volume inspect "$registered_volume" >/dev/null 2>&1; then
       sudo -n docker volume rm "$registered_volume" >/dev/null \
