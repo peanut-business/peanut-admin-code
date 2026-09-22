@@ -195,6 +195,7 @@ foreach ([
     'server/app/common/services/installation/InstallationExecutionHost.php',
     'server/app/common/services/upgrade/ApplicationMigrationRunner.php',
     'scripts/upgrade',
+    'scripts/product-upgrade-host',
     'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
     'web/src/views/user/setting/index.vue',
 ] as $managedPath) {
