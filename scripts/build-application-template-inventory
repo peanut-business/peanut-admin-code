@@ -72,6 +72,10 @@ function excluded(string $path): bool
             'docs/peanut-admin-release-deployment.md',
             'docs/peanut-admin-user-manual.md',
             'docs/plugin-module-development.md',
+            'docs/public/README.md',
+            'docs/public/release-channels.md',
+            'docs/public/api-and-sdk.md',
+            'docs/public/module-development.md',
         ], true))
         || in_array($path, [
             'AGENTS.md', 'AGENT_EXECUTION_RULES.md', 'SECURITY.md',
@@ -247,6 +251,9 @@ function transform(string $path, string $classification): string
         || (str_starts_with($path, 'web/src/modules/') && basename($path) === 'package.json')) {
         return 'text';
     }
+    // Public guides are real source inputs, so their bytes (not a constant
+    // semantic placeholder digest) participate in the release baseline.
+    if (str_starts_with($path, 'docs/public/')) return 'text';
     if ($path === 'SECURITY.md' || ((str_starts_with($path, 'docs-site/') || str_starts_with($path, 'docs/')) && str_ends_with($path, '.md'))) return 'docs-page';
     if (preg_match('#(^|/)(config/brand|generated/brand)\.json$#', $path) === 1) return 'brand';
     if (preg_match('#/brand/(logo|favicon)\.svg$#', $path) === 1) return 'brand-asset';
