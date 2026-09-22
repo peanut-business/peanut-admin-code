@@ -466,6 +466,20 @@
             "source_sha256": "3525bd577c686409fdffcdc35c949e1aff8b78d58d2be74db1c1df24bdbe16e7"
         },
         {
+            "path": "deploy/legacy-env-migrate",
+            "target": "deploy/legacy-env-migrate",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d0603c1d0d1c88adb1a47514f4be90b50c4604af89a7419422b10c00ec014abd"
+        },
+        {
             "path": "deploy/local-stack.env.example",
             "target": "deploy/local-stack.env.example",
             "classification": "excluded",
@@ -517,7 +531,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f1a2af3427ddd1596bcab5c56150008fa9c712c2767dd0ad2db4911564a1901"
+            "source_sha256": "8e9ea3112472b98019ca5accf20090cbfa014dd48f83745abed9679ca0f39d54"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -2538,7 +2552,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "84d61511facf775dc473a2c7a3acef1919ee3002e60acb9be87d4056b27a3ff0"
+            "source_sha256": "8b27bc83aa8d701b2f51bb077d2511aeb0f2a7f77ef03e391a431580ce3cf31d"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
