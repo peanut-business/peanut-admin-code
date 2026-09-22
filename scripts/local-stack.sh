@@ -63,6 +63,11 @@ set_env_default() (
 )
 
 ensure_env() {
+    source_commit=$(git -C "$repo_dir" rev-parse HEAD) || die 'cannot resolve the local source commit'
+    source_tree=$(git -C "$repo_dir" rev-parse 'HEAD^{tree}') || die 'cannot resolve the local source tree'
+    case "$source_commit$source_tree" in *[!0-9a-f]*|'') die 'local source commit/tree identity is invalid' ;; esac
+    [ "${#source_commit}" -eq 40 ] && [ "${#source_tree}" -eq 40 ] \
+        || die 'local source commit/tree identity is invalid'
     umask 077
     mkdir -p "$state_dir" "$env_dir" "$(dirname "$backend_env")"
     if [ ! -f "$orchestration_env" ]; then
@@ -109,6 +114,8 @@ ensure_env() {
         while IFS='=' read -r name value; do
             set_env_default "$orchestration_env" "$name" "$value"
         done
+    set_env_value "$orchestration_env" PEANUT_SOURCE_COMMIT "$source_commit"
+    set_env_value "$orchestration_env" PEANUT_SOURCE_TREE "$source_tree"
     php_port=$(awk -F= '$1 == "PHP_PORT" { print $2; exit }' "$orchestration_env")
     [ -n "$php_port" ] || die 'registered PHP_PORT is missing from the orchestration environment'
     : > "$container_client_env"
