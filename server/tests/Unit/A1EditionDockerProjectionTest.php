@@ -17,7 +17,7 @@ final class A1EditionDockerProjectionTest extends TestCase
     public function testDockerBuildInputsExistBeforeDependencyInstallation(): void
     {
         $docker = $this->read('deploy/docker/production.Dockerfile');
-        self::assertStringContainsString('FROM node:22.22.0-bookworm-slim AS client-base', $docker);
+        self::assertStringContainsString('FROM node:22.23.2-bookworm-slim AS client-base', $docker);
         self::assertStringContainsString("require('./package.json').packageManager", $docker);
         $web = json_decode($this->read('web/package.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertMatchesRegularExpression('/^pnpm@[0-9]+\\.[0-9]+\\.[0-9]+$/D', $web['packageManager']);
@@ -41,14 +41,15 @@ final class A1EditionDockerProjectionTest extends TestCase
     public function testRuntimeRetainsCanonicalModuleSourcesButExcludesPrivateLocalInputs(): void
     {
         $docker = $this->read('deploy/docker/production.Dockerfile');
-        self::assertStringContainsString('COPY web/src/modules web/src/modules', $docker);
-        self::assertStringContainsString('COPY platform/src/modules platform/src/modules', $docker);
+        self::assertSame(1, preg_match('/FROM php:8\\.3-fpm-bookworm AS php\\n(?<stage>.*?)\\nFROM nginx:/s', $docker, $matches));
+        self::assertSame(1, preg_match_all('/^COPY \\. \\.$/m', $matches['stage']));
 
         $ignore = $this->read('.dockerignore');
         self::assertStringContainsString('**/node_modules', $ignore);
         self::assertStringContainsString('**/.local', $ignore);
         self::assertStringContainsString('**/.env.*', $ignore);
         self::assertStringContainsString('server/tests', $ignore);
+        self::assertDoesNotMatchRegularExpression('~^(?:web|platform)/src/modules(?:/|$)~m', $ignore);
         // 模块自带 fixtures 已被当前 Plugin source 摘要覆盖，不能在镜像里单方面丢弃。
         self::assertStringNotContainsString('**/tests/**', $ignore);
         self::assertStringNotContainsString('**/*.spec.ts', $ignore);
