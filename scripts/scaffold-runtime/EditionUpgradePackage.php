@@ -132,6 +132,7 @@ final class EditionUpgradePackage
             || ($manifest['protocol'] ?? null) !== 'peanut.edition-upgrade-package.v1'
             || ($manifest['upgrader']['entrypoint'] ?? null) !== 'scripts/upgrade'
             || ($manifest['upgrader']['internal_scaffold_engine'] ?? null) !== 'scripts/scaffold-upgrade'
+            || ($manifest['upgrader']['host_driver'] ?? null) !== 'scripts/upgrade-runtime/product-upgrade-host'
             || !isset(
                 $files['scripts/upgrade'],
                 $files['scripts/scaffold-upgrade'],
