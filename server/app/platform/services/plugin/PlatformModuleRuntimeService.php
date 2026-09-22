@@ -130,12 +130,22 @@ final readonly class PlatformModuleRuntimeService
         ?string $signatureKeyId,
         bool $dryRun,
     ): array {
-        return (new PluginPackageInstaller(
+        $result = (new PluginPackageInstaller(
             $this->serverRoot,
             $this->moduleConfig,
             $this->trustedPublicKeys,
             $this->catalogs,
         ))->update($archivePath, $expectedSha256, $signatureKeyId, $dryRun);
+        if (!$dryRun && ($result['operation'] ?? null) !== 'unchanged') {
+            $moduleKeys = array_values(array_map(
+                static fn(array $module): string => (string)$module['module_key'],
+                $result['modules'] ?? [],
+            ));
+            $catalog = $this->catalog();
+            $catalog->invalidateTenantAuthorization($moduleKeys);
+            $result['catalog_revision'] = $catalog->catalogRevision();
+        }
+        return $result;
     }
 
     /** @return array<string,mixed> */

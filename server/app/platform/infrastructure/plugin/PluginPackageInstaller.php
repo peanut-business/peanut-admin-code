@@ -68,6 +68,8 @@ final class PluginPackageInstaller
             $signatureKeyId,
             $availableVersions,
         );
+        // Verify the untrusted archive first, but do not mutate source/lock until the application schema exists.
+        $this->assertApplicationInstalled();
         if ($operation === 'update') {
             $plan = $this->updatePlan($package, $current);
             if ($dryRun) {
@@ -220,6 +222,31 @@ final class PluginPackageInstaller
             throw new PluginLifecycleException('MODULE_LIFECYCLE_BUSY', 'Module lifecycle is busy.');
         } finally {
             $archive->cleanup($package);
+        }
+    }
+
+    /**
+     * Package promotion mutates source and plugins.lock, so an application schema must already exist.
+     * Fresh application installation owns schema creation; module delivery must never become that bootstrap path.
+     */
+    private function assertApplicationInstalled(): void
+    {
+        try {
+            $pluginTable = Db::query("SHOW TABLES LIKE 'pa_plugin_installation'");
+            $moduleTable = Db::query("SHOW TABLES LIKE 'pa_module_installation'");
+        } catch (\Throwable $exception) {
+            throw new PluginPackageException(
+                'INSTALLATION_REQUIRED',
+                'Application installation must complete before module package delivery.',
+                0,
+                $exception,
+            );
+        }
+        if ($pluginTable === [] || $moduleTable === []) {
+            throw new PluginPackageException(
+                'INSTALLATION_REQUIRED',
+                'Application installation must complete before module package delivery.',
+            );
         }
     }
 
