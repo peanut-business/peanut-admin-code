@@ -1815,7 +1815,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c867a341d3fcc35a63cebe6a3ef7a331af39fb02bc75ed26dd4fefa7a7e74d73"
+            "source_sha256": "87b5e1de62fa6ef3a3439b4f0d3a3a005aa97458aa5a6cc3307df308d15c075f"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -1981,7 +1981,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f120d2180746e9e314e339c2dae52bbea7f51bc9c50bd737aff83b44d4923e9"
+            "source_sha256": "b4f55bf2dc3915136d8aba30a141d95193dc0e0196277b097fa9971dd07a82fa"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -15266,7 +15266,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7752edcbd1d7c6f4bf8dd048f43bfe1cdb1eed7e049b9353bc57d2a3ee57231a"
+            "source_sha256": "d37d27ef0e2bfa3035cf4c95cd11f06679b587355bcfdf7894ab86407fd2bea1"
         },
         {
             "path": "server/app/modules/official/ops/src/Service/PlatformBackupCenterService.php",
@@ -19822,7 +19822,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b03eec59687387b890cf1ad4b3e2223d49577505b1f8a34764f0fecc0cd84b7f"
+            "source_sha256": "e7b732a65bc51e9f3114848bc21a85a82130dca68581177dc528cfdf5b25bc18"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageSourcePromoter.php",
@@ -20284,7 +20284,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54898646ec7f909916a1cf52a226775a0e86be285aa8668ca8bb9a904163a8a1"
+            "source_sha256": "6a2e211a79ddd14a6cf17efb8487a22b5126169979f4b2cd6e568707e1b70f44"
         },
         {
             "path": "server/app/platform/services/plugin/PluginCatalogSyncService.php",
