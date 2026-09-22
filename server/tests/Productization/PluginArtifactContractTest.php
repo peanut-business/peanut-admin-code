@@ -1,15 +1,12 @@
 <?php
 declare(strict_types=1);
 
-use app\platform\service\plugin\PluginLifecycleException;
-use app\platform\service\plugin\PluginLockResolver;
+use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\infrastructure\plugin\PluginLockResolver;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLifecycleException.php';
-require dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginDescriptor.php';
-require dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLockResolver.php';
 
 function pluginArtifactExpect(bool $condition, string $message): void
 {

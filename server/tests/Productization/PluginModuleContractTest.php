@@ -116,11 +116,11 @@ function pluginModuleContractControlledObject(string $class): object
 function pluginModuleContractMakeOfficial(App $app, string $abstract, string $concrete): object
 {
     $controlledImplementations = [
-        \app\common\contract\idempotency\IdempotentCommandExecutor::class => \app\common\service\idempotency\ThinkPhpIdempotentCommandExecutor::class,
+        \app\common\contract\idempotency\IdempotentCommandExecutor::class => \app\common\infrastructure\idempotency\ThinkPhpIdempotentCommandExecutor::class,
         \PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class => \PeanutAdmin\Modules\Task\Infrastructure\Runtime\ThinkPhpTaskJobRuntime::class,
-        \app\common\service\http\OutboundHttpTransport::class => \app\common\service\http\GuzzleOutboundHttpTransport::class,
+        \app\common\contract\http\OutboundHttpTransport::class => \app\common\infrastructure\http\GuzzleOutboundHttpTransport::class,
         \PeanutAdmin\Modules\Integration\Contract\ExternalTenantAudit::class => \PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantAudit::class,
-        \app\common\service\payment\contract\PaymentTransportInterface::class => \app\common\service\payment\transport\CurlPaymentTransport::class,
+        \app\common\contract\payment\PaymentTransportInterface::class => \app\common\infrastructure\payment\CurlPaymentTransport::class,
     ];
     $reflection = new ReflectionClass($concrete);
     $constructor = $reflection->getConstructor();
@@ -247,7 +247,7 @@ $officialAutowireTargets = [
     \PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository::class => \PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository::class,
     \PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService::class => \PeanutAdmin\Modules\Integration\Service\ExternalTenantResolver::class,
     \PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings::class => \PeanutAdmin\Modules\Integration\Service\ExternalChannelBindingService::class,
-    \app\common\service\payment\PaymentServiceFactory::class => \app\common\service\payment\PaymentServiceFactory::class,
+    \app\common\composition\payment\PaymentServiceFactory::class => \app\common\composition\payment\PaymentServiceFactory::class,
     \PeanutAdmin\Modules\Payment\Contract\PaymentChannelGrantCommands::class => \PeanutAdmin\Modules\Payment\Infrastructure\ThinkPhpPaymentChannelGrantCommands::class,
 ];
 foreach ($officialAutowireTargets as $abstract => $concrete) {

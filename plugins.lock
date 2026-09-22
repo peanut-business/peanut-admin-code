@@ -7,7 +7,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "8f5221f8a2d34ae85299059a8061ff5e81c87eaf494baac46ccb1556309d302c"
+                "sha256": "1895e6e227944a8c38ecabdad43dd7f403efffd1c0e94874bae2751a96cabd1c"
             },
             "trust": {
                 "channel": "bundled",
@@ -91,7 +91,7 @@
                 }
             ],
             "manifest": "plugins/fixture.delivery-record/plugin.json",
-            "manifest_sha256": "c5070e57e6cccf89ab7a38d4edd6b9a5b6c93791d88a90ad06dfe0af2fd63a0e"
+            "manifest_sha256": "bc836f3462594c9d2074b6653f5dc3ff6ac4d88136b84614e77d7bca70221af8"
         },
         {
             "key": "official.article",

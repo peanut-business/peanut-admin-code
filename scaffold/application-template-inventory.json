@@ -1898,7 +1898,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e0ce780f54555a3073d7bb1970ca363f5ae177a644deb35c23782603745deaf"
+            "source_sha256": "35bb68ba2f3430bcc717cc530aa43e377070050e5244e6434e0960bba736fa60"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -24183,7 +24183,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b91d39c39a17b7403e9e8c844a3306ebb962b7833bfaa383144ff7ea7f8230b"
+            "source_sha256": "e59edb8cbf59da32f6cd2c643bee37266c46195e49ed8f6a035f64dee56c3ca1"
         },
         {
             "path": "server/tests/Multitenancy/OperationLogTenantIsolationTest.php",
