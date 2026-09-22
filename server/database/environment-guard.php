@@ -811,15 +811,28 @@ JOIN pa_member_role mr ON mr.tenant_id = tm.tenant_id AND mr.tenant_member_id = 
 JOIN pa_role r ON r.tenant_id = mr.tenant_id AND r.id = mr.role_id
 WHERE t.code = 'default' AND t.status = 'active' AND r.`key` = 'core.tenant-owner'
 SQL)->fetchColumn();
-    $operatorCount = (int)$pdo->query(
-        "SELECT COUNT(*) FROM pa_platform_operator WHERE status = 'active'"
-    )->fetchColumn();
+    $operatorCount = (int)$pdo->query(<<<'SQL'
+SELECT COUNT(DISTINCT po.id)
+FROM pa_platform_operator po
+JOIN pa_account a ON a.id = po.account_id AND a.status = 'active'
+JOIN pa_credential c ON c.account_id = a.id AND c.status = 'active'
+JOIN pa_platform_operator_role por ON por.platform_operator_id = po.id
+JOIN pa_platform_role pr ON pr.id = por.platform_role_id
+WHERE po.status = 'active'
+  AND pr.`key` = 'platform.bootstrap-owner'
+  AND pr.is_builtin = 1
+  AND pr.status = 'active'
+SQL)->fetchColumn();
+    $deploymentMode = requiredEnvironment('DEPLOYMENT_MODE');
+    if (!in_array($deploymentMode, ['standalone', 'multi-tenant'], true)) {
+        throw new RuntimeException('DEPLOYMENT_MODE 必须是 standalone 或 multi-tenant');
+    }
     if ($menuCount < 1
         || $configCount < 1
         || $permissionCount < 1
         || $tenantCount !== 1
-        || $ownerCount !== 1
-        || $operatorCount !== 1) {
+        || $ownerCount < 1
+        || ($deploymentMode === 'multi-tenant' && $operatorCount < 1)) {
         throw new RuntimeException('数据库基线数据不完整');
     }
 

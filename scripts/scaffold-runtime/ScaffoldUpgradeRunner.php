@@ -8,7 +8,6 @@ use app\common\value\scaffold\ScaffoldManifest;
 use app\platform\value\plugin\PluginDescriptor;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
-use Composer\Semver\Comparator;
 use RuntimeException;
 use Throwable;
 
@@ -74,7 +73,7 @@ final class ScaffoldUpgradeRunner
         $targetParameters = $this->parameters($application, $instanceVersion);
         $actions = $this->classify($root, $application, $from, $to, $fromParameters, $targetParameters, $versionContract);
         $pluginProjection = null;
-        if (Comparator::greaterThanOrEqualTo($from->version(), '3.0.0')) {
+        if (Semver::greaterThanOrEqualTo($from->version(), '3.0.0')) {
             $pluginProjection = $this->pluginProjection($root);
             $actions = $this->projectPluginBoundary(
                 $actions,
@@ -353,9 +352,41 @@ final class ScaffoldUpgradeRunner
         });
     }
 
+    /** Verify an already recovered tree without rewriting any application file. */
+    public function verifyRecovery(string $projectRoot, string $planPath): array
+    {
+        return $this->locked($projectRoot, function (string $root) use ($planPath): array {
+            $plan = $this->loadPlan($root, $planPath);
+            $manifestPath = ScaffoldPathGuard::projectPath(
+                $root,
+                '.peanut/upgrades/backups/' . $plan['candidate'] . '/recovery.json',
+            );
+            if (!is_file($manifestPath) || is_link($manifestPath)) {
+                throw new RuntimeException('SCAFFOLD_RECOVERY_NOT_FOUND');
+            }
+            $recovery = json_decode((string)file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($recovery) || ($recovery['candidate'] ?? null) !== $plan['candidate']
+                || !is_array($recovery['files'] ?? null)
+                || !hash_equals(
+                    (string)($recovery['pre_tree_sha256'] ?? ''),
+                    'sha256:' . hash('sha256', self::canonicalJson($recovery['files'])),
+                )
+                || !$this->recoveryMatches($root, $recovery)) {
+                throw new RuntimeException('SCAFFOLD_RECOVERY_VERIFY_FAILED');
+            }
+            $this->assertPluginProjection($root, $plan);
+            return [
+                'status' => 'recovered',
+                'candidate' => $plan['candidate'],
+                'tree_sha256' => $recovery['pre_tree_sha256'],
+                'read_only' => true,
+            ];
+        });
+    }
+
     private function assertReleaseChain(array $application, ScaffoldManifest $from, ScaffoldManifest $to): void
     {
-        if (Comparator::greaterThanOrEqualTo($from->version(), $to->version()) || ($application['template']['version'] ?? null) !== $from->version()
+        if (Semver::greaterThanOrEqualTo($from->version(), $to->version()) || ($application['template']['version'] ?? null) !== $from->version()
             || ($application['template']['source_commit'] ?? null) !== $from->release()['source_commit']
             || ($application['template']['source_tree'] ?? null) !== $from->release()['source_tree']) {
             throw new RuntimeException('SCAFFOLD_RELEASE_CHAIN_INVALID');

@@ -3,21 +3,20 @@
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\EditionUpgradePackage;
-use app\common\infrastructure\scaffold\ScaffoldPathGuard;
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
-use app\common\services\upgrade\ApplicationMigrationRunner;
+use app\common\validation\scaffold\ScaffoldPathGuard;
 
 $toolRoot = dirname(__DIR__);
 foreach ([
     ['/scripts/scaffold-runtime/ScaffoldPathGuard.php'],
     ['/scripts/scaffold-runtime/ScaffoldManifest.php'],
     ['/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php'],
+    ['/scripts/scaffold-runtime/Semver.php'],
     ['/server/app/platform/exception/plugin/PluginLifecycleException.php', '/scripts/upgrade-runtime/PluginLifecycleException.php'],
     ['/server/app/platform/value/plugin/PluginDescriptor.php', '/scripts/upgrade-runtime/PluginDescriptor.php'],
     ['/server/app/platform/infrastructure/plugin/PluginLockResolver.php', '/scripts/upgrade-runtime/PluginLockResolver.php'],
     ['/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'],
     ['/scripts/scaffold-runtime/EditionUpgradePackage.php'],
-    ['/server/app/common/services/upgrade/ApplicationMigrationRunner.php', '/scripts/upgrade-runtime/ApplicationMigrationRunner.php'],
 ] as $candidates) {
     foreach ($candidates as $candidate) {
         if (is_file($toolRoot . $candidate)) {
@@ -30,7 +29,7 @@ foreach ([
 
 function productUpgradeUsage(): never
 {
-    fwrite(STDERR, "Usage:\n"
+    fwrite(STDERR, "Set PEANUT_SERVER_ENV_FILE to the absolute mode-0600 instance backend environment.\nUsage:\n"
         . "  php scripts/upgrade plan --instance-root=<absolute-path> --package=<absolute-extracted-package> --signature-key-id=<id> --env-file=<0600-file>\n"
         . "  php scripts/upgrade apply|verify|recover --instance-root=<absolute-path> --package=<absolute-extracted-package> --signature-key-id=<id> --env-file=<0600-file> --plan=<absolute-product-plan>\n");
     exit(64);
@@ -127,15 +126,22 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
     return $plan + ['plan_sha256' => $digest, 'absolute_path' => $resolved];
 }
 
-/** @param array<string,mixed> $package @return list<string> */
-function productUpgradeMigrationFiles(string $packageRoot, array $package): array
+/** @param array<string,mixed> $package @return list<array{path:string,sha256:string}> */
+function productUpgradeMigrationEntries(string $packageRoot, array $package): array
 {
-    $files = [];
-    foreach (($package['migration_chain']['files'] ?? null) as $entry) {
+    $entries = $package['migration_chain']['files'] ?? null;
+    if (!is_array($entries) || !array_is_list($entries)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_CHAIN_INVALID');
+    }
+    $validated = [];
+    $previous = '';
+    foreach ($entries as $entry) {
         $relative = is_array($entry) ? ($entry['path'] ?? null) : null;
         $digest = is_array($entry) ? ($entry['sha256'] ?? null) : null;
         if (!is_string($relative) || !is_string($digest)
-            || preg_match('#^server/database/migrations/[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$#D', $relative) !== 1) {
+            || preg_match('#^server/database/migrations/[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$#D', $relative) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1
+            || ($previous !== '' && strcmp($previous, $relative) >= 0)) {
             throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_CHAIN_INVALID');
         }
         $path = $packageRoot . '/target/files/' . $relative;
@@ -143,26 +149,10 @@ function productUpgradeMigrationFiles(string $packageRoot, array $package): arra
             || !hash_equals($digest, (string)hash_file('sha256', $path))) {
             throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_CHAIN_INVALID');
         }
-        $files[] = $path;
+        $previous = $relative;
+        $validated[] = ['path' => $relative, 'sha256' => $digest];
     }
-    return $files;
-}
-
-function productUpgradeDatabaseRunner(string $instanceRoot): ApplicationMigrationRunner
-{
-    $guard = $instanceRoot . '/server/database/environment-guard.php';
-    if (!is_file($guard) || is_link($guard)) {
-        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_GUARD_MISSING');
-    }
-    require_once $guard;
-    $config = guardedDatabaseConfig();
-    return new ApplicationMigrationRunner([
-        'host' => (string)$config['host'],
-        'port' => (string)$config['port'],
-        'database' => (string)$config['database'],
-        'user' => (string)$config['user'],
-        'password' => (string)$config['password'],
-    ]);
+    return $validated;
 }
 
 /** @return array<string,mixed> */
@@ -231,14 +221,17 @@ function productUpgradeReadState(array $plan): array
         || ($state['plan_sha256'] ?? null) !== ($plan['plan_sha256'] ?? null)
         || ($state['package'] ?? null) !== ($plan['package'] ?? null)
         || !in_array($state['phase'] ?? null, [
-            'planned', 'blocked', 'prepared', 'backed_up', 'quiesced', 'managed_files_applied',
-            'migrations_started', 'migrations_applied', 'switched', 'reloaded', 'healthy', 'completed', 'recovered',
+            'planned', 'blocked', 'prepared', 'migration_preflight_complete', 'backed_up', 'quiesced',
+            'managed_files_applied', 'migrations_started', 'migrations_applied', 'switched',
+            'reloaded_safe', 'migration_verified', 'healthy', 'activating', 'completed', 'recovering', 'recovered',
         ], true)
         || !in_array($state['phase_in_progress'] ?? null, [
-            null, 'prepare', 'backup', 'quiesce', 'managed_files', 'migrations', 'switch', 'reload', 'health', 'recover',
+            null, 'prepare', 'migration-preflight', 'backup', 'quiesce', 'managed_files', 'migrate',
+            'switch', 'reload-safe', 'migration-verify', 'health', 'activate', 'recover', 'resume-old', 'recovery-verify',
         ], true)
-        || !is_bool($state['migration_started'] ?? null)
+        || !is_bool($state['database_recovery_required'] ?? null)
         || !is_bool($state['migration_completed'] ?? null)
+        || !is_bool($state['activation_started'] ?? null)
         || !is_array($state['evidence'] ?? null)
         || !is_string($digest)) {
         throw new RuntimeException('PRODUCT_UPGRADE_STATE_INVALID');
@@ -253,7 +246,10 @@ function productUpgradeReadState(array $plan): array
 /** @param array<string,mixed> $plan @param array<string,mixed> $state @return array<string,mixed> */
 function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan, array $state): array
 {
-    if (!in_array($phase, ['prepare', 'backup', 'quiesce', 'switch', 'reload', 'health', 'recover'], true)) {
+    if (!in_array($phase, [
+        'prepare', 'migration-preflight', 'backup', 'quiesce', 'migrate', 'switch',
+        'reload-safe', 'migration-verify', 'health', 'activate', 'recover', 'resume-old', 'recovery-verify',
+    ], true)) {
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_PHASE_INVALID');
     }
     $driver = $packageRoot . '/scripts/upgrade-runtime/product-upgrade-host';
@@ -268,13 +264,32 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
         '--plan=' . $plan['absolute_path'],
         '--state=' . $state['absolute_path'],
     ];
+    $logDirectory = $plan['instance_root'] . '/.peanut/upgrades/host-logs';
+    if ((!is_dir($logDirectory) && !mkdir($logDirectory, 0700, true)) || is_link($logDirectory)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_HOST_LOG_INVALID');
+    }
+    $logPath = $logDirectory . '/' . $plan['candidate'] . '-' . $phase . '.log';
+    if (file_exists($logPath) || is_link($logPath)) {
+        $logStat = lstat($logPath);
+        if (!is_file($logPath) || is_link($logPath) || !is_array($logStat)
+            || ($logStat['nlink'] ?? 0) !== 1 || (($logStat['mode'] ?? 0) & 0777) !== 0600) {
+            throw new RuntimeException('PRODUCT_UPGRADE_HOST_LOG_INVALID');
+        }
+        $log = fopen($logPath, 'ab');
+    } else {
+        $log = fopen($logPath, 'xb');
+    }
+    if ($log === false || !chmod($logPath, 0600)) {
+        if (is_resource($log)) fclose($log);
+        throw new RuntimeException('PRODUCT_UPGRADE_HOST_LOG_INVALID');
+    }
     $pipes = [];
-    $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $packageRoot);
-    if (!is_resource($process)) throw new RuntimeException('PRODUCT_UPGRADE_HOST_DRIVER_FAILED');
+    $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => $log], $pipes, $packageRoot);
+    if (!is_resource($process)) { fclose($log); throw new RuntimeException('PRODUCT_UPGRADE_HOST_DRIVER_FAILED'); }
     $stdout = stream_get_contents($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
-    fclose($pipes[1]); fclose($pipes[2]);
+    fclose($pipes[1]);
     $exitCode = proc_close($process);
+    fclose($log);
     if ($exitCode !== 0 || !is_string($stdout)) {
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_PHASE_FAILED:' . $phase . ':exit-' . $exitCode);
     }
@@ -335,18 +350,6 @@ function productUpgradeRefreshHostPhase(string $packageRoot, array $plan, array 
     return productUpgradeWriteState((string)$state['absolute_path'], $state);
 }
 
-/** @param list<string> $migrationIds */
-function productUpgradeAssertMigrationProgress(ApplicationMigrationRunner $database, array $migrationIds): array
-{
-    $statuses = $database->statuses($migrationIds);
-    foreach ($statuses as $id => $status) {
-        if ($status !== 'applied') {
-            throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_REQUIRES_OPERATOR_INSPECTION:' . $id . ':' . $status);
-        }
-    }
-    return $statuses;
-}
-
 $command = $argv[1] ?? null;
 if (!in_array($command, ['plan', 'apply', 'verify', 'recover'], true)) productUpgradeUsage();
 $options = [];
@@ -371,6 +374,8 @@ try {
     $runner = new ScaffoldUpgradeRunner();
 
     if ($command === 'plan') {
+        // The installed coordinator and its installed runtime are the trust root. No
+        // executable from the target package is invoked until this authentication succeeds.
         $prepared = (new EditionUpgradePackage())->prepare(
             $instanceRoot,
             $packageRoot,
@@ -378,102 +383,103 @@ try {
             $trustedKeys,
         );
         $scaffold = $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
-        $migration = productUpgradeDatabaseRunner($instanceRoot)->run(
-            productUpgradeMigrationFiles($packageRoot, $prepared['package']),
-            (string)$prepared['package']['target']['version'],
-            (string)$prepared['package']['target']['version'],
-            true,
-        );
+        $migrationFiles = productUpgradeMigrationEntries($packageRoot, $prepared['package']);
         $existingPath = $instanceRoot . '/.peanut/upgrades/product-plans/' . $scaffold['candidate'] . '.json';
         if (is_file($existingPath) && !is_link($existingPath)) {
             $existing = productUpgradeReadPlan($instanceRoot, $existingPath);
             if (($existing['package'] ?? null) !== productUpgradePackageIdentity($prepared, $packageRoot)
                 || ($existing['signature_key_id'] ?? null) !== $options['signature-key-id']
-                || ($existing['migration']['target_version'] ?? null) !== $migration['target_version']) {
+                || ($existing['migration']['target_version'] ?? null) !== $prepared['package']['target']['version']
+                || ($existing['migration']['files'] ?? null) !== $migrationFiles) {
                 throw new RuntimeException('PRODUCT_UPGRADE_PLAN_COLLISION');
             }
             unset($existing['absolute_path']);
             $result = $existing + ['plan_path' => $existingPath, 'idempotent' => true];
         } else {
-        $statePath = $instanceRoot . '/.peanut/upgrades/product-state/' . $scaffold['candidate'] . '.json';
-        $plan = [
-            'schema_version' => 2,
-            'protocol' => 'peanut.product-upgrade-plan.v2',
-            'candidate' => $scaffold['candidate'],
-            'status' => $scaffold['status'],
-            'instance_root' => $instanceRoot,
-            'package' => productUpgradePackageIdentity($prepared, $packageRoot),
-            'edition' => $prepared['package']['edition'],
-            'signature_key_id' => $options['signature-key-id'],
-            'scaffold_plan' => $instanceRoot . '/' . $scaffold['plan_path'],
-            'state_path' => $statePath,
-            'migration' => [
-                'target_version' => $migration['target_version'],
-                'pending' => $migration['pending'],
-                'recovery' => 'database-backup-required-after-first-migration-starts',
-            ],
-            'phase_contract' => [
-                'prepare_target', 'verify_backup', 'quiesce_writers', 'apply_managed_files',
-                'apply_migrations', 'switch_target', 'reload_services', 'runtime_and_business_health', 'complete',
-            ],
-            'created_at' => gmdate(DATE_ATOM),
-        ];
-        $plan['plan_sha256'] = 'sha256:' . hash('sha256', productUpgradeCanonicalJson($plan));
-        $path = $instanceRoot . '/.peanut/upgrades/product-plans/' . $plan['candidate'] . '.json';
-        productUpgradeWriteJson($path, $plan);
-        productUpgradeWriteState($statePath, [
-            'schema_version' => 1,
-            'protocol' => 'peanut.product-upgrade-state.v1',
-            'candidate' => $plan['candidate'],
-            'plan_sha256' => $plan['plan_sha256'],
-            'package' => $plan['package'],
-            'phase' => $plan['status'] === 'ready' ? 'planned' : 'blocked',
-            'phase_in_progress' => null,
-            'migration_started' => false,
-            'migration_completed' => false,
-            'evidence' => [],
-            'created_at' => gmdate(DATE_ATOM),
-        ]);
-        $result = $plan + ['plan_path' => $path];
+            $statePath = $instanceRoot . '/.peanut/upgrades/product-state/' . $scaffold['candidate'] . '.json';
+            $plan = [
+                'schema_version' => 2,
+                'protocol' => 'peanut.product-upgrade-plan.v2',
+                'candidate' => $scaffold['candidate'],
+                'status' => $scaffold['status'],
+                'instance_root' => $instanceRoot,
+                'package' => productUpgradePackageIdentity($prepared, $packageRoot),
+                'edition' => $prepared['package']['edition'],
+                'signature_key_id' => $options['signature-key-id'],
+                'scaffold_plan' => $instanceRoot . '/' . $scaffold['plan_path'],
+                'state_path' => $statePath,
+                'migration' => [
+                    'target_version' => $prepared['package']['target']['version'],
+                    'files' => $migrationFiles,
+                    'execution' => 'bound-prepared-target-container',
+                    'module_reconcile' => 'release-locked-before-switch',
+                    'recovery' => 'paired-database-public-private-storage-backup',
+                ],
+                'phase_contract' => [
+                    'prepare_target', 'migration_preflight', 'backup_and_hold_writers', 'verify_quiescence',
+                    'apply_managed_files', 'application_and_module_migrations', 'switch_target',
+                    'reload_safe_without_public_writers', 'migration_verify', 'runtime_and_business_health',
+                    'activate_public_writers', 'complete',
+                ],
+                'created_at' => gmdate(DATE_ATOM),
+            ];
+            $plan['plan_sha256'] = 'sha256:' . hash('sha256', productUpgradeCanonicalJson($plan));
+            $path = $instanceRoot . '/.peanut/upgrades/product-plans/' . $plan['candidate'] . '.json';
+            productUpgradeWriteJson($path, $plan);
+            productUpgradeWriteState($statePath, [
+                'schema_version' => 1,
+                'protocol' => 'peanut.product-upgrade-state.v1',
+                'candidate' => $plan['candidate'],
+                'plan_sha256' => $plan['plan_sha256'],
+                'package' => $plan['package'],
+                'phase' => $plan['status'] === 'ready' ? 'planned' : 'blocked',
+                'phase_in_progress' => null,
+                'database_recovery_required' => false,
+                'migration_completed' => false,
+                'activation_started' => false,
+                'evidence' => [],
+                'created_at' => gmdate(DATE_ATOM),
+            ]);
+            $result = $plan + ['plan_path' => $path, 'authenticated' => true];
         }
     } else {
         $plan = productUpgradeReadPlan($instanceRoot, $options['plan']);
         if (($plan['signature_key_id'] ?? null) !== $options['signature-key-id']
-            || ($plan['package']['root'] ?? null) !== $packageRoot) {
+            || ($plan['package']['root'] ?? null) !== $packageRoot
+            || !is_array($plan['migration']['files'] ?? null)) {
             throw new RuntimeException('PRODUCT_UPGRADE_PLAN_REBIND_FAILED');
         }
-        $migrationIds = $plan['migration']['pending'] ?? null;
-        if (!is_array($migrationIds) || !array_is_list($migrationIds)) {
-            throw new RuntimeException('PRODUCT_UPGRADE_PLAN_INVALID');
-        }
-        $database = productUpgradeDatabaseRunner($instanceRoot);
         $state = productUpgradeReadState($plan);
         if ($command === 'apply') {
             if ($plan['status'] !== 'ready' || $state['phase'] === 'blocked') {
                 throw new RuntimeException('PRODUCT_UPGRADE_PLAN_BLOCKED');
             }
+            if ($state['phase'] === 'recovered') {
+                throw new RuntimeException('PRODUCT_UPGRADE_RECOVERED_PLAN_FINAL');
+            }
             $packageService = new EditionUpgradePackage();
             $managedFilesMayHaveChanged = isset($state['evidence']['managed_files'])
                 || $state['phase_in_progress'] === 'managed_files'
-                || $state['migration_started'];
+                || $state['database_recovery_required'];
             $prepared = $managedFilesMayHaveChanged
                 ? $packageService->reauthenticate($instanceRoot, $packageRoot, $options['signature-key-id'], $trustedKeys)
                 : $packageService->prepare($instanceRoot, $packageRoot, $options['signature-key-id'], $trustedKeys);
-            if (productUpgradePackageIdentity($prepared, $packageRoot) !== $plan['package']) {
+            if (productUpgradePackageIdentity($prepared, $packageRoot) !== $plan['package']
+                || productUpgradeMigrationEntries($packageRoot, $prepared['package']) !== $plan['migration']['files']) {
                 throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_REBIND_FAILED');
             }
-            $files = productUpgradeMigrationFiles($packageRoot, $prepared['package']);
             if ($state['phase'] === 'completed') {
+                $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'migration-verify');
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
-                $health = $state['evidence']['health'];
                 $result = [
-                    'status' => 'completed', 'candidate' => $plan['candidate'],
-                    'phase' => 'completed', 'plan_sha256' => $plan['plan_sha256'],
-                    'idempotent' => true, 'state_sha256' => $state['state_sha256'],
-                    'health_evidence_sha256' => $health['sha256'],
+                    'status' => 'completed', 'candidate' => $plan['candidate'], 'phase' => 'completed',
+                    'plan_sha256' => $plan['plan_sha256'], 'idempotent' => true,
+                    'state_sha256' => $state['state_sha256'],
+                    'health_evidence_sha256' => $state['evidence']['health']['sha256'],
                 ];
             } else {
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'prepare', 'prepared');
+                $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'migration-preflight', 'migration_preflight_complete');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'backup', 'backed_up');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'quiesce', 'quiesced');
 
@@ -482,10 +488,8 @@ try {
                     $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
                     $code = $runner->apply($instanceRoot, (string)$plan['scaffold_plan']);
                     $codeEvidence = [
-                        'protocol' => 'peanut.product-upgrade-internal-evidence.v1',
-                        'phase' => 'managed_files',
-                        'candidate' => $plan['candidate'],
-                        'payload' => $code,
+                        'protocol' => 'peanut.product-upgrade-internal-evidence.v1', 'phase' => 'managed_files',
+                        'candidate' => $plan['candidate'], 'payload' => $code,
                     ];
                     $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'managed_files', 'managed_files_applied', [
                         'sha256' => 'sha256:' . hash('sha256', productUpgradeCanonicalJson($codeEvidence)),
@@ -493,81 +497,48 @@ try {
                     ]);
                 }
 
-                $statuses = productUpgradeAssertMigrationProgress($database, $migrationIds);
-                $appliedIds = array_keys($statuses);
-                $remainingIds = array_values(array_diff($migrationIds, $appliedIds));
-                $preflight = $database->run(
-                    $files,
-                    (string)$plan['migration']['target_version'],
-                    (string)$plan['migration']['target_version'],
-                    true,
-                );
-                if ($preflight['pending'] !== $remainingIds) {
-                    throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_PLAN_DRIFT');
-                }
-                if (!$state['migration_completed']) {
+                if (!isset($state['evidence']['migrate'])) {
+                    // This flag is persisted before both application SQL and Module reconciliation.
+                    // Once true, recovery always restores the exact paired backup.
                     $state['phase'] = 'migrations_started';
-                    $state['phase_in_progress'] = 'migrations';
-                    $state['migration_started'] = $migrationIds !== [];
+                    $state['phase_in_progress'] = 'migrate';
+                    $state['database_recovery_required'] = true;
                     $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
-                    try {
-                        $migration = $database->run(
-                            $files,
-                            (string)$plan['migration']['target_version'],
-                            (string)$plan['migration']['target_version'],
-                        );
-                    } catch (Throwable $exception) {
-                        throw new RuntimeException(
-                            'PRODUCT_UPGRADE_DATABASE_RECOVERY_REQUIRED: inspect the durable state and exact paired backup before recovery',
-                            0,
-                            $exception,
-                        );
-                    }
-                    $migrationStatuses = productUpgradeAssertMigrationProgress($database, $migrationIds);
-                    if (count($migrationStatuses) !== count($migrationIds)) {
-                        throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_NOT_APPLIED');
-                    }
-                    $migrationEvidence = [
-                        'protocol' => 'peanut.product-upgrade-internal-evidence.v1',
-                        'phase' => 'migrations',
-                        'candidate' => $plan['candidate'],
-                        'payload' => ['result' => $migration, 'statuses' => $migrationStatuses],
-                    ];
+                    $migrationEvidence = productUpgradeHostPhase($packageRoot, 'migrate', $plan, $state);
                     $state['migration_completed'] = true;
-                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'migrations', 'migrations_applied', [
-                        'sha256' => 'sha256:' . hash('sha256', productUpgradeCanonicalJson($migrationEvidence)),
-                        'payload' => $migrationEvidence,
-                    ]);
+                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'migrate', 'migrations_applied', $migrationEvidence);
                 }
 
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'switch', 'switched');
-                $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'reload', 'reloaded');
+                $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'reload-safe', 'reloaded_safe');
+                $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'migration-verify', 'migration_verified');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'health', 'healthy');
                 $code = $runner->verify($instanceRoot, (string)$plan['scaffold_plan']);
-                $migrationStatuses = productUpgradeAssertMigrationProgress($database, $migrationIds);
-                if (count($migrationStatuses) !== count($migrationIds)) {
-                    throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_NOT_APPLIED');
+
+                if (!isset($state['evidence']['activate'])) {
+                    // Opening traffic is the irreversible recovery boundary. Persist it before
+                    // the driver can start any public writer. Thereafter only forward repair is safe.
+                    $state['phase'] = 'activating';
+                    $state['phase_in_progress'] = 'activate';
+                    $state['activation_started'] = true;
+                    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                    $activation = productUpgradeHostPhase($packageRoot, 'activate', $plan, $state);
+                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'activate', 'completed', $activation);
                 }
-                $state['phase'] = 'completed';
-                $state['phase_in_progress'] = null;
-                $state['completed_at'] = gmdate(DATE_ATOM);
+                $state['completed_at'] ??= gmdate(DATE_ATOM);
                 $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
                 $result = [
-                    'status' => 'completed', 'candidate' => $plan['candidate'],
-                    'phase' => 'completed', 'plan_sha256' => $plan['plan_sha256'],
-                    'idempotent' => false, 'code' => $code,
-                    'migration_statuses' => $migrationStatuses,
+                    'status' => 'completed', 'candidate' => $plan['candidate'], 'phase' => 'completed',
+                    'plan_sha256' => $plan['plan_sha256'], 'idempotent' => false, 'code' => $code,
                     'state_sha256' => $state['state_sha256'],
                     'host_evidence' => array_map(static fn(array $entry): string => $entry['sha256'], $state['evidence']),
                     'health_evidence_sha256' => $state['evidence']['health']['sha256'],
+                    'activation_evidence_sha256' => $state['evidence']['activate']['sha256'],
                 ];
             }
         } elseif ($command === 'verify') {
             $prepared = (new EditionUpgradePackage())->reauthenticate(
-                $instanceRoot,
-                $packageRoot,
-                $options['signature-key-id'],
-                $trustedKeys,
+                $instanceRoot, $packageRoot, $options['signature-key-id'], $trustedKeys,
             );
             if (productUpgradePackageIdentity($prepared, $packageRoot) !== $plan['package']) {
                 throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_REBIND_FAILED');
@@ -576,47 +547,83 @@ try {
                 throw new RuntimeException('PRODUCT_UPGRADE_NOT_COMPLETED:' . $state['phase']);
             }
             $code = $runner->verify($instanceRoot, (string)$plan['scaffold_plan']);
-            $statuses = productUpgradeAssertMigrationProgress($database, $migrationIds);
-            if (count($statuses) !== count($migrationIds)) {
-                throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_NOT_APPLIED');
-            }
+            $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'migration-verify');
             $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
-            $health = $state['evidence']['health'];
             $state['verified_at'] = gmdate(DATE_ATOM);
             $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
             $result = [
-                'status' => 'verified', 'candidate' => $plan['candidate'],
-                'code' => $code, 'migration_statuses' => $statuses,
-                'health_evidence_sha256' => $health['sha256'],
+                'status' => 'verified', 'candidate' => $plan['candidate'], 'code' => $code,
+                'health_evidence_sha256' => $state['evidence']['health']['sha256'],
+                'migration_evidence_sha256' => $state['evidence']['migration-verify']['sha256'],
                 'state_sha256' => $state['state_sha256'],
             ];
         } else {
             (new EditionUpgradePackage())->reauthenticate(
-                $instanceRoot,
-                $packageRoot,
-                $options['signature-key-id'],
-                $trustedKeys,
+                $instanceRoot, $packageRoot, $options['signature-key-id'], $trustedKeys,
             );
             if ($state['phase'] === 'completed') {
                 throw new RuntimeException('PRODUCT_UPGRADE_COMPLETED_RECOVERY_REQUIRES_NEW_CHANGE_PLAN');
             }
-            $state['phase_in_progress'] = 'recover';
-            $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
-            $code = null;
-            if (!$state['migration_started'] && isset($state['evidence']['managed_files'])) {
-                $code = $runner->recover($instanceRoot, (string)$plan['scaffold_plan']);
+            if ($state['activation_started']) {
+                throw new RuntimeException('PRODUCT_UPGRADE_ACTIVATION_STARTED_FORWARD_REPAIR_REQUIRED');
             }
-            $recovery = productUpgradeHostPhase($packageRoot, 'recover', $plan, $state);
-            if ($state['migration_started'] && isset($state['evidence']['managed_files'])) {
-                $code = $runner->recover($instanceRoot, (string)$plan['scaffold_plan']);
+            if ($state['phase'] === 'recovered') {
+                $context = $state['recovery_context'] ?? null;
+                if (!is_array($context) || !is_bool($context['managed_files_started'] ?? null)
+                    || !isset($state['evidence']['recover'], $state['evidence']['resume-old'])) {
+                    throw new RuntimeException('PRODUCT_UPGRADE_RECOVERY_STATE_INVALID');
+                }
+                $code = $context['managed_files_started']
+                    ? $runner->verifyRecovery($instanceRoot, (string)$plan['scaffold_plan'])
+                    : null;
+                $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'recovery-verify');
+                $result = [
+                    'status' => 'recovered', 'candidate' => $plan['candidate'],
+                    'code' => $code,
+                    'database_recovery_required' => $state['database_recovery_required'],
+                    'recovery_evidence_sha256' => $state['evidence']['recover']['sha256'],
+                    'resume_evidence_sha256' => $state['evidence']['resume-old']['sha256'],
+                    'state_sha256' => $state['state_sha256'], 'idempotent' => true,
+                ];
+            } else {
+                $context = $state['recovery_context'] ?? null;
+                if (!is_array($context)) {
+                    $managedFilesStarted = isset($state['evidence']['managed_files'])
+                        || $state['phase_in_progress'] === 'managed_files'
+                        || in_array($state['phase'], [
+                            'managed_files_applied', 'migrations_started', 'migrations_applied', 'switched',
+                            'reloaded_safe', 'migration_verified', 'healthy',
+                        ], true);
+                    $context = [
+                        'managed_files_started' => $managedFilesStarted,
+                        'original_phase' => $state['phase'],
+                        'original_phase_in_progress' => $state['phase_in_progress'],
+                    ];
+                    $state['recovery_context'] = $context;
+                    $state['phase'] = 'recovering';
+                    $state['phase_in_progress'] = 'recover';
+                    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                }
+                if (!isset($state['evidence']['recover'])) {
+                    $recovery = productUpgradeHostPhase($packageRoot, 'recover', $plan, $state);
+                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'recover', 'recovering', $recovery);
+                }
+                $code = $context['managed_files_started']
+                    ? $runner->recover($instanceRoot, (string)$plan['scaffold_plan'])
+                    : null;
+                if (!isset($state['evidence']['resume-old'])) {
+                    $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'resume-old', 'recovered');
+                }
+                $state['recovered_at'] ??= gmdate(DATE_ATOM);
+                $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                $result = [
+                    'status' => 'recovered', 'candidate' => $plan['candidate'], 'code' => $code,
+                    'database_recovery_required' => $state['database_recovery_required'],
+                    'recovery_evidence_sha256' => $state['evidence']['recover']['sha256'],
+                    'resume_evidence_sha256' => $state['evidence']['resume-old']['sha256'],
+                    'state_sha256' => $state['state_sha256'], 'idempotent' => false,
+                ];
             }
-            $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'recover', 'recovered', $recovery);
-            $result = [
-                'status' => 'recovered', 'candidate' => $plan['candidate'],
-                'code' => $code, 'migration_started' => $state['migration_started'],
-                'recovery_evidence_sha256' => $recovery['sha256'],
-                'state_sha256' => $state['state_sha256'],
-            ];
         }
     }
 
