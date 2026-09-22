@@ -29,6 +29,64 @@ final class MigrationTargetIdentityTest extends TestCase
         foreach ($result as $error) self::assertSame('MIGRATION_TARGET_CONTRACT_MISMATCH', $error);
     }
 
+    public function testPhpCandidateIdentityMatchesItsBranchAndExactComposerLock(): void
+    {
+        $result = $this->installerCall(
+            '$versions = \\app\\common\\value\\installation\\ApplicationReleaseVersions::load(dirname($server) . "/release-versions.json")->toArray();'
+            . '$lock = json_decode(file_get_contents($server . "/composer.lock"), true, 512, JSON_THROW_ON_ERROR);'
+            . '$manifest = json_decode(file_get_contents($server . "/composer.json"), true, 512, JSON_THROW_ON_ERROR);'
+            . '$packages = array_values(array_filter($lock["packages"], static fn(array $package): bool => $package["name"] === "peanut-admin/core"));'
+            . 'echo json_encode([$versions["core_php"], $manifest["require"]["peanut-admin/core"], $packages], JSON_THROW_ON_ERROR);'
+        );
+        [$identity, $constraint, $packages] = $result;
+        self::assertSame($constraint, $identity['constraint']);
+        self::assertSame($identity['constraint'], $identity['resolved_version']);
+        self::assertCount(1, $packages);
+        self::assertSame($identity['resolved_version'], $packages[0]['version']);
+        self::assertSame($identity['source_type'], $packages[0]['source']['type']);
+        self::assertSame($identity['source_url'], $packages[0]['source']['url']);
+        self::assertSame($identity['source_reference'], $packages[0]['source']['reference']);
+    }
+
+    public function testMalformedPhpCandidateIdentityIsRejectedBeforeInstallation(): void
+    {
+        $result = $this->installerCall(<<<'PHP'
+$versions = json_decode(file_get_contents(dirname($server) . '/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+$path = tempnam(sys_get_temp_dir(), 'peanut-version-identity-');
+if ($path === false) throw new RuntimeException('TEST_TEMP_FILE_UNAVAILABLE');
+$errors = [];
+try {
+    foreach ([
+        ['constraint' => 'dev-other'],
+        ['constraint' => 'dev-dev#' . $versions['core_php']['source_reference']],
+        ['resolved_version' => 'dev-other'],
+        ['source_reference' => str_repeat('a', 39)],
+        ['source_reference' => 'latest'],
+        ['source_type' => 'path'],
+        ['source_url' => 'file:///tmp/untrusted-core'],
+        ['package' => 'untrusted/core'],
+    ] as $changes) {
+        $candidate = $versions;
+        $candidate['core_php'] = array_replace($candidate['core_php'], $changes);
+        file_put_contents($path, json_encode($candidate, JSON_THROW_ON_ERROR));
+        try {
+            \app\common\value\installation\ApplicationReleaseVersions::load($path);
+            $errors[] = 'unexpected-success';
+        } catch (RuntimeException $exception) {
+            $errors[] = $exception->getMessage();
+        }
+    }
+} finally {
+    unlink($path);
+}
+echo json_encode($errors, JSON_THROW_ON_ERROR);
+PHP);
+        self::assertCount(8, $result);
+        foreach ($result as $error) {
+            self::assertSame('APPLICATION_RELEASE_VERSIONS_CORE_PHP_INVALID', $error);
+        }
+    }
+
     public function testFreshInstallerHasNoUpgradeMode(): void
     {
         $result = $this->installerCall(

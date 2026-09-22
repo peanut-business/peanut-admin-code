@@ -138,12 +138,12 @@ final readonly class ApplicationReleaseVersions
         $phpKeys = ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference'];
         if (!is_array($php) || array_keys($php) !== $phpKeys
             || $php['package'] !== 'peanut-admin/core'
-            || !is_string($php['constraint']) || preg_match('/^dev-[A-Za-z0-9._-]+#[0-9a-f]{40}$/D', $php['constraint']) !== 1
+            || !is_string($php['constraint']) || preg_match('/^dev-[A-Za-z0-9._-]+$/D', $php['constraint']) !== 1
             || !is_string($php['resolved_version']) || !str_starts_with($php['resolved_version'], 'dev-')
             || $php['source_type'] !== 'git'
             || !is_string($php['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $php['source_url']) !== 1
             || !is_string($php['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) !== 1
-            || !str_ends_with($php['constraint'], '#' . $php['source_reference'])) {
+            || $php['constraint'] !== $php['resolved_version']) {
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_CORE_PHP_INVALID');
         }
         $webKeys = ['source_type', 'source_url', 'source_reference', 'packages'];

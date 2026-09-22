@@ -3110,7 +3110,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8d087a1028f159faabde3cc27fe15734ca34a6e0e3941c4a8b51fc4cb12359eb"
+            "source_sha256": "dbe108f29527823c14cfc16cafd1fc8a602903baa40087e5d38d2e8a02f7aa99"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -7648,7 +7648,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "950adb8e0e71e9d619ed55cd7a3c5e6768d40fc055d3f858f7c1a67d2b75c5ed"
+            "source_sha256": "a6652e64a263df5424af8f0b1b23baa26bc926669f9526efb42b0796b979dda9"
         },
         {
             "path": "server/app/common/value/module/ModulePhpNamespace.php",

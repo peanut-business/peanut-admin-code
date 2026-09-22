@@ -75,12 +75,12 @@ def current_version_contract(versions: dict[str, Any], target_version: str) -> b
         not isinstance(php, dict)
         or list(php) != ["package", "constraint", "resolved_version", "source_type", "source_url", "source_reference"]
         or php.get("package") != "peanut-admin/core"
-        or re.fullmatch(r"dev-[A-Za-z0-9._-]+#[0-9a-f]{40}", str(php.get("constraint", ""))) is None
+        or re.fullmatch(r"dev-[A-Za-z0-9._-]+", str(php.get("constraint", ""))) is None
         or not str(php.get("resolved_version", "")).startswith("dev-")
         or php.get("source_type") != "git"
         or not str(php.get("source_url", "")).startswith("https://")
         or COMMIT.fullmatch(str(php.get("source_reference", ""))) is None
-        or not str(php.get("constraint", "")).endswith("#" + str(php.get("source_reference", "")))
+        or php.get("constraint") != php.get("resolved_version")
         or not isinstance(web, dict)
         or list(web) != ["source_type", "source_url", "source_reference", "packages"]
         or web.get("source_type") != "git"

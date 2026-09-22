@@ -9,6 +9,7 @@ require_once $root.'/server/vendor/autoload.php';
 require $root.'/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require $root.'/scripts/scaffold-runtime/ScaffoldManifest.php';
 require $root.'/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
+require $root.'/scripts/scaffold-runtime/Semver.php';
 require $root.'/server/app/platform/exception/plugin/PluginArtifactToolException.php';
 require $root.'/server/app/platform/exception/plugin/PluginLifecycleException.php';
 require $root.'/server/app/platform/value/plugin/ModuleFrontendLayout.php';
