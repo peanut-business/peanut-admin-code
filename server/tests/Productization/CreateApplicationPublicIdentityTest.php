@@ -134,6 +134,33 @@ try {
             && $templateCommit !== $generationCommit,
         'public create-app conflated template release and generation source identity',
     );
+    foreach (['standalone', 'multi-tenant'] as $edition) {
+        $editionRelease = $temporary . '/release-' . $edition;
+        publicIdentityRun([
+            'php', $source . '/scripts/build-scaffold-release', '--version=' . $version,
+            '--source-commit=' . $templateCommit, '--edition=' . $edition, '--output=' . $editionRelease,
+        ], $source);
+        $editionTarget = $temporary . '/application-' . $edition;
+        $arguments = [
+            'php', $source . '/scripts/create-app', '--name=Edition Consumer', '--slug=edition-consumer',
+            '--package=fixture/edition-consumer', '--target=' . $editionTarget, '--edition=' . $edition,
+            '--profile=full', '--scaffold-manifest=' . $editionRelease . '/scaffold-manifest.json',
+        ];
+        $created = json_decode(publicIdentityRun($arguments, $source), true, 512, JSON_THROW_ON_ERROR);
+        publicIdentityExpect(($created['edition'] ?? null) === $edition, 'sealed edition was not adopted');
+        $selector = (string)file_get_contents($editionTarget . '/deploy/docker/nginx-select-admin.sh');
+        publicIdentityExpect(str_contains($selector, 'this artifact requires DEPLOYMENT_MODE=' . $edition),
+            'sealed application did not retain its exact edition projection');
+        $arguments[5] = '--target=' . $temporary . '/wrong-' . $edition;
+        $arguments[6] = '--edition=' . ($edition === 'standalone' ? 'multi-tenant' : 'standalone');
+        try {
+            publicIdentityRun($arguments, $source);
+            throw new RuntimeException('cross-edition adoption unexpectedly succeeded');
+        } catch (RuntimeException $exception) {
+            publicIdentityExpect(str_contains($exception->getMessage(), 'CREATE_APP_ADOPTION_EDITION_MISMATCH'),
+                'cross-edition adoption must fail explicitly before target writes');
+        }
+    }
 } finally {
     publicIdentityDelete($temporary);
 }

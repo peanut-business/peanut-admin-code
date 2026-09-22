@@ -80,6 +80,10 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_INVENTORY_DIGEST_INVALID');
         }
         $adoption = $this->loadAdoptionManifest($inventory);
+        $adoptsEdition = $adoption !== null && array_key_exists('edition', $adoption->data);
+        if ($adoptsEdition && (!$this->projectEdition || $adoption->data['edition'] !== $editionProfile->identity())) {
+            throw new RuntimeException('CREATE_APP_ADOPTION_EDITION_MISMATCH');
+        }
         $target = $this->validateTarget($target);
         $parent = dirname($target);
         $stage = $parent . DIRECTORY_SEPARATOR . '.' . basename($target) . '.create-' . bin2hex(random_bytes(6));
@@ -117,12 +121,16 @@ final class ApplicationCreator
             $this->prepareWritableDirectories($stage);
             usort($files, static fn(array $a, array $b): int => strcmp((string)$a['path'], (string)$b['path']));
             $this->assertNoUnresolvedVariables($stage);
-            if ($adoption !== null) {
+            // 中性模板在投影前核验；明确 Edition 的发布包必须与投影后的实际文件核验。
+            if ($adoption !== null && !$adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
             $files = $this->rebuildBundledPluginArtifacts($stage, $files);
             if ($this->projectEdition) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
+            }
+            if ($adoptsEdition) {
+                $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
             $templateIdentity = $adoption === null
                 ? [
