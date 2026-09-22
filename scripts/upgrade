@@ -476,6 +476,7 @@ try {
                     'plan_sha256' => $plan['plan_sha256'], 'idempotent' => true,
                     'state_sha256' => $state['state_sha256'],
                     'health_evidence_sha256' => $state['evidence']['health']['sha256'],
+                    'activation_evidence_sha256' => $state['evidence']['activate']['sha256'],
                 ];
             } else {
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'prepare', 'prepared');
