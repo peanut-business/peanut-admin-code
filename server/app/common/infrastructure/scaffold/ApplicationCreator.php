@@ -696,6 +696,12 @@ final class ApplicationCreator
                 static fn(mixed $entry): bool => !in_array($entry, ['tests/CoreIntegration/', 'tests/Modules/'], true),
             ));
         }
+        if ($path === 'server/composer.json' && is_array($document['autoload-dev']['files'] ?? null)) {
+            $document['autoload-dev']['files'] = array_values(array_filter(
+                $document['autoload-dev']['files'],
+                static fn(mixed $entry): bool => $entry !== 'tests/Support/ThinkPhpTestConnection.php',
+            ));
+        }
         if (in_array($path, ['platform/package-lock.json', 'pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
             if (!array_key_exists('version', $document)
                 || !is_array($document['packages'][''] ?? null)
