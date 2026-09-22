@@ -447,12 +447,53 @@ try {
         'production PHP and cron services must consume the single backend environment source safely'
     );
     createApplicationExpect(
-        str_contains($generatedProductionDockerfile, 'COPY resources/project-resources.json resources/project-resources.json'),
-        'production PHP image must include the application resource registry consumed by the database environment guard'
+        preg_match('/FROM php:[^\n]+ AS php(.*?)FROM nginx:/s', $generatedProductionDockerfile, $phpImageMatch) === 1
+            && substr_count($phpImageMatch[1], 'COPY . .') === 1
+            && !str_contains($phpImageMatch[1], 'COPY resources/project-resources.json resources/project-resources.json')
+            && !str_contains($phpImageMatch[1], 'COPY server/database server/database'),
+        'production PHP image must copy the complete fixed application package once instead of maintaining partial runtime copies'
+    );
+    $generatedResourceRegistry = json_decode(
+        (string)file_get_contents($first . '/resources/project-resources.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
     );
     createApplicationExpect(
-        str_contains($generatedProductionDockerfile, 'COPY server/database server/database')
-            && !str_contains($generatedProductionDockerfile, 'COPY scripts/seed-demo-data')
+        ($generatedResourceRegistry['schema_version'] ?? null) === 1
+            && ($generatedResourceRegistry['project_id'] ?? null) === 'acme-console'
+            && is_array($generatedResourceRegistry['resources']['databases'] ?? null),
+        'whole-package production image context must contain the generated application resource registry consumed by the database environment guard'
+    );
+    foreach ([
+        'server/database/install.php' => false,
+        'server/database/environment-guard.php' => false,
+        'server/app/common/services/installation/InstallationExecutionHost.php' => false,
+        'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => false,
+        'scripts/upgrade' => true,
+        'scripts/product-upgrade-host' => true,
+        'scripts/product-upgrade-database' => true,
+        'scripts/scaffold-runtime/ScaffoldPathGuard.php' => false,
+        'scripts/scaffold-runtime/ScaffoldManifest.php' => false,
+        'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php' => false,
+        'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => false,
+        'scripts/scaffold-runtime/EditionUpgradePackage.php' => false,
+        'scripts/scaffold-runtime/Semver.php' => false,
+    ] as $managedRuntimePath => $mustBeExecutable) {
+        $generatedRuntimePath = $first . '/' . $managedRuntimePath;
+        $generatedRuntimeBaseline = $first . '/.peanut/scaffold-baseline/'
+            . $inventory['template_version'] . '/files/' . $managedRuntimePath;
+        createApplicationExpect(
+            is_file($generatedRuntimePath)
+                && is_file($generatedRuntimeBaseline)
+                && (!$mustBeExecutable || is_executable($generatedRuntimePath))
+                && hash_file('sha256', $generatedRuntimePath) === hash_file('sha256', $generatedRuntimeBaseline),
+            'whole-package production image context must contain the managed installation/upgrade runtime and matching baseline: '
+                . $managedRuntimePath,
+        );
+    }
+    createApplicationExpect(
+        !str_contains($generatedProductionDockerfile, 'COPY scripts/seed-demo-data')
             && str_contains($generatedProductionDockerfile, 'chmod +x server/think server/database/seed-demo-data.php /usr/local/bin/peanut-php-entrypoint')
             && str_contains($generatedProductionDockerfile, 'ln -s /var/www/peanut-admin/server/database/seed-demo-data.php /usr/local/bin/peanut-seed-demo-data')
             && is_executable($first . '/server/database/seed-demo-data.php')
