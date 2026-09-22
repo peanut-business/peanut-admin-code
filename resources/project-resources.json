@@ -2623,6 +2623,25 @@
     ],
     "optional_services": [
       {
+        "stable_resource_id": "peanut-admin-ci-static",
+        "purpose": "Logical cache/session namespace for database-free CI checks",
+        "environments": ["ci"],
+        "owner": ".github/workflows/ci.yml PHP job",
+        "host": "ephemeral GitHub Actions runner",
+        "port": null,
+        "database": null,
+        "schema": null,
+        "namespace": "peanut-admin-ci-static, isolated per job filesystem",
+        "service_type": "process/filesystem namespace only; no database service or connection permitted",
+        "version": "PHP 8.3 / application RuntimeNamespace contract",
+        "credential_ref": "none",
+        "data_source": "synthetic database-free test inputs",
+        "freshness_requirement": "new runner workspace per job",
+        "health_check": "CI bootstrap namespace resolution; any database requirement must use the separate MySQL job",
+        "fallback": "none",
+        "cleanup_responsibility": "GitHub Actions job teardown"
+      },
+      {
         "stable_resource_id": "peanut-admin-core-p1ed01-mysql84-tunnel",
         "purpose": "lease-owned loopback SSH tunnel used only because the current Core Kernel integration base fixes the database host to 127.0.0.1",
         "environments": [

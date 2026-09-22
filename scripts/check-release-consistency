@@ -135,12 +135,12 @@ if (options.staticOnly && options.editionManifests.length === 0 && !options.rele
     || versions.instance_version !== null
     || versions.scaffold_template !== target
     || phpIdentity.package !== 'peanut-admin/core'
-    || !/^dev-[A-Za-z0-9._-]+#[0-9a-f]{40}$/.test(phpIdentity.constraint ?? '')
+    || !/^dev-[A-Za-z0-9._-]+$/.test(phpIdentity.constraint ?? '')
     || !/^dev-/.test(phpIdentity.resolved_version ?? '')
     || phpIdentity.source_type !== 'git'
     || !/^https:\/\//.test(phpIdentity.source_url ?? '')
     || !/^[0-9a-f]{40}$/.test(phpIdentity.source_reference ?? '')
-    || !phpIdentity.constraint.endsWith(`#${phpIdentity.source_reference}`)
+    || phpIdentity.constraint !== phpIdentity.resolved_version
     || JSON.stringify(Object.keys(webPackages)) !== JSON.stringify(expectedWebPackages)
     || versions.core_web?.source_type !== 'git'
     || !/^https:\/\//.test(versions.core_web?.source_url ?? '')
