@@ -448,9 +448,10 @@ final class ApplicationCreator
             $transform = (string)($entry['transform'] ?? 'copy');
             if (str_starts_with($path, 'server/resources/scaffold-application/')) {
                 $expectedTarget = substr($path, strlen('server/resources/scaffold-application/'), -5);
+                $expectedClassification = $target === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
                 if (!str_ends_with($path, '.stub') || $target !== $expectedTarget
                     || (!str_starts_with($target, 'docs-site/') && $target !== 'SECURITY.md')
-                    || $classification !== 'app-owned' || $transform !== 'docs-page'
+                    || $classification !== $expectedClassification || $transform !== 'docs-page'
                     || ($entry['mode'] ?? null) !== 0644) {
                     throw new RuntimeException('CREATE_APP_DOCUMENT_TEMPLATE_INVALID: ' . $path);
                 }

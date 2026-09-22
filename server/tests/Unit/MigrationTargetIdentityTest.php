@@ -29,11 +29,14 @@ final class MigrationTargetIdentityTest extends TestCase
         foreach ($result as $error) self::assertSame('MIGRATION_TARGET_CONTRACT_MISMATCH', $error);
     }
 
-    public function testCliRetainsTheExactPrereleaseValue(): void
+    public function testFreshInstallerHasNoUpgradeMode(): void
     {
-        $result = $this->installerCall(            'echo json_encode([migrationArguments(["--migrate", "--target-version=4.0.0-dev", "--dry-run"]), migrationArguments(["--preflight"])], JSON_THROW_ON_ERROR);'
+        $result = $this->installerCall(
+            '$installer = file_get_contents($server . "/database/install.php");'
+            . '$upgrade = file_get_contents(dirname($server) . "/scripts/upgrade");'
+            . 'echo json_encode([!str_contains($installer, "--migrate"), str_contains($upgrade, "product-upgrade-plan")], JSON_THROW_ON_ERROR);'
         );
-        self::assertSame([['4.0.0-dev', true], null], $result);
+        self::assertSame([true, true], $result);
     }
 
     private function installerCall(string $body): array

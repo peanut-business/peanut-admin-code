@@ -9,9 +9,19 @@ $root = dirname(__DIR__);
 require $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
-require $root . '/server/app/platform/exception/plugin/PluginLifecycleException.php';
-require $root . '/server/app/platform/value/plugin/PluginDescriptor.php';
-require $root . '/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
+foreach ([
+    ['/server/app/platform/exception/plugin/PluginLifecycleException.php', '/scripts/upgrade-runtime/PluginLifecycleException.php'],
+    ['/server/app/platform/value/plugin/PluginDescriptor.php', '/scripts/upgrade-runtime/PluginDescriptor.php'],
+    ['/server/app/platform/infrastructure/plugin/PluginLockResolver.php', '/scripts/upgrade-runtime/PluginLockResolver.php'],
+] as $candidates) {
+    foreach ($candidates as $candidate) {
+        if (is_file($root . $candidate)) {
+            require_once $root . $candidate;
+            continue 2;
+        }
+    }
+    throw new RuntimeException('SCAFFOLD_UPGRADE_RUNTIME_MISSING');
+}
 require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
 require $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
 

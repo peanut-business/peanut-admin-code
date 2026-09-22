@@ -171,18 +171,21 @@ try {
             }
         }
         foreach ([
-            'scripts/scaffold-upgrade' => 0755,
-            'scripts/scaffold-runtime/ScaffoldPathGuard.php' => 0644,
-            'scripts/scaffold-runtime/ScaffoldManifest.php' => 0644,
-            'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php' => 0644,
-            'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => 0644,
-            'scripts/scaffold-runtime/EditionUpgradePackage.php' => 0644,
-            'server/app/platform/exception/plugin/PluginLifecycleException.php' => 0644,
-            'server/app/platform/value/plugin/PluginDescriptor.php' => 0644,
-            'server/app/platform/infrastructure/plugin/PluginLockResolver.php' => 0644,
-        ] as $path => $mode) {
-            $contents = editionUpgradeRun(['git', '-C', $root, 'show', $commit . ':' . $path]);
-            editionUpgradeWrite($package . '/upgrader/' . $path, $contents, $mode);
+            'scripts/upgrade' => ['scripts/upgrade', 0755],
+            'scripts/scaffold-upgrade' => ['scripts/scaffold-upgrade', 0755],
+            'scripts/scaffold-runtime/ScaffoldPathGuard.php' => ['scripts/scaffold-runtime/ScaffoldPathGuard.php', 0644],
+            'scripts/scaffold-runtime/ScaffoldManifest.php' => ['scripts/scaffold-runtime/ScaffoldManifest.php', 0644],
+            'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php' => ['scripts/scaffold-runtime/ScaffoldUpgradeLedger.php', 0644],
+            'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => ['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 0644],
+            'scripts/scaffold-runtime/EditionUpgradePackage.php' => ['scripts/scaffold-runtime/EditionUpgradePackage.php', 0644],
+            'server/app/platform/exception/plugin/PluginLifecycleException.php' => ['scripts/upgrade-runtime/PluginLifecycleException.php', 0644],
+            'server/app/platform/value/plugin/PluginDescriptor.php' => ['scripts/upgrade-runtime/PluginDescriptor.php', 0644],
+            'server/app/platform/infrastructure/plugin/PluginLockResolver.php' => ['scripts/upgrade-runtime/PluginLockResolver.php', 0644],
+            'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => ['scripts/upgrade-runtime/ApplicationMigrationRunner.php', 0644],
+            'scripts/product-upgrade-host' => ['scripts/upgrade-runtime/product-upgrade-host', 0755],
+        ] as $sourcePath => [$packagePath, $mode]) {
+            $contents = editionUpgradeRun(['git', '-C', $root, 'show', $commit . ':' . $sourcePath]);
+            editionUpgradeWrite($package . '/' . $packagePath, $contents, $mode);
         }
         $manifest = [
             'schema_version' => 1,
@@ -216,7 +219,10 @@ try {
                 'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'),
                 'managed_tree_sha256' => $targetManifest['release']['managed_tree_sha256'],
             ],
-            'upgrader' => ['entrypoint' => 'upgrader/scripts/scaffold-upgrade'],
+            'upgrader' => [
+                'entrypoint' => 'scripts/upgrade',
+                'internal_scaffold_engine' => 'scripts/scaffold-upgrade',
+            ],
             'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => $migrations],
             'ownership' => [
                 'automatic' => ['managed', 'generated-managed'],

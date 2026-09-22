@@ -1,20 +1,21 @@
 <?php
 declare(strict_types=1);
 
-use app\common\service\scaffold\EditionUpgradePackage;
-use app\common\service\scaffold\ScaffoldUpgradeRunner;
-use app\platform\service\plugin\PluginArtifactWriter;
-use app\platform\service\plugin\PluginLockResolver;
+use app\common\infrastructure\scaffold\EditionUpgradePackage;
+use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
+use app\platform\infrastructure\plugin\PluginArtifactWriter;
+use app\platform\infrastructure\plugin\PluginLockResolver;
 
 $root = dirname(__DIR__, 3);
+require_once $root . '/server/vendor/autoload.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
-require_once $root . '/server/app/platform/service/plugin/PluginLifecycleException.php';
-require_once $root . '/server/app/platform/service/plugin/PluginDescriptor.php';
-require_once $root . '/server/app/platform/service/plugin/PluginLockResolver.php';
-require_once $root . '/server/app/platform/service/plugin/PluginArtifactToolException.php';
-require_once $root . '/server/app/platform/service/plugin/PluginArtifactWriter.php';
+require_once $root . '/server/app/platform/exception/plugin/PluginLifecycleException.php';
+require_once $root . '/server/app/platform/value/plugin/PluginDescriptor.php';
+require_once $root . '/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
+require_once $root . '/server/app/platform/exception/plugin/PluginArtifactToolException.php';
+require_once $root . '/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
 require_once $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
 
@@ -44,6 +45,26 @@ function editionUpgradeFile(string $path, string $contents, int $mode = 0644): v
     if (!is_dir(dirname($path))) mkdir(dirname($path), 0775, true);
     file_put_contents($path, $contents);
     chmod($path, $mode);
+}
+
+/** @return array<string,mixed> */
+function editionUpgradeEdition(string $edition): array
+{
+    return [
+        'name' => $edition,
+        'deployment_mode' => $edition,
+        'profile_sha256' => str_repeat('2', 64),
+        'source_sha256' => str_repeat('2', 64),
+        'generator_version' => 1,
+        'module_profile' => 'official-default',
+        'tenant_bootstrap' => [
+            'kind' => 'real-default-tenant', 'code' => 'default', 'tenant_identity' => 'required',
+            'rbac' => 'required', 'execution_context' => 'PeanutAdmin\\Kernel\\Context\\TenantSystemContext',
+            'module_lifecycle' => 'required',
+        ],
+        'schema_projection' => $edition === 'standalone' ? 'single-organization-v1' : 'tenant-owned-v1',
+        'schema' => ['projection' => $edition === 'standalone' ? 'single-organization-v1' : 'tenant-owned-v1'],
+    ];
 }
 
 function editionUpgradeCopyTree(string $source, string $target): void
@@ -84,6 +105,8 @@ function editionUpgradePluginTree(
 ): array {
     $frontendRoot = 'web/src/modules/' . str_replace('.', '-', $key);
     $packageName = str_replace('.', '-', $key);
+    $phpName = implode('', array_map('ucfirst', preg_split('/[._-]+/', $key) ?: []));
+    $phpNamespace = 'Acme\\Modules\\' . $phpName . '\\';
     editionUpgradeJson($projectRoot . '/' . $moduleRoot . '/module.json', [
         'schema_version' => 1,
         'key' => $key,
@@ -92,13 +115,16 @@ function editionUpgradePluginTree(
         'license' => 'MIT',
         'dependencies' => [],
         'backend' => [],
+        'frontend' => ['entry' => $frontendRoot . '/contribution.ts'],
         'marker' => $marker,
     ]);
     editionUpgradeJson($projectRoot . '/' . $moduleRoot . '/composer.json', [
         'name' => 'acme/' . $packageName,
         'version' => $version,
         'type' => 'library',
+        'autoload' => ['psr-4' => [$phpNamespace => 'src/']],
     ]);
+    editionUpgradeFile($projectRoot . '/' . $moduleRoot . '/src/.keep', "");
     editionUpgradeJson($projectRoot . '/' . $frontendRoot . '/package.json', [
         'name' => '@acme/' . $packageName,
         'version' => $version,
@@ -117,7 +143,7 @@ function editionUpgradePluginTree(
         'plugins/' . $key . '/plugin.json',
         'plugins.lock',
     ];
-    $appOwnedPaths = [$moduleRoot . '/module.json', $moduleRoot . '/composer.json'];
+    $appOwnedPaths = [$moduleRoot . '/module.json', $moduleRoot . '/composer.json', $moduleRoot . '/src/.keep'];
     $contents = static function (array $paths) use ($projectRoot): array {
         $files = [];
         foreach ($paths as $path) $files[$path] = (string)file_get_contents($projectRoot . '/' . $path);
@@ -201,7 +227,7 @@ try {
             'name' => 'Acme App', 'slug' => 'acme-app', 'package_identity' => 'acme/app',
             'version' => '1.4.0', 'profile' => 'full', 'edition' => 'standalone',
         ],
-        'edition' => ['name' => 'standalone'],
+        'edition' => editionUpgradeEdition('standalone'),
         'template' => [
             'version' => '3.0.11', 'inventory_sha256' => str_repeat('c', 64),
             'source_commit' => str_repeat('a', 40), 'source_tree' => str_repeat('b', 40),
@@ -276,16 +302,21 @@ try {
         ],
         'files' => $targetFiles,
         'renames' => [],
-        'edition' => ['name' => 'standalone'],
+        'edition' => editionUpgradeEdition('standalone'),
     ];
     editionUpgradeJson($package . '/target/scaffold-manifest.json', $targetRelease);
-    editionUpgradeFile($package . '/upgrader/scripts/scaffold-upgrade', "<?php // package cli\n", 0755);
-    editionUpgradeFile($package . '/upgrader/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php // package loader\n");
+    editionUpgradeFile($package . '/scripts/upgrade', "<?php // product upgrade cli\n", 0755);
+    editionUpgradeFile($package . '/scripts/scaffold-upgrade', "<?php // internal scaffold cli\n", 0755);
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php // package loader\n");
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/ApplicationMigrationRunner.php', "<?php // migration runner\n");
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-host', "#!/usr/bin/env bash\n", 0755);
     $upgradeManifest = [
         'schema_version' => 1,
         'protocol' => 'peanut.edition-upgrade-package.v1',
         'product' => ['name' => 'Peanut Admin'],
-        'edition' => ['name' => 'standalone'],
+        'edition' => array_intersect_key(editionUpgradeEdition('standalone'), array_flip([
+            'name', 'deployment_mode', 'profile_sha256', 'generator_version', 'module_profile', 'tenant_bootstrap', 'schema_projection',
+        ])),
         'compatibility' => [
             'source' => ['minimum_inclusive' => '3.0.10', 'maximum_exclusive' => '3.0.12'],
             'major_policy' => 'same-major', 'edition_conversion' => false,
@@ -299,7 +330,7 @@ try {
             'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'),
             'managed_tree_sha256' => $targetTree,
         ],
-        'upgrader' => ['entrypoint' => 'upgrader/scripts/scaffold-upgrade'],
+        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
         'migration_chain' => [
             'strategy' => 'append-only-ledger',
             'files' => [[
@@ -337,7 +368,8 @@ try {
     ]);
     putenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON=' . json_encode(['test-release' => base64_encode($public)], JSON_THROW_ON_ERROR));
 
-    $prepared = (new EditionUpgradePackage())->prepare($project, $package, 'test-release');
+    $trusted = ['test-release' => base64_encode($public)];
+    $prepared = (new EditionUpgradePackage())->prepare($project, $package, 'test-release', $trusted);
     $runner = new ScaffoldUpgradeRunner();
     editionUpgradeFile($project . '/managed.txt', "user managed customization\n");
     $blocked = $runner->preview($project, $prepared['from_manifest'], $prepared['to_manifest']);
@@ -472,7 +504,7 @@ try {
     );
 
     editionUpgradeFile($package . '/target/files/managed.txt', "tampered\n");
-    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepare($project, $package, 'test-release'), 'EDITION_UPGRADE_FILE_DIGEST_MISMATCH');
+    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepare($project, $package, 'test-release', $trusted), 'EDITION_UPGRADE_FILE_DIGEST_MISMATCH');
 } finally {
     putenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON');
     editionUpgradeRemove($temporary);
@@ -546,7 +578,7 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
     editionUpgradeJson($project . '/.peanut/application-manifest.json', [
         'schema_version' => 2, 'protocol' => 'peanut.application-scaffold.v2',
         'application' => ['name' => 'Acme', 'slug' => 'acme', 'package_identity' => 'acme/app', 'version' => '1.4.0', 'profile' => 'full', 'edition' => $edition],
-        'edition' => ['name' => $edition],
+        'edition' => editionUpgradeEdition($edition),
         'template' => ['version' => '3.0.14', 'inventory_sha256' => str_repeat('c', 64), 'source_commit' => str_repeat('a', 40), 'source_tree' => str_repeat('b', 40)],
         'ownership' => ['baseline_root' => '.peanut/scaffold-baseline/3.0.14/files'],
         'digests' => [
@@ -569,18 +601,23 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
             'managed_tree_sha256' => str_repeat('f', 64),
             'tokens' => ['product_name' => '__PN__', 'slug' => '__SLUG__', 'package_identity' => '__PKG__', 'application_version' => '__APPV__'],
         ],
-        'files' => $targetFiles, 'renames' => [], 'edition' => ['name' => $edition],
+        'files' => $targetFiles, 'renames' => [], 'edition' => editionUpgradeEdition($edition),
     ];
     editionUpgradeJson($package . '/target/scaffold-manifest.json', $targetManifest);
-    editionUpgradeFile($package . '/upgrader/scripts/scaffold-upgrade', "<?php\n", 0755);
-    editionUpgradeFile($package . '/upgrader/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/upgrade', "<?php\n", 0755);
+    editionUpgradeFile($package . '/scripts/scaffold-upgrade', "<?php\n", 0755);
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/ApplicationMigrationRunner.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-host', "#!/usr/bin/env bash\n", 0755);
     $upgradeManifest = [
         'schema_version' => 1, 'protocol' => 'peanut.edition-upgrade-package.v1', 'product' => ['name' => 'Peanut Admin'],
-        'edition' => ['name' => $edition],
+        'edition' => array_intersect_key(editionUpgradeEdition($edition), array_flip([
+            'name', 'deployment_mode', 'profile_sha256', 'generator_version', 'module_profile', 'tenant_bootstrap', 'schema_projection',
+        ])),
         'compatibility' => ['source' => ['minimum_inclusive' => '3.0.14', 'maximum_exclusive' => '3.1.0'], 'major_policy' => 'same-major', 'edition_conversion' => false],
         'build_source' => ['commit' => str_repeat('d', 40), 'tree' => str_repeat('e', 40), 'inventory_sha256' => str_repeat('1', 64)],
         'target' => ['version' => '3.1.0', 'scaffold_manifest' => 'target/scaffold-manifest.json', 'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'), 'managed_tree_sha256' => str_repeat('f', 64)],
-        'upgrader' => ['entrypoint' => 'upgrader/scripts/scaffold-upgrade'],
+        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
         'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => []],
         'ownership' => [
             'automatic' => ['managed', 'generated-managed'], 'preserved' => ['app-owned', 'third-party-module', 'secret'],
@@ -636,23 +673,31 @@ foreach (['standalone', 'multi-tenant'] as $edition) {
     try {
         $fixture = editionAdoptionFixture($temporary, $edition);
         putenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON=' . json_encode(['adoption-test' => base64_encode($fixture['public'])], JSON_THROW_ON_ERROR));
+        $trusted = ['adoption-test' => base64_encode($fixture['public'])];
         $runner = new ScaffoldUpgradeRunner();
         $protected = [];
         foreach (['business.php', 'server/.env', 'server/app/Modules/ThirdParty/Custom.php'] as $path) $protected[$path] = hash_file('sha256', $fixture['project'] . '/' . $path);
-        $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test');
-        editionUpgradeExpect(count($plan['paths']) === 25 && count($plan['metadata_writes']) === 26, $edition . ' adoption scope mismatch');
+        $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test', $trusted);
+        editionUpgradeExpect(
+            count($plan['paths']) === count(EditionUpgradePackage::OWNERSHIP_ADOPTION_PATHS)
+                && count($plan['metadata_writes']) === count($plan['paths']) + 1,
+            $edition . ' adoption scope mismatch',
+        );
         $manifestBeforeConfirmation = hash_file('sha256', $fixture['project'] . '/.peanut/application-manifest.json');
-        editionUpgradeFails(fn() => $runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], array_slice($plan['paths'], 1)), 'SCAFFOLD_ADOPTION_CONFIRMATION_MISMATCH');
+        editionUpgradeFails(fn() => $runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], array_slice($plan['paths'], 1), $trusted), 'SCAFFOLD_ADOPTION_CONFIRMATION_MISMATCH');
         editionUpgradeExpect(
             hash_equals((string)$manifestBeforeConfirmation, (string)hash_file('sha256', $fixture['project'] . '/.peanut/application-manifest.json'))
                 && !is_file($fixture['project'] . '/' . $plan['actions'][0]['baseline_path']),
             $edition . ' rejected confirmation wrote ownership metadata',
         );
-        $adopted = $runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths']);
+        $adopted = $runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths'], $trusted);
         editionUpgradeExpect($adopted['status'] === 'adopted' && !$adopted['idempotent'], $edition . ' adoption failed');
-        editionUpgradeExpect($runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths'])['idempotent'], $edition . ' adoption replay not idempotent');
+        editionUpgradeExpect($runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths'], $trusted)['idempotent'], $edition . ' adoption replay not idempotent');
         foreach ($protected as $path => $digest) editionUpgradeExpect(hash_equals((string)$digest, (string)hash_file('sha256', $fixture['project'] . '/' . $path)), $edition . ' protected file changed');
-        $prepared = (new EditionUpgradePackage())->prepare($fixture['project'], $fixture['package'], 'adoption-test');
+        $prepared = (new EditionUpgradePackage())->prepare(
+            $fixture['project'], $fixture['package'], 'adoption-test',
+            ['adoption-test' => base64_encode($fixture['public'])],
+        );
         $upgrade = $runner->preflight($fixture['project'], $prepared['from_manifest'], $prepared['to_manifest']);
         editionUpgradeExpect($upgrade['status'] === 'ready', $edition . ' adopted upgrade not ready');
         $upgradePath = $fixture['project'] . '/' . $upgrade['plan_path'];
@@ -670,18 +715,23 @@ $temporary = $temporaryRoot . '/peanut-ownership-adoption-controls-' . bin2hex(r
 mkdir($temporary, 0775, true);
 try {
     $fixture = editionAdoptionFixture($temporary, 'standalone', true);
+    $trusted = ['adoption-test' => base64_encode($fixture['public'])];
     putenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON=' . json_encode(['adoption-test' => base64_encode($fixture['public'])], JSON_THROW_ON_ERROR));
     $runner = new ScaffoldUpgradeRunner();
     $untrusted = sodium_crypto_sign_publickey(sodium_crypto_sign_keypair());
     putenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON=' . json_encode(['adoption-test' => base64_encode($untrusted)], JSON_THROW_ON_ERROR));
-    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepareAdoption($fixture['project'], $fixture['package'], 'adoption-test'), 'EDITION_UPGRADE_SOURCE_UNTRUSTED');
+    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepareAdoption(
+        $fixture['project'], $fixture['package'], 'adoption-test', ['adoption-test' => base64_encode($untrusted)],
+    ), 'EDITION_UPGRADE_SOURCE_UNTRUSTED');
     putenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON=' . json_encode(['adoption-test' => base64_encode($fixture['public'])], JSON_THROW_ON_ERROR));
     $applicationPath = $fixture['project'] . '/.peanut/application-manifest.json';
     $applicationRaw = (string)file_get_contents($applicationPath);
     $wrongEdition = json_decode($applicationRaw, true, 512, JSON_THROW_ON_ERROR);
     $wrongEdition['application']['edition'] = 'multi-tenant';
     editionUpgradeJson($applicationPath, $wrongEdition);
-    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepareAdoption($fixture['project'], $fixture['package'], 'adoption-test'), 'EDITION_UPGRADE_EDITION_MISMATCH');
+    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepareAdoption(
+        $fixture['project'], $fixture['package'], 'adoption-test', ['adoption-test' => base64_encode($fixture['public'])],
+    ), 'EDITION_UPGRADE_EDITION_MISMATCH');
     editionUpgradeFile($applicationPath, $applicationRaw);
     $upgradeManifestPath = $fixture['package'] . '/upgrade-manifest.json';
     $upgradeManifest = json_decode((string)file_get_contents($upgradeManifestPath), true, 512, JSON_THROW_ON_ERROR);
@@ -689,22 +739,25 @@ try {
     array_pop($invalidScope['ownership']['adoption']['files']);
     editionUpgradeJson($upgradeManifestPath, $invalidScope);
     editionAdoptionResign($fixture['package'], $fixture['secret']);
-    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepareAdoption($fixture['project'], $fixture['package'], 'adoption-test'), 'EDITION_UPGRADE_ADOPTION_SCOPE_INVALID');
+    editionUpgradeFails(fn() => (new EditionUpgradePackage())->prepareAdoption(
+        $fixture['project'], $fixture['package'], 'adoption-test', ['adoption-test' => base64_encode($fixture['public'])],
+    ), 'EDITION_UPGRADE_ADOPTION_SCOPE_INVALID');
     editionUpgradeJson($upgradeManifestPath, $upgradeManifest);
     editionAdoptionResign($fixture['package'], $fixture['secret']);
-    $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test');
+    $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test', $trusted);
     $driftPath = EditionUpgradePackage::OWNERSHIP_ADOPTION_PATHS[1];
     editionUpgradeFile($fixture['project'] . '/' . $driftPath, "<?php // drift\n");
-    editionUpgradeFails(fn() => $runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths']), 'SCAFFOLD_ADOPTION_PLAN_REBIND_FAILED');
+    editionUpgradeFails(fn() => $runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths'], $trusted), 'SCAFFOLD_ADOPTION_PLAN_REBIND_FAILED');
     editionUpgradeFile($fixture['project'] . '/' . $driftPath, "<?php // old {$driftPath}\n");
-    $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test');
-    putenv('PEANUT_SCAFFOLD_ADOPTION_FAIL_AFTER_WRITES=1');
-    editionUpgradeFails(fn() => $runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths']), 'SCAFFOLD_ADOPTION_FAULT_INJECTED');
-    putenv('PEANUT_SCAFFOLD_ADOPTION_FAIL_AFTER_WRITES');
+    $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test', $trusted);
+    editionUpgradeFails(fn() => (new ScaffoldUpgradeRunner(null, 1))->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths'], $trusted), 'SCAFFOLD_ADOPTION_FAULT_INJECTED');
     editionUpgradeExpect($runner->adoptionRecover($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'])['status'] === 'recovered', 'adoption metadata recovery failed');
-    $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test');
-    editionUpgradeExpect($runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths'])['status'] === 'adopted', 'custom adoption failed');
-    $prepared = (new EditionUpgradePackage())->prepare($fixture['project'], $fixture['package'], 'adoption-test');
+    $plan = $runner->adoptionPlan($fixture['project'], $fixture['package'], 'adoption-test', $trusted);
+    editionUpgradeExpect($runner->adoptionApply($fixture['project'], $fixture['project'] . '/' . $plan['plan_path'], $plan['plan_sha256'], $plan['paths'], $trusted)['status'] === 'adopted', 'custom adoption failed');
+    $prepared = (new EditionUpgradePackage())->prepare(
+        $fixture['project'], $fixture['package'], 'adoption-test',
+        ['adoption-test' => base64_encode($fixture['public'])],
+    );
     $blocked = $runner->preview($fixture['project'], $prepared['from_manifest'], $prepared['to_manifest']);
     editionUpgradeExpect(
         $blocked['status'] === 'blocked'

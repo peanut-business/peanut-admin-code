@@ -199,7 +199,7 @@ def registered_database(resource_id: str, endpoint_id: str, database: str) -> tu
     environments = resource.get("environments", [])
     eligible_test_resource = (
         "development-test" in environments
-        and resource.get("application_runtime") is True
+        and resource.get("application_runtime") is False
         and resource.get("lifecycle") == "ephemeral"
     )
     expect("development" in environments or eligible_test_resource,
