@@ -244,6 +244,7 @@ jobs:
         run: |
           registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
           mysql_port='${{ job.services.mysql.ports[3306] }}'
+          jwt_secret="$(php -r 'echo bin2hex(random_bytes(32));')"
           umask 077
           printf '%s\n' \
             'APP_ENV=development' \
@@ -256,6 +257,7 @@ jobs:
             'DB_USER=root' \
             'DB_PASS=mt02_root' \
             'DB_ROOT_PASS=mt02_root' \
+            "JWT_SECRET=${jwt_secret}" \
             'DB_PREFIX=pa_' \
             'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
             'PEANUT_DATABASE_ENDPOINT_ID=peanut-admin-ci-real-mysql84-host' \
