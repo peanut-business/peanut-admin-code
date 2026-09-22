@@ -1315,7 +1315,7 @@ empty_table_count="$("${preflight_compose[@]}" exec -T mysql sh -c \
   || fail 'isolated empty MySQL preflight query failed'
 [[ "$empty_table_count" == 0 ]] || fail 'isolated preflight database is not empty'
 printf 'candidate_empty_database_preflight=ready\n'
-# 在隔离卷中实际安装并迁移新候选，成功后才允许停止旧实例。
+# 在隔离卷中执行完整正式安装并验证结果，成功后才允许停止旧实例。
 preflight_installation_env="$(mktemp /tmp/peanut-preflight-installation.XXXXXX.env)"
 chmod 600 "$preflight_installation_env"
 {
@@ -1329,10 +1329,16 @@ chmod 600 "$preflight_installation_env"
   --env PEANUT_INSTALLATION_ENV_FILE=/run/peanut/installation.env \
   php server/database/install.php </dev/null \
   || fail 'isolated candidate installation failed; existing target was not stopped'
+preflight_install_status="$("${preflight_compose[@]}" run -T --rm --no-deps --entrypoint php \
+  php server/database/install.php --status </dev/null)" \
+  || fail 'isolated candidate installation status failed; existing target was not stopped'
+jq -e '.state == "installed" and .code == "INSTALL_ALREADY_COMPLETED" and (.health | type == "object")' \
+  <<<"$preflight_install_status" >/dev/null \
+  || fail 'isolated candidate installation did not reach its completed business state'
 "${preflight_compose[@]}" run -T --rm --no-deps --entrypoint php php \
-  server/database/install.php --migrate --target-version="$migration_target_version" --dry-run </dev/null \
-  || fail 'isolated candidate migration verification failed; existing target was not stopped'
-printf 'candidate_install_and_migration_preflight=passed\n'
+  server/database/environment-guard.php --current </dev/null \
+  || fail 'isolated candidate installation environment guard failed; existing target was not stopped'
+printf 'candidate_installation_preflight=passed\n'
 rm -f -- "$preflight_installation_env"
 preflight_installation_env=""
 "${preflight_compose[@]}" down --volumes --remove-orphans >/dev/null
@@ -1384,7 +1390,6 @@ deployment_failure_diagnostic() {
   fi
   [[ -z "${backend_environment_copy:-}" ]] || sudo -n rm -f -- "$backend_environment_copy"
   [[ -z "${installation_env:-}" ]] || sudo -n rm -f -- "$installation_env"
-  [[ -z "${seed_env:-}" ]] || sudo -n rm -f -- "$seed_env"
   [[ -z "${upgrade_trust:-}" ]] || sudo -n rm -f -- "$upgrade_trust"
   [[ -z "${deployment_receipt_file:-}" ]] || sudo -n rm -f -- "$deployment_receipt_file"
   exit "$status"
@@ -1453,13 +1458,11 @@ if [[ "$deployment_kind" == formal && "$mode" != update ]]; then
   backend_environment_copy="$(mktemp /tmp/peanut-admin-backend-env.XXXXXX)"
 fi
 installation_env=""
-seed_env=""
 cleanup_backend_environment_copy() {
   if [[ -n "${backend_environment_copy:-}" ]]; then
     sudo -n rm -f -- "$backend_environment_copy"
   fi
   [[ -z "${installation_env:-}" ]] || rm -f -- "$installation_env"
-  [[ -z "${seed_env:-}" ]] || rm -f -- "$seed_env"
 }
 if [[ -n "$backend_environment_copy" ]]; then
   sudo -n cp "$root/server/.env" "$backend_environment_copy"
@@ -1588,31 +1591,19 @@ unset ADMIN_INITIAL_EMAIL ADMIN_INITIAL_PASSWORD PLATFORM_INITIAL_EMAIL PLATFORM
   php server/database/install.php </dev/null
 rm -f "$installation_env"
 installation_env=""
-"${compose[@]}" run -T --rm --no-deps --entrypoint php php server/database/install.php --migrate --target-version="$migration_target_version" </dev/null
+installation_status="$("${compose[@]}" run -T --rm --no-deps --entrypoint php \
+  php server/database/install.php --status </dev/null)" \
+  || fail 'installed business state probe failed after package installation'
+jq -e '.state == "installed" and .code == "INSTALL_ALREADY_COMPLETED" and (.health | type == "object")' \
+  <<<"$installation_status" >/dev/null \
+  || fail 'package installation did not reach its completed business state'
 "${compose[@]}" run -T --rm --no-deps --entrypoint php php server/database/environment-guard.php --current </dev/null
-"${compose[@]}" run -T --rm --no-deps --entrypoint php php server/think plugin:reconcile --release-locked </dev/null
 demo_mode_enabled=0
 if sudo -n grep -Fqx 'PEANUT_DEMO_MODE=enabled' server/.env; then
   demo_mode_enabled=1
 fi
 if [[ "$deployment_mode" == multi-tenant && "$demo_mode_enabled" == 1 && -n "$expected_overlay_sha" ]]; then
-  demo_result="$("${compose[@]}" run -T --rm --no-deps --entrypoint php php server/database/seed-multi-tenant-demo.php --apply </dev/null)"
-  printf '%s\n' "$demo_result"
-  tenant_a_id="$(printf '%s' "$demo_result" | jq -r '.tenant_a_id // empty')"
-  tenant_b_id="$(printf '%s' "$demo_result" | jq -r '.tenant_b_id // empty')"
-  [[ "$tenant_a_id" =~ ^[1-9][0-9]*$ && "$tenant_b_id" =~ ^[1-9][0-9]*$ ]] || fail 'demo Tenant seed returned invalid identifiers'
-  "${compose[@]}" run -T --rm --no-deps --entrypoint php php server/think tenant-module:apply-profile demo </dev/null
-  for tenant_id in "$tenant_a_id" "$tenant_b_id"; do
-    seed_env="$(mktemp /tmp/peanut-admin-demo-seed.XXXXXX.env)"
-    chmod 600 "$seed_env"
-    printf 'PEANUT_DEMO_TENANT_ID=%s\n' "$tenant_id" > "$seed_env"
-    "${compose[@]}" run -T --rm --no-deps --entrypoint php \
-      --volume "$seed_env:/run/peanut/demo-seed.env:ro" \
-      --env PEANUT_INSTALLATION_ENV_FILE=/run/peanut/demo-seed.env \
-      php server/database/seed-demo-data.php --apply </dev/null
-    rm -f "$seed_env"
-    seed_env=""
-  done
+  printf 'demo_tenant_bootstrap=deferred-to-platform-api\n'
 elif [[ -n "$expected_overlay_sha" ]]; then
   fail 'demo overlay requires persistent PEANUT_DEMO_MODE=enabled in server/.env'
 fi

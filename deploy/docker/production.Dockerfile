@@ -135,9 +135,7 @@ RUN if [ -n "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" ]; then \
     && rm -f .env.image-build \
     && cd .. \
     && chmod +x server/think server/database/seed-demo-data.php /usr/local/bin/peanut-php-entrypoint \
-    && chmod +x server/database/seed-multi-tenant-demo.php \
     && ln -s /var/www/peanut-admin/server/database/seed-demo-data.php /usr/local/bin/peanut-seed-demo-data \
-    && ln -s /var/www/peanut-admin/server/database/seed-multi-tenant-demo.php /usr/local/bin/peanut-seed-multi-tenant-demo \
     && chown -R www-data:www-data server/runtime server/public/storage server/private/storage
 
 EXPOSE 9000
