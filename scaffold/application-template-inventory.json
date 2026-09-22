@@ -27109,7 +27109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8566455970aac77bb064d87a04775a52ae4c2c8310bb7a3fad9b48b5cc29ff41"
+            "source_sha256": "e945980cc5c2a7b89c6e255caebb8890d2cfd8b7d867ca80782eeaeb4427a271"
         },
         {
             "path": "web/config/vite.config.prod.ts",
@@ -32036,7 +32036,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12d3fd24fe804529775f882990ef966c3db23e079d0acf0db1ece01e05f45f7e"
+            "source_sha256": "072d30fdd832719810858a22527945af61035c48ab0655823eb03f70f9e50b50"
         },
         {
             "path": "web/tests/Productization/navbar-avatar-fallback.test.mjs",

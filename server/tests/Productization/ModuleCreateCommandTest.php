@@ -173,7 +173,8 @@ try {
     moduleCreateExpect(($duplicate['json']['error'] ?? null) === 'MODULE_CREATE_TARGET_EXISTS', 'duplicate failure code changed');
     moduleCreateExpect($beforeDuplicate === $afterDuplicate, 'duplicate creation changed the existing Module');
 
-    $namespaceCollision = moduleCreateRun($serverRoot, ['acme.generated-' . $suffix, '--vendor=acme']);
+    // Official and peanut share PeanutAdmin\\Modules; custom vendors own separate prefixes.
+    $namespaceCollision = moduleCreateRun($serverRoot, ['peanut.generated-' . $suffix, '--vendor=peanut']);
     moduleCreateExpect($namespaceCollision['code'] === 1, 'cross-vendor PHP namespace collision was accepted');
     moduleCreateExpect(($namespaceCollision['json']['error'] ?? null) === 'MODULE_CREATE_NAMESPACE_CONFLICT', 'namespace collision failure code changed');
 

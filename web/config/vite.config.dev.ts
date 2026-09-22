@@ -19,13 +19,6 @@ interface ModuleManifest {
 const moduleKeyPattern =
   /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$/;
 
-function pascalSegment(segment: string): string {
-  return segment
-    .split('-')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-}
-
 function moduleManifestPaths(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true })
     .flatMap((entry) => {
@@ -44,7 +37,7 @@ function moduleManifestPaths(directory: string): string[] {
 export function discoverAdminContributions(
   projectRoot = resolve(configDir, '../..')
 ): string[] {
-  const modulesRoot = resolve(projectRoot, 'server/app/Modules');
+  const modulesRoot = resolve(projectRoot, 'server/app/modules');
   if (!existsSync(modulesRoot)) {
     throw new Error('Development Module source root is unavailable');
   }
@@ -64,7 +57,7 @@ export function discoverAdminContributions(
     }
     const expectedBackend = resolve(
       modulesRoot,
-      ...manifest.key.split('.').map(pascalSegment)
+      ...manifest.key.split('.').map((segment) => segment.replace(/-/g, '_'))
     );
     if (
       realpathSync(resolve(manifestPath, '..')) !==

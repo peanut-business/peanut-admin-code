@@ -84,7 +84,7 @@ expect(
   'development contribution discovery is not deterministic'
 );
 const expectedEntries = manifestPaths(
-  resolve(projectRoot, 'server/app/Modules')
+  resolve(projectRoot, 'server/app/modules')
 )
   .map((path) => JSON.parse(readFileSync(path, 'utf8')))
   .map((manifest) => manifest.frontend?.entry)
