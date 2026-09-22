@@ -68,10 +68,12 @@ if [[ "$PROFILE" == release ]]; then
   required_values=(
     P0E_TENANT_ALPHA_EMAIL P0E_TENANT_ALPHA_PASSWORD
     P0E_TENANT_RESTRICTED_EMAIL P0E_TENANT_RESTRICTED_PASSWORD
-    P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD
   )
   if [[ "$MODE" == multi-tenant ]]; then
-    required_values+=(P0E_TENANT_BETA_EMAIL P0E_TENANT_BETA_PASSWORD)
+    required_values+=(
+      P0E_TENANT_BETA_EMAIL P0E_TENANT_BETA_PASSWORD
+      P0E_PLATFORM_INITIAL_EMAIL P0E_PLATFORM_INITIAL_PASSWORD
+    )
   fi
 fi
 for name in "${required_values[@]}"; do
@@ -116,6 +118,14 @@ if (!packageIdentity || !/^[a-f0-9]{40}$/u.test(packageIdentity.commit || '')
   || !/^[a-f0-9]{40}$/u.test(packageIdentity.tree || '')
   || !(packageIdentity.release_key === null || /^v[0-9]+\.[0-9]+\.[0-9]+$/u.test(packageIdentity.release_key || ''))) {
   throw new Error('invalid package identity');
+}
+if (mode === 'standalone'
+  && (!/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(packageIdentity.application_version || '')
+    || !/^[a-f0-9]{64}$/u.test(value.host_runtime_receipt_sha256 || '')
+    || !Array.isArray(value.standalone_platform_unavailable_statuses)
+    || value.standalone_platform_unavailable_statuses.length === 0
+    || !value.standalone_platform_unavailable_statuses.every((status) => Number.isInteger(status) && status >= 400 && status <= 599))) {
+  throw new Error('standalone identity must bind an application version, host receipt digest, and unavailable Platform statuses');
 }
 for (const key of ['rbac_denials', 'scope_allowed', 'scope_denials']) {
   if (!array(value.probes, key)) throw new Error(`missing ${key}`);
