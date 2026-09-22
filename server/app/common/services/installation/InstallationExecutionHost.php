@@ -283,7 +283,8 @@ final class InstallationExecutionHost
             }
         }
         // 与独立模块包使用同一依赖/版本规则，且在创建数据库之前完成校验。
-        $modules = (new \app\platform\validation\plugin\ModulePackagePreflight())->dependencyOrder($definitions, []);
+        $modules = (new \app\platform\validation\plugin\ModulePackagePreflight(dirname($this->serverRoot)))
+            ->dependencyOrder($definitions, []);
         $credentials = array_intersect_key($input, array_flip([
             'admin_email', 'admin_password', 'platform_email', 'platform_password',
         ]));
