@@ -327,9 +327,6 @@ fi
 [[ "$TARGET" == production || "$TARGET" == production-candidate ]] || fail 'target must be production or production-candidate'
 [[ $((INSTALL + UPDATE + FRESH)) -eq 1 ]] || fail 'choose exactly one of --install, --update or --fresh'
 [[ $((APPLY + DRY_RUN)) -eq 1 ]] || fail 'choose exactly one of --apply or --dry-run'
-if [[ "$UPDATE" != 1 && -z "$ENV_FILE" ]]; then
-  fail '--install and --fresh require --env-file for initial identities'
-fi
 if [[ "$FRESH" == 1 && "$CONFIRM_DESTROY" != "$TARGET" ]]; then
   fail "--fresh requires --confirm-destroy $TARGET"
 fi
@@ -343,6 +340,9 @@ if [[ "$FRESH" == 1 ]]; then
     || fail '--fresh requires the exact paired backup manifest SHA-256'
 elif [[ -n "$PAIRED_BACKUP_ID" || -n "$PAIRED_BACKUP_MANIFEST_SHA256" ]]; then
   fail '--paired-backup and --paired-backup-manifest-sha256 are only valid with --fresh'
+fi
+if [[ "$UPDATE" != 1 && -z "$ENV_FILE" ]]; then
+  fail '--install and --fresh require --env-file for initial identities'
 fi
 if [[ -n "$OVERLAY" ]]; then
   [[ "$TARGET" == production-candidate ]] || fail '--overlay is allowed only for production-candidate'
