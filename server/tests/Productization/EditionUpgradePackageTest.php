@@ -330,7 +330,7 @@ try {
             'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'),
             'managed_tree_sha256' => $targetTree,
         ],
-        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
+        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade', 'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host'],
         'migration_chain' => [
             'strategy' => 'append-only-ledger',
             'files' => [[
@@ -617,7 +617,7 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
         'compatibility' => ['source' => ['minimum_inclusive' => '3.0.14', 'maximum_exclusive' => '3.1.0'], 'major_policy' => 'same-major', 'edition_conversion' => false],
         'build_source' => ['commit' => str_repeat('d', 40), 'tree' => str_repeat('e', 40), 'inventory_sha256' => str_repeat('1', 64)],
         'target' => ['version' => '3.1.0', 'scaffold_manifest' => 'target/scaffold-manifest.json', 'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'), 'managed_tree_sha256' => str_repeat('f', 64)],
-        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade'],
+        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade', 'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host'],
         'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => []],
         'ownership' => [
             'automatic' => ['managed', 'generated-managed'], 'preserved' => ['app-owned', 'third-party-module', 'secret'],

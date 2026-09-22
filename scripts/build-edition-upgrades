@@ -222,6 +222,7 @@ try {
             'upgrader' => [
                 'entrypoint' => 'scripts/upgrade',
                 'internal_scaffold_engine' => 'scripts/scaffold-upgrade',
+                'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host',
             ],
             'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => $migrations],
             'ownership' => [
