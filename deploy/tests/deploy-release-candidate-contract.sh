@@ -28,6 +28,10 @@ candidate_commit="$(git rev-parse HEAD)"
 candidate_tree="$(git rev-parse HEAD^{tree})"
 candidate_sha="$(printf '%s' "$candidate_commit" | cut -c1-12)"
 
+expect_fail 'candidate tree identity mismatch' 'candidate commit tree differs from --expected-tree' \
+  --candidate-commit="$candidate_commit" --expected-tree="$(printf '0%.0s' {1..40})" \
+  --target production --update --dry-run
+
 expect_fail 'candidate requires tree' 'candidate deployment requires --expected-tree' \
   --candidate-commit="$candidate_commit" --target production --fresh \
   --confirm-destroy=production --paired-backup backup-id \
@@ -50,9 +54,21 @@ expect_fail 'fresh requires exact backup' 'safe exact --paired-backup identifier
   --target production --fresh --confirm-destroy=production --paired-backup='../latest' \
   --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" --dry-run
 
+expect_fail 'fresh requires manifest binding' 'exact paired backup manifest SHA-256' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --confirm-destroy=production --paired-backup=exact-backup \
+  --paired-backup-manifest-sha256=not-a-sha --dry-run
+
 expect_fail 'candidate rejects formal overlay' 'Edition and overlay inputs are formal-release-only' \
   --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
   --target production --install --overlay /tmp/no-overlay.tar --dry-run
+
+dirty_marker="$ROOT_DIR/deploy/.candidate-contract-dirty-marker"
+touch "$dirty_marker"
+expect_fail 'dirty source is rejected' 'source checkout has untracked files' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --update --dry-run
+rm -f "$dirty_marker"
 
 valid_env="$(mktemp /tmp/peanut-candidate-contract-env.XXXXXX)"
 trap 'rm -f "$valid_env"' EXIT
