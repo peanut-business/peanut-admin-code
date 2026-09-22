@@ -29,7 +29,7 @@ foreach ([
 
 function productUpgradeUsage(): never
 {
-    fwrite(STDERR, "Usage:\n"
+    fwrite(STDERR, "Set PEANUT_SERVER_ENV_FILE to the absolute mode-0600 instance backend environment.\nUsage:\n"
         . "  php scripts/upgrade plan --instance-root=<absolute-path> --package=<absolute-extracted-package> --signature-key-id=<id> --env-file=<0600-file>\n"
         . "  php scripts/upgrade apply|verify|recover --instance-root=<absolute-path> --package=<absolute-extracted-package> --signature-key-id=<id> --env-file=<0600-file> --plan=<absolute-product-plan>\n");
     exit(64);
