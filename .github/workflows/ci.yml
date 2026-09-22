@@ -28,6 +28,8 @@ jobs:
       - name: Reject retired current guidance
         run: |
           ./scripts/check-environment-sources
+      - name: Validate registered project resources
+        run: ./scripts/project-resource-registry validate
 
   changes:
     name: Changed paths
