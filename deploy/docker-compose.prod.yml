@@ -7,6 +7,8 @@ x-logging: &default-logging
     max-file: "3"
 
 x-build-proxy: &build-proxy
+  PEANUT_SOURCE_COMMIT: ${PEANUT_SOURCE_COMMIT:-unfixed-local-source}
+  PEANUT_SOURCE_TREE: ${PEANUT_SOURCE_TREE:-unfixed-local-tree}
   HTTP_PROXY: ${BUILD_HTTP_PROXY:-}
   HTTPS_PROXY: ${BUILD_HTTPS_PROXY:-}
   ALL_PROXY: ${BUILD_ALL_PROXY:-}

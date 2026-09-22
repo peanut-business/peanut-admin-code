@@ -113,6 +113,8 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 'target_release_key' => (string)$execution['target_release_key'],
                 'target_commit' => (string)$execution['target_commit'],
                 'target_tree' => (string)$execution['target_tree'],
+                'backup_reference_key' => (string)$execution['backup_reference_key'],
+                'backup_manifest_sha256' => $this->backupManifestSha256((string)$execution['backup_reference_key']),
             ],
             default => throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID'),
         };
@@ -409,7 +411,12 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
             if ($updated !== 1) {
                 throw new \RuntimeException('OPS_UPGRADE_STEP_CONFLICT');
             }
-            return ['action' => 'run_restore', 'child_task_key' => $restore->taskKey];
+            return [
+                'action' => 'run_restore',
+                'child_task_key' => $restore->taskKey,
+                'backup_reference_key' => (string)$evidence['backup_reference_key'],
+                'backup_manifest_sha256' => (string)$evidence['manifest_sha256'],
+            ];
         });
     }
 
@@ -524,8 +531,20 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 'target_release_key' => (string)$execution['target_release_key'],
                 'target_commit' => (string)$execution['target_commit'],
                 'target_tree' => (string)$execution['target_tree'],
+                'backup_reference_key' => (string)$execution['backup_reference_key'],
+                'backup_manifest_sha256' => $this->backupManifestSha256((string)$execution['backup_reference_key']),
             ];
         });
+    }
+
+    private function backupManifestSha256(string $backupReferenceKey): string
+    {
+        $digest = Db::name('ops_backup_evidence')->where('backup_reference_key', $backupReferenceKey)
+            ->value('manifest_sha256');
+        if (!is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1) {
+            throw new \RuntimeException('OPS_UPGRADE_BACKUP_FAILED');
+        }
+        return $digest;
     }
 
     /** @param array<string,mixed> $payload */

@@ -136,15 +136,36 @@ deployment_receipt="$project_root/DEPLOYMENT_RECEIPT.json"
   || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
 jq -e '
   .schema_version == 1
-  and .protocol == "peanut.deployment-receipt.v1"
   and .target == "production"
   and (.edition == "standalone" or .edition == "multi-tenant")
-  and (.release.tag | type == "string" and test("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
   and (.release.commit | type == "string" and test("^[a-f0-9]{40}$"))
   and (.release.tree | type == "string" and test("^[a-f0-9]{40}$"))
-  and (.artifact.kind == "source" or .artifact.kind == "edition")
-  and (.artifact.archive_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-  and .overlay == null
+  and (if .protocol == "peanut.deployment-receipt.v1" then
+         (.release.tag | type == "string" and test("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
+         and (.artifact.kind == "source" or .artifact.kind == "edition" or .artifact.kind == "upgrade")
+         and (.artifact.archive_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
+         and (if .artifact.kind == "source" then
+                .artifact.manifest_sha256 == null and .artifact.signature_key_id == null
+              elif .artifact.kind == "edition" then
+                (.artifact.manifest_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
+                and .artifact.signature_key_id == null
+              else
+                (.artifact.manifest_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
+                and (.artifact.signature_key_id | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
+              end)
+         and .overlay == null
+       elif .protocol == "peanut.product-upgrade-runtime-receipt.v1" then
+         (.release.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
+         and (.upgrade_package.candidate | type == "string" and test("^[A-Za-z0-9._-]{1,128}$"))
+         and (.upgrade_package.plan_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+         and (.upgrade_package.inventory_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+         and (.upgrade_package.manifest_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+       else
+         false
+       end)
+  and (.images.php | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+  and (.images.nginx | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+  and (.images.pc | type == "string" and test("^sha256:[a-f0-9]{64}$"))
 ' "$deployment_receipt" >/dev/null || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
 host_receipt="$(cat "$deployment_receipt")"
 container_receipt="$(sudo -n docker exec peanut-admin-php-1 cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)" \
@@ -153,7 +174,7 @@ container_receipt="$(sudo -n docker exec peanut-admin-php-1 cat /var/www/peanut-
   || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
 source_commit="$(jq -r '.release.commit' "$deployment_receipt")"
 source_tree="$(jq -r '.release.tree' "$deployment_receipt")"
-release_key="$(jq -r '.release.tag' "$deployment_receipt")"
+release_key="$(jq -r 'if .protocol == "peanut.deployment-receipt.v1" then .release.tag else "v" + .release.version end' "$deployment_receipt")"
 
 mysql_mount="$(sudo -n docker volume inspect peanut-admin_mysql-data --format '{{.Mountpoint}}')"
 storage_mount="$(sudo -n docker volume inspect peanut-admin_php-storage --format '{{.Mountpoint}}')"

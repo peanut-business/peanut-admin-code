@@ -184,15 +184,22 @@ printf 'passed=legacy-secret-conflict\n'
 candidate_commit="$(git rev-parse HEAD)"
 candidate_tree="$(git rev-parse HEAD^{tree})"
 candidate_sha="$(printf '%s' "$candidate_commit" | cut -c1-12)"
+valid_env="$(mktemp /tmp/peanut-candidate-contract-env.XXXXXX)"
+trap 'rm -rf -- "$legacy_fixture"; rm -f -- "$valid_env"' EXIT
+chmod 600 "$valid_env"
+printf '%s\n' \
+  'PEANUT_GENERATED_ADMIN_EMAIL=admin@example.test' \
+  'PEANUT_GENERATED_ADMIN_PASSWORD=contract-test-password' \
+  'PEANUT_GENERATED_PLATFORM_EMAIL=platform@example.test' \
+  'PEANUT_GENERATED_PLATFORM_PASSWORD=contract-test-password' >"$valid_env"
 
 expect_fail 'candidate tree identity mismatch' 'candidate commit tree differs from --expected-tree' \
   --candidate-commit="$candidate_commit" --expected-tree="$(printf '0%.0s' {1..40})" \
-  --target production --update --dry-run
+  --target production --install --env-file="$valid_env" --dry-run
 
 expect_fail 'candidate requires tree' 'candidate deployment requires --expected-tree' \
-  --candidate-commit="$candidate_commit" --target production --fresh \
-  --confirm-destroy=production --paired-backup backup-id \
-  --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" --dry-run
+  --candidate-commit="$candidate_commit" --target production --install \
+  --env-file="$valid_env" --dry-run
 
 expect_fail 'unknown target' 'target must be production or production-candidate' \
   --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
@@ -216,7 +223,7 @@ expect_fail 'fresh requires manifest binding' 'exact paired backup manifest SHA-
   --target production --fresh --confirm-destroy=production --paired-backup=exact-backup \
   --paired-backup-manifest-sha256=not-a-sha --dry-run
 
-expect_fail 'candidate rejects formal overlay' 'Edition and overlay inputs are formal-release-only' \
+expect_fail 'candidate rejects formal overlay' 'candidate deployment does not accept a formal demo overlay' \
   --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
   --target production --install --overlay /tmp/no-overlay.tar --dry-run
 
@@ -224,21 +231,11 @@ dirty_marker="$ROOT_DIR/deploy/.candidate-contract-dirty-marker"
 touch "$dirty_marker"
 expect_fail 'dirty source is rejected' 'source checkout has untracked files' \
   --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
-  --target production --update --dry-run
+  --target production --install --env-file="$valid_env" --dry-run
 rm -f "$dirty_marker"
 
-valid_env="$(mktemp /tmp/peanut-candidate-contract-env.XXXXXX)"
-trap 'rm -rf -- "$legacy_fixture"; rm -f -- "$valid_env"' EXIT
-chmod 600 "$valid_env"
-printf '%s\n' \
-  'PEANUT_GENERATED_ADMIN_EMAIL=admin@example.test' \
-  'PEANUT_GENERATED_ADMIN_PASSWORD=contract-test-password' \
-  'PEANUT_GENERATED_PLATFORM_EMAIL=platform@example.test' \
-  'PEANUT_GENERATED_PLATFORM_PASSWORD=contract-test-password' >"$valid_env"
 valid_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
-  --target production --fresh --confirm-destroy=production \
-  --paired-backup=20260922T034505Z-e2519bc1f90a-dual \
-  --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" \
+  --target production --install \
   --env-file="$valid_env" --dry-run 2>&1)" || fail 'valid candidate dry-run was rejected'
 [[ "$valid_output" == *'deployment_identity=candidate'* ]] || fail 'candidate identity was not printed'
 [[ "$valid_output" == *'product_version=4.0.0-dev'* ]] || fail 'candidate product version was not preserved'
@@ -247,6 +244,76 @@ valid_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="
 rg -Fq 'release-versions.scaffold_template' "$SCRIPT" \
   || fail 'candidate receipt does not identify the scaffold migration authority'
 printf 'passed=valid-candidate-dry-run\n'
+
+expect_fail 'candidate fresh requires Edition package' \
+  'candidate fresh replacement requires the fixed Edition installer package and manifest' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --confirm-destroy=production \
+  --paired-backup=20260922T071025Z-e57ebf326ac3-final \
+  --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" \
+  --env-file="$valid_env" --dry-run
+
+edition_root="peanut-admin-4.0.0-dev-standalone"
+edition_stage="$legacy_fixture/$edition_root"
+edition_archive="$legacy_fixture/$edition_root.tar.gz"
+edition_manifest="$edition_archive.manifest.json"
+mkdir -p "$edition_stage"
+printf 'name: candidate-edition-contract\n' >"$edition_stage/compose.yaml"
+tar -czf "$edition_archive" -C "$legacy_fixture" "$edition_root"
+edition_sha="$(shasum -a 256 "$edition_archive" | awk '{print $1}')"
+edition_bytes="$(wc -c <"$edition_archive" | tr -d ' ')"
+jq -n \
+  --arg version 4.0.0-dev --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
+  --arg filename "$(basename "$edition_archive")" --arg root "$edition_root" \
+  --arg sha "$edition_sha" --argjson bytes "$edition_bytes" \
+  '{schema_version:1,protocol:"peanut.edition-installer.v1",product:{version:$version},
+    edition:{name:"standalone"},source:{commit:$commit,tree:$tree},
+    archive:{filename:$filename,root:$root,sha256:$sha,bytes:$bytes}}' >"$edition_manifest"
+edition_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --confirm-destroy=production \
+  --paired-backup=20260922T071025Z-e57ebf326ac3-final \
+  --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" \
+  --edition-package="$edition_archive" --edition-manifest="$edition_manifest" \
+  --env-file="$valid_env" --dry-run 2>&1)" \
+  || fail "candidate Edition dry-run was rejected: $(tail -n 1 <<<"$edition_output")"
+[[ "$edition_output" == *'deployment_artifact=edition'* ]] \
+  || fail 'candidate Edition artifact identity was not selected'
+printf 'passed=candidate-edition-dry-run\n'
+
+upgrade_root="peanut-admin-4.0.0-dev-standalone-upgrade"
+upgrade_stage="$legacy_fixture/$upgrade_root"
+upgrade_archive="$legacy_fixture/$upgrade_root.tar.gz"
+upgrade_manifest="$upgrade_archive.manifest.json"
+upgrade_trust="$legacy_fixture/upgrade-trust.env"
+mkdir -p "$upgrade_stage/scripts/upgrade-runtime" "$upgrade_stage/target/files"
+printf '#!/usr/bin/env php\n' >"$upgrade_stage/scripts/upgrade"
+chmod 755 "$upgrade_stage/scripts/upgrade"
+printf '#!/usr/bin/env bash\nexit 1\n' >"$upgrade_stage/scripts/upgrade-runtime/product-upgrade-host"
+chmod 755 "$upgrade_stage/scripts/upgrade-runtime/product-upgrade-host"
+printf 'name: candidate-upgrade-contract\n' >"$upgrade_stage/target/files/compose.yaml"
+printf '{}\n' >"$upgrade_stage/target/scaffold-manifest.json"
+printf '{"protocol":"peanut.edition-upgrade-package.v1"}\n' >"$upgrade_stage/upgrade-manifest.json"
+tar -czf "$upgrade_archive" -C "$legacy_fixture" "$upgrade_root"
+upgrade_sha="$(shasum -a 256 "$upgrade_archive" | awk '{print $1}')"
+upgrade_bytes="$(wc -c <"$upgrade_archive" | tr -d ' ')"
+jq -n \
+  --arg version 4.0.0-dev --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
+  --arg filename "$(basename "$upgrade_archive")" --arg root "$upgrade_root" \
+  --arg sha "$upgrade_sha" --argjson bytes "$upgrade_bytes" \
+  '{schema_version:1,protocol:"peanut.edition-upgrade-artifact.v1",product:{version:$version},
+    edition:{name:"standalone"},source:{commit:$commit,tree:$tree},
+    package:{signature_key_id:"peanut-contract-key"},
+    archive:{filename:$filename,root:$root,sha256:$sha,bytes:$bytes}}' >"$upgrade_manifest"
+printf 'PEANUT_UPGRADE_TRUSTED_KEYS_JSON={"peanut-contract-key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}\n' >"$upgrade_trust"
+chmod 600 "$upgrade_trust"
+upgrade_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --update \
+  --upgrade-package="$upgrade_archive" --upgrade-manifest="$upgrade_manifest" \
+  --upgrade-trust-env="$upgrade_trust" --dry-run 2>&1)" || fail 'candidate upgrade dry-run was rejected'
+[[ "$upgrade_output" == *'deployment_artifact=upgrade'* \
+  && "$upgrade_output" == *'authenticate the signed upgrade package'* ]] \
+  || fail 'candidate upgrade plan did not select the signed upgrade lifecycle'
+printf 'passed=candidate-upgrade-dry-run\n'
 
 compose_file="$ROOT_DIR/deploy/docker-compose.prod.yml"
 nginx_file="$ROOT_DIR/deploy/nginx/peanut-admin.conf"
@@ -262,6 +329,8 @@ for required in \
 done
 rg -Fq 'wildcard host' "$SCRIPT" || fail 'remote SSR wildcard rejection is missing'
 rg -Fq 'candidate image IDs are not immutable Docker IDs' "$SCRIPT" || fail 'three-image identity gate is missing'
+rg -Fq 'candidate image source labels do not match the fixed commit/tree' "$SCRIPT" || fail 'image source label gate is missing'
+rg -Fq 'runtime_image_receipt_binding=valid' "$SCRIPT" || fail 'runtime image receipt binding gate is missing'
 rg -Fq 'host and running PHP deployment receipts differ' "$SCRIPT" || fail 'host/runtime receipt equality gate is missing'
 printf 'passed=ssr-pc-receipt-static-contract\n'
 
