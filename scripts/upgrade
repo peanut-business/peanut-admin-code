@@ -324,6 +324,17 @@ function productUpgradeEnsureHostPhase(
     return productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], $phase, $completed, $evidence);
 }
 
+/** @param array<string,mixed> $plan @param array<string,mixed> $state @return array<string,mixed> */
+function productUpgradeRefreshHostPhase(string $packageRoot, array $plan, array $state, string $phase): array
+{
+    $state['phase_in_progress'] = $phase;
+    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+    $evidence = productUpgradeHostPhase($packageRoot, $phase, $plan, $state);
+    $state['phase_in_progress'] = null;
+    $state['evidence'][$phase] = $evidence;
+    return productUpgradeWriteState((string)$state['absolute_path'], $state);
+}
+
 /** @param list<string> $migrationIds */
 function productUpgradeAssertMigrationProgress(ApplicationMigrationRunner $database, array $migrationIds): array
 {
@@ -453,9 +464,8 @@ try {
             }
             $files = productUpgradeMigrationFiles($packageRoot, $prepared['package']);
             if ($state['phase'] === 'completed') {
-                $health = productUpgradeHostPhase($packageRoot, 'health', $plan, $state);
-                $state['evidence']['health'] = $health;
-                $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
+                $health = $state['evidence']['health'];
                 $result = [
                     'status' => 'completed', 'candidate' => $plan['candidate'],
                     'phase' => 'completed', 'plan_sha256' => $plan['plan_sha256'],
@@ -570,8 +580,8 @@ try {
             if (count($statuses) !== count($migrationIds)) {
                 throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_NOT_APPLIED');
             }
-            $health = productUpgradeHostPhase($packageRoot, 'health', $plan, $state);
-            $state['evidence']['health'] = $health;
+            $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
+            $health = $state['evidence']['health'];
             $state['verified_at'] = gmdate(DATE_ATOM);
             $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
             $result = [
@@ -597,6 +607,9 @@ try {
                 $code = $runner->recover($instanceRoot, (string)$plan['scaffold_plan']);
             }
             $recovery = productUpgradeHostPhase($packageRoot, 'recover', $plan, $state);
+            if ($state['migration_started'] && isset($state['evidence']['managed_files'])) {
+                $code = $runner->recover($instanceRoot, (string)$plan['scaffold_plan']);
+            }
             $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'recover', 'recovered', $recovery);
             $result = [
                 'status' => 'recovered', 'candidate' => $plan['candidate'],
