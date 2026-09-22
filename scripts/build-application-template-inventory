@@ -36,7 +36,8 @@ function excluded(string $path): bool
 {
     // Repository delivery/editor settings do not belong to generated applications.
     if (str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
-        || str_starts_with($path, 'evidence/')) {
+        || str_starts_with($path, 'evidence/')
+        || str_starts_with($path, 'deploy/tests/')) {
         return true;
     }
     if (str_starts_with($path, 'server/tests/') && !in_array($path, [

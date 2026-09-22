@@ -522,16 +522,15 @@
         {
             "path": "deploy/tests/deploy-release-candidate-contract.sh",
             "target": "deploy/tests/deploy-release-candidate-contract.sh",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "5984dbb7bdcfaa33aaab848c824f63f8bac152fb030215992abca37fbbc562c5"
+            ]
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",

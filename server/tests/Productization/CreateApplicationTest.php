@@ -189,6 +189,13 @@ foreach (['docs-site/capabilities.md', 'docs-site/guide/application-module-lifec
         'application documentation must use its real template digest and declared destination',
     );
 }
+// Deployment test fixtures contain maintainer-only target selectors and must not enter apps or upgrade baselines.
+foreach ($inventory['files'] as $entry) {
+    if (str_starts_with((string)$entry['path'], 'deploy/tests/')) {
+        createApplicationExpect(($entry['classification'] ?? null) === 'excluded',
+            'maintainer deployment tests leaked into the generated application inventory');
+    }
+}
 $templateVersion = (string)($inventory['template_version'] ?? '');
 createApplicationExpect(
     preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', $templateVersion) === 1,
