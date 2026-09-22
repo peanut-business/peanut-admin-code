@@ -74,12 +74,16 @@ valid_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="
 printf 'passed=valid-candidate-dry-run\n'
 
 compose_file="$ROOT_DIR/deploy/docker-compose.prod.yml"
+nginx_file="$ROOT_DIR/deploy/nginx/peanut-admin.conf"
 for required in \
   'PC_IMAGE' 'PEANUT_PUBLIC_SCHEME' 'PEANUT_TRUSTED_HOSTS' \
   'NUXT_UPSTREAM_ORIGIN: http://nginx' 'proxy_set_header Host $http_host' \
   'proxy_set_header X-Forwarded-Proto $scheme' \
   'DEPLOYMENT_RECEIPT_FILE'; do
-  rg -Fq "$required" "$compose_file" || fail "Compose contract missing $required"
+  case "$required" in
+    proxy_*) rg -Fq "$required" "$nginx_file" || fail "Nginx SSR contract missing $required" ;;
+    *) rg -Fq "$required" "$compose_file" || fail "Compose contract missing $required" ;;
+  esac
 done
 rg -Fq 'wildcard host' "$SCRIPT" || fail 'remote SSR wildcard rejection is missing'
 rg -Fq 'candidate image IDs are not immutable Docker IDs' "$SCRIPT" || fail 'three-image identity gate is missing'
