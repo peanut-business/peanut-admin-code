@@ -13,6 +13,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 from typing import Any
 
@@ -352,23 +353,37 @@ def backend_environment(
     return {"PEANUT_SERVER_ENV_FILE": str(path)}
 
 
-def create_application(
-    target: Path,
-    name: str,
-    slug: str,
-    package: str,
-    candidate_manifest: Path | None,
-    edition: str,
-    log: Path,
-) -> None:
-    arguments = [
-        str(PHP), str(ROOT / "scripts/create-app"),
-        f"--name={name}", f"--slug={slug}", f"--package={package}",
-        f"--target={target}", f"--edition={edition}", "--profile=full",
-    ]
-    if candidate_manifest is not None:
-        arguments.append(f"--scaffold-manifest={candidate_manifest}")
-    command(arguments, log=log)
+def extract_installer(package: Path, artifact: dict[str, Any], target: Path) -> None:
+    archive = artifact.get("archive")
+    if not isinstance(archive, dict) or archive.get("format") != "tar.gz":
+        fail("Edition installer artifact archive contract is invalid")
+    archive_root = archive.get("root")
+    if not isinstance(archive_root, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", archive_root):
+        fail("Edition installer archive root is invalid")
+    if archive.get("sha256") != sha256(package):
+        fail("Edition installer archive digest differs from its fixed manifest")
+    stage = target.parent / ("." + target.name + ".extract-" + secrets.token_hex(6))
+    stage.mkdir(mode=0o700)
+    try:
+        with tarfile.open(package, "r:gz") as archive_file:
+            members = archive_file.getmembers()
+            expect(bool(members), "Edition installer archive is empty")
+            for member in members:
+                parts = Path(member.name).parts
+                expect(parts and parts[0] == archive_root and ".." not in parts
+                       and not member.issym() and not member.islnk()
+                       and (member.isdir() or member.isfile()),
+                       "Edition installer contains an unsafe member")
+            archive_file.extractall(stage, filter="data")
+        extracted = stage / archive_root
+        expect(extracted.is_dir() and not extracted.is_symlink(), "Edition installer root is missing")
+        os.replace(extracted, target)
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
+    application_manifest = target / ".peanut/application-manifest.json"
+    expect(application_manifest.is_file() and not application_manifest.is_symlink()
+           and artifact.get("application", {}).get("manifest_sha256") == sha256(application_manifest),
+           "Edition installer application manifest digest is invalid")
 
 
 def install_dependencies(
@@ -806,34 +821,32 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         fail("candidate tree identity is invalid")
     if command(["git", "status", "--porcelain", "--untracked-files=no"]).strip() != "":
         fail("candidate worktree must be clean")
-    candidate_manifest: Path | None = None
-    candidate_release: dict[str, Any] = {}
-    if args.candidate_manifest:
-        candidate_manifest = Path(args.candidate_manifest)
-        if (
-            not candidate_manifest.is_absolute()
-            or not candidate_manifest.is_file()
-            or candidate_manifest.is_symlink()
-            or candidate_manifest.name != "scaffold-manifest.json"
-        ):
-            fail("--candidate-manifest must name one regular absolute scaffold-manifest.json")
-        manifest_document = read_json(candidate_manifest)
-        release = manifest_document.get("release")
-        if not isinstance(release, dict):
-            fail("candidate manifest release identity is invalid")
-        candidate_release = release
-        if release.get("source_commit") != args.candidate or release.get("source_tree") != candidate_tree:
-            fail("candidate manifest does not seal the selected candidate commit/tree")
-    if candidate_manifest is None and not args.formal_release_adoption:
-        fail("--candidate-manifest is required for an explicit development candidate")
-    if candidate_manifest is not None and args.formal_release_adoption:
-        fail("--candidate-manifest and --formal-release-adoption are mutually exclusive")
+    installer_package = Path(args.installer_package)
+    installer_manifest = Path(args.installer_manifest)
+    for path, label in ((installer_package, "--installer-package"), (installer_manifest, "--installer-manifest")):
+        if not path.is_absolute() or not path.is_file() or path.is_symlink():
+            fail(f"{label} must name one regular absolute file")
+    installer_artifact = read_json(installer_manifest)
+    if not re.fullmatch(r"[a-f0-9]{64}", args.installer_sha256) \
+            or not re.fullmatch(r"[a-f0-9]{64}", args.installer_manifest_sha256) \
+            or sha256(installer_package) != args.installer_sha256 \
+            or sha256(installer_manifest) != args.installer_manifest_sha256:
+        fail("fixed Edition installer hashes do not match the lease-bound inputs")
+    if (
+        installer_artifact.get("schema_version") != 1
+        or installer_artifact.get("protocol") != "peanut.edition-installer.v1"
+        or installer_artifact.get("edition", {}).get("name") != args.edition
+        or installer_artifact.get("source", {}).get("commit") != args.candidate
+        or installer_artifact.get("source", {}).get("tree") != candidate_tree
+        or installer_artifact.get("archive", {}).get("filename") != installer_package.name
+    ):
+        fail("fixed Edition installer identity does not match candidate/tree/edition")
     if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", args.database):
         fail("database name is invalid")
     registered_database(args.database_resource, args.endpoint, args.database)
-    if args.author_database:
-        expect(args.author_database != args.database, "author and consumer runtime databases must differ")
-        registered_database(args.database_resource, args.endpoint, args.author_database)
+    expect(bool(args.author_database), "--author-database is required for independent Application A")
+    expect(args.author_database != args.database, "author and consumer runtime databases must differ")
+    registered_database(args.database_resource, args.endpoint, args.author_database)
     output = Path(args.output)
     if not output.is_absolute() or output == Path("/") or output.exists() or output.is_symlink():
         fail("output must be an absent absolute path")
@@ -856,15 +869,19 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             ("output-root", str(output)),
             ("cache-root", str(output / "cache")),
         }
+    expected_resources.update({
+        ("installer-archive", str(installer_package)),
+        ("installer-archive-sha256", args.installer_sha256),
+        ("installer-manifest", str(installer_manifest)),
+        ("installer-manifest-sha256", args.installer_manifest_sha256),
+    })
     expect(metadata.get("candidate") == args.candidate and metadata.get("status") == "ACTIVE",
            "active lease candidate does not match")
     expect(metadata.get("worktree") == str(ROOT), "active lease worktree does not match")
     expect(expected_resources.issubset(resource_set), "lease is missing a consumer Module resource")
-    if args.author_database:
-        expect(("database", args.author_database) in resource_set, "author database is not leased")
+    expect(("database", args.author_database) in resource_set, "author database is not leased")
     assert_empty_database(args.database)
-    if args.author_database:
-        assert_empty_database(args.author_database)
+    assert_empty_database(args.author_database)
 
     output.mkdir(mode=0o700, parents=True)
     logs = output / "logs"
@@ -874,37 +891,13 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     cache.mkdir(parents=True)
     completed = False
     try:
-        create_application(
-            author,
-            "CR21 Author",
-            "cr21-author",
-            "consumer/author",
-            candidate_manifest,
-            args.edition,
-            logs / "create-app-a.log",
-        )
-        create_application(
-            consumer,
-            "CR21 Consumer",
-            "cr21-consumer",
-            "consumer/runtime",
-            candidate_manifest,
-            args.edition,
-            logs / "create-app-b.log",
-        )
-        inventory = read_json(ROOT / "scaffold/application-template-inventory.json")
-        template_version = str(inventory.get("template_version", ""))
-        release_identity: dict[str, Any] = candidate_release
-        if not release_identity and args.formal_release_adoption:
-            release = read_json(ROOT / "scaffold/releases" / f"v{template_version}" / "scaffold-manifest.json")
-            release_identity = release.get("release", {})
+        extract_installer(installer_package, installer_artifact, author)
+        extract_installer(installer_package, installer_artifact, consumer)
+        template_version = str(installer_artifact.get("product", {}).get("version", ""))
         for project in [author, consumer]:
             manifest = read_json(project / ".peanut/application-manifest.json")
-            adopted = bool(release_identity)
-            expected_template_commit = str(release_identity.get("source_commit", "")) if adopted else args.candidate
-            expected_template_tree = str(release_identity.get("source_tree", "")) if adopted else candidate_tree
-            expect(manifest.get("template", {}).get("source_commit") == expected_template_commit
-                   and manifest.get("template", {}).get("source_tree") == expected_template_tree
+            expect(manifest.get("template", {}).get("source_commit") == args.candidate
+                   and manifest.get("template", {}).get("source_tree") == candidate_tree
                    and manifest.get("template", {}).get("version") == template_version
                    and manifest.get("generation_source", {}).get("commit") == args.candidate
                    and manifest.get("generation_source", {}).get("tree") == candidate_tree
@@ -941,7 +934,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 author,
                 author_resource,
                 author_endpoint,
-                args.author_database or args.database,
+                args.author_database,
             ),
             "application_b": configure_generated_database(
                 consumer,
@@ -963,7 +956,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(public_key != "" and secret_key.stat().st_size > 1, "ephemeral signing key generation failed")
         author_env = backend_environment(
             author / "server/.env.cr21",
-            args.author_database or args.database,
+            args.author_database,
             public_key,
             author_resource,
             author_endpoint,
@@ -979,22 +972,23 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         )
         install_dependencies(author, cache, author_env, logs / "composer-a.log")
         install_dependencies(consumer, cache, consumer_env, logs / "composer-b.log")
-        if args.author_database:
-            author_install = author / "server/.env.cr21.installation"
-            author_credentials = "ADMIN_INITIAL_EMAIL=author@example.test\nADMIN_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
-            if args.edition == "multi-tenant":
-                author_credentials += "PLATFORM_INITIAL_EMAIL=author-platform@example.test\nPLATFORM_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
-            author_install.write_text(author_credentials, encoding="utf-8")
-            author_install.chmod(0o600)
-            try:
-                author_initialized = json_output(command(
-                    [str(PHP), "server/database/install.php"], cwd=author,
-                    env=author_env | {"PEANUT_INSTALLATION_ENV_FILE": str(author_install)},
-                    log=logs / "author-install.log",
-                ), "author fresh install")
-                expect(author_initialized.get("state") == "installed", "author application was not initialized")
-            finally:
-                author_install.unlink(missing_ok=True)
+        author_install = author / "server/.env.cr21.installation"
+        author_credentials = "ADMIN_INITIAL_EMAIL=author@example.test\nADMIN_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
+        if args.edition == "multi-tenant":
+            author_credentials += "PLATFORM_INITIAL_EMAIL=author-platform@example.test\nPLATFORM_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
+        author_install.write_text(author_credentials, encoding="utf-8")
+        author_install.chmod(0o600)
+        try:
+            author_initialized = json_output(command(
+                [str(PHP), "server/database/install.php"], cwd=author,
+                env=author_env | {"PEANUT_INSTALLATION_ENV_FILE": str(author_install)},
+                log=logs / "author-install.log",
+            ), "author fresh install")
+            expect(author_initialized.get("state") == "installed"
+                   and int(author_initialized.get("health", {}).get("installed_table_count", 0)) > 0,
+                   "author fixed-package application was not installed")
+        finally:
+            author_install.unlink(missing_ok=True)
 
         created = run_think(author, author_env, ["module:create", MODULE_KEY, "--vendor=acme"], logs / "author.log")
         expect(created.get("module_key") == MODULE_KEY, "module:create returned another identity")
@@ -1148,7 +1142,8 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             "status": "passed",
             "candidate": args.candidate,
             "candidate_tree": candidate_tree,
-            "candidate_manifest_sha256": sha256(candidate_manifest) if candidate_manifest is not None else None,
+            "installer_archive_sha256": sha256(installer_package),
+            "installer_manifest_sha256": sha256(installer_manifest),
             "lease": args.lease,
             "database_resource_id": args.database_resource,
             "endpoint_id": args.endpoint,
@@ -1170,7 +1165,8 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "signature_key_id": PACKAGE_KEY_ID,
             },
             "gates": {
-                "create": "passed",
+                "application_a_direct_installer_extract_and_fresh_install": "passed",
+                "application_b_direct_installer_extract_and_fresh_install": "passed",
                 "check_v1_v2": "passed",
                 "signed_pack_v1_v2": "passed",
                 "install_update": "passed",
@@ -1184,13 +1180,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "rbac_entry": "role_admin_service",
                 "business_data_entry": "module_contract_service",
                 "source_private_fixture_copy": "not_used",
-                "generation_mode": (
-                    "sealed_candidate_manifest"
-                    if candidate_manifest is not None
-                    else ("formal_release_adoption" if args.formal_release_adoption else "development_source_candidate")
-                ),
-                "sealed_candidate_adoption": "passed" if candidate_manifest is not None else "not_requested",
-                "formal_release_adoption": "passed" if args.formal_release_adoption else "not_requested",
+                "generation_mode": "fixed_edition_installer_package_direct",
             },
             "snapshots": {
                 "after_update": after_update,
@@ -1217,12 +1207,14 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--database", required=True)
     parser.add_argument("--database-resource", required=True, help="Explicit registered development database resource")
     parser.add_argument("--endpoint", required=True, help="Explicit endpoint in that resource")
-    parser.add_argument("--author-database", help="Optional separately registered and leased author runtime database")
+    parser.add_argument("--author-database", required=True, help="Separately registered and leased Application A runtime database")
     parser.add_argument("--output", required=True)
     parser.add_argument("--env-file", required=True)
-    parser.add_argument("--candidate-manifest")
+    parser.add_argument("--installer-package", required=True, help="Absolute fixed Edition installer archive used directly for both applications")
+    parser.add_argument("--installer-manifest", required=True, help="Absolute external manifest for the fixed installer archive")
+    parser.add_argument("--installer-sha256", required=True, help="Lease-bound SHA-256 of the fixed installer archive")
+    parser.add_argument("--installer-manifest-sha256", required=True, help="Lease-bound SHA-256 of the external installer manifest")
     parser.add_argument("--edition", choices=("standalone", "multi-tenant"), default="standalone")
-    parser.add_argument("--formal-release-adoption", action="store_true")
     parser.add_argument("--allow-dependency-network", action="store_true", help="Permit locked package downloads; no dependency updates")
     parser.add_argument("--keep", action="store_true", help="Keep the lease-owned output after success")
     args = parser.parse_args()

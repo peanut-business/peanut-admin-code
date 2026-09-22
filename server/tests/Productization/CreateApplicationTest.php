@@ -196,6 +196,8 @@ foreach ([
     'server/app/common/services/upgrade/ApplicationMigrationRunner.php',
     'scripts/upgrade',
     'scripts/product-upgrade-host',
+    'scripts/product-upgrade-database',
+    'scripts/scaffold-runtime/Semver.php',
     'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
     'web/src/views/user/setting/index.vue',
 ] as $managedPath) {
@@ -204,7 +206,7 @@ foreach ([
         "shared product source must use the upgrade baseline: {$managedPath}",
     );
 }
-foreach (['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/project-resources.json'] as $customPath) {
+foreach (['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/project-resources.json', 'SECURITY.md', 'scripts/seed-demo-data'] as $customPath) {
     createApplicationExpect(
         ($inventoryByPath[$customPath]['classification'] ?? null) === 'app-owned',
         "instance customization must remain app-owned: {$customPath}",
@@ -585,7 +587,27 @@ try {
     createApplicationFails(fn() => $creator->create('Acme Console', 'acme-console', 'acme/acme-console', $temporary . '/linked-parent/escape', 'multi-tenant', null, 'full'), 'CREATE_APP_TARGET_SYMLINK_REJECTED');
 
     $generatedCi = (string)file_get_contents($first . '/.github/workflows/ci.yml');
-    createApplicationExpect(!str_contains($generatedCi, 'stale-facts:') && !str_contains($generatedCi, 'create-app:'), 'generated CI must not depend on source-template governance jobs');
+    createApplicationExpect(
+        str_contains($generatedCi, 'name: Application CI')
+            && str_contains($generatedCi, 'composer validate --strict')
+            && str_contains($generatedCi, 'pnpm install --frozen-lockfile')
+            && str_contains($generatedCi, 'npm ci')
+            && !str_contains($generatedCi, 'stale-facts:')
+            && !str_contains($generatedCi, 'create-app:')
+            && !str_contains($generatedCi, 'ci-server-check')
+            && !str_contains($generatedCi, 'check-test-integrity')
+            && !str_contains($generatedCi, 'consumer-module-reference-chain')
+            && !str_contains($generatedCi, 'plugin-contribution.test.ts'),
+        'generated CI must use only shipped application build inputs',
+    );
+    $generatedReadme = (string)file_get_contents($first . '/README.md');
+    createApplicationExpect(
+        str_contains($generatedReadme, '`server/app/modules/custom/`')
+            && str_contains($generatedReadme, '`resources/project-resources.json`')
+            && str_contains($generatedReadme, 'Product backend, frontend, database, and public documentation files are managed')
+            && !str_contains($generatedReadme, 'Application business code and the stable Host override files are app-owned'),
+        'generated README must describe the exact managed and app-owned boundaries',
+    );
     createApplicationExpect(is_file($first . '/server/database/environment-guard.php'), 'production database guard must remain in the deployment inventory');
     $generatedSchema = (string)file_get_contents($first . '/server/database/init.sql');
     createApplicationExpect(str_contains($generatedSchema, 'pa_schema_migration'), 'generated application is missing the application migration ledger');

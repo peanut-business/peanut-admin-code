@@ -5,7 +5,6 @@ namespace app\common\infrastructure\scaffold;
 
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\scaffold\ScaffoldManifest;
-use Composer\Semver\Comparator;
 use RuntimeException;
 
 final class EditionUpgradePackage
@@ -131,14 +130,20 @@ final class EditionUpgradePackage
         if (!is_array($manifest)
             || ($manifest['schema_version'] ?? null) !== 1
             || ($manifest['protocol'] ?? null) !== 'peanut.edition-upgrade-package.v1'
-            || ($manifest['upgrader']['entrypoint'] ?? null) !== 'scripts/upgrade'
+            || ($manifest['upgrader']['installed_entrypoint'] ?? null) !== 'scripts/upgrade'
             || ($manifest['upgrader']['internal_scaffold_engine'] ?? null) !== 'scripts/scaffold-upgrade'
             || ($manifest['upgrader']['host_driver'] ?? null) !== 'scripts/upgrade-runtime/product-upgrade-host'
+            || ($manifest['upgrader']['database_driver'] ?? null) !== 'scripts/upgrade-runtime/product-upgrade-database'
             || !isset(
-                $files['scripts/upgrade'],
                 $files['scripts/scaffold-upgrade'],
+                $files['scripts/scaffold-runtime/ScaffoldPathGuard.php'],
+                $files['scripts/scaffold-runtime/ScaffoldManifest.php'],
+                $files['scripts/scaffold-runtime/ScaffoldUpgradeLedger.php'],
+                $files['scripts/scaffold-runtime/Semver.php'],
+                $files['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'],
                 $files['scripts/scaffold-runtime/EditionUpgradePackage.php'],
                 $files['scripts/upgrade-runtime/ApplicationMigrationRunner.php'],
+                $files['scripts/upgrade-runtime/product-upgrade-database'],
                 $files['scripts/upgrade-runtime/product-upgrade-host'],
             )) {
             throw new RuntimeException('EDITION_UPGRADE_MANIFEST_INVALID');
@@ -163,18 +168,17 @@ final class EditionUpgradePackage
         $minimum = (string)($manifest['compatibility']['source']['minimum_inclusive'] ?? '');
         $maximum = (string)($manifest['compatibility']['source']['maximum_exclusive'] ?? '');
         $target = (string)($manifest['target']['version'] ?? '');
-        $this->loadSemver($project);
         if (preg_match(self::VERSION, $current) !== 1
             || preg_match(self::VERSION, $minimum) !== 1
             || preg_match(self::VERSION, $maximum) !== 1
             || preg_match(self::VERSION, $target) !== 1
             || $maximum !== $target
             || ($manifest['compatibility']['major_policy'] ?? null) !== 'same-major'
-            || Comparator::greaterThanOrEqualTo($minimum, $target)
-            || Comparator::lessThan($current, $minimum)
-            || ($requireSourceCompatibility && Comparator::greaterThanOrEqualTo($current, $target))
+            || Semver::greaterThanOrEqualTo($minimum, $target)
+            || Semver::lessThan($current, $minimum)
+            || ($requireSourceCompatibility && Semver::greaterThanOrEqualTo($current, $target))
             || (!$requireSourceCompatibility && $current !== $target
-                && (Comparator::lessThan($current, $minimum) || Comparator::greaterThanOrEqualTo($current, $target)))
+                && (Semver::lessThan($current, $minimum) || Semver::greaterThanOrEqualTo($current, $target)))
             || explode('.', $current, 2)[0] !== explode('.', $target, 2)[0]) {
             throw new RuntimeException('EDITION_UPGRADE_RELEASE_CHAIN_INVALID');
         }
@@ -219,32 +223,11 @@ final class EditionUpgradePackage
             'project_root' => $project,
             'application' => $application,
             'package' => $manifest + [
-                'inventory_sha256' => hash('sha256', $inventory),
+                'inventory_sha256' => 'sha256:' . hash('sha256', $inventory),
                 'signature_key_id' => $signatureKeyId,
-                'manifest_sha256' => hash_file('sha256', $manifestPath),
+                'manifest_sha256' => 'sha256:' . hash_file('sha256', $manifestPath),
             ],
         ];
-    }
-
-    private function loadSemver(string $project): void
-    {
-        if (class_exists(Comparator::class)) return;
-        $semver = $project . '/server/vendor/composer/semver/src/';
-        foreach ([
-            'Constraint/ConstraintInterface.php',
-            'Constraint/Bound.php',
-            'Constraint/Constraint.php',
-            'Comparator.php',
-        ] as $relative) {
-            $path = $semver . $relative;
-            if (!is_file($path) || is_link($path)) {
-                throw new RuntimeException('EDITION_UPGRADE_SEMVER_RUNTIME_MISSING');
-            }
-            require_once $path;
-        }
-        if (!class_exists(Comparator::class)) {
-            throw new RuntimeException('EDITION_UPGRADE_SEMVER_RUNTIME_MISSING');
-        }
     }
 
     /** @return array{name:string,deployment_mode:string,profile_sha256:string,generator_version:int,module_profile:string,tenant_bootstrap:array<string,string>,schema_projection:string} */

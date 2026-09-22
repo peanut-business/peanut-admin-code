@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\DeterministicEditionArchive;
 use app\common\infrastructure\scaffold\EditionUpgradePackage;
-use Composer\Semver\Comparator;
+use app\common\infrastructure\scaffold\Semver;
 
 const EDITION_UPGRADE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
 
@@ -65,8 +65,11 @@ function editionUpgradeInventory(string $root): array
 }
 
 $root = dirname(__DIR__);
-require_once $root . '/server/vendor/autoload.php';
+require_once $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
+require_once $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
+require_once $root . '/scripts/scaffold-runtime/Semver.php';
 require_once $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
+require_once $root . '/server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php';
 $options = [];
 $check = false;
 foreach (array_slice($argv, 1) as $argument) {
@@ -81,7 +84,7 @@ foreach (['version', 'minimum-source-version', 'source-commit', 'output', 'signi
 foreach (['version', 'minimum-source-version'] as $versionOption) {
     if (preg_match(EDITION_UPGRADE_STRICT_SEMVER, $options[$versionOption]) !== 1) editionUpgradeUsage();
 }
-if (Comparator::greaterThanOrEqualTo($options['minimum-source-version'], $options['version'])
+if (Semver::greaterThanOrEqualTo($options['minimum-source-version'], $options['version'])
     || explode('.', $options['minimum-source-version'], 2)[0] !== explode('.', $options['version'], 2)[0]
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
     || preg_match('/^[A-Za-z0-9._-]{1,96}$/D', $options['signing-key-id']) !== 1
@@ -93,8 +96,8 @@ if ($hasAdoptionVersion) {
 }
 if ($hasAdoptionVersion !== $hasAdoptionCommit
     || ($hasAdoptionVersion && (preg_match('/^[a-f0-9]{40}$/D', $options['adoption-source-commit']) !== 1
-        || Comparator::lessThan($options['adoption-source-version'], $options['minimum-source-version'])
-        || Comparator::greaterThanOrEqualTo($options['adoption-source-version'], $options['version'])))) {
+        || Semver::lessThan($options['adoption-source-version'], $options['minimum-source-version'])
+        || Semver::greaterThanOrEqualTo($options['adoption-source-version'], $options['version'])))) {
     editionUpgradeUsage();
 }
 
@@ -177,17 +180,18 @@ try {
             }
         }
         foreach ([
-            'scripts/upgrade' => ['scripts/upgrade', 0755],
             'scripts/scaffold-upgrade' => ['scripts/scaffold-upgrade', 0755],
             'scripts/scaffold-runtime/ScaffoldPathGuard.php' => ['scripts/scaffold-runtime/ScaffoldPathGuard.php', 0644],
             'scripts/scaffold-runtime/ScaffoldManifest.php' => ['scripts/scaffold-runtime/ScaffoldManifest.php', 0644],
             'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php' => ['scripts/scaffold-runtime/ScaffoldUpgradeLedger.php', 0644],
+            'scripts/scaffold-runtime/Semver.php' => ['scripts/scaffold-runtime/Semver.php', 0644],
             'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => ['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 0644],
             'scripts/scaffold-runtime/EditionUpgradePackage.php' => ['scripts/scaffold-runtime/EditionUpgradePackage.php', 0644],
             'server/app/platform/exception/plugin/PluginLifecycleException.php' => ['scripts/upgrade-runtime/PluginLifecycleException.php', 0644],
             'server/app/platform/value/plugin/PluginDescriptor.php' => ['scripts/upgrade-runtime/PluginDescriptor.php', 0644],
             'server/app/platform/infrastructure/plugin/PluginLockResolver.php' => ['scripts/upgrade-runtime/PluginLockResolver.php', 0644],
             'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => ['scripts/upgrade-runtime/ApplicationMigrationRunner.php', 0644],
+            'scripts/product-upgrade-database' => ['scripts/upgrade-runtime/product-upgrade-database', 0755],
             'scripts/product-upgrade-host' => ['scripts/upgrade-runtime/product-upgrade-host', 0755],
         ] as $sourcePath => [$packagePath, $mode]) {
             $contents = editionUpgradeRun(['git', '-C', $root, 'show', $commit . ':' . $sourcePath]);
@@ -226,9 +230,10 @@ try {
                 'managed_tree_sha256' => $targetManifest['release']['managed_tree_sha256'],
             ],
             'upgrader' => [
-                'entrypoint' => 'scripts/upgrade',
+                'installed_entrypoint' => 'scripts/upgrade',
                 'internal_scaffold_engine' => 'scripts/scaffold-upgrade',
                 'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host',
+                'database_driver' => 'scripts/upgrade-runtime/product-upgrade-database',
             ],
             'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => $migrations],
             'ownership' => [

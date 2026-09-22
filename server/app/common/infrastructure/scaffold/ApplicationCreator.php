@@ -782,14 +782,78 @@ final class ApplicationCreator
 
     private function ciTransform(string $content): string
     {
-        $content = preg_replace('/  stale-facts:\n.*?(?=  changes:\n)/s', '', $content) ?? $content;
-        $content = preg_replace('/^      create_app:.*\n/m', '', $content) ?? $content;
-        $content = preg_replace('/^      scaffold_upgrade:.*\n/m', '', $content) ?? $content;
-        $content = str_replace('server web pc uniapp docs_site create_app scaffold_upgrade', 'server web pc uniapp docs_site', $content);
-        $content = preg_replace('/^          matches .*create_app=true.*\n/m', '', $content) ?? $content;
-        $content = preg_replace('/\n  create-app:\n.*?(?=  php:\n)/s', "\n", $content) ?? $content;
-        $content = preg_replace('/\n  scaffold-upgrade:\n.*?(?=  php:\n)/s', "\n", $content) ?? $content;
-        return $content;
+        return <<<'YAML'
+name: Application CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  layout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify shipped application contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            .peanut/application-manifest.json \
+            resources/project-resources.json \
+            server/composer.json server/composer.lock server/database/install.php \
+            scripts/project-composer scripts/upgrade \
+            web/package.json web/pnpm-lock.yaml; do
+            test -f "$path"
+          done
+          for client in platform pc uniapp; do
+            if test -d "$client"; then
+              test -f "$client/package.json"
+              test -f "$client/package-lock.json"
+            fi
+          done
+
+  php:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: json, mbstring, pdo_mysql, sodium
+          coverage: none
+      - name: Validate locked backend
+        working-directory: server
+        run: |
+          composer validate --strict
+          composer install --no-interaction --no-progress --prefer-dist --no-scripts
+          find app database -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+  clients:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+      - name: Build shipped clients from locked dependencies
+        shell: bash
+        env:
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          (cd web && pnpm install --frozen-lockfile && pnpm run build)
+          if test -d platform; then (cd platform && npm ci && npm run build); fi
+          if test -d pc; then (cd pc && npm ci && npm run build); fi
+          if test -d uniapp; then (cd uniapp && npm ci && npm run build:h5); fi
+YAML;
     }
 
     private function environmentGuard(string $content): string
@@ -1035,7 +1099,7 @@ PHP;
     private function readme(): string
     {
         return "# {{PRODUCT_NAME}}\n\nApplication identity: `{{PACKAGE_IDENTITY}}` (`{{SLUG}}`).\n\n"
-            . "This repository was generated from a versioned application scaffold. Application business code and the stable Host override files are app-owned; `.peanut/application-manifest.json` records the exact boundary and managed baseline.\n\n"
+            . "This repository was generated from a versioned application scaffold. Product backend, frontend, database, and public documentation files are managed with baseline conflict detection. Customer code is app-owned only under `server/app/modules/custom/`, `web/src/modules/custom/`, `platform/src/modules/custom/`, `pc/modules/custom/`, and `uniapp/src/modules/custom/`; the stable app-owned files are `server/config/peanut.php`, `web/src/peanut.overrides.ts`, `resources/project-resources.json`, `SECURITY.md`, and `scripts/seed-demo-data`. Customer-added paths that do not exist in the upstream inventory remain untouched. `.peanut/application-manifest.json` records the exact boundary and managed baseline.\n\n"
             . "Before connecting a database or starting a service, register the environment resources in `resources/project-resources.json`. A fresh install requires explicit `ADMIN_INITIAL_PASSWORD`; no shared default password is supplied.\n";
     }
 
