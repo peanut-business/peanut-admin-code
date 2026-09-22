@@ -34,6 +34,16 @@ function inventoryGitFiles(string $root): array
 
 function excluded(string $path): bool
 {
+    // The public upgrader ships the existing authenticated upgrade runtime.
+    if (in_array($path, [
+        'scripts/scaffold-runtime/ScaffoldPathGuard.php',
+        'scripts/scaffold-runtime/ScaffoldManifest.php',
+        'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php',
+        'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
+        'scripts/scaffold-runtime/EditionUpgradePackage.php',
+    ], true)) {
+        return false;
+    }
     // Repository delivery/editor settings do not belong to generated applications.
     if (str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
         || str_starts_with($path, 'evidence/')
@@ -171,7 +181,7 @@ function classification(string $path): string
     }
     if (in_array($path, [
         'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json',
-        'CHANGELOG.md', 'RELEASE_METADATA.json', 'resources/project-resources.json',
+        'CHANGELOG.md', 'RELEASE_METADATA.json',
         'server/config/brand.json', 'web/src/generated/brand.json', 'pc/generated/brand.json',
         'uniapp/src/generated/brand.json', 'docs-site/generated/brand.json',
     ], true)) {
@@ -199,12 +209,17 @@ function classification(string $path): string
     if ($path === 'SECURITY.md') {
         return 'app-owned';
     }
-    if (str_starts_with($path, 'docs-site/') || str_starts_with($path, 'platform/src/')
-        || str_starts_with($path, 'server/app/') || str_starts_with($path, 'server/database/')
-        || str_starts_with($path, 'server/tests/') || str_starts_with($path, 'web/src/views/')
-        || str_starts_with($path, 'web/tests/') || str_starts_with($path, 'pc/pages/')
-        || str_starts_with($path, 'pc/components/') || str_starts_with($path, 'uniapp/src/')
-        || in_array($path, ['server/config/peanut.php', 'web/src/peanut.overrides.ts'], true)) {
+    // Product source remains eligible for upstream fixes. Local edits to managed
+    // files are protected by the recorded baseline and three-way conflict check;
+    // ownership must not silently freeze whole application/client directories.
+    // Explicit extension/configuration surfaces belong to the instance. New
+    // customer files absent from the upstream manifest are never adopted here.
+    if (str_starts_with($path, 'server/app/modules/custom/')
+        || str_starts_with($path, 'web/src/modules/custom/')
+        || str_starts_with($path, 'platform/src/modules/custom/')
+        || str_starts_with($path, 'pc/modules/custom/')
+        || str_starts_with($path, 'uniapp/src/modules/custom/')
+        || in_array($path, ['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/project-resources.json'], true)) {
         return 'app-owned';
     }
     return 'managed';
@@ -311,7 +326,9 @@ foreach (inventoryGitFiles($root) as $path) {
     $templatePrefix = 'server/resources/scaffold-application/';
     $isApplicationTemplate = str_starts_with($path, $templatePrefix) && str_ends_with($path, '.stub');
     $target = $isApplicationTemplate ? substr($path, strlen($templatePrefix), -5) : $path;
-    $classification = $isApplicationTemplate ? 'app-owned' : classification($path);
+    $classification = $isApplicationTemplate
+        ? ($target === 'SECURITY.md' ? 'app-owned' : 'generated-managed')
+        : classification($path);
     if (!file_exists($absolute) && $classification === 'excluded') {
         continue;
     }

@@ -11,6 +11,47 @@
   "resources": {
     "tooling": [
       {
+        "stable_resource_id": "peanut-admin-product-docker29",
+        "purpose": "Isolated product candidate image, database and recovery qualification",
+        "environments": ["development-test", "qualification"],
+        "owner": "productization-20260922",
+        "host": "macbookpro-arm64",
+        "port": null,
+        "database": null,
+        "schema": null,
+        "namespace": "/usr/local/bin/docker",
+        "service_type": "owner-managed Docker Desktop CLI and engine",
+        "version": "29.8.0",
+        "credential_ref": null,
+        "data_source": "existing Docker Desktop installation; candidate image digests recorded per run",
+        "freshness_requirement": "exact CLI and server both report 29.8.0; every mutable container and volume is separately leased",
+        "health_check": "docker version client/server identity and exact candidate container health",
+        "fallback": "none",
+        "cleanup_responsibility": "productization-20260922 removes only its own labelled resources, never the shared engine"
+      },
+      {
+        "stable_resource_id": "peanut-admin-product-node22",
+        "purpose": "Productization build and package qualification on the application-supported Node major",
+        "environments": ["development-test", "qualification"],
+        "owner": "productization-20260922",
+        "host": "macbookpro-arm64",
+        "port": null,
+        "database": null,
+        "schema": null,
+        "namespace": ".local/toolchain/node-v22.23.2-darwin-arm64",
+        "service_type": "official Node.js binary distribution",
+        "version": "22.23.2; npm 10.9.8; project-pinned pnpm 9.15.6",
+        "download_url": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-darwin-arm64.tar.gz",
+        "sha256": "61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6",
+        "credential_ref": null,
+        "data_source": "official Node.js v22.23.2 SHASUMS256.txt and repository packageManager",
+        "freshness_requirement": "verify archive digest before extraction and Node/npm versions before build; reject a mismatched existing installation",
+        "health_check": "node --version equals v22.23.2 and npm --version equals 10.9.8 under the explicit toolchain PATH",
+        "fallback": "none",
+        "lifecycle": "task-local ignored toolchain; retained for reproducible qualification",
+        "cleanup_responsibility": "productization-20260922 owner removes only this worktree-local toolchain after qualification"
+      },
+      {
         "stable_resource_id": "peanut-admin-docs-cloudflare-pages-cli",
         "purpose": "authenticated public documentation build upload and immutable Pages deployment verification",
         "environments": [
@@ -632,6 +673,48 @@
       }
     ],
     "databases": [
+      {
+        "stable_resource_id": "peanut-admin-productization-mysql84",
+        "purpose": "Fixed-package direct install, module consumer, independent upgrade and recovery qualification using only task-owned synthetic data",
+        "environments": ["development-test"],
+        "owner": "productization-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20339,
+        "container_name": "peanut-admin-productization-mysql84",
+        "container_label": "com.peanut-admin.owner=productization-20260922",
+        "database": "peanut_product_dev_install",
+        "schema": "pa_ tables in the exact synthetic schema allowlist",
+        "namespace": "exclusive anonymous MySQL volume owned by the labelled container; no host data mount",
+        "credential_ref": ".local/productization/private/mysql.env and database.json (0600, generated for this task only)",
+        "data_source": "fresh empty task-owned MySQL and candidate-owned synthetic fixtures",
+        "freshness_requirement": "container, port and volume absent before initial claim-bound creation; each candidate uses previously absent schemas",
+        "health_check": "inspect exact image/name/label/volume; credential-backed PDO SELECT VERSION() and exact schema allowlist",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": true,
+        "claim_precondition": "active exclusive lease covers exact container, port, schemas, candidate and output paths",
+        "cleanup_responsibility": "productization-20260922 only, after evidence capture; never alter earlier task resources",
+        "backup_responsibility": "candidate upgrade rehearsal saves paired DB/files before migration",
+        "failure_retention_policy": "retain failed candidate schemas, volume, private credentials and sanitized evidence for focused diagnosis",
+        "deployment_modes": ["standalone", "multi-tenant"],
+        "lease_gate": "productization-package-qualification",
+        "synthetic_databases": {
+          "development": ["peanut_product_dev_install", "peanut_product_dev_upgrade"],
+          "candidate_q01": ["peanut_product_q01_single_a", "peanut_product_q01_single_b", "peanut_product_q01_multi_a", "peanut_product_q01_multi_b", "peanut_product_q01_restore"],
+          "candidate_q02": ["peanut_product_q02_single_a", "peanut_product_q02_single_b", "peanut_product_q02_multi_a", "peanut_product_q02_multi_b", "peanut_product_q02_restore"]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-productization-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20339,
+          "consumers": ["host"],
+          "network_scope": "task-owned loopback only"
+        },
+        "container_endpoint": null
+      },
       {
         "stable_resource_id": "peanut-admin-backend-stabilization-mysql84",
         "purpose": "D01-D04 isolated backend regression with synthetic data only",
