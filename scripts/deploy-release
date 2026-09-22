@@ -7,6 +7,8 @@ ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 REGISTRY="$ROOT_DIR/resources/project-resources.json"
 
 TAG=""
+CANDIDATE_COMMIT=""
+DEPLOYMENT_KIND="formal"
 TARGET=""
 FRESH=0
 INSTALL=0
@@ -21,6 +23,8 @@ EDITION_MANIFEST_SHA256=""
 CONFIRM_DESTROY=""
 EXPECTED_COMMIT=""
 EXPECTED_TREE=""
+PAIRED_BACKUP_ID=""
+PAIRED_BACKUP_MANIFEST_SHA256=""
 ENV_FILE=""
 ADMIN_EMAIL=""
 ADMIN_PASSWORD=""
@@ -43,10 +47,19 @@ Usage: scripts/deploy-release <vX.Y.Z> --target <production|production-candidate
   [--env-file <permission-0600-file>] \
   [--edition-package <installer.tar.gz> --edition-manifest <manifest.json>] \
   [--overlay <demo-patch.tar>] \
-  [--confirm-destroy <target>]
+  [--confirm-destroy <target>] [--paired-backup <id> \
+  --paired-backup-manifest-sha256 <sha256>]
 
-The script deploys an immutable release tag to one registered Peanut Admin
-instance. It never guesses a host, path, port, database or fallback target.
+Usage: scripts/deploy-release --candidate-commit=<full-sha1> \
+  --expected-tree=<full-tree-sha1> --target <production|production-candidate> \
+  (--install | --update | --fresh) [--apply | --dry-run] [--ssh-alias <alias>] \
+  [--env-file <permission-0600-file>] \
+  [--confirm-destroy <target>] [--paired-backup <id> \
+  --paired-backup-manifest-sha256 <sha256>]
+
+The script deploys either an immutable release tag or a clean, committed
+development candidate to one registered Peanut Admin instance. These paths are
+mutually exclusive. It never guesses a host, path, port, database or fallback target.
 Before image construction it writes a non-secret DEPLOYMENT_RECEIPT.json into
 the staged source so runtime status and backup evidence use the deployed
 tag/commit/tree instead of the pre-qualification embedded metadata.
@@ -65,6 +78,12 @@ tag/commit/tree instead of the pre-qualification embedded metadata.
              required for --fresh; value must exactly equal the target
   --expected-commit, --expected-tree
              pin a caller-bound release commit and tree; both are required together
+  --candidate-commit
+             deploy this exact committed development source; requires --expected-tree
+             and is mutually exclusive with a formal tag
+  --paired-backup, --paired-backup-manifest-sha256
+             identify the exact paired DB/files backup required by --fresh; no
+             directory ordering or newest-backup inference is used
 
 Routine updates preserve the database and apply append-only application
 migrations from server/database/migrations. Fresh installation uses the
@@ -159,8 +178,23 @@ if [[ "$1" == --help || "$1" == -h ]]; then
   usage
   exit 0
 fi
-TAG="$1"
-shift
+case "$1" in
+  --candidate-commit=*)
+    CANDIDATE_COMMIT="${1#--candidate-commit=}"
+    DEPLOYMENT_KIND="candidate"
+    shift
+    ;;
+  --candidate-commit)
+    [[ $# -ge 2 ]] || fail '--candidate-commit requires a value'
+    CANDIDATE_COMMIT="$2"
+    DEPLOYMENT_KIND="candidate"
+    shift 2
+    ;;
+  *)
+    TAG="$1"
+    shift
+    ;;
+esac
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target)
@@ -193,6 +227,18 @@ while [[ $# -gt 0 ]]; do
     --confirm-destroy)
       [[ $# -ge 2 ]] || fail '--confirm-destroy requires a value'
       CONFIRM_DESTROY="$2"; shift 2 ;;
+    --confirm-destroy=*)
+      CONFIRM_DESTROY="${1#--confirm-destroy=}"; shift ;;
+    --paired-backup)
+      [[ $# -ge 2 ]] || fail '--paired-backup requires a value'
+      PAIRED_BACKUP_ID="$2"; shift 2 ;;
+    --paired-backup=*)
+      PAIRED_BACKUP_ID="${1#--paired-backup=}"; shift ;;
+    --paired-backup-manifest-sha256)
+      [[ $# -ge 2 ]] || fail '--paired-backup-manifest-sha256 requires a value'
+      PAIRED_BACKUP_MANIFEST_SHA256="$2"; shift 2 ;;
+    --paired-backup-manifest-sha256=*)
+      PAIRED_BACKUP_MANIFEST_SHA256="${1#--paired-backup-manifest-sha256=}"; shift ;;
     --expected-commit)
       [[ $# -ge 2 ]] || fail '--expected-commit requires a value'
       EXPECTED_COMMIT="$2"; shift 2 ;;
@@ -241,11 +287,26 @@ if [[ -n "$ENV_FILE" ]]; then
   done < "$ENV_FILE"
 fi
 
-[[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'tag must be an immutable vX.Y.Z release tag'
+if [[ "$DEPLOYMENT_KIND" == formal ]]; then
+  [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'tag must be an immutable vX.Y.Z release tag'
+  [[ -z "$CANDIDATE_COMMIT" ]] || fail 'formal tag deployment cannot carry --candidate-commit'
+else
+  [[ -z "$TAG" ]] || fail 'candidate deployment cannot carry a formal release tag'
+  [[ "$CANDIDATE_COMMIT" =~ ^[a-f0-9]{40}$ ]] || fail 'candidate commit must be a full lowercase SHA-1'
+fi
 [[ -z "$EXPECTED_COMMIT" || "$EXPECTED_COMMIT" =~ ^[a-f0-9]{40}$ ]] || fail 'expected commit must be a full lowercase SHA-1'
 [[ -z "$EXPECTED_TREE" || "$EXPECTED_TREE" =~ ^[a-f0-9]{40}$ ]] || fail 'expected tree must be a full lowercase SHA-1'
-[[ -z "$EXPECTED_COMMIT" && -z "$EXPECTED_TREE" || -n "$EXPECTED_COMMIT" && -n "$EXPECTED_TREE" ]] \
-  || fail '--expected-commit and --expected-tree must be provided together'
+if [[ "$DEPLOYMENT_KIND" == formal ]]; then
+  [[ -z "$EXPECTED_COMMIT" && -z "$EXPECTED_TREE" || -n "$EXPECTED_COMMIT" && -n "$EXPECTED_TREE" ]] \
+    || fail '--expected-commit and --expected-tree must be provided together'
+fi
+if [[ "$DEPLOYMENT_KIND" == candidate ]]; then
+  [[ -n "$EXPECTED_TREE" ]] || fail 'candidate deployment requires --expected-tree'
+  [[ -z "$EXPECTED_COMMIT" || "$EXPECTED_COMMIT" == "$CANDIDATE_COMMIT" ]] \
+    || fail '--expected-commit must equal --candidate-commit'
+  [[ -z "$EDITION_PACKAGE" && -z "$EDITION_MANIFEST" && -z "$OVERLAY" ]] \
+    || fail 'candidate deployment accepts only the exact source archive; Edition and overlay inputs are formal-release-only'
+fi
 [[ "$TARGET" == production || "$TARGET" == production-candidate ]] || fail 'target must be production or production-candidate'
 [[ $((INSTALL + UPDATE + FRESH)) -eq 1 ]] || fail 'choose exactly one of --install, --update or --fresh'
 [[ $((APPLY + DRY_RUN)) -eq 1 ]] || fail 'choose exactly one of --apply or --dry-run'
@@ -257,6 +318,14 @@ if [[ "$FRESH" == 1 && "$CONFIRM_DESTROY" != "$TARGET" ]]; then
 fi
 if [[ "$FRESH" != 1 && -n "$CONFIRM_DESTROY" ]]; then
   fail '--confirm-destroy is only valid with --fresh'
+fi
+if [[ "$FRESH" == 1 ]]; then
+  [[ "$PAIRED_BACKUP_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] \
+    || fail '--fresh requires a safe exact --paired-backup identifier'
+  [[ "$PAIRED_BACKUP_MANIFEST_SHA256" =~ ^[a-f0-9]{64}$ ]] \
+    || fail '--fresh requires the exact paired backup manifest SHA-256'
+elif [[ -n "$PAIRED_BACKUP_ID" || -n "$PAIRED_BACKUP_MANIFEST_SHA256" ]]; then
+  fail '--paired-backup and --paired-backup-manifest-sha256 are only valid with --fresh'
 fi
 if [[ -n "$OVERLAY" ]]; then
   [[ "$TARGET" == production-candidate ]] || fail '--overlay is allowed only for production-candidate'
@@ -296,6 +365,7 @@ fi
 cd "$ROOT_DIR"
 git diff --quiet || fail 'source checkout has unstaged changes'
 git diff --cached --quiet || fail 'source checkout has staged changes'
+[[ -z "$(git ls-files --others --exclude-standard)" ]] || fail 'source checkout has untracked files'
 
 target_json() {
   jq -e --arg id "$1" '.. | objects | select(.stable_resource_id == $id)' "$REGISTRY"
@@ -307,7 +377,8 @@ compose_project="$(target_json "$deployment_id" | jq -r '.compose_project')"
 remote_root="$(target_json "$deployment_id" | jq -r '.deployment_root')"
 origin_port="$(target_json "$deployment_id" | jq -r '.runtime_resource_ids[0] as $x | .. | objects | select(.stable_resource_id == $x) | .published_endpoint.port')"
 deployment_mode="$(target_json "$deployment_id" | jq -r '.required_non_secret_environment.DEPLOYMENT_MODE // "multi-tenant"')"
-if [[ "$TARGET" == production ]]; then
+application_resource_id="$(target_json "$deployment_id" | jq -r '.runtime_resource_ids[0]')"
+if [[ "$TARGET" == production && "$DEPLOYMENT_KIND" == formal ]]; then
   "$ROOT_DIR/scripts/check-release-consistency" --tag "$TAG" --remote origin \
     || fail "production release identity is not closed for $TAG"
 fi
@@ -330,40 +401,59 @@ if [[ -n "$OVERLAY" ]]; then
     || fail 'Tenant B demo Host does not match the registered binding plan'
 fi
 
-if ! git rev-parse --verify --quiet "$TAG^{tag}" >/dev/null; then
-  git fetch --quiet origin "refs/tags/$TAG:refs/tags/$TAG" || fail "cannot fetch $TAG from origin"
+if [[ "$DEPLOYMENT_KIND" == formal ]]; then
+  if ! git rev-parse --verify --quiet "$TAG^{tag}" >/dev/null; then
+    git fetch --quiet origin "refs/tags/$TAG:refs/tags/$TAG" || fail "cannot fetch $TAG from origin"
+  fi
+  [[ "$(git cat-file -t "$TAG" 2>/dev/null || true)" == tag ]] || fail "$TAG is not an annotated tag"
+  tag_commit="$(git rev-parse "$TAG^{commit}")"
+  remote_commit="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk 'NR == 1 { print $1 }')"
+  [[ -n "$remote_commit" && "$remote_commit" == "$tag_commit" ]] || fail "$TAG local and remote commit identities differ"
+  [[ -z "$EXPECTED_COMMIT" || "$tag_commit" == "$EXPECTED_COMMIT" ]] \
+    || fail "$TAG commit differs from the caller-bound expected commit"
+  # All release reads and the source archive use this resolved immutable commit, never the tag name again.
+  release_ref="$tag_commit"
+  tag_tree="$(git rev-parse "$release_ref^{tree}")"
+  [[ -z "$EXPECTED_TREE" || "$tag_tree" == "$EXPECTED_TREE" ]] \
+    || fail "$TAG tree differs from the caller-bound expected tree"
+  version="${TAG#v}"
+  metadata_version="$(git show "$release_ref:RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then (.instance_version // .source_product_version // empty) else .version // empty end')"
+  metadata_source_version="$(git show "$release_ref:RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then .source_product_version // empty else empty end')"
+  metadata_tag="$(git show "$release_ref:RELEASE_METADATA.json" | jq -r '.expected_tag // empty')"
+  [[ "$metadata_version" == "$version" && "$metadata_tag" == "$TAG" ]] || fail "RELEASE_METADATA.json does not match $TAG"
+  contract_source_version="$(git show "$release_ref:release-versions.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-versions.v2" then .source_product_version // empty elif .schema_version == 1 and .protocol == "peanut.release-versions.v1" then .product_release // empty else empty end')"
+  contract_release_version="$(git show "$release_ref:release-versions.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-versions.v2" then (.instance_version // .source_product_version // empty) elif .schema_version == 1 and .protocol == "peanut.release-versions.v1" then .product_release // empty else empty end')"
+  contract_schema_version="$(git show "$release_ref:release-versions.json" | jq -r '.schema_version // empty')"
+  scaffold_migration_version="$(git show "$release_ref:release-versions.json" | jq -r '.scaffold_template // empty')"
+  [[ "$contract_release_version" == "$version" ]] || fail "release-versions.json release sequence does not match $TAG"
+  if [[ -n "$metadata_source_version" ]]; then
+    [[ "$metadata_source_version" == "$contract_source_version" ]] \
+      || fail 'RELEASE_METADATA.json source product version differs from release-versions.json'
+  fi
+  if [[ "$contract_schema_version" == 2 ]]; then
+    [[ -n "$metadata_source_version" ]] \
+      || fail 'v2 release-versions.json requires v2 RELEASE_METADATA.json'
+  fi
+  [[ "$scaffold_migration_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
+    || fail 'release-versions.json scaffold_template is invalid'
+else
+  tag_commit="$CANDIDATE_COMMIT"
+  release_ref="$CANDIDATE_COMMIT"
+  [[ "$(git cat-file -t "$release_ref" 2>/dev/null || true)" == commit ]] \
+    || fail 'candidate commit is not available as a committed object'
+  tag_tree="$(git rev-parse "$release_ref^{tree}")"
+  [[ "$tag_tree" == "$EXPECTED_TREE" ]] || fail 'candidate commit tree differs from --expected-tree'
+  version="$(git show "$release_ref:release-versions.json" | jq -r '.source_product_version // empty')"
+  metadata_source_version="$(git show "$release_ref:RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then .source_product_version // empty else empty end')"
+  [[ -n "$version" && "$version" != "$metadata_source_version" ]] \
+    || fail 'candidate product identity must remain distinct from published release metadata'
+  [[ "$version" == *-* ]] || fail 'candidate product identity must be a development/prerelease version'
+  scaffold_migration_version="$metadata_source_version"
+  [[ "$scaffold_migration_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
+    || fail 'candidate schema source must be a stable X.Y.Z published baseline'
+  metadata_version="$metadata_source_version"
+  printf 'candidate_product_version=%s\ncandidate_schema_version=%s\n' "$version" "$scaffold_migration_version"
 fi
-[[ "$(git cat-file -t "$TAG" 2>/dev/null || true)" == tag ]] || fail "$TAG is not an annotated tag"
-tag_commit="$(git rev-parse "$TAG^{commit}")"
-remote_commit="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk 'NR == 1 { print $1 }')"
-[[ -n "$remote_commit" && "$remote_commit" == "$tag_commit" ]] || fail "$TAG local and remote commit identities differ"
-[[ -z "$EXPECTED_COMMIT" || "$tag_commit" == "$EXPECTED_COMMIT" ]] \
-  || fail "$TAG commit differs from the caller-bound expected commit"
-# All release reads and the source archive use this resolved immutable commit, never the tag name again.
-release_ref="$tag_commit"
-tag_tree="$(git rev-parse "$release_ref^{tree}")"
-[[ -z "$EXPECTED_TREE" || "$tag_tree" == "$EXPECTED_TREE" ]] \
-  || fail "$TAG tree differs from the caller-bound expected tree"
-version="${TAG#v}"
-metadata_version="$(git show "$release_ref:RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then (.instance_version // .source_product_version // empty) else .version // empty end')"
-metadata_source_version="$(git show "$release_ref:RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then .source_product_version // empty else empty end')"
-metadata_tag="$(git show "$release_ref:RELEASE_METADATA.json" | jq -r '.expected_tag // empty')"
-[[ "$metadata_version" == "$version" && "$metadata_tag" == "$TAG" ]] || fail "RELEASE_METADATA.json does not match $TAG"
-contract_source_version="$(git show "$release_ref:release-versions.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-versions.v2" then .source_product_version // empty elif .schema_version == 1 and .protocol == "peanut.release-versions.v1" then .product_release // empty else empty end')"
-contract_release_version="$(git show "$release_ref:release-versions.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-versions.v2" then (.instance_version // .source_product_version // empty) elif .schema_version == 1 and .protocol == "peanut.release-versions.v1" then .product_release // empty else empty end')"
-contract_schema_version="$(git show "$release_ref:release-versions.json" | jq -r '.schema_version // empty')"
-scaffold_migration_version="$(git show "$release_ref:release-versions.json" | jq -r '.scaffold_template // empty')"
-[[ "$contract_release_version" == "$version" ]] || fail "release-versions.json release sequence does not match $TAG"
-if [[ -n "$metadata_source_version" ]]; then
-  [[ "$metadata_source_version" == "$contract_source_version" ]] \
-    || fail 'RELEASE_METADATA.json source product version differs from release-versions.json'
-fi
-if [[ "$contract_schema_version" == 2 ]]; then
-  [[ -n "$metadata_source_version" ]] \
-    || fail 'v2 release-versions.json requires v2 RELEASE_METADATA.json'
-fi
-[[ "$scaffold_migration_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
-  || fail 'release-versions.json scaffold_template is invalid'
 archive_kind=source
 if [[ -n "$EDITION_PACKAGE" ]]; then
   archive_kind=edition
@@ -453,15 +543,18 @@ mode=install
 [[ "$UPDATE" == 1 ]] && mode=update
 [[ "$FRESH" == 1 ]] && mode=fresh
 printf 'release=%s\ncommit=%s\nscaffold_migration_version=%s\ntarget=%s\nmode=%s\nssh=%s\nremote_root=%s\ncompose_project=%s\norigin_port=%s\ndatabase_resource=%s\ndeployment_mode=%s\n' \
-  "$TAG" "$tag_commit" "$scaffold_migration_version" "$TARGET" "$mode" "$SSH_ALIAS" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$deployment_mode"
+  "${TAG:-candidate:$tag_commit}" "$tag_commit" "$scaffold_migration_version" "$TARGET" "$mode" "$SSH_ALIAS" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$deployment_mode"
 printf 'deployment_artifact=%s\n' "$archive_kind"
 [[ -z "$overlay_sha256" ]] || printf 'overlay_sha256=%s\n' "$overlay_sha256"
+if [[ "$DEPLOYMENT_KIND" == candidate ]]; then
+  printf 'deployment_identity=candidate\nproduct_version=%s\nschema_source=%s\n' "$version" "$scaffold_migration_version"
+fi
 
 if [[ "$DRY_RUN" == 1 ]]; then
   case "$mode" in
-    install) printf 'plan=validate candidate, build images, install the v3.0 baseline into an empty target, start the stack, health smoke\n' ;;
-    update) printf 'plan=validate running target, build candidate images while it remains available, replace only changed php/nginx/cron containers with up -d, health smoke\n' ;;
-    fresh) printf 'plan=validate candidate and paired DB/files backup, build images, then stop target, remove registered volumes, install baseline, health smoke\n'; printf 'warning=--fresh is destructive and requires --confirm-destroy=%s plus a verified paired backup\n' "$TARGET" ;;
+    install) printf 'plan=validate candidate, build PHP/NGINX/PC images, install the stable schema baseline into an empty target, start the stack, health smoke\n' ;;
+    update) printf 'plan=validate running target, build PHP/NGINX/PC images while it remains available, replace only changed application containers with up -d, health smoke\n' ;;
+    fresh) printf 'plan=validate the exact paired DB/files backup, build PHP/NGINX/PC images and empty-database preflight, then stop target, remove only registered volumes, install baseline, health smoke\n'; printf 'warning=--fresh is destructive and requires --confirm-destroy=%s plus a verified exact paired backup\n' "$TARGET" ;;
   esac
   exit 0
 fi
@@ -516,32 +609,37 @@ fi
 # remote control script through the registered non-interactive sudo boundary so
 # its preflight, Compose and filesystem operations all observe the same target.
 ssh -o BatchMode=yes "${SSH_KEEPALIVE_OPTS[@]}" "$SSH_ALIAS" sudo -n bash -s -- \
-  "$TAG" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" <<'REMOTE_SCRIPT'
+  "$DEPLOYMENT_KIND" "$TAG" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 decode_remote_arg() {
   [[ "$1" == __PEANUT_EMPTY__ ]] && printf '' || printf '%s' "$1"
 }
 
-tag="$1"
-expected_commit="$2"
-expected_tree="$3"
-target="$4"
-mode="$5"
-root="$6"
-project="$7"
-port="$8"
-database_resource="$9"
-deployment_mode="${10}"
-archive="${11}"
-secrets="${12}"
-overlay="$(decode_remote_arg "${13:-__PEANUT_EMPTY__}")"
-expected_overlay_sha="$(decode_remote_arg "${14:-__PEANUT_EMPTY__}")"
-expected_archive_sha="${15:-}"
-archive_kind="${16:-}"
-scaffold_migration_version="${17:-}"
-edition_manifest_sha="$(decode_remote_arg "${18:-__PEANUT_EMPTY__}")"
-version="${tag#v}"
+deployment_kind="$1"
+tag="$2"
+expected_commit="$3"
+expected_tree="$4"
+target="$5"
+mode="$6"
+root="$7"
+project="$8"
+port="$9"
+database_resource="${10}"
+application_resource="${11}"
+deployment_mode="${12}"
+archive="${13}"
+secrets="${14}"
+overlay="$(decode_remote_arg "${15:-__PEANUT_EMPTY__}")"
+expected_overlay_sha="$(decode_remote_arg "${16:-__PEANUT_EMPTY__}")"
+expected_archive_sha="${17:-}"
+archive_kind="${18:-}"
+scaffold_migration_version="${19:-}"
+edition_manifest_sha="$(decode_remote_arg "${20:-__PEANUT_EMPTY__}")"
+paired_backup_id="$(decode_remote_arg "${21:-__PEANUT_EMPTY__}")"
+paired_backup_manifest_sha="$(decode_remote_arg "${22:-__PEANUT_EMPTY__}")"
+candidate_product_version="${23:-}"
+version="${candidate_product_version:-${tag#v}}"
 migration_target_version="$scaffold_migration_version"
 overlay_commit=""
 overlay_metadata_sha=""
@@ -558,12 +656,23 @@ version_greater_than() {
   (( 10#$left_minor < 10#$right_minor )) && return 1
   (( 10#$left_patch > 10#$right_patch ))
 }
-[[ "$root" == /www/docker/peanut-admin || "$root" == /www/docker/peanut-admin-candidate ]] || fail 'unregistered deployment root'
-[[ "$project" == peanut-admin || "$project" == peanut-admin-candidate ]] || fail 'unregistered compose project'
-[[ "$port" == 18092 || "$port" == 18093 ]] || fail 'unregistered origin port'
 [[ "$target" == production || "$target" == production-candidate ]] || fail 'unregistered deployment target'
 [[ "$mode" == install || "$mode" == update || "$mode" == fresh ]] || fail 'unregistered deployment mode'
 [[ "$archive_kind" == source || "$archive_kind" == edition ]] || fail 'unregistered deployment artifact kind'
+if [[ "$target:$root:$project:$port:$database_resource:$deployment_mode:$application_resource" == \
+      production:/www/docker/peanut-admin:peanut-admin:18092:peanut-admin-production-bundled-mysql84:standalone:peanut-admin-production-application-containers ]]; then
+  :
+elif [[ "$target:$root:$project:$port:$database_resource:$deployment_mode:$application_resource" == \
+      production-candidate:/www/docker/peanut-admin-candidate:peanut-admin-candidate:18093:peanut-admin-production-candidate-mysql84:multi-tenant:peanut-admin-production-candidate-application-containers ]]; then
+  [[ "$mode" == fresh ]] || fail 'production-candidate is registered as fresh-only'
+else
+  fail 'deployment target selectors do not form a registered tuple'
+fi
+if [[ "$deployment_kind" == formal ]]; then
+  [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'formal remote identity is invalid'
+else
+  [[ -z "$tag" && "$candidate_product_version" == *-* ]] || fail 'candidate remote identity is invalid'
+fi
 [[ "$expected_commit" =~ ^[0-9a-f]{40}$ && "$expected_tree" =~ ^[0-9a-f]{40}$ ]] \
   || fail 'release commit/tree identity is invalid'
 if [[ "$archive_kind" == edition ]]; then
@@ -573,6 +682,12 @@ else
 fi
 [[ "$scaffold_migration_version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] \
   || fail 'unregistered scaffold migration version'
+if [[ "$mode" == fresh ]]; then
+  [[ "$paired_backup_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] \
+    || fail 'fresh remote identity is missing an exact paired backup id'
+  [[ "$paired_backup_manifest_sha" =~ ^[0-9a-f]{64}$ ]] \
+    || fail 'fresh remote identity is missing an exact paired backup manifest digest'
+fi
 [[ -d "$root" && -f "$root/compose.yaml" && -f "$root/.env" && -f "$root/server/.env" ]] \
   || fail "deployment files or split environments are missing under $root"
 [[ -f "$secrets" ]] || fail 'deployment credential payload is missing'
@@ -592,7 +707,25 @@ sudo -n grep -Fqx "PEANUT_DEPLOYMENT_TARGET=$target" server/.env || fail 'server
 sudo -n grep -Fqx "PEANUT_DATABASE_RESOURCE_ID=$database_resource" server/.env || fail 'server/.env database resource mismatch'
 sudo -n grep -Fqx "DEPLOYMENT_MODE=$deployment_mode" server/.env || fail 'server/.env deployment mode mismatch'
 
-current_compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_SERVER_ENV_FILE=$root/server/.env" docker compose --env-file .env --env-file server/.env -p "$project" -f compose.yaml --profile bundled-db)
+read_env_value() {
+  local file="$1" key="$2"
+  sudo -n awk -v key="$key" 'index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }' "$file"
+}
+public_scheme="$(read_env_value .env PEANUT_PUBLIC_SCHEME)"
+trusted_hosts="$(read_env_value .env PEANUT_TRUSTED_HOSTS)"
+[[ "$public_scheme" == http || "$public_scheme" == https ]] \
+  || fail 'PEANUT_PUBLIC_SCHEME must be an explicit http or https value in root .env'
+[[ -n "$trusted_hosts" && "$trusted_hosts" != *'*'* ]] \
+  || fail 'PEANUT_TRUSTED_HOSTS must be explicit non-wildcard host names in root .env'
+IFS=',' read -r -a trusted_host_list <<<"$trusted_hosts"
+[[ ${#trusted_host_list[@]} -gt 0 ]] || fail 'PEANUT_TRUSTED_HOSTS is empty'
+for trusted_host in "${trusted_host_list[@]}"; do
+  trusted_host="${trusted_host## }"; trusted_host="${trusted_host%% }"
+  [[ "$trusted_host" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
+    || fail 'PEANUT_TRUSTED_HOSTS contains a non-DNS or wildcard host'
+done
+
+current_compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" docker compose --env-file .env --env-file server/.env -p "$project" -f compose.yaml --profile bundled-db)
 "${current_compose[@]}" config >/dev/null || fail 'Compose configuration is invalid'
 if [[ "$mode" == update ]]; then
   [[ -f DEPLOYMENT_RECEIPT.json && ! -L DEPLOYMENT_RECEIPT.json ]] \
@@ -695,31 +828,52 @@ if [[ -n "$expected_overlay_sha" ]]; then
     '{commit:$commit,archive_sha256:$archive_sha256,metadata_sha256:$metadata_sha256}')"
 fi
 receipt_tmp="$staging/DEPLOYMENT_RECEIPT.json.tmp"
-jq -n \
-  --arg target "$target" \
-  --arg edition "$deployment_mode" \
-  --arg tag "$tag" \
-  --arg commit "$expected_commit" \
-  --arg tree "$expected_tree" \
-  --arg kind "$archive_kind" \
-  --arg archive_sha256 "$expected_archive_sha" \
-  --arg manifest_sha256 "$edition_manifest_sha" \
-  --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --argjson overlay "$receipt_overlay" \
-  '{
-    schema_version:1,
-    protocol:"peanut.deployment-receipt.v1",
-    target:$target,
-    edition:$edition,
-    release:{tag:$tag,commit:$commit,tree:$tree},
-    artifact:{
-      kind:$kind,
-      archive_sha256:$archive_sha256,
-      manifest_sha256:(if $manifest_sha256=="" then null else $manifest_sha256 end)
-    },
-    overlay:$overlay,
-    generated_at:$generated_at
-  }' >"$receipt_tmp"
+if [[ "$deployment_kind" == candidate ]]; then
+  jq -n \
+    --arg target "$target" \
+    --arg product_version "$candidate_product_version" \
+    --arg schema_version "$scaffold_migration_version" \
+    --arg commit "$expected_commit" \
+    --arg tree "$expected_tree" \
+    --arg archive_sha256 "$expected_archive_sha" \
+    --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{
+      schema_version:2,
+      protocol:"peanut.deployment-candidate-receipt.v1",
+      target:$target,
+      product:{version:$product_version,identity:"development-candidate"},
+      schema:{migration_target:$schema_version,source:"published-release-metadata"},
+      source:{commit:$commit,tree:$tree,archive_sha256:$archive_sha256},
+      images:null,
+      generated_at:$generated_at
+    }' >"$receipt_tmp"
+else
+  jq -n \
+    --arg target "$target" \
+    --arg edition "$deployment_mode" \
+    --arg tag "$tag" \
+    --arg commit "$expected_commit" \
+    --arg tree "$expected_tree" \
+    --arg kind "$archive_kind" \
+    --arg archive_sha256 "$expected_archive_sha" \
+    --arg manifest_sha256 "$edition_manifest_sha" \
+    --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --argjson overlay "$receipt_overlay" \
+    '{
+      schema_version:1,
+      protocol:"peanut.deployment-receipt.v1",
+      target:$target,
+      edition:$edition,
+      release:{tag:$tag,commit:$commit,tree:$tree},
+      artifact:{
+        kind:$kind,
+        archive_sha256:$archive_sha256,
+        manifest_sha256:(if $manifest_sha256=="" then null else $manifest_sha256 end)
+      },
+      overlay:$overlay,
+      generated_at:$generated_at
+    }' >"$receipt_tmp"
+fi
 chmod 0644 "$receipt_tmp"
 mv -f -- "$receipt_tmp" "$staging/DEPLOYMENT_RECEIPT.json"
 deployment_receipt_base64="$(base64 <"$staging/DEPLOYMENT_RECEIPT.json" | tr -d '\r\n')"
@@ -727,14 +881,22 @@ deployment_receipt_base64="$(base64 <"$staging/DEPLOYMENT_RECEIPT.json" | tr -d 
 
 [[ -f "$staging/compose.yaml" && -f "$staging/deploy/docker-compose.prod.yml" ]] \
   || fail 'candidate Compose files are missing'
-image_suffix="${tag#v}"
+if [[ "$deployment_kind" == candidate ]]; then
+  image_suffix="candidate-${expected_commit:0:12}-${expected_archive_sha:0:12}"
+else
+  image_suffix="${tag#v}"
+fi
 if [[ -n "$expected_overlay_sha" ]]; then
   image_suffix="${image_suffix}-demo-${expected_overlay_sha:0:12}"
 fi
 php_image="peanut-admin-php:${image_suffix}"
 nginx_image="peanut-admin-nginx:${image_suffix}"
+pc_image="peanut-admin-pc:${image_suffix}"
+candidate_receipt_file="$root/DEPLOYMENT_RECEIPT.json"
+[[ "$deployment_kind" != candidate ]] || candidate_receipt_file="$staging/DEPLOYMENT_RECEIPT.json"
 candidate_compose=(
-  sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PEANUT_SERVER_ENV_FILE=$root/server/.env"
+  sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
+  "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
   "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$deployment_receipt_base64"
   docker compose --env-file "$root/.env" --env-file "$root/server/.env" -p "$project"
   -f "$staging/compose.yaml" --profile bundled-db
@@ -742,12 +904,29 @@ candidate_compose=(
 "${candidate_compose[@]}" config >/dev/null || fail 'candidate Compose configuration is invalid'
 printf 'candidate: building images while the current stack remains available\n'
 "${candidate_compose[@]}" build
-sudo -n docker image inspect "$php_image" "$nginx_image" >/dev/null \
-  || fail 'candidate image identity is unavailable after build'
+sudo -n docker image inspect "$php_image" "$nginx_image" "$pc_image" >/dev/null \
+  || fail 'candidate PHP/NGINX/PC image identity is unavailable after build'
+php_image_id="$(sudo -n docker image inspect --format '{{.Id}}' "$php_image")"
+nginx_image_id="$(sudo -n docker image inspect --format '{{.Id}}' "$nginx_image")"
+pc_image_id="$(sudo -n docker image inspect --format '{{.Id}}' "$pc_image")"
+[[ "$php_image_id" =~ ^sha256:[0-9a-f]{64}$ && "$nginx_image_id" =~ ^sha256:[0-9a-f]{64}$ \
+  && "$pc_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'candidate image IDs are not immutable Docker IDs'
+if [[ "$deployment_kind" == candidate ]]; then
+  jq --arg php "$php_image_id" --arg nginx "$nginx_image_id" --arg pc "$pc_image_id" \
+    '.images={php:$php,nginx:$nginx,pc:$pc}' "$staging/DEPLOYMENT_RECEIPT.json" >"$staging/DEPLOYMENT_RECEIPT.json.tmp" \
+    || fail 'candidate deployment receipt could not bind image IDs'
+  chmod 0644 "$staging/DEPLOYMENT_RECEIPT.json.tmp"
+  mv -f -- "$staging/DEPLOYMENT_RECEIPT.json.tmp" "$staging/DEPLOYMENT_RECEIPT.json"
+fi
 candidate_image_receipt="$(sudo -n docker run --rm --entrypoint cat "$php_image" /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)" \
   || fail 'candidate PHP image does not contain the deployment receipt'
-[[ "$(cat "$staging/DEPLOYMENT_RECEIPT.json")" == "$candidate_image_receipt" ]] \
-  || fail 'candidate PHP image deployment receipt differs from staging'
+if [[ "$deployment_kind" == formal ]]; then
+  [[ "$(cat "$staging/DEPLOYMENT_RECEIPT.json")" == "$candidate_image_receipt" ]] \
+    || fail 'formal PHP image deployment receipt differs from staging'
+else
+  [[ "$(printf '%s' "$candidate_image_receipt" | jq -r '.protocol // empty')" == peanut.deployment-candidate-receipt.v1 ]] \
+    || fail 'candidate PHP image does not contain the candidate receipt protocol'
+fi
 candidate_install_preflight="$("${candidate_compose[@]}" run -T --rm --no-deps --entrypoint php php server/database/install.php --preflight </dev/null)" \
   || fail 'candidate installation preflight failed before target replacement'
 jq -e '.status == "ready" and .code == "INSTALL_PREFLIGHT_READY"' <<<"$candidate_install_preflight" >/dev/null \
@@ -765,32 +944,87 @@ if [[ "$mode" == update ]]; then
   printf 'candidate_plugin_composition=ready\n'
 fi
 
-verify_paired_backup() {
-  local backup_root="$root/backups" backup_dir
-  if [[ "$target" != production ]]; then
-    printf 'verified_disposable_fresh_target=%s (paired backup not required)\n' "$target"
-    return 0
+preflight_project=""
+preflight_compose=()
+cleanup_empty_database_preflight() {
+  if [[ -n "$preflight_project" ]]; then
+    "${preflight_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   fi
-  [[ -d "$backup_root" ]] || fail 'registered paired backup directory is missing'
-  backup_dir="$(sudo -n find "$backup_root" -mindepth 1 -maxdepth 1 -type d -print | sort | tail -n 1)"
-  [[ -n "$backup_dir" ]] || fail 'no paired backup set is available'
+}
+trap cleanup_empty_database_preflight EXIT
+preflight_project="${project}-candidate-preflight-$$"
+preflight_compose=(
+  sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
+  "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
+  "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$deployment_receipt_base64"
+  docker compose --env-file "$root/.env" --env-file "$root/server/.env" -p "$preflight_project"
+  -f "$staging/compose.yaml" --profile bundled-db
+)
+"${preflight_compose[@]}" up -d --wait mysql >/dev/null \
+  || fail 'isolated empty MySQL preflight could not start'
+empty_table_count="$("${preflight_compose[@]}" exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -NBe "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()"' 2>/dev/null)" \
+  || fail 'isolated empty MySQL preflight query failed'
+[[ "$empty_table_count" == 0 ]] || fail 'isolated preflight database is not empty'
+printf 'candidate_empty_database_preflight=ready\n'
+"${preflight_compose[@]}" down --volumes --remove-orphans >/dev/null
+preflight_project=""
+trap - EXIT
+
+verify_paired_backup() {
+  local backup_dir="$root/backups/$paired_backup_id" backup_manifest_sha
+  [[ -d "$root/backups" ]] || fail 'registered paired backup directory is missing'
+  [[ -d "$backup_dir" && ! -L "$backup_dir" ]] || fail 'the exact paired backup directory is unavailable'
   [[ -f "$backup_dir/database.sql.gz" && -f "$backup_dir/php-storage.tar.gz" \
     && -f "$backup_dir/manifest.json" && -f "$backup_dir/SHA256SUMS" ]] \
-    || fail 'latest backup set is not a complete DB/files pair'
+    || fail 'the exact paired backup set is not a complete DB/files pair'
   sudo -n bash -c 'cd "$1" && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz && tar -tzf php-storage.tar.gz >/dev/null' \
     bash "$backup_dir" \
-    || fail 'latest paired backup failed checksum or archive verification'
-  sudo -n jq -e --arg db "$database_resource" \
-    '.database_resource_id == $db and .application_resource_id == "peanut-admin-production-application-containers"' \
+    || fail 'the exact paired backup failed checksum or archive verification'
+  backup_manifest_sha="$(sudo -n sha256sum "$backup_dir/manifest.json" | awk '{print $1}')"
+  [[ "$backup_manifest_sha" == "$paired_backup_manifest_sha" ]] \
+    || fail 'the exact paired backup manifest SHA-256 differs from the caller binding'
+  sudo -n jq -e --arg db "$database_resource" --arg app "$application_resource" --arg backup "$paired_backup_id" \
+    '.database_resource_id == $db and .application_resource_id == $app and (.backup_id == $backup or .id == $backup)' \
     "$backup_dir/manifest.json" >/dev/null \
-    || fail 'paired backup manifest does not match the registered production resources'
-  printf 'verified_paired_backup=%s\n' "$(basename "$backup_dir")"
+    || fail 'paired backup manifest does not match the registered target resources or exact backup id'
+  printf 'verified_paired_backup=%s\nverified_paired_backup_manifest_sha256=%s\n' "$paired_backup_id" "$backup_manifest_sha"
 }
 
+target_stopped=0
+deployment_failure_diagnostic() {
+  local status=$?
+  if (( status != 0 )); then
+    printf 'remote deploy: failed after validation; retaining diagnostic state under %s and backup %s\n' \
+      "$root" "${paired_backup_id:-none}" >&2
+    if (( target_stopped == 1 )); then
+      "${current_compose[@]}" ps >&2 || true
+    fi
+  fi
+  exit "$status"
+}
+trap deployment_failure_diagnostic EXIT
 if [[ "$mode" == fresh ]]; then
   verify_paired_backup
   printf 'fresh target: candidate and paired backup are ready; stopping stack and removing only registered Compose volumes\n'
-  "${current_compose[@]}" down --volumes --remove-orphans
+  registered_volumes=(
+    "${project}_mysql-data" "${project}_php-runtime" "${project}_php-storage" "${project}_php-private-storage"
+  )
+  while IFS= read -r declared_volume; do
+    [[ -z "$declared_volume" ]] && continue
+    case " ${registered_volumes[*]} " in
+      *" $declared_volume "*) ;;
+      *) fail "Compose declares an unregistered volume: $declared_volume" ;;
+    esac
+  done < <("${current_compose[@]}" config --volumes)
+  target_stopped=1
+  "${current_compose[@]}" down --remove-orphans
+  for registered_volume in "${registered_volumes[@]}"; do
+    if sudo -n docker volume inspect "$registered_volume" >/dev/null 2>&1; then
+      sudo -n docker volume rm "$registered_volume" >/dev/null \
+        || fail "registered volume could not be removed: $registered_volume"
+    fi
+  done
 elif [[ "$mode" == update ]]; then
   printf 'update target: candidate is ready; preserving database and upload volumes\n'
 else
@@ -810,9 +1044,19 @@ cleanup_backend_environment_copy() {
 trap cleanup_backend_environment_copy EXIT
 sudo -n cp "$root/server/.env" "$backend_environment_copy"
 sudo -n chmod 600 "$backend_environment_copy"
-sudo -n find "$root" -mindepth 1 -maxdepth 1 \
-  ! -name .env ! -name backups \
-  -exec rm -rf -- {} +
+# Preserve root-owned environments, backups, and any unknown diagnostic files.
+# Only the versioned application entries are replaced; this is intentionally
+# explicit so a failed fresh deployment cannot erase secrets or backup pairs.
+managed_entries=(
+  LICENSE NOTICE THIRD_PARTY_NOTICES.md CHANGELOG.md RELEASE_METADATA.json RELEASE_SBOM.spdx.json
+  release-versions.json plugins.lock resources packages plugins scaffold scripts deploy
+  server web platform pc uniapp compose.yaml
+)
+for managed_entry in "${managed_entries[@]}"; do
+  if [[ -e "$root/$managed_entry" || -L "$root/$managed_entry" ]]; then
+    sudo -n rm -rf -- "$root/$managed_entry"
+  fi
+done
 sudo -n cp -a "$staging"/. "$root"/
 sudo -n install -m 600 "$backend_environment_copy" "$root/server/.env"
 sudo -n rm -f "$backend_environment_copy"
@@ -860,6 +1104,7 @@ remove_env_keys() {
 }
 set_env_key .env PHP_IMAGE "$php_image"
 set_env_key .env NGINX_IMAGE "$nginx_image"
+set_env_key .env PC_IMAGE "$pc_image"
 remove_env_keys server/.env \
   ADMIN_INITIAL_EMAIL ADMIN_INITIAL_PASSWORD PLATFORM_INITIAL_EMAIL PLATFORM_INITIAL_PASSWORD
 if [[ "$mode" != update ]]; then
@@ -878,7 +1123,7 @@ elif [[ "$DEMO_MODE_SET" == 1 ]]; then
 fi
 actual_commit="$expected_commit"
 
-compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_SERVER_ENV_FILE=$root/server/.env" docker compose --env-file .env --env-file server/.env -p "$project" -f compose.yaml --profile bundled-db)
+compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" docker compose --env-file .env --env-file server/.env -p "$project" -f compose.yaml --profile bundled-db)
 "${compose[@]}" config >/dev/null || fail 'updated Compose configuration is invalid'
 if [[ "$mode" == update ]]; then
   # Runtime code is copied to the deployment root only; persistent volumes are
@@ -899,9 +1144,24 @@ if [[ "$mode" == update ]]; then
   "${compose[@]}" up -d --wait --no-deps php nginx cron
   "${compose[@]}" ps
   curl --fail --silent --show-error --retry 12 --retry-delay 2 "http://127.0.0.1:${port}/healthz" >/dev/null
-  runtime_version="$(curl --fail --silent --show-error "http://127.0.0.1:${port}/legal/RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then (.instance_version // .source_product_version // empty) else .version // empty end')"
-  [[ "$runtime_version" == "${tag#v}" ]] || fail "runtime metadata is $runtime_version, expected ${tag#v}"
-  printf 'updated_tag=%s\ncommit=%s\nruntime_version=%s\ntarget=%s\n' "$tag" "$expected_commit" "$runtime_version" "$target"
+  runtime_receipt="$(sudo -n docker exec "${project}-php-1" cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)" \
+    || fail 'updated PHP container deployment receipt is unavailable'
+  [[ "$(cat "$root/DEPLOYMENT_RECEIPT.json")" == "$runtime_receipt" ]] \
+    || fail 'updated host and running PHP deployment receipts differ'
+  if [[ "$deployment_kind" == candidate ]]; then
+    jq -e --arg commit "$expected_commit" --arg tree "$expected_tree" \
+      '.schema_version == 2
+       and .protocol == "peanut.deployment-candidate-receipt.v1"
+       and .source.commit == $commit and .source.tree == $tree' \
+      "$root/DEPLOYMENT_RECEIPT.json" >/dev/null \
+      || fail 'updated candidate receipt identity is invalid'
+    printf 'updated_candidate_commit=%s\ncandidate_tree=%s\nproduct_version=%s\ntarget=%s\n' \
+      "$expected_commit" "$expected_tree" "$candidate_product_version" "$target"
+  else
+    runtime_version="$(curl --fail --silent --show-error "http://127.0.0.1:${port}/legal/RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then (.instance_version // .source_product_version // empty) else .version // empty end')"
+    [[ "$runtime_version" == "${tag#v}" ]] || fail "runtime metadata is $runtime_version, expected ${tag#v}"
+    printf 'updated_tag=%s\ncommit=%s\nruntime_version=%s\ntarget=%s\n' "$tag" "$expected_commit" "$runtime_version" "$target"
+  fi
   exit 0
 fi
 # Initial identities are mounted into the one automatic installation client
@@ -957,9 +1217,33 @@ fi
 "${compose[@]}" ps
 
 curl --fail --silent --show-error --retry 12 --retry-delay 2 "http://127.0.0.1:${port}/healthz" >/dev/null
-runtime_version="$(curl --fail --silent --show-error "http://127.0.0.1:${port}/legal/RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then (.instance_version // .source_product_version // empty) else .version // empty end')"
-[[ "$runtime_version" == "${tag#v}" ]] || fail "runtime metadata is $runtime_version, expected ${tag#v}"
-printf 'deployed_tag=%s\ncommit=%s\nruntime_version=%s\ntarget=%s\n' "$tag" "$actual_commit" "$runtime_version" "$target"
+runtime_receipt="$(sudo -n docker exec "${project}-php-1" cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)" \
+  || fail 'running PHP container deployment receipt is unavailable after deployment'
+[[ "$(cat "$root/DEPLOYMENT_RECEIPT.json")" == "$runtime_receipt" ]] \
+  || fail 'host and running PHP deployment receipts differ'
+if [[ "$deployment_kind" == candidate ]]; then
+  jq -e --arg commit "$expected_commit" --arg tree "$expected_tree" \
+    --arg archive "$expected_archive_sha" --arg product "$candidate_product_version" \
+    --arg schema "$scaffold_migration_version" \
+    '.schema_version == 2
+     and .protocol == "peanut.deployment-candidate-receipt.v1"
+     and .product.version == $product
+     and .source.commit == $commit
+     and .source.tree == $tree
+     and .source.archive_sha256 == $archive
+     and .schema.migration_target == $schema
+     and (.images.php | type == "string" and test("^sha256:[0-9a-f]{64}$"))
+     and (.images.nginx | type == "string" and test("^sha256:[0-9a-f]{64}$"))
+     and (.images.pc | type == "string" and test("^sha256:[0-9a-f]{64}$"))' \
+    "$root/DEPLOYMENT_RECEIPT.json" >/dev/null \
+    || fail 'candidate host/runtime receipt identity is incomplete'
+  printf 'deployed_candidate_commit=%s\ncandidate_tree=%s\nproduct_version=%s\nschema_version=%s\n' \
+    "$expected_commit" "$expected_tree" "$candidate_product_version" "$scaffold_migration_version"
+else
+  runtime_version="$(curl --fail --silent --show-error "http://127.0.0.1:${port}/legal/RELEASE_METADATA.json" | jq -r 'if .schema_version == 2 and .protocol == "peanut.release-metadata.v2" then (.instance_version // .source_product_version // empty) else .version // empty end')"
+  [[ "$runtime_version" == "${tag#v}" ]] || fail "runtime metadata is $runtime_version, expected ${tag#v}"
+  printf 'deployed_tag=%s\ncommit=%s\nruntime_version=%s\ntarget=%s\n' "$tag" "$actual_commit" "$runtime_version" "$target"
+fi
 if [[ -n "$expected_overlay_sha" ]]; then
   printf 'demo_overlay_sha256=%s\ndemo_overlay_commit=%s\nmigration_target_version=%s\n' \
     "$expected_overlay_sha" "$(jq -r '.overlay_commit' DEMO_PATCH_METADATA.json)" "$migration_target_version"
