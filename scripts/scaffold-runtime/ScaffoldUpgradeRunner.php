@@ -8,6 +8,7 @@ use app\common\value\scaffold\ScaffoldManifest;
 use app\platform\value\plugin\PluginDescriptor;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
+use Composer\Semver\Comparator;
 use RuntimeException;
 use Throwable;
 
@@ -73,7 +74,7 @@ final class ScaffoldUpgradeRunner
         $targetParameters = $this->parameters($application, $instanceVersion);
         $actions = $this->classify($root, $application, $from, $to, $fromParameters, $targetParameters, $versionContract);
         $pluginProjection = null;
-        if (version_compare($from->version(), '3.0.0', '>=')) {
+        if (Comparator::greaterThanOrEqualTo($from->version(), '3.0.0')) {
             $pluginProjection = $this->pluginProjection($root);
             $actions = $this->projectPluginBoundary(
                 $actions,
@@ -354,7 +355,7 @@ final class ScaffoldUpgradeRunner
 
     private function assertReleaseChain(array $application, ScaffoldManifest $from, ScaffoldManifest $to): void
     {
-        if (version_compare($from->version(), $to->version(), '>=') || ($application['template']['version'] ?? null) !== $from->version()
+        if (Comparator::greaterThanOrEqualTo($from->version(), $to->version()) || ($application['template']['version'] ?? null) !== $from->version()
             || ($application['template']['source_commit'] ?? null) !== $from->release()['source_commit']
             || ($application['template']['source_tree'] ?? null) !== $from->release()['source_tree']) {
             throw new RuntimeException('SCAFFOLD_RELEASE_CHAIN_INVALID');

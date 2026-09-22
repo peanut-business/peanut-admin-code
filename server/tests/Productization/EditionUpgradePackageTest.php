@@ -3,10 +3,18 @@ declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\EditionUpgradePackage;
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
+use app\common\value\scaffold\VersionContract;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 
 $root = dirname(__DIR__, 3);
+require_once $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
+$semverLoader = new ReflectionMethod(EditionUpgradePackage::class, 'loadSemver');
+$semverLoader->setAccessible(true);
+$semverLoader->invoke(new EditionUpgradePackage(), $root);
+if (!\Composer\Semver\Comparator::lessThan('4.0.0-dev', '4.0.0-dev.1')) {
+    throw new RuntimeException('isolated upgrade runtime did not load Composer Semver');
+}
 require_once $root . '/server/vendor/autoload.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
@@ -17,12 +25,16 @@ require_once $root . '/server/app/platform/infrastructure/plugin/PluginLockResol
 require_once $root . '/server/app/platform/exception/plugin/PluginArtifactToolException.php';
 require_once $root . '/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
-require_once $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
+require_once $root . '/server/app/common/value/scaffold/VersionContract.php';
 
 function editionUpgradeExpect(bool $condition, string $message): void
 {
     if (!$condition) throw new RuntimeException($message);
 }
+
+$sourceVersions = VersionContract::load($root . '/release-versions.json');
+$sourceVersions->assertValid('4.0.0-dev.1', 'prerelease version contract rejected');
+$sourceVersions->assertSame('4.0.0-dev.1', '4.0.0-dev.1', 'prerelease version identity changed');
 
 function editionUpgradeRemove(string $path): void
 {
@@ -162,7 +174,7 @@ editionUpgradeExpect(is_string($temporaryRoot), 'temporary root unavailable');
 $temporary = $temporaryRoot . '/peanut-edition-upgrade-' . bin2hex(random_bytes(6));
 $project = $temporary . '/project';
 $package = $temporary . '/package';
-mkdir($project . '/.peanut/scaffold-baseline/3.0.11/files/scripts/scaffold-runtime', 0775, true);
+mkdir($project . '/.peanut/scaffold-baseline/4.0.0-dev/files/scripts/scaffold-runtime', 0775, true);
 mkdir($package, 0775, true);
 
 try {
@@ -181,7 +193,7 @@ try {
     $files = [];
     foreach ($old as $path => $contents) {
         editionUpgradeFile($project . '/' . $path, $contents, $path === 'scripts/scaffold-upgrade' ? 0755 : 0644);
-        editionUpgradeFile($project . '/.peanut/scaffold-baseline/3.0.11/files/' . $path, $contents);
+        editionUpgradeFile($project . '/.peanut/scaffold-baseline/4.0.0-dev/files/' . $path, $contents);
         $files[] = [
             'path' => $path,
             'sha256' => hash('sha256', $contents),
@@ -189,7 +201,7 @@ try {
             'classification' => 'managed',
             'owner' => 'scaffold',
             'source' => $path,
-            'baseline_path' => '.peanut/scaffold-baseline/3.0.11/files/' . $path,
+            'baseline_path' => '.peanut/scaffold-baseline/4.0.0-dev/files/' . $path,
         ];
     }
     editionUpgradeFile($project . '/business.php', "<?php // user business\n");
@@ -229,11 +241,11 @@ try {
         ],
         'edition' => editionUpgradeEdition('standalone'),
         'template' => [
-            'version' => '3.0.11', 'inventory_sha256' => str_repeat('c', 64),
+            'version' => '4.0.0-dev', 'inventory_sha256' => str_repeat('c', 64),
             'source_commit' => str_repeat('a', 40), 'source_tree' => str_repeat('b', 40),
         ],
         'ownership' => [
-            'baseline_root' => '.peanut/scaffold-baseline/3.0.11/files',
+            'baseline_root' => '.peanut/scaffold-baseline/4.0.0-dev/files',
         ],
         'digests' => [
             'managed_tree_sha256' => hash('sha256', implode("\n", $managedRows)),
@@ -244,12 +256,12 @@ try {
     editionUpgradeJson($project . '/release-versions.json', [
         'schema_version' => 2,
         'protocol' => 'peanut.release-versions.v2',
-        'source_product_version' => '3.0.11',
+        'source_product_version' => '4.0.0-dev',
         'instance_version' => '1.4.0',
-        'scaffold_template' => '3.0.11',
+        'scaffold_template' => '4.0.0-dev',
         'generated_instance_default' => '0.1.0',
-        'core_php' => '3.0.11',
-        'core_web' => '3.0.11',
+        'core_php' => '4.0.0-dev',
+        'core_web' => '4.0.0-dev',
     ]);
 
     $targetPluginRoot = $temporary . '/target-plugin-template';
@@ -287,11 +299,11 @@ try {
         'protocol' => 'peanut.scaffold-release.v3',
         'application' => ['version' => '0.1.0'],
         'release' => [
-            'version' => '3.0.12',
+            'version' => '4.0.0-dev.1',
             'source_commit' => str_repeat('d', 40),
             'source_tree' => str_repeat('e', 40),
             'inventory_sha256' => str_repeat('1', 64),
-            'inventory_template_version' => '3.0.12',
+            'inventory_template_version' => '4.0.0-dev.1',
             'managed_tree_sha256' => $targetTree,
             'tokens' => [
                 'product_name' => '__TARGET_NAME__',
@@ -318,14 +330,14 @@ try {
             'name', 'deployment_mode', 'profile_sha256', 'generator_version', 'module_profile', 'tenant_bootstrap', 'schema_projection',
         ])),
         'compatibility' => [
-            'source' => ['minimum_inclusive' => '3.0.10', 'maximum_exclusive' => '3.0.12'],
+            'source' => ['minimum_inclusive' => '4.0.0-dev', 'maximum_exclusive' => '4.0.0-dev.1'],
             'major_policy' => 'same-major', 'edition_conversion' => false,
         ],
         'build_source' => [
             'commit' => str_repeat('d', 40), 'tree' => str_repeat('e', 40), 'inventory_sha256' => str_repeat('1', 64),
         ],
         'target' => [
-            'version' => '3.0.12',
+            'version' => '4.0.0-dev.1',
             'scaffold_manifest' => 'target/scaffold-manifest.json',
             'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'),
             'managed_tree_sha256' => $targetTree,
@@ -427,7 +439,7 @@ try {
     editionUpgradeExpect(
         hash_equals(
             (string)$pluginDigests['plugins.lock'],
-            (string)hash_file('sha256', $project . '/.peanut/scaffold-baseline/3.0.12/files/plugins.lock'),
+            (string)hash_file('sha256', $project . '/.peanut/scaffold-baseline/4.0.0-dev.1/files/plugins.lock'),
         ),
         'next Plugin lock baseline did not use the validated installed bytes',
     );

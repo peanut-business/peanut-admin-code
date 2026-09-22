@@ -6,6 +6,7 @@ const RELEASE_PRODUCT_TOKEN = 'Scaffold Product Token';
 const RELEASE_SLUG_TOKEN = 'scaffold-product-token';
 const RELEASE_PACKAGE_TOKEN = 'scaffold-vendor-token/scaffold-package-token';
 const RELEASE_APPLICATION_VERSION_TOKEN = '999999.999999.999999';
+const RELEASE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
 
 function releaseUsage(): never
 {
@@ -21,10 +22,7 @@ foreach (array_slice($argv, 1) as $argument) {
     $options[$matches[1]] = $matches[2];
 }
 foreach (['version','source-commit','output'] as $required) if (!isset($options[$required])) releaseUsage();
-try {
-    $parser = new \Composer\Semver\VersionParser();
-    $actual = $parser->normalize($options['version']);
-} catch (Throwable) { releaseUsage(); }
+if (preg_match(RELEASE_STRICT_SEMVER, $options['version']) !== 1) releaseUsage();
 if (preg_match('/^[a-f0-9]{40}$/D',$options['source-commit'])!==1 || !str_starts_with($options['output'],'/')
     || (isset($options['edition']) && !in_array($options['edition'], ['standalone', 'multi-tenant'], true))) releaseUsage();
 
@@ -35,13 +33,12 @@ if (preg_match('/^[a-f0-9]{40}$/D',$options['source-commit'])!==1 || !str_starts
 if (!$check) {
     try {
         $contract = json_decode((string)file_get_contents($root . '/release-versions.json'), true, 64, JSON_THROW_ON_ERROR);
-        $expected = $parser->normalize((string)($contract['source_product_version'] ?? ''));
         if (($contract['schema_version'] ?? null) !== 3
             || ($contract['protocol'] ?? null) !== 'peanut.release-versions.v3'
             || !array_key_exists('instance_version', $contract)
             || $contract['instance_version'] !== null
             || ($contract['scaffold_template'] ?? null) !== ($contract['source_product_version'] ?? null)
-            || !\Composer\Semver\Comparator::equalTo($actual, $expected)) {
+            || ($contract['source_product_version'] ?? null) !== $options['version']) {
             releaseUsage();
         }
     } catch (Throwable) { releaseUsage(); }
@@ -49,8 +46,7 @@ if (!$check) {
     $existingManifestPath = rtrim($options['output'], '/') . '/scaffold-manifest.json';
     try {
         $existing = json_decode((string)file_get_contents($existingManifestPath), true, 512, JSON_THROW_ON_ERROR);
-        $existingVersion = $parser->normalize((string)($existing['release']['version'] ?? ''));
-        if (!\Composer\Semver\Comparator::equalTo($actual, $existingVersion)) {
+        if (($existing['release']['version'] ?? null) !== $options['version']) {
             releaseUsage();
         }
     } catch (Throwable) { releaseUsage(); }

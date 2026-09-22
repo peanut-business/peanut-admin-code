@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\DeterministicEditionArchive;
 use app\common\infrastructure\scaffold\EditionUpgradePackage;
+use Composer\Semver\Comparator;
+
+const EDITION_UPGRADE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
 
 function editionUpgradeUsage(): never
 {
@@ -75,20 +78,23 @@ foreach (array_slice($argv, 1) as $argument) {
 foreach (['version', 'minimum-source-version', 'source-commit', 'output', 'signing-key-id', 'signing-secret-key-file'] as $required) {
     if (!isset($options[$required])) editionUpgradeUsage();
 }
-if (preg_match('/^\d+\.\d+\.\d+$/D', $options['version']) !== 1
-    || preg_match('/^\d+\.\d+\.\d+$/D', $options['minimum-source-version']) !== 1
-    || version_compare($options['minimum-source-version'], $options['version'], '>=')
+foreach (['version', 'minimum-source-version'] as $versionOption) {
+    if (preg_match(EDITION_UPGRADE_STRICT_SEMVER, $options[$versionOption]) !== 1) editionUpgradeUsage();
+}
+if (Comparator::greaterThanOrEqualTo($options['minimum-source-version'], $options['version'])
     || explode('.', $options['minimum-source-version'], 2)[0] !== explode('.', $options['version'], 2)[0]
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
     || preg_match('/^[A-Za-z0-9._-]{1,96}$/D', $options['signing-key-id']) !== 1
     || !str_starts_with($options['output'], '/')) editionUpgradeUsage();
 $hasAdoptionVersion = isset($options['adoption-source-version']);
 $hasAdoptionCommit = isset($options['adoption-source-commit']);
+if ($hasAdoptionVersion) {
+    if (preg_match(EDITION_UPGRADE_STRICT_SEMVER, $options['adoption-source-version']) !== 1) editionUpgradeUsage();
+}
 if ($hasAdoptionVersion !== $hasAdoptionCommit
-    || ($hasAdoptionVersion && (preg_match('/^\d+\.\d+\.\d+$/D', $options['adoption-source-version']) !== 1
-        || preg_match('/^[a-f0-9]{40}$/D', $options['adoption-source-commit']) !== 1
-        || version_compare($options['adoption-source-version'], $options['minimum-source-version'], '<')
-        || version_compare($options['adoption-source-version'], $options['version'], '>=')))) {
+    || ($hasAdoptionVersion && (preg_match('/^[a-f0-9]{40}$/D', $options['adoption-source-commit']) !== 1
+        || Comparator::lessThan($options['adoption-source-version'], $options['minimum-source-version'])
+        || Comparator::greaterThanOrEqualTo($options['adoption-source-version'], $options['version'])))) {
     editionUpgradeUsage();
 }
 
