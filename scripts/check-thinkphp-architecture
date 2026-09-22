@@ -171,8 +171,8 @@ def hits_for(path: Path, text: str) -> list[tuple[str, int, str]]:
     hits: list[tuple[str, int, str]] = []
     rel = relative(path)
     lower_rel = f"/{rel}".lower()
-    application_path = "/application/" in lower_rel or "/service/" in lower_rel
-    service_path = "/service/" in lower_rel or path.name.endswith("Service.php")
+    application_path = any(part in lower_rel for part in ("/application/", "/service/", "/services/"))
+    service_path = "/service/" in lower_rel or "/services/" in lower_rel or path.name.endswith("Service.php")
     host_path = (
         rel.startswith((
             "server/app/api/",
