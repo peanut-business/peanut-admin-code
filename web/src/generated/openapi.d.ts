@@ -7382,11 +7382,52 @@ export interface components {
             /** Format: date-time */
             revoked_at: string | null;
         };
+        /** @description Webhook delivery status visible to the owning Tenant. Payload, endpoint URL, signing material and lease data are intentionally excluded. */
         IntegrationDelivery: {
-            [key: string]: unknown;
+            /** @description Stable public delivery identifier. */
+            delivery_key: string;
+            /** @description Webhook endpoint that owns the delivery. */
+            endpoint_key: string;
+            /** @description Registered event type; the event payload is not returned by this log API. */
+            event_type: string;
+            /**
+             * @description Current delivery lifecycle state.
+             * @enum {string}
+             */
+            status: "pending" | "delivering" | "retryable" | "delivered" | "permanent_failed";
+            /** @description Attempts already claimed for this delivery. */
+            attempt_count: number;
+            /** @description Last remote HTTP status, or null when no response was received. */
+            last_status_code: number | null;
+            /** @description Safe machine-readable failure code; remote bodies and internal exception text are not exposed. */
+            last_error_code: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * Format: date-time
+             * @description Completion time for delivered records; otherwise null.
+             */
+            delivered_at: string | null;
         };
+        /** @description One durable attempt record for a webhook delivery. Response bodies and request payloads are intentionally excluded. */
         IntegrationAttempt: {
-            [key: string]: unknown;
+            /** @description One-based attempt number within the delivery. */
+            attempt_number: number;
+            /**
+             * @description Recorded result of this attempt.
+             * @enum {string}
+             */
+            outcome: "delivered" | "retryable" | "permanent_failed";
+            /** @description Remote HTTP status, or null when no response was received. */
+            response_status: number | null;
+            /** @description Safe machine-readable failure code. */
+            error_code: string | null;
+            /** @description Measured attempt duration in milliseconds. */
+            duration_ms: number;
+            /** Format: date-time */
+            attempted_at: string;
         };
         IntegrationMachineResponse: {
             data: components["schemas"]["IntegrationMachine"];

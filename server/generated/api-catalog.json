@@ -3,6 +3,10 @@
     "openapi_version": "3.0.3",
     "inputs": [
         {
+            "path": "release-versions.json",
+            "sha256": "9c2a63bc4b3eb1115681396f5d48e4d326b8ee30df9394d5ce0f2865f217b16a"
+        },
+        {
             "path": "server/app/api/metadata/application/adminapi.php",
             "sha256": "403a33ce04388a15c43cfe22ef0535ced1d9ff9cf3648dde45e50738444122ce"
         },
@@ -52,7 +56,7 @@
         },
         {
             "path": "server/app/modules/official/integration/api/metadata/openapi.php",
-            "sha256": "e85207d7a19597ac2614bc0545abb08face521af758562236de530a0772b9c58"
+            "sha256": "ef6648015b159bd7a54f85ea42d35831b17ac2322018fe9954b3579b28d8d17d"
         },
         {
             "path": "server/app/modules/official/integration/route/app.php",

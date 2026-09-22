@@ -6,8 +6,13 @@
     },
     "info": {
         "title": "Peanut Admin HTTP API",
-        "version": "3.0.0",
-        "description": "Application HTTP contract for the identity, Tenant, article, file and notification entry points. Runtime authorization and Tenant binding remain enforced by the server middleware."
+        "version": "4.0.0-dev",
+        "description": "Application HTTP contract for the identity, Tenant, article, file and notification entry points. Runtime authorization and Tenant binding remain enforced by the server middleware.",
+        "x-peanut-contract-generator": {
+            "name": "scripts/generate-api-contracts.php",
+            "version": "2",
+            "release_source": "release-versions.json#source_product_version"
+        }
     },
     "servers": [
         {
@@ -38228,23 +38233,137 @@
             },
             "IntegrationDelivery": {
                 "type": "object",
-                "additionalProperties": true,
+                "description": "Webhook delivery status visible to the owning Tenant. Payload, endpoint URL, signing material and lease data are intentionally excluded.",
+                "additionalProperties": false,
                 "required": [
                     "delivery_key",
                     "endpoint_key",
                     "event_type",
-                    "status"
-                ]
+                    "status",
+                    "attempt_count",
+                    "last_status_code",
+                    "last_error_code",
+                    "created_at",
+                    "updated_at",
+                    "delivered_at"
+                ],
+                "properties": {
+                    "delivery_key": {
+                        "type": "string",
+                        "pattern": "^delivery_[0-9a-f]{32}$",
+                        "description": "Stable public delivery identifier."
+                    },
+                    "endpoint_key": {
+                        "type": "string",
+                        "pattern": "^webhook_[0-9a-f]{32}$",
+                        "description": "Webhook endpoint that owns the delivery."
+                    },
+                    "event_type": {
+                        "type": "string",
+                        "maxLength": 96,
+                        "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$",
+                        "description": "Registered event type; the event payload is not returned by this log API."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "delivering",
+                            "retryable",
+                            "delivered",
+                            "permanent_failed"
+                        ],
+                        "description": "Current delivery lifecycle state."
+                    },
+                    "attempt_count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 8,
+                        "description": "Attempts already claimed for this delivery."
+                    },
+                    "last_status_code": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 599,
+                        "nullable": true,
+                        "description": "Last remote HTTP status, or null when no response was received."
+                    },
+                    "last_error_code": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+                        "nullable": true,
+                        "description": "Safe machine-readable failure code; remote bodies and internal exception text are not exposed."
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "delivered_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "Completion time for delivered records; otherwise null."
+                    }
+                }
             },
             "IntegrationAttempt": {
                 "type": "object",
-                "additionalProperties": true,
+                "description": "One durable attempt record for a webhook delivery. Response bodies and request payloads are intentionally excluded.",
+                "additionalProperties": false,
                 "required": [
                     "attempt_number",
                     "outcome",
+                    "response_status",
+                    "error_code",
                     "duration_ms",
                     "attempted_at"
-                ]
+                ],
+                "properties": {
+                    "attempt_number": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 8,
+                        "description": "One-based attempt number within the delivery."
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "enum": [
+                            "delivered",
+                            "retryable",
+                            "permanent_failed"
+                        ],
+                        "description": "Recorded result of this attempt."
+                    },
+                    "response_status": {
+                        "type": "integer",
+                        "minimum": 100,
+                        "maximum": 599,
+                        "nullable": true,
+                        "description": "Remote HTTP status, or null when no response was received."
+                    },
+                    "error_code": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+                        "nullable": true,
+                        "description": "Safe machine-readable failure code."
+                    },
+                    "duration_ms": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 30000,
+                        "description": "Measured attempt duration in milliseconds."
+                    },
+                    "attempted_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
             },
             "IntegrationMachineResponse": {
                 "type": "object",
