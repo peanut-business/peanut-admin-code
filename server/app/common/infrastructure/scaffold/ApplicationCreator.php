@@ -690,6 +690,12 @@ final class ApplicationCreator
         if (str_ends_with($path, '/package.json') && array_key_exists('version', $document)) {
             $document['version'] = $parameters['APPLICATION_VERSION'];
         }
+        if ($path === 'server/composer.json' && is_array($document['autoload-dev']['classmap'] ?? null)) {
+            $document['autoload-dev']['classmap'] = array_values(array_filter(
+                $document['autoload-dev']['classmap'],
+                static fn(mixed $entry): bool => !in_array($entry, ['tests/CoreIntegration/', 'tests/Modules/'], true),
+            ));
+        }
         if (in_array($path, ['platform/package-lock.json', 'pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
             if (!array_key_exists('version', $document)
                 || !is_array($document['packages'][''] ?? null)
