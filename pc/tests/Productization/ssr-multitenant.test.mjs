@@ -73,7 +73,7 @@ test('Nuxt SSR keeps alternating Tenant HTML and request context isolated', asyn
     .split('\n')
     .filter(Boolean)
     .map(line => JSON.parse(line))
-  assert.equal(upstreamRequests.length, 8)
+  assert.equal(upstreamRequests.length, 10)
   for (const request of upstreamRequests) {
     const tenant = request.host.startsWith('tenant-a.') ? 'tenant-a' : 'tenant-b'
     assert.equal(request.host, `${tenant}.example.test`)
