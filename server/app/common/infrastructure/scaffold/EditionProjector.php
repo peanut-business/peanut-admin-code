@@ -81,16 +81,6 @@ final class EditionProjector
 
     private function productionDockerfile(string $content, EditionProfile $profile): string
     {
-        $content = $this->removeLineOnce(
-            $content,
-            '    && chmod +x server/database/seed-multi-tenant-demo.php \\',
-            'CREATE_APP_EDITION_DOCKER_DEMO_SOURCE_INVALID',
-        );
-        $content = $this->removeLineOnce(
-            $content,
-            '    && ln -s /var/www/peanut-admin/server/database/seed-multi-tenant-demo.php /usr/local/bin/peanut-seed-multi-tenant-demo \\',
-            'CREATE_APP_EDITION_DOCKER_DEMO_SOURCE_INVALID',
-        );
         $bothAdminBuilds = "    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/standalone \\\n"
             . "    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/multi-tenant";
         if ($profile->edition === 'standalone') {

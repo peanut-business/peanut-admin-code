@@ -373,16 +373,18 @@ try {
     createApplicationExpect(
         str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
             && !str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
+            && substr_count($generatedProductionDockerfile, 'COPY . .') === 1
             && !str_contains($generatedProductionDockerfile, 'seed-multi-tenant-demo.php'),
-        'multi-tenant artifact must compile only its selected admin bundle without source-only demo tooling'
+        'multi-tenant artifact must compile only its selected admin bundle and copy the complete fixed package without source-only demo tooling'
     );
     $standaloneDockerfile = (string)file_get_contents($standalone . '/deploy/docker/production.Dockerfile');
     createApplicationExpect(
         str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
             && !str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
+            && substr_count($standaloneDockerfile, 'COPY . .') === 1
             && !str_contains($standaloneDockerfile, 'AS platform-builder')
             && !str_contains($standaloneDockerfile, '/server/public/platform'),
-        'Standalone artifact must omit the multi-tenant admin and Platform bundles'
+        'Standalone artifact must copy the complete fixed package while omitting multi-tenant admin and Platform build outputs'
     );
     createApplicationExpect(
         !str_contains((string)file_get_contents($standalone . '/server/config/app.php'), "'platformapi' => 'platform'")
