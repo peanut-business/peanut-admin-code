@@ -79,10 +79,12 @@ final readonly class VersionContract
             if (($v2 || $v3) && preg_match(self::STRICT_SEMVER, $values[$key]) !== 1) {
                 throw new RuntimeException('VERSION_CONTRACT_VERSION_INVALID: ' . $key);
             }
-            try {
-                $parser->normalize($values[$key]);
-            } catch (\UnexpectedValueException $exception) {
-                throw new RuntimeException('VERSION_CONTRACT_VERSION_INVALID: ' . $key, 0, $exception);
+            if (!$v2 && !$v3) {
+                try {
+                    $parser->normalize($values[$key]);
+                } catch (\UnexpectedValueException $exception) {
+                    throw new RuntimeException('VERSION_CONTRACT_VERSION_INVALID: ' . $key, 0, $exception);
+                }
             }
         }
         if ($v2 || $v3) {
@@ -181,12 +183,14 @@ final readonly class VersionContract
                 || preg_match(self::STRICT_SEMVER, $expected) !== 1)) {
             throw new RuntimeException($error);
         }
-        $parser = new VersionParser();
-        try {
-            $parser->normalize($actual);
-            $parser->normalize($expected);
-        } catch (\UnexpectedValueException $exception) {
-            throw new RuntimeException($error, 0, $exception);
+        if (!$this->isV2() && !$this->isV3()) {
+            $parser = new VersionParser();
+            try {
+                $parser->normalize($actual);
+                $parser->normalize($expected);
+            } catch (\UnexpectedValueException $exception) {
+                throw new RuntimeException($error, 0, $exception);
+            }
         }
         if ($actual !== $expected) {
             throw new RuntimeException($error . ": expected {$expected}, got {$actual}");
@@ -198,6 +202,7 @@ final readonly class VersionContract
         if (($this->isV2() || $this->isV3()) && preg_match(self::STRICT_SEMVER, $version) !== 1) {
             throw new RuntimeException($error);
         }
+        if ($this->isV2() || $this->isV3()) return;
         try {
             (new VersionParser())->normalize($version);
         } catch (\UnexpectedValueException $exception) {

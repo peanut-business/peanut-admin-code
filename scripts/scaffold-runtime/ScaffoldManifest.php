@@ -10,7 +10,7 @@ final class ScaffoldManifest
 {
     private const POLICIES = ['managed', 'generated'];
     private const OWNERS = ['host', 'backend', 'frontend'];
-    private const VERSION_PATTERN = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D';
+    private const VERSION_PATTERN = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
     private const COMPOSER_CONTENT_HASH_KEYS = [
         'name', 'version', 'require', 'require-dev', 'conflict', 'replace', 'provide',
         'minimum-stability', 'prefer-stable', 'repositories', 'extra',

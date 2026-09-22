@@ -5,6 +5,7 @@ namespace app\common\infrastructure\scaffold;
 
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\scaffold\ScaffoldManifest;
+use Composer\Semver\Comparator;
 use RuntimeException;
 
 final class EditionUpgradePackage
@@ -162,17 +163,18 @@ final class EditionUpgradePackage
         $minimum = (string)($manifest['compatibility']['source']['minimum_inclusive'] ?? '');
         $maximum = (string)($manifest['compatibility']['source']['maximum_exclusive'] ?? '');
         $target = (string)($manifest['target']['version'] ?? '');
+        $this->loadSemver($project);
         if (preg_match(self::VERSION, $current) !== 1
             || preg_match(self::VERSION, $minimum) !== 1
             || preg_match(self::VERSION, $maximum) !== 1
             || preg_match(self::VERSION, $target) !== 1
             || $maximum !== $target
             || ($manifest['compatibility']['major_policy'] ?? null) !== 'same-major'
-            || version_compare($minimum, $target, '>=')
-            || version_compare($current, $minimum, '<')
-            || ($requireSourceCompatibility && version_compare($current, $target, '>='))
+            || Comparator::greaterThanOrEqualTo($minimum, $target)
+            || Comparator::lessThan($current, $minimum)
+            || ($requireSourceCompatibility && Comparator::greaterThanOrEqualTo($current, $target))
             || (!$requireSourceCompatibility && $current !== $target
-                && (version_compare($current, $minimum, '<') || version_compare($current, $target, '>=')))
+                && (Comparator::lessThan($current, $minimum) || Comparator::greaterThanOrEqualTo($current, $target)))
             || explode('.', $current, 2)[0] !== explode('.', $target, 2)[0]) {
             throw new RuntimeException('EDITION_UPGRADE_RELEASE_CHAIN_INVALID');
         }
@@ -222,6 +224,27 @@ final class EditionUpgradePackage
                 'manifest_sha256' => hash_file('sha256', $manifestPath),
             ],
         ];
+    }
+
+    private function loadSemver(string $project): void
+    {
+        if (class_exists(Comparator::class)) return;
+        $semver = $project . '/server/vendor/composer/semver/src/';
+        foreach ([
+            'Constraint/ConstraintInterface.php',
+            'Constraint/Bound.php',
+            'Constraint/Constraint.php',
+            'Comparator.php',
+        ] as $relative) {
+            $path = $semver . $relative;
+            if (!is_file($path) || is_link($path)) {
+                throw new RuntimeException('EDITION_UPGRADE_SEMVER_RUNTIME_MISSING');
+            }
+            require_once $path;
+        }
+        if (!class_exists(Comparator::class)) {
+            throw new RuntimeException('EDITION_UPGRADE_SEMVER_RUNTIME_MISSING');
+        }
     }
 
     /** @return array{name:string,deployment_mode:string,profile_sha256:string,generator_version:int,module_profile:string,tenant_bootstrap:array<string,string>,schema_projection:string} */
