@@ -1563,6 +1563,8 @@ class Runner:
             "HTTP_PORT": str(self.plan["ports"]["http"]),
             "PHP_IMAGE": f"peanut-p0e-php:{self.args.run_id}",
             "NGINX_IMAGE": f"peanut-p0e-nginx:{self.args.run_id}",
+            "PEANUT_SOURCE_COMMIT": self.args.candidate,
+            "PEANUT_SOURCE_TREE": self.plan["candidate_tree"],
             "PEANUT_SERVER_ENV_FILE": str(self.compose_backend_env),
         }
         temporary = self.compose_env.with_suffix(".tmp")

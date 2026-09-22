@@ -7,6 +7,8 @@ test_dir=$(mktemp -d "${TMPDIR:-/tmp}/peanut-runtime-contract.XXXXXX")
 orchestration_env="$test_dir/stack.env"
 run_id=$(openssl rand -hex 6)
 backend_env="$repo_dir/server/.env.contract-$run_id"
+source_commit=$(git -C "$repo_dir" rev-parse HEAD)
+source_tree=$(git -C "$repo_dir" rev-parse 'HEAD^{tree}')
 trap 'rm -rf "$test_dir"; rm -f "$backend_env"' EXIT INT TERM
 
 cat > "$orchestration_env" <<'EOF'
@@ -21,6 +23,7 @@ HTTP_PORT=22190
 PHP_IMAGE=peanut-admin-php:contract
 NGINX_IMAGE=peanut-admin-nginx:contract
 EOF
+printf 'PEANUT_SOURCE_COMMIT=%s\nPEANUT_SOURCE_TREE=%s\n' "$source_commit" "$source_tree" >> "$orchestration_env"
 cat > "$backend_env" <<'EOF'
 APP_ENV=development
 APP_DEBUG=true
