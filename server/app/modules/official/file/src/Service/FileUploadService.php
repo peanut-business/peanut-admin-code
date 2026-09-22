@@ -8,7 +8,7 @@ use PeanutAdmin\Modules\File\Model\FileCate;
 use PeanutAdmin\Modules\File\Model\Storage\FileImageAsset;
 use PeanutAdmin\Modules\File\Contract\FileUploads;
 use PeanutAdmin\Modules\File\Contract\Dto\UploadFile;
-use app\common\enum\fileEnum;
+use app\common\enum\FileEnum;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Modules\File\Service\Storage\StorageService;

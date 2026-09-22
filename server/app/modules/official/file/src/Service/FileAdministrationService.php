@@ -9,7 +9,7 @@ use PeanutAdmin\Modules\File\Model\Storage\FileDerivative;
 use PeanutAdmin\Modules\File\Model\Storage\FileImageAsset;
 use PeanutAdmin\Modules\File\Model\Storage\FileObject;
 use PeanutAdmin\Modules\File\Contract\FileAdministration;
-use app\common\enum\fileEnum;
+use app\common\enum\FileEnum;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
 use PeanutAdmin\Modules\File\Service\Storage\StorageService;

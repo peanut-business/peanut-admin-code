@@ -1898,7 +1898,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "842f4e06597006fa7f12d8c76e8cd0f0df99d5faff751101015dc1d37131e6f4"
+            "source_sha256": "0e0ce780f54555a3073d7bb1970ca363f5ae177a644deb35c23782603745deaf"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -1966,7 +1966,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd2ed3b697d857e752b5cb7fc8c99c729b6333a25ab30aae027409c2b8b9a32c"
+            "source_sha256": "acb127324bb79df9a6ebf657483088ecfae7b3873daa38e0ed911d21e9626631"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -8654,7 +8654,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cbbed91cc76d57bb2bf5ac440d89e41d8ec716ebe429a1a8d9467fe0697bd26b"
+            "source_sha256": "5e40cc6442cfbc2a0a3a4c3886d341906e3a32f67db077d5660753e3b0dea6cc"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/StorageConfiguration.php",
@@ -8696,7 +8696,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2732be9857e515055629802e9305879a0cabe14e8e85cc8601fcab08b4675b26"
+            "source_sha256": "45f02fa3d121289eafc50b667f46374c8e47b27cc7704527c6c07debac98e3b7"
         },
         {
             "path": "server/app/modules/official/file/src/Infrastructure/Storage/DatabaseReplayGuard.php",
@@ -8920,7 +8920,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d4fbc1668319e03b2f840092aef7ebf3481f3f7be98e46864df7b3fec24e3aeb"
+            "source_sha256": "15bf79d99cfeb86a55e3df32764397ba1d1d3aaca1b845b01175f8f873d911d4"
         },
         {
             "path": "server/app/modules/official/file/src/Service/FileDerivativeService.php",
@@ -8962,7 +8962,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1c642cbf1e4b0e359e8d2f845d9399631d333ea188c1a3636ef2e3d061248801"
+            "source_sha256": "bc14ea616cbad77b2b7422a38c70301bf7809fa158e95eddcfe352e0b50af1dd"
         },
         {
             "path": "server/app/modules/official/file/src/Service/Storage/StorageConfigurationService.php",
