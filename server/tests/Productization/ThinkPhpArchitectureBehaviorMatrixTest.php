@@ -84,6 +84,29 @@ final class Tpq51RecordingMysql extends Mysql
         return 1;
     }
 
+    /** 提供本测试读取所需的元数据；未知表不得触发真实数据库连接。 */
+    public function getFields(string $tableName): array
+    {
+        if (trim($tableName, '`') !== 'pa_jobs') {
+            throw new RuntimeException('Unexpected recording-connector schema lookup: ' . $tableName);
+        }
+        $types = [
+            'id' => 'int', 'tenant_id' => 'int', 'name' => 'varchar(50)',
+            'code' => 'varchar(64)', 'sort' => 'int', 'status' => 'int',
+            'is_disable' => 'int', 'remark' => 'varchar(200)',
+            'create_time' => 'int', 'update_time' => 'int', 'delete_time' => 'int',
+        ];
+        $fields = [];
+        foreach ($types as $name => $type) {
+            $fields[$name] = [
+                'name' => $name, 'type' => $type, 'notnull' => false,
+                'default' => null, 'primary' => $name === 'id',
+                'autoinc' => false, 'comment' => '',
+            ];
+        }
+        return $fields;
+    }
+
     public function getAutoInc($tableName)
     {
         return null;
