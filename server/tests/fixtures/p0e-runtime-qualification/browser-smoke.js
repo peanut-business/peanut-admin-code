@@ -139,8 +139,8 @@ const betaEmail = mode === 'multi-tenant' ? required('P0E_TENANT_BETA_EMAIL') : 
 const betaPassword = mode === 'multi-tenant' ? required('P0E_TENANT_BETA_PASSWORD') : '';
 const restrictedEmail = required('P0E_TENANT_RESTRICTED_EMAIL');
 const restrictedPassword = required('P0E_TENANT_RESTRICTED_PASSWORD');
-const platformEmail = required('P0E_PLATFORM_INITIAL_EMAIL');
-const platformPassword = required('P0E_PLATFORM_INITIAL_PASSWORD');
+const platformEmail = mode === 'multi-tenant' ? required('P0E_PLATFORM_INITIAL_EMAIL') : '';
+const platformPassword = mode === 'multi-tenant' ? required('P0E_PLATFORM_INITIAL_PASSWORD') : '';
 const browser = page.context().browser();
 if (!browser) throw new Error('release browser qualification requires a browser-backed page');
 const contexts = [];
@@ -190,7 +190,7 @@ const runProbe = async (probe, kind, sessions, variables) => {
 try {
   const betaPage = mode === 'multi-tenant' ? await newPage() : null;
   const restrictedPage = await newPage();
-  const platformPage = await newPage();
+  const platformPage = mode === 'multi-tenant' ? await newPage() : null;
   const tenantLogins = [
     loginTenant(page, tenantAdminUrl, alphaEmail, alphaPassword, 'tenant-alpha', identity.tenants.alpha.menu),
     loginTenant(restrictedPage, identity.tenants.restricted.admin_url.replace(/\/$/u, ''), restrictedEmail, restrictedPassword, 'tenant-restricted', identity.tenants.restricted.menu),
@@ -204,24 +204,50 @@ try {
   }
   results.tenant_sessions = { alpha: 'authenticated', restricted: 'authenticated', ...(beta ? { beta: 'authenticated' } : {}) };
 
-  await platformPage.goto(`${platformUrl}/platform/`, { waitUntil: 'networkidle' });
-  const platformInputs = platformPage.locator('input');
-  await platformInputs.nth(0).fill(platformEmail);
-  await platformInputs.nth(1).fill(platformPassword);
-  await platformPage.getByRole('button', { name: /登录实例平台/i }).click();
-  await platformPage.getByText('概览', { exact: true }).first().waitFor({ state: 'visible', timeout: 20000 });
-  const platformToken = await platformPage.evaluate(() => localStorage.getItem('peanut-platform-token'));
-  if (!platformToken) throw new Error('Platform login did not produce an access token');
-  const statusValue = await responseValue(await platformPage.request.get(`${platformUrl}/platformapi/v1/ops/status`, {
-    headers: { Accept: 'application/json', Authorization: `Bearer ${platformToken}` }, failOnStatusCode: false,
-  }));
-  const statusData = assertSuccess(statusValue, 'package identity');
-  const actualIdentity = statusData?.version;
-  for (const key of ['commit', 'tree', 'release_key']) {
-    if (actualIdentity?.[key] !== identity.package_identity[key]) throw new Error(`package identity mismatch: ${key}`);
+  let platformToken = null;
+  if (platformPage) {
+    await platformPage.goto(`${platformUrl}/platform/`, { waitUntil: 'networkidle' });
+    const platformInputs = platformPage.locator('input');
+    await platformInputs.nth(0).fill(platformEmail);
+    await platformInputs.nth(1).fill(platformPassword);
+    await platformPage.getByRole('button', { name: /登录实例平台/i }).click();
+    await platformPage.getByText('概览', { exact: true }).first().waitFor({ state: 'visible', timeout: 20000 });
+    platformToken = await platformPage.evaluate(() => localStorage.getItem('peanut-platform-token'));
+    if (!platformToken) throw new Error('Platform login did not produce an access token');
+    const statusValue = await responseValue(await platformPage.request.get(`${platformUrl}/platformapi/v1/ops/status`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${platformToken}` }, failOnStatusCode: false,
+    }));
+    const statusData = assertSuccess(statusValue, 'package identity');
+    const actualIdentity = statusData?.version;
+    for (const key of ['commit', 'tree', 'release_key']) {
+      if (actualIdentity?.[key] !== identity.package_identity[key]) throw new Error(`package identity mismatch: ${key}`);
+    }
+    results.package_identity = { source: 'platform-ops-http', ...actualIdentity };
+    await platformPage.screenshot({ path: screenshotPath('platform'), fullPage: true });
+  } else {
+    const workbench = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/workbench/index'), 'standalone application version');
+    const applicationVersion = workbench?.version?.version;
+    if (applicationVersion !== identity.package_identity.application_version) {
+      throw new Error(`standalone application version mismatch: ${applicationVersion ?? 'missing'}`);
+    }
+    const unavailableStatuses = identity.standalone_platform_unavailable_statuses;
+    const [platformEntry, platformSession] = await Promise.all([
+      responseValue(await alpha.page.request.get(`${platformUrl}/platform/`, { failOnStatusCode: false })),
+      responseValue(await alpha.page.request.get(`${platformUrl}/platformapi/session/info`, { failOnStatusCode: false })),
+    ]);
+    if (!unavailableStatuses.includes(platformEntry.status) || !unavailableStatuses.includes(platformSession.status)) {
+      throw new Error(`standalone exposed Platform entry/API: ${platformEntry.status}/${platformSession.status}`);
+    }
+    results.package_identity = {
+      source: 'admin-workbench-http+external-host-runtime-receipt',
+      application_version: applicationVersion,
+      expected_commit: identity.package_identity.commit,
+      expected_tree: identity.package_identity.tree,
+      expected_release_key: identity.package_identity.release_key,
+      host_runtime_receipt_sha256: identity.host_runtime_receipt_sha256,
+      platform_unavailable: { entry_status: platformEntry.status, session_status: platformSession.status },
+    };
   }
-  results.package_identity = actualIdentity;
-  await platformPage.screenshot({ path: screenshotPath('platform'), fullPage: true });
 
   if (beta) {
     const alphaOnBeta = await request(alpha, tenantBetaUrl, 'GET', '/adminapi/login/info');
@@ -345,17 +371,17 @@ try {
   await alpha.page.waitForURL((value) => value.pathname.endsWith('/login'), { timeout: 20000 });
   const revoked = await request({ page: alpha.page, token: oldAlphaToken }, tenantAdminUrl, 'GET', '/adminapi/login/info');
   if (envelopeSuccess(revoked)) throw new Error('Tenant logout did not revoke the previous access token');
-  const oldPlatformToken = platformToken;
-  await platformPage.getByRole('button', { name: '退出登录', exact: true }).click();
-  await platformPage.getByRole('button', { name: /登录实例平台/i }).waitFor({ state: 'visible', timeout: 20000 });
-  const revokedPlatform = await responseValue(await platformPage.request.get(`${platformUrl}/platformapi/session/info`, {
-    headers: { Authorization: `Bearer ${oldPlatformToken}` }, failOnStatusCode: false,
-  }));
-  if (envelopeSuccess(revokedPlatform)) throw new Error('Platform logout did not revoke the previous access token');
-  results.logout = {
-    tenant: { status: revoked.status, code: revoked.json?.code ?? null, revoked: true },
-    platform: { status: revokedPlatform.status, code: revokedPlatform.json?.code ?? null, revoked: true },
-  };
+  results.logout = { tenant: { status: revoked.status, code: revoked.json?.code ?? null, revoked: true } };
+  if (platformPage && platformToken) {
+    const oldPlatformToken = platformToken;
+    await platformPage.getByRole('button', { name: '退出登录', exact: true }).click();
+    await platformPage.getByRole('button', { name: /登录实例平台/i }).waitFor({ state: 'visible', timeout: 20000 });
+    const revokedPlatform = await responseValue(await platformPage.request.get(`${platformUrl}/platformapi/session/info`, {
+      headers: { Authorization: `Bearer ${oldPlatformToken}` }, failOnStatusCode: false,
+    }));
+    if (envelopeSuccess(revokedPlatform)) throw new Error('Platform logout did not revoke the previous access token');
+    results.logout.platform = { status: revokedPlatform.status, code: revokedPlatform.json?.code ?? null, revoked: true };
+  }
 
   results.h5 = await assertPage(beta?.page || restricted.page, `${beta ? tenantBetaUrl : tenantAdminUrl}/mobile/`, 'h5');
   if (docsUrl !== '') results.docs = await assertPage(beta?.page || restricted.page, `${docsUrl}/`, 'docs');
