@@ -2406,7 +2406,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "21f00057ed0a67e42f87c8d102de1637f7806457bef939d4f1198abc7f84ed68"
+            "source_sha256": "3a5f575a3911e24bf0da4e296c420070bf59e25eaf834cb412e9c4ddd519c18c"
         },
         {
             "path": "scripts/check-openapi",
