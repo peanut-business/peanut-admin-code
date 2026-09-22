@@ -51,10 +51,12 @@ freshSchemaExpect(
     str_contains($upgradeEntry, "['plan', 'apply', 'verify', 'recover']")
         && str_contains($migrationRunner, 'final class ApplicationMigrationRunner')
         && str_contains($upgradeEntry, 'peanut.product-upgrade-state.v1')
-        && str_contains($upgradeEntry, "['prepare', 'backup', 'quiesce', 'switch', 'reload', 'health', 'recover']")
+        && str_contains($upgradeEntry, "'migration-preflight', 'backup', 'quiesce', 'migrate', 'switch'")
         && str_contains($upgradeEntry, 'PRODUCT_UPGRADE_ALREADY_RUNNING')
-        && str_contains($upgradeEntry, "\$state['migration_started'] = \$migrationIds !== []")
-        && str_contains($upgradeEntry, "\$state['phase'] = 'completed'"),
+        && str_contains($upgradeEntry, "\$state['database_recovery_required'] = true")
+        && str_contains($upgradeEntry, "\$state['activation_started'] = true")
+        && str_contains($upgradeEntry, "'activate', 'completed', \$activation")
+        && str_contains($upgradeEntry, "\$state['completed_at']"),
     'standalone application upgrade entry or shared migration runner is unavailable'
 );
 freshSchemaExpect(

@@ -8,12 +8,13 @@ use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 
 $root = dirname(__DIR__, 3);
+require_once $root . '/scripts/scaffold-runtime/Semver.php';
 require_once $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
-$semverLoader = new ReflectionMethod(EditionUpgradePackage::class, 'loadSemver');
-$semverLoader->setAccessible(true);
-$semverLoader->invoke(new EditionUpgradePackage(), $root);
-if (!\Composer\Semver\Comparator::lessThan('4.0.0-dev', '4.0.0-dev.1')) {
-    throw new RuntimeException('isolated upgrade runtime did not load Composer Semver');
+if (!\app\common\infrastructure\scaffold\Semver::lessThan('4.0.0-dev', '4.0.0-dev.1')
+    || !\app\common\infrastructure\scaffold\Semver::lessThan('4.0.0-alpha.1', '4.0.0-alpha.beta')
+    || !\app\common\infrastructure\scaffold\Semver::lessThan('9223372036854775808.0.0', '9223372036854775809.0.0')
+    || \app\common\infrastructure\scaffold\Semver::lessThan('4.0.0+build.1', '4.0.0+build.2')) {
+    throw new RuntimeException('isolated strict SemVer precedence is invalid');
 }
 require_once $root . '/server/vendor/autoload.php';
 require_once $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
@@ -317,11 +318,16 @@ try {
         'edition' => editionUpgradeEdition('standalone'),
     ];
     editionUpgradeJson($package . '/target/scaffold-manifest.json', $targetRelease);
-    editionUpgradeFile($package . '/scripts/upgrade', "<?php // product upgrade cli\n", 0755);
     editionUpgradeFile($package . '/scripts/scaffold-upgrade', "<?php // internal scaffold cli\n", 0755);
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldPathGuard.php', "<?php // path guard\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldManifest.php', "<?php // manifest\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php', "<?php // ledger\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/Semver.php', "<?php // semver\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', "<?php // runner\n");
     editionUpgradeFile($package . '/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php // package loader\n");
     editionUpgradeFile($package . '/scripts/upgrade-runtime/ApplicationMigrationRunner.php', "<?php // migration runner\n");
     editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-host', "#!/usr/bin/env bash\n", 0755);
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-database', "#!/usr/bin/env php\n", 0755);
     $upgradeManifest = [
         'schema_version' => 1,
         'protocol' => 'peanut.edition-upgrade-package.v1',
@@ -342,7 +348,7 @@ try {
             'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'),
             'managed_tree_sha256' => $targetTree,
         ],
-        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade', 'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host'],
+        'upgrader' => ['installed_entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade', 'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host', 'database_driver' => 'scripts/upgrade-runtime/product-upgrade-database'],
         'migration_chain' => [
             'strategy' => 'append-only-ledger',
             'files' => [[
@@ -616,11 +622,16 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
         'files' => $targetFiles, 'renames' => [], 'edition' => editionUpgradeEdition($edition),
     ];
     editionUpgradeJson($package . '/target/scaffold-manifest.json', $targetManifest);
-    editionUpgradeFile($package . '/scripts/upgrade', "<?php\n", 0755);
     editionUpgradeFile($package . '/scripts/scaffold-upgrade', "<?php\n", 0755);
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldPathGuard.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldManifest.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/Semver.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', "<?php\n");
     editionUpgradeFile($package . '/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php\n");
     editionUpgradeFile($package . '/scripts/upgrade-runtime/ApplicationMigrationRunner.php', "<?php\n");
     editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-host', "#!/usr/bin/env bash\n", 0755);
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-database', "#!/usr/bin/env php\n", 0755);
     $upgradeManifest = [
         'schema_version' => 1, 'protocol' => 'peanut.edition-upgrade-package.v1', 'product' => ['name' => 'Peanut Admin'],
         'edition' => array_intersect_key(editionUpgradeEdition($edition), array_flip([
@@ -629,7 +640,7 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
         'compatibility' => ['source' => ['minimum_inclusive' => '3.0.14', 'maximum_exclusive' => '3.1.0'], 'major_policy' => 'same-major', 'edition_conversion' => false],
         'build_source' => ['commit' => str_repeat('d', 40), 'tree' => str_repeat('e', 40), 'inventory_sha256' => str_repeat('1', 64)],
         'target' => ['version' => '3.1.0', 'scaffold_manifest' => 'target/scaffold-manifest.json', 'scaffold_manifest_sha256' => hash_file('sha256', $package . '/target/scaffold-manifest.json'), 'managed_tree_sha256' => str_repeat('f', 64)],
-        'upgrader' => ['entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade', 'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host'],
+        'upgrader' => ['installed_entrypoint' => 'scripts/upgrade', 'internal_scaffold_engine' => 'scripts/scaffold-upgrade', 'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host', 'database_driver' => 'scripts/upgrade-runtime/product-upgrade-database'],
         'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => []],
         'ownership' => [
             'automatic' => ['managed', 'generated-managed'], 'preserved' => ['app-owned', 'third-party-module', 'secret'],

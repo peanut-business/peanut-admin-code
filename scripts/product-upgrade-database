@@ -1,0 +1,175 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+use app\common\services\upgrade\ApplicationMigrationRunner;
+
+function upgradeDatabaseUsage(): never
+{
+    fwrite(STDERR, "Usage: php product-upgrade-database preflight|apply|verify --application-root=<prepared-app> --package=<mounted-package> --plan=<mounted-plan>\n");
+    exit(64);
+}
+
+/** @param array<string,mixed> $value */
+function upgradeDatabaseCanonicalJson(array $value): string
+{
+    $normalize = static function (mixed $item) use (&$normalize): mixed {
+        if (!is_array($item)) return $item;
+        if (!array_is_list($item)) ksort($item, SORT_STRING);
+        foreach ($item as $key => $child) $item[$key] = $normalize($child);
+        return $item;
+    };
+    return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}
+
+/** @return array<string,mixed> */
+function upgradeDatabasePlan(string $path): array
+{
+    if (!str_starts_with($path, '/') || !is_file($path) || is_link($path)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PLAN_INVALID');
+    }
+    $plan = json_decode((string)file_get_contents($path), true, 256, JSON_THROW_ON_ERROR);
+    $digest = is_array($plan) ? ($plan['plan_sha256'] ?? null) : null;
+    if (!is_array($plan)
+        || ($plan['schema_version'] ?? null) !== 2
+        || ($plan['protocol'] ?? null) !== 'peanut.product-upgrade-plan.v2'
+        || !is_string($digest)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PLAN_INVALID');
+    }
+    unset($plan['plan_sha256']);
+    if (!hash_equals($digest, 'sha256:' . hash('sha256', upgradeDatabaseCanonicalJson($plan)))) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PLAN_INVALID');
+    }
+    return $plan + ['plan_sha256' => $digest];
+}
+
+/** @return list<string> */
+function upgradeDatabaseFiles(string $package, array $plan): array
+{
+    $manifestPath = $package . '/upgrade-manifest.json';
+    $inventoryPath = $package . '/META-INF/files.sha256';
+    if (!is_file($manifestPath) || is_link($manifestPath)
+        || !is_file($inventoryPath) || is_link($inventoryPath)
+        || !hash_equals((string)($plan['package']['manifest_sha256'] ?? ''), 'sha256:' . hash_file('sha256', $manifestPath))
+        || !hash_equals((string)($plan['package']['inventory_sha256'] ?? ''), 'sha256:' . hash_file('sha256', $inventoryPath))) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PACKAGE_REBIND_FAILED');
+    }
+    $manifest = json_decode((string)file_get_contents($manifestPath), true, 128, JSON_THROW_ON_ERROR);
+    $entries = is_array($manifest) ? ($manifest['migration_chain']['files'] ?? null) : null;
+    if (!is_array($entries) || !array_is_list($entries) || ($plan['migration']['files'] ?? null) !== $entries
+        || ($manifest['target']['version'] ?? null) !== ($plan['migration']['target_version'] ?? null)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_MIGRATION_CHAIN_INVALID');
+    }
+    $files = [];
+    $previous = '';
+    foreach ($entries as $entry) {
+        $relative = is_array($entry) ? ($entry['path'] ?? null) : null;
+        $digest = is_array($entry) ? ($entry['sha256'] ?? null) : null;
+        if (!is_string($relative) || !is_string($digest)
+            || preg_match('#^server/database/migrations/[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$#D', $relative) !== 1
+            || ($previous !== '' && strcmp($previous, $relative) >= 0)) {
+            throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_MIGRATION_CHAIN_INVALID');
+        }
+        $previous = $relative;
+        $file = $package . '/target/files/' . $relative;
+        if (!is_file($file) || is_link($file) || !hash_equals($digest, (string)hash_file('sha256', $file))) {
+            throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_MIGRATION_CHAIN_INVALID');
+        }
+        $files[] = $file;
+    }
+    return $files;
+}
+
+/** @return array<string,mixed> */
+function upgradeDatabaseReconcile(string $root): array
+{
+    $pipes = [];
+    $process = proc_open(
+        [PHP_BINARY, $root . '/server/think', 'plugin:reconcile', '--release-locked'],
+        [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']],
+        $pipes,
+        $root . '/server',
+    );
+    if (!is_resource($process)) throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
+    $stdout = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    if (proc_close($process) !== 0 || !is_string($stdout)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
+    }
+    $result = json_decode(trim($stdout), true, 128, JSON_THROW_ON_ERROR);
+    if (!is_array($result) || isset($result['error'])) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
+    }
+    return $result;
+}
+
+$operation = $argv[1] ?? null;
+if (!in_array($operation, ['preflight', 'apply', 'verify'], true)) upgradeDatabaseUsage();
+$options = [];
+foreach (array_slice($argv, 2) as $argument) {
+    if (preg_match('/^--(application-root|package|plan)=(\/.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+        upgradeDatabaseUsage();
+    }
+    $options[$matches[1]] = $matches[2];
+}
+$actualOptions = array_keys($options); sort($actualOptions, SORT_STRING);
+if ($actualOptions !== ['application-root', 'package', 'plan']) upgradeDatabaseUsage();
+
+try {
+    $root = realpath($options['application-root']);
+    if (!is_string($root) || !is_dir($root) || is_link($root)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_APPLICATION_INVALID');
+    }
+    $autoload = $root . '/server/vendor/autoload.php';
+    $guard = $root . '/server/database/environment-guard.php';
+    $runnerPath = $root . '/server/app/common/services/upgrade/ApplicationMigrationRunner.php';
+    if (!is_file($autoload) || !is_file($guard) || !is_file($runnerPath)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_RUNTIME_MISSING');
+    }
+    require_once $autoload;
+    require_once $guard;
+    require_once $runnerPath;
+    $package = realpath($options['package']);
+    if (!is_string($package) || !is_dir($package) || is_link($package)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PACKAGE_INVALID');
+    }
+    $plan = upgradeDatabasePlan($options['plan']);
+    $files = upgradeDatabaseFiles($package, $plan);
+    $config = guardedDatabaseConfig();
+    $runner = new ApplicationMigrationRunner([
+        'host' => (string)$config['host'], 'port' => (string)$config['port'],
+        'database' => (string)$config['database'], 'user' => (string)$config['user'],
+        'password' => (string)$config['password'],
+    ]);
+    $target = (string)$plan['migration']['target_version'];
+    $migration = $operation === 'apply'
+        ? $runner->run($files, $target, $target, false)
+        : $runner->run($files, $target, $target, true);
+    $ids = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
+    $statuses = $runner->statuses($ids);
+    $module = null;
+    if ($operation === 'apply') {
+        $module = upgradeDatabaseReconcile($root);
+        $statuses = $runner->statuses($ids);
+    }
+    if ($operation === 'verify') {
+        foreach ($statuses as $status) if ($status !== 'applied') {
+            throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_VERIFY_FAILED');
+        }
+        $pdo = guardedConnection($config);
+        $incomplete = (int)$pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn();
+        if ($incomplete !== 0) throw new RuntimeException('PRODUCT_UPGRADE_MODULE_MIGRATION_VERIFY_FAILED');
+        $module = ['incomplete_migration_count' => $incomplete];
+    }
+    echo json_encode([
+        'protocol' => 'peanut.product-upgrade-database-evidence.v1',
+        'status' => 'completed', 'operation' => $operation,
+        'candidate' => $plan['candidate'], 'plan_sha256' => $plan['plan_sha256'],
+        'target_version' => $target, 'application' => $migration,
+        'application_statuses' => $statuses, 'module' => $module,
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), PHP_EOL;
+    exit(0);
+} catch (Throwable $exception) {
+    fwrite(STDERR, $exception->getMessage() . PHP_EOL);
+    exit(1);
+}

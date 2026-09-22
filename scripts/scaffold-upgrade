@@ -9,6 +9,7 @@ $root = dirname(__DIR__);
 require $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
+require $root . '/scripts/scaffold-runtime/Semver.php';
 foreach ([
     ['/server/app/platform/exception/plugin/PluginLifecycleException.php', '/scripts/upgrade-runtime/PluginLifecycleException.php'],
     ['/server/app/platform/value/plugin/PluginDescriptor.php', '/scripts/upgrade-runtime/PluginDescriptor.php'],
