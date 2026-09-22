@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - dev
   pull_request:
     branches:
       - dev
@@ -18,6 +21,7 @@ jobs:
   stale-facts:
     name: Stale facts
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +32,7 @@ jobs:
   changes:
     name: Changed paths
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       server: ${{ steps.paths.outputs.server }}
       web: ${{ steps.paths.outputs.web }}
@@ -35,7 +40,11 @@ jobs:
       pc: ${{ steps.paths.outputs.pc }}
       uniapp: ${{ steps.paths.outputs.uniapp }}
       create_app: ${{ steps.paths.outputs.create_app }}
-      mysql: ${{ steps.paths.outputs.mysql }}
+      integration: ${{ steps.paths.outputs.integration }}
+      api: ${{ steps.paths.outputs.api }}
+      docs: ${{ steps.paths.outputs.docs }}
+      conservative: ${{ steps.paths.outputs.conservative }}
+      baseline: ${{ steps.paths.outputs.baseline }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,32 +56,36 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            for output in server web platform pc uniapp create_app mysql; do
-              echo "${output}=true" >> "$GITHUB_OUTPUT"
-            done
-            exit 0
+            ./scripts/ci-change-classifier \
+              --all \
+              --reason='manual workflow dispatch' \
+              --github-output="$GITHUB_OUTPUT"
+          else
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              base_ref='${{ github.event.pull_request.base.sha }}'
+              head_ref='${{ github.event.pull_request.head.sha }}'
+              comparison='merge-base'
+            else
+              base_ref='${{ github.event.before }}'
+              head_ref='${{ github.sha }}'
+              comparison='direct'
+            fi
+            ./scripts/ci-change-classifier \
+              --base="$base_ref" \
+              --head="$head_ref" \
+              --comparison="$comparison" \
+              --fallback-full \
+              --github-output="$GITHUB_OUTPUT"
           fi
-
-          changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD")"
-          matches() {
-            grep -Eq "$1" <<< "$changed"
-          }
-
-          # Shared package/tool changes affect their consumers, not only files under one client.
-          shared='packages/|release-versions\.json$|scripts/(sync-brand-assets\.mjs|client-environment|local-client-dev)|\.github/workflows/ci\.yml$'
-          matches '^(server/|plugins/|plugins\.lock$|resources/project-resources\.json$|scripts/(ci-server-check\.sh|run-php-test|check-admin-api-permissions\.php|check-test-integrity|tests/run-registered-mysql-tests|consumer-module-reference-chain|project-resource-registry|project-resource-lease)|\.github/workflows/ci\.yml$)' && echo 'server=true' >> "$GITHUB_OUTPUT" || echo 'server=false' >> "$GITHUB_OUTPUT"
-          matches "^(web/|${shared})" && echo 'web=true' >> "$GITHUB_OUTPUT" || echo 'web=false' >> "$GITHUB_OUTPUT"
-          matches "^(platform/|${shared})" && echo 'platform=true' >> "$GITHUB_OUTPUT" || echo 'platform=false' >> "$GITHUB_OUTPUT"
-          matches "^(pc/|${shared})" && echo 'pc=true' >> "$GITHUB_OUTPUT" || echo 'pc=false' >> "$GITHUB_OUTPUT"
-          matches "^(uniapp/|${shared})" && echo 'uniapp=true' >> "$GITHUB_OUTPUT" || echo 'uniapp=false' >> "$GITHUB_OUTPUT"
-          matches '^(scaffold/|resources/project-resources\.json$|scripts/(create-app|build-application-template-inventory|build-scaffold-release|scaffold-runtime/|consumer-module-reference-chain|project-resource-registry|project-resource-lease)|server/app/common/(infrastructure|value|validation)/scaffold/|server/tests/Productization/(CreateApplication|ModuleBundleLifecycle|ModuleDeliveryOperation|ModulePackageArchive|ScaffoldUpgradeRunner)Test\.php$|\.github/workflows/ci\.yml$)' && echo 'create_app=true' >> "$GITHUB_OUTPUT" || echo 'create_app=false' >> "$GITHUB_OUTPUT"
-          matches '^(resources/project-resources\.json$|scripts/(tests/run-registered-mysql-tests|project-resource-registry|project-resource-lease|consumer-module-reference-chain)|server/tests/Support/RegisteredMysqlTestResource\.php|server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest\.php|server/tests/Modules/Official/Notification/mysql-harness\.php|server/tests/Multitenancy/MemberSessionTenantIsolationTest\.php|server/app/modules/official/(identity|integration|member|notification|task)/|server/app/api/services/UserTokenService\.php|server/database/migrations/.*member[-_]session|\.github/workflows/ci\.yml$)' && echo 'mysql=true' >> "$GITHUB_OUTPUT" || echo 'mysql=false' >> "$GITHUB_OUTPUT"
+      - name: Exercise classifier mappings and fail-closed cases
+        run: ./scripts/tests/ci-change-classifier-test
 
   create-app:
     name: Create app
     needs: changes
     if: needs.changes.outputs.create_app == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,18 +108,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af
-        env:
-          MYSQL_ROOT_PASSWORD: mt02_root
-        ports:
-          - 3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -pmt02_root"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -120,12 +122,23 @@ jobs:
           tools: composer:2.10.2
           coverage: none
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.6
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
       - name: Create isolated backend environment
         shell: bash
         run: |
           backend_env="$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
-          registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
-          mysql_port='${{ job.services.mysql.ports[3306] }}'
           umask 077
           printf '%s\n' \
             'APP_ENV=development' \
@@ -133,18 +146,12 @@ jobs:
             'PEANUT_DEPLOYMENT_TARGET=local-development' \
             'DEPLOYMENT_MODE=multi-tenant' \
             'DB_HOST=127.0.0.1' \
-            "DB_PORT=${mysql_port}" \
+            'DB_PORT=3306' \
             'DB_NAME=peanut_admin_ci' \
             'DB_USER=root' \
             'DB_PASS=mt02_root' \
             'DB_ROOT_PASS=mt02_root' \
             'DB_PREFIX=pa_' > "$backend_env"
-          sed 's/^DB_NAME=.*/DB_NAME=peanut_admin_ci_registered_mysql/' "$backend_env" > "$registered_mysql_env"
-          printf '%s\n' \
-            'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
-            'PEANUT_DATABASE_ENDPOINT_ID=peanut-admin-ci-real-mysql84-host' \
-            'PEANUT_DATABASE_CONSUMER=host' >> "$registered_mysql_env"
-          chmod 600 "$registered_mysql_env"
 
       - name: Cache Composer downloads
         uses: actions/cache@v4
@@ -162,20 +169,96 @@ jobs:
         working-directory: server
         run: composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Run focused server gates
-        if: github.event_name == 'pull_request'
+      - name: Install locked API generator dependencies
+        working-directory: web
         env:
-          CI_BASE_REF: ${{ github.event.pull_request.base.sha }}
-          CI_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
-          CI_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: ./scripts/ci-server-check.sh --fast --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+          HUSKY: '0'
+        run: pnpm install --frozen-lockfile
 
-      - name: Run stage server gates
+      - name: Run daily server gates
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          CI_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_COMPARISON: ${{ github.event_name == 'push' && 'direct' || 'merge-base' }}
+        run: |
+          mode='--daily'
+          if [[ '${{ needs.changes.outputs.baseline }}' == 'fallback-full' ]]; then
+            mode='--broad'
+          fi
+          ./scripts/ci-server-check.sh "$mode" --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+
+      - name: Run broad server gates
         if: github.event_name == 'workflow_dispatch'
-        run: ./scripts/ci-server-check.sh --full --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+        run: ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
+      - name: Remove isolated backend environment
+        if: always()
+        shell: bash
+        run: |
+          backend_env="$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+          [[ "$backend_env" == "$GITHUB_WORKSPACE"/server/.env.ci-* ]]
+          rm -f -- "$backend_env"
+
+  integration:
+    name: Integration / MySQL 8.4
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af
+        env:
+          MYSQL_ROOT_PASSWORD: mt02_root
+        ports:
+          - 3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pmt02_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:2.10.2
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-8.3-composer-
+      - name: Install Composer dependencies
+        working-directory: server
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Create isolated registered MySQL environment
+        shell: bash
+        run: |
+          registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+          mysql_port='${{ job.services.mysql.ports[3306] }}'
+          umask 077
+          printf '%s\n' \
+            'APP_ENV=development' \
+            'APP_DEBUG=false' \
+            'PEANUT_DEPLOYMENT_TARGET=local-development' \
+            'DEPLOYMENT_MODE=multi-tenant' \
+            'DB_HOST=127.0.0.1' \
+            "DB_PORT=${mysql_port}" \
+            'DB_NAME=peanut_admin_ci_registered_mysql' \
+            'DB_USER=root' \
+            'DB_PASS=mt02_root' \
+            'DB_ROOT_PASS=mt02_root' \
+            'DB_PREFIX=pa_' \
+            'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
+            'PEANUT_DATABASE_ENDPOINT_ID=peanut-admin-ci-real-mysql84-host' \
+            'PEANUT_DATABASE_CONSUMER=host' > "$registered_mysql_env"
       - name: Run lease-bound real MySQL 8.4 gate
-        if: needs.changes.outputs.mysql == 'true'
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: ${{ job.services.mysql.ports[3306] }}
@@ -189,30 +272,28 @@ jobs:
           PEANUT_DATABASE_LEASE_OWNER: github-actions:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
           PEANUT_DATABASE_LEASE_GATE: real-mysql
           PEANUT_MYSQL_RESOURCE_MODE: --ci-service
-        run: ./scripts/ci-server-check.sh --mysql --env-file "$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
-
-      - name: Remove isolated backend environment
+        run: ./scripts/ci-server-check.sh --integration --env-file "$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+      - name: Remove isolated registered MySQL environment
         if: always()
         shell: bash
         run: |
-          backend_env="$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
           registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
-          [[ "$backend_env" == "$GITHUB_WORKSPACE"/server/.env.ci-* ]]
           [[ "$registered_mysql_env" == "$GITHUB_WORKSPACE"/server/.env.ci-mysql-* ]]
-          rm -f -- "$backend_env" "$registered_mysql_env"
+          rm -f -- "$registered_mysql_env"
 
   web:
     name: Web
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.6
           run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -266,6 +347,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.platform == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -290,6 +372,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.pc == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -314,6 +397,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.uniapp == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -335,3 +419,56 @@ jobs:
       - name: Build the supported WeChat client
         working-directory: uniapp
         run: npm run build:mp-weixin
+
+  docs:
+    name: Public docs
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Check public consumer documentation
+        run: ./scripts/check-public-docs
+
+  summary:
+    name: CI summary
+    if: always()
+    needs:
+      - stale-facts
+      - changes
+      - create-app
+      - php
+      - integration
+      - web
+      - platform
+      - pc
+      - uniapp
+      - docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Report and enforce required results
+        run: |
+          checks=(
+            "--candidate=${{ github.sha }}"
+            "--check=stale-facts:${{ needs.stale-facts.result }}:required"
+            "--check=changes:${{ needs.changes.result }}:required"
+            "--check=create-app:${{ needs.create-app.result }}:${{ needs.changes.outputs.create_app || 'false' }}"
+            "--check=server:${{ needs.php.result }}:${{ needs.changes.outputs.server || 'false' }}"
+            "--check=integration:${{ needs.integration.result }}:${{ needs.changes.outputs.integration || 'false' }}"
+            "--check=web:${{ needs.web.result }}:${{ needs.changes.outputs.web || 'false' }}"
+            "--check=platform:${{ needs.platform.result }}:${{ needs.changes.outputs.platform || 'false' }}"
+            "--check=pc:${{ needs.pc.result }}:${{ needs.changes.outputs.pc || 'false' }}"
+            "--check=uniapp:${{ needs.uniapp.result }}:${{ needs.changes.outputs.uniapp || 'false' }}"
+            "--check=docs:${{ needs.docs.result }}:${{ needs.changes.outputs.docs || 'false' }}"
+          )
+          ./scripts/ci-summary "${checks[@]}"

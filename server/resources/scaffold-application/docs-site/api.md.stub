@@ -1,10 +1,11 @@
 # HTTP API 与扩展入口
 
-## 先分清两个版本
+## 版本身份
 
-文档中的 `OpenAPI info.version: 3.0.0` 是 HTTP API 合同版本，不是产品版本，也不代表
-应用已经发布到 3.0.0。产品/脚手架版本以 `.peanut/application-manifest.json`、候选
-manifest 和锁文件为准。
+`OpenAPI info.version` 来自生成该合同的源码树 `release-versions.json`，因此合同、SDK
+与产品候选使用同一版本身份。应用自身的版本与来源仍以
+`.peanut/application-manifest.json`、候选 manifest 和锁文件为准。旧应用应阅读其发行包
+自带的合同；开发分支上的新合同不会使旧发行包内的文档自动失效。
 
 ## 可读目录
 
@@ -22,18 +23,25 @@ manifest 和锁文件为准。
 
 ## 生成和下载
 
-在当前仓库或生成应用根目录执行：
+在当前仓库或包含这些工具的发行包根目录执行：
 
 ```shell
-php scripts/generate-api-contracts.php --check --catalog-output=/tmp/peanut-api-catalog.json
+php scripts/generate-api-contracts.php --check
 php scripts/generate-api-contracts.php
+./scripts/check-openapi
 ```
 
-前一个命令只读核对路由和合同，并输出可检索的目录；后一个命令从结构化 OpenAPI
-源生成 `server/generated/openapi.json`、`server/generated/api-catalog.json`、模块化
-TypeScript 路径/SDK 工厂和 `web/src/generated/openapi.d.ts`。部署方可将
+第一个命令只读核对路由和合同；第二个命令从结构化 OpenAPI 源生成
+`server/generated/openapi.json`、`server/generated/api-catalog.json`、模块化 TypeScript
+路径/SDK 工厂和 `web/src/generated/openapi.d.ts`；最后一个命令在隔离目录重新生成并
+比较版本化产物。部署方可将
 `server/generated/openapi.json` 与 `server/generated/api-catalog.json` 作为下载附件，
 不应把数据库、环境文件、私有 Project checkout 或 secret 放进文档站点。
+
+接口源改变但未刷新、派生文件缺失，或接口删除后仍留有旧 SDK/目录条目时，一致性检查
+会失败。生成失败后不得继续把旧产物标成最新。公开 schema 不包含签名密钥、完整
+Webhook 请求载荷、远端响应体或内部异常文本；真实动态字典仍保留
+`additionalProperties` 语义。
 
 `complete`、`partial`、`route_only` 是不同扫描对象：运行时路由目录可以大于结构化
 OpenAPI paths；不能用 route count 或空 schema 数量宣称全部 API 已有业务合同。生成器
