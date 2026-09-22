@@ -531,7 +531,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd091d9bc57fd064a8f72b4197dba6caa404473599c229d8f453df1ccb34f302"
+            "source_sha256": "5984dbb7bdcfaa33aaab848c824f63f8bac152fb030215992abca37fbbc562c5"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -2552,7 +2552,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b27bc83aa8d701b2f51bb077d2511aeb0f2a7f77ef03e391a431580ce3cf31d"
+            "source_sha256": "5ef64e5a917c6a6094d0c790a403a36919880f48e1d710f3ddaf872755817fe5"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",

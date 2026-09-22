@@ -22,6 +22,16 @@ expect_fail() {
 cd "$ROOT_DIR"
 [[ -x "$SCRIPT" ]] || fail 'deploy-release is not executable'
 bash -n "$SCRIPT"
+# ssh concatenates argv through a remote shell; an empty candidate tag must occupy its position.
+rg -Fq '"$DEPLOYMENT_KIND" "$(encode_remote_arg "$TAG")"' "$SCRIPT" || fail 'candidate tag is not transport encoded'
+rg -Fq 'tag="$(decode_remote_arg "$2")"' "$SCRIPT" || fail 'remote candidate tag is not decoded'
+encoder="$(sed -n '/^encode_remote_arg() {/,/^}/p' "$SCRIPT")"
+decoder="$(sed -n '/^decode_remote_arg() {/,/^}/p' "$SCRIPT")"
+transport="$(bash -c "$encoder; encode_remote_arg \"\"")"
+[[ "$transport" == __PEANUT_EMPTY__ ]] || fail 'empty tag lost its transport sentinel'
+roundtrip="$(bash -c "$decoder; value=\$(decode_remote_arg \"\$1\"); [[ -z \"\$value\" ]] && printf preserved" -- "$transport")"
+[[ "$roundtrip" == preserved ]] || fail 'candidate empty tag did not round trip'
+printf 'passed=candidate-empty-tag-ssh-roundtrip\n'
 # 合同测试只依赖已跟踪的正式资源登记，不依赖维护者本机的临时提案。
 jq empty "$ROOT_DIR/resources/project-resources.json"
 

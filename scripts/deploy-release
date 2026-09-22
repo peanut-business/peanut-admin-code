@@ -641,7 +641,7 @@ fi
 # remote control script through the registered non-interactive sudo boundary so
 # its preflight, Compose and filesystem operations all observe the same target.
 ssh -o BatchMode=yes "${SSH_KEEPALIVE_OPTS[@]}" "$SSH_ALIAS" sudo -n bash -s -- \
-  "$DEPLOYMENT_KIND" "$TAG" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" \
+  "$DEPLOYMENT_KIND" "$(encode_remote_arg "$TAG")" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" \
   "$(encode_remote_arg "$platform_hosts")" "$(encode_remote_arg "$tenant_admin_hosts")" "$owner_invitation_mode" "$public_scheme" "$(encode_remote_arg "$trusted_hosts")" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
@@ -650,7 +650,7 @@ decode_remote_arg() {
 }
 
 deployment_kind="$1"
-tag="$2"
+tag="$(decode_remote_arg "$2")"
 expected_commit="$3"
 expected_tree="$4"
 target="$5"
