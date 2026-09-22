@@ -19,12 +19,22 @@ control_checkout="$(jq -r '.control_checkout' <<<"$worker_json")"
 ssh_alias="$(jq -r '.ssh_alias' <<<"$worker_json")"
 deployment_root="$(jq -r '.deployment_root' <<<"$worker_json")"
 target="$(jq -r '.deployment_target' <<<"$worker_json")"
+upgrade_artifact_directory="$(jq -r '.upgrade_artifact_directory // empty' <<<"$worker_json")"
+upgrade_trust_env="$(jq -r '.upgrade_trust_env // empty' <<<"$worker_json")"
 [[ "$project_root" == "$control_checkout" ]] || die 'run from the registered deployment-control checkout'
 [[ "$ssh_alias" == oracle3 && "$deployment_root" == /www/docker/peanut-admin && "$target" == production ]] \
   || die 'registered upgrade worker boundary is invalid'
+[[ "$upgrade_artifact_directory" == /* && -d "$upgrade_artifact_directory" && ! -L "$upgrade_artifact_directory" ]] \
+  || die 'registered upgrade artifact directory is unavailable'
+[[ "$upgrade_trust_env" == /* && -f "$upgrade_trust_env" && ! -L "$upgrade_trust_env" ]] \
+  || die 'registered upgrade trust environment is unavailable'
+[[ "$(stat -c '%a %h' "$upgrade_trust_env")" == '600 1' ]] \
+  || die 'registered upgrade trust environment must have mode 0600 and one hard link'
 [[ -x "$project_root/scripts/deploy-release" ]] || die 'deploy-release owner is unavailable'
 git -C "$project_root" diff --quiet || die 'deployment-control checkout has unstaged changes'
 git -C "$project_root" diff --cached --quiet || die 'deployment-control checkout has staged changes'
+[[ -z "$(git -C "$project_root" ls-files --others --exclude-standard)" ]] \
+  || die 'deployment-control checkout has untracked files'
 
 remote_upgrade() {
   local action="$1" task_key="${2:-}" revision="${3:-}" error_code="${4:-}"
@@ -81,6 +91,18 @@ target_tree="$(jq -r '.result.target_tree' <<<"$claim_json")"
 [[ "$target_release_key" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'claimed target release is invalid'
 [[ "$target_commit" =~ ^[a-f0-9]{40}$ ]] || die 'claimed target commit is invalid'
 [[ "$target_tree" =~ ^[a-f0-9]{40}$ ]] || die 'claimed target tree is invalid'
+target_version="${target_release_key#v}"
+upgrade_basename="peanut-admin-${target_version}-standalone-upgrade.tar.gz"
+upgrade_package="$upgrade_artifact_directory/$upgrade_basename"
+upgrade_manifest="$upgrade_package.manifest.json"
+[[ -f "$upgrade_package" && ! -L "$upgrade_package" \
+  && -f "$upgrade_manifest" && ! -L "$upgrade_manifest" ]] \
+  || die 'task-bound signed upgrade artifact is unavailable'
+jq -e --arg version "$target_version" --arg commit "$target_commit" --arg tree "$target_tree" \
+  '.protocol == "peanut.edition-upgrade-artifact.v1"
+   and .product.version == $version and .edition.name == "standalone"
+   and .source.commit == $commit and .source.tree == $tree' \
+  "$upgrade_manifest" >/dev/null || die 'task-bound signed upgrade artifact identity is invalid'
 
 failure_code='OPS_UPGRADE_PREFLIGHT_FAILED'
 heartbeat_pid=''
@@ -123,22 +145,32 @@ remote_child_worker backup
 advance_json="$(remote_upgrade advance "$task_key" "$revision")"
 jq -e '.ok == true and .result.action == "run_restore"' <<<"$advance_json" >/dev/null \
   || false
+backup_reference_key="$(jq -r '.result.backup_reference_key // empty' <<<"$advance_json")"
+backup_manifest_sha256="$(jq -r '.result.backup_manifest_sha256 // empty' <<<"$advance_json")"
+[[ "$backup_reference_key" =~ ^backup_[a-f0-9]{32}$ \
+  && "$backup_manifest_sha256" =~ ^[a-f0-9]{64}$ ]] \
+  || { failure_code='OPS_UPGRADE_BACKUP_FAILED'; false; }
 failure_code='OPS_UPGRADE_RESTORE_FAILED'
 remote_child_worker restore
 
 failure_code='OPS_UPGRADE_MAINTENANCE_FAILED'
 advance_json="$(remote_upgrade advance "$task_key" "$revision")"
 jq -e --arg release "$target_release_key" --arg commit "$target_commit" --arg tree "$target_tree" \
+  --arg backup "$backup_reference_key" --arg backup_sha "$backup_manifest_sha256" \
   '.ok == true and .result.action == "deploy"
    and .result.target_release_key == $release
    and .result.target_commit == $commit
-   and .result.target_tree == $tree' \
+   and .result.target_tree == $tree
+   and .result.backup_reference_key == $backup
+   and .result.backup_manifest_sha256 == $backup_sha' \
   <<<"$advance_json" >/dev/null || false
 
 stop_heartbeat
 failure_code='OPS_UPGRADE_DEPLOYMENT_FAILED'
 "$project_root/scripts/deploy-release" "$target_release_key" --target production --update --apply \
-  --expected-commit "$target_commit" --expected-tree "$target_tree"
+  --expected-commit "$target_commit" --expected-tree "$target_tree" \
+  --upgrade-package "$upgrade_package" --upgrade-manifest "$upgrade_manifest" \
+  --upgrade-trust-env "$upgrade_trust_env"
 
 failure_code='OPS_UPGRADE_SMOKE_FAILED'
 succeed_json="$(remote_upgrade succeed "$task_key" "$revision")"

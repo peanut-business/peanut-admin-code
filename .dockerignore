@@ -2,7 +2,6 @@
 .github
 .codegraph
 deploy/production.env
-docs-site
 node_modules
 output
 pc/.nuxt

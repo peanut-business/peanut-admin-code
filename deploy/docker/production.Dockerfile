@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22.22.0-bookworm-slim AS client-base
+ARG PEANUT_SOURCE_COMMIT
+ARG PEANUT_SOURCE_TREE
+
+FROM node:22.23.2-bookworm-slim AS client-base
 
 # Client manifests/locks select exact archives; release-versions.json verifies their digests.
 COPY packages/core-web/*.tgz /build/packages/core-web/
@@ -47,7 +50,12 @@ COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY pc/ ./
 RUN npm run build
 
-FROM node:22.22.0-bookworm-slim AS pc
+FROM node:22.23.2-bookworm-slim AS pc
+
+ARG PEANUT_SOURCE_COMMIT
+ARG PEANUT_SOURCE_TREE
+LABEL org.opencontainers.image.revision=$PEANUT_SOURCE_COMMIT \
+      org.peanut-admin.source-tree=$PEANUT_SOURCE_TREE
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
@@ -60,7 +68,7 @@ USER node
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]
 
-FROM composer:2.8 AS composer-deps
+FROM composer:2.10.2 AS composer-deps
 
 WORKDIR /build/server
 COPY server/composer.json server/composer.lock ./
@@ -76,6 +84,10 @@ RUN composer install \
 FROM php:8.3-fpm-bookworm AS php
 
 ARG PEANUT_DEPLOYMENT_RECEIPT_BASE64=""
+ARG PEANUT_SOURCE_COMMIT
+ARG PEANUT_SOURCE_TREE
+LABEL org.opencontainers.image.revision=$PEANUT_SOURCE_COMMIT \
+      org.peanut-admin.source-tree=$PEANUT_SOURCE_TREE
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -90,25 +102,12 @@ WORKDIR /var/www/peanut-admin
 
 COPY deploy/docker/php-upload.ini /usr/local/etc/php/conf.d/peanut-upload.ini
 
-COPY release-versions.json release-versions.json
-COPY RELEASE_METADATA.json RELEASE_METADATA.json
+# The fixed Edition installer is the production build context. Copy its whole
+# secret-filtered application tree so package-shipped install/upgrade runtimes,
+# generated API metadata, public docs, dependency locks and .peanut ownership
+# baselines are identical in the image and the installed instance.
+COPY . .
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md RELEASE_SBOM.spdx.json CHANGELOG.md RELEASE_METADATA.json legal/
-COPY resources/project-resources.json resources/project-resources.json
-COPY plugins.lock plugins.lock
-COPY plugins plugins
-COPY web/src/modules web/src/modules
-COPY platform/src/modules platform/src/modules
-COPY server/app server/app
-COPY server/bootstrap server/bootstrap
-COPY server/config server/config
-COPY server/database server/database
-COPY server/extend server/extend
-COPY server/route server/route
-COPY server/view server/view
-COPY server/think server/think
-COPY server/composer.json server/composer.lock server/
-COPY server/public server/public
-COPY server/resources/schemas server/resources/schemas
 COPY --from=composer-deps /build/server/vendor server/vendor
 COPY deploy/docker/php-entrypoint.sh /usr/local/bin/peanut-php-entrypoint
 COPY --chmod=0555 deploy/docker/read-backend-enum.sh /usr/local/bin/peanut-read-backend-enum
@@ -144,6 +143,11 @@ RUN if [ -n "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" ]; then \
 EXPOSE 9000
 
 FROM nginx:1.28.0-alpine AS nginx
+
+ARG PEANUT_SOURCE_COMMIT
+ARG PEANUT_SOURCE_TREE
+LABEL org.opencontainers.image.revision=$PEANUT_SOURCE_COMMIT \
+      org.peanut-admin.source-tree=$PEANUT_SOURCE_TREE
 
 COPY deploy/nginx/peanut-admin.conf /etc/nginx/conf.d/default.conf
 COPY deploy/docker/nginx-select-admin.sh /docker-entrypoint.d/40-select-admin.sh

@@ -198,10 +198,23 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     {
         $raw = file_get_contents($this->deploymentReceiptPath());
         $receipt = is_string($raw) ? json_decode($raw, true, 512, JSON_THROW_ON_ERROR) : null;
+        if (is_array($receipt) && ($receipt['protocol'] ?? null) === 'peanut.product-upgrade-runtime-receipt.v1') {
+            if (!$this->validProductUpgradeReceipt($receipt)) {
+                throw new \RuntimeException('OPS_RELEASE_IDENTITY_UNAVAILABLE');
+            }
+            return array_replace($receipt, [
+                'release' => [
+                    'tag' => 'v' . $receipt['release']['version'],
+                    'commit' => $receipt['release']['commit'],
+                    'tree' => $receipt['release']['tree'],
+                ],
+                'overlay' => null,
+            ]);
+        }
         if (!is_array($receipt)
             || array_keys($receipt) !== [
                 'schema_version', 'protocol', 'target', 'edition', 'release',
-                'artifact', 'overlay', 'generated_at',
+                'artifact', 'overlay', 'images', 'generated_at',
             ]
             || $receipt['schema_version'] !== 1
             || $receipt['protocol'] !== 'peanut.deployment-receipt.v1'
@@ -210,12 +223,18 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             || !is_array($receipt['release'])
             || array_keys($receipt['release']) !== ['tag', 'commit', 'tree']
             || !is_array($receipt['artifact'])
-            || array_keys($receipt['artifact']) !== ['kind', 'archive_sha256', 'manifest_sha256']
-            || !in_array($receipt['artifact']['kind'], ['source', 'edition'], true)
+            || array_keys($receipt['artifact']) !== ['kind', 'archive_sha256', 'manifest_sha256', 'signature_key_id']
+            || !in_array($receipt['artifact']['kind'], ['source', 'edition', 'upgrade'], true)
             || preg_match('/^[a-f0-9]{64}$/D', (string)$receipt['artifact']['archive_sha256']) !== 1
-            || ($receipt['artifact']['kind'] === 'source' && $receipt['artifact']['manifest_sha256'] !== null)
+            || ($receipt['artifact']['kind'] === 'source'
+                && ($receipt['artifact']['manifest_sha256'] !== null || $receipt['artifact']['signature_key_id'] !== null))
             || ($receipt['artifact']['kind'] === 'edition'
-                && preg_match('/^[a-f0-9]{64}$/D', (string)$receipt['artifact']['manifest_sha256']) !== 1)
+                && (preg_match('/^[a-f0-9]{64}$/D', (string)$receipt['artifact']['manifest_sha256']) !== 1
+                    || $receipt['artifact']['signature_key_id'] !== null))
+            || ($receipt['artifact']['kind'] === 'upgrade'
+                && (preg_match('/^[a-f0-9]{64}$/D', (string)$receipt['artifact']['manifest_sha256']) !== 1
+                    || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/D', (string)$receipt['artifact']['signature_key_id']) !== 1))
+            || !$this->validImageReceipt($receipt['images'])
             || preg_match('/^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', (string)$receipt['release']['tag']) !== 1
             || preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['commit']) !== 1
             || preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['tree']) !== 1
@@ -225,6 +244,46 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             throw new \RuntimeException('OPS_RELEASE_IDENTITY_UNAVAILABLE');
         }
         return $receipt;
+    }
+
+    /** @param array<string,mixed> $receipt */
+    private function validProductUpgradeReceipt(array $receipt): bool
+    {
+        return array_keys($receipt) === [
+                'schema_version', 'protocol', 'target', 'edition', 'release',
+                'upgrade_package', 'images', 'generated_at',
+            ]
+            && $receipt['schema_version'] === 1
+            && in_array($receipt['target'], ['production', 'production-candidate'], true)
+            && in_array($receipt['edition'], ['standalone', 'multi-tenant'], true)
+            && is_array($receipt['release'])
+            && array_keys($receipt['release']) === ['version', 'commit', 'tree']
+            && preg_match('/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', (string)$receipt['release']['version']) === 1
+            && preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['commit']) === 1
+            && preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['tree']) === 1
+            && is_array($receipt['upgrade_package'])
+            && array_keys($receipt['upgrade_package']) === [
+                'candidate', 'plan_sha256', 'inventory_sha256', 'manifest_sha256',
+            ]
+            && preg_match('/^[A-Za-z0-9._-]{1,128}$/D', (string)$receipt['upgrade_package']['candidate']) === 1
+            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string)$receipt['upgrade_package']['plan_sha256']) === 1
+            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string)$receipt['upgrade_package']['inventory_sha256']) === 1
+            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string)$receipt['upgrade_package']['manifest_sha256']) === 1
+            && $this->validImageReceipt($receipt['images'])
+            && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string)$receipt['generated_at']) === 1;
+    }
+
+    private function validImageReceipt(mixed $images): bool
+    {
+        if (!is_array($images) || array_keys($images) !== ['php', 'nginx', 'pc']) {
+            return false;
+        }
+        foreach ($images as $digest) {
+            if (!is_string($digest) || preg_match('/^sha256:[a-f0-9]{64}$/D', $digest) !== 1) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function validOverlayReceipt(mixed $overlay, string $target): bool
