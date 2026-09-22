@@ -25,6 +25,8 @@ final class EditionUpgradePackage
         'server/app/api/middleware/PublicTenantModuleMiddleware.php',
         'server/app/common/http/middleware/InstallationStateMiddleware.php',
         'server/app/common/http/middleware/MaintenanceWriteGateMiddleware.php',
+        'server/app/common/services/installation/InstallationExecutionHost.php',
+        'server/app/common/services/installation/InstallationPreflightHost.php',
         'server/app/common/traits/ApiResponseTrait.php',
         'server/app/common/traits/CrudTrait.php',
         'server/app/common/validate/InputValidator.php',
@@ -62,6 +64,7 @@ final class EditionUpgradePackage
         'server/app/platform/infrastructure/plugin/ModuleCatalogApplier.php',
         'server/app/platform/infrastructure/plugin/ScopedMenuCatalogRepository.php',
         'server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php',
+        'server/database/install.php',
     ];
 
     /** @return array{from_manifest:string,to_manifest:string,package:array<string,mixed>} */
@@ -113,8 +116,14 @@ final class EditionUpgradePackage
         if (!is_array($manifest)
             || ($manifest['schema_version'] ?? null) !== 1
             || ($manifest['protocol'] ?? null) !== 'peanut.edition-upgrade-package.v1'
-            || ($manifest['upgrader']['entrypoint'] ?? null) !== 'upgrader/scripts/scaffold-upgrade'
-            || !isset($files['upgrader/scripts/scaffold-upgrade'], $files['upgrader/scripts/scaffold-runtime/EditionUpgradePackage.php'])) {
+            || ($manifest['upgrader']['entrypoint'] ?? null) !== 'scripts/upgrade'
+            || ($manifest['upgrader']['internal_scaffold_engine'] ?? null) !== 'scripts/scaffold-upgrade'
+            || !isset(
+                $files['scripts/upgrade'],
+                $files['scripts/scaffold-upgrade'],
+                $files['scripts/scaffold-runtime/EditionUpgradePackage.php'],
+                $files['scripts/upgrade-runtime/ApplicationMigrationRunner.php'],
+            )) {
             throw new RuntimeException('EDITION_UPGRADE_MANIFEST_INVALID');
         }
 

@@ -181,12 +181,32 @@ foreach ([
 foreach (['docs-site/capabilities.md', 'docs-site/guide/application-module-lifecycle.md', 'SECURITY.md'] as $targetPath) {
     $sourcePath = 'server/resources/scaffold-application/' . $targetPath . '.stub';
     $entry = $inventoryByPath[$sourcePath] ?? [];
+    $expectedClassification = $targetPath === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
     createApplicationExpect(is_file($root . '/' . $sourcePath), 'application documentation template is missing');
     createApplicationExpect(
-        ($entry['target'] ?? null) === $targetPath && ($entry['classification'] ?? null) === 'app-owned'
+        ($entry['target'] ?? null) === $targetPath && ($entry['classification'] ?? null) === $expectedClassification
             && ($entry['transform'] ?? null) === 'docs-page'
             && ($entry['source_sha256'] ?? null) === hash_file('sha256', $root . '/' . $sourcePath),
         'application documentation must use its real template digest and declared destination',
+    );
+}
+foreach ([
+    'server/database/install.php',
+    'server/app/common/services/installation/InstallationExecutionHost.php',
+    'server/app/common/services/upgrade/ApplicationMigrationRunner.php',
+    'scripts/upgrade',
+    'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
+    'web/src/views/user/setting/index.vue',
+] as $managedPath) {
+    createApplicationExpect(
+        in_array($inventoryByPath[$managedPath]['classification'] ?? null, ['managed', 'generated-managed'], true),
+        "shared product source must use the upgrade baseline: {$managedPath}",
+    );
+}
+foreach (['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/project-resources.json'] as $customPath) {
+    createApplicationExpect(
+        ($inventoryByPath[$customPath]['classification'] ?? null) === 'app-owned',
+        "instance customization must remain app-owned: {$customPath}",
     );
 }
 // Deployment test fixtures contain maintainer-only target selectors and must not enter apps or upgrade baselines.
@@ -556,7 +576,8 @@ try {
     createApplicationExpect(is_file($first . '/server/database/environment-guard.php'), 'production database guard must remain in the deployment inventory');
     $generatedSchema = (string)file_get_contents($first . '/server/database/init.sql');
     createApplicationExpect(str_contains($generatedSchema, 'pa_schema_migration'), 'generated application is missing the application migration ledger');
-    createApplicationExpect(str_contains((string)file_get_contents($first . '/server/database/install.php'), "'--migrate'"), 'generated application is missing the migration runner');
+    createApplicationExpect(!str_contains((string)file_get_contents($first . '/server/database/install.php'), "'--migrate'"), 'generated fresh installer still exposes the retired upgrade mode');
+    createApplicationExpect(is_file($first . '/scripts/upgrade'), 'generated application is missing the standalone product upgrade entry');
     foreach ([
         'pa_tenant_setting',
         'pa_tenant_entry_binding',

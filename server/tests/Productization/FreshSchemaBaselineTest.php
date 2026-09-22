@@ -14,6 +14,10 @@ $installer = (string)file_get_contents($serverRoot . '/database/install.php');
 $installationHost = (string)file_get_contents(
     $serverRoot . '/app/common/services/installation/InstallationExecutionHost.php'
 );
+$migrationRunner = (string)file_get_contents(
+    $serverRoot . '/app/common/services/upgrade/ApplicationMigrationRunner.php'
+);
+$upgradeEntry = (string)file_get_contents(dirname($serverRoot) . '/scripts/upgrade');
 $guard = (string)file_get_contents($serverRoot . '/database/environment-guard.php');
 preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $schema, $matches);
 $applicationTables = array_values(array_unique($matches[1] ?? []));
@@ -42,14 +46,18 @@ freshSchemaExpect(str_contains($installer, 'KernelSchema::tableNames()'), 'insta
 freshSchemaExpect(str_contains($installer, 'BootstrapService'), 'installer does not use the native Core bootstrap service');
 freshSchemaExpect(str_contains($installer, "'default'"), 'installer does not create the formal default Tenant');
 freshSchemaExpect(str_contains($installer, "'core.tenant-owner'"), 'installer health contract does not verify the native owner role');
-freshSchemaExpect(str_contains($installer, "'--migrate'"), 'application migration runner is not available');
+freshSchemaExpect(!str_contains($installer, "'--migrate'"), 'fresh installer still exposes the retired upgrade mode');
+freshSchemaExpect(
+    str_contains($upgradeEntry, "['plan', 'apply', 'verify', 'recover']")
+        && str_contains($migrationRunner, 'final class ApplicationMigrationRunner'),
+    'standalone application upgrade entry or shared migration runner is unavailable'
+);
 freshSchemaExpect(
     str_contains($installer, 'applicationReleaseVersions($serverDir)')
         && str_contains($installer, "'source_product_version' => \$contract->sourceProductVersion()")
         && str_contains($installer, "'release_sequence_version' => \$contract->releaseSequenceVersion()")
-        && str_contains($installer, "\$versions['source_product_version']")
         && str_contains($installer, "\$versions['release_sequence_version']")
-        && str_contains($installer, "\$releaseIdentity['peanut_release']")
+        && str_contains($migrationRunner, "\$identity['peanut_release']")
         && str_contains($installationHost, '$this->migrationTargetVersion()'),
     'fresh install and migration selection do not preserve source, instance and scaffold version axes'
 );

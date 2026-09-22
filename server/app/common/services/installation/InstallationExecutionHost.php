@@ -467,11 +467,19 @@ final class InstallationExecutionHost
     /** @param list<string> $moduleKeys */
     private function writeCompletionMarker(array $moduleKeys): void
     {
+        $versions = \applicationReleaseVersions($this->serverRoot);
+        $applicationManifest = dirname($this->serverRoot) . '/.peanut/application-manifest.json';
+        $applicationManifestSha256 = hash_file('sha256', $applicationManifest);
+        if (!is_string($applicationManifestSha256)) {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        }
         $this->writeMarker($this->completionMarker(), [
             'schema_version' => 1,
             'state' => 'installed',
             'deployment_mode' => $this->deploymentMode(),
             'official_modules' => $moduleKeys,
+            'release' => $versions,
+            'application_manifest_sha256' => $applicationManifestSha256,
             'completed_at' => gmdate(DATE_ATOM),
         ]);
     }
