@@ -5,8 +5,9 @@ require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
-use app\common\service\runtime\RuntimeNamespace;
+use app\common\value\runtime\RuntimeNamespace;
 use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\exception\plugin\PluginPackageException;
 use app\platform\infrastructure\plugin\DeterministicTarArchive;
 use app\platform\infrastructure\plugin\PluginPackageInstaller;
 use app\platform\services\plugin\PlatformModuleRuntimeService;
@@ -33,6 +34,17 @@ function moduleBundleExpectLifecycleError(callable $operation, string $errorCode
     try {
         $operation();
     } catch (PluginLifecycleException $exception) {
+        moduleBundleExpect($exception->errorCode === $errorCode, $message . ': ' . $exception->errorCode);
+        return;
+    }
+    throw new RuntimeException($message . ': no error');
+}
+
+function moduleBundleExpectPackageError(callable $operation, string $errorCode, string $message): void
+{
+    try {
+        $operation();
+    } catch (PluginPackageException $exception) {
         moduleBundleExpect($exception->errorCode === $errorCode, $message . ': ' . $exception->errorCode);
         return;
     }
@@ -315,6 +327,37 @@ try {
         $slug = 'official-' . strtolower($module);
         moduleBundleCopyTree($projectRoot . "/web/src/modules/{$slug}", $source . "/web/src/modules/{$slug}");
     }
+    // File declares official.identity; model the generated consumer's installed base instead of hiding that dependency in the bundle.
+    moduleBundleCopyTree(
+        $projectRoot . '/server/app/modules/official/identity',
+        $source . '/server/app/modules/official/identity',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/web/src/modules/official-identity',
+        $source . '/web/src/modules/official-identity',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/server/app/modules/official/identity',
+        $target . '/server/app/modules/official/identity',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/web/src/modules/official-identity',
+        $target . '/web/src/modules/official-identity',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/plugins/official.identity',
+        $target . '/plugins/official.identity',
+    );
+    $baseLock = json_decode((string)file_get_contents($projectRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+    $identityEntries = array_values(array_filter(
+        (array)($baseLock['plugins'] ?? []),
+        static fn(mixed $entry): bool => is_array($entry) && ($entry['key'] ?? null) === 'official.identity',
+    ));
+    moduleBundleExpect(count($identityEntries) === 1, 'installed identity baseline is missing from the source lock');
+    file_put_contents(
+        $target . '/plugins.lock',
+        json_encode(['schema_version' => 1, 'plugins' => $identityEntries], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+    );
     foreach ([$source, $target] as $root) {
         if (!is_dir($root . '/server/resources/schemas')) mkdir($root . '/server/resources/schemas', 0777, true);
         copy(
@@ -346,6 +389,24 @@ try {
 
     $moduleConfig = ['kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web']];
     $installer = new PluginPackageInstaller($target . '/server', $moduleConfig, [], $catalogs);
+    $connection = (string)\think\facade\Config::get('database.default', 'mysql');
+    $prefixPath = 'database.connections.' . $connection . '.prefix';
+    $prefix = \think\facade\Config::get($prefixPath, '');
+    moduleBundleExpect(is_string($prefix) && $prefix !== '', 'database prefix is unavailable for installation precondition check');
+    \think\facade\Config::set($prefixPath, 'missing_');
+    try {
+        moduleBundleExpectPackageError(
+            static fn() => $installer->install($archivePath, $packed['sha256'], null),
+            'INSTALLATION_REQUIRED',
+            'package delivery did not reject an uninstalled configured table namespace',
+        );
+    } finally {
+        \think\facade\Config::set($prefixPath, $prefix);
+    }
+    moduleBundleExpect(
+        (glob($source . '/.local/module-staging/*') ?: []) === [],
+        'installation precondition failure left a verified archive staging directory',
+    );
     $installed = $installer->install($archivePath, $packed['sha256'], null);
     moduleBundleExpect(($installed['operation'] ?? null) === 'installed', 'bundle was not installed');
     moduleBundleExpect(array_column((array)$installed['modules'], 'module_key') === ['official.article', 'official.file'], 'bundle install returned another scope');

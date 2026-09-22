@@ -9,6 +9,8 @@ dist-ssr
 # Versioned public build defaults, not local secrets.
 !.env.development
 !.env.production
+!.env.standalone
+!.env.multi-tenant
 .pnpm-store/
 .eslintcache
 *.tsbuildinfo

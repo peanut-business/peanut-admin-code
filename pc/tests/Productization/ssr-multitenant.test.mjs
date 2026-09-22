@@ -48,6 +48,10 @@ test('Nuxt SSR keeps alternating Tenant HTML and request context isolated', asyn
   const firstA = await render('tenant-a')
   const tenantB = await render('tenant-b')
   const secondA = await render('tenant-a')
+  const [concurrentA, concurrentB] = await Promise.all([
+    render('tenant-a'),
+    render('tenant-b'),
+  ])
 
   for (const html of [firstA, secondA]) {
     assert.match(html, /Tenant A article/)
@@ -59,13 +63,17 @@ test('Nuxt SSR keeps alternating Tenant HTML and request context isolated', asyn
   assert.match(tenantB, /Tenant B article/)
   assert.match(tenantB, /Tenant B 正文/)
   assert.doesNotMatch(tenantB, /Tenant A article/)
+  assert.match(concurrentA, /Tenant A article/)
+  assert.doesNotMatch(concurrentA, /Tenant B article/)
+  assert.match(concurrentB, /Tenant B article/)
+  assert.doesNotMatch(concurrentB, /Tenant A article/)
 
   const upstreamRequests = readFileSync(recordPath, 'utf8')
     .trim()
     .split('\n')
     .filter(Boolean)
     .map(line => JSON.parse(line))
-  assert.equal(upstreamRequests.length, 6)
+  assert.equal(upstreamRequests.length, 8)
   for (const request of upstreamRequests) {
     const tenant = request.host.startsWith('tenant-a.') ? 'tenant-a' : 'tenant-b'
     assert.equal(request.host, `${tenant}.example.test`)

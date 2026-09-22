@@ -1,10 +1,6 @@
 # Peanut Admin Server
 
-本目录是 Peanut Admin 的 ThinkPHP 8 后端，不是独立 ThinkPHP starter。请从仓库根目录开始：
-
-- 开发与资源选择：`../../peanut-admin-project/docs/peanut-admin-development-guide.md` 和根 `AGENTS.md`；
-- 空库安装与部署：`../../peanut-admin-project/docs/peanut-admin-release-deployment.md`；
-- 当前公开文档：`../../peanut-admin-project/docs-site/`。
+本目录是 Peanut Admin 的 ThinkPHP 8 后端，不是独立 ThinkPHP starter。请从仓库根目录和生成应用的公开 docs-site 开始。维护者规则、候选治理和部署审批不随生成应用发布，也不是运行应用的私有依赖。
 
 不要在这里执行上游 `composer create-project`、假定 `localhost:8000`，或绕过项目资源登记启动
 服务。第三方 ThinkPHP 的许可证和依赖信息仍以 `LICENSE.txt`、`composer.json` 与锁文件为准。

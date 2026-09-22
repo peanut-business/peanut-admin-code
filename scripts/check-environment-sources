@@ -66,7 +66,9 @@ def scan_sources(errors: list[str]) -> None:
         "scripts/local-environment-probe",
         "scripts/generate-all-modules-packaging-evidence",
         "scripts/scaffold-upgrade",
+        "scripts/run-php-test",
         "server/bootstrap/environment.php",
+        "pc/nuxt.config.ts",
     }
     ambient = re.compile(r"process\.env(?:\.|\[)|os\.environ\.(?:copy|update|get)|\bgetenv\s*\(|\bputenv\s*\(")
     shell_fallback = re.compile(r"\$\{(?:PEANUT_|VITE_|NUXT_|DB_|ADMIN_|PLATFORM_|JWT_|COMPOSER_BINARY)[A-Z0-9_]*(?::-|-)" )

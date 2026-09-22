@@ -48,14 +48,16 @@ separately as `complete` or `partial`: generic `ApiResponse`, missing response
 schemas, mismatched path parameters and security-domain mismatches remain
 explicit gaps even when an `operationId` exists.
 
-Run the no-write contract check while editing:
+Run the no-write contract check while editing (use the PHP executable selected by the environment; do not hard-code a Homebrew path):
 
 ```shell
-/opt/homebrew/bin/php scripts/generate-api-contracts.php --check \
+php scripts/generate-api-contracts.php --check \
   --catalog-output=/tmp/peanut-api-catalog.json
 ```
 
-Run `php scripts/generate-api-contracts.php --project-root=../peanut-admin-project`
-to produce the Project OpenAPI 3.0.3 document, the complete route/access/error
-catalog at `server/generated/api-catalog.json`, module-local TypeScript path
-maps and typed SDK factories, and `web/src/generated/openapi.d.ts`.
+Run `php scripts/generate-api-contracts.php` to produce the application-owned
+`server/generated/openapi.json`, the route/access/error catalog at
+`server/generated/api-catalog.json`, module-local TypeScript path maps and typed
+SDK factories, and `web/src/generated/openapi.d.ts`. A `--project-root=<absolute-path>`
+mirror is optional and explicit; it is not a default dependency and is not needed by
+generated applications.

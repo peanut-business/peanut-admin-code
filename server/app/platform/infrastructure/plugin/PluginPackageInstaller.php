@@ -11,6 +11,7 @@ use app\platform\services\plugin\PluginPackageArchiveService;
 use app\platform\value\plugin\PluginDescriptor;
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
+use think\facade\Config;
 use think\facade\Db;
 
 /** Promotes one verified package overlay, rebuilds the canonical lock, then invokes the shared lifecycle. */
@@ -61,22 +62,23 @@ final class PluginPackageInstaller
         $archive = new PluginPackageArchiveService($this->serverRoot);
         $current = $this->currentDescriptors();
         $availableVersions = $this->moduleVersions($current);
-        $package = $archive->verify(
-            $archivePath,
-            $expectedSha256,
-            $this->trustedPublicKeys,
-            $signatureKeyId,
-            $availableVersions,
-        );
-        // Verify the untrusted archive first, but do not mutate source/lock until the application schema exists.
-        $this->assertApplicationInstalled();
-        if ($operation === 'update') {
-            $plan = $this->updatePlan($package, $current);
-            if ($dryRun) {
-                $archive->cleanup($package);
-                return $plan + ['operation' => 'update', 'dry_run' => true];
+        $package = null;
+        try {
+            $package = $archive->verify(
+                $archivePath,
+                $expectedSha256,
+                $this->trustedPublicKeys,
+                $signatureKeyId,
+                $availableVersions,
+            );
+            // Verify the untrusted archive first, but do not mutate source/lock until the application schema exists.
+            $this->assertApplicationInstalled();
+            if ($operation === 'update') {
+                $plan = $this->updatePlan($package, $current);
+                if ($dryRun) {
+                    return $plan + ['operation' => 'update', 'dry_run' => true];
+                }
             }
-        }
         $promoted = [];
         $replaced = [];
         $recoveryRoot = null;
@@ -220,8 +222,11 @@ final class PluginPackageInstaller
             });
         } catch (AdvisoryLockUnavailable) {
             throw new PluginLifecycleException('MODULE_LIFECYCLE_BUSY', 'Module lifecycle is busy.');
+        }
         } finally {
-            $archive->cleanup($package);
+            if ($package instanceof VerifiedPluginPackage) {
+                $archive->cleanup($package);
+            }
         }
     }
 
@@ -232,8 +237,24 @@ final class PluginPackageInstaller
     private function assertApplicationInstalled(): void
     {
         try {
-            $pluginTable = Db::query("SHOW TABLES LIKE 'pa_plugin_installation'");
-            $moduleTable = Db::query("SHOW TABLES LIKE 'pa_module_installation'");
+            $connection = (string)Config::get('database.default', 'mysql');
+            $prefix = Config::get("database.connections.{$connection}.prefix", '');
+            if (!is_string($prefix) || preg_match('/^[A-Za-z0-9_]*$/D', $prefix) !== 1) {
+                throw new RuntimeException('Database table prefix is invalid.');
+            }
+            $expected = [
+                $prefix . 'plugin_installation',
+                $prefix . 'module_installation',
+            ];
+            $rows = Db::query(
+                'SELECT table_name FROM information_schema.tables '
+                . 'WHERE table_schema = DATABASE() AND table_name IN (?, ?)',
+                $expected,
+            );
+            $tables = array_fill_keys(array_map(
+                static fn(array $row): string => (string)($row['table_name'] ?? ''),
+                $rows,
+            ), true);
         } catch (\Throwable $exception) {
             throw new PluginPackageException(
                 'INSTALLATION_REQUIRED',
@@ -242,7 +263,7 @@ final class PluginPackageInstaller
                 $exception,
             );
         }
-        if ($pluginTable === [] || $moduleTable === []) {
+        if (!isset($tables[$expected[0]], $tables[$expected[1]])) {
             throw new PluginPackageException(
                 'INSTALLATION_REQUIRED',
                 'Application installation must complete before module package delivery.',

@@ -26,10 +26,12 @@ export const useUserStore = defineStore('user', () => {
     userInfo.value = { ...(userInfo.value || {}), ...info }
   }
 
-  function logout() {
+  // Transport expiry handling must only clear local request state. Explicit logout
+  // callers invoke the server endpoint before calling this method.
+  function clearSession() {
     token.value = ''
     userInfo.value = {}
   }
 
-  return { token, userInfo, isLoggedIn, login, setUserInfo, logout }
+  return { token, userInfo, isLoggedIn, login, setUserInfo, clearSession }
 })

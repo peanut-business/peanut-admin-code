@@ -61,14 +61,26 @@
 <script setup lang="ts">
 const appStore = useAppStore()
 const userStore = useUserStore()
+const request = useRequest()
 
 const website = computed(() => appStore.website)
 const isLoggedIn = computed(() => userStore.isLoggedIn)
 const userInfo = computed(() => userStore.userInfo)
 
 async function handleLogout() {
-  userStore.logout()
+  let revoked = true
+  try {
+    await request.post('api/login/logout')
+  } catch {
+    revoked = false
+  } finally {
+    userStore.clearSession()
+  }
   await navigateTo('/')
-  ElMessage.success('已退出登录')
+  if (revoked) {
+    ElMessage.success('已退出登录')
+  } else {
+    ElMessage.warning('服务端撤销失败，已清除本地会话')
+  }
 }
 </script>

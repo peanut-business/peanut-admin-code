@@ -1,87 +1,74 @@
-# Create an application and deliver a Module
+# 应用与模块生命周期
 
-This guide is for an application owner and Module author. Start from one fixed scaffold candidate, keep each generated application in its own repository, and use the [reference index](/reference) when a command or failure needs clarification.
+本文面向应用维护者和模块作者。先固定一个脚手架候选，再在独立应用中开发、签名、安装和升级模块；每一步都保留版本、lock、摘要和失败恢复证据。
 
-## 1. Fix the candidate and create an application
+## 1. 固定候选并创建应用
 
-The source commit must already contain the matching scaffold inventory. A prerelease such as `4.0.0-dev` is a candidate identity, not a published Release:
+源提交必须已经包含匹配的模板 inventory。`4.0.0-dev` 之类的预发布版本只是候选身份，不是已发布 Release：
 
-~~~bash
+```bash
 php scripts/build-scaffold-release --version=<scaffold-semver> --source-commit=<40-hex> --output=<absolute-candidate-directory>
-php scripts/create-app --name=<name> --slug=<slug> --package=<vendor/name> --target=<absolute-path> --edition=multi-tenant --profile=standard --scaffold-manifest=<absolute-candidate-directory>/scaffold-manifest.json
-~~~
+php scripts/create-app --name=<name> --slug=<slug> --package=<vendor/name> --target=<absolute-path> --edition=standalone|multi-tenant --profile=standard --scaffold-manifest=<absolute-candidate-directory>/scaffold-manifest.json
+```
 
-Run `create-app` from a clean, fixed scaffold Git checkout. The explicit manifest binds the adopted template identity separately from the generation checkout identity; a private Project repository is not required. The generated application itself contains no source `.git` directory. Record that identity from `.peanut/application-manifest.json`. Application creation does not create a customer Tenant. Register the application's own database, ports, domains, storage, queues and external services separately; the product manifest is not a place for deployment secrets.
+在干净的固定 Git checkout 中运行 `create-app`。显式 manifest 绑定模板身份，生成应用不需要维护者的私有 Project checkout，也不会复制源仓库的 `.git`、`vendor/` 或 `node_modules/`。应用自己的数据库、端口、域名、存储、队列和外部服务须另行登记，不能把 secret 写进产品 manifest。
 
-Install the generated application's locked PHP dependencies before using `server/think`:
+先安装生成应用自己的锁定 PHP 依赖：
 
-~~~bash
+```bash
 scripts/project-composer prepare
 scripts/project-composer install --working-dir=server --no-interaction
-~~~
+```
 
-`prepare` downloads the pinned Composer binary and verifies its digest. If policy forbids network access, provision that exact verified tool and the locked dependency cache through the deployment owner; do not copy another application's `vendor/`.
+## 2. 创建并检查模块
 
-## 2. Create and check a Module
+在生成应用的 `server/` 中执行：
 
-In the generated application's `server/` directory:
-
-~~~bash
+```bash
 php think module:create <vendor.module> --vendor=<vendor>
 php think module:check <vendor.module>
-~~~
+```
 
-Complete the backend, frontend, single `module.json` identity, permissions, menus, migrations and Tenant isolation skeleton. Composer, npm, `plugins.lock` and version projections must agree with that declaration. `module:check` is read-only and must report `status=ready` before packaging.
+模块根必须有唯一 `module.json` 身份、Composer 声明、`src/`、迁移和资源。公开服务、稳定结果、依赖和数据所有者随版本登记；跨模块使用公开查询/业务操作，不直接导入私有 Model。软删除、回收、恢复和永久删除必须有独立授权；付款、撤单、库存变更使用业务服务。
 
-## 3. Pack and share the Module
+## 3. 签名打包
 
-~~~bash
+```bash
 php think module:pack <vendor.module> --output=<absolute-path>/<module>-<version>.tar --signing-key-id=<key-id> --signing-secret-key-file=<permission-0600-file>
-~~~
+```
 
-Share the archive SHA-256, signature key ID and public-key configuration through a trusted channel. Never commit the signing secret. The verifier rejects undeclared files, symlinks, traversal, checksum/signature changes, dependency conflicts, namespace collisions and same-version identity changes; packages cannot run arbitrary install scripts.
+通过受信渠道传递 archive SHA-256、签名 key ID 和公钥配置，绝不提交 signing secret。验证器会拒绝未声明文件、链接、路径穿越、摘要/签名变化、依赖冲突、namespace 冲突和同版本身份变化；包不能执行任意安装脚本。
 
-## 4. Install without opening a Tenant
+## 4. 安装与升级
 
-Development/debug instance CLI tooling can install the verified archive in either Standalone or multi-tenant Edition:
+开发/调试实例可在 Standalone 或 multi-tenant Edition 中安装已验证包：
 
-~~~bash
+```bash
 php think module:install-package <archive> --sha256=<64-hex> --signature-key-id=<key-id>
-~~~
-
-Installation changes Package and ModuleInstallation state only. It does not create a Tenant, enable a TenantModule, create a person, or grant Tenant/RBAC permissions. Application creation, Tenant onboarding, source-only `module:adopt-package`, Runtime Package installation and production operations are separate lifecycles. The Platform `instance-tools/modules/*` HTTP boundary remains Standalone-only. The mutation CLI requires an actual local console command in a known Edition with `development` plus debug enabled; it does not accept a request actor or Tenant member as an instance maintainer. Production continues to accept only deployment-owned opaque update, retire and Purge tasks, and no production HTTP request may supply an archive, path, URL, command, target or credential. Do not promise arbitrary frontend hot-plugging: build and deploy every declared client contribution with its lock file.
-
-## 5. Update and recover
-
-Fix a higher immutable version, take and verify the paired backup, then run the zero-write plan before applying:
-
-~~~bash
 php think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<key-id> --dry-run
 php think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<key-id>
-~~~
+```
 
-The Package key and member scope cannot change during update. A digest/signature mismatch, downgrade, missing dependency, path conflict, occupied lifecycle lock, unknown migration or irreversible step without backup must stop. A failed source promotion is restored before migrations start; after migrations start, preserve the returned recovery pointer and verified backup. Restoring source files is not a database rollback. Repeating a completed operation is stable.
+安装只改变 Package 和 ModuleInstallation 状态，不创建 Tenant、不启用 TenantModule、不创建人员、不授予 Tenant/RBAC 权限。升级必须是更高且不可变的身份；先执行零写入 dry-run。摘要/签名不匹配、降级、缺依赖、路径冲突、锁占用、未知迁移或缺少已验证备份都必须停止。源提升失败时先恢复，迁移开始后保存 recovery pointer；恢复源码不等于回滚数据库。
 
-## 6. Ownership and scaffold upgrades
+## 5. Tenant、权限和停用
 
-- `managed`: upstream bytes; edit upstream and regenerate.
-- `generated-managed`: deterministic projection; change its single source, never the projection.
-- `app-owned`: application and private Module customizations; scaffold upgrades preserve them.
-- instance state: environment files, credentials, uploads, database rows, backups and recovery pointers; never copy them into a candidate or Package.
+用两个合成租户验证合法调用、跨租户拒绝、停用和撤权。模块安装不替代 Tenant 开通、RBAC 绑定或数据隔离。停用依赖模块后再停用 Package；retire 保留数据并复用未改变的 preview plan/digest；purge 还需要已验证的成对备份和显式确认。活跃 TenantModule、业务依赖、受保护模块和外部表引用都会阻断操作。
 
-Use the candidate's upgrade tool from the verified scaffold tool checkout, with `--project-root` pointing to this application. The generated app does not have to copy maintainer-only build tools:
+## 6. 所有权与脚手架升级
 
-~~~bash
+- `managed`：上游受管字节，只从上游修改并重新生成。
+- `generated-managed`：确定性投影，只改唯一源文件。
+- `app-owned`：应用、自有扩展和客户模块，升级保留并在冲突时要求 adoption。
+- 实例状态：环境文件、凭据、上传、数据库行、备份和 recovery pointer，不能进入候选或包。
+
+升级前固定 source/target manifest，冲突先停在 preflight：
+
+```bash
 php scripts/scaffold-upgrade preflight --project-root=<application> --from-manifest=<from> --to-manifest=<to>
 php scripts/scaffold-upgrade apply --project-root=<application> --plan=<plan>
 php scripts/scaffold-upgrade verify --project-root=<application> --plan=<plan>
 php scripts/scaffold-upgrade recover --project-root=<application> --plan=<plan>
-~~~
+```
 
-Only manifest-declared managed regions are replaced. Conflicting local edits stop at preflight. `recover` resumes the same plan or restores its recorded file backup; it does not undo database migrations or Package updates.
-
-## 7. Disable, retire and Purge
-
-Disable TenantModules and dependants before disabling a Package. Retire preserves data and must use the unchanged preview plan and digest. Purge additionally requires a verified paired backup and explicit confirmation before deleting Module-owned tables, migration ledgers, catalogs or bindings. Active TenantModules, business dependencies, protected Modules and external table references block the operation.
-
-For stable errors and recovery fields, use [Reference](/reference). For a redacted report, use [Support](/support).
+旧应用必须校验原 baseline，并对历史 app-owned 的公共 Host 文件执行显式 adoption；升级器不会静默覆盖客户代码。已安装官方模块由 `plugins.lock` 和 plugin boundary 保持完整，不能通过删除包文件绕过边界。

@@ -105,6 +105,32 @@ function classification(string $path): string
 {
     $managedHostPaths = [
         'server/app/AppService.php',
+        'server/app/BaseController.php',
+        'server/app/middleware.php',
+        'server/app/adminapi/middleware.php',
+        'server/app/api/middleware.php',
+        'server/app/installation/middleware.php',
+        'server/app/platform/middleware.php',
+        'server/app/adminapi/http/middleware/AuthMiddleware.php',
+        'server/app/adminapi/http/middleware/LoginMiddleware.php',
+        'server/app/adminapi/http/middleware/OperationLogMiddleware.php',
+        'server/app/api/middleware/CheckTokenMiddleware.php',
+        'server/app/api/middleware/PublicTenantModuleMiddleware.php',
+        'server/app/common/http/middleware/InstallationStateMiddleware.php',
+        'server/app/common/http/middleware/MaintenanceWriteGateMiddleware.php',
+        'server/app/common/traits/ApiResponseTrait.php',
+        'server/app/common/traits/CrudTrait.php',
+        'server/app/common/validate/InputValidator.php',
+        'server/app/common/validate/ListsValidate.php',
+        'server/app/common/validate/MemberProfileSelfFieldValidate.php',
+        'server/app/common/validate/PageSizeRule.php',
+        'server/app/common/validate/TenantContextValidate.php',
+        'server/app/common/validate/ValidatedInput.php',
+        'server/app/installation/http/middleware/InstallationExecutionMiddleware.php',
+        'server/app/platform/http/middleware/PlatformHostMiddleware.php',
+        'server/app/platform/http/middleware/PlatformInstanceToolMiddleware.php',
+        'server/app/platform/http/middleware/PlatformLoginMiddleware.php',
+        'server/app/platform/http/middleware/PlatformPermissionMiddleware.php',
         'server/app/common/contract/module/ModuleGovernanceProvider.php',
         'server/app/common/contract/module/PluginLifecycleCommands.php',
         'server/app/common/contract/module/ModuleQualificationQuery.php',
@@ -133,6 +159,10 @@ function classification(string $path): string
         'server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php',
     ];
     if (in_array($path, $managedHostPaths, true)) {
+        return 'managed';
+    }
+    // Official Modules remain governed by their package/lock projection; customer extensions stay app-owned.
+    if (str_starts_with($path, 'server/app/modules/official/')) {
         return 'managed';
     }
     if (excluded($path)) {

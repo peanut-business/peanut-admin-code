@@ -28,7 +28,10 @@ php scripts/check-admin-api-permissions.php
 php scripts/check-test-integrity
 
 if [[ "$mode" == '--mysql' ]]; then
-  mysql_resource_mode="${PEANUT_MYSQL_RESOURCE_MODE:---registered}"
+  mysql_resource_mode="$(printenv PEANUT_MYSQL_RESOURCE_MODE 2>/dev/null || true)"
+  if [[ -z "$mysql_resource_mode" ]]; then
+    mysql_resource_mode='--registered'
+  fi
   [[ "$mysql_resource_mode" == '--registered' || "$mysql_resource_mode" == '--ci-service' ]] \
     || { echo 'ERROR: PEANUT_MYSQL_RESOURCE_MODE is invalid' >&2; exit 2; }
   "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"

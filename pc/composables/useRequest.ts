@@ -80,7 +80,7 @@ export function useRequest() {
     }),
     session: {
       accessToken: () => userStore.token,
-      clear: () => userStore.logout(),
+      clear: () => userStore.clearSession(),
     },
     decoder: decodeApiResponse,
     hooks: {

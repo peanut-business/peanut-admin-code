@@ -156,7 +156,7 @@ $registryPath = $target . '/resources/project-resources.json';
 $completed = false;
 
 try {
-    foreach (['Article', 'File'] as $module) {
+    foreach (['Identity', 'Article', 'File'] as $module) {
         $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
         moduleDeliveryCopyTree(
             $projectRoot . '/server/app/modules/official/' . $directory,
@@ -167,6 +167,28 @@ try {
             $source . '/web/src/modules/official-' . strtolower($module),
         );
     }
+    moduleDeliveryCopyTree(
+        $projectRoot . '/server/app/modules/official/identity',
+        $target . '/server/app/modules/official/identity',
+    );
+    moduleDeliveryCopyTree(
+        $projectRoot . '/web/src/modules/official-identity',
+        $target . '/web/src/modules/official-identity',
+    );
+    moduleDeliveryCopyTree(
+        $projectRoot . '/plugins/official.identity',
+        $target . '/plugins/official.identity',
+    );
+    $baseLock = json_decode((string)file_get_contents($projectRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+    $identityEntries = array_values(array_filter(
+        (array)($baseLock['plugins'] ?? []),
+        static fn(mixed $entry): bool => is_array($entry) && ($entry['key'] ?? null) === 'official.identity',
+    ));
+    moduleDeliveryExpect(count($identityEntries) === 1, 'installed identity baseline is missing from the source lock');
+    file_put_contents(
+        $target . '/plugins.lock',
+        json_encode(['schema_version' => 1, 'plugins' => $identityEntries], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+    );
     foreach ([$source, $target] as $root) {
         mkdir($root . '/server/resources/schemas', 0777, true);
         copy($serverRoot . '/resources/schemas/plugin.schema.json', $root . '/server/resources/schemas/plugin.schema.json');
