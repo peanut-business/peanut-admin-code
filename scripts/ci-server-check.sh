@@ -1,107 +1,110 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT"
 mode="${1:-}"
 shift || true
-BACKEND_ENV=""
-if [[ "${1:-}" == --env-file && $# -ge 2 ]]; then
+BACKEND_ENV=''
+if [[ "${1:-}" == '--env-file' && $# -ge 2 ]]; then
   BACKEND_ENV="$2"
   shift 2
 fi
-[[ $# -eq 0 && "$BACKEND_ENV" == /* ]] || { echo 'ERROR: --env-file /absolute/path is required' >&2; exit 2; }
-[[ -f "$BACKEND_ENV" ]] || { echo "ERROR: backend environment is missing: $BACKEND_ENV" >&2; exit 2; }
+[[ $# -eq 0 && "$BACKEND_ENV" == /* ]] || {
+  echo 'ERROR: --env-file /absolute/path is required' >&2
+  exit 2
+}
+[[ -f "$BACKEND_ENV" && ! -L "$BACKEND_ENV" ]] || {
+  echo "ERROR: backend environment is missing or unsafe: $BACKEND_ENV" >&2
+  exit 2
+}
 export PEANUT_SERVER_ENV_FILE="$BACKEND_ENV"
 
-run_php_test() {
-  # Class-based suites must be executed by PHPUnit, not only required as PHP declarations.
-  php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$1"
+case "$mode" in
+  --daily|--broad|--integration|--mysql) ;;
+  --fast|--full)
+    echo 'ERROR: --fast/--full are retired; use --daily, --broad, or --integration' >&2
+    exit 2
+    ;;
+  *)
+    echo 'ERROR: ci-server-check.sh requires --daily, --broad, or --integration' >&2
+    exit 2
+    ;;
+esac
+[[ "$mode" != '--mysql' ]] || mode='--integration'
+
+candidate="$(git rev-parse HEAD)"
+tree="$(git rev-parse HEAD^{tree})"
+started_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+receipt="$(mktemp "${TMPDIR:-/tmp}/peanut-ci-server-receipt.XXXXXX")"
+changed_file="$(mktemp "${TMPDIR:-/tmp}/peanut-ci-server-changes.XXXXXX")"
+changed_php_file="$(mktemp "${TMPDIR:-/tmp}/peanut-ci-server-php.XXXXXX")"
+selected_file="$(mktemp "${TMPDIR:-/tmp}/peanut-ci-server-tests.XXXXXX")"
+unit_discovery_file="$(mktemp "${TMPDIR:-/tmp}/peanut-ci-server-unit-discovery.XXXXXX")"
+trap 'rm -f -- "$receipt" "$changed_file" "$changed_php_file" "$selected_file" "$unit_discovery_file"' EXIT
+command_count=0
+test_targets=0
+unit_test_count=0
+
+quote_command() {
+  local rendered=''
+  local item
+  for item in "$@"; do
+    printf -v item '%q' "$item"
+    rendered="${rendered}${rendered:+ }${item}"
+  done
+  printf '%s' "$rendered"
 }
 
-if [[ "$mode" != '--fast' && "$mode" != '--full' && "$mode" != '--mysql' ]]; then
-  echo 'ERROR: ci-server-check.sh requires --fast, --full, or --mysql' >&2
-  exit 2
-fi
+write_summary() {
+  local result="$1"
+  local summary_file="${GITHUB_STEP_SUMMARY:-}"
+  {
+    printf '## Server gate %s\n\n' "$mode"
+    printf -- '- Candidate: `%s`\n' "$candidate"
+    printf -- '- Tree: `%s`\n' "$tree"
+    printf -- '- Started: `%s`\n' "$started_at"
+    printf -- '- Result: **%s**\n' "$result"
+    printf -- '- Commands: %d\n' "$command_count"
+    printf -- '- Test targets: %d\n' "$test_targets"
+    printf -- '- Discovered Unit tests: %d\n\n' "$unit_test_count"
+    printf '```text\n'
+    sed -n '1,240p' "$receipt"
+    printf '```\n'
+  } | if [[ -n "$summary_file" ]]; then tee -a "$summary_file"; else cat; fi
+}
 
-php scripts/check-admin-api-permissions.php
-php scripts/check-test-integrity
-
-if [[ "$mode" == '--mysql' ]]; then
-  mysql_resource_mode="$(printenv PEANUT_MYSQL_RESOURCE_MODE 2>/dev/null || true)"
-  if [[ -z "$mysql_resource_mode" ]]; then
-    mysql_resource_mode='--registered'
+run_command() {
+  local label="$1"
+  local tests="$2"
+  shift 2
+  local rendered
+  local status
+  rendered="$(quote_command "$@")"
+  printf '[ci-command] %s command=%s\n' "$label" "$rendered"
+  set +e
+  "$@"
+  status=$?
+  set -e
+  command_count=$((command_count + 1))
+  test_targets=$((test_targets + tests))
+  printf '%s\texit=%d\ttest_targets=%d\t%s\n' "$label" "$status" "$tests" "$rendered" >>"$receipt"
+  if [[ "$status" -ne 0 ]]; then
+    write_summary failed
+    exit "$status"
   fi
-  [[ "$mysql_resource_mode" == '--registered' || "$mysql_resource_mode" == '--ci-service' ]] \
-    || { echo 'ERROR: PEANUT_MYSQL_RESOURCE_MODE is invalid' >&2; exit 2; }
-  "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"
-  exit 0
-fi
-
-lint_php() {
-  local path
-  for path in "$@"; do
-    php -l "$path"
-  done
 }
-
-if [[ "$mode" == '--full' ]]; then
-  php_files=()
-  while IFS= read -r -d '' path; do
-    php_files+=("$path")
-  done < <(find server/app server/config server/database server/route -type f -name '*.php' -print0)
-  lint_php "${php_files[@]}"
-
-  tests=(
-    server/tests/Productization/FreshSchemaBaselineTest.php
-    server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
-    server/tests/Productization/OAuthChannelHostTest.php
-    server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php
-    server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
-    server/tests/Productization/MemberFinanceHostTest.php
-    server/tests/Productization/PluginArtifactContractTest.php
-    server/tests/Productization/PluginModuleContractTest.php
-    server/tests/Productization/OfficialArticleModuleContractTest.php
-    server/tests/Productization/PluginLifecycleMigrationContractTest.php
-  )
-  for test_file in "${tests[@]}"; do
-    run_php_test "$test_file"
-  done
-  php server/tests/Ablation/DataIsolationAblationTest.php
-  php server/tests/Ablation/LazyDiPerformanceAblationTest.php
-  php server/tests/Ablation/ErgonomicsAblationTest.php
-  exit 0
-fi
-
-base="${CI_BASE_REF:-}"
-if [[ -z "$base" ]]; then
-  echo 'ERROR: CI_BASE_REF is required for --fast' >&2
-  exit 2
-fi
-
-# A dev-to-main promotion is an integration pointer movement, not a feature
-# slice. Its behavior groups have already passed on their individual dev PRs
-# and in the fixed-candidate qualification; repeating every historical matcher
-# here both violates gate ownership and can select obsolete baseline tests.
-promotion=0
-if [[ "${CI_BASE_BRANCH:-}" == main && "${CI_HEAD_BRANCH:-}" == dev ]]; then
-  promotion=1
-fi
-
-changed_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-changed-server.XXXXXX")"
-changed_php_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-changed-php.XXXXXX")"
-selected_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-focused-tests.XXXXXX")"
-trap 'rm -f -- "$changed_file" "$changed_php_file" "$selected_file"' EXIT
-git diff --name-only "$base...HEAD" -- server plugins plugins.lock resources/project-resources.json scripts/check-admin-api-permissions.php scripts/check-test-integrity scripts/run-php-test scripts/ci-server-check.sh scripts/tests/run-registered-mysql-tests scripts/consumer-module-reference-chain scripts/project-resource-registry scripts/project-resource-lease > "$changed_file"
 
 select_test() {
   local path="$1"
-  if [[ -f "$path" ]]; then
-    printf '%s\n' "$path" >> "$selected_file"
-  fi
+  [[ -f "$path" && ! -L "$path" ]] || {
+    printf 'ERROR: mapped test target is missing: %s\n' "$path" >&2
+    exit 1
+  }
+  printf '%s\n' "$path" >>"$selected_file"
 }
 
-is_registered_mysql_suite() {
+registered_mysql_test() {
   case "$1" in
     server/tests/Modules/Official/Integration/IntegrationSecurityMysqlTest.php|\
     server/tests/Modules/Official/Notification/mysql-harness.php|\
@@ -112,150 +115,162 @@ is_registered_mysql_suite() {
   return 1
 }
 
-integrity_checker_changed=0
+run_command admin-api-permissions 0 php scripts/check-admin-api-permissions.php
+run_command test-integrity 0 php scripts/check-test-integrity
+run_command api-contract-source 0 php scripts/generate-api-contracts.php --check
+
+if [[ "$mode" == '--integration' ]]; then
+  mysql_resource_mode="$(printenv PEANUT_MYSQL_RESOURCE_MODE 2>/dev/null || true)"
+  [[ -n "$mysql_resource_mode" ]] || mysql_resource_mode='--registered'
+  [[ "$mysql_resource_mode" == '--registered' || "$mysql_resource_mode" == '--ci-service' ]] || {
+    echo 'ERROR: PEANUT_MYSQL_RESOURCE_MODE is invalid' >&2
+    exit 2
+  }
+  run_command registered-mysql-integration 3 \
+    "$ROOT/scripts/tests/run-registered-mysql-tests" "$mysql_resource_mode" --env-file "$BACKEND_ENV"
+  write_summary passed
+  exit 0
+fi
+
+run_command api-generated-drift 0 "$ROOT/scripts/check-openapi"
+
+if [[ "$mode" == '--daily' ]]; then
+  base="${CI_BASE_REF:-}"
+  head="${CI_HEAD_REF:-HEAD}"
+  comparison="${CI_COMPARISON:-merge-base}"
+  [[ "$comparison" == 'merge-base' || "$comparison" == 'direct' ]] \
+    || { echo "ERROR: CI_COMPARISON is invalid: ${comparison}" >&2; exit 2; }
+  [[ -n "$base" ]] || { echo 'ERROR: CI_BASE_REF is required for --daily' >&2; exit 2; }
+  git rev-parse --verify "${base}^{commit}" >/dev/null 2>&1 \
+    && git rev-parse --verify "${head}^{commit}" >/dev/null 2>&1 \
+    || { echo "ERROR: daily comparison baseline is unavailable: ${base}...${head}" >&2; exit 1; }
+  if [[ "$comparison" == 'direct' ]]; then
+    git diff --name-only "$base" "$head" >"$changed_file"
+  else
+    git diff --name-only "${base}...${head}" >"$changed_file"
+  fi
+  [[ -s "$changed_file" ]] || { echo 'ERROR: daily comparison produced zero changed paths' >&2; exit 1; }
+else
+  git ls-files >"$changed_file"
+fi
 
 while IFS= read -r path; do
-  [[ -z "$path" ]] && continue
-  # Deleted PHP files are valid convergence changes, but cannot be linted.
+  [[ -n "$path" ]] || continue
   if [[ "$path" == *.php && -f "$path" ]]; then
-    printf '%s\n' "$path" >> "$changed_php_file"
+    printf '%s\n' "$path" >>"$changed_php_file"
   fi
-  if [[ "$path" == server/tests/*.php || "$path" == server/tests/*/*.php ]]; then
-    if is_registered_mysql_suite "$path"; then
-      # Real MySQL suites are owned by the explicit --mysql Gate. A changed
-      # test file must not make the ordinary fast Unit gate connect to MySQL.
-      :
-    else
+done <"$changed_file"
+if [[ "$mode" == '--broad' ]]; then
+  find server/app server/config server/database server/route -type f -name '*.php' -print \
+    | LC_ALL=C sort -u >"$changed_php_file"
+fi
+
+while IFS= read -r path; do
+  [[ -n "$path" ]] || continue
+  run_command "php-lint:${path}" 0 php -l "$path"
+done <"$changed_php_file"
+
+# The stable, database-free Unit group runs as a whole on every server candidate.
+unit_discovery_command=(
+  php server/vendor/bin/phpunit
+  --no-configuration
+  --bootstrap server/tests/Support/CiBootstrap.php
+  --list-tests
+  server/tests/Unit
+)
+set +e
+"${unit_discovery_command[@]}" >"$unit_discovery_file" 2>&1
+unit_discovery_status=$?
+set -e
+command_count=$((command_count + 1))
+unit_test_count="$(grep -c '^ - ' "$unit_discovery_file" || true)"
+printf '%s\texit=%d\tdiscovered_tests=%d\t%s\n' \
+  unit-test-discovery "$unit_discovery_status" "$unit_test_count" \
+  "$(quote_command "${unit_discovery_command[@]}")" >>"$receipt"
+cat "$unit_discovery_file"
+if [[ "$unit_discovery_status" -ne 0 || "$unit_test_count" -eq 0 ]]; then
+  echo 'ERROR: stable Unit group discovery failed or selected zero tests' >&2
+  write_summary failed
+  exit 1
+fi
+while IFS= read -r test_file; do
+  select_test "$test_file"
+done < <(find server/tests/Unit -maxdepth 1 -type f -name '*.php' -print | LC_ALL=C sort)
+
+behavior_selected=0
+while IFS= read -r path; do
+  [[ -n "$path" ]] || continue
+  if [[ "$path" == server/tests/*.php || "$path" == server/tests/*/*.php || "$path" == server/tests/*/*/*.php || "$path" == server/tests/*/*/*/*.php ]]; then
+    if ! registered_mysql_test "$path" && [[ -f "$path" ]]; then
       select_test "$path"
+      behavior_selected=1
     fi
   fi
-
-  if [[ "$path" == server/tests/Support/RegisteredMysqlTestResource.php \
-    || "$path" == scripts/tests/run-registered-mysql-tests \
-    || "$path" == resources/project-resources.json \
-    || "$path" == scripts/project-resource-registry \
-    || "$path" == scripts/project-resource-lease ]]; then
-    select_test server/tests/Unit/RegisteredMysqlTestResourceTest.php
-    select_test server/tests/Unit/RegisteredMysqlSchemaBoundaryTest.php
-    select_test server/tests/Unit/RegisteredMysqlRunnerEnvironmentTest.php
-  fi
-
-  if [[ "$path" == server/app/adminapi/services/generator/* || "$path" == server/app/adminapi/service/generator/* ]]; then
-    select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
-    select_test server/tests/Unit/GeneratorDeclaredCrudTemplateTest.php
-    select_test server/tests/Unit/GeneratorRuntimeAssemblyTest.php
-    select_test server/tests/Unit/GeneratorSoftDeleteContractTest.php
-  fi
-
-  if [[ "$path" == server/app/BaseController.php || "$path" == server/app/common/validate/* || "$path" == server/app/common/traits/CrudTrait.php ]]; then
-    select_test server/tests/Unit/ControllerDeclaredDependencyTest.php
-    select_test server/tests/Unit/ControllerDependencyResolutionTest.php
-    select_test server/tests/Unit/InputValidatorPolicyTest.php
-    select_test server/tests/Productization/MemberJwtContractTest.php
-  fi
-
-  if [[ "$path" == scripts/consumer-module-reference-chain ]]; then
-    select_test server/tests/Productization/CreateApplicationTest.php
-    select_test server/tests/Productization/ModuleBundleLifecycleTest.php
-    select_test server/tests/Productization/ModuleDeliveryOperationTest.php
-  fi
-
-  if [[ "$path" == server/app/command/OpsModuleTask.php ]]; then
-    select_test server/tests/Productization/OpsModuleTaskWiringTest.php
-  fi
-
-  if [[ "$path" == scripts/run-php-test || "$path" == server/tests/Support/CiBootstrap.php || "$path" == scripts/ci-server-check.sh ]]; then
-    select_test server/tests/Unit/PhpTestRunnerTest.php
-  fi
-
   case "$path" in
-    scripts/check-test-integrity)
-      integrity_checker_changed=1
+    server/app/api/metadata/*|server/app/modules/*/*/api/metadata/*|server/route/*|server/config/admin_api_access.php|scripts/generate-api-contracts.php|scripts/check-openapi)
+      select_test server/tests/Unit/ApiContractCatalogTest.php
+      select_test server/tests/Unit/ApiMetadataCompletionTest.php
+      select_test server/tests/Unit/PublicApiArtifactCheckTest.php
+      behavior_selected=1
       ;;
-    server/app/platform/*/plugin/*|server/app/command/Plugin*.php|server/app/modules/fixture/delivery_record/*|server/app/modules/official/*|plugins/*|plugins.lock|server/config/modules.php|server/resources/schemas/plugin.schema.json)
+    server/database/*)
+      select_test server/tests/Productization/FreshSchemaBaselineTest.php
+      select_test server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php
+      behavior_selected=1
+      ;;
+    server/app/modules/*|plugins/*|plugins.lock)
       select_test server/tests/Productization/PluginArtifactContractTest.php
       select_test server/tests/Productization/PluginModuleContractTest.php
-      select_test server/tests/Productization/PluginLifecycleMigrationContractTest.php
-      select_test server/tests/Productization/OfficialArticleModuleContractTest.php
       select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
+      behavior_selected=1
       ;;
-    server/app/platform/controller/PlatformTenantController.php|server/app/platform/services/PlatformTenantQueryService.php|server/tests/Multitenancy/PlatformTenantReadApiTest.php)
-      select_test server/tests/Multitenancy/PlatformTenantReadApiTest.php
+    server/app/*|server/config/*)
+      select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
+      behavior_selected=1
       ;;
-    server/app/platform/service/PlatformRuntimeFactory.php)
-      select_test server/tests/Multitenancy/PlatformTenantModuleHttpWiringTest.php
-      select_test server/tests/Multitenancy/PlatformTenantReadApiTest.php
-      select_test server/tests/Multitenancy/PlatformOperatorBoundaryTest.php
+    scripts/run-php-test|scripts/ci-server-check.sh|scripts/check-test-integrity|.github/workflows/ci.yml)
+      select_test server/tests/Unit/PhpTestRunnerTest.php
+      behavior_selected=1
       ;;
-    server/app/common/service/external/*|server/app/api/controller/PaymentNotifyController.php|server/app/api/controller/OfficialAccountController.php|server/app/api/controller/OAuthController.php|server/app/api/services/OAuthApplicationService.php|server/app/api/services/OfficialAccountApplicationService.php|server/app/api/services/PaymentCallbackApplicationService.php)
-      select_test server/tests/Multitenancy/ExternalCallbackTenantRoutingTest.php
+    scripts/create-app|scripts/build-application-template-inventory|scaffold/*)
+      select_test server/tests/Productization/CreateApplicationTest.php
+      behavior_selected=1
       ;;
-    *member*|*Member*|*account_log*|*AccountLog*)
-      select_test server/tests/Productization/MemberFinanceHostTest.php
-      select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
-      ;;
-    *dict*|*Dict*|*article*|*decoration*|*Decoration*|*notice*|*notification*|*crontab*|*hot_search*|*HotSearch*|*operation_log*|*/audit/*|*file*|*File*|*cache*|*Cache*|*lock*|*Lock*)
-      select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
-      ;;
-    *tenant*|*Tenant*|server/app/platform/*)
-      select_test server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php
-      select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
-      select_test server/tests/Multitenancy/TenantGovernanceTest.php
-      select_test server/tests/Multitenancy/PlatformOperatorBoundaryTest.php
-      ;;
-    server/app/adminapi/*auth*|server/app/common/*auth*|server/app/common/*permission*)
-      select_test server/tests/Productization/AdminPermissionHostTest.php
-      select_test server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php
-      ;;
-    server/config/admin_api_access.php|server/route/*.php|scripts/check-admin-api-permissions.php)
-      select_test server/tests/Productization/AdminPermissionHostTest.php
-      select_test server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php
-      ;;
-    server/database/install.php|server/database/environment-guard.php|server/database/init.sql)
-      select_test server/tests/Productization/FreshSchemaBaselineTest.php
-      select_test server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php
-      select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
-      ;;
-    server/database/migrations/*.sql)
-      select_test server/tests/Productization/FreshSchemaBaselineTest.php
+    release-versions.json|server/composer.json|server/composer.lock)
+      select_test server/tests/Productization/GeneratedPackageIdentityTest.php
+      select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
+      behavior_selected=1
       ;;
   esac
+done <"$changed_file"
 
-  if [[ "$path" == server/app/modules/official/oauth/* \
-    || "$path" == server/app/api/application/OAuthApplicationService.php \
-    || "$path" == server/app/api/application/RechargeApplicationService.php \
-    || "$path" == server/app/common/service/oauth/* ]]; then
-    select_test server/tests/Productization/OAuthChannelHostTest.php
-  fi
-done < "$changed_file"
-
-if [[ "$integrity_checker_changed" == 1 ]]; then
-  echo 'Focused server gates: check-test-integrity changed; always-on integrity gate executed'
+if [[ "$mode" == '--broad' || "$behavior_selected" -eq 0 ]]; then
+  # An unclassified server-affecting path expands to the stable broad behavior group.
+  for test_file in \
+    server/tests/Productization/FreshSchemaBaselineTest.php \
+    server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php \
+    server/tests/Productization/OAuthChannelHostTest.php \
+    server/tests/Multitenancy/NativeAdminIdentityRuntimeContractTest.php \
+    server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php \
+    server/tests/Productization/MemberFinanceHostTest.php \
+    server/tests/Productization/PluginArtifactContractTest.php \
+    server/tests/Productization/PluginModuleContractTest.php \
+    server/tests/Productization/OfficialArticleModuleContractTest.php \
+    server/tests/Productization/PluginLifecycleMigrationContractTest.php; do
+    select_test "$test_file"
+  done
 fi
 
-while IFS= read -r path; do
-  [[ -n "$path" ]] && php -l "$path"
-done < "$changed_php_file"
+LC_ALL=C sort -u "$selected_file" -o "$selected_file"
+[[ -s "$selected_file" ]] || {
+  echo 'ERROR: server classification selected zero test targets' >&2
+  exit 1
+}
 
-if [[ "$promotion" == 1 ]]; then
-  echo 'Focused server gates: dev-to-main promotion; PHP lint only'
-  exit 0
-fi
-
-if [[ ! -s "$selected_file" ]]; then
-  echo 'Focused server gates: no behavior test mapped; syntax and manifest checks only'
-  exit 0
-fi
-
-test_count=0
 while IFS= read -r test_file; do
-  [[ -z "$test_file" ]] && continue
-  if [[ "$test_file" == 'server/tests/Multitenancy/TenantGovernanceTest.php' ]]; then
-    php "$test_file"
-  else
-    run_php_test "$test_file"
-  fi
-  test_count=$((test_count + 1))
-done < <(sort -u "$selected_file")
+  [[ -n "$test_file" ]] || continue
+  run_command "test:${test_file}" 1 \
+    php "$ROOT/scripts/run-php-test" "--env-file=$BACKEND_ENV" "$test_file"
+done <"$selected_file"
 
-echo "Focused server gates: ${test_count} test file(s)"
+write_summary passed

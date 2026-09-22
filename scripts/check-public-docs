@@ -1,0 +1,92 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+$root = realpath(dirname(__DIR__));
+if (!is_string($root)) {
+    fwrite(STDERR, "check-public-docs: repository root is unavailable\n");
+    exit(2);
+}
+$required = [
+    'docs/public/README.md',
+    'docs/public/release-channels.md',
+    'docs/public/api-and-sdk.md',
+    'docs/public/module-development.md',
+];
+$shippedTemplates = [
+    'server/resources/scaffold-application/docs-site/api.md.stub',
+    'server/resources/scaffold-application/docs-site/releases.md.stub',
+];
+$violations = [];
+$documents = [];
+foreach ($required as $relative) {
+    $path = $root . '/' . $relative;
+    if (!is_file($path) || is_link($path)) {
+        $violations[] = "missing public document: {$relative}";
+        continue;
+    }
+    $content = file_get_contents($path);
+    if (!is_string($content) || trim($content) === '') {
+        $violations[] = "empty public document: {$relative}";
+        continue;
+    }
+    $documents[$relative] = $content;
+    if (preg_match('#/Users/|peanut-admin-project|PEANUT_ADMIN_PROJECT_ROOT#', $content) === 1) {
+        $violations[] = "private maintainer dependency leaked into {$relative}";
+    }
+    preg_match_all('/\[[^\]]+\]\(([^)]+)\)/', $content, $matches);
+    foreach ($matches[1] ?? [] as $target) {
+        if (preg_match('~^(?:https?://|#)~', $target) === 1) {
+            continue;
+        }
+        $targetPath = realpath(dirname($path) . '/' . explode('#', $target, 2)[0]);
+        if ($targetPath === false || !str_starts_with($targetPath, $root . DIRECTORY_SEPARATOR)) {
+            $violations[] = "broken or escaping link in {$relative}: {$target}";
+        }
+    }
+}
+
+foreach ($shippedTemplates as $relative) {
+    $path = $root . '/' . $relative;
+    if (!is_file($path) || is_link($path)) {
+        $violations[] = "missing shipped documentation template: {$relative}";
+        continue;
+    }
+    $content = file_get_contents($path);
+    if (!is_string($content) || trim($content) === '') {
+        $violations[] = "empty shipped documentation template: {$relative}";
+        continue;
+    }
+    $documents[$relative] = $content;
+    if (preg_match('#/Users/|peanut-admin-project|PEANUT_ADMIN_PROJECT_ROOT#', $content) === 1) {
+        $violations[] = "private maintainer dependency leaked into {$relative}";
+    }
+}
+
+$releasePath = $root . '/release-versions.json';
+$release = json_decode((string)file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR);
+$version = $release['source_product_version'] ?? null;
+if (!is_string($version) || !str_contains($documents['docs/public/release-channels.md'] ?? '', $version)) {
+    $violations[] = 'release channel guide does not display the current source product version';
+}
+if (str_contains($documents['docs/public/release-channels.md'] ?? '', 'npm install @peanut-admin/')) {
+    $violations[] = 'candidate guide must not claim unavailable public npm packages';
+}
+if (!str_contains($documents['docs/public/api-and-sdk.md'] ?? '', './scripts/check-openapi')) {
+    $violations[] = 'API guide is missing the generated-artifact drift check';
+}
+if (!str_contains($documents['docs/public/release-channels.md'] ?? '', 'php server/database/install.php')
+    || !str_contains($documents['docs/public/release-channels.md'] ?? '', 'scripts/upgrade plan')) {
+    $violations[] = 'release channel guide is missing the first-install or independent-upgrade entry';
+}
+if (str_contains($documents['server/resources/scaffold-application/docs-site/api.md.stub'] ?? '', 'OpenAPI info.version: 3.0.0')) {
+    $violations[] = 'shipped API guide still treats the old fixed API version as current';
+}
+
+if ($violations !== []) {
+    foreach ($violations as $violation) {
+        fwrite(STDERR, "check-public-docs: {$violation}\n");
+    }
+    exit(1);
+}
+printf("PUBLIC-DOCS-CHECK-001 passed: %d public documents, product version %s\n", count($documents), $version);

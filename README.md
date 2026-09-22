@@ -7,3 +7,5 @@ A1 将完整账号组织、权限管理、文件、任务等通用业务及各�
 Generated applications use the public source, lock files and documentation in this repository; they do not require a private Project checkout. Maintainer-only release governance is intentionally kept outside generated applications. The normal integration branch is `dev`.
 
 `main` is release-only. Runtime/build manifests, lock files, source code, tests, deployment definitions, scaffold sources and distribution/legal artifacts remain in this repository.
+
+Public consumer documentation starts at [docs/public/README.md](docs/public/README.md). It describes the current candidate channel, API/SDK refresh workflow and Module delivery boundaries without requiring maintainer-only paths.

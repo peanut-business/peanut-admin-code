@@ -42,6 +42,15 @@ final class PublicApiArtifactCheckTest extends TestCase
         self::assertStringContainsString('OPENAPI-CHECK-001 passed: 4 generated artifacts', $result['stdout']);
         self::assertSame($before, $this->artifactContents());
 
+        $openApi = json_decode(
+            (string)file_get_contents($this->applicationRoot . '/server/generated/openapi.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertSame('9.8.7-test', $openApi['info']['version']);
+        self::assertSame('2', $openApi['info']['x-peanut-contract-generator']['version']);
+
         $catalog = json_decode(
             (string)file_get_contents($this->applicationRoot . '/server/generated/api-catalog.json'),
             true,
@@ -83,6 +92,69 @@ final class PublicApiArtifactCheckTest extends TestCase
         self::assertStringContainsString('missing generated artifact: ' . $types, $result['stderr']);
         self::assertFileDoesNotExist($types);
         self::assertSame($withoutTypes, $this->artifactContents());
+    }
+
+    public function testChangedContractMustRefreshAndDeletedOperationLeavesNoGeneratedResidue(): void
+    {
+        $moduleMetadata = $this->applicationRoot . '/server/app/modules/official/sample/api/metadata/openapi.php';
+        $metadata = (string)file_get_contents($moduleMetadata);
+        self::assertNotSame($metadata, $changed = str_replace(
+            "'description' => 'sample'",
+            "'description' => 'sample v2'",
+            $metadata,
+        ));
+        self::assertNotFalse(file_put_contents($moduleMetadata, $changed));
+
+        $result = $this->runCheck();
+        self::assertSame(1, $result['status']);
+        self::assertStringContainsString('generated artifact drift:', $result['stderr']);
+
+        $result = $this->runProcess([
+            PHP_BINARY,
+            $this->applicationRoot . '/scripts/generate-api-contracts.php',
+        ], $this->applicationRoot);
+        self::assertSame(0, $result['status'], $result['stderr']);
+        self::assertSame(0, $this->runCheck()['status']);
+
+        $registry = $this->applicationRoot . '/server/route/registry_source.php';
+        $registrySource = (string)file_get_contents($registry);
+        $withoutSample = preg_replace(
+            '/\n\s*\/\/ SAMPLE_ENDPOINT_START.*?\/\/ SAMPLE_ENDPOINT_END\n/s',
+            "\n",
+            $registrySource,
+            1,
+            $replacementCount,
+        );
+        self::assertSame(1, $replacementCount);
+        self::assertIsString($withoutSample);
+        self::assertNotFalse(file_put_contents($registry, $withoutSample));
+        self::assertTrue(unlink($moduleMetadata));
+
+        $result = $this->runCheck();
+        self::assertSame(1, $result['status']);
+        self::assertStringContainsString('unexpected generated artifact:', $result['stderr']);
+
+        $result = $this->runProcess([
+            PHP_BINARY,
+            $this->applicationRoot . '/scripts/generate-api-contracts.php',
+        ], $this->applicationRoot);
+        self::assertSame(0, $result['status'], $result['stderr']);
+        self::assertSame(0, $this->runCheck()['status']);
+
+        $openApi = json_decode(
+            (string)file_get_contents($this->applicationRoot . '/server/generated/openapi.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertArrayNotHasKey('/api/sample', $openApi['paths']);
+        self::assertArrayNotHasKey('SamplePayload', $openApi['components']['schemas']);
+        self::assertFileDoesNotExist(
+            $this->applicationRoot . '/web/src/modules/official-sample/generated/openapi.ts',
+        );
+        $types = (string)file_get_contents($this->applicationRoot . '/web/src/generated/openapi.d.ts');
+        self::assertStringNotContainsString('/api/sample', $types);
+        self::assertStringNotContainsString('SamplePayload', $types);
     }
 
     public function testExplicitProjectMirrorIsReadOnlyAndIsolatedOutputRejectsUnsafeRoots(): void
@@ -160,6 +232,11 @@ final class PublicApiArtifactCheckTest extends TestCase
             $this->applicationRoot . '/scripts/check-openapi',
             (string)file_get_contents($this->sourceRoot . '/scripts/check-openapi'),
         );
+        self::writeFile($this->applicationRoot . '/release-versions.json', <<<'JSON'
+{
+  "source_product_version": "9.8.7-test"
+}
+JSON);
 
         self::writeFile($this->applicationRoot . '/server/route/registry_source.php', <<<'PHP'
 <?php
@@ -183,6 +260,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
                 'middleware' => [],
                 'permission' => null,
             ],
+            // SAMPLE_ENDPOINT_START
             [
                 'method' => 'GET',
                 'path' => '/api/sample',
@@ -195,6 +273,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
                 'middleware' => [],
                 'permission' => null,
             ],
+            // SAMPLE_ENDPOINT_END
         ],
     ];
 }
@@ -235,12 +314,6 @@ PHP);
                         'type' => 'object',
                         'required' => ['message'],
                         'properties' => ['message' => ['type' => 'string']],
-                        'additionalProperties' => false,
-                    ],
-                    'SamplePayload' => [
-                        'type' => 'object',
-                        'required' => ['id'],
-                        'properties' => ['id' => ['type' => 'integer']],
                         'additionalProperties' => false,
                     ],
                 ],
@@ -289,7 +362,14 @@ return ['paths' => [
             'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/SamplePayload']]],
         ]],
     ]],
-]];
+], 'components' => ['schemas' => [
+    'SamplePayload' => [
+        'type' => 'object',
+        'required' => ['id'],
+        'properties' => ['id' => ['type' => 'integer']],
+        'additionalProperties' => false,
+    ],
+]]];
 PHP);
 
         self::createDirectory($this->applicationRoot . '/web/src/generated');

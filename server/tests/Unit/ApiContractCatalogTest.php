@@ -150,6 +150,41 @@ final class ApiContractCatalogTest extends TestCase
         );
     }
 
+    public function testIntegrationDeliveryContractsMatchPublicRecordSerialization(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $fragment = require $root . '/server/app/modules/official/integration/api/metadata/openapi.php';
+        $schemas = $fragment['components']['schemas'];
+        $delivery = $schemas['IntegrationDelivery'];
+        $attempt = $schemas['IntegrationAttempt'];
+
+        self::assertFalse($delivery['additionalProperties']);
+        self::assertSame([
+            'delivery_key', 'endpoint_key', 'event_type', 'status', 'attempt_count',
+            'last_status_code', 'last_error_code', 'created_at', 'updated_at', 'delivered_at',
+        ], $delivery['required']);
+        self::assertSame(
+            ['pending', 'delivering', 'retryable', 'delivered', 'permanent_failed'],
+            $delivery['properties']['status']['enum'],
+        );
+        self::assertTrue($delivery['properties']['last_status_code']['nullable']);
+        self::assertTrue($delivery['properties']['last_error_code']['nullable']);
+        self::assertTrue($delivery['properties']['delivered_at']['nullable']);
+        self::assertArrayNotHasKey('payload', $delivery['properties']);
+
+        self::assertFalse($attempt['additionalProperties']);
+        self::assertSame(
+            ['attempt_number', 'outcome', 'response_status', 'error_code', 'duration_ms', 'attempted_at'],
+            $attempt['required'],
+        );
+        self::assertSame(['delivered', 'retryable', 'permanent_failed'], $attempt['properties']['outcome']['enum']);
+        self::assertSame(8, $attempt['properties']['attempt_number']['maximum']);
+        self::assertSame(30000, $attempt['properties']['duration_ms']['maximum']);
+        self::assertTrue($attempt['properties']['response_status']['nullable']);
+        self::assertTrue($attempt['properties']['error_code']['nullable']);
+        self::assertArrayNotHasKey('response_body', $attempt['properties']);
+    }
+
     /** @param list<array<string,mixed>> $endpoints */
     private static function assertOwnerCoverage(array $endpoints, string $owner, int $routes, int $documented): void
     {
