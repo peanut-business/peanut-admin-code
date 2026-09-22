@@ -153,6 +153,7 @@ jobs:
             'DB_USER=root' \
             'DB_PASS=mt02_root' \
             'DB_ROOT_PASS=mt02_root' \
+            'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-static' \
             'DB_PREFIX=pa_' > "$backend_env"
 
       - name: Cache Composer downloads
@@ -169,6 +170,8 @@ jobs:
 
       - name: Install Composer dependencies
         working-directory: server
+        env:
+          PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-${{ github.run_id }}
         run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Install locked API generator dependencies
@@ -236,9 +239,6 @@ jobs:
           key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-php-8.3-composer-
-      - name: Install Composer dependencies
-        working-directory: server
-        run: composer install --no-interaction --no-progress --prefer-dist
       - name: Create isolated registered MySQL environment
         shell: bash
         run: |
@@ -260,6 +260,11 @@ jobs:
             'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
             'PEANUT_DATABASE_ENDPOINT_ID=peanut-admin-ci-real-mysql84-host' \
             'PEANUT_DATABASE_CONSUMER=host' > "$registered_mysql_env"
+      - name: Install Composer dependencies
+        working-directory: server
+        env:
+          PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-mysql-${{ github.run_id }}
+        run: composer install --no-interaction --no-progress --prefer-dist
       - name: Run lease-bound real MySQL 8.4 gate
         env:
           DB_HOST: 127.0.0.1
@@ -327,6 +332,9 @@ jobs:
             logLevel: 'error',
             resolve: { alias: { '@': path.resolve(process.cwd(), 'src') } },
             optimizeDeps: { disabled: true },
+            ssr: {
+              noExternal: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
+            },
             server: { middlewareMode: true },
             appType: 'custom',
           })

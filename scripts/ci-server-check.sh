@@ -115,6 +115,21 @@ registered_mysql_test() {
   return 1
 }
 
+direct_test_target() {
+  case "$1" in
+    server/tests/fixtures/*|server/tests/Support/*|server/tests/*/Support/*)
+      return 1
+      ;;
+    server/tests/*Test.php|\
+    server/tests/Modules/Official/*/feature-harness.php|\
+    server/tests/Modules/Official/Task/worker-composition-harness.php|\
+    server/tests/scripts/CheckModuleNamespaceMigration.php)
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 run_command admin-api-permissions 0 php scripts/check-admin-api-permissions.php
 run_command test-integrity 0 php scripts/check-test-integrity
 run_command api-contract-source 0 php scripts/generate-api-contracts.php --check
@@ -200,11 +215,9 @@ done < <(find server/tests/Unit -maxdepth 1 -type f -name '*.php' -print | LC_AL
 behavior_selected=0
 while IFS= read -r path; do
   [[ -n "$path" ]] || continue
-  if [[ "$path" == server/tests/*.php || "$path" == server/tests/*/*.php || "$path" == server/tests/*/*/*.php || "$path" == server/tests/*/*/*/*.php ]]; then
-    if ! registered_mysql_test "$path" && [[ -f "$path" ]]; then
-      select_test "$path"
-      behavior_selected=1
-    fi
+  if direct_test_target "$path" && ! registered_mysql_test "$path" && [[ -f "$path" ]]; then
+    select_test "$path"
+    behavior_selected=1
   fi
   case "$path" in
     server/app/api/metadata/*|server/app/modules/*/*/api/metadata/*|server/route/*|server/config/admin_api_access.php|scripts/generate-api-contracts.php|scripts/check-openapi)
@@ -237,7 +250,7 @@ while IFS= read -r path; do
       behavior_selected=1
       ;;
     release-versions.json|server/composer.json|server/composer.lock)
-      select_test server/tests/Productization/GeneratedPackageIdentityTest.php
+      select_test server/tests/Unit/GeneratedPackageIdentityTest.php
       select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
       behavior_selected=1
       ;;

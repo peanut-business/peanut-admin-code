@@ -32,7 +32,7 @@
         "qiniu/php-sdk": "^7.4",
         "aliyuncs/oss-sdk-php": "^2.4",
         "qcloud/cos-sdk-v5": "^2.5",
-        "peanut-admin/core": "dev-dev#98500eac433dddf71f93c45fa04e318a27ac88b9",
+        "peanut-admin/core": "dev-dev",
         "symfony/html-sanitizer": "^7.3",
         "composer/semver": "^3.4",
         "opis/json-schema": "^2.6"
