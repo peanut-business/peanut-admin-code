@@ -5,11 +5,25 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 test_dir=$(mktemp -d "${TMPDIR:-/tmp}/peanut-runtime-contract.XXXXXX")
 orchestration_env="$test_dir/stack.env"
-run_id=$(openssl rand -hex 6)
-backend_env="$repo_dir/server/.env.contract-$run_id"
+backend_env="$test_dir/server.env"
 source_commit=$(git -C "$repo_dir" rev-parse HEAD)
 source_tree=$(git -C "$repo_dir" rev-parse 'HEAD^{tree}')
-trap 'rm -rf "$test_dir"; rm -f "$backend_env"' EXIT INT TERM
+trap 'rm -rf "$test_dir"' EXIT INT TERM
+
+real_config_fingerprint() {
+    for path in "$repo_dir/.local/stack.env" "$repo_dir/.local/container-client.env" \
+        "$repo_dir/server/.env" "$repo_dir/server/.env.local-production-preview"; do
+        if [ -f "$path" ] && [ ! -L "$path" ]; then
+            printf '%s:' "$path"
+            shasum -a 256 "$path" | awk '{print $1}'
+        elif [ -e "$path" ] || [ -L "$path" ]; then
+            printf '%s:non-regular\n' "$path"
+        else
+            printf '%s:absent\n' "$path"
+        fi
+    done
+}
+real_config_before=$(real_config_fingerprint)
 
 cat > "$orchestration_env" <<'EOF'
 PHP_PORT=22180
@@ -22,8 +36,12 @@ DEV_HTTP_PORT=22187
 HTTP_PORT=22190
 PHP_IMAGE=peanut-admin-php:contract
 NGINX_IMAGE=peanut-admin-nginx:contract
+PEANUT_PUBLIC_SCHEME=http
+PEANUT_TRUSTED_HOSTS=localhost
 EOF
-printf 'PEANUT_SOURCE_COMMIT=%s\nPEANUT_SOURCE_TREE=%s\n' "$source_commit" "$source_tree" >> "$orchestration_env"
+printf 'PEANUT_SOURCE_COMMIT=%s\nPEANUT_SOURCE_TREE=%s\nPEANUT_DEPLOYMENT_RECEIPT_FILE=%s\n' \
+    "$source_commit" "$source_tree" "$test_dir/DEPLOYMENT_RECEIPT.json" >> "$orchestration_env"
+printf '{}\n' > "$test_dir/DEPLOYMENT_RECEIPT.json"
 cat > "$backend_env" <<'EOF'
 APP_ENV=development
 APP_DEBUG=true
@@ -46,6 +64,15 @@ EOF
 chmod 600 "$orchestration_env" "$backend_env"
 
 urls=$(PEANUT_LOCAL_ENV_FILE="$orchestration_env" PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-stack.sh" urls)
+real_config_after=$(real_config_fingerprint)
+[ "$real_config_before" = "$real_config_after" ] || {
+    printf 'local-stack isolated URL contract modified a real local configuration\n' >&2
+    exit 1
+}
+[ -f "$test_dir/container-client.env" ] || {
+    printf 'local-stack did not keep generated client configuration inside the isolated directory\n' >&2
+    exit 1
+}
 for expected in 22180 22181 22182 22185 22186 22187 22190; do
     printf '%s\n' "$urls" | grep -q ":$expected/" || {
         printf 'missing custom port in URL output: %s\n' "$expected" >&2
@@ -78,8 +105,17 @@ printf '%s\n' "$production_compose" | grep -q 'published: "22190"' || {
     printf 'production-preview Compose config lost custom HTTP_PORT\n' >&2
     exit 1
 }
-printf '%s\n' "$production_compose" | grep -q 'DEPLOYMENT_MODE: standalone' || {
-    printf 'production Nginx service lost the selected deployment mode\n' >&2
+printf '%s\n' "$production_compose" | grep -Fq "source: $backend_env" || {
+    printf 'production Nginx service lost the isolated backend environment source\n' >&2
+    exit 1
+}
+printf '%s\n' "$production_compose" | grep -Fq 'target: /var/www/peanut-admin/server/.env.source' || {
+    printf 'production Nginx service lost the read-only backend environment target\n' >&2
+    exit 1
+}
+grep -Fq 'peanut-read-backend-enum "$backend_source" DEPLOYMENT_MODE' \
+    "$repo_dir/deploy/docker/nginx-select-admin.sh" || {
+    printf 'production Nginx selector lost its deployment mode source\n' >&2
     exit 1
 }
 if printf '%s\n' "$production_compose" | grep -q 'PHP_APP_ENV:'; then
@@ -114,25 +150,29 @@ grep -q 'nginx-select-admin.sh /docker-entrypoint.d/40-select-admin.sh' "$docker
     printf 'production Nginx image lost the runtime admin selector\n' >&2
     exit 1
 }
-grep -q '^COPY server/bootstrap server/bootstrap$' "$dockerfile" || {
-    printf 'production PHP image lost the environment bootstrap directory\n' >&2
+php_stage=$(sed -n '/^FROM php:8\.3-fpm-bookworm AS php$/,/^FROM nginx:/p' "$dockerfile")
+[ "$(printf '%s\n' "$php_stage" | grep -c '^COPY \. \.$')" -eq 1 ] || {
+    printf 'production PHP image lost its whole fixed-package copy\n' >&2
     exit 1
 }
+if grep -Eq '^server/bootstrap(/|$)' "$repo_dir/.dockerignore"; then
+    printf 'production PHP image excludes the environment bootstrap directory\n' >&2
+    exit 1
+fi
 
-for expectation in "web 22181 22180" "pc 22185 22180" "mobile 22182 22180" "docs 22186"; do
+for expectation in "web 22181 22180" "pc 22185 22180" "mobile 22182 22180"; do
     set -- $expectation
     component=$1
     listen_port=$2
     api_port=${3:-}
     case "$component" in
         mobile) component_dir=uniapp ;;
-        docs) component_dir=docs-site ;;
         *) component_dir=$component ;;
     esac
     client_output=$(
         cd "$repo_dir/$component_dir"
-        PEANUT_LOCAL_ENV_FILE="$orchestration_env" PEANUT_LOCAL_CLIENT_DRY_RUN=1 \
-            "$repo_dir/scripts/local-client-dev" "$component"
+        "$repo_dir/scripts/local-client-dev" "$component" \
+            --env-file "$orchestration_env" --dry-run
     )
     printf '%s\n' "$client_output" | grep -q "listen_port=$listen_port" || {
         printf 'local %s command lost custom listen port %s\n' "$component" "$listen_port" >&2

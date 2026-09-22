@@ -7,6 +7,16 @@ state_dir="$repo_dir/.local"
 orchestration_env="$state_dir/stack.env"
 backend_env="$repo_dir/server/.env"
 preview_backend_env="$repo_dir/server/.env.local-production-preview"
+if [ "${PEANUT_LOCAL_ENV_FILE+x}" = x ]; then
+    case "$PEANUT_LOCAL_ENV_FILE" in /*) ;; *) printf 'local-stack: PEANUT_LOCAL_ENV_FILE must be absolute\n' >&2; exit 1 ;; esac
+    orchestration_env=$PEANUT_LOCAL_ENV_FILE
+    state_dir=$(dirname "$orchestration_env")
+fi
+if [ "${PEANUT_SERVER_ENV_FILE+x}" = x ]; then
+    case "$PEANUT_SERVER_ENV_FILE" in /*) ;; *) printf 'local-stack: PEANUT_SERVER_ENV_FILE must be absolute\n' >&2; exit 1 ;; esac
+    backend_env=$PEANUT_SERVER_ENV_FILE
+    preview_backend_env="$(dirname "$backend_env")/.env.local-production-preview"
+fi
 container_client_env="$state_dir/container-client.env"
 env_dir=$(dirname "$orchestration_env")
 dev_compose="$repo_dir/deploy/docker-compose.dev.yml"
@@ -70,6 +80,7 @@ ensure_env() {
         || die 'local source commit/tree identity is invalid'
     umask 077
     mkdir -p "$state_dir" "$env_dir" "$(dirname "$backend_env")"
+    [ ! -L "$orchestration_env" ] || die "orchestration environment must not be a symlink: $orchestration_env"
     if [ ! -f "$orchestration_env" ]; then
         : > "$orchestration_env"
         chmod 600 "$orchestration_env"
@@ -142,7 +153,7 @@ prepare_preview_backend_env() {
     [ -f "$backend_env" ] || die "backend environment is missing: $backend_env"
     [ ! -L "$backend_env" ] || die "backend environment must not be a symlink: $backend_env"
     umask 077
-    temporary=$(mktemp "$repo_dir/server/.env.preview.XXXXXX")
+    temporary=$(mktemp "$(dirname "$preview_backend_env")/.env.preview.XXXXXX")
     cp "$backend_env" "$temporary"
     chmod 600 "$temporary"
     set_env_value "$temporary" APP_ENV production
