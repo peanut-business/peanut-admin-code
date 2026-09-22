@@ -207,8 +207,11 @@ foreach ([
     );
 }
 foreach (['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/project-resources.json', 'SECURITY.md', 'scripts/seed-demo-data'] as $customPath) {
+    $sourcePath = $customPath === 'SECURITY.md'
+        ? 'server/resources/scaffold-application/SECURITY.md.stub'
+        : $customPath;
     createApplicationExpect(
-        ($inventoryByPath[$customPath]['classification'] ?? null) === 'app-owned',
+        ($inventoryByPath[$sourcePath]['classification'] ?? null) === 'app-owned',
         "instance customization must remain app-owned: {$customPath}",
     );
 }
