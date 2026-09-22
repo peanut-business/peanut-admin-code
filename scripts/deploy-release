@@ -247,18 +247,28 @@ while [[ $# -gt 0 ]]; do
     --edition-package)
       [[ $# -ge 2 ]] || fail '--edition-package requires a value'
       EDITION_PACKAGE="$2"; shift 2 ;;
+    --edition-package=*)
+      EDITION_PACKAGE="${1#--edition-package=}"; shift ;;
     --edition-manifest)
       [[ $# -ge 2 ]] || fail '--edition-manifest requires a value'
       EDITION_MANIFEST="$2"; shift 2 ;;
+    --edition-manifest=*)
+      EDITION_MANIFEST="${1#--edition-manifest=}"; shift ;;
     --upgrade-package)
       [[ $# -ge 2 ]] || fail '--upgrade-package requires a value'
       UPGRADE_PACKAGE="$2"; shift 2 ;;
+    --upgrade-package=*)
+      UPGRADE_PACKAGE="${1#--upgrade-package=}"; shift ;;
     --upgrade-manifest)
       [[ $# -ge 2 ]] || fail '--upgrade-manifest requires a value'
       UPGRADE_MANIFEST="$2"; shift 2 ;;
+    --upgrade-manifest=*)
+      UPGRADE_MANIFEST="${1#--upgrade-manifest=}"; shift ;;
     --upgrade-trust-env)
       [[ $# -ge 2 ]] || fail '--upgrade-trust-env requires a value'
       UPGRADE_TRUST_ENV="$2"; shift 2 ;;
+    --upgrade-trust-env=*)
+      UPGRADE_TRUST_ENV="${1#--upgrade-trust-env=}"; shift ;;
     --confirm-destroy)
       [[ $# -ge 2 ]] || fail '--confirm-destroy requires a value'
       CONFIRM_DESTROY="$2"; shift 2 ;;
