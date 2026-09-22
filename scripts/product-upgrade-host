@@ -5,13 +5,16 @@ die() { printf 'product-upgrade-host: %s\n' "$1" >&2; exit 1; }
 
 usage() {
   printf '%s\n' \
-    'Usage: scripts/product-upgrade-host <prepare|backup|quiesce|switch|reload|health|recover> --instance-root=<absolute> --package=<absolute> --plan=<absolute> --state=<absolute>' >&2
+    'Usage: scripts/product-upgrade-host <prepare|migration-preflight|backup|quiesce|migrate|switch|reload-safe|migration-verify|health|activate|recover|resume-old|recovery-verify> --instance-root=<absolute> --package=<absolute> --plan=<absolute> --state=<absolute>' >&2
   exit 64
 }
 
 [[ $# -eq 5 ]] || usage
 phase="$1"; shift
-case "$phase" in prepare|backup|quiesce|switch|reload|health|recover) ;; *) usage ;; esac
+case "$phase" in
+  prepare|migration-preflight|backup|quiesce|migrate|switch|reload-safe|migration-verify|health|activate|recover|resume-old|recovery-verify) ;;
+  *) usage ;;
+esac
 declare -A option=()
 for argument in "$@"; do
   [[ "$argument" =~ ^--(instance-root|package|plan|state)=(/.+)$ ]] || usage
@@ -73,8 +76,9 @@ jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" --arg phase "$phase
   .schema_version == 1 and .protocol == "peanut.product-upgrade-state.v1"
   and .candidate == $candidate and .plan_sha256 == $plan
   and (.phase | type == "string") and .phase_in_progress == $phase
-  and (.migration_started | type == "boolean")
+  and (.database_recovery_required | type == "boolean")
   and (.migration_completed | type == "boolean")
+  and (.activation_started | type == "boolean")
   and (.evidence | type == "object")
 ' "$state_path" >/dev/null || die 'product-upgrade state binding or active phase is invalid'
 
@@ -106,6 +110,8 @@ prepared_root="$runtime_root/prepared-target"
 prepared_record="$runtime_root/prepared.json"
 backup_root="$instance_root/backups/product-upgrade-${candidate}"
 previous_root="$runtime_root/previous"
+recovery_record="$runtime_root/recovery.json"
+resume_old_record="$runtime_root/resume-old.json"
 
 backend_env="${PEANUT_SERVER_ENV_FILE:-}"
 [[ "$backend_env" == /* ]] || die 'PEANUT_SERVER_ENV_FILE must select an absolute instance environment'
@@ -198,6 +204,67 @@ prepared_payload() {
     '.candidate == $candidate and .plan_sha256 == $plan' "$prepared_record" >/dev/null \
     || die 'prepared target evidence is bound to another plan'
   jq -c '.payload' "$prepared_record"
+}
+
+set_target_compose() {
+  local payload receipt receipt_b64 php_image nginx_image pc_image
+  payload="$(prepared_payload)"
+  receipt="$(jq -r '.prepared_target.receipt_path' <<<"$payload")"
+  [[ -f "$receipt" && ! -L "$receipt" ]] || die 'prepared target receipt is unavailable'
+  php_image="$(jq -r '.prepared_target.images.php' <<<"$payload")"
+  nginx_image="$(jq -r '.prepared_target.images.nginx' <<<"$payload")"
+  pc_image="$(jq -r '.prepared_target.images.pc' <<<"$payload")"
+  docker image inspect "$php_image" "$nginx_image" "$pc_image" >/dev/null \
+    || die 'prepared target images are unavailable'
+  receipt_b64="$(base64 -w0 "$receipt")"
+  target_compose=(env "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" \
+    "PEANUT_SOURCE_COMMIT=$source_commit" "PEANUT_SOURCE_TREE=$source_tree" \
+    "PEANUT_SERVER_ENV_FILE=$backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$receipt" \
+    "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$receipt_b64" docker compose "${compose_environment[@]}" \
+    -p "$compose_project" -f "$prepared_root/compose.yaml" --profile bundled-db)
+}
+
+database_phase() {
+  local operation output helper
+  case "$phase" in
+    migration-preflight) operation=preflight ;;
+    migrate) operation=apply ;;
+    migration-verify) operation=verify ;;
+    *) die 'database phase mapping is invalid' ;;
+  esac
+  helper="$package_root/scripts/upgrade-runtime/product-upgrade-database"
+  [[ -f "$helper" && ! -L "$helper" && -x "$helper" ]] \
+    || die 'signed package database helper is unavailable'
+  if [[ "$phase" == migrate ]]; then
+    jq -e '
+      .database_recovery_required == true
+      and (.evidence.backup | type == "object") and (.evidence.quiesce | type == "object")
+    ' "$state_path" >/dev/null || die 'database migration requires durable backup and quiescence state'
+    assert_backup_quiescence_continuity
+  elif [[ "$phase" == migration-verify ]]; then
+    jq -e '.database_recovery_required == true and .migration_completed == true' "$state_path" >/dev/null \
+      || die 'database verification requires durable migration completion'
+    if [[ "$(jq -r '.activation_started' "$state_path")" == false ]]; then
+      assert_public_writers_stopped
+    fi
+  fi
+  set_target_compose
+  output="$("${target_compose[@]}" run -T --rm --no-deps --entrypoint php \
+    --volume "$package_root:/package:ro" \
+    --volume "$plan_path:/run/peanut/product-plan.json:ro" \
+    php /package/scripts/upgrade-runtime/product-upgrade-database "$operation" \
+    --application-root=/var/www/peanut-admin --package=/package \
+    --plan=/run/peanut/product-plan.json </dev/null)" \
+    || die "target-container database $operation failed"
+  jq -e --arg operation "$operation" --arg candidate "$candidate" --arg plan "$plan_sha256" \
+    --arg target "$target_version" '
+      .protocol == "peanut.product-upgrade-database-evidence.v1" and .status == "completed"
+      and .operation == $operation and .candidate == $candidate and .plan_sha256 == $plan
+      and .target_version == $target and (.application_statuses | type == "object")
+      and (if $operation == "apply" then (.module | type == "object") else true end)
+    ' <<<"$output" >/dev/null || die 'target-container database evidence is invalid'
+  emit "$(jq -n --arg operation "$operation" --argjson result "$output" \
+    '{database:{operation:$operation,result:$result}}')"
 }
 
 prepare_phase() {
@@ -297,6 +364,14 @@ assert_writers_stopped() {
   [[ -z "$unexpected" ]] || die 'a Compose one-off or application writer remained active'
 }
 
+assert_public_writers_stopped() {
+  running="$("${compose_current[@]}" ps --status running --services | sort | paste -sd, -)"
+  [[ "$running" == mysql,php ]] || die 'safe reload must leave only database and isolated PHP running'
+  unexpected="$(docker ps --filter "label=com.docker.compose.project=$compose_project" \
+    --format '{{.Label "com.docker.compose.service"}}' | grep -Ev '^(mysql|php)?$' || true)"
+  [[ -z "$unexpected" ]] || die 'public traffic, worker, or one-off service is active before activation'
+}
+
 stop_writers() {
   "${compose_current[@]}" stop --timeout 60 nginx cron php pc >/dev/null
   assert_writers_stopped
@@ -309,10 +384,13 @@ start_previous_writers() {
 verify_backup() {
   [[ -d "$backup_root" && ! -L "$backup_root" \
     && -f "$backup_root/database.sql.gz" && -f "$backup_root/php-storage.tar.gz" \
+    && -f "$backup_root/php-private-storage.tar.gz" \
     && -f "$backup_root/manifest.json" && -f "$backup_root/SHA256SUMS" ]] \
     || die 'bound product-upgrade backup is incomplete'
   (cd "$backup_root" && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz \
-    && tar -tzf php-storage.tar.gz >/dev/null) || die 'bound product-upgrade backup failed verification'
+    && tar -tzf php-storage.tar.gz >/dev/null \
+    && tar -tzf php-private-storage.tar.gz >/dev/null) \
+    || die 'bound product-upgrade backup failed verification'
   jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
     '.protocol == "peanut.product-upgrade-backup.v1" and .candidate == $candidate and .plan_sha256 == $plan
       and (.runtime.quiesced_services | type == "object")' \
@@ -335,12 +413,16 @@ backup_payload() {
     --arg manifest_sha "sha256:$(sha256sum "$backup_root/manifest.json" | awk '{print $1}')" \
     --arg database "$backup_root/database.sql.gz" \
     --arg database_sha "sha256:$(sha256sum "$backup_root/database.sql.gz" | awk '{print $1}')" \
-    --arg files "$backup_root/php-storage.tar.gz" \
-    --arg files_sha "sha256:$(sha256sum "$backup_root/php-storage.tar.gz" | awk '{print $1}')" \
+    --arg public_files "$backup_root/php-storage.tar.gz" \
+    --arg public_files_sha "sha256:$(sha256sum "$backup_root/php-storage.tar.gz" | awk '{print $1}')" \
+    --arg private_files "$backup_root/php-private-storage.tar.gz" \
+    --arg private_files_sha "sha256:$(sha256sum "$backup_root/php-private-storage.tar.gz" | awk '{print $1}')" \
     --arg database_resource "$(env_value "$backend_env" PEANUT_DATABASE_RESOURCE_ID)" \
     --arg compose_project "$compose_project" \
-    '{backup:{kind:"paired-database-files",manifest_path:$manifest,manifest_sha256:$manifest_sha,
-      database:{path:$database,sha256:$database_sha},files:{path:$files,sha256:$files_sha}},
+    '{backup:{kind:"database-and-storage-volumes",manifest_path:$manifest,manifest_sha256:$manifest_sha,
+      database:{path:$database,sha256:$database_sha},storage:{
+        public:{path:$public_files,sha256:$public_files_sha},
+        private:{path:$private_files,sha256:$private_files_sha}}},
       resources:{database_resource_id:$database_resource,compose_project:$compose_project}}'
 }
 
@@ -353,9 +435,12 @@ backup_phase() {
   mkdir -m 0700 "$backup_root"
   database_name="$(env_value "$backend_env" DB_NAME)"
   [[ "$database_name" =~ ^[A-Za-z0-9_]{1,64}$ ]] || die 'database name is unsafe'
-  storage_volume="${compose_project}_php-storage"
-  storage_mount="$(docker volume inspect --format '{{.Mountpoint}}' "$storage_volume")"
-  [[ -d "$storage_mount" ]] || die 'registered application storage volume is unavailable'
+  public_storage_volume="${compose_project}_php-storage"
+  private_storage_volume="${compose_project}_php-private-storage"
+  public_storage_mount="$(docker volume inspect --format '{{.Mountpoint}}' "$public_storage_volume")"
+  private_storage_mount="$(docker volume inspect --format '{{.Mountpoint}}' "$private_storage_volume")"
+  [[ -d "$public_storage_mount" && -d "$private_storage_mount" ]] \
+    || die 'registered application storage volumes are unavailable'
   before="$(service_identities)"
   stopped=0
   backup_complete=0
@@ -376,21 +461,28 @@ backup_phase() {
   "${compose_current[@]}" exec -T mysql sh -c \
     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --quick --routines --events --triggers --hex-blob --set-gtid-purged=OFF -uroot "$1"' \
     sh "$database_name" | gzip -9 >"$backup_root/database.sql.gz"
-  tar --one-file-system --numeric-owner -C "$storage_mount" -czf "$backup_root/php-storage.tar.gz" .
+  tar --one-file-system --numeric-owner -C "$public_storage_mount" -czf "$backup_root/php-storage.tar.gz" .
+  tar --one-file-system --numeric-owner -C "$private_storage_mount" -czf "$backup_root/php-private-storage.tar.gz" .
   database_sha="$(sha256sum "$backup_root/database.sql.gz" | awk '{print $1}')"
-  files_sha="$(sha256sum "$backup_root/php-storage.tar.gz" | awk '{print $1}')"
+  public_files_sha="$(sha256sum "$backup_root/php-storage.tar.gz" | awk '{print $1}')"
+  private_files_sha="$(sha256sum "$backup_root/php-private-storage.tar.gz" | awk '{print $1}')"
   quiesced="$(service_identities)"
   jq -n --arg candidate "$candidate" --arg plan "$plan_sha256" \
-    --arg database_name "$database_name" --arg storage_volume "$storage_volume" \
-    --arg database_sha "sha256:$database_sha" --arg files_sha "sha256:$files_sha" \
+    --arg database_name "$database_name" \
+    --arg public_storage_volume "$public_storage_volume" --arg private_storage_volume "$private_storage_volume" \
+    --arg database_sha "sha256:$database_sha" \
+    --arg public_files_sha "sha256:$public_files_sha" --arg private_files_sha "sha256:$private_files_sha" \
     --argjson services "$before" --argjson quiesced "$quiesced" \
     --arg created_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{schema_version:1,protocol:"peanut.product-upgrade-backup.v1",candidate:$candidate,plan_sha256:$plan,
-      runtime:{database_name:$database_name,storage_volume:$storage_volume,
+      runtime:{database_name:$database_name,storage_volumes:{
+          public:$public_storage_volume,private:$private_storage_volume},
         services_before_backup:$services,quiesced_services:$quiesced},
-      artifacts:{database:{filename:"database.sql.gz",sha256:$database_sha},files:{filename:"php-storage.tar.gz",sha256:$files_sha}},created_at:$created_at}' \
+      artifacts:{database:{filename:"database.sql.gz",sha256:$database_sha},storage:{
+          public:{filename:"php-storage.tar.gz",sha256:$public_files_sha},
+          private:{filename:"php-private-storage.tar.gz",sha256:$private_files_sha}}},created_at:$created_at}' \
     >"$backup_root/manifest.json"
-  (cd "$backup_root" && sha256sum database.sql.gz php-storage.tar.gz manifest.json >SHA256SUMS)
+  (cd "$backup_root" && sha256sum database.sql.gz php-storage.tar.gz php-private-storage.tar.gz manifest.json >SHA256SUMS)
   chmod 600 "$backup_root"/*
   verify_backup
   backup_complete=1
@@ -437,35 +529,42 @@ switch_phase() {
     '{active_target:{kind:"docker-compose-image-set",digest:$digest,receipt_path:$receipt,images:{php:$php,nginx:$nginx,pc:$pc}}}')"
 }
 
-reload_phase() {
+reload_safe_phase() {
   "${compose_current[@]}" config >/dev/null
   "${compose_current[@]}" up -d --wait mysql >/dev/null
   "${compose_current[@]}" run -T --rm --no-deps --entrypoint php php \
     server/database/environment-guard.php --current </dev/null >/dev/null
-  "${compose_current[@]}" run -T --rm --no-deps --entrypoint php php \
-    server/think plugin:reconcile --release-locked </dev/null >/dev/null
-  "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
+  "${compose_current[@]}" up -d --wait --no-deps php >/dev/null
+  assert_public_writers_stopped
   identities="$(service_identities)"
-  jq -e 'all(.pc,.php,.nginx,.cron; .status == "running")' <<<"$identities" >/dev/null \
-    || die 'target services did not all reach running state'
   emit "$(jq -n --arg project "$compose_project" --argjson services "$identities" \
-    '{compose_project:$project,services:$services}')"
+    '{compose_project:$project,write_gate_active:true,services:$services}')"
 }
 
 health_phase() {
   [[ -f "$current_receipt" && ! -L "$current_receipt" ]] || die 'runtime receipt is missing'
-  port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
-  curl -fsS --retry 12 --retry-delay 2 "http://127.0.0.1:$port/healthz" >/dev/null
-  curl -fsS "http://127.0.0.1:$port/legal/RELEASE_METADATA.json" | jq -e 'type == "object"' >/dev/null
-  curl -fsS "http://127.0.0.1:$port/" >/dev/null
+  activated="$(jq -r '.activation_started' "$state_path")"
+  if [[ "$activated" == false ]]; then
+    assert_public_writers_stopped
+  else
+    identities="$(service_identities)"
+    jq -e 'all(.pc,.php,.nginx,.cron; .status == "running")' <<<"$identities" >/dev/null \
+      || die 'activated services are not running for health verification'
+    port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
+    curl -fsS --retry 3 --retry-delay 1 "http://127.0.0.1:$port/healthz" >/dev/null
+    curl -fsS "http://127.0.0.1:$port/legal/RELEASE_METADATA.json" | jq -e 'type == "object"' >/dev/null
+    curl -fsS "http://127.0.0.1:$port/" >/dev/null
+  fi
   "${compose_current[@]}" exec -T php php server/database/environment-guard.php --current </dev/null >/dev/null
   "${compose_current[@]}" exec -T php php server/think plugin:lock --check </dev/null >/dev/null
   installation_status="$("${compose_current[@]}" exec -T php php server/database/install.php --status </dev/null)" \
     || die 'installed business state probe failed'
-  jq -e '
+  jq -e --arg edition "$edition" '
     .state == "installed" and .code == "INSTALL_ALREADY_COMPLETED"
     and (.health | type == "object")
-    and (.health.tenant_count == 1) and (.health.owner_count == 1) and (.health.operator_count == 1)
+    and (.health.tenant_count | type == "number" and . >= 1)
+    and (.health.owner_count | type == "number" and . >= 1)
+    and (.health.operator_count | type == "number" and . >= (if $edition == "multi-tenant" then 1 else 0 end))
     and (.health.application_migration_count | type == "number")
     and (.health.module_migration_count | type == "number")
     and (.health.menu_count | type == "number" and . >= 1)
@@ -487,12 +586,39 @@ health_phase() {
   ' "$current_receipt" >/dev/null || die 'runtime receipt or image binding differs from the upgrade plan'
   runtime_digest="$(printf '%s\n%s\n' "$(sha256sum "$current_receipt")" "$(jq -S . <<<"$identities")" | sha256sum | awk '{print "sha256:" $1}')"
   emit "$(jq -n --arg candidate "$candidate" --arg commit "$source_commit" --arg tree "$source_tree" \
+    --argjson activated "$activated" \
     --arg digest "$runtime_digest" --argjson services "$identities" \
     --argjson installation_health "$(jq -c '.health' <<<"$installation_status")" \
     '{candidate:$candidate,commit:$commit,tree:$tree,runtime_digest:$digest,services:$services,
-      installation_health:$installation_health,
-      probes:{healthz:true,legal_metadata:true,root_http:true,database_environment:true,plugin_lock:true,
-        installation_status:true,receipt_image_binding:true}}')"
+      write_gate_active:($activated | not),activation_started:$activated,installation_health:$installation_health,
+      probes:{database_environment:true,plugin_lock:true,
+        installation_status:true,receipt_image_binding:true,
+        public_http:(if $activated then true else null end)}}')"
+}
+
+activate_phase() {
+  jq -e '.activation_started == true and (.evidence.health | type == "object")' "$state_path" >/dev/null \
+    || die 'activation requires durable healthy state and activation boundary'
+  "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
+  identities="$(service_identities)"
+  jq -e 'all(.pc,.php,.nginx,.cron; .status == "running")' <<<"$identities" >/dev/null \
+    || die 'activated services did not all reach running state'
+  port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
+  curl -fsS --retry 12 --retry-delay 2 "http://127.0.0.1:$port/healthz" >/dev/null
+  curl -fsS "http://127.0.0.1:$port/legal/RELEASE_METADATA.json" | jq -e 'type == "object"' >/dev/null
+  curl -fsS "http://127.0.0.1:$port/" >/dev/null
+  installation_status="$("${compose_current[@]}" exec -T php php server/database/install.php --status </dev/null)" \
+    || die 'activated business state probe failed'
+  jq -e --arg edition "$edition" '
+    .state == "installed" and (.health.tenant_count | type == "number" and . >= 1)
+    and (.health.owner_count | type == "number" and . >= 1)
+    and (.health.operator_count | type == "number" and . >= (if $edition == "multi-tenant" then 1 else 0 end))
+  ' <<<"$installation_status" >/dev/null || die 'activated business state is incomplete'
+  emit "$(jq -n --arg project "$compose_project" --argjson services "$identities" \
+    --argjson installation_health "$(jq -c '.health' <<<"$installation_status")" \
+    '{activation:{opened:true,automatic_destructive_recovery_forbidden:true},compose_project:$project,
+      services:$services,installation_health:$installation_health,
+      probes:{healthz:true,legal_metadata:true,root_http:true,installation_status:true}}')"
 }
 
 restore_previous_runtime() {
@@ -505,41 +631,193 @@ restore_previous_runtime() {
 }
 
 recover_phase() {
-  migration_started="$(jq -r '.migration_started' "$state_path")"
+  [[ "$(jq -r '.activation_started // false' "$state_path")" == false ]] \
+    || die 'automatic destructive recovery is forbidden after activation starts'
+  if [[ -f "$recovery_record" ]]; then
+    [[ ! -L "$recovery_record" && "$(stat -c '%a %h' "$recovery_record")" == '600 1' ]] \
+      || die 'durable host recovery record is invalid'
+    jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" '
+      .protocol == "peanut.product-upgrade-host-recovery.v1" and .status == "data-runtime-restored"
+      and .candidate == $candidate and .plan_sha256 == $plan
+      and .payload.recovery.writers_stopped == true and .payload.recovery.resume_required == true
+    ' "$recovery_record" >/dev/null || die 'durable host recovery record is bound to another upgrade'
+    if [[ -f "$resume_old_record" ]]; then
+      jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
+        --arg recovery_sha "sha256:$(sha256sum "$recovery_record" | awk '{print $1}')" '
+          .protocol == "peanut.product-upgrade-host-resume-old.v1" and .status == "completed"
+          and .candidate == $candidate and .plan_sha256 == $plan
+          and .recovery_record_sha256 == $recovery_sha
+          and .payload.recovery.resumed_old_runtime == true and .payload.recovery.verified == true
+        ' "$resume_old_record" >/dev/null || die 'durable old runtime resume record is invalid'
+    else
+      assert_writers_stopped
+    fi
+    emit "$(jq -c '.payload' "$recovery_record")"
+    return
+  fi
+  database_recovery_required="$(jq -r '.database_recovery_required // false' "$state_path")"
   stop_writers
   recovery_kind=program-only
-  if [[ "$migration_started" == true ]]; then
+  backup_manifest_sha=null
+  if [[ "$database_recovery_required" == true ]]; then
     verify_backup
     database_name="$(jq -r '.runtime.database_name' "$backup_root/manifest.json")"
-    storage_volume="$(jq -r '.runtime.storage_volume' "$backup_root/manifest.json")"
-    [[ "$database_name" =~ ^[A-Za-z0-9_]{1,64}$ && "$storage_volume" == "${compose_project}_php-storage" ]] \
+    public_storage_volume="$(jq -r '.runtime.storage_volumes.public' "$backup_root/manifest.json")"
+    private_storage_volume="$(jq -r '.runtime.storage_volumes.private' "$backup_root/manifest.json")"
+    [[ "$database_name" =~ ^[A-Za-z0-9_]{1,64}$ \
+      && "$public_storage_volume" == "${compose_project}_php-storage" \
+      && "$private_storage_volume" == "${compose_project}_php-private-storage" ]] \
       || die 'bound backup runtime identity is invalid'
     "${compose_current[@]}" exec -T mysql sh -c \
       'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -e "DROP DATABASE IF EXISTS \`$1\`; CREATE DATABASE \`$1\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"' \
       sh "$database_name"
     gzip -dc "$backup_root/database.sql.gz" | "${compose_current[@]}" exec -T mysql sh -c \
       'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot "$1"' sh "$database_name"
-    storage_mount="$(docker volume inspect --format '{{.Mountpoint}}' "$storage_volume")"
-    [[ -d "$storage_mount" ]] || die 'bound storage volume is unavailable for recovery'
-    find "$storage_mount" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
-    tar -xzf "$backup_root/php-storage.tar.gz" -C "$storage_mount"
-    recovery_kind=paired-database-files-and-program
+    public_storage_mount="$(docker volume inspect --format '{{.Mountpoint}}' "$public_storage_volume")"
+    private_storage_mount="$(docker volume inspect --format '{{.Mountpoint}}' "$private_storage_volume")"
+    [[ -d "$public_storage_mount" && -d "$private_storage_mount" ]] \
+      || die 'bound storage volumes are unavailable for recovery'
+    find "$public_storage_mount" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+    find "$private_storage_mount" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+    tar -xzf "$backup_root/php-storage.tar.gz" -C "$public_storage_mount"
+    tar -xzf "$backup_root/php-private-storage.tar.gz" -C "$private_storage_mount"
+    backup_manifest_sha="sha256:$(sha256sum "$backup_root/manifest.json" | awk '{print $1}')"
+    recovery_kind=database-public-private-storage-and-program
   fi
   restore_previous_runtime
   compose_current=(env "PEANUT_SERVER_ENV_FILE=$backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$current_receipt" \
     docker compose "${compose_environment[@]}" -p "$compose_project" -f "$instance_root/compose.yaml" --profile bundled-db)
   "${compose_current[@]}" up -d --wait mysql >/dev/null
+  assert_writers_stopped
+  restored_database_name="$(env_value "$backend_env" DB_NAME)"
+  restored_database_resource="$(env_value "$backend_env" PEANUT_DATABASE_RESOURCE_ID)"
+  recovery_payload="$(jq -n --arg kind "$recovery_kind" --arg backup_manifest_sha "$backup_manifest_sha" \
+    --arg database_name "$restored_database_name" --arg database_resource "$restored_database_resource" \
+    --arg public_storage_volume "${compose_project}_php-storage" \
+    --arg private_storage_volume "${compose_project}_php-private-storage" \
+    --argjson services "$(service_identities)" \
+    '{recovery:{kind:$kind,data_runtime_restored:true,writers_stopped:true,resume_required:true,
+        backup_manifest_sha256:(if $backup_manifest_sha == "null" then null else $backup_manifest_sha end)},
+      restored_resources:{database_name:$database_name,database_resource_id:$database_resource,
+        storage_volumes:{public:$public_storage_volume,private:$private_storage_volume}},
+      services:$services}')"
+  write_json "$recovery_record" "$(jq -n --arg candidate "$candidate" --arg plan "$plan_sha256" \
+    --argjson payload "$recovery_payload" \
+    '{schema_version:1,protocol:"peanut.product-upgrade-host-recovery.v1",status:"data-runtime-restored",
+      candidate:$candidate,plan_sha256:$plan,payload:$payload}')"
+  emit "$recovery_payload"
+}
+
+resume_old_phase() {
+  [[ -f "$recovery_record" && ! -L "$recovery_record" ]] \
+    || die 'old runtime resume requires durable host recovery evidence'
+  jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" '
+    .protocol == "peanut.product-upgrade-host-recovery.v1" and .status == "data-runtime-restored"
+    and .candidate == $candidate and .plan_sha256 == $plan
+    and .payload.recovery.resume_required == true
+  ' "$recovery_record" >/dev/null || die 'old runtime resume evidence is invalid'
+  [[ "$(jq -r '.activation_started' "$state_path")" == false ]] \
+    || die 'old runtime resume is forbidden after activation starts'
+  "${compose_current[@]}" config >/dev/null
+  "${compose_current[@]}" up -d --wait mysql >/dev/null
   "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
-  emit "$(jq -n --arg kind "$recovery_kind" --argjson services "$(service_identities)" \
-    '{recovery:{kind:$kind,completed:true},services:$services}')"
+  "${compose_current[@]}" exec -T php php server/database/environment-guard.php --current </dev/null >/dev/null
+  "${compose_current[@]}" exec -T php php server/think plugin:lock --check </dev/null >/dev/null
+  installation_status="$("${compose_current[@]}" exec -T php php server/database/install.php --status </dev/null)" \
+    || die 'recovered business state probe failed'
+  jq -e --arg edition "$edition" '
+    .state == "installed" and (.health.tenant_count | type == "number" and . >= 1)
+    and (.health.owner_count | type == "number" and . >= 1)
+    and (.health.operator_count | type == "number" and . >= (if $edition == "multi-tenant" then 1 else 0 end))
+  ' <<<"$installation_status" >/dev/null || die 'recovered business state is incomplete'
+  port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
+  curl -fsS --retry 12 --retry-delay 2 "http://127.0.0.1:$port/healthz" >/dev/null
+  identities="$(service_identities)"
+  php_container="$(jq -r '.php.container_id // empty' <<<"$identities")"
+  [[ "$php_container" =~ ^[a-f0-9]{64}$ ]] || die 'recovered PHP service identity is unavailable'
+  runtime_receipt="$(docker exec "$php_container" cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)"
+  [[ "$(cat "$current_receipt")" == "$runtime_receipt" ]] \
+    || die 'recovered host and PHP runtime receipts differ'
+  resume_payload="$(jq -n --arg project "$compose_project" --argjson services "$identities" \
+    --argjson installation_health "$(jq -c '.health' <<<"$installation_status")" \
+    '{recovery:{resumed_old_runtime:true,verified:true},compose_project:$project,
+      services:$services,installation_health:$installation_health,
+      probes:{healthz:true,database_environment:true,plugin_lock:true,installation_status:true,receipt_binding:true}}')"
+  write_json "$resume_old_record" "$(jq -n --arg candidate "$candidate" --arg plan "$plan_sha256" \
+    --arg recovery_sha "sha256:$(sha256sum "$recovery_record" | awk '{print $1}')" \
+    --arg receipt_sha "sha256:$(sha256sum "$current_receipt" | awk '{print $1}')" \
+    --argjson payload "$resume_payload" \
+    '{schema_version:1,protocol:"peanut.product-upgrade-host-resume-old.v1",status:"completed",
+      candidate:$candidate,plan_sha256:$plan,recovery_record_sha256:$recovery_sha,
+      runtime_receipt_sha256:$receipt_sha,payload:$payload}')"
+  emit "$resume_payload"
+}
+
+recovery_verify_phase() {
+  [[ "$(jq -r '.phase' "$state_path")" == recovered ]] \
+    || die 'recovery verification requires recovered terminal state'
+  for record in "$recovery_record" "$resume_old_record"; do
+    [[ -f "$record" && ! -L "$record" && "$(stat -c '%a %h' "$record")" == '600 1' ]] \
+      || die 'durable recovery verification record is unavailable'
+  done
+  recovery_sha="sha256:$(sha256sum "$recovery_record" | awk '{print $1}')"
+  receipt_sha="sha256:$(sha256sum "$current_receipt" | awk '{print $1}')"
+  jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
+    --arg recovery_sha "$recovery_sha" --arg receipt_sha "$receipt_sha" '
+      .protocol == "peanut.product-upgrade-host-resume-old.v1" and .status == "completed"
+      and .candidate == $candidate and .plan_sha256 == $plan
+      and .recovery_record_sha256 == $recovery_sha and .runtime_receipt_sha256 == $receipt_sha
+      and .payload.recovery.resumed_old_runtime == true and .payload.recovery.verified == true
+    ' "$resume_old_record" >/dev/null || die 'durable old runtime receipt is invalid'
+  expected_database_name="$(jq -r '.payload.restored_resources.database_name' "$recovery_record")"
+  expected_database_resource="$(jq -r '.payload.restored_resources.database_resource_id' "$recovery_record")"
+  public_storage_volume="$(jq -r '.payload.restored_resources.storage_volumes.public' "$recovery_record")"
+  private_storage_volume="$(jq -r '.payload.restored_resources.storage_volumes.private' "$recovery_record")"
+  [[ "$expected_database_name" == "$(env_value "$backend_env" DB_NAME)" \
+    && "$expected_database_resource" == "$(env_value "$backend_env" PEANUT_DATABASE_RESOURCE_ID)" \
+    && "$public_storage_volume" == "${compose_project}_php-storage" \
+    && "$private_storage_volume" == "${compose_project}_php-private-storage" ]] \
+    || die 'recovered database or storage identity changed'
+  docker volume inspect "$public_storage_volume" "$private_storage_volume" >/dev/null \
+    || die 'recovered storage volumes are unavailable'
+  identities="$(service_identities)"
+  jq -e 'all(.mysql,.pc,.php,.nginx,.cron; .status == "running")' <<<"$identities" >/dev/null \
+    || die 'recovered services are not running'
+  saved_images="$(jq -c '.payload.services | with_entries(.value = .value.image_id)' "$resume_old_record")"
+  current_images="$(jq -c 'with_entries(.value = .value.image_id)' <<<"$identities")"
+  [[ "$saved_images" == "$current_images" ]] || die 'recovered runtime image identity changed'
+  "${compose_current[@]}" exec -T php php server/database/environment-guard.php --current </dev/null >/dev/null
+  "${compose_current[@]}" exec -T php php server/think plugin:lock --check </dev/null >/dev/null
+  installation_status="$("${compose_current[@]}" exec -T php php server/database/install.php --status </dev/null)" \
+    || die 'recovered business state verification failed'
+  jq -e --arg edition "$edition" '
+    .state == "installed" and (.health.tenant_count | type == "number" and . >= 1)
+    and (.health.owner_count | type == "number" and . >= 1)
+    and (.health.operator_count | type == "number" and . >= (if $edition == "multi-tenant" then 1 else 0 end))
+  ' <<<"$installation_status" >/dev/null || die 'recovered business state verification is incomplete'
+  php_container="$(jq -r '.php.container_id // empty' <<<"$identities")"
+  runtime_receipt="$(docker exec "$php_container" cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)"
+  [[ "$(cat "$current_receipt")" == "$runtime_receipt" ]] \
+    || die 'recovered runtime receipt identity changed'
+  port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
+  curl -fsS --retry 3 --retry-delay 1 "http://127.0.0.1:$port/healthz" >/dev/null
+  emit "$(jq -n --arg recovery_record_sha "$recovery_sha" --arg resume_record_sha \
+    "sha256:$(sha256sum "$resume_old_record" | awk '{print $1}')" \
+    --argjson services "$identities" --argjson installation_health "$(jq -c '.health' <<<"$installation_status")" \
+    '{recovery:{verified:true,read_only:true,recovery_record_sha256:$recovery_record_sha,
+        resume_record_sha256:$resume_record_sha},services:$services,installation_health:$installation_health}')"
 }
 
 case "$phase" in
   prepare) prepare_phase ;;
+  migration-preflight|migrate|migration-verify) database_phase ;;
   backup) backup_phase ;;
   quiesce) quiesce_phase ;;
   switch) switch_phase ;;
-  reload) reload_phase ;;
+  reload-safe) reload_safe_phase ;;
   health) health_phase ;;
+  activate) activate_phase ;;
   recover) recover_phase ;;
+  resume-old) resume_old_phase ;;
+  recovery-verify) recovery_verify_phase ;;
 esac

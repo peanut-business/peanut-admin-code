@@ -615,11 +615,12 @@ if [[ -n "$UPGRADE_PACKAGE" ]]; then
   tar -tzf "$UPGRADE_PACKAGE" | awk -v root="$upgrade_root/" '
     index($0, root) != 1 || $0 ~ /(^|\/)\.\.($|\/)/ { bad = 1 }
     $0 == root "upgrade-manifest.json" { manifest = 1 }
-    $0 == root "scripts/upgrade" { upgrader = 1 }
+    $0 == root "scripts/scaffold-upgrade" { scaffold = 1 }
     $0 == root "scripts/upgrade-runtime/product-upgrade-host" { host = 1 }
+    $0 == root "scripts/upgrade-runtime/product-upgrade-database" { database = 1 }
     $0 == root "target/scaffold-manifest.json" { manifest_target = 1 }
     $0 == root "target/files/compose.yaml" { compose = 1 }
-    END { exit (!bad && manifest && upgrader && host && manifest_target && compose) ? 0 : 1 }
+    END { exit (!bad && manifest && scaffold && host && database && manifest_target && compose) ? 0 : 1 }
   ' || fail 'Edition upgrade archive layout is unsafe or incomplete'
 fi
 
@@ -990,8 +991,9 @@ if [[ "$archive_kind" == upgrade ]]; then
     sudo -n chmod 0700 "$upgrade_artifact_root"
   fi
   application_staging="$upgrade_artifact_root/target/files"
-  [[ -x "$upgrade_artifact_root/scripts/upgrade" \
+  [[ -x "$upgrade_artifact_root/scripts/scaffold-upgrade" \
     && -x "$upgrade_artifact_root/scripts/upgrade-runtime/product-upgrade-host" \
+    && -x "$upgrade_artifact_root/scripts/upgrade-runtime/product-upgrade-database" \
     && -f "$upgrade_artifact_root/target/scaffold-manifest.json" \
     && -f "$application_staging/compose.yaml" ]] \
     || fail 'stable upgrade artifact is missing its entrypoint or target application'
@@ -999,7 +1001,36 @@ fi
 if [[ "$mode" == update ]]; then
   runtime_environment="$root/.env"
   (( has_backend_env == 0 )) || runtime_environment="$root/server/.env"
-  upgrade_runner=(env "PEANUT_SERVER_ENV_FILE=$runtime_environment" php "$upgrade_artifact_root/scripts/upgrade")
+  trusted_upgrade_entrypoint="$root/scripts/upgrade"
+  trusted_upgrade_runtime=(
+    scripts/scaffold-runtime/ScaffoldPathGuard.php
+    scripts/scaffold-runtime/ScaffoldManifest.php
+    scripts/scaffold-runtime/ScaffoldUpgradeLedger.php
+    scripts/scaffold-runtime/Semver.php
+    scripts/scaffold-runtime/ScaffoldUpgradeRunner.php
+    scripts/scaffold-runtime/EditionUpgradePackage.php
+    'server/app/platform/exception/plugin/PluginLifecycleException.php|scripts/upgrade-runtime/PluginLifecycleException.php'
+    'server/app/platform/value/plugin/PluginDescriptor.php|scripts/upgrade-runtime/PluginDescriptor.php'
+    'server/app/platform/infrastructure/plugin/PluginLockResolver.php|scripts/upgrade-runtime/PluginLockResolver.php'
+  )
+  [[ -f "$trusted_upgrade_entrypoint" && ! -L "$trusted_upgrade_entrypoint" ]] \
+    || fail 'installed trusted upgrade coordinator is unavailable'
+  for trusted_runtime_spec in "${trusted_upgrade_runtime[@]}"; do
+    IFS='|' read -r -a trusted_runtime_candidates <<<"$trusted_runtime_spec"
+    trusted_runtime_found=0
+    for trusted_runtime_file in "${trusted_runtime_candidates[@]}"; do
+      if [[ -f "$root/$trusted_runtime_file" && ! -L "$root/$trusted_runtime_file" ]]; then
+        trusted_runtime_found=1
+        break
+      fi
+    done
+    (( trusted_runtime_found == 1 )) \
+      || fail "installed trusted upgrade runtime is unavailable: $trusted_runtime_spec"
+  done
+  # The installed coordinator is the trust anchor. It verifies the extracted
+  # package signature, canonical inventory and file types before it can invoke
+  # the signed package host driver. Never bootstrap trust from package code.
+  upgrade_runner=(env "PEANUT_SERVER_ENV_FILE=$runtime_environment" php "$trusted_upgrade_entrypoint")
   upgrade_plan_json="$("${upgrade_runner[@]}" plan \
     --instance-root="$root" --package="$upgrade_artifact_root" \
     --signature-key-id="$upgrade_signature_key_id" --env-file="$upgrade_trust" </dev/null)" \
@@ -1008,7 +1039,7 @@ if [[ "$mode" == update ]]; then
   upgrade_candidate="$(jq -r '.candidate // empty' <<<"$upgrade_plan_json")"
   upgrade_plan_sha="$(jq -r '.plan_sha256 // empty' <<<"$upgrade_plan_json")"
   jq -e --arg root "$root" '
-    .status == "ready" and .protocol == "peanut.product-upgrade-plan.v2"
+    .status == "ready" and .authenticated == true and .protocol == "peanut.product-upgrade-plan.v2"
     and (.candidate | type == "string" and length > 0)
     and (.plan_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
     and (.plan_path | type == "string" and startswith($root + "/.peanut/upgrades/product-plans/"))
