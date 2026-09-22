@@ -412,7 +412,8 @@ $expect(str_contains($probe, 'resources/project-resources.json'), 'probe does no
 $expect(str_contains($guardSource, 'PEANUT_RESOURCE_LEASE_PROOF')
     && str_contains($guardSource, '/run/peanut-admin/resource-lease'), 'P0-E guard does not require the fixed lease proof mount');
 $expect(str_contains($hostRuntime, '/opt/homebrew/bin/php'), 'daily development does not use registered host PHP');
-$expect(str_contains($hostRuntime, '/usr/local/bin/composer'), 'daily development does not use registered Composer');
+$expect(str_contains($hostRuntime, '$repo_dir/scripts/project-composer')
+    && str_contains($hostRuntime, 'expected_composer_version=2.10.2'), 'daily development does not use the registered version-checked Composer wrapper');
 $expect(!preg_match('/(?m)^\s{2}php:\s*$/', $devCompose), 'development Compose still defines a PHP service');
 $expect(str_contains($devCompose, 'host.docker.internal'), 'development containers do not target host PHP');
 $expect(str_contains($devCompose, 'NO_PROXY'), 'development containers do not bypass proxies for host PHP');
