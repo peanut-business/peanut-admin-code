@@ -70,7 +70,7 @@ final class EditionUpgradePackage
     /** @return array{from_manifest:string,to_manifest:string,package:array<string,mixed>} */
     public function prepare(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
     {
-        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys);
+        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys, true);
         $prepared['from_manifest'] = $this->writeBaselineManifest($prepared['project_root'], $prepared['application']);
         unset($prepared['project_root'], $prepared['application']);
         return $prepared;
@@ -79,13 +79,27 @@ final class EditionUpgradePackage
     /** Authenticate a formal package without writing source-baseline metadata. */
     public function prepareAdoption(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
     {
-        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys);
+        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys, true);
+        unset($prepared['project_root'], $prepared['application']);
+        return $prepared;
+    }
+
+    /** Reauthenticate a plan-bound package after its target application manifest may already be active. */
+    public function reauthenticate(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
+    {
+        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys, false);
         unset($prepared['project_root'], $prepared['application']);
         return $prepared;
     }
 
     /** @return array<string,mixed> */
-    private function authenticate(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
+    private function authenticate(
+        string $projectRoot,
+        string $packageRoot,
+        string $signatureKeyId,
+        array $trustedKeys,
+        bool $requireSourceCompatibility,
+    ): array
     {
         $project = ScaffoldPathGuard::projectRoot($projectRoot);
         $package = realpath($packageRoot);
@@ -123,6 +137,7 @@ final class EditionUpgradePackage
                 $files['scripts/scaffold-upgrade'],
                 $files['scripts/scaffold-runtime/EditionUpgradePackage.php'],
                 $files['scripts/upgrade-runtime/ApplicationMigrationRunner.php'],
+                $files['scripts/upgrade-runtime/product-upgrade-host'],
             )) {
             throw new RuntimeException('EDITION_UPGRADE_MANIFEST_INVALID');
         }
@@ -154,7 +169,9 @@ final class EditionUpgradePackage
             || ($manifest['compatibility']['major_policy'] ?? null) !== 'same-major'
             || version_compare($minimum, $target, '>=')
             || version_compare($current, $minimum, '<')
-            || version_compare($current, $target, '>=')
+            || ($requireSourceCompatibility && version_compare($current, $target, '>='))
+            || (!$requireSourceCompatibility && $current !== $target
+                && (version_compare($current, $minimum, '<') || version_compare($current, $target, '>=')))
             || explode('.', $current, 2)[0] !== explode('.', $target, 2)[0]) {
             throw new RuntimeException('EDITION_UPGRADE_RELEASE_CHAIN_INVALID');
         }
@@ -189,7 +206,9 @@ final class EditionUpgradePackage
 
         $this->assertOwnership($manifest);
         $this->assertMigrationChain($manifest, $targetManifest);
-        $adoption = $this->assertAdoption($package, $files, $manifest, $application, $targetManifest);
+        $adoption = $requireSourceCompatibility
+            ? $this->assertAdoption($package, $files, $manifest, $application, $targetManifest)
+            : null;
 
         return [
             'to_manifest' => $targetManifest->path,

@@ -175,7 +175,7 @@ final class InstallationExecutionHost
                     \installationTenantBootstrapContract($this->serverRoot),
                 );
                 $health = $this->health($moduleKeys);
-                $this->writeCompletionMarker($moduleKeys);
+                $receipt = $this->writeCompletionMarker($moduleKeys);
                 @unlink($this->progressMarker());
 
                 return [
@@ -186,6 +186,7 @@ final class InstallationExecutionHost
                     'migration' => $migration,
                     'modules' => $modules,
                     'health' => $health,
+                    'installation_receipt' => $receipt,
                 ];
             } catch (Throwable $exception) {
                 try {
@@ -464,24 +465,99 @@ final class InstallationExecutionHost
         ]);
     }
 
-    /** @param list<string> $moduleKeys */
-    private function writeCompletionMarker(array $moduleKeys): void
+    /** @param list<string> $moduleKeys @return array<string,mixed> */
+    private function writeCompletionMarker(array $moduleKeys): array
     {
         $versions = \applicationReleaseVersions($this->serverRoot);
-        $applicationManifest = dirname($this->serverRoot) . '/.peanut/application-manifest.json';
-        $applicationManifestSha256 = hash_file('sha256', $applicationManifest);
-        if (!is_string($applicationManifestSha256)) {
+        $baseline = $this->installationBaseline($moduleKeys, $versions);
+        $this->writeMarker($this->baselineMarker(), $baseline);
+        $baselineSha256 = hash_file('sha256', $this->baselineMarker());
+        if (!is_string($baselineSha256)) {
             throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
         }
-        $this->writeMarker($this->completionMarker(), [
+        $payload = [
             'schema_version' => 1,
+            'protocol' => 'peanut.installation-receipt.v1',
             'state' => 'installed',
             'deployment_mode' => $this->deploymentMode(),
             'official_modules' => $moduleKeys,
             'release' => $versions,
-            'application_manifest_sha256' => $applicationManifestSha256,
+            'baseline_manifest' => [
+                'path' => 'server/runtime/installation/baseline.json',
+                'sha256' => $baselineSha256,
+            ],
             'completed_at' => gmdate(DATE_ATOM),
-        ]);
+        ];
+        if (isset($baseline['source']['application_manifest_sha256'])) {
+            $payload['application_manifest_sha256'] = $baseline['source']['application_manifest_sha256'];
+        }
+        $this->writeMarker($this->completionMarker(), $payload);
+        $receiptSha256 = hash_file('sha256', $this->completionMarker());
+        if (!is_string($receiptSha256)) {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        }
+        return [
+            'path' => 'server/runtime/installation/installed.json',
+            'sha256' => $receiptSha256,
+            'baseline_manifest' => $payload['baseline_manifest'],
+        ];
+    }
+
+    /** @param list<string> $moduleKeys @param array<string,string> $versions @return array<string,mixed> */
+    private function installationBaseline(array $moduleKeys, array $versions): array
+    {
+        $projectRoot = dirname($this->serverRoot);
+        $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
+        if (file_exists($applicationManifest) || is_link($applicationManifest)) {
+            if (!is_file($applicationManifest) || is_link($applicationManifest)) {
+                throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+            }
+            $source = [
+                'kind' => 'generated-application',
+                'application_manifest_sha256' => $this->fileDigest($applicationManifest),
+            ];
+        } else {
+            $source = [
+                'kind' => 'product-source',
+                'inventory_sha256' => $this->fileDigest($projectRoot . '/scaffold/application-template-inventory.json'),
+                'edition_profiles_sha256' => $this->fileDigest($projectRoot . '/scaffold/edition-profiles.json'),
+                'release_versions_sha256' => $this->fileDigest($projectRoot . '/release-versions.json'),
+            ];
+        }
+
+        $migrations = [];
+        foreach (glob($this->serverRoot . '/database/migrations/*.sql') ?: [] as $path) {
+            $migrations[] = [
+                'id' => basename($path, '.sql'),
+                'sha256' => $this->fileDigest($path),
+            ];
+        }
+        usort($migrations, static fn(array $left, array $right): int => strcmp($left['id'], $right['id']));
+
+        return [
+            'schema_version' => 1,
+            'protocol' => 'peanut.installation-baseline.v1',
+            'deployment_mode' => $this->deploymentMode(),
+            'release' => $versions,
+            'source' => $source,
+            'database' => [
+                'fresh_schema_sha256' => $this->fileDigest($this->serverRoot . '/database/init.sql'),
+                'migration_chain' => $migrations,
+            ],
+            'official_modules' => $moduleKeys,
+        ];
+    }
+
+    private function fileDigest(string $path): string
+    {
+        if (!is_file($path) || is_link($path)) {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        }
+        $digest = hash_file('sha256', $path);
+        if (!is_string($digest)) {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        }
+        return $digest;
     }
 
     /** @param array<string,mixed> $payload */
@@ -509,5 +585,10 @@ final class InstallationExecutionHost
     private function completionMarker(): string
     {
         return $this->serverRoot . '/runtime/installation/installed.json';
+    }
+
+    private function baselineMarker(): string
+    {
+        return $this->serverRoot . '/runtime/installation/baseline.json';
     }
 }

@@ -182,6 +182,7 @@ try {
             'server/app/platform/value/plugin/PluginDescriptor.php' => ['scripts/upgrade-runtime/PluginDescriptor.php', 0644],
             'server/app/platform/infrastructure/plugin/PluginLockResolver.php' => ['scripts/upgrade-runtime/PluginLockResolver.php', 0644],
             'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => ['scripts/upgrade-runtime/ApplicationMigrationRunner.php', 0644],
+            'scripts/product-upgrade-host' => ['scripts/upgrade-runtime/product-upgrade-host', 0755],
         ] as $sourcePath => [$packagePath, $mode]) {
             $contents = editionUpgradeRun(['git', '-C', $root, 'show', $commit . ':' . $sourcePath]);
             editionUpgradeWrite($package . '/' . $packagePath, $contents, $mode);

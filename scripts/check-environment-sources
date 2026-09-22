@@ -57,6 +57,7 @@ def scan_sources(errors: list[str]) -> None:
         "server/database/seed-multi-tenant-demo.php",
         "server/app/common/value/runtime/RuntimeNamespace.php",
         "server/app/common/services/installation/InstallationPreflightHost.php",
+        "scripts/upgrade",
     }
     approved_projectors = {
         "scripts/client-environment.ts",

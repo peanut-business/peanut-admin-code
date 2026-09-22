@@ -309,6 +309,7 @@ try {
     editionUpgradeFile($package . '/scripts/scaffold-upgrade', "<?php // internal scaffold cli\n", 0755);
     editionUpgradeFile($package . '/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php // package loader\n");
     editionUpgradeFile($package . '/scripts/upgrade-runtime/ApplicationMigrationRunner.php', "<?php // migration runner\n");
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-host', "#!/usr/bin/env bash\n", 0755);
     $upgradeManifest = [
         'schema_version' => 1,
         'protocol' => 'peanut.edition-upgrade-package.v1',
@@ -607,6 +608,7 @@ function editionAdoptionFixture(string $temporary, string $edition, bool $custom
     editionUpgradeFile($package . '/scripts/scaffold-upgrade', "<?php\n", 0755);
     editionUpgradeFile($package . '/scripts/scaffold-runtime/EditionUpgradePackage.php', "<?php\n");
     editionUpgradeFile($package . '/scripts/upgrade-runtime/ApplicationMigrationRunner.php', "<?php\n");
+    editionUpgradeFile($package . '/scripts/upgrade-runtime/product-upgrade-host', "#!/usr/bin/env bash\n", 0755);
     $upgradeManifest = [
         'schema_version' => 1, 'protocol' => 'peanut.edition-upgrade-package.v1', 'product' => ['name' => 'Peanut Admin'],
         'edition' => array_intersect_key(editionUpgradeEdition($edition), array_flip([

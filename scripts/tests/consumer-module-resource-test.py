@@ -11,7 +11,7 @@ globals_ = select.__globals__
 base = {
     'stable_resource_id': 'fixture-mysql',
     'environments': ['development-test'],
-    'application_runtime': True,
+    'application_runtime': False,
     'lifecycle': 'ephemeral',
     'database': 'fixture_consumer',
     'synthetic_databases': {'test': ['fixture_author']},
@@ -41,7 +41,7 @@ check(deepcopy(base), True, database='fixture_author')
 legacy = deepcopy(base)
 legacy['environments'] = ['development']
 check(legacy, True)
-for field, value in [('environments', ['production']), ('application_runtime', False), ('lifecycle', 'persistent')]:
+for field, value in [('environments', ['production']), ('application_runtime', True), ('lifecycle', 'persistent')]:
     changed = deepcopy(base)
     changed[field] = value
     check(changed, False)

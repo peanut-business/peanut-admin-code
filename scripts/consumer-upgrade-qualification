@@ -241,9 +241,10 @@ def main() -> int:
         instance = instance_roots[scenario]
         backup = backup_roots[scenario]
         package = f"<exact-signed-{target_version}-{data['edition']}-package>"
-        upgrader = f"{package}/upgrader/scripts/scaffold-upgrade"
+        upgrader = f"{package}/scripts/upgrade"
+        adoption_tool = f"{package}/scripts/scaffold-upgrade"
         adoption_plan = instance / ".peanut/upgrades/plans/<adoption-plan_path-from-stdout>"
-        upgrade_plan = instance / ".peanut/upgrades/plans/<upgrade-plan_path-from-stdout>"
+        upgrade_plan = instance / ".peanut/upgrades/product-plans/<product-plan_path-from-stdout>"
         instance_environment_values = {
             "APP_ENV": "development", "PEANUT_DEPLOYMENT_TARGET": "local-development",
             "PEANUT_DATABASE_RESOURCE_ID": f"peanut-admin-cr03-{args.run_id}-{scenario}-mysql84",
@@ -328,19 +329,17 @@ def main() -> int:
                 [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--clean-only", "--", "/Users/xing/.nvm/versions/node/v24.13.0/bin/corepack", "pnpm", "--dir", str(instance / "docs-site"), "install", "--frozen-lockfile"],
             ],
             "upgrade_commands": [
-                ["/opt/homebrew/bin/php", upgrader, "adoption-plan", f"--project-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}"],
-                ["/opt/homebrew/bin/php", upgrader, "adoption-apply", f"--project-root={instance}", f"--plan={adoption_plan}", "--confirm-plan-sha256=<adoption-plan_sha256-from-stdout>", "--confirm-paths=<exact-25-ordered-paths-from-stdout>", f"--env-file={trusted_keys_environment}"],
-                ["/opt/homebrew/bin/php", upgrader, "adoption-recover", f"--project-root={instance}", f"--plan={adoption_plan}"],
-                ["/opt/homebrew/bin/php", upgrader, "preflight", f"--project-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}"],
-                ["/opt/homebrew/bin/php", upgrader, "apply", f"--project-root={instance}", f"--plan={upgrade_plan}"],
-                ["/opt/homebrew/bin/php", upgrader, "verify", f"--project-root={instance}", f"--plan={upgrade_plan}"],
-                ["/opt/homebrew/bin/php", upgrader, "recover", f"--project-root={instance}", f"--plan={upgrade_plan}"],
+                ["/opt/homebrew/bin/php", adoption_tool, "adoption-plan", f"--project-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}"],
+                ["/opt/homebrew/bin/php", adoption_tool, "adoption-apply", f"--project-root={instance}", f"--plan={adoption_plan}", "--confirm-plan-sha256=<adoption-plan_sha256-from-stdout>", "--confirm-paths=<exact-ordered-paths-from-stdout>", f"--env-file={trusted_keys_environment}"],
+                ["/opt/homebrew/bin/php", adoption_tool, "adoption-recover", f"--project-root={instance}", f"--plan={adoption_plan}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "plan", f"--instance-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "apply", f"--instance-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}", f"--plan={upgrade_plan}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "apply", f"--instance-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}", f"--plan={upgrade_plan}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "verify", f"--instance-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}", f"--plan={upgrade_plan}"],
             ],
-            "migration_commands": [
-                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", str(instance / "server/database/install.php"), "--migrate", f"--target-version={target_version}", "--dry-run"],
-                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", str(instance / "server/database/install.php"), "--migrate", f"--target-version={target_version}"],
-            ],
-            "recovery_pair": {"instance_archive": str(backup / "instance.tar"), "database_dump": str(backup / "database.sql"), "order": ["recover managed files with the distinct upgrade plan", "restore the exact instance archive", "restore the exact database dump", "read back business, Tenant, RBAC, Module and customization identities"]},
+            "repeat_apply_expectation": {"status": "completed", "idempotent": True, "no_new_migration_or_business_operation": True},
+            "migration_commands": "integrated into scripts/upgrade plan/apply/verify; install.php has no upgrade mode",
+            "recovery_pair": {"instance_archive": str(backup / "instance.tar"), "database_dump": str(backup / "database.sql"), "formal_recovery_command": [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "recover", f"--instance-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01", f"--env-file={trusted_keys_environment}", "--plan=<separate-interrupted-upgrade-plan>"], "order": ["use a separate interrupted upgrade attempt bound to its durable state", "invoke formal recovery once", "require exact host-driver recovery evidence; after migration start it must restore the state-bound database/files pair", "read back business, Tenant, RBAC, Module and customization identities"]},
             "http_command": {"cwd": str(instance), "environment_file": str(container_environment_file), "argv": [str(ENV_RUNNER), "--env-file", str(container_environment_file), "--clean-only", "--", "/usr/local/bin/docker", "compose", "--project-name", f"peanut-cr03-{args.run_id}-{scenario}", "--env-file", ".env", "--env-file", "server/.env.local-production-preview", "-f", "deploy/docker-compose.prod.yml", "up", "-d", "--build"]},
         }
     claimed_resources = [

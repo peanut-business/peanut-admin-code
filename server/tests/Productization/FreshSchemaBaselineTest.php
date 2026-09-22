@@ -49,8 +49,20 @@ freshSchemaExpect(str_contains($installer, "'core.tenant-owner'"), 'installer he
 freshSchemaExpect(!str_contains($installer, "'--migrate'"), 'fresh installer still exposes the retired upgrade mode');
 freshSchemaExpect(
     str_contains($upgradeEntry, "['plan', 'apply', 'verify', 'recover']")
-        && str_contains($migrationRunner, 'final class ApplicationMigrationRunner'),
+        && str_contains($migrationRunner, 'final class ApplicationMigrationRunner')
+        && str_contains($upgradeEntry, 'peanut.product-upgrade-state.v1')
+        && str_contains($upgradeEntry, "['prepare', 'backup', 'quiesce', 'switch', 'reload', 'health', 'recover']")
+        && str_contains($upgradeEntry, 'PRODUCT_UPGRADE_ALREADY_RUNNING')
+        && str_contains($upgradeEntry, "\$state['migration_started'] = \$migrationIds !== []")
+        && str_contains($upgradeEntry, "\$state['phase'] = 'completed'"),
     'standalone application upgrade entry or shared migration runner is unavailable'
+);
+freshSchemaExpect(
+    str_contains($installationHost, 'peanut.installation-baseline.v1')
+        && str_contains($installationHost, "'kind' => 'product-source'")
+        && str_contains($installationHost, "'kind' => 'generated-application'")
+        && str_contains($installationHost, 'peanut.installation-receipt.v1'),
+    'fresh installation does not create a source-independent baseline manifest and receipt'
 );
 freshSchemaExpect(
     str_contains($installer, 'applicationReleaseVersions($serverDir)')
