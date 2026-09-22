@@ -695,6 +695,274 @@
     ],
     "databases": [
       {
+        "stable_resource_id": "peanut-admin-product-q01-single-mysql84",
+        "purpose": "Fixed Edition package A/B install, module delivery, Docker upgrade, recovery and browser qualification",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "productization-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20341,
+        "container_name": "peanut-product-q01-single-mysql-1",
+        "database": "peanut_product_q01_single_a",
+        "schema": "pa_ tables in exact A/B/restore schema allowlist",
+        "namespace": "peanut-product-q01-single_mysql-data",
+        "credential_ref": ".local/productization/private/q01-single.json and q01-single.env (0600)",
+        "data_source": "previously absent synthetic schemas in a newly created candidate-owned Compose volume",
+        "freshness_requirement": "absent project, volume, port and all schemas before first creation; never reuse a failed candidate",
+        "health_check": "exact Compose labels/image/volume and credential-backed version/schema checks",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": false,
+        "lease_gate": "productization-package-qualification",
+        "deployment_modes": [
+          "standalone"
+        ],
+        "synthetic_databases": {
+          "q01": [
+            "peanut_product_q01_single_a",
+            "peanut_product_q01_single_b",
+            "peanut_product_q01_single_restore"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-product-q01-single-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20341,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "qualification loopback endpoint"
+        },
+        "container_endpoint": {
+          "endpoint_id": "peanut-admin-product-q01-single-mysql84-container",
+          "host": "mysql",
+          "port": 3306,
+          "consumers": [
+            "container"
+          ],
+          "network_scope": "exclusive peanut-product-q01-single_default Compose network"
+        },
+        "compose_project": "peanut-product-q01-single",
+        "http_endpoint": {
+          "host": "127.0.0.1",
+          "port": 20343,
+          "scheme": "http",
+          "allowed_hosts": [
+            "admin.q01-single.localhost",
+            "platform.q01-single.localhost",
+            "alpha.q01-single.localhost",
+            "beta.q01-single.localhost"
+          ]
+        },
+        "cleanup_responsibility": "productization-20260922 after receipts; preserve failed candidate data",
+        "backup_responsibility": "signed product upgrade pairs DB plus public/private storage volumes; validate restoration before online replacement"
+      },
+      {
+        "stable_resource_id": "peanut-admin-product-q01-multi-mysql84",
+        "purpose": "Fixed Edition package A/B install, module delivery, Docker upgrade, recovery and browser qualification",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "productization-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20342,
+        "container_name": "peanut-product-q01-multi-mysql-1",
+        "database": "peanut_product_q01_multi_a",
+        "schema": "pa_ tables in exact A/B/restore schema allowlist",
+        "namespace": "peanut-product-q01-multi_mysql-data",
+        "credential_ref": ".local/productization/private/q01-multi.json and q01-multi.env (0600)",
+        "data_source": "previously absent synthetic schemas in a newly created candidate-owned Compose volume",
+        "freshness_requirement": "absent project, volume, port and all schemas before first creation; never reuse a failed candidate",
+        "health_check": "exact Compose labels/image/volume and credential-backed version/schema checks",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": false,
+        "lease_gate": "productization-package-qualification",
+        "deployment_modes": [
+          "multi-tenant"
+        ],
+        "synthetic_databases": {
+          "q01": [
+            "peanut_product_q01_multi_a",
+            "peanut_product_q01_multi_b",
+            "peanut_product_q01_multi_restore"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-product-q01-multi-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20342,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "qualification loopback endpoint"
+        },
+        "container_endpoint": {
+          "endpoint_id": "peanut-admin-product-q01-multi-mysql84-container",
+          "host": "mysql",
+          "port": 3306,
+          "consumers": [
+            "container"
+          ],
+          "network_scope": "exclusive peanut-product-q01-multi_default Compose network"
+        },
+        "compose_project": "peanut-product-q01-multi",
+        "http_endpoint": {
+          "host": "127.0.0.1",
+          "port": 20344,
+          "scheme": "http",
+          "allowed_hosts": [
+            "admin.q01-multi.localhost",
+            "platform.q01-multi.localhost",
+            "alpha.q01-multi.localhost",
+            "beta.q01-multi.localhost"
+          ]
+        },
+        "cleanup_responsibility": "productization-20260922 after receipts; preserve failed candidate data",
+        "backup_responsibility": "signed product upgrade pairs DB plus public/private storage volumes; validate restoration before online replacement"
+      },
+      {
+        "stable_resource_id": "peanut-admin-product-q02-single-mysql84",
+        "purpose": "Fixed Edition package A/B install, module delivery, Docker upgrade, recovery and browser qualification",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "productization-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20351,
+        "container_name": "peanut-product-q02-single-mysql-1",
+        "database": "peanut_product_q02_single_a",
+        "schema": "pa_ tables in exact A/B/restore schema allowlist",
+        "namespace": "peanut-product-q02-single_mysql-data",
+        "credential_ref": ".local/productization/private/q02-single.json and q02-single.env (0600)",
+        "data_source": "previously absent synthetic schemas in a newly created candidate-owned Compose volume",
+        "freshness_requirement": "absent project, volume, port and all schemas before first creation; never reuse a failed candidate",
+        "health_check": "exact Compose labels/image/volume and credential-backed version/schema checks",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": false,
+        "lease_gate": "productization-package-qualification",
+        "deployment_modes": [
+          "standalone"
+        ],
+        "synthetic_databases": {
+          "q02": [
+            "peanut_product_q02_single_a",
+            "peanut_product_q02_single_b",
+            "peanut_product_q02_single_restore"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-product-q02-single-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20351,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "qualification loopback endpoint"
+        },
+        "container_endpoint": {
+          "endpoint_id": "peanut-admin-product-q02-single-mysql84-container",
+          "host": "mysql",
+          "port": 3306,
+          "consumers": [
+            "container"
+          ],
+          "network_scope": "exclusive peanut-product-q02-single_default Compose network"
+        },
+        "compose_project": "peanut-product-q02-single",
+        "http_endpoint": {
+          "host": "127.0.0.1",
+          "port": 20353,
+          "scheme": "http",
+          "allowed_hosts": [
+            "admin.q02-single.localhost",
+            "platform.q02-single.localhost",
+            "alpha.q02-single.localhost",
+            "beta.q02-single.localhost"
+          ]
+        },
+        "cleanup_responsibility": "productization-20260922 after receipts; preserve failed candidate data",
+        "backup_responsibility": "signed product upgrade pairs DB plus public/private storage volumes; validate restoration before online replacement"
+      },
+      {
+        "stable_resource_id": "peanut-admin-product-q02-multi-mysql84",
+        "purpose": "Fixed Edition package A/B install, module delivery, Docker upgrade, recovery and browser qualification",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "productization-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20352,
+        "container_name": "peanut-product-q02-multi-mysql-1",
+        "database": "peanut_product_q02_multi_a",
+        "schema": "pa_ tables in exact A/B/restore schema allowlist",
+        "namespace": "peanut-product-q02-multi_mysql-data",
+        "credential_ref": ".local/productization/private/q02-multi.json and q02-multi.env (0600)",
+        "data_source": "previously absent synthetic schemas in a newly created candidate-owned Compose volume",
+        "freshness_requirement": "absent project, volume, port and all schemas before first creation; never reuse a failed candidate",
+        "health_check": "exact Compose labels/image/volume and credential-backed version/schema checks",
+        "fallback": "none",
+        "lifecycle": "ephemeral",
+        "application_runtime": false,
+        "lease_gate": "productization-package-qualification",
+        "deployment_modes": [
+          "multi-tenant"
+        ],
+        "synthetic_databases": {
+          "q02": [
+            "peanut_product_q02_multi_a",
+            "peanut_product_q02_multi_b",
+            "peanut_product_q02_multi_restore"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-product-q02-multi-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20352,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "qualification loopback endpoint"
+        },
+        "container_endpoint": {
+          "endpoint_id": "peanut-admin-product-q02-multi-mysql84-container",
+          "host": "mysql",
+          "port": 3306,
+          "consumers": [
+            "container"
+          ],
+          "network_scope": "exclusive peanut-product-q02-multi_default Compose network"
+        },
+        "compose_project": "peanut-product-q02-multi",
+        "http_endpoint": {
+          "host": "127.0.0.1",
+          "port": 20354,
+          "scheme": "http",
+          "allowed_hosts": [
+            "admin.q02-multi.localhost",
+            "platform.q02-multi.localhost",
+            "alpha.q02-multi.localhost",
+            "beta.q02-multi.localhost"
+          ]
+        },
+        "cleanup_responsibility": "productization-20260922 after receipts; preserve failed candidate data",
+        "backup_responsibility": "signed product upgrade pairs DB plus public/private storage volumes; validate restoration before online replacement"
+      },
+      {
         "stable_resource_id": "peanut-admin-productization-mysql84",
         "purpose": "Fixed-package direct install, module consumer, independent upgrade and recovery qualification using only task-owned synthetic data",
         "environments": ["development-test"],
