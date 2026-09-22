@@ -73,15 +73,59 @@ function moduleBundleCopyTree(string $source, string $target): void
 
 function moduleBundleRemoveTree(string $path): void
 {
+    if (is_link($path) || is_file($path)) {
+        unlink($path);
+        return;
+    }
     if (!is_dir($path)) return;
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST,
     );
     foreach ($iterator as $entry) {
-        $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+        if ($entry->isLink() || !$entry->isDir()) unlink($entry->getPathname());
+        else rmdir($entry->getPathname());
     }
     rmdir($path);
+}
+
+/** @return array{0:\Composer\Autoload\ClassLoader,1:\Composer\Autoload\ClassLoader} */
+function moduleBundleSwapTargetComposerLoader(string $serverRoot, string $target): array
+{
+    $vendorRoot = realpath($serverRoot . '/vendor');
+    $hostLoader = null;
+    foreach (\Composer\Autoload\ClassLoader::getRegisteredLoaders() as $registeredVendor => $loader) {
+        if ($vendorRoot !== false && realpath($registeredVendor) === $vendorRoot) {
+            $hostLoader = $loader;
+            break;
+        }
+    }
+    moduleBundleExpect($hostLoader instanceof \Composer\Autoload\ClassLoader, 'verified host Composer loader is unavailable');
+    $targetLoader = clone $hostLoader;
+    $targetModuleRoots = [
+        'app/modules/official/article/src',
+        'app/modules/official/file/src',
+        'app/modules/official/identity/src',
+        'app/modules/official/integration/src',
+        'app/modules/official/notification/src',
+        'app/modules/official/ops/src',
+        'app/modules/official/task/src',
+        'app/modules/fixture/delivery_record/src',
+    ];
+    foreach ($targetLoader->getPrefixesPsr4() as $prefix => $directories) {
+        $mapped = [];
+        foreach ($directories as $directory) {
+            $resolved = realpath($directory);
+            $relative = $resolved === false ? '' : substr($resolved, strlen($serverRoot) + 1);
+            $mapped[] = in_array($relative, $targetModuleRoots, true)
+                ? $target . '/server/' . $relative
+                : $directory;
+        }
+        $targetLoader->setPsr4($prefix, $mapped);
+    }
+    $hostLoader->unregister();
+    $targetLoader->register(true);
+    return [$hostLoader, $targetLoader];
 }
 
 function moduleBundleSetVersion(string $root, string $module, string $version): void
@@ -137,10 +181,24 @@ function moduleBundleCount(PDO $pdo, string $table, array $moduleKeys, ?string $
     return (int)$statement->fetchColumn();
 }
 
-$database = $argv[1] ?? '';
+$serverRoot = dirname(__DIR__, 2);
+$projectRoot = dirname($serverRoot);
+$resourceId = IsolatedBackendEnvironment::required('PEANUT_DATABASE_RESOURCE_ID');
+$resource = IsolatedBackendEnvironment::requireRegisteredDatabase(
+    $projectRoot . '/resources/project-resources.json',
+    $resourceId,
+);
+$database = $argv[1] ?? IsolatedBackendEnvironment::required('DB_NAME');
+moduleBundleExpect($database === IsolatedBackendEnvironment::required('DB_NAME'), 'test database must match the selected backend environment');
 moduleBundleExpect(
-    preg_match('/^peanut_admin_development_p0e_([a-z0-9]{1,11})_plugin_lifecycle$/D', $database, $databaseMatch) === 1,
-    'registered isolated plugin-lifecycle database name is required',
+    ($resource['upstream_endpoint']['endpoint_id'] ?? null) === IsolatedBackendEnvironment::required('PEANUT_DATABASE_ENDPOINT_ID'),
+    'registered database endpoint identity is required',
+);
+$namespaceDatabase = (string)($resource['synthetic_databases']['module_bundle_multi'][0] ?? '');
+moduleBundleExpect(
+    preg_match('/^peanut_admin_dual_20260922_bundle_multi_namespace$/D', $namespaceDatabase) === 1
+        && $namespaceDatabase !== $database,
+    'registered bundle namespace database is required',
 );
 
 $host = IsolatedBackendEnvironment::required('DB_HOST');
@@ -157,7 +215,6 @@ $exists = $admin->prepare('SELECT COUNT(*) FROM information_schema.schemata WHER
 $exists->execute([$database]);
 moduleBundleExpect((int)$exists->fetchColumn() === 0, 'isolated bundle database already exists');
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
-$namespaceDatabase = "peanut_admin_development_p0e_{$databaseMatch[1]}_consumer_module_cycle";
 $exists->execute([$namespaceDatabase]);
 moduleBundleExpect((int)$exists->fetchColumn() === 0, 'isolated namespace database already exists');
 $admin->exec("CREATE DATABASE `{$namespaceDatabase}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -166,8 +223,8 @@ IsolatedBackendEnvironment::activate([
     'APP_ENV' => 'development',
     'APP_DEBUG' => 'true',
     'DEPLOYMENT_MODE' => 'multi-tenant',
-    'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-p0e-mysql84-gate',
-    'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
+    'PEANUT_DATABASE_RESOURCE_ID' => $resourceId,
+    'PEANUT_DATABASE_ENDPOINT_ID' => IsolatedBackendEnvironment::required('PEANUT_DATABASE_ENDPOINT_ID'),
     'PEANUT_DATABASE_CONSUMER' => 'host',
     'DB_HOST' => $host,
     'DB_PORT' => $port,
@@ -188,6 +245,8 @@ $pdo = new PDO(
     ],
 );
 moduleBundleExpect((string)$pdo->query('SELECT DATABASE()')->fetchColumn() === $database, 'isolated database selection changed');
+$app = new think\App($serverRoot);
+$app->initialize();
 $catalogs = ThinkPhpTestConnection::moduleCatalogs($pdo);
 $contender = new PDO(
     "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
@@ -204,16 +263,16 @@ $otherDatabase = new PDO(
 moduleBundleExpect(
     ThinkPhpTestConnection::fromPdo($pdo) instanceof \think\db\PDOConnection
         &&
-    RuntimeNamespace::fromResourceId('peanut-admin-mysql84-development', 'development')
+    RuntimeNamespace::fromResourceId($resourceId, 'development')
         ->advisoryLockName('module-bundle-lock-environment')
-        !== RuntimeNamespace::fromResourceId('peanut-admin-mysql84-development', 'production')
+        !== RuntimeNamespace::fromResourceId($resourceId, 'production')
             ->advisoryLockName('module-bundle-lock-environment'),
     'runtime environment is absent from the advisory-lock namespace',
 );
 moduleBundleExpect(
-    RuntimeNamespace::fromResourceId('peanut-admin-mysql84-development', 'development')
+    RuntimeNamespace::fromResourceId($resourceId, 'development')
         ->advisoryLockName('module-bundle-lock-resource')
-        !== RuntimeNamespace::fromResourceId('peanut-admin-p0e-mysql84-gate', 'development')
+        !== RuntimeNamespace::fromResourceId('peanut-admin-a1-review-mysql84', 'development')
             ->advisoryLockName('module-bundle-lock-resource'),
     'database resource identity is absent from the advisory-lock namespace',
 );
@@ -282,7 +341,6 @@ initializeCoreIdentity(
         'module_lifecycle' => 'required',
     ],
 );
-$serverRoot = dirname(__DIR__, 2);
 $lockSqlOwners = [];
 $applicationFiles = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator($serverRoot . '/app', FilesystemIterator::SKIP_DOTS),
@@ -296,16 +354,23 @@ foreach ($applicationFiles as $file) {
 }
 sort($lockSqlOwners, SORT_STRING);
 moduleBundleExpect(
-    $lockSqlOwners === ['app/common/persistence/AdvisoryLockExecution.php'],
-    'production application retained another advisory-lock SQL executor',
+    $lockSqlOwners === [
+        'app/common/persistence/AdvisoryLockExecution.php',
+        'app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php',
+        'app/modules/official/identity/src/Platform/Bootstrap/BootstrapService.php',
+    ],
+    'production application advisory-lock SQL owners changed unexpectedly',
 );
 executeSqlFiles($pdo, [$serverRoot . '/database/init.sql']);
 $applicationMigrations = glob($serverRoot . '/database/migrations/*.sql') ?: [];
 sort($applicationMigrations, SORT_STRING);
 executeSqlFiles($pdo, $applicationMigrations);
+executeSqlFiles($pdo, [
+    $serverRoot . '/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql',
+]);
 
 $projectRoot = dirname($serverRoot);
-$temporary = realpath(sys_get_temp_dir()) . '/pa-module-bundle-' . $databaseMatch[1];
+$temporary = realpath(sys_get_temp_dir()) . '/pa-module-bundle-' . substr(hash('sha256', $database), 0, 11);
 moduleBundleExpect(!file_exists($temporary), 'isolated bundle output path already exists');
 $source = $temporary . '/source';
 $target = $temporary . '/target';
@@ -315,10 +380,12 @@ $conflictArchivePath = $temporary . '/official-content-bundle-v2-conflict.tar';
 $recoverableArchivePath = $temporary . '/official-runtime-bundle.tar';
 $releaseV1 = $temporary . '/release-v1';
 $releaseV2 = $temporary . '/release-v2';
+$hostLoader = null;
+$targetLoader = null;
 $completed = false;
 
 try {
-    foreach (['Article', 'File', 'Notification', 'Task'] as $module) {
+    foreach (['Article', 'File', 'Integration', 'Notification', 'Task'] as $module) {
         $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
         moduleBundleCopyTree(
             $projectRoot . "/server/app/modules/official/{$directory}",
@@ -333,30 +400,43 @@ try {
         $source . '/server/app/modules/official/identity',
     );
     moduleBundleCopyTree(
-        $projectRoot . '/web/src/modules/official-identity',
-        $source . '/web/src/modules/official-identity',
-    );
-    moduleBundleCopyTree(
         $projectRoot . '/server/app/modules/official/identity',
         $target . '/server/app/modules/official/identity',
     );
     moduleBundleCopyTree(
-        $projectRoot . '/web/src/modules/official-identity',
-        $target . '/web/src/modules/official-identity',
+        $projectRoot . '/server/app/modules/official/ops',
+        $target . '/server/app/modules/official/ops',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/server/app/modules/official/integration',
+        $target . '/server/app/modules/official/integration',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/web/src/modules/official-integration',
+        $target . '/web/src/modules/official-integration',
     );
     moduleBundleCopyTree(
         $projectRoot . '/plugins/official.identity',
         $target . '/plugins/official.identity',
     );
+    moduleBundleCopyTree(
+        $projectRoot . '/plugins/official.integration',
+        $target . '/plugins/official.integration',
+    );
+    moduleBundleExpect(
+        symlink($serverRoot . '/vendor', $target . '/server/vendor'),
+        'isolated target must use the verified host Composer vendor root',
+    );
     $baseLock = json_decode((string)file_get_contents($projectRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
-    $identityEntries = array_values(array_filter(
+    $baselineEntries = array_values(array_filter(
         (array)($baseLock['plugins'] ?? []),
-        static fn(mixed $entry): bool => is_array($entry) && ($entry['key'] ?? null) === 'official.identity',
+        static fn(mixed $entry): bool => is_array($entry)
+            && in_array($entry['key'] ?? null, ['official.identity', 'official.integration'], true),
     ));
-    moduleBundleExpect(count($identityEntries) === 1, 'installed identity baseline is missing from the source lock');
+    moduleBundleExpect(count($baselineEntries) === 2, 'installed identity/integration baseline is missing from the source lock');
     file_put_contents(
         $target . '/plugins.lock',
-        json_encode(['schema_version' => 1, 'plugins' => $identityEntries], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+        json_encode(['schema_version' => 1, 'plugins' => $baselineEntries], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
     );
     foreach ([$source, $target] as $root) {
         if (!is_dir($root . '/server/resources/schemas')) mkdir($root . '/server/resources/schemas', 0777, true);
@@ -390,10 +470,12 @@ try {
     $moduleConfig = ['kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web']];
     $installer = new PluginPackageInstaller($target . '/server', $moduleConfig, [], $catalogs);
     $connection = (string)\think\facade\Config::get('database.default', 'mysql');
-    $prefixPath = 'database.connections.' . $connection . '.prefix';
-    $prefix = \think\facade\Config::get($prefixPath, '');
+    $databaseConfig = \think\facade\Config::get('database', []);
+    $prefix = $databaseConfig['connections'][$connection]['prefix'] ?? null;
     moduleBundleExpect(is_string($prefix) && $prefix !== '', 'database prefix is unavailable for installation precondition check');
-    \think\facade\Config::set($prefixPath, 'missing_');
+    $missingPrefixConfig = $databaseConfig;
+    $missingPrefixConfig['connections'][$connection]['prefix'] = 'missing_';
+    \think\facade\Config::set($missingPrefixConfig, 'database');
     try {
         moduleBundleExpectPackageError(
             static fn() => $installer->install($archivePath, $packed['sha256'], null),
@@ -401,12 +483,14 @@ try {
             'package delivery did not reject an uninstalled configured table namespace',
         );
     } finally {
-        \think\facade\Config::set($prefixPath, $prefix);
+        $databaseConfig['connections'][$connection]['prefix'] = $prefix;
+        \think\facade\Config::set($databaseConfig, 'database');
     }
     moduleBundleExpect(
         (glob($source . '/.local/module-staging/*') ?: []) === [],
         'installation precondition failure left a verified archive staging directory',
     );
+    [$hostLoader, $targetLoader] = moduleBundleSwapTargetComposerLoader($serverRoot, $target);
     $installed = $installer->install($archivePath, $packed['sha256'], null);
     moduleBundleExpect(($installed['operation'] ?? null) === 'installed', 'bundle was not installed');
     moduleBundleExpect(array_column((array)$installed['modules'], 'module_key') === ['official.article', 'official.file'], 'bundle install returned another scope');
@@ -615,10 +699,16 @@ try {
 
     $taskManifestPath = $source . '/server/app/modules/official/task/module.json';
     $taskManifest = json_decode((string)file_get_contents($taskManifestPath), true, 64, JSON_THROW_ON_ERROR);
-    $taskManifest['dependencies'] = [[
-        'module_key' => 'official.file',
-        'version' => '^2.0',
-    ]];
+    $taskManifest['dependencies'] = [
+        [
+            'module_key' => 'official.file',
+            'version' => '^2.0',
+        ],
+        [
+            'module_key' => 'official.identity',
+            'version' => '4.0.0-dev',
+        ],
+    ];
     $taskManifest['tenant']['requires'] = ['official.article'];
     file_put_contents($taskManifestPath, json_encode($taskManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     $recoverablePacked = $archive->packBundle(
@@ -671,7 +761,10 @@ try {
     $runtimeTask = $runtimeProjection['items'][0] ?? null;
     moduleBundleExpect(is_array($runtimeTask), 'runtime Module projection lost the Task member');
     moduleBundleExpect(
-        ($runtimeTask['dependencies'] ?? null) === [['module_key' => 'official.file', 'version' => '^2.0']],
+        ($runtimeTask['dependencies'] ?? null) === [
+            ['module_key' => 'official.file', 'version' => '^2.0'],
+            ['module_key' => 'official.identity', 'version' => '4.0.0-dev'],
+        ],
         'runtime dependency projection did not distinguish explicit business dependencies from tenant requires',
     );
     $dependentPreview = $governance->preview('official.file', false);
@@ -804,19 +897,20 @@ try {
     $privatePackage = (new PluginPackageArchiveService($projectRoot . '/server'))->packModule('fixture.delivery-record', $privateArchive);
     (new PluginPackageInstaller($target . '/server', $moduleConfig, [], $catalogs))->install($privateArchive, $privatePackage['sha256'], null);
     $privateLock = new \app\platform\infrastructure\plugin\PluginLockResolver($target . '/server', '../plugins.lock');
-    $profile = new \app\platform\service\module\ProductTenantModuleProfileService(
-        new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository(true),
-        new \app\platform\service\module\ThinkPhpModuleGovernanceProvider(
-            $target . '/server',
-            $moduleConfig + ['plugin_lock' => '../plugins.lock'],
-            $catalogs,
-        ),
-        new \app\common\service\audit\AuditContractHost(null),
+    $moduleGovernance = new \app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider(
+        $target . '/server',
+        $moduleConfig + ['plugin_lock' => '../plugins.lock'],
+        $catalogs,
+    );
+    $profile = new \app\platform\services\module\ProductTenantModuleProfileService(
+        new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository($moduleGovernance->registry()->compiled(), true),
+        $moduleGovernance,
+        new \app\common\services\audit\AuditContractHost(null),
     );
     foreach ([
-        [['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::MultiTenant, 'PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED'],
-        [['official.file'], \app\common\service\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
-        [['acme.absent'], \app\common\service\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
+        [['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::MultiTenant, 'PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED'],
+        [['official.file'], \app\common\enum\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
+        [['acme.absent'], \app\common\enum\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
     ] as [$selection, $edition, $error]) {
         try {
             $profile->applyAdditionalInstallationSelection($selection, $edition, $privateLock);
@@ -830,24 +924,28 @@ try {
     // A real database failure after enable proves row/revision/audit changes share the transaction.
     $pdo->exec("ALTER TABLE pa_tenant_audit_event ADD CONSTRAINT private_adoption_audit_failure CHECK (event_type <> 'tenant-module.profile-enabled')");
     try {
-        $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::Standalone, $privateLock);
+        $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::Standalone, $privateLock);
         throw new RuntimeException('private additive audit failure was not injected');
-    } catch (\PDOException $exception) {
+    } catch (\think\db\exception\PDOException $exception) {
         moduleBundleExpect(str_contains($exception->getMessage(), 'private_adoption_audit_failure'), 'unexpected additive failure');
     } finally {
         $pdo->exec('ALTER TABLE pa_tenant_audit_event DROP CHECK private_adoption_audit_failure');
     }
     moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchColumn() === 0, 'failed additive enable left a TenantModule row');
     moduleBundleExpect($pdo->query("SELECT authorization_revision FROM pa_tenant WHERE code='default'")->fetchColumn() === $tenantRevision, 'failed additive enable changed Tenant revision');
-    $selection = $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::Standalone, $privateLock);
+    $selection = $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::Standalone, $privateLock);
     moduleBundleExpect($selection['binding_count'] === 1, 'private additive selection was not enabled');
     $openingBefore = $pdo->query("SELECT * FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchAll();
-    moduleBundleExpect($profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::Standalone, $privateLock)['binding_count'] === 0, 'private selection rewrote an effective opening');
+    moduleBundleExpect($profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::Standalone, $privateLock)['binding_count'] === 0, 'private selection rewrote an effective opening');
     moduleBundleExpect($pdo->query("SELECT * FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchAll() === $openingBefore, 'private selection changed existing opening configuration');
     moduleBundleExpect($pdo->query('SELECT * FROM pa_role_permission ORDER BY role_id,permission_id')->fetchAll() === $rbacBefore, 'private selection granted RBAC');
     $completed = true;
     echo "MODULE-BUNDLE-LIFECYCLE-001 passed database={$database} content_sha256={$packed['sha256']} recoverable_sha256={$recoverablePacked['sha256']}\n";
 } finally {
+    if ($targetLoader instanceof \Composer\Autoload\ClassLoader && $hostLoader instanceof \Composer\Autoload\ClassLoader) {
+        $targetLoader->unregister();
+        $hostLoader->register(true);
+    }
     moduleBundleRemoveTree($temporary);
     IsolatedBackendEnvironment::cleanup();
     $pdo = null;

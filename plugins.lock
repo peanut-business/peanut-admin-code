@@ -919,7 +919,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "f3796cc10d067bec33490579504ad8a9754fae7aacdbd8597a110072f7db3395"
+                "sha256": "fb565032daee11b78334136d8dcdd0a25133bd0489f2c0f83f2ce3ddbf9957fc"
             },
             "trust": {
                 "channel": "bundled",
@@ -1007,7 +1007,7 @@
                 }
             ],
             "manifest": "plugins/official.ops/plugin.json",
-            "manifest_sha256": "2f120d2180746e9e314e339c2dae52bbea7f51bc9c50bd737aff83b44d4923e9"
+            "manifest_sha256": "b4f55bf2dc3915136d8aba30a141d95193dc0e0196277b097fa9971dd07a82fa"
         },
         {
             "key": "official.payment",

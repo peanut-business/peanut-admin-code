@@ -122,7 +122,7 @@ final readonly class DeploymentModuleRequestService
         $json = $this->canonicalJson($document) . "\n";
         $this->writeRequestManifest($resource, $requestKey, $json);
 
-        Db::name('ops_module_request')->insertOrIgnore([
+        Db::name('ops_module_request')->duplicate(['request_key'])->insert([
             'request_key' => $requestKey,
             'environment' => $environment,
             'target_resource_id' => $targetResourceId,

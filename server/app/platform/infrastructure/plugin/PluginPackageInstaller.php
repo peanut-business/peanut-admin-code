@@ -247,7 +247,7 @@ final class PluginPackageInstaller
                 $prefix . 'module_installation',
             ];
             $rows = Db::query(
-                'SELECT table_name FROM information_schema.tables '
+                'SELECT table_name AS table_name FROM information_schema.tables '
                 . 'WHERE table_schema = DATABASE() AND table_name IN (?, ?)',
                 $expected,
             );

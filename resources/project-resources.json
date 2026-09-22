@@ -1471,6 +1471,66 @@
         "backup_responsibility": "not applicable; this is a disposable restore target sourced from a verified immutable pair"
       },
       {
+        "stable_resource_id": "peanut-admin-dual-acceptance-mysql84",
+        "purpose": "Dual-edition real database acceptance for module lifecycle, delivery operations, ScaffoldUpgrade and the two-application consumer reference chain; synthetic data only",
+        "environments": [
+          "development-test"
+        ],
+        "owner": "dual-db-acceptance-20260922",
+        "service_type": "mysql",
+        "version": "8.4.10",
+        "image": "mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af",
+        "host": "127.0.0.1",
+        "port": 20338,
+        "container_name": "peanut-admin-dual-acceptance-mysql84",
+        "container_label": "com.peanut-admin.owner=dual-db-acceptance-20260922",
+        "database": "peanut_admin_dual_20260922_bundle_multi",
+        "schema": "pa_ table prefix; exact synthetic schemas listed below only",
+        "namespace": "exclusive Docker anonymous volume owned by the labelled container; no host bind or shared volume",
+        "credential_ref": "task-local mode-0600 generated Docker credentials; values are never persisted in this registry or evidence",
+        "data_source": "fresh task-owned MySQL 8.4.10 plus only the listed synthetic schemas and generated application fixtures",
+        "freshness_requirement": "container, listener, anonymous volume and exact schemas are absent before claim-bound creation; only the active lease owner may create or remove this resource",
+        "health_check": "docker inspect the exact name, immutable image, label, health state and anonymous volume; credential-backed PDO SELECT VERSION(), SELECT DATABASE() and exact schema allowlist checks",
+        "fallback": "none",
+        "lifecycle": "single dual-edition acceptance batch",
+        "application_runtime": true,
+        "claim_precondition": "active lease covers this stable resource, exact container, port, label, all synthetic schemas, worktree and output/cache paths before Docker creation or database use",
+        "cleanup_responsibility": "dual-db-acceptance-20260922 removes only the exact labelled container, its anonymous volume, generated mode-0600 credential file and exact listed schemas after evidence capture",
+        "backup_responsibility": "not applicable; synthetic disposable data only",
+        "failure_retention_policy": "on failure retain the exact container, anonymous volume, credentials and evidence under the active lease until focused diagnosis and explicit disposition",
+        "deployment_modes": [
+          "standalone",
+          "multi-tenant"
+        ],
+        "lease_gate": "dual-edition-db-acceptance",
+        "synthetic_databases": {
+          "module_bundle_multi": [
+            "peanut_admin_dual_20260922_bundle_multi_namespace"
+          ],
+          "module_delivery_standalone": [
+            "peanut_admin_dual_20260922_delivery_standalone"
+          ],
+          "consumer_chain_standalone": [
+            "peanut_admin_dual_20260922_chain_standalone_author",
+            "peanut_admin_dual_20260922_chain_standalone_consumer"
+          ],
+          "consumer_chain_multi_tenant": [
+            "peanut_admin_dual_20260922_chain_multi_author",
+            "peanut_admin_dual_20260922_chain_multi_consumer"
+          ]
+        },
+        "upstream_endpoint": {
+          "endpoint_id": "peanut-admin-dual-acceptance-mysql84-host",
+          "host": "127.0.0.1",
+          "port": 20338,
+          "consumers": [
+            "host"
+          ],
+          "network_scope": "task-owned loopback only"
+        },
+        "container_endpoint": null
+      },
+      {
         "stable_resource_id": "peanut-admin-a1-review-mysql84",
         "purpose": "Multi-tenant productization: task-owned synthetic database, HTTP and module consumer qualification; no customer data",
         "environments": [

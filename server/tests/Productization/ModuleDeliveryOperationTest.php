@@ -54,15 +54,55 @@ function moduleDeliveryCopyTree(string $source, string $target): void
 
 function moduleDeliveryRemoveTree(string $path): void
 {
+    if (is_link($path) || is_file($path)) {
+        unlink($path);
+        return;
+    }
     if (!is_dir($path)) return;
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST,
     );
     foreach ($iterator as $entry) {
-        $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+        if ($entry->isLink() || !$entry->isDir()) unlink($entry->getPathname());
+        else rmdir($entry->getPathname());
     }
     rmdir($path);
+}
+
+/** @return array{0:\Composer\Autoload\ClassLoader,1:\Composer\Autoload\ClassLoader} */
+function moduleDeliverySwapTargetComposerLoader(string $serverRoot, string $target): array
+{
+    $vendorRoot = realpath($serverRoot . '/vendor');
+    $hostLoader = null;
+    foreach (\Composer\Autoload\ClassLoader::getRegisteredLoaders() as $registeredVendor => $loader) {
+        if ($vendorRoot !== false && realpath($registeredVendor) === $vendorRoot) {
+            $hostLoader = $loader;
+            break;
+        }
+    }
+    moduleDeliveryExpect($hostLoader instanceof \Composer\Autoload\ClassLoader, 'verified host Composer loader is unavailable');
+    $targetLoader = clone $hostLoader;
+    $targetModuleRoots = [
+        'app/modules/official/article/src',
+        'app/modules/official/file/src',
+        'app/modules/official/identity/src',
+        'app/modules/official/ops/src',
+    ];
+    foreach ($targetLoader->getPrefixesPsr4() as $prefix => $directories) {
+        $mapped = [];
+        foreach ($directories as $directory) {
+            $resolved = realpath($directory);
+            $relative = $resolved === false ? '' : substr($resolved, strlen($serverRoot) + 1);
+            $mapped[] = in_array($relative, $targetModuleRoots, true)
+                ? $target . '/server/' . $relative
+                : $directory;
+        }
+        $targetLoader->setPsr4($prefix, $mapped);
+    }
+    $hostLoader->unregister();
+    $targetLoader->register(true);
+    return [$hostLoader, $targetLoader];
 }
 
 function moduleDeliverySetVersion(string $root, string $module, string $version): void
@@ -83,10 +123,22 @@ function moduleDeliverySetVersion(string $root, string $module, string $version)
     file_put_contents($frontend, json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 }
 
-$database = $argv[1] ?? '';
+$serverRoot = dirname(__DIR__, 2);
+$projectRoot = dirname($serverRoot);
+$resourceId = IsolatedBackendEnvironment::required('PEANUT_DATABASE_RESOURCE_ID');
+$resource = IsolatedBackendEnvironment::requireRegisteredDatabase(
+    $projectRoot . '/resources/project-resources.json',
+    $resourceId,
+);
+$database = $argv[1] ?? IsolatedBackendEnvironment::required('DB_NAME');
+moduleDeliveryExpect($database === IsolatedBackendEnvironment::required('DB_NAME'), 'test database must match the selected backend environment');
 moduleDeliveryExpect(
-    preg_match('/^peanut_admin_development_p0e_([a-z0-9]{1,11})_plugin_lifecycle$/D', $database, $match) === 1,
-    'registered isolated plugin_lifecycle database is required',
+    ($resource['upstream_endpoint']['endpoint_id'] ?? null) === IsolatedBackendEnvironment::required('PEANUT_DATABASE_ENDPOINT_ID'),
+    'registered database endpoint identity is required',
+);
+moduleDeliveryExpect(
+    in_array($database, (array)($resource['synthetic_databases']['module_delivery_standalone'] ?? []), true),
+    'registered delivery database is required',
 );
 $host = IsolatedBackendEnvironment::required('DB_HOST');
 $port = IsolatedBackendEnvironment::required('DB_PORT');
@@ -107,8 +159,8 @@ IsolatedBackendEnvironment::activate([
     'APP_ENV' => 'development',
     'APP_DEBUG' => 'true',
     'DEPLOYMENT_MODE' => 'standalone',
-    'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-p0e-mysql84-gate',
-    'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
+    'PEANUT_DATABASE_RESOURCE_ID' => $resourceId,
+    'PEANUT_DATABASE_ENDPOINT_ID' => IsolatedBackendEnvironment::required('PEANUT_DATABASE_ENDPOINT_ID'),
     'PEANUT_DATABASE_CONSUMER' => 'host',
     'DB_HOST' => $host,
     'DB_PORT' => $port,
@@ -123,6 +175,8 @@ $pdo = new PDO(
     $password,
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
 );
+$app = new think\App($serverRoot);
+$app->initialize();
 $catalogs = ThinkPhpTestConnection::moduleCatalogs($pdo);
 $identity = initializeCoreIdentity(
     $pdo,
@@ -139,24 +193,28 @@ $identity = initializeCoreIdentity(
         'module_lifecycle' => 'required',
     ],
 );
-$serverRoot = dirname(__DIR__, 2);
 executeSqlFiles($pdo, [$serverRoot . '/database/init.sql']);
 $migrations = glob($serverRoot . '/database/migrations/*.sql') ?: [];
 sort($migrations, SORT_STRING);
 executeSqlFiles($pdo, $migrations);
+executeSqlFiles($pdo, [
+    $serverRoot . '/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql',
+]);
 
 $projectRoot = dirname($serverRoot);
-$temporary = sys_get_temp_dir() . '/pa-module-delivery-' . $match[1];
+$temporary = realpath(sys_get_temp_dir()) . '/pa-module-delivery-' . substr(hash('sha256', $database), 0, 11);
 moduleDeliveryExpect(!file_exists($temporary), 'isolated output already exists');
 $source = $temporary . '/source';
 $target = $temporary . '/target';
 $packageDirectory = $target . '/.ops/module-packages';
 $requestDirectory = $target . '/.ops/module-requests';
 $registryPath = $target . '/resources/project-resources.json';
+$hostLoader = null;
+$targetLoader = null;
 $completed = false;
 
 try {
-    foreach (['Identity', 'Article', 'File'] as $module) {
+    foreach (['Article', 'File'] as $module) {
         $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
         moduleDeliveryCopyTree(
             $projectRoot . '/server/app/modules/official/' . $directory,
@@ -169,15 +227,23 @@ try {
     }
     moduleDeliveryCopyTree(
         $projectRoot . '/server/app/modules/official/identity',
+        $source . '/server/app/modules/official/identity',
+    );
+    moduleDeliveryCopyTree(
+        $projectRoot . '/server/app/modules/official/identity',
         $target . '/server/app/modules/official/identity',
     );
     moduleDeliveryCopyTree(
-        $projectRoot . '/web/src/modules/official-identity',
-        $target . '/web/src/modules/official-identity',
+        $projectRoot . '/server/app/modules/official/ops',
+        $target . '/server/app/modules/official/ops',
     );
     moduleDeliveryCopyTree(
         $projectRoot . '/plugins/official.identity',
         $target . '/plugins/official.identity',
+    );
+    moduleDeliveryExpect(
+        symlink($serverRoot . '/vendor', $target . '/server/vendor'),
+        'isolated target must use the verified host Composer vendor root',
     );
     $baseLock = json_decode((string)file_get_contents($projectRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
     $identityEntries = array_values(array_filter(
@@ -221,6 +287,7 @@ try {
     $archive = new PluginPackageArchiveService($source . '/server');
     $v1Path = $temporary . '/v1.tar';
     $v1 = $archive->packBundle('official-content-bundle', '1.0.0', ['official.article', 'official.file'], $v1Path);
+    [$hostLoader, $targetLoader] = moduleDeliverySwapTargetComposerLoader($serverRoot, $target);
     $installed = (new PluginPackageInstaller($target . '/server', $config, [], $catalogs))
         ->install($v1Path, $v1['sha256'], null);
     moduleDeliveryExpect(($installed['operation'] ?? null) === 'installed', 'fixture v1 install failed');
@@ -346,6 +413,10 @@ SQL)->execute([
     $completed = true;
     echo "MODULE-DELIVERY-OPERATION-001 passed database={$database} request={$prepared['request_key']} task={$taskKey}\n";
 } finally {
+    if ($targetLoader instanceof \Composer\Autoload\ClassLoader && $hostLoader instanceof \Composer\Autoload\ClassLoader) {
+        $targetLoader->unregister();
+        $hostLoader->register(true);
+    }
     moduleDeliveryRemoveTree($temporary);
     IsolatedBackendEnvironment::cleanup();
     $pdo = null;

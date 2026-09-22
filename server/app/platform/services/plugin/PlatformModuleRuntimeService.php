@@ -69,8 +69,12 @@ final readonly class PlatformModuleRuntimeService
             ->leftJoin('module_installation installation', 'installation.module_key=member.module_key')
             ->field('member.module_key,member.module_version,member.manifest_digest,member.plugin_key,plugin.installed_version AS package_version,plugin.status AS package_status,installation.status AS module_status,installation.last_error_code')
             ->order('member.module_key')->select()->toArray();
-        $enabledCounts = Db::name('tenant_module')->where('status', 'enabled')
-            ->field('module_key')->fieldRaw('COUNT(*) AS enabled_count')->group('module_key')->column('enabled_count', 'module_key');
+        $enabledCounts = [];
+        $enabledRows = Db::name('tenant_module')->where('status', 'enabled')
+            ->field('module_key')->fieldRaw('COUNT(*) AS enabled_count')->group('module_key')->select()->toArray();
+        foreach ($enabledRows as $enabledRow) {
+            $enabledCounts[(string)$enabledRow['module_key']] = (int)$enabledRow['enabled_count'];
+        }
         foreach ($rows as $row) {
             $key = (string)$row['module_key'];
             $details[$key] ??= [
