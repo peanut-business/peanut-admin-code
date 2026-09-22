@@ -395,6 +395,15 @@ remote_root="$(target_json "$deployment_id" | jq -r '.deployment_root')"
 origin_port="$(target_json "$deployment_id" | jq -r '.runtime_resource_ids[0] as $x | .. | objects | select(.stable_resource_id == $x) | .published_endpoint.port')"
 deployment_mode="$(target_json "$deployment_id" | jq -r '.required_non_secret_environment.DEPLOYMENT_MODE // "multi-tenant"')"
 application_resource_id="$(target_json "$deployment_id" | jq -r '.runtime_resource_ids[0]')"
+platform_hosts="$(target_json "$deployment_id" | jq -r '.required_non_secret_environment.PLATFORM_HOSTS // ""')"
+tenant_admin_hosts="$(target_json "$deployment_id" | jq -r '.required_non_secret_environment.TENANT_ADMIN_HOSTS // ""')"
+owner_invitation_mode="$(target_json "$deployment_id" | jq -r '.required_non_secret_environment.OWNER_INVITATION_DELIVERY_MODE // empty')"
+if [[ -z "$owner_invitation_mode" ]]; then
+  owner_invitation_mode=auto
+  [[ "$TARGET" == production ]] || owner_invitation_mode=manual
+fi
+public_scheme="$(target_json "$application_resource_id" | jq -r '.ssr.public_scheme // empty')"
+trusted_hosts="$(target_json "$application_resource_id" | jq -r '.ssr.trusted_hosts // [] | join(",")')"
 if [[ "$TARGET" == production && "$DEPLOYMENT_KIND" == formal ]]; then
   "$ROOT_DIR/scripts/check-release-consistency" --tag "$TAG" --remote origin \
     || fail "production release identity is not closed for $TAG"
@@ -632,7 +641,8 @@ fi
 # remote control script through the registered non-interactive sudo boundary so
 # its preflight, Compose and filesystem operations all observe the same target.
 ssh -o BatchMode=yes "${SSH_KEEPALIVE_OPTS[@]}" "$SSH_ALIAS" sudo -n bash -s -- \
-  "$DEPLOYMENT_KIND" "$TAG" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" <<'REMOTE_SCRIPT'
+  "$DEPLOYMENT_KIND" "$TAG" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" \
+  "$(encode_remote_arg "$platform_hosts")" "$(encode_remote_arg "$tenant_admin_hosts")" "$owner_invitation_mode" "$public_scheme" "$(encode_remote_arg "$trusted_hosts")" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 decode_remote_arg() {
@@ -662,6 +672,11 @@ edition_manifest_sha="$(decode_remote_arg "${20:-__PEANUT_EMPTY__}")"
 paired_backup_id="$(decode_remote_arg "${21:-__PEANUT_EMPTY__}")"
 paired_backup_manifest_sha="$(decode_remote_arg "${22:-__PEANUT_EMPTY__}")"
 candidate_product_version="${23:-}"
+platform_hosts="$(decode_remote_arg "${24:-__PEANUT_EMPTY__}")"
+tenant_admin_hosts="$(decode_remote_arg "${25:-__PEANUT_EMPTY__}")"
+owner_invitation_mode="${26:-}"
+public_scheme="${27:-}"
+trusted_hosts="$(decode_remote_arg "${28:-__PEANUT_EMPTY__}")"
 version="${candidate_product_version:-${tag#v}}"
 migration_target_version="$scaffold_migration_version"
 overlay_commit=""
@@ -691,6 +706,9 @@ elif [[ "$target:$root:$project:$port:$database_resource:$deployment_mode:$appli
 else
   fail 'deployment target selectors do not form a registered tuple'
 fi
+[[ "$owner_invitation_mode" == auto || "$owner_invitation_mode" == manual ]] || fail 'registered invitation mode is invalid'
+[[ "$public_scheme" == http || "$public_scheme" == https ]] || fail 'registered SSR public scheme is invalid'
+[[ -n "$trusted_hosts" && "$trusted_hosts" != *'*'* ]] || fail 'registered SSR trusted hosts are invalid'
 if [[ "$deployment_kind" == formal ]]; then
   [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail 'formal remote identity is invalid'
 else
@@ -716,8 +734,14 @@ if [[ "$mode" == fresh ]]; then
   [[ "$paired_backup_manifest_sha" =~ ^[0-9a-f]{64}$ ]] \
     || fail 'fresh remote identity is missing an exact paired backup manifest digest'
 fi
-[[ -d "$root" && -f "$root/compose.yaml" && -f "$root/.env" && -f "$root/server/.env" ]] \
-  || fail "deployment files or split environments are missing under $root"
+[[ -d "$root" && -f "$root/compose.yaml" && -f "$root/.env" && ! -L "$root/.env" ]] \
+  || fail "deployment files or root environment are missing under $root"
+has_backend_env=0
+if [[ -e "$root/server/.env" || -L "$root/server/.env" ]]; then
+  [[ -f "$root/server/.env" && ! -L "$root/server/.env" ]] \
+    || fail 'server/.env must be an ordinary file when present'
+  has_backend_env=1
+fi
 [[ -f "$secrets" ]] || fail 'deployment credential payload is missing'
 chmod 600 "$secrets"
 set -a
@@ -728,23 +752,9 @@ rm -f "$secrets"
 
 cd "$root"
 sudo -n grep -Fqx "HTTP_PORT=$port" .env || fail '.env origin port mismatch'
-if sudo -n grep -Eq '^(APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|STORAGE_|DEMO_|MODULE_))' .env; then
+if (( has_backend_env == 1 )) && sudo -n grep -Eq '^(APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|STORAGE_|DEMO_|MODULE_))' .env; then
   fail 'root .env contains backend configuration'
 fi
-sudo -n grep -Fqx "PEANUT_DEPLOYMENT_TARGET=$target" server/.env || fail 'server/.env deployment target mismatch'
-sudo -n grep -Fqx "PEANUT_DATABASE_RESOURCE_ID=$database_resource" server/.env || fail 'server/.env database resource mismatch'
-sudo -n grep -Fqx "DEPLOYMENT_MODE=$deployment_mode" server/.env || fail 'server/.env deployment mode mismatch'
-
-read_env_value() {
-  local file="$1" key="$2"
-  sudo -n awk -v key="$key" 'index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }' "$file"
-}
-public_scheme="$(read_env_value .env PEANUT_PUBLIC_SCHEME)"
-trusted_hosts="$(read_env_value .env PEANUT_TRUSTED_HOSTS)"
-[[ "$public_scheme" == http || "$public_scheme" == https ]] \
-  || fail 'PEANUT_PUBLIC_SCHEME must be an explicit http or https value in root .env'
-[[ -n "$trusted_hosts" && "$trusted_hosts" != *'*'* ]] \
-  || fail 'PEANUT_TRUSTED_HOSTS must be explicit non-wildcard host names in root .env'
 IFS=',' read -r -a trusted_host_list <<<"$trusted_hosts"
 [[ ${#trusted_host_list[@]} -gt 0 ]] || fail 'PEANUT_TRUSTED_HOSTS is empty'
 for trusted_host in "${trusted_host_list[@]}"; do
@@ -753,7 +763,11 @@ for trusted_host in "${trusted_host_list[@]}"; do
     || fail 'PEANUT_TRUSTED_HOSTS contains a non-DNS or wildcard host'
 done
 
-current_compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" docker compose --env-file .env --env-file server/.env -p "$project" -f compose.yaml --profile bundled-db)
+current_compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" docker compose --env-file .env)
+if (( has_backend_env == 1 )); then
+  current_compose+=(--env-file server/.env)
+fi
+current_compose+=(-p "$project" -f compose.yaml --profile bundled-db)
 "${current_compose[@]}" config >/dev/null || fail 'Compose configuration is invalid'
 if [[ "$mode" == update ]]; then
   [[ -f DEPLOYMENT_RECEIPT.json && ! -L DEPLOYMENT_RECEIPT.json ]] \
@@ -847,6 +861,35 @@ if [[ -n "$overlay" ]]; then
     || fail 'demo overlay migration target version does not match its migration files'
 fi
 
+candidate_root_env="$root/.env"
+candidate_backend_env="$root/server/.env"
+if [[ "$deployment_kind" == candidate ]]; then
+  [[ -x "$staging/deploy/legacy-env-migrate" ]] || fail 'candidate legacy-layout helper is unavailable'
+  legacy_env_args=(
+    --target "$target" --root-env "$root/.env"
+    --expected-port "$port" --expected-project "$project"
+    --expected-database-resource "$database_resource" --expected-database-name "$([ "$target" = production ] && printf peanut_admin || printf peanut_admin_candidate)"
+    --expected-mode "$deployment_mode"
+    --expected-platform-hosts "$platform_hosts" --expected-tenant-admin-hosts "$tenant_admin_hosts"
+    --expected-owner-invitation-mode "$owner_invitation_mode"
+    --public-scheme "$public_scheme" --trusted-hosts "$trusted_hosts"
+  )
+  if (( has_backend_env == 1 )); then
+    legacy_env_args+=(--backend-env "$root/server/.env")
+  fi
+  if [[ "$mode" != update ]]; then
+    legacy_env_args+=(--allow-secret-rotation)
+  fi
+  sudo -n "$staging/deploy/legacy-env-migrate" "${legacy_env_args[@]}" --check-only \
+    || fail 'candidate legacy environment layout is invalid'
+  legacy_env_args+=(--root-output "$staging/.env" --backend-output "$staging/server/.env")
+  sudo -n "$staging/deploy/legacy-env-migrate" "${legacy_env_args[@]}" \
+    || fail 'candidate legacy environment could not be converted into split files'
+  candidate_root_env="$staging/.env"
+  candidate_backend_env="$staging/server/.env"
+  printf 'candidate_environment_layout=split\n'
+fi
+
 receipt_overlay='null'
 if [[ -n "$expected_overlay_sha" ]]; then
   receipt_overlay="$(jq -n \
@@ -924,9 +967,9 @@ candidate_receipt_file="$root/DEPLOYMENT_RECEIPT.json"
 [[ "$deployment_kind" != candidate ]] || candidate_receipt_file="$staging/DEPLOYMENT_RECEIPT.json"
 candidate_compose=(
   sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
-  "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
+  "PEANUT_SERVER_ENV_FILE=$candidate_backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
   "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$deployment_receipt_base64"
-  docker compose --env-file "$root/.env" --env-file "$root/server/.env" -p "$project"
+  docker compose --env-file "$candidate_root_env" --env-file "$candidate_backend_env" -p "$project"
   -f "$staging/compose.yaml" --profile bundled-db
 )
 "${candidate_compose[@]}" config >/dev/null || fail 'candidate Compose configuration is invalid'
@@ -972,6 +1015,7 @@ if [[ "$mode" == update ]]; then
   printf 'candidate_plugin_composition=ready\n'
 fi
 
+if [[ "$mode" != update ]]; then
 preflight_project=""
 preflight_installation_env=""
 preflight_compose=()
@@ -985,9 +1029,9 @@ trap cleanup_empty_database_preflight EXIT
 preflight_project="${project}-candidate-preflight-$$"
 preflight_compose=(
   sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
-  "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
+  "PEANUT_SERVER_ENV_FILE=$candidate_backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
   "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$deployment_receipt_base64"
-  docker compose --env-file "$root/.env" --env-file "$root/server/.env" -p "$preflight_project"
+  docker compose --env-file "$candidate_root_env" --env-file "$candidate_backend_env" -p "$preflight_project"
   -f "$staging/compose.yaml" --profile bundled-db
 )
 "${preflight_compose[@]}" up -d --wait mysql >/dev/null \
@@ -1020,6 +1064,12 @@ preflight_installation_env=""
 "${preflight_compose[@]}" down --volumes --remove-orphans >/dev/null
 preflight_project=""
 trap - EXIT
+else
+  "${candidate_compose[@]}" run -T --rm --no-deps --entrypoint php php \
+    server/database/install.php --migrate --target-version="$migration_target_version" --dry-run </dev/null \
+    || fail 'candidate non-destructive migration verification failed; existing target was not stopped'
+  printf 'candidate_update_migration_preflight=passed\n'
+fi
 
 verify_paired_backup() {
   local backup_dir="$root/backups/$paired_backup_id" backup_manifest_sha
@@ -1054,8 +1104,37 @@ deployment_failure_diagnostic() {
   exit "$status"
 }
 trap deployment_failure_diagnostic EXIT
+preserve_target_environment() {
+  local backup_id="legacy-env-${expected_commit:0:12}-${target}"
+  local backup_root="$root/.ops/deploy-release-env-backups" backup_dir="$backup_root/$backup_id"
+  local root_sha server_sha manifest_tmp
+  [[ ! -L "$root/.ops" && ! -L "$backup_root" && ! -e "$backup_dir" ]] \
+    || fail 'private legacy environment backup destination already exists or is a symlink'
+  sudo -n install -d -m 0700 "$backup_root" "$backup_dir"
+  sudo -n install -m 0600 .env "$backup_dir/root.env"
+  if (( has_backend_env == 1 )); then
+    sudo -n install -m 0600 server/.env "$backup_dir/server.env"
+  fi
+  root_sha="$(sudo -n sha256sum "$backup_dir/root.env" | awk '{print $1}')"
+  server_sha=''
+  if (( has_backend_env == 1 )); then
+    server_sha="$(sudo -n sha256sum "$backup_dir/server.env" | awk '{print $1}')"
+  fi
+  manifest_tmp="$(sudo -n mktemp "$backup_dir/.manifest.XXXXXX")"
+  sudo -n jq -n \
+    --arg target "$target" --arg commit "$expected_commit" --arg tree "$expected_tree" \
+    --arg backup_id "$backup_id" --arg root_sha "$root_sha" --arg server_sha "$server_sha" \
+    --arg layout "$(if (( has_backend_env == 1 )); then printf split; else printf root-only; fi)" \
+    '{schema_version:1,kind:"peanut.legacy-environment-backup.v1",target:$target,commit:$commit,tree:$tree,backup_id:$backup_id,layout:$layout,root_env_sha256:$root_sha,server_env_sha256:(if $server_sha=="" then null else $server_sha end)}' \
+    >"$manifest_tmp"
+  sudo -n chmod 600 "$manifest_tmp"
+  sudo -n mv -f -- "$manifest_tmp" "$backup_dir/manifest.json"
+  printf 'preserved_environment_backup_id=%s\npreserved_root_env_sha256=%s\n' "$backup_id" "$root_sha"
+  [[ -z "$server_sha" ]] || printf 'preserved_server_env_sha256=%s\n' "$server_sha"
+}
 if [[ "$mode" == fresh ]]; then
   verify_paired_backup
+  preserve_target_environment
   printf 'fresh target: candidate and paired backup are ready; stopping stack and removing only registered Compose volumes\n'
   registered_volumes=(
     "${project}_mysql-data" "${project}_php-runtime" "${project}_php-storage" "${project}_php-private-storage"
@@ -1084,7 +1163,11 @@ else
   printf 'install target: candidate is ready; no existing volumes will be removed\n'
 fi
 
-backend_environment_copy="$(mktemp /tmp/peanut-admin-backend-env.XXXXXX)"
+backend_environment_copy=""
+if [[ "$deployment_kind" == formal ]]; then
+  [[ "$has_backend_env" == 1 ]] || fail 'formal deployment requires the existing split backend environment'
+  backend_environment_copy="$(mktemp /tmp/peanut-admin-backend-env.XXXXXX)"
+fi
 installation_env=""
 seed_env=""
 cleanup_backend_environment_copy() {
@@ -1095,8 +1178,10 @@ cleanup_backend_environment_copy() {
   [[ -z "${seed_env:-}" ]] || rm -f -- "$seed_env"
 }
 trap cleanup_backend_environment_copy EXIT
-sudo -n cp "$root/server/.env" "$backend_environment_copy"
-sudo -n chmod 600 "$backend_environment_copy"
+if [[ -n "$backend_environment_copy" ]]; then
+  sudo -n cp "$root/server/.env" "$backend_environment_copy"
+  sudo -n chmod 600 "$backend_environment_copy"
+fi
 # Preserve root-owned environments, backups, and any unknown diagnostic files.
 # Only the versioned application entries are replaced; this is intentionally
 # explicit so a failed fresh deployment cannot erase secrets or backup pairs.
@@ -1111,9 +1196,11 @@ for managed_entry in "${managed_entries[@]}"; do
   fi
 done
 sudo -n cp -a "$staging"/. "$root"/
-sudo -n install -m 600 "$backend_environment_copy" "$root/server/.env"
-sudo -n rm -f "$backend_environment_copy"
-backend_environment_copy=""
+if [[ -n "$backend_environment_copy" ]]; then
+  sudo -n install -m 600 "$backend_environment_copy" "$root/server/.env"
+  sudo -n rm -f "$backend_environment_copy"
+  backend_environment_copy=""
+fi
 sudo -n rm -rf "$staging"
 sudo -n rm -f "$archive"
 [[ -z "$overlay" ]] || sudo -n rm -f "$overlay"
