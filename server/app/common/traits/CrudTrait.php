@@ -283,11 +283,19 @@ trait CrudTrait
         $validatorClass = $this->crudValidateClass();
         $accepted = $this->crudInputFields($scene);
         if ($accepted !== null) {
+            $writable = $this->crudWritableFields($scene);
+            if (in_array($scene, ['add', 'edit', $this->crudStatusScene()], true) && $writable === null) {
+                throw new LogicException(sprintf(
+                    '%s must declare CRUD_WRITABLE_FIELDS for %s.',
+                    static::class,
+                    $scene,
+                ));
+            }
             $input = $this->validateInput(
                 $params,
                 $validatorClass . '.' . $scene,
                 $accepted,
-                $this->crudWritableFields($scene) ?? [],
+                $writable ?? [],
                 rejectUnknown: true,
             );
             if (!$this->crudIsWriteScene($scene)) {

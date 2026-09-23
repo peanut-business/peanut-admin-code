@@ -72,6 +72,16 @@ set_env_default() (
     grep -q "^${name}=." "$target" || set_env_value "$target" "$name" "$value"
 )
 
+set_registered_port_default() (
+    target=$1
+    name=$2
+    registered=$3
+    current=$(awk -F= -v name="$name" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$target")
+    [ -z "$current" ] || [ "$current" = "$registered" ] ||
+        die "$name differs from its registered port; inspect the local override before starting services"
+    set_env_default "$target" "$name" "$registered"
+)
+
 ensure_env() {
     source_commit=$(git -C "$repo_dir" rev-parse HEAD) || die 'cannot resolve the local source commit'
     source_tree=$(git -C "$repo_dir" rev-parse 'HEAD^{tree}') || die 'cannot resolve the local source tree'
@@ -119,11 +129,11 @@ ensure_env() {
     set_env_default "$backend_env" PEANUT_MODULE_TRUSTED_KEYS_JSON '{}'
     "$resource_registry" local-stack-env --deployment-target local-development |
         while IFS='=' read -r name value; do
-            set_env_default "$orchestration_env" "$name" "$value"
+            set_registered_port_default "$orchestration_env" "$name" "$value"
         done
     "$resource_registry" local-stack-env --deployment-target local-production-preview |
         while IFS='=' read -r name value; do
-            set_env_default "$orchestration_env" "$name" "$value"
+            set_registered_port_default "$orchestration_env" "$name" "$value"
         done
     set_env_value "$orchestration_env" PEANUT_SOURCE_COMMIT "$source_commit"
     set_env_value "$orchestration_env" PEANUT_SOURCE_TREE "$source_tree"

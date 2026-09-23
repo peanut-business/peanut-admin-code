@@ -390,15 +390,14 @@ class Probe:
                 and safe_environment.get("DB_NAME") == EXPECTED_DATABASE["database"]
                 and safe_environment.get("DEPLOYMENT_MODE") == "standalone"
                 and all(
-                    safe_environment.get(env_name, str(EXPECTED_PORTS[name])).isdigit()
-                    and 1 <= int(safe_environment.get(env_name, str(EXPECTED_PORTS[name]))) <= 65535
+                    safe_environment.get(env_name, str(EXPECTED_PORTS[name])) == str(EXPECTED_PORTS[name])
                     for name, env_name in PORT_ENV_NAMES.items()
                 )
             )
             self.add(
                 "config.local_environment",
                 env_ok,
-                "split local environments select the registered database and valid listener ports",
+                "split local environments select the registered database and exact listener ports",
                 {
                     "orchestration_path": str(self.orchestration_env),
                     "backend_path": str(self.backend_env),

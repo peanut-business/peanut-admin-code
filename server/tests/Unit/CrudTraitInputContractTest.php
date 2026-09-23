@@ -92,6 +92,17 @@ final class CrudTraitInputContractTest extends TestCase
         $controller->add();
     }
 
+    public function testDeclaredInputRequiresAnExplicitWritablePolicyForMutation(): void
+    {
+        $request = (new Request())->withPost(['title' => 'hello']);
+        $this->app->instance(Request::class, $request);
+        $controller = new MissingWritablePolicyController($this->app);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must declare CRUD_WRITABLE_FIELDS for add');
+        $controller->add();
+    }
+
     private function controller(Request $request): ContractController
     {
         $this->app->instance(Request::class, $request);
@@ -122,6 +133,19 @@ final class ContractValidate extends Validate
         'restore' => ['uuid', 'ids'],
         'forceDelete' => ['uuid', 'ids'],
     ];
+}
+
+final class MissingWritablePolicyController extends BaseController
+{
+    use CrudTrait;
+
+    protected const CRUD_VALIDATE = ContractValidate::class;
+    protected const CRUD_INPUT_FIELDS = ['add' => ['title']];
+
+    protected function resolveCrudContext(): mixed
+    {
+        return null;
+    }
 }
 
 final class ContractController extends BaseController
