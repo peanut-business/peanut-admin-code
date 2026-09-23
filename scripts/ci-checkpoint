@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""Select validation cadence; never infer that a deferred draft was tested."""
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def select(event_name: str, payload: dict) -> str:
+    if event_name == 'pull_request':
+        pr = payload.get('pull_request')
+        if not isinstance(pr, dict) or type(pr.get('draft')) is not bool:
+            raise ValueError('pull_request.draft must be an explicit boolean')
+        return 'deferred' if pr['draft'] else 'required'
+    if event_name in ('push', 'workflow_dispatch'):
+        return 'required'
+    raise ValueError(f'unsupported checkpoint event: {event_name}')
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--github-output', type=Path)
+    args = parser.parse_args()
+    event_path = os.environ.get('GITHUB_EVENT_PATH')
+    if not event_path:
+        raise ValueError('GITHUB_EVENT_PATH is required; local checks use existing test commands')
+    payload = json.loads(Path(event_path).read_text())
+    if not isinstance(payload, dict):
+        raise ValueError('event payload must be an object')
+    decision = select(os.environ.get('GITHUB_EVENT_NAME', ''), payload)
+    output = f'validation={decision}\n'
+    if args.github_output:
+        with args.github_output.open('a') as handle:
+            handle.write(output)
+    sys.stdout.write(output)
+    note = ('Draft checkpoint: integration tests/builds are deferred, NOT passed. '
+            'Run focused tests locally at a coherent change boundary. '
+            'Ready for review triggers affected CI; subsequent ready-PR pushes are rechecked.'
+            if decision == 'deferred' else
+            'Integration checkpoint: affected checks are required. Missing, failed or cancelled required jobs block the summary.')
+    print(note)
+    if os.environ.get('GITHUB_STEP_SUMMARY'):
+        with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as handle:
+            handle.write('## Validation checkpoint\n\n' + note + '\n')
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        raise SystemExit(main())
+    except (ValueError, OSError) as error:
+        print(f'ci-checkpoint: {error}', file=sys.stderr)
+        raise SystemExit(2)

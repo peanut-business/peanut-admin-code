@@ -4,9 +4,10 @@ declare(strict_types=1);
 $serverDir = dirname(__DIR__, 2);
 $runtimeFiles = [
     'app/adminapi',
-    'app/common/service/authorization',
-    'app/common/service/org/AdminDirectoryQuery.php',
-    'app/platform/service/CoreTenantOwnerAdminProvisioner.php',
+    'app/common/services/authorization',
+    'app/modules/official/identity/src',
+    'app/modules/official/identity/module.json',
+    'app/platform/services/CoreTenantOwnerAdminProvisioner.php',
     'app/modules/official/import_export/src/Infrastructure/Authorization/AdminAsyncAuthorization.php',
 ];
 $forbidden = [
@@ -30,6 +31,9 @@ foreach ($runtimeFiles as $relative) {
         }
         continue;
     }
+    if (!is_file($path)) {
+        throw new RuntimeException('Native identity source owner is missing: ' . $relative);
+    }
     $source .= (string)file_get_contents($path);
 }
 
@@ -38,19 +42,37 @@ foreach ($forbidden as $table) {
         throw new RuntimeException("Forbidden identity dependency remains: {$table}");
     }
 }
-foreach (['pa_account', 'pa_credential', 'pa_tenant_member', 'pa_member_role', 'pa_role', 'pa_role_permission', 'pa_permission', 'pa_department'] as $table) {
-    if (!str_contains($source, $table)) {
-        throw new RuntimeException("Native identity dependency is missing: {$table}");
+// The ORM applies the configured prefix. Check declared ownership AND each
+// actual model's unprefixed name, not obsolete raw SQL in the application layer.
+$identityRoot = $serverDir . '/app/modules/official/identity';
+$identity = json_decode((string)file_get_contents($identityRoot . '/module.json'), true, 128, JSON_THROW_ON_ERROR);
+$models = [
+    'Account' => 'account', 'Credential' => 'credential',
+    'TenantMember' => 'tenant_member', 'MemberRole' => 'member_role',
+    'Role' => 'role', 'RolePermission' => 'role_permission',
+    'Permission' => 'permission', 'Department' => 'department',
+];
+foreach ($models as $class => $name) {
+    if (!in_array('pa_' . $name, $identity['database']['owned_tables'] ?? [], true)) {
+        throw new RuntimeException('Native identity table ownership is missing: ' . $name);
+    }
+    $modelFile = $identityRoot . '/src/Persistence/Model/' . $class . '.php';
+    if (!is_file($modelFile)) {
+        throw new RuntimeException('Native identity model is missing: ' . $class);
+    }
+    $model = (string)file_get_contents($modelFile);
+    if (!preg_match('/protected\\s+\\$name\\s*=\\s*([\'"])' . preg_quote($name, '/') . '\\1\\s*;/', $model)) {
+        throw new RuntimeException('Native identity model table differs: ' . $class);
     }
 }
 
-$admin = (string)file_get_contents($serverDir . '/app/adminapi/application/auth/AdminApplicationService.php');
+$admin = (string)file_get_contents($serverDir . '/app/adminapi/services/auth/AdminApplicationService.php');
 foreach (['add' => 'createAdministrator', 'edit' => 'updateAdministrator'] as $method => $command) {
-    if (!preg_match('/public function ' . $method . '\\(.*?(?=\\n    (?:\/\\*\\*|public function))/s', $admin, $match)) {
+    if (!preg_match('/public function ' . $method . '\\(.*?(?=\\n    (?:\/\*\*|public function))/s', $admin, $match)) {
         throw new RuntimeException("Administrator method is missing: {$method}");
     }
     if (!str_contains($match[0], '$service->' . $command . '(')) {
-        throw new RuntimeException("Administrator {$method} must use the Core atomic command");
+        throw new RuntimeException("Administrator {$method} must use the Identity module atomic command");
     }
     foreach (['createPending', 'update', 'replaceRoles', 'activate', 'suspend', 'transitionStatus'] as $primitive) {
         if (preg_match('/(?:->|::)' . $primitive . '\\(/', $match[0])) {
