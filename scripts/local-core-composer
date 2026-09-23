@@ -30,7 +30,9 @@ done
 if [[ "$ACTION" != manifest ]]; then
     [[ "$BACKEND_ENV" == /* && -f "$BACKEND_ENV" && ! -L "$BACKEND_ENV" ]] \
         || die '--backend-env must be an absolute regular file'
-    [[ "$(stat -f '%Lp %l' "$BACKEND_ENV" 2>/dev/null || stat -c '%a %h' "$BACKEND_ENV" 2>/dev/null)" == '600 1' ]] \
+    # PHP is already required. lstat avoids incompatible BSD/GNU stat output
+    # while preserving the exact regular-file, mode and hard-link checks.
+    php -r '$s = lstat($argv[1]); exit(is_array($s) && ($s["mode"] & 0170000) === 0100000 && ($s["mode"] & 0777) === 0600 && $s["nlink"] === 1 ? 0 : 1);' "$BACKEND_ENV" \
         || die '--backend-env must have mode 0600 and one hard link'
 fi
 command -v "$COMPOSER_BIN" >/dev/null 2>&1 || die "Composer is unavailable: $COMPOSER_BIN"

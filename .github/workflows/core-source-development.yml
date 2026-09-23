@@ -8,6 +8,9 @@ on:
       - scripts/local-core-web
       - scripts/local-core-composer
       - scripts/tests/core-dev-contract-test.py
+      - scripts/tests/local-core-environment-test.py
+      - scripts/freeze-core-release
+      - scripts/tests/freeze-core-release-test.py
       - .github/workflows/core-source-development.yml
   workflow_dispatch:
 
@@ -51,7 +54,9 @@ jobs:
           node-version: '22.23.2'
       - name: Check source selection contracts
         working-directory: code
-        run: python3 scripts/tests/core-dev-contract-test.py
+        run: |
+          python3 scripts/tests/core-dev-contract-test.py
+          python3 scripts/tests/local-core-environment-test.py
       - name: Record development source identities
         run: |
           for repo in code core-php core-web; do
@@ -86,3 +91,107 @@ jobs:
           path: ${{ runner.temp }}/peanut-code-source.tar.gz
           retention-days: 3
           if-no-files-found: error
+
+  frozen-core-inputs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: code
+      - uses: actions/checkout@v4
+        with:
+          repository: peanut-business/peanut-admin-core-php
+          ref: dev
+          path: core-php
+      - uses: actions/checkout@v4
+        with:
+          repository: peanut-business/peanut-admin-core-web
+          ref: dev
+          path: core-web
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:2.10.2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+      - name: Test version projection and archive guards
+        working-directory: code
+        run: python3 scripts/tests/freeze-core-release-test.py
+      - name: Freeze the actual Core sources without mutating them
+        working-directory: code
+        run: |
+          corepack enable
+          python3 scripts/freeze-core-release --php-core-dir "$GITHUB_WORKSPACE/core-php" --web-core-dir "$GITHUB_WORKSPACE/core-web" --output "$RUNNER_TEMP/frozen-core" --version 4.0.0-dev.2
+          git -C "$GITHUB_WORKSPACE/core-php" diff --exit-code
+          git -C "$GITHUB_WORKSPACE/core-web" diff --exit-code
+      - name: Install the bundled PHP Core in an independent consumer
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'frozen-core'
+          receipt = json.loads((root / 'release-core-inputs.json').read_text())
+          consumer = root / 'server'
+          consumer.mkdir()
+          manifest = {'name': 'peanut-fixture/independent-core-consumer',
+                      'repositories': [receipt['composer_repository']],
+                      'require': {'peanut-admin/core': receipt['core_php']['resolved_version']}}
+          (consumer / 'composer.json').write_text(json.dumps(manifest))
+          PYTHON
+          cd "$RUNNER_TEMP/frozen-core/server"
+          composer install --no-dev --prefer-dist --no-scripts --no-interaction --no-progress
+          php -r 'require "vendor/autoload.php"; $v=Composer\InstalledVersions::getPrettyVersion("peanut-admin/core"); if ($v!=="4.0.0-dev.2") { throw new RuntimeException("Frozen PHP Core version mismatch"); } $r=new ReflectionClass(PeanutAdmin\Kernel\Auth\TenantContext::class); if (!str_starts_with($r->getFileName(),getcwd()."/vendor/peanut-admin/core/")) { throw new RuntimeException("Frozen consumer escaped its installed package"); } echo "Frozen PHP archive consumed independently: ".$v.PHP_EOL;'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frozen-core-inputs-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/frozen-core/packages
+            ${{ runner.temp }}/frozen-core/release-core-inputs.json
+          retention-days: 3
+          if-no-files-found: error
+
+  backend-broad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:2.10.2
+          coverage: none
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.6
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+      - name: Prepare the existing backend gate environment
+        run: |
+          umask 077
+          printf '%s\n' 'APP_ENV=development' 'APP_DEBUG=false' 'PEANUT_DEPLOYMENT_TARGET=local-development' 'DEPLOYMENT_MODE=multi-tenant' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_NAME=peanut_admin_ci' 'DB_USER=root' 'DB_PASS=mt02_root' 'DB_ROOT_PASS=mt02_root' 'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-static' 'DB_PREFIX=pa_' > "$RUNNER_TEMP/backend-broad.env"
+          PEANUT_SERVER_ENV_FILE="$RUNNER_TEMP/backend-broad.env" composer install --working-dir=server --prefer-dist --no-interaction --no-progress
+          HUSKY=0 pnpm --dir web install --frozen-lockfile
+      - name: Run the existing broad PHP gate
+        run: ./scripts/ci-server-check.sh --broad --env-file "$RUNNER_TEMP/backend-broad.env"
+      - name: Produce the mechanical inventory update for review, not a passing gate
+        if: always()
+        run: |
+          php scripts/build-application-template-inventory
+          git diff -- scaffold/application-template-inventory.json > "$RUNNER_TEMP/application-template-inventory.patch"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inventory-review-${{ github.run_id }}
+          path: ${{ runner.temp }}/application-template-inventory.patch
+          retention-days: 3
+          if-no-files-found: error
+      - name: Remove only this job's environment file
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/backend-broad.env"
