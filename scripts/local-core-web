@@ -154,7 +154,7 @@ link_sources() {
     while IFS= read -r client; do
         for package in $(packages_for_client "$client"); do
             if [[ "$client" == web ]]; then
-                pnpm --dir "$ROOT_DIR/web" link "$CORE_DIR/packages/$package"
+                (cd "$ROOT_DIR/web" && pnpm link "$CORE_DIR/packages/$package")
             else
                 (cd "$ROOT_DIR/$client" && npm link "$CORE_DIR/packages/$package" --no-save --package-lock=false --ignore-scripts)
             fi

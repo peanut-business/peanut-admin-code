@@ -25,6 +25,25 @@ def version(value: str) -> str:
     return value
 
 
+def validate_composer_version(selected_version: str, directory: Path) -> None:
+    """Let the installed Composer reject SemVer labels it cannot consume."""
+    composer = shutil.which('composer')
+    if composer is None:
+        raise ValueError('Composer is required to validate the selected PHP package version.')
+    probe = directory / 'composer-version-probe'
+    probe.mkdir()
+    write_json(probe / 'composer.json', {
+        'name': 'peanut-fixture/version-probe', 'version': '0.0.0',
+        'require': {'peanut-admin/core': selected_version},
+    })
+    result = subprocess.run([composer, 'show', '--self', '--format=json', '--no-interaction'],
+                            cwd=probe, capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        raise ValueError('Composer rejected the selected exact PHP version; use a supported '
+                         'stable/alpha/beta/RC version or an explicit --php-version. '
+                         'An npm-compatible label is not necessarily Composer-compatible.')
+
+
 def read_json(path: Path) -> dict:
     data = json.loads(path.read_text(encoding='utf-8'))
     if not isinstance(data, dict):
@@ -94,8 +113,6 @@ def stamp_web(root: Path, selected_version: str) -> None:
                     if name.removeprefix('@peanut-admin/') not in PACKAGES:
                         raise ValueError('An undeclared internal Core Web dependency was found.')
                     data[field][name] = selected_version
-        # Dev-only workspace references remain local. pnpm pack removes their
-        # workspace protocol from published dependency fields, not from source.
         manifests.append((path, data))
     for path, data in manifests:
         write_json(path, data)
@@ -174,10 +191,9 @@ def freeze(php_source: Path, web_source: Path, destination: Path,
         php_root, web_root = temporary / 'php-source', temporary / 'web-source'
         output = temporary / 'output'
         output.mkdir()
+        validate_composer_version(php_version, temporary)
         snapshot(php_source, sources['php']['commit'], php_root)
         snapshot(web_source, sources['web']['commit'], web_root)
-        # Install and compile the original locked source first; version stamping
-        # changes only package metadata in the disposable build projection.
         subprocess.run(['corepack', 'pnpm', 'install', '--frozen-lockfile'], cwd=web_root, check=True, timeout=900)
         subprocess.run(['corepack', 'pnpm', 'run', 'build'], cwd=web_root, check=True, timeout=900)
         stamp_web(web_root, web_version)

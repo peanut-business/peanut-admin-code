@@ -75,7 +75,7 @@ jobs:
         working-directory: code
         run: |
           umask 077
-          env_file="$RUNNER_TEMP/peanut-core-source.env"
+          env_file="$GITHUB_WORKSPACE/code/server/.env.ci-core-${GITHUB_RUN_ID}"
           printf '%s\n' 'APP_ENV=development' 'APP_DEBUG=false' 'DEPLOYMENT_MODE=multi-tenant' > "$env_file"
           trap 'rm -f -- "$env_file"' EXIT
           ./scripts/core-dev install --php-core-dir "$GITHUB_WORKSPACE/core-php" --web-core-dir "$GITHUB_WORKSPACE/core-web" --backend-env "$env_file"
@@ -124,7 +124,7 @@ jobs:
         working-directory: code
         run: |
           corepack enable
-          python3 scripts/freeze-core-release --php-core-dir "$GITHUB_WORKSPACE/core-php" --web-core-dir "$GITHUB_WORKSPACE/core-web" --output "$RUNNER_TEMP/frozen-core" --version 4.0.0-dev.2
+          python3 scripts/freeze-core-release --php-core-dir "$GITHUB_WORKSPACE/core-php" --web-core-dir "$GITHUB_WORKSPACE/core-web" --output "$RUNNER_TEMP/frozen-core" --version 4.0.0-rc.1
           git -C "$GITHUB_WORKSPACE/core-php" diff --exit-code
           git -C "$GITHUB_WORKSPACE/core-web" diff --exit-code
       - name: Install the bundled PHP Core in an independent consumer
@@ -143,7 +143,7 @@ jobs:
           PYTHON
           cd "$RUNNER_TEMP/frozen-core/server"
           composer install --no-dev --prefer-dist --no-scripts --no-interaction --no-progress
-          php -r 'require "vendor/autoload.php"; $v=Composer\InstalledVersions::getPrettyVersion("peanut-admin/core"); if ($v!=="4.0.0-dev.2") { throw new RuntimeException("Frozen PHP Core version mismatch"); } $r=new ReflectionClass(PeanutAdmin\Kernel\Auth\TenantContext::class); if (!str_starts_with($r->getFileName(),getcwd()."/vendor/peanut-admin/core/")) { throw new RuntimeException("Frozen consumer escaped its installed package"); } echo "Frozen PHP archive consumed independently: ".$v.PHP_EOL;'
+          php -r 'require "vendor/autoload.php"; $v=Composer\InstalledVersions::getPrettyVersion("peanut-admin/core"); if ($v!=="4.0.0-rc.1") { throw new RuntimeException("Frozen PHP Core version mismatch"); } $r=new ReflectionClass(PeanutAdmin\Kernel\Auth\TenantContext::class); if (!str_starts_with($r->getFileName(),getcwd()."/vendor/peanut-admin/core/")) { throw new RuntimeException("Frozen consumer escaped its installed package"); } echo "Frozen PHP archive consumed independently: ".$v.PHP_EOL;'
       - uses: actions/upload-artifact@v4
         with:
           name: frozen-core-inputs-${{ github.run_id }}
@@ -175,11 +175,11 @@ jobs:
       - name: Prepare the existing backend gate environment
         run: |
           umask 077
-          printf '%s\n' 'APP_ENV=development' 'APP_DEBUG=false' 'PEANUT_DEPLOYMENT_TARGET=local-development' 'DEPLOYMENT_MODE=multi-tenant' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_NAME=peanut_admin_ci' 'DB_USER=root' 'DB_PASS=mt02_root' 'DB_ROOT_PASS=mt02_root' 'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-static' 'DB_PREFIX=pa_' > "$RUNNER_TEMP/backend-broad.env"
-          PEANUT_SERVER_ENV_FILE="$RUNNER_TEMP/backend-broad.env" composer install --working-dir=server --prefer-dist --no-interaction --no-progress
+          printf '%s\n' 'APP_ENV=development' 'APP_DEBUG=false' 'PEANUT_DEPLOYMENT_TARGET=local-development' 'DEPLOYMENT_MODE=multi-tenant' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_NAME=peanut_admin_ci' 'DB_USER=root' 'DB_PASS=mt02_root' 'DB_ROOT_PASS=mt02_root' 'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-static' 'DB_PREFIX=pa_' > "$GITHUB_WORKSPACE/server/.env.ci-broad-${GITHUB_RUN_ID}"
+          PEANUT_SERVER_ENV_FILE="$GITHUB_WORKSPACE/server/.env.ci-broad-${GITHUB_RUN_ID}" composer install --working-dir=server --prefer-dist --no-interaction --no-progress
           HUSKY=0 pnpm --dir web install --frozen-lockfile
       - name: Run the existing broad PHP gate
-        run: ./scripts/ci-server-check.sh --broad --env-file "$RUNNER_TEMP/backend-broad.env"
+        run: ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-broad-${GITHUB_RUN_ID}"
       - name: Produce the mechanical inventory update for review, not a passing gate
         if: always()
         run: |
@@ -194,4 +194,4 @@ jobs:
           if-no-files-found: error
       - name: Remove only this job's environment file
         if: always()
-        run: rm -f -- "$RUNNER_TEMP/backend-broad.env"
+        run: rm -f -- "$GITHUB_WORKSPACE/server/.env.ci-broad-${GITHUB_RUN_ID}"
