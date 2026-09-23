@@ -1,15 +1,7 @@
 name: Repository policy
 
+# Run only when a completed batch is explicitly selected for validation.
 on:
-  push:
-    branches:
-      - dev
-  pull_request:
-    branches:
-      - dev
-      - main
-  schedule:
-    - cron: '17 2 * * *'
   workflow_dispatch:
 
 permissions:
