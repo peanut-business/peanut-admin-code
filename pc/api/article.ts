@@ -55,12 +55,21 @@ interface ArticleCollectionWireItem extends Omit<ArticleCollectionItem, 'id'> {
   article_id: number
 }
 
+function publicArticle<T extends Article>(article: T): Omit<T, 'collect'> {
+  const { collect: _collect, ...publicFields } = article
+  return publicFields
+}
+
 export function getPcIndex<TDecoration>(client: ArticleRequestClient) {
   return client.get<{
     all?: Article[]
     article?: Article[]
     decorate?: TDecoration
-  }>('api/pc/index', undefined, false)
+  }>('api/pc/index', undefined, false).then(data => ({
+    ...data,
+    all: data.all?.map(publicArticle),
+    article: data.article?.map(publicArticle),
+  }))
 }
 
 export function getArticleCategories(client: ArticleRequestClient) {
@@ -76,12 +85,12 @@ export function getArticles(
     keyword: params.keyword,
     page_no: params.pageNo,
     page_size: params.pageSize,
-  }, false)
+  }, false).then(page => ({ ...page, lists: page.lists.map(publicArticle) }))
 }
 
 export function getArticleDetail(client: ArticleRequestClient, id: number) {
   return client.get<ArticleDetail & { collect?: boolean }>('api/article/detail', { id }, false)
-    .then(({ collect: _collect, ...detail }) => detail)
+    .then(publicArticle)
 }
 
 export function addArticleCollect(client: ArticleRequestClient, id: number) {
