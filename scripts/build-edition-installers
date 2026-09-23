@@ -16,16 +16,14 @@ function editionInstallerUsage(): never
 function editionInstallerRun(array $command, ?string $cwd = null): string
 {
     $pipes = [];
-    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $cwd);
+    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes, $cwd);
     if (!is_resource($process)) {
         throw new RuntimeException('EDITION_BUILD_PROCESS_FAILED');
     }
     $stdout = stream_get_contents($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
     fclose($pipes[1]);
-    fclose($pipes[2]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('EDITION_BUILD_COMMAND_FAILED: ' . trim((string)$stderr));
+        throw new RuntimeException('EDITION_BUILD_COMMAND_FAILED: ' . trim((string)$stdout));
     }
     return $stdout;
 }
@@ -147,6 +145,14 @@ try {
             $options['version'],
             'full',
         );
+        // The consumer gets the existing generated upgrade baseline plus browser
+        // builds, not the maintainer's dependency directories or a second scaffold.
+        $assembled = $temporary . '/assembled-' . $edition;
+        editionInstallerRun([
+            'bash', $source . '/scripts/package-release.sh', $assembled,
+            '--application-root=' . $application, '--directory-only',
+        ], $source);
+        $application = $assembled;
         $archiveRoot = 'peanut-admin-' . $options['version'] . '-' . $edition;
         $filename = $archiveRoot . '.tar.gz';
         $archive = $temporary . '/' . $filename;

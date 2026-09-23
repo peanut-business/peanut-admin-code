@@ -1,6 +1,7 @@
 import defaultBrand from './generated/brand.json'
 import { resolve } from 'node:path'
 import { readClientEnvironment } from '../scripts/client-environment'
+import { createPcRenderingOptions } from './utils/rendering-policy'
 
 const fileEnv = readClientEnvironment(resolve(import.meta.dirname, '.env.production'))
 const devProxyOrigin = fileEnv.NUXT_DEV_PROXY_ORIGIN ||
@@ -10,7 +11,7 @@ const devProxyTarget = fileEnv.NUXT_DEV_PROXY_TARGET || `${devProxyOrigin}/api`
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: false },
-  ssr: true,
+  ...createPcRenderingOptions(fileEnv.NUXT_PC_RENDER_MODE),
 
   app: {
     baseURL: '/pc/',

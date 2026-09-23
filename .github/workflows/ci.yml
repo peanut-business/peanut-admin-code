@@ -1,11 +1,14 @@
 name: CI
 
-# Run only when a completed batch is explicitly selected for validation.
+# Synchronization is not a validation request. Select a completed batch explicitly.
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  COMPOSER_CACHE_DIR: ${{ github.workspace }}/../.peanut-composer-cache
 
 concurrency:
   group: application-ci-${{ github.event.pull_request.number || github.ref }}
@@ -30,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
+      validation: ${{ steps.checkpoint.outputs.validation }}
       server: ${{ steps.paths.outputs.server }}
       web: ${{ steps.paths.outputs.web }}
       platform: ${{ steps.paths.outputs.platform }}
@@ -47,7 +51,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select validation checkpoint
+        id: checkpoint
+        run: >-
+          python3 scripts/ci-checkpoint
+          --event-name "$GITHUB_EVENT_NAME"
+          --event-file "$GITHUB_EVENT_PATH"
+          --github-output "$GITHUB_OUTPUT"
+          --github-summary "$GITHUB_STEP_SUMMARY"
+      - name: Test checkpoint and summary decisions
+        run: python3 scripts/tests/ci-checkpoint-test.py
+
       - name: Classify affected products
+        if: steps.checkpoint.outputs.validation == 'required'
         id: paths
         shell: bash
         run: |
@@ -79,7 +95,7 @@ jobs:
   create-app:
     name: Create app
     needs: changes
-    if: needs.changes.outputs.create_app == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.create_app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -94,15 +110,15 @@ jobs:
       - name: Install the tool's locked dependencies
         working-directory: server
         run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
-      - name: Verify inventory and create-app contract
-        run: |
-          php scripts/build-application-template-inventory --check
-          php server/tests/Productization/CreateApplicationTest.php
+      - name: Verify source inventory after locked dependencies
+        run: php scripts/build-application-template-inventory --check
+      - name: Verify create-app contract
+        run: php server/tests/Productization/CreateApplicationTest.php
 
   php:
     name: PHP 8.3
     needs: changes
-    if: needs.changes.outputs.server == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -153,7 +169,7 @@ jobs:
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
-          path: ~/.composer/cache/files
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
           key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-php-8.3-composer-
@@ -202,7 +218,7 @@ jobs:
   integration:
     name: Integration / MySQL 8.4
     needs: changes
-    if: needs.changes.outputs.integration == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.integration == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -229,7 +245,7 @@ jobs:
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
-          path: ~/.composer/cache/files
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
           key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-php-8.3-composer-
@@ -287,7 +303,7 @@ jobs:
   web:
     name: Web
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -351,7 +367,7 @@ jobs:
   platform:
     name: Platform
     needs: changes
-    if: needs.changes.outputs.platform == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.platform == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -366,9 +382,7 @@ jobs:
       - name: Install dependencies
         working-directory: platform
         run: npm ci
-      - name: Typecheck
-        working-directory: platform
-        run: npm run type:check
+      # The native build script already runs vue-tsc before Vite.
       - name: Build
         working-directory: platform
         run: npm run build
@@ -376,7 +390,7 @@ jobs:
   pc:
     name: PC
     needs: changes
-    if: needs.changes.outputs.pc == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.pc == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -401,7 +415,7 @@ jobs:
   uniapp:
     name: UniApp
     needs: changes
-    if: needs.changes.outputs.uniapp == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.uniapp == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -429,7 +443,7 @@ jobs:
   docs:
     name: Public docs
     needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -445,6 +459,7 @@ jobs:
 
   summary:
     name: CI summary
+    # Missing, failed or cancelled required jobs still fail the explicit run.
     if: always()
     needs:
       - stale-facts

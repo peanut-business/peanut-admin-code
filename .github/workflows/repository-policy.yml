@@ -1,16 +1,21 @@
 name: Repository policy
 
-# Run only when a completed batch is explicitly selected for validation.
+# Synchronization is not a validation request. Select a completed batch explicitly.
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: repository-policy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   protected-branches:
     name: Preserve integration branches
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Verify integration branches
         env:
