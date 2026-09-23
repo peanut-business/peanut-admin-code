@@ -26,6 +26,16 @@ if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
  *     php server/database/install.php
  */
 
+// A source distribution intentionally does not contain vendor/. Report the
+// prerequisite before reading configuration or touching any database.
+if ($installerIsDirect && !is_file(dirname(__DIR__) . '/vendor/autoload.php')) {
+    fwrite(STDERR, "尚未安装后端依赖。请在产品根目录运行：\n"
+        . "  scripts/project-composer prepare\n"
+        . "  scripts/project-composer install --working-dir=server --no-scripts\n"
+        . "然后按公开安装文档配置环境，再运行此安装入口。\n");
+    exit(2);
+}
+
 require_once __DIR__ . '/environment-guard.php';
 
 function loadConfig(string $serverDir): array
