@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => {
   return {
   base: '/platform/',
   plugins: [vue()],
+  resolve: { dedupe: ['vue', 'pinia', 'element-plus'] },
   define: {
     __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
     'import.meta.env.VITE_API_BASE_URL': JSON.stringify(environment.VITE_API_BASE_URL || ''),

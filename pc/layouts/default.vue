@@ -11,9 +11,11 @@
         <nav class="flex items-center gap-8">
           <NuxtLink to="/" class="text-gray-600 hover:text-primary transition-colors">首页</NuxtLink>
           <NuxtLink to="/information" class="text-gray-600 hover:text-primary transition-colors">资讯</NuxtLink>
+          <NuxtLink to="/about" class="text-gray-600 hover:text-primary transition-colors">关于我们</NuxtLink>
           <NuxtLink v-if="isLoggedIn" to="/recharge" class="text-gray-600 hover:text-primary transition-colors">充值</NuxtLink>
         </nav>
 
+        <ClientOnly>
         <div class="flex items-center gap-3">
           <template v-if="isLoggedIn">
             <el-dropdown>
@@ -37,6 +39,7 @@
             </NuxtLink>
           </template>
         </div>
+        </ClientOnly>
       </div>
     </header>
 
@@ -60,12 +63,12 @@
 
 <script setup lang="ts">
 const appStore = useAppStore()
-const userStore = useUserStore()
+const userStore = import.meta.client ? useUserStore() : null
 const request = useRequest()
 
 const website = computed(() => appStore.website)
-const isLoggedIn = computed(() => userStore.isLoggedIn)
-const userInfo = computed(() => userStore.userInfo)
+const isLoggedIn = computed(() => userStore?.isLoggedIn ?? false)
+const userInfo = computed(() => userStore?.userInfo)
 
 async function handleLogout() {
   let revoked = true
@@ -74,7 +77,7 @@ async function handleLogout() {
   } catch {
     revoked = false
   } finally {
-    userStore.clearSession()
+    userStore?.clearSession()
   }
   await navigateTo('/')
   if (revoked) {

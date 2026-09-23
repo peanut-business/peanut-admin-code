@@ -121,7 +121,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d22941f49c52d4bc307ddd9301434f2ef643369d0e910fbc9ca23d2a99dc23f6"
+            "source_sha256": "ce5042fb3acc647bf52c32acc88e478b0dcfcece879d875010f7b36c1d2043d0"
+        },
+        {
+            "path": ".github/workflows/core-source-development.yml",
+            "target": ".github/workflows/core-source-development.yml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b5d5fd551746e9535424d0cebb5e9c40480e2120250c9a4efde45e3e605de701"
         },
         {
             "path": ".github/workflows/repository-policy.yml",
@@ -327,7 +341,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ca11918392150bb55b09475e227c092dbf45e9aff2bd1580ad1be1daa254e43"
+            "source_sha256": "10c5606c784f20e82e1f668660651c08372395e12cc547ea7251c5dee58964b3"
         },
         {
             "path": "deploy/docker-compose.dev.yml",
@@ -354,7 +368,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59cbef94f21b0d04ee61ec1adca493e8876b25ea54cf5e912dd5dc52d0d4f138"
+            "source_sha256": "fc157475bc84d3d1e136a5226a3c17a9b43d26cef270400eda267d71cc44f3f0"
         },
         {
             "path": "deploy/docker-compose.remote-development.yml",
@@ -382,6 +396,20 @@
                 "full"
             ],
             "source_sha256": "d9e3f4eb4897d3c6fab948ed4e6778c16465ac6568567256ce14b53dedf905de"
+        },
+        {
+            "path": "deploy/docker/nginx-select-pc.sh",
+            "target": "deploy/docker/nginx-select-pc.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c734d5f046c349ad96d661adb7bd36efde584d42edfa8d0aedece9d9c85a1f08"
         },
         {
             "path": "deploy/docker/php-development-entrypoint.sh",
@@ -449,7 +477,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c17aee90b58963338bf9d3ede032000a67f38d0d57351556237a71a71ac871cb"
+            "source_sha256": "24779b05233dabb0bd504c5a1c5838324529d684e43fa1a9daab69071f146b51"
         },
         {
             "path": "deploy/docker/read-backend-enum.sh",
@@ -506,6 +534,20 @@
             ]
         },
         {
+            "path": "deploy/nginx/peanut-admin-ssr.conf",
+            "target": "deploy/nginx/peanut-admin-ssr.conf",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3f9a61b69c635c20407bf2917b88fc1d3d01e7bd388af968829d2005a780543d"
+        },
+        {
             "path": "deploy/nginx/peanut-admin.conf",
             "target": "deploy/nginx/peanut-admin.conf",
             "classification": "managed",
@@ -517,7 +559,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2a404317b712cce4573f0065b1987d3a6a119a36c91e5225ddcf4526be1ef2d4"
+            "source_sha256": "449a14904194e01379bca898fc2ced83c0e457743dfcadd5d9813ee263459f50"
         },
         {
             "path": "deploy/tests/deploy-release-candidate-contract.sh",
@@ -767,7 +809,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c52a83f7f93583cea6eb2c0e51eeb54888a864ae7eaacdb83179b198fa7d0941"
+            "source_sha256": "72cb1b6a306bbaa55e8741afb14ef76e4ce9d96afce2916e9ac664dde43c99db"
         },
         {
             "path": "pc/.env.production",
@@ -780,7 +822,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c52a83f7f93583cea6eb2c0e51eeb54888a864ae7eaacdb83179b198fa7d0941"
+            "source_sha256": "72cb1b6a306bbaa55e8741afb14ef76e4ce9d96afce2916e9ac664dde43c99db"
         },
         {
             "path": "pc/.gitignore",
@@ -806,7 +848,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36df5ed0e4a608fef9039be1d2fa8e97782554e915a93e62573aa17928ea8f40"
+            "source_sha256": "cb1c9eadab091603fab9cf8346c634cbaea2e27ba0106a416a507ffe50856f0e"
         },
         {
             "path": "pc/api/oauth.ts",
@@ -845,7 +887,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9e23dce5d9c34175ecc4c70a9b097ffaa13f086426a03d44369554cadc540393"
+            "source_sha256": "a7ec1c63b5b3ce997b3d0d45781f7b59933852a4eda0bd1286c1a2452292ccd4"
         },
         {
             "path": "pc/components/ArticleCard.vue",
@@ -871,7 +913,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a4673646df00e58a313bd5681d6c4aa6aebe8f0edc0666bcb03c0dadd4ee54e4"
+            "source_sha256": "bdca3ab7b68c8a48c6608d976b311a20aec69001ea47e0118b5abdd1955b0b71"
         },
         {
             "path": "pc/generated/brand.json",
@@ -897,7 +939,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "937a5ef833a87b72ee25b2d51dc5cd71d513a96c3c34de8d6840faf4a6a89722"
+            "source_sha256": "ef6b871bfe2e1a933a1645f848f7a6e27f4c37fd383ffe6eb9d72e48cb166cfd"
         },
         {
             "path": "pc/layouts/user.vue",
@@ -936,7 +978,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e434eaf83d767ca3eb107e36faeed819fee1e8832628e595f7373beaa98e4dd4"
+            "source_sha256": "c55da195c19c8f7d433685085af70bbc0b59f43ec558ed2e2bef15cd944f52db"
         },
         {
             "path": "pc/package-lock.json",
@@ -965,6 +1007,19 @@
             "source_sha256": "e28cde7a47605fc1cfc4a42440c1878b4c6159815ee805c1ceda9b6a2dc529cc"
         },
         {
+            "path": "pc/pages/about.vue",
+            "target": "pc/pages/about.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fa5ca35220f6072254066d0de4bb9033c81a98c1eaacbdec27cc8ddfac6528f5"
+        },
+        {
             "path": "pc/pages/account/security.vue",
             "target": "pc/pages/account/security.vue",
             "classification": "managed",
@@ -988,7 +1043,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3ff653b7a284713a5635e0bd5f67de1f38ad1005cd5234d6cb961e436874bea"
+            "source_sha256": "0b01f9d1259b2a61c18e378ef59e313fd3ede8ea49a0cd817a551423a8eb6f1f"
         },
         {
             "path": "pc/pages/information/[source].vue",
@@ -1014,7 +1069,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "60b85f9479ae71284af6f1a3c11d36fcf6c00dd50a5bfcbbe6612402535a4f56"
+            "source_sha256": "154e688a8bd3aa711a6a92d7e027bb271d98e33c7b0307cc257a503dbe8c0fb5"
         },
         {
             "path": "pc/pages/information/index.vue",
@@ -1340,6 +1395,19 @@
                 "full"
             ],
             "source_sha256": "cc83e0619c049b7478cb6c317b2830716a449a94bc4deeccc671bbc0c7f7f119"
+        },
+        {
+            "path": "pc/utils/rendering-policy.ts",
+            "target": "pc/utils/rendering-policy.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bd6a84a01396a325befc42158d767a83c7365e90db0cb4013b198917a5fab9e7"
         },
         {
             "path": "pc/utils/sanitize-rich-text.ts",
@@ -1884,7 +1952,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d2b1244cfb091dc7166b8512eac3a56d1af897237c446404666e5b552e8e9d9e"
+            "source_sha256": "f0085f55735b9eba2deef28ee01772549b2ec2f149e43f5a4bfb68d524d73762"
         },
         {
             "path": "plugins.lock",
@@ -2474,7 +2542,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "736d5fbf635d740efb6fede0df04e4b68b44744cb82d3bb75994bccf14c538a3"
+            "source_sha256": "41e4f9993167204e068bee5ed1f14f3ddcb9ca3a07b859b0808896b4ba3525c7"
         },
         {
             "path": "scripts/ci-change-classifier",
@@ -2489,6 +2557,20 @@
                 "full"
             ],
             "source_sha256": "a40f9c1a3b9ab52f0ed02e19cc03471e3bdda820e5836ae75db8944e6ccb3dcb"
+        },
+        {
+            "path": "scripts/ci-checkpoint",
+            "target": "scripts/ci-checkpoint",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0b486a645c0d94d467dc6d83cfef065fb4fa8814b3b2abded0919f0f2ed9e8a3"
         },
         {
             "path": "scripts/ci-server-check.sh",
@@ -2530,7 +2612,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9ecf4a3096ff1b7bef05f20270155e5a4c2ff58295b71960e344635cc220f13"
+            "source_sha256": "74ff411f62448701159f2ecb723fb1ea94f5b471872d9794aabb7163f9be88d9"
         },
         {
             "path": "scripts/combined-upgrade-qualification",
@@ -2596,7 +2678,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77ebe6161ae10596835b7968761c8874e89d8729f1828e87df6675c00a288bf8"
+            "source_sha256": "abd3ee615552b77f2f6379540d1164dd3c6ad0aba14d17f27991151121736cf3"
         },
         {
             "path": "scripts/core-qualification-runner",
@@ -2649,6 +2731,20 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "scripts/freeze-core-release",
+            "target": "scripts/freeze-core-release",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "54208bb9b4e0def194cad5b0d6ee23a178bf634a15c7a43a59862d08966039c9"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
@@ -2716,7 +2812,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59bbbee3550fbd948886b1e09c37a87f69ac8f7d18c1d96a1173d9e7ed4efcee"
+            "source_sha256": "491c8a2008f27be199005991933414a81fe1128af27dfc00be494e2b257910fb"
         },
         {
             "path": "scripts/local-core-web",
@@ -2730,7 +2826,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4cf49d0f499ec5e3b0577fffad287245b6632c77258de4ba5050562ce09a278d"
+            "source_sha256": "09970a0a0d4e061747011d655d8dbaaadb12b9e4ff9cc28647847dd3759d20bf"
         },
         {
             "path": "scripts/local-environment-probe",
@@ -2877,6 +2973,20 @@
             ]
         },
         {
+            "path": "scripts/package-release-files.py",
+            "target": "scripts/package-release-files.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a99b47a243dfb1720776c50888c7cda20ffa8b0f54db9f29bc33ade3cd00ddf5"
+        },
+        {
             "path": "scripts/package-release.sh",
             "target": "scripts/package-release.sh",
             "classification": "managed",
@@ -2888,7 +2998,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b6200dbb3bba53dc3a3adc85acffa5db3d091d9825a65dcbb6252be27851bb7b"
+            "source_sha256": "43a8bfbc3a927d2fde1137771cfb13f07b73a39c0a35d800bb69e176dbd04299"
         },
         {
             "path": "scripts/product-upgrade-database",
@@ -3208,6 +3318,20 @@
             "source_sha256": "c6987a3870ba46bf3fc6579c9ed4cc64c2099216b80ab3ac11019b83a87a32e3"
         },
         {
+            "path": "scripts/tests/ci-checkpoint-test.py",
+            "target": "scripts/tests/ci-checkpoint-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1bd50d493f8b07182c3f17cff7a4fcd0b47c4eec52ff5737c38302906211c209"
+        },
+        {
             "path": "scripts/tests/consumer-module-resource-test.py",
             "target": "scripts/tests/consumer-module-resource-test.py",
             "classification": "managed",
@@ -3220,6 +3344,76 @@
                 "full"
             ],
             "source_sha256": "b4ca25b466c3f7d479c0fd12f059dd98f8e4cc7b7f9eac832bb49772d225a7f7"
+        },
+        {
+            "path": "scripts/tests/core-dev-contract-test.py",
+            "target": "scripts/tests/core-dev-contract-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "30f1e25bf8e6e5b23b0d7917163709b9c551365f6c8c50346c6e653a24739200"
+        },
+        {
+            "path": "scripts/tests/freeze-core-release-test.py",
+            "target": "scripts/tests/freeze-core-release-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cc2dbc0587a4f86fd6cb283040d7c50a0069e6d309536a48c9dcca6b41c2c3ad"
+        },
+        {
+            "path": "scripts/tests/local-core-environment-test.py",
+            "target": "scripts/tests/local-core-environment-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "db61545de0ff3e9adb2f8c38d94a7e3eb278ded279c9b7c44e775bf028807781"
+        },
+        {
+            "path": "scripts/tests/package-release-files-test.py",
+            "target": "scripts/tests/package-release-files-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "901c0f9505ed53bca56e68d7e1dfd5c3237245f7a8ded3a8c3450a005021dab1"
+        },
+        {
+            "path": "scripts/tests/pc-rendering-policy-test.mjs",
+            "target": "scripts/tests/pc-rendering-policy-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a11fe2a79f7a439fe6322190346f476a33a14aae3bea6c37067bfbe9d670961b"
         },
         {
             "path": "scripts/tests/run-registered-mysql-tests",
@@ -21333,7 +21527,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d37e5f9c63cf1df5b6ba95c9b547bcf797c856422c646dc47881f21e962ca24e"
+            "source_sha256": "8b7b4111bdc0ab114454812e6361694e85f7e151d851d4d0adef12d22f401e8a"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -24143,7 +24337,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ebd0b194846fa561bb657d0198a1327fed4020ad4d8d2ba663aea193e78bd3f"
+            "source_sha256": "ec671771459cb0dccaa6a08aefbfd2a18595e819ba466a4e298ddc970c58f051"
         },
         {
             "path": "server/tests/Multitenancy/NoticeTenantIsolationTest.php",
@@ -27276,7 +27470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "620d5aee7b4b2116e4ccb040f8a6ee454c5ec68eebc0fc1ae0fb670ac1d7157a"
+            "source_sha256": "0a4aff2b9fc2c265342f85a1cf893d547b6dedbad9ddc97211a9757d764b7ccf"
         },
         {
             "path": "web/config/vite.config.dev.ts",

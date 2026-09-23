@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,13 +11,15 @@ import { readClientEnvironment } from '../client-environment.ts'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 
-test('the default keeps public SSR and all current private route roots', () => {
+test('the default renders only registered public display routes on the server', () => {
   const config = createPcRenderingOptions(undefined)
   assert.equal(config.ssr, true)
   assert.deepEqual([...pcPrivateRouteRoots], ['/user', '/account', '/login', '/oauth', '/recharge'])
-  assert.equal(Object.keys(config.routeRules).length, 10)
-  assert.equal(config.routeRules['/'], undefined)
-  assert.equal(config.routeRules['/information/**'], undefined)
+  assert.equal(config.routeRules['/**'].ssr, false)
+  for (const route of ['/', '/information', '/information/**', '/about']) {
+    assert.equal(config.routeRules[route].ssr, true)
+  }
+  assert.equal(config.routeRules['/policy/**'], undefined)
 })
 
 test('hybrid is an explicit supported build choice', () => {
@@ -27,6 +29,7 @@ test('hybrid is an explicit supported build choice', () => {
 test('spa switches rendering, without claiming that a Node build becomes static', () => {
   const config = createPcRenderingOptions('spa')
   assert.equal(config.ssr, false)
+  assert.deepEqual(config.routeRules['/'], { ssr: false, prerender: true })
   assert.equal('nitro' in config, false)
   assert.equal('app' in config, false)
 })
@@ -76,7 +79,7 @@ test('returned rules do not share mutable objects across routes or config calls'
 })
 
 test('the existing file loader reads mode from the explicitly selected file', () => {
-  const dir = mkdtempSync(resolve(tmpdir(), 'peanut-pc-render-'))
+  const dir = mkdtempSync(resolve(realpathSync(tmpdir()), 'peanut-pc-render-'))
   const path = resolve(dir, 'client.env')
   const previous = process.env.PEANUT_CLIENT_ENV_FILE
   try {
@@ -109,10 +112,10 @@ test('both distributed environment templates document and select hybrid', () => 
 })
 
 // These remaining assertions inspect wiring, not a real Nuxt/browser render.
-test('Nuxt uses the shared mode policy without independently moving its URL base', () => {
+test('Nuxt uses the shared mode policy with the canonical root URL', () => {
   const source = readFileSync(resolve(root, 'pc/nuxt.config.ts'), 'utf8')
   assert.match(source, /createPcRenderingOptions\(fileEnv\.NUXT_PC_RENDER_MODE\)/)
-  assert.match(source, /baseURL: '\/pc\/'/)
+  assert.match(source, /baseURL: '\/'/)
   assert.doesNotMatch(source, /\bssr:\s*true/)
 })
 

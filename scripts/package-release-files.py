@@ -177,7 +177,7 @@ def public_assets(build: Path, target: Path) -> dict:
         source = build / relative
         if source.is_symlink() or not source.is_dir():
             raise ValueError(f'missing browser build: {relative}')
-        if name != 'pc' and not (source / 'index.html').is_file():
+        if not (source / 'index.html').is_file():
             raise ValueError(f'missing browser entry: {relative}')
         count = 0
         for path in sorted(source.rglob('*')):

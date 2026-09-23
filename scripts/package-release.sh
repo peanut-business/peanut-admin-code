@@ -63,7 +63,10 @@ edition="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["appli
 case "$edition" in standalone|multi-tenant) ;; *) die 'unknown generated application edition' ;; esac
 (cd "$build/web" && PEANUT_CLIENT_ENV_FILE="$build/web/.env.$edition" pnpm run build)
 npm --prefix "$build/platform" run build
-npm --prefix "$build/pc" run build
+# A static package needs Nuxt's SPA-generated HTML entry. An SSR build's
+# .output/public contains assets only and cannot be served as a complete app.
+printf 'NUXT_PC_RENDER_MODE=spa\n' > "$work/pc-spa.env"
+PEANUT_CLIENT_ENV_FILE="$work/pc-spa.env" npm --prefix "$build/pc" run generate
 npm --prefix "$build/uniapp" run build:h5
 # Recheck all source bytes after native install/build; reject unrecorded source
 # mutations rather than silently altering the existing upgrade baseline.

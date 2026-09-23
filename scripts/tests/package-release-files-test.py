@@ -65,6 +65,7 @@ class PackagingFilesTest(unittest.TestCase):
         for name in ('web/dist','platform/dist','uniapp/dist/build/h5'):
             path=build/name;path.mkdir(parents=True);(path/'index.html').write_text('<html>compiled</html>')
         pc=build/'pc/.output/public/_nuxt';pc.mkdir(parents=True);(pc/'entry.js').write_text('// compiled runtime including bundled libraries\n')
+        (pc.parent/'index.html').write_text('<html>generated SPA entry</html>')
         # These are installed/runtime files, not public browser output.
         private=build/'pc/.output/server/node_modules/private';private.mkdir(parents=True)
         (private/'index.js').write_text('do not distribute this dependency tree')
@@ -209,9 +210,10 @@ class PackagingFilesTest(unittest.TestCase):
         self.assertNotIn('Fatal error',result.stderr)
         self.assertFalse((server.parent/'vendor').exists())
 
-    def test_packager_has_no_ssg_or_mutable_prebuilt_shortcut(self):
+    def test_packager_generates_a_complete_spa_without_mutable_prebuilt_shortcut(self):
         script=(ROOT/'scripts/package-release.sh').read_text()
-        self.assertNotIn('run generate',script)
+        self.assertIn('run generate',script)
+        self.assertIn('NUXT_PC_RENDER_MODE=spa',script)
         self.assertNotIn('rsync -a',script)
         self.assertIn('run build',script)
         self.assertIn('--skip-client-build|--core-web-candidates=*) die',script)

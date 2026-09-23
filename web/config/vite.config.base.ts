@@ -126,6 +126,7 @@ export function createBaseConfig(
       svgLoader({ svgoConfig: {} }),
     ],
     resolve: {
+      dedupe: ['vue', 'pinia', 'element-plus'],
       alias: [
         {
           find: '@',

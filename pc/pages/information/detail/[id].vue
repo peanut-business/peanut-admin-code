@@ -16,11 +16,11 @@
           <div class="flex items-center gap-4">
             <span>{{ article.click }} 次浏览</span>
             <el-button
-              :type="article.collect ? 'primary' : 'default'"
+              :type="collected ? 'primary' : 'default'"
               size="small"
-              :icon="article.collect ? 'StarFilled' : 'Star'"
+              :icon="collected ? 'StarFilled' : 'Star'"
               @click="toggleCollect"
-            >{{ article.collect ? '已收藏' : '收藏' }}</el-button>
+            >{{ collected ? '已收藏' : '收藏' }}</el-button>
           </div>
         </div>
 
@@ -51,8 +51,9 @@ definePageMeta({ layout: 'default' })
 
 const route = useRoute()
 const id = Number(route.params.id)
-const userStore = useUserStore()
+const userStore = import.meta.client ? useUserStore() : null
 const request = useRequest()
+const collected = ref(false)
 const article = ref(
   Number.isInteger(id) && id > 0
     ? await getArticleDetail(request, id).catch(() => null)
@@ -62,6 +63,11 @@ if (import.meta.server && !article.value) setResponseStatus(404)
 const hydrated = ref(false)
 onMounted(() => {
   hydrated.value = true
+  if (userStore?.isLoggedIn && article.value) {
+    request.get<{ collect?: boolean }>('api/article/detail', { id: article.value.id })
+      .then(detail => { collected.value = detail.collect === true })
+      .catch(() => {})
+  }
 })
 const safeArticleContent = computed(() => sanitizeRichText(article.value?.content))
 const ssrArticleContent = computed(() => richTextToPlainText(article.value?.content))
@@ -73,10 +79,10 @@ useSeoMeta({
 })
 
 async function toggleCollect() {
-  if (!userStore.isLoggedIn) return navigateTo('/login')
+  if (!userStore?.isLoggedIn) return navigateTo('/login')
   if (!article.value) return
-  const updateCollect = article.value.collect ? cancelArticleCollect : addArticleCollect
+  const updateCollect = collected.value ? cancelArticleCollect : addArticleCollect
   await updateCollect(request, article.value.id)
-  article.value.collect = !article.value.collect
+  collected.value = !collected.value
 }
 </script>

@@ -145,8 +145,23 @@ metadata_digest() {
     done < <(selected_clients)
 }
 
+link_web_source() {
+    local package="$1" backup
+    backup="$(mktemp "${TMPDIR:-/tmp}/peanut-web-lock.XXXXXX")"
+    cp "$ROOT_DIR/web/pnpm-lock.yaml" "$backup"
+    if ! (cd "$ROOT_DIR/web" && CI=1 pnpm link "$CORE_DIR/packages/$package" </dev/null); then
+        cp "$backup" "$ROOT_DIR/web/pnpm-lock.yaml"
+        rm -f "$backup"
+        return 1
+    fi
+    # pnpm link rewrites lock snapshots even with unchanged dependency specs.
+    # The source link lives only in node_modules; preserve the release lock.
+    cp "$backup" "$ROOT_DIR/web/pnpm-lock.yaml"
+    rm -f "$backup"
+}
+
 link_sources() {
-    local before after client package
+    local before after client package installed
     command -v pnpm >/dev/null 2>&1 || die 'pnpm is required for local source linking'
     command -v corepack >/dev/null 2>&1 || die 'corepack is required to select the Core workspace package manager'
     before="$(metadata_digest)"
@@ -154,9 +169,16 @@ link_sources() {
     while IFS= read -r client; do
         for package in $(packages_for_client "$client"); do
             if [[ "$client" == web ]]; then
-                (cd "$ROOT_DIR/web" && pnpm link "$CORE_DIR/packages/$package")
+                link_web_source "$package"
             else
-                (cd "$ROOT_DIR/$client" && npm link "$CORE_DIR/packages/$package" --no-save --package-lock=false --ignore-scripts)
+                # npm link may copy a local package under npm 10 instead of
+                # leaving a source link. Replace only this ignored installed
+                # package; the native lock and manifest remain untouched.
+                installed="$ROOT_DIR/$client/node_modules/@peanut-admin/$package"
+                [[ -d "$ROOT_DIR/$client/node_modules/@peanut-admin" ]] \
+                    || die "$client dependencies must be installed before source linking"
+                rm -rf -- "$installed"
+                ln -s "$CORE_DIR/packages/$package" "$installed"
             fi
         done
     done < <(selected_clients)

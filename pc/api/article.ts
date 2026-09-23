@@ -26,7 +26,6 @@ export interface Article {
 
 export interface ArticleDetail extends Article {
   content: string
-  collect: boolean
 }
 
 export interface ArticleCategory {
@@ -81,7 +80,8 @@ export function getArticles(
 }
 
 export function getArticleDetail(client: ArticleRequestClient, id: number) {
-  return client.get<ArticleDetail>('api/article/detail', { id })
+  return client.get<ArticleDetail & { collect?: boolean }>('api/article/detail', { id }, false)
+    .then(({ collect: _collect, ...detail }) => detail)
 }
 
 export function addArticleCollect(client: ArticleRequestClient, id: number) {

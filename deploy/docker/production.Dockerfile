@@ -27,7 +27,7 @@ FROM client-base AS mobile-builder
 
 WORKDIR /build/uniapp
 COPY uniapp/package.json uniapp/package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY uniapp/ ./
 RUN npm run build:h5
@@ -48,7 +48,10 @@ COPY pc/package.json pc/package-lock.json ./
 RUN npm ci
 COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY pc/ ./
-RUN npm run build
+RUN npm run build \
+    && mv .output /build/pc-ssr-output \
+    && printf 'NUXT_PC_RENDER_MODE=spa\n' > /build/pc-spa.env \
+    && PEANUT_CLIENT_ENV_FILE=/build/pc-spa.env npm run generate
 
 FROM node:22.23.2-bookworm-slim AS pc
 
@@ -62,7 +65,7 @@ ENV NODE_ENV=production \
     PORT=3000
 
 WORKDIR /app
-COPY --from=pc-builder /build/pc/.output ./.output
+COPY --from=pc-builder /build/pc-ssr-output ./.output
 
 USER node
 EXPOSE 3000
@@ -148,6 +151,8 @@ LABEL org.opencontainers.image.revision=$PEANUT_SOURCE_COMMIT \
       org.peanut-admin.source-tree=$PEANUT_SOURCE_TREE
 
 COPY deploy/nginx/peanut-admin.conf /etc/nginx/conf.d/default.conf
+COPY deploy/nginx/peanut-admin-ssr.conf /etc/nginx/peanut-admin-ssr.conf
+COPY deploy/docker/nginx-select-pc.sh /docker-entrypoint.d/41-select-pc.sh
 COPY deploy/docker/nginx-select-admin.sh /docker-entrypoint.d/40-select-admin.sh
 COPY --chmod=0555 deploy/docker/read-backend-enum.sh /usr/local/bin/peanut-read-backend-enum
 COPY server/public /var/www/peanut-admin/server/public
@@ -155,5 +160,7 @@ COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md RELEASE_SBOM.spdx.json CHANGELOG.md R
 COPY --from=admin-builder /build/web/dist /opt/peanut-admin/admin
 COPY --from=platform-builder /build/platform/dist /var/www/peanut-admin/server/public/platform
 COPY --from=mobile-builder /build/uniapp/dist/build/h5 /var/www/peanut-admin/server/public/mobile
+COPY --from=pc-builder /build/pc/.output/public /var/www/peanut-admin/server/public/pc
 RUN chmod +x /docker-entrypoint.d/40-select-admin.sh \
+    && chmod +x /docker-entrypoint.d/41-select-pc.sh \
     && mkdir -p /var/www/peanut-admin/server/public/storage

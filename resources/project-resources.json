@@ -11,6 +11,26 @@
   "resources": {
     "tooling": [
       {
+        "stable_resource_id": "peanut-admin-pc-static-check-20260923",
+        "purpose": "Isolated Nginx check of the generated PC SPA and root routing",
+        "environments": ["development-test"],
+        "owner": "task 01a0cd05-c808-7f12-9c60-70f85e74f3e7",
+        "host": "127.0.0.1",
+        "port": 20485,
+        "database": null,
+        "schema": null,
+        "namespace": "container peanut-admin-pc-static-check-20260923; worktree pc-static-root-20260923",
+        "service_type": "nginx:1.28.0-alpine serving generated Nuxt SPA",
+        "version": "nginx:1.28.0-alpine",
+        "credential_ref": null,
+        "data_source": "pc/.output/public from this task worktree, synthetic requests only",
+        "freshness_requirement": "container and port absent before start; exact task worktree mounted read-only",
+        "health_check": "GET http://127.0.0.1:20485/ and nested page refresh; missing asset returns 404",
+        "fallback": "none",
+        "lifecycle": "this task's static PC check only",
+        "cleanup_responsibility": "task 01a0cd05-c808-7f12-9c60-70f85e74f3e7 removes only its own named container"
+      },
+      {
         "stable_resource_id": "peanut-admin-product-linux-host",
         "purpose": "Linux execution of the package-shipped Docker upgrade host during isolated product qualification",
         "environments": ["development-test", "qualification"],

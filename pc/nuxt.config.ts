@@ -14,7 +14,7 @@ export default defineNuxtConfig({
   ...createPcRenderingOptions(fileEnv.NUXT_PC_RENDER_MODE),
 
   app: {
-    baseURL: '/pc/',
+    baseURL: '/',
     head: {
       title: defaultBrand.website.pc_title,
       meta: [

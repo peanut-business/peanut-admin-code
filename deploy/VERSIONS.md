@@ -19,6 +19,6 @@ PHP 8.1.33 是历史业务验收使用的本地版本，但 2026 年已经不适
 | pnpm | 9.x |
 | Composer | 2.8.x |
 
-Node.js、pnpm 和 Composer 不需要安装到生产宿主机。Docker 构建阶段使用 Node.js 22 构建管理端、PC 端和 H5；管理端与 H5 由 Nginx 静态托管，PC 由独立的 Nuxt/Nitro Node 22 服务按请求 SSR，Nginx 仅反向代理 `/pc/`。PHP 和 Composer 运行在后端容器中。
+Node.js、pnpm 和 Composer 不需要安装到生产宿主机。Docker 构建阶段使用 Node.js 22 构建管理端、PC 端和 H5。默认 `spa` 模式把完整 PC 静态产物放在 `server/public/pc`，由 Nginx 在网站根路径提供，无需 PC Node 服务；选择 `hybrid` 时须启用 Compose `ssr` profile，Nginx 将根路径交 Nuxt/Nitro，只有登记的展示页 SSR。PHP 和 Composer 运行在后端容器中。
 
 版本范围扩大前必须在对应运行时完成一次安装、后端启动和最低充分业务 smoke。仅有 Composer 约束不代表该版本已经获得生产支持。

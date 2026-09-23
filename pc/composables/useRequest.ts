@@ -42,7 +42,7 @@ export function useRequest() {
   let forwardHeaders: Readonly<Record<string, string>> | undefined
 
   if (import.meta.server) {
-    const requestHeaders = useRequestHeaders(['host', 'cookie'])
+    const requestHeaders = useRequestHeaders(['host'])
     const trustedHosts = String(runtimeConfig.trustedHosts || '')
       .split(',')
       .map(host => host.trim())
@@ -50,15 +50,13 @@ export function useRequest() {
     baseUrl = String(runtimeConfig.upstreamOrigin || '')
     forwardHeaders = createNuxtSsrForwardHeaders({
       requestHost: requestHeaders.host || '',
-      cookie: requestHeaders.cookie,
+      cookie: undefined,
       forwardedProto: runtimeConfig.forwardedProto === 'https' ? 'https' : 'http',
       trustedHosts,
     })
   } else {
     baseUrl = configuredBaseUrl || window.location.origin
   }
-  const userStore = useUserStore()
-
   const client = createClient({
     transport: createNuxtClientTransport({
       baseUrl,
@@ -79,8 +77,8 @@ export function useRequest() {
       },
     }),
     session: {
-      accessToken: () => userStore.token,
-      clear: () => userStore.clearSession(),
+      accessToken: () => import.meta.client ? useUserStore().token : undefined,
+      clear: () => { if (import.meta.client) useUserStore().clearSession() },
     },
     decoder: decodeApiResponse,
     hooks: {
