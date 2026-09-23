@@ -14,3 +14,24 @@
 6. 升级不得覆盖实例秘密、自有模块或应用自定义区。
 
 对外模块包应带版本化说明，至少覆盖输入输出、权限、正常与失败例子、迁移、重试、停用和升级边界。API metadata 与实现同批刷新，并运行 `./scripts/check-openapi`，确保删除接口时不残留旧 SDK 或文档条目。
+
+## 普通管理动作的写法
+
+简单列表、详情和增删改可参考 `ArticleCateController`：声明 `$crudClass` 指向当前 App 已绑定的业务用例，`CRUD_VALIDATE` 指向校验器，再按动作声明 `CRUD_INPUT_FIELDS`。新增、修改和状态变更还必须分别声明 `CRUD_WRITABLE_FIELDS`；`id` 等定位字段是控制参数，不应作为可持久化字段。漏写可写声明会报配置错误，额外请求字段会被拒绝。服务仍负责 Tenant Scope、对象归属、业务不变量和事务，不能只靠 Controller 字段投影保护内部调用。
+
+分类模块的最小声明形态如下；实际字段、校验规则和授权由各模块决定：
+
+```php
+protected string $crudClass = ArticleCategoryAdministration::class;
+protected const CRUD_VALIDATE = ArticleCateValidate::class;
+protected const CRUD_INPUT_FIELDS = [
+    'add' => ['name', 'is_show', 'sort'],
+    'edit' => ['id', 'name', 'is_show', 'sort'],
+];
+protected const CRUD_WRITABLE_FIELDS = [
+    'add' => ['name', 'is_show', 'sort'],
+    'edit' => ['name', 'is_show', 'sort'],
+];
+```
+
+需要软删除时，只有模块明确启用并登记回收、恢复、永久删除路由和权限后才开放相应动作；恢复要先检查冲突及关联，普通查询和导出仍保持租户过滤。订单、账本、支付等具有独立状态和补偿规则的操作应写明确业务用例，不套普通删除。
