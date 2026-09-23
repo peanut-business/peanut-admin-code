@@ -85,6 +85,13 @@ class CheckpointTest(unittest.TestCase):
         self.assertIn('freeze-core-release-test.py', workflow)
         self.assertIn('local-core-environment-test.py', workflow)
 
+    def test_global_cache_uses_only_workflow_available_context(self):
+        workflow = (ROOT/'.github/workflows/ci.yml').read_text()
+        global_env = workflow.split('\nenv:\n', 1)[1].split('\nconcurrency:', 1)[0]
+        self.assertNotIn('runner.', global_env)
+        self.assertIn('COMPOSER_CACHE_DIR: ${{ github.workspace }}/../.peanut-composer-cache', global_env)
+        self.assertEqual(workflow.count('path: ${{ env.COMPOSER_CACHE_DIR }}/files'), 2)
+
     def test_inventory_fails_before_dependency_installation(self):
         workflow = (ROOT/'.github/workflows/ci.yml').read_text()
         self.assertLess(workflow.index('Verify source inventory before dependency installation'), workflow.index("Install the tool's locked dependencies"))

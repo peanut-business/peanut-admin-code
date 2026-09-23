@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  COMPOSER_CACHE_DIR: ${{ runner.temp }}/composer-cache
+  COMPOSER_CACHE_DIR: ${{ github.workspace }}/../.peanut-composer-cache
 
 concurrency:
   group: application-ci-${{ github.event.pull_request.number || github.ref }}
@@ -171,7 +171,7 @@ jobs:
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/composer-cache/files
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
           key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-php-8.3-composer-
@@ -247,7 +247,7 @@ jobs:
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
-          path: ${{ runner.temp }}/composer-cache/files
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
           key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-php-8.3-composer-
