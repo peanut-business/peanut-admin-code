@@ -27,7 +27,12 @@
         <NuxtLink to="/information" class="text-primary text-sm hover:underline">查看全部 →</NuxtLink>
       </div>
 
-      <div v-if="articles.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div v-if="indexPending" class="article-empty" role="status">正在加载资讯…</div>
+      <div v-else-if="indexError" class="article-empty" role="alert">
+        <span>资讯加载失败，请重试。</span>
+        <button type="button" @click="refreshIndex()">重新加载</button>
+      </div>
+      <div v-else-if="articles.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ArticleCard v-for="item in articles" :key="item.id" :article="item" />
       </div>
       <div v-else class="article-empty" role="status">
@@ -66,10 +71,16 @@ interface DecorationComponent {
   styles?: Record<string, string | number>
 }
 
-const indexData = await getPcIndex<{ data: DecorationComponent[] }>(useRequest())
-  .catch(() => null)
-const articles = computed(() => indexData?.all || indexData?.article || [])
-const decorate = computed(() => indexData?.decorate)
+// Capture the request-scoped client during setup. Nuxt carries the successful
+// result in this app's payload, so hydration does not repeat the same request.
+// No process-global data cache or authenticated user response is introduced.
+const request = useRequest()
+const { data: indexData, pending: indexPending, error: indexError, refresh: refreshIndex } = await useAsyncData(
+  'pc:public-index',
+  () => getPcIndex<{ data: DecorationComponent[] }>(request),
+)
+const articles = computed(() => indexData.value?.all || indexData.value?.article || [])
+const decorate = computed(() => indexData.value?.decorate)
 const bannerComponent = computed(() => {
   const list = decorate.value?.data
   return Array.isArray(list) ? list.find((item) => item.name === 'pc-banner') : undefined
