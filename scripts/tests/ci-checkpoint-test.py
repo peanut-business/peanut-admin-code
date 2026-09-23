@@ -46,10 +46,21 @@ class CheckpointTest(unittest.TestCase):
             root = Path(temp)
             (root/'event.json').write_text(json.dumps({'pull_request': {'draft': True}}))
             env = dict(os.environ, GITHUB_EVENT_NAME='pull_request', GITHUB_EVENT_PATH=str(root/'event.json'), GITHUB_STEP_SUMMARY=str(root/'summary.md'))
-            result = subprocess.run(['python3', str(ROOT/'scripts/ci-checkpoint'), '--github-output', str(root/'output')], env=env, capture_output=True, text=True)
+            result = subprocess.run(['python3', str(ROOT/'scripts/ci-checkpoint'), '--event-name', 'pull_request', '--event-file', str(root/'event.json'), '--github-output', str(root/'output'), '--github-summary', str(root/'summary.md')], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual((root/'output').read_text(), 'validation=deferred\n')
             self.assertIn('NOT passed', (root/'summary.md').read_text())
+
+    def test_ambient_event_cannot_replace_explicit_inputs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root/'event.json').write_text(json.dumps({'pull_request': {'draft': False}}))
+            env = dict(os.environ, GITHUB_EVENT_NAME='pull_request', GITHUB_EVENT_PATH=str(root/'event.json'))
+            result = subprocess.run(['python3', str(ROOT/'scripts/ci-checkpoint')], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertNotIn('validation=', result.stdout)
+        source = (ROOT/'scripts/ci-checkpoint').read_text()
+        self.assertNotIn('os.environ', source)
 
     def test_existing_summary_rejects_non_success_required_jobs(self):
         env = dict(os.environ)

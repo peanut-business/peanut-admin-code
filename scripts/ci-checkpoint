@@ -2,7 +2,6 @@
 """Select validation cadence; never infer that a deferred draft was tested."""
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -20,15 +19,15 @@ def select(event_name: str, payload: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--event-name', required=True, choices=('pull_request', 'push', 'workflow_dispatch'))
+    parser.add_argument('--event-file', required=True, type=Path)
     parser.add_argument('--github-output', type=Path)
+    parser.add_argument('--github-summary', type=Path)
     args = parser.parse_args()
-    event_path = os.environ.get('GITHUB_EVENT_PATH')
-    if not event_path:
-        raise ValueError('GITHUB_EVENT_PATH is required; local checks use existing test commands')
-    payload = json.loads(Path(event_path).read_text())
+    payload = json.loads(args.event_file.read_text())
     if not isinstance(payload, dict):
         raise ValueError('event payload must be an object')
-    decision = select(os.environ.get('GITHUB_EVENT_NAME', ''), payload)
+    decision = select(args.event_name, payload)
     output = f'validation={decision}\n'
     if args.github_output:
         with args.github_output.open('a') as handle:
@@ -40,8 +39,8 @@ def main() -> int:
             if decision == 'deferred' else
             'Integration checkpoint: affected checks are required. Missing, failed or cancelled required jobs block the summary.')
     print(note)
-    if os.environ.get('GITHUB_STEP_SUMMARY'):
-        with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as handle:
+    if args.github_summary:
+        with args.github_summary.open('a') as handle:
             handle.write('## Validation checkpoint\n\n' + note + '\n')
     return 0
 

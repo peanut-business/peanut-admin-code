@@ -60,7 +60,12 @@ jobs:
 
       - name: Select validation checkpoint
         id: checkpoint
-        run: python3 scripts/ci-checkpoint --github-output "$GITHUB_OUTPUT"
+        run: >-
+          python3 scripts/ci-checkpoint
+          --event-name "$GITHUB_EVENT_NAME"
+          --event-file "$GITHUB_EVENT_PATH"
+          --github-output "$GITHUB_OUTPUT"
+          --github-summary "$GITHUB_STEP_SUMMARY"
       - name: Test checkpoint and summary decisions
         run: python3 scripts/tests/ci-checkpoint-test.py
 
