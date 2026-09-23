@@ -10,17 +10,19 @@ BACKEND_ENV=""
 
 die() { printf 'core-dev: %s\n' "$*" >&2; exit 1; }
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage: scripts/core-dev {install|status|link|link-status}
   --php-core-dir /absolute/peanut-admin-core-php
   --web-core-dir /absolute/peanut-admin-core-web
   [--backend-env /absolute/server/.env.development]
 
-Development only. PHP uses the selected local checkout without changing its
-formal lock. Web install/status use the locked candidate archives; link and
-link-status explicitly select local Web source. Final candidate qualification
-uses a clean consumer with both dependency graphs fixed.
-EOF
+Development always uses both explicitly selected local Core checkouts.
+install/link activate source links; status/link-status verify those links.
+Local Web compilation is required because its exports use dist/, but no tgz
+or published version is required. Re-run local-core-web link after Core Web
+source changes to rebuild. Release builds use an isolated, pinned projection;
+they never convert this development checkout into a release installation.
+USAGE
 }
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -41,21 +43,13 @@ case "$ACTION" in
   install|link)
     [[ "$BACKEND_ENV" == /* ]] || die 'install requires --backend-env'
     "$ROOT_DIR/scripts/local-core-composer" install --core-dir "$PHP_CORE_DIR" --backend-env "$BACKEND_ENV"
-    if [[ "$ACTION" == link ]]; then
-      "$ROOT_DIR/scripts/local-core-web" link --core-dir "$WEB_CORE_DIR"
-    else
-      "$ROOT_DIR/scripts/local-core-web" install
-    fi
+    "$ROOT_DIR/scripts/local-core-web" link --core-dir "$WEB_CORE_DIR"
     ;;
   status|link-status)
     php_link="$ROOT_DIR/server/vendor/peanut-admin/core"
     [[ -L "$php_link" && "$(realpath "$php_link")" == "$PHP_CORE_DIR" ]] \
       || die 'installed PHP Core does not link to the selected checkout'
-    if [[ "$ACTION" == link-status ]]; then
-      "$ROOT_DIR/scripts/local-core-web" link-status --core-dir "$WEB_CORE_DIR"
-    else
-      "$ROOT_DIR/scripts/local-core-web" status
-    fi
+    "$ROOT_DIR/scripts/local-core-web" link-status --core-dir "$WEB_CORE_DIR"
     ;;
   *) usage >&2; die "unsupported action: $ACTION" ;;
 esac

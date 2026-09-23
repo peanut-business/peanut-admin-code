@@ -51,12 +51,14 @@ candidate_path() { printf '%s/%s\n' "$ROOT_DIR" "$(candidate_property "$1" archi
 candidate_specifier() { printf 'file:../%s\n' "$(candidate_property "$1" archive)"; }
 
 verify_package_manifest() {
-    local manifest="$1" package="$2"
+    local manifest="$1" package="$2" mode="${3:-candidate}" expected=""
+    [[ "$mode" != candidate ]] || expected="$(candidate_property "$package" version)"
     node -e '
 const m=require(process.argv[1]), name=`@peanut-admin/${process.argv[2]}`
-if(m.name!==name||m.version!==process.argv[3])process.exit(1)
+if(m.name!==name||typeof m.version!=="string"||m.version==="")process.exit(1)
+if(process.argv[3]!==""&&m.version!==process.argv[3])process.exit(1)
 if(m.exports?.["."]?.import!=="./dist/index.js"||m.exports?.["."]?.types!=="./dist/index.d.ts")process.exit(1)
-' "$manifest" "$package" "$(candidate_property "$package" version)" || die "invalid package identity or exports: $manifest"
+' "$manifest" "$package" "$expected" || die "invalid package identity or exports: $manifest"
 }
 
 verify_candidates() {
@@ -128,7 +130,7 @@ verify_source_packages() {
     for package in "${PACKAGES[@]}"; do
         manifest="$CORE_DIR/packages/$package/package.json"
         [[ -f "$manifest" ]] || die "missing core Web package: $manifest"
-        verify_package_manifest "$manifest" "$package"
+        verify_package_manifest "$manifest" "$package" source
     done
 }
 
@@ -146,8 +148,9 @@ metadata_digest() {
 link_sources() {
     local before after client package
     command -v pnpm >/dev/null 2>&1 || die 'pnpm is required for local source linking'
+    command -v corepack >/dev/null 2>&1 || die 'corepack is required to select the Core workspace package manager'
     before="$(metadata_digest)"
-    (cd "$CORE_DIR" && pnpm install --frozen-lockfile && pnpm run build)
+    (cd "$CORE_DIR" && corepack pnpm install --frozen-lockfile && corepack pnpm run build)
     while IFS= read -r client; do
         for package in $(packages_for_client "$client"); do
             if [[ "$client" == web ]]; then
@@ -170,6 +173,8 @@ verify_source_installed() {
             resolved="$(CDPATH= cd -- "$installed" && pwd -P)"
             expected="$(CDPATH= cd -- "$CORE_DIR/packages/$package" && pwd -P)"
             [[ "$resolved" == "$expected" ]] || die "$client @peanut-admin/$package resolves to $resolved, expected local source $expected"
+            [[ -f "$resolved/dist/index.js" && -f "$resolved/dist/index.d.ts" ]] \
+                || die "$client @peanut-admin/$package needs a local Core build (not a release tgz)"
         done
     done < <(selected_clients)
 }
@@ -196,8 +201,8 @@ case "$ACTION" in
         printf 'local Core Web ready: mode=candidate client=%s node=%s candidate_set_sha256=%s\n' "$CLIENT" "$(node --version)" "$(candidate_set_sha256)"
         ;;
     link|link-status)
+        # Source development is independent of old archive versions and locks.
         verify_source_packages
-        verify_candidate_declarations
         [[ "$ACTION" == link-status ]] || link_sources
         verify_source_installed
         printf 'local Core Web ready: mode=local-source core=%s client=%s node=%s tracked_metadata=unchanged\n' "$CORE_DIR" "$CLIENT" "$(node --version)"
