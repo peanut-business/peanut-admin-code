@@ -145,10 +145,16 @@ function createApplicationFiles(string $root): array
     return $files;
 }
 
+// 所有夹具位于所属 checkout 的临时根；产品仍禁止把应用生成到源码内部。
 $systemTemporary = realpath(sys_get_temp_dir());
 createApplicationExpect(is_string($systemTemporary), 'system temporary directory must resolve');
+$temporaryCursor = DIRECTORY_SEPARATOR;
+foreach (array_filter(explode(DIRECTORY_SEPARATOR, sys_get_temp_dir()), 'strlen') as $segment) {
+    $temporaryCursor = rtrim($temporaryCursor, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $segment;
+    createApplicationExpect(!is_link($temporaryCursor), 'temporary root must not contain a symlink');
+}
 $temporary = $systemTemporary . '/peanut-create-app-' . bin2hex(random_bytes(6));
-mkdir($temporary, 0775, true);
+createApplicationExpect(mkdir($temporary, 0700), 'cannot create task-owned fixture directory');
 $inventoryPath = $root . '/scaffold/application-template-inventory.json';
 $inventory = json_decode((string)file_get_contents($inventoryPath), true, 512, JSON_THROW_ON_ERROR);
 $inventoryByPath = [];
@@ -230,10 +236,37 @@ createApplicationExpect(
 );
 $releaseRoot = $temporary . '/current-scaffold-release';
 $releasePath = $releaseRoot . '/scaffold-manifest.json';
-$identity = ['commit' => str_repeat('a', 40), 'tree' => str_repeat('b', 40)];
+$identity = [
+    'commit' => trim(createApplicationRun(['git', '-C', $root, 'rev-parse', 'HEAD'])),
+    'tree' => trim(createApplicationRun(['git', '-C', $root, 'rev-parse', 'HEAD^{tree}'])),
+];
 
 try {
-    createApplicationBuildCurrentRelease($root, $templateVersion, $releaseRoot);
+    createApplicationExpect(
+        createApplicationBuildCurrentRelease($root, $templateVersion, $releaseRoot) === $identity['commit'],
+        'source commit changed while preparing the fixture',
+    );
+    // 与封存器使用同一提交的完整 Git 源码快照。源码与输出是临时目录下的兄弟，
+    // 既不借另一工作树放夹具，也不放宽 CREATE_APP_TARGET_INSIDE_SOURCE。
+    $sourceArchive = $temporary . '/source.tar';
+    createApplicationRun(['git', '-C', $root, 'archive', '--format=tar', '--output=' . $sourceArchive, $identity['commit']]);
+    $sourceFixture = $temporary . '/source';
+    createApplicationExpect(mkdir($sourceFixture, 0700), 'cannot create isolated fixture source');
+    (new PharData($sourceArchive))->extractTo($sourceFixture);
+    createApplicationExpect(
+        hash_file('sha256', $sourceFixture . '/scaffold/application-template-inventory.json') === hash_file('sha256', $inventoryPath),
+        'fixture must preserve the exact committed inventory, not rebuild or filter it',
+    );
+    $root = $sourceFixture;
+    $inventoryPath = $root . '/scaffold/application-template-inventory.json';
+    $nestedTarget = $root . '/nested-application';
+    $boundaryCreator = new ApplicationCreator($root, $inventoryPath, $identity);
+    createApplicationFails(
+        fn() => $boundaryCreator->create('Acme Console', 'acme-console', 'acme/acme-console', $nestedTarget, 'multi-tenant'),
+        'CREATE_APP_TARGET_INSIDE_SOURCE',
+    );
+    createApplicationExpect(!file_exists($nestedTarget), 'rejected nested generation must not create output');
+    createApplicationExpect(!is_dir($root . '/server/vendor'), 'source snapshot must not copy installed dependencies');
     $standardTarget = $temporary . '/standard-default';
     $standardManifest = (new ApplicationCreator($root, $inventoryPath, $identity))->create(
         'Acme Console',
