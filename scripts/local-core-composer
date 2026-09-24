@@ -44,7 +44,9 @@ elif [[ -f "$CORE_DIR/packages/php/composer.json" ]]; then
 else
     die "core checkout not found: expected $CORE_DIR/composer.json or $CORE_DIR/packages/php/composer.json"
 fi
-mkdir -p "$LOCAL_COMPOSER_DIR"
+if [[ "$ACTION" != services && "$ACTION" != services-check ]]; then
+    mkdir -p "$LOCAL_COMPOSER_DIR"
+fi
 
 required_version="$(php -r '$manifest = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR); echo $manifest["require"]["peanut-admin/core"] ?? "";' "$SERVER_DIR/composer.json")"
 [[ -n "$required_version" ]] || die 'server/composer.json does not pin peanut-admin/core'
@@ -56,6 +58,8 @@ core_branch="$(git -C "$CORE_PACKAGE_DIR" symbolic-ref --quiet --short HEAD)" \
     || die 'local development requires a named Core branch; use the locked package for detached candidates'
 core_requirement="dev-$core_branch"
 
+# Service-only actions must not reinstall dependencies or rewrite local manifests.
+if [[ "$ACTION" != services && "$ACTION" != services-check ]]; then
 php -r '
 $source = json_decode(file_get_contents($argv[1]), true, 512, JSON_THROW_ON_ERROR);
 $source["require"]["peanut-admin/core"] = $argv[6];
@@ -94,6 +98,7 @@ file_put_contents(
     json_encode($source, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL
 );
 ' "$SERVER_DIR/composer.json" "$CORE_PACKAGE_DIR" "$SERVER_DIR/vendor" "$LOCAL_COMPOSER" "$SERVER_DIR/app" "$core_requirement"
+fi
 
 run_composer() {
     local tool_environment
@@ -107,6 +112,73 @@ run_composer() {
         "$@" || status=$?
     rm -f "$tool_environment"
     return "$status"
+}
+
+# --no-scripts deliberately excludes vendor:publish and unrelated package hooks.
+# It does not replace ThinkPHP's installed-package service registration. In
+# particular, think-multi-app is loaded through vendor/services.php at HttpRun.
+service_registry_preflight() {
+    [[ -f "$SERVER_DIR/vendor/autoload.php" && -f "$SERVER_DIR/think" ]] \
+        || die 'service discovery requires the installed application autoloader and think entry'
+    local file
+    for file in "$SERVER_DIR/vendor/services.php" "$SERVER_DIR/vendor/composer/installed.json"; do
+        [[ ! -L "$file" && ( ! -e "$file" || -f "$file" ) ]] \
+            || die 'service discovery requires regular generated metadata paths'
+    done
+    [[ -f "$SERVER_DIR/vendor/composer/installed.json" ]] \
+        || die 'installed Composer package metadata is missing'
+}
+
+check_application_services() {
+    php -r '
+try {
+    $stage = "installed-metadata";
+    $root = $argv[1];
+    $installed = json_decode(file_get_contents($root . "/vendor/composer/installed.json"), true, 512, JSON_THROW_ON_ERROR);
+    $packages = $installed["packages"] ?? $installed;
+    if (!is_array($packages) || !array_is_list($packages)) {
+        throw new RuntimeException("invalid installed package metadata");
+    }
+    $expected = [];
+    foreach ($packages as $package) {
+        if (!is_array($package)) throw new RuntimeException("invalid package entry");
+        if (empty($package["extra"]["think"]["services"])) continue;
+        foreach ((array)$package["extra"]["think"]["services"] as $service) {
+            if (!is_string($service) || $service === "") throw new RuntimeException("invalid service declaration");
+            $expected[] = $service;
+        }
+    }
+    $stage = "multi-app-declaration";
+    if (!in_array("think\\app\\Service", $expected, true)) {
+        throw new RuntimeException("multi-app service is not declared by installed packages");
+    }
+    $stage = "missing-registry";
+    if (!is_file($root . "/vendor/services.php")) throw new RuntimeException("missing service registry");
+    $stage = "registry-mismatch";
+    $actual = require $root . "/vendor/services.php";
+    if ($actual !== $expected) throw new RuntimeException("service registry differs from installed packages");
+    $stage = "service-autoload";
+    require_once $root . "/vendor/autoload.php";
+    foreach ($actual as $service) {
+        if (!class_exists($service)) throw new RuntimeException("registered service class unavailable");
+    }
+    echo "local application services ready: " . count($actual) . " (multi-app included)\n";
+} catch (Throwable $exception) {
+    // Do not print arbitrary exception details or environment values.
+    fwrite(STDERR, "LOCAL_APPLICATION_SERVICE_REGISTRY_NOT_READY:" . $stage . "\n");
+    exit(1);
+}
+' "$SERVER_DIR"
+}
+
+refresh_application_services() {
+    # Run the framework's own command from the real application, not from the
+    # ignored Composer projection. Do not run vendor:publish or migrations.
+    (
+        cd -- "$SERVER_DIR"
+        PEANUT_SERVER_ENV_FILE="$BACKEND_ENV" php think service:discover
+    ) || die 'ThinkPHP service discovery failed'
+    check_application_services || die 'ThinkPHP service discovery did not produce a usable registry'
 }
 
 LOCK_BACKUP=""
@@ -142,12 +214,15 @@ case "$ACTION" in
     autoload)
         run_composer dump-autoload --no-scripts
         ;;
+    services|services-check)
+        # Reconcile/check existing vendor metadata without a Composer operation.
+        ;;
     manifest)
         printf '%s\n' "$LOCAL_COMPOSER"
         exit 0
         ;;
     *)
-        die "usage: $0 {install|update|refresh|autoload|manifest} --core-dir /absolute/path [--backend-env /absolute/server/.env.name]"
+        die "usage: $0 {install|update|refresh|autoload|services|services-check|manifest} --core-dir /absolute/path [--backend-env /absolute/server/.env.name]"
         ;;
 esac
 
@@ -155,5 +230,12 @@ installed_core="$SERVER_DIR/vendor/peanut-admin/core"
 [[ -L "$installed_core" ]] || die "Composer did not install a symlinked local core package: $installed_core"
 resolved_core="$(realpath "$installed_core")"
 [[ "$resolved_core" == "$CORE_PACKAGE_DIR" ]] || die "core symlink resolves to $resolved_core, expected $CORE_PACKAGE_DIR"
+
+service_registry_preflight
+if [[ "$ACTION" == services-check ]]; then
+    check_application_services
+    exit 0
+fi
+refresh_application_services
 
 printf 'local core active: %s -> %s\n' "$installed_core" "$resolved_core"
