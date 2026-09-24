@@ -3402,6 +3402,20 @@
             "source_sha256": "30f1e25bf8e6e5b23b0d7917163709b9c551365f6c8c50346c6e653a24739200"
         },
         {
+            "path": "scripts/tests/core-web-installed-consumer.mjs",
+            "target": "scripts/tests/core-web-installed-consumer.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0f601682ed559da4a6ecfd7effd5e6b0db2910fb90e9f7279d536ce0bf7627a0"
+        },
+        {
             "path": "scripts/tests/freeze-core-release-test.py",
             "target": "scripts/tests/freeze-core-release-test.py",
             "classification": "managed",
@@ -3414,6 +3428,20 @@
                 "full"
             ],
             "source_sha256": "293c842741afc665f44f8cfde73b05416bf3d1e3dd18118c41becb227607a158"
+        },
+        {
+            "path": "scripts/tests/generated-application-preinstall.php",
+            "target": "scripts/tests/generated-application-preinstall.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "87f8fd049ffc9b7494428b2cf2caabb95d2bd98df0d2be8a21c4a0c8418c391f"
         },
         {
             "path": "scripts/tests/local-core-environment-test.py",
