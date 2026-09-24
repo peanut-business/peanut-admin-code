@@ -27,7 +27,7 @@ class ArticleCateController extends BaseAdminController
     protected const CRUD_INPUT_FIELDS = [
         'lists' => [
             'page_no', 'page_size', 'page_start', 'page_end', 'page_type', 'order_by',
-            'field', 'name', 'is_show', 'start_time', 'end_time', 'start', 'end', 'export',
+            'field', 'name', 'is_show', 'start_time', 'end_time', 'start', 'end', 'export', 'file_name',
         ],
         'detail' => ['id'],
         'add' => ['name', 'is_show', 'sort'],
@@ -36,7 +36,7 @@ class ArticleCateController extends BaseAdminController
         'status' => ['id', 'is_show'],
         'recycle' => [
             'page_no', 'page_size', 'page_start', 'page_end', 'page_type', 'order_by',
-            'field', 'name', 'is_show', 'start_time', 'end_time', 'start', 'end',
+            'field', 'name', 'is_show', 'start_time', 'end_time', 'start', 'end', 'export', 'file_name',
         ],
         'recycleDetail' => ['id'],
         'restore' => ['id', 'ids'],

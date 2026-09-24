@@ -9,7 +9,8 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 /** 资讯模块内部的分类后台用例；与资讯 CRUD 使用相同参数和返回合同。 */
 interface ArticleCategoryAdministration
 {
-    public function lists(TenantContext $context, array $params): PageResult;
+    /** Normal page; export=1 returns ExportPageInfo, export=2 returns the private ExportFile. */
+    public function lists(TenantContext $context, array $params): PageResult|array;
 
     /** @return list<array<string,mixed>> */
     public function all(TenantContext $context): array;
@@ -25,7 +26,8 @@ interface ArticleCategoryAdministration
 
     public function updateStatus(TenantContext $context, int $id, int $isShow): bool;
 
-    public function recycleLists(TenantContext $context, array $params): PageResult;
+    /** Same export protocol, independently authorized and restricted to deleted records. */
+    public function recycleLists(TenantContext $context, array $params): PageResult|array;
 
     /** @return array<string,mixed> */
     public function recycleDetail(TenantContext $context, int $id): array;

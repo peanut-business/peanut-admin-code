@@ -8,6 +8,8 @@ use app\common\dto\authorization\AdminPrincipal;
 use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
+use app\common\services\XlsxExportService;
+use app\common\support\ExportPageInfo;
 use app\common\support\PaginationInput;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Article\Contract\ArticleCategoryAdministration;
@@ -25,15 +27,13 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
     public function __construct(
         private readonly CurrentExecutionContext $executionContext,
         private readonly AdminAuthorizationQuery $authorization,
+        private readonly XlsxExportService $xlsxExport,
     ) {}
 
-    public function lists(TenantContext $context, array $params): PageResult
+    public function lists(TenantContext $context, array $params): PageResult|array
     {
         $this->assertPermission($context, 'official.article.category.list');
-        if (in_array((int)($params['export'] ?? 0), [1, 2], true)) {
-            throw BusinessException::invalid('ARTICLE_CATEGORY_EXPORT_UNSUPPORTED', '该列表不支持导出');
-        }
-        return $this->categoryLists($params, false);
+        return $this->categoryLists($context, $params, false);
     }
 
     public function all(TenantContext $context): array
@@ -112,10 +112,10 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         });
     }
 
-    public function recycleLists(TenantContext $context, array $params): PageResult
+    public function recycleLists(TenantContext $context, array $params): PageResult|array
     {
         $this->assertPermission($context, 'official.article.category.recycle.list');
-        return $this->categoryLists($params, true);
+        return $this->categoryLists($context, $params, true);
     }
 
     public function recycleDetail(TenantContext $context, int $id): array
@@ -175,7 +175,7 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         });
     }
 
-    private function categoryLists(array $params, bool $onlyTrashed): PageResult
+    private function categoryLists(TenantContext $context, array $params, bool $onlyTrashed): PageResult|array
     {
         $query = $onlyTrashed ? ArticleCate::onlyTrashed() : ArticleCate::where([]);
         $query->field(self::fields());
@@ -185,17 +185,69 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         if (isset($params['is_show']) && $params['is_show'] !== '') {
             $query->where('is_show', (int)$params['is_show']);
         }
+        foreach (['start_time' => '>=', 'end_time' => '<=', 'start' => '>=', 'end' => '<='] as $field => $operator) {
+            if (!isset($params[$field]) || $params[$field] === '') {
+                continue;
+            }
+            $value = in_array($field, ['start_time', 'end_time'], true)
+                ? strtotime((string)$params[$field])
+                : filter_var($params[$field], FILTER_VALIDATE_INT);
+            if ($value === false) {
+                throw BusinessException::invalid('ARTICLE_LIST_TIME_INVALID', '查询时间无效');
+            }
+            $query->where('create_time', $operator, $value);
+        }
         $this->applyOrder($query, $params);
-        $page = $this->paginate($query, $params)
-            ->map(static fn(mixed $item): array => self::formatRow(
-                $item instanceof \think\Model ? $item->toArray() : (array)$item,
-            ));
-        $rows = $page->items;
+        $exportMode = $params['export'] ?? 0;
+        if (!in_array($exportMode, [0, 1, 2, '1', '2'], true)) {
+            throw BusinessException::invalid('ARTICLE_EXPORT_RANGE_INVALID', '导出模式无效');
+        }
+        $exportMode = (int)$exportMode;
+        if ($exportMode > 0) {
+            $pageSize = PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->pageSize;
+            $info = ExportPageInfo::from((int)(clone $query)->count(), $pageSize, self::PAGE_SIZE_MAX, '资讯分类');
+            if ($exportMode === 1) {
+                return $info->toArray();
+            }
+            foreach (['page_type', 'page_start', 'page_end'] as $field) {
+                if (isset($params[$field]) && !is_int($params[$field])
+                    && !(is_string($params[$field]) && ctype_digit($params[$field]))) {
+                    throw BusinessException::invalid('ARTICLE_EXPORT_RANGE_INVALID', '导出范围必须为整数');
+                }
+            }
+            try {
+                [$offset, $limit] = $info->rowRange(
+                    (int)($params['page_type'] ?? 0),
+                    (int)($params['page_start'] ?? 1),
+                    isset($params['page_end']) ? (int)$params['page_end'] : null,
+                );
+            } catch (\InvalidArgumentException $exception) {
+                throw BusinessException::invalid('ARTICLE_EXPORT_RANGE_INVALID', $exception->getMessage());
+            }
+            $page = new PageResult($query->limit($offset, $limit)->select()->toArray(), $info->count, 1, $limit);
+        } else {
+            $page = $this->paginate($query, $params);
+        }
+        $rows = array_map(static fn(mixed $item): array => self::formatRow(
+            $item instanceof \think\Model ? $item->toArray() : (array)$item,
+        ), $page->items);
         $counts = $this->articleCounts(array_column($rows, 'id'), $onlyTrashed);
         foreach ($rows as &$row) {
             $row['article_count'] = $counts[(int)$row['id']] ?? 0;
         }
         unset($row);
+        if ($exportMode === 2) {
+            $permission = $onlyTrashed ? 'official.article.category.recycle.list' : 'official.article.category.list';
+            $this->assertPermission($context, $permission);
+            $fields = [...self::fields(), 'article_count'];
+            $file = $this->xlsxExport->create(
+                (string)($params['file_name'] ?? '资讯分类'),
+                $fields,
+                array_map(static fn(array $row): array => array_map(static fn(string $field): mixed => $row[$field], $fields), $rows),
+            );
+            $this->assertPermission($context, $permission);
+            return ['url' => $file['url'], 'file_name' => $file['original_name']];
+        }
         return new PageResult($rows, $page->total, $page->page, $page->pageSize);
     }
 
@@ -241,6 +293,9 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         if (in_array($field, ['create_time', 'id'], true)
             && in_array($orderBy, ['asc', 'desc'], true)) {
             $query->order($field, $orderBy);
+            if ($field !== 'id') {
+                $query->order('id', $orderBy);
+            }
             return;
         }
         $query->order(['sort' => 'desc', 'id' => 'desc']);

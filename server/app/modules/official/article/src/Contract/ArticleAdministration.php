@@ -9,7 +9,8 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 /** 资讯后台公开用例；调用者必须提供当前受信租户，服务仍会复核人员权限。 */
 interface ArticleAdministration
 {
-    public function lists(TenantContext $context, array $params): PageResult;
+    /** Normal page; export=1 returns ExportPageInfo, export=2 returns the private ExportFile. */
+    public function lists(TenantContext $context, array $params): PageResult|array;
 
     /** @return array<string,mixed> */
     public function detail(TenantContext $context, int $id): array;
@@ -22,7 +23,8 @@ interface ArticleAdministration
 
     public function updateStatus(TenantContext $context, int $id, int $isShow): bool;
 
-    public function recycleLists(TenantContext $context, array $params): PageResult;
+    /** Same export protocol, independently authorized and restricted to deleted records. */
+    public function recycleLists(TenantContext $context, array $params): PageResult|array;
 
     /** @return array<string,mixed> */
     public function recycleDetail(TenantContext $context, int $id): array;

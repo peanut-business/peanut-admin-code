@@ -27,7 +27,7 @@ class ArticleController extends BaseAdminController
     protected const CRUD_INPUT_FIELDS = [
         'lists' => [
             'page_no', 'page_size', 'page_start', 'page_end', 'page_type', 'order_by',
-            'field', 'title', 'cid', 'is_show', 'start_time', 'end_time', 'start', 'end', 'export',
+            'field', 'title', 'cid', 'is_show', 'start_time', 'end_time', 'start', 'end', 'export', 'file_name',
         ],
         'detail' => ['id'],
         'add' => ['title', 'cid', 'desc', 'abstract', 'image', 'author', 'content', 'click_virtual', 'is_show', 'sort'],
@@ -36,7 +36,7 @@ class ArticleController extends BaseAdminController
         'status' => ['id', 'is_show'],
         'recycle' => [
             'page_no', 'page_size', 'page_start', 'page_end', 'page_type', 'order_by',
-            'field', 'title', 'cid', 'is_show', 'start_time', 'end_time', 'start', 'end',
+            'field', 'title', 'cid', 'is_show', 'start_time', 'end_time', 'start', 'end', 'export', 'file_name',
         ],
         'recycleDetail' => ['id'],
         'restore' => ['id', 'ids'],

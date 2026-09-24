@@ -1,5 +1,15 @@
 import axios from 'axios';
 import type { PageData } from '@/types/global';
+import type { components } from '@/generated/openapi';
+
+export type ArticleExportInfo = components['schemas']['ExportPageInfo'];
+export type ArticleExportResult = components['schemas']['ExportFile'];
+export interface ArticleExportRange {
+  page_type?: 0 | 1;
+  page_start?: number;
+  page_end?: number;
+  file_name?: string;
+}
 
 // ─── 文章分类 ──────────────────────────────────────────────────────────────
 export interface ArticleCateRecord {
@@ -19,17 +29,16 @@ export interface ArticleCateOption {
 }
 
 export interface ArticleCateListParams {
+  name?: string;
+  is_show?: number | string;
   page_no?: number;
   page_size?: number;
   page_type?: 0 | 1;
   field?: 'create_time' | 'id';
   order_by?: 'asc' | 'desc';
-  export?: 1 | 2;
 }
 
-export type ArticleCateListRes = PageData<ArticleCateRecord> & {
-  extend: [];
-};
+export type ArticleCateListRes = PageData<ArticleCateRecord>;
 
 export function getArticleCateList(
   params: ArticleCateListParams = {},
@@ -39,6 +48,17 @@ export function getArticleCateList(
     '/adminapi/official.article.category.list',
     { params, signal }
   );
+}
+
+// Reuse the existing export=1/2 protocol without making list callers handle a union.
+export function getArticleCateExportInfo(params: ArticleCateListParams = {}, recycled = false) {
+  const path = recycled ? 'official.article.category.recycle.list' : 'official.article.category.list';
+  return axios.get<ArticleExportInfo>(`/adminapi/${path}`, { params: { ...params, export: 1 } });
+}
+
+export function exportArticleCategories(params: ArticleCateListParams & ArticleExportRange = {}, recycled = false) {
+  const path = recycled ? 'official.article.category.recycle.list' : 'official.article.category.list';
+  return axios.get<ArticleExportResult>(`/adminapi/${path}`, { params: { ...params, export: 2 } });
 }
 
 export function getArticleCateAll() {
@@ -122,14 +142,22 @@ export interface ArticleListParams {
   order_by?: 'asc' | 'desc';
 }
 
-export type ArticleListRes = PageData<ArticleRecord> & {
-  extend: [];
-};
+export type ArticleListRes = PageData<ArticleRecord>;
 
 export function getArticleList(params: ArticleListParams = {}) {
   return axios.get<ArticleListRes>('/adminapi/official.article.list', {
     params,
   });
+}
+
+export function getArticleExportInfo(params: ArticleListParams = {}, recycled = false) {
+  const path = recycled ? 'official.article.recycle.list' : 'official.article.list';
+  return axios.get<ArticleExportInfo>(`/adminapi/${path}`, { params: { ...params, export: 1 } });
+}
+
+export function exportArticles(params: ArticleListParams & ArticleExportRange = {}, recycled = false) {
+  const path = recycled ? 'official.article.recycle.list' : 'official.article.list';
+  return axios.get<ArticleExportResult>(`/adminapi/${path}`, { params: { ...params, export: 2 } });
 }
 
 export function getArticleDetail(id: number) {

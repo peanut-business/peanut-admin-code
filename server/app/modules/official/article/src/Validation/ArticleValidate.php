@@ -36,6 +36,7 @@ class ArticleValidate extends TenantContextValidate
         'start'      => 'number',
         'end'        => 'number',
         'export'     => 'in:1,2',
+        'file_name'  => 'max:120',
         'field'      => 'in:create_time,id',
     ];
 
@@ -52,7 +53,7 @@ class ArticleValidate extends TenantContextValidate
         'lists'  => [
             'page_no', 'page_size', 'page_start', 'page_end', 'page_type',
             'order_by', 'field', 'title', 'cid', 'is_show',
-            'start_time', 'end_time', 'start', 'end', 'export',
+            'start_time', 'end_time', 'start', 'end', 'export', 'file_name',
         ],
         'add'    => [
             'title', 'cid', 'desc', 'abstract', 'image', 'author', 'content',
@@ -82,7 +83,8 @@ class ArticleValidate extends TenantContextValidate
 
     public function sceneRecycle(): self
     {
-        return $this->sceneLists()->only(array_values(array_diff($this->scene['lists'], ['export'])));
+        // A deleted category remains a valid filter for its deleted articles.
+        return $this->sceneLists()->remove('cid', 'checkCategory');
     }
 
     public function sceneRecycleDetail(): self

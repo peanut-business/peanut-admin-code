@@ -28,6 +28,7 @@ class ArticleCateValidate extends TenantContextValidate
         'start'      => 'number',
         'end'        => 'number',
         'export'     => 'in:1,2',
+        'file_name'  => 'max:120',
         'field'      => 'in:create_time,id',
     ];
 
@@ -44,7 +45,7 @@ class ArticleCateValidate extends TenantContextValidate
         'lists'  => [
             'page_no', 'page_size', 'page_start', 'page_end', 'page_type',
             'order_by', 'field', 'name', 'is_show',
-            'start_time', 'end_time', 'start', 'end', 'export',
+            'start_time', 'end_time', 'start', 'end', 'export', 'file_name',
         ],
         'add'    => ['name', 'is_show', 'sort'],
         'edit'   => ['id', 'name', 'is_show', 'sort'],
@@ -67,7 +68,7 @@ class ArticleCateValidate extends TenantContextValidate
 
     public function sceneRecycle(): self
     {
-        return $this->sceneLists()->only(array_values(array_diff($this->scene['lists'], ['export'])));
+        return $this->sceneLists();
     }
 
     public function sceneRecycleDetail(): self

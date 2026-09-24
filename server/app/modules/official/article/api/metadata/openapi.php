@@ -80,6 +80,7 @@ $listParameters = static function (string $textField, bool $withCategory = false
         ['$ref' => '#/components/parameters/PageSize'],
         ['in' => 'query', 'name' => 'page_start', 'schema' => ['$ref' => '#/components/schemas/ArticlePositiveIntegerInput']],
         ['in' => 'query', 'name' => 'page_end', 'schema' => ['$ref' => '#/components/schemas/ArticlePositiveIntegerInput']],
+        ['in' => 'query', 'name' => 'file_name', 'schema' => ['type' => 'string', 'maxLength' => 120]],
         ['in' => 'query', 'name' => 'page_type', 'schema' => ['type' => 'integer', 'enum' => [0, 1]]],
         ['in' => 'query', 'name' => 'order_by', 'schema' => ['type' => 'string', 'enum' => ['asc', 'desc']]],
         ['in' => 'query', 'name' => 'field', 'schema' => ['type' => 'string', 'enum' => ['create_time', 'id']]],
@@ -100,6 +101,8 @@ $categoryListParameters = $listParameters('name');
 $articleListParameters = $listParameters('title', true);
 $categoryListParameters[] = ['in' => 'query', 'name' => 'export', 'schema' => ['type' => 'integer', 'enum' => [1, 2]]];
 $articleListParameters[] = ['in' => 'query', 'name' => 'export', 'schema' => ['type' => 'integer', 'enum' => [1, 2]]];
+// export=1 returns filtered metadata; export=2 uses the same query and private XLSX storage.
+// page_type=0 means ALL authorized rows (reject >25000); page_type=1 selects an explicit bounded range.
 
 $categoryPermissionError = ['ARTICLE_CATEGORY_ADMIN_PERMISSION_DENIED'];
 $articlePermissionError = ['ARTICLE_ADMIN_PERMISSION_DENIED'];
@@ -112,7 +115,7 @@ return [
                 '查询资讯分类',
                 'ArticleCategoryPageResponse',
                 $categoryListParameters,
-                businessErrors: [...$categoryPermissionError, 'ARTICLE_CATEGORY_EXPORT_UNSUPPORTED'],
+                businessErrors: [...$categoryPermissionError, 'ARTICLE_EXPORT_RANGE_INVALID', 'ARTICLE_LIST_TIME_INVALID'],
                 errorStatuses: [400],
             ),
         ],
@@ -178,8 +181,9 @@ return [
                 'listRecycledArticleCategories',
                 '查询已删除资讯分类',
                 'ArticleCategoryPageResponse',
-                array_values(array_filter($categoryListParameters, static fn(array $parameter): bool => ($parameter['name'] ?? null) !== 'export')),
-                businessErrors: $categoryPermissionError,
+                $categoryListParameters,
+                businessErrors: [...$categoryPermissionError, 'ARTICLE_EXPORT_RANGE_INVALID', 'ARTICLE_LIST_TIME_INVALID'],
+                errorStatuses: [400],
             ),
         ],
         '/adminapi/official.article.category.recycle.detail' => [
@@ -217,7 +221,7 @@ return [
                 '查询资讯',
                 'ArticlePageResponse',
                 $articleListParameters,
-                businessErrors: [...$articlePermissionError, 'ARTICLE_EXPORT_UNSUPPORTED'],
+                businessErrors: [...$articlePermissionError, 'ARTICLE_EXPORT_RANGE_INVALID', 'ARTICLE_LIST_TIME_INVALID'],
                 errorStatuses: [400],
             ),
         ],
@@ -275,8 +279,9 @@ return [
                 'listRecycledArticles',
                 '查询已删除资讯',
                 'ArticlePageResponse',
-                array_values(array_filter($articleListParameters, static fn(array $parameter): bool => ($parameter['name'] ?? null) !== 'export')),
-                businessErrors: $articlePermissionError,
+                $articleListParameters,
+                businessErrors: [...$articlePermissionError, 'ARTICLE_EXPORT_RANGE_INVALID', 'ARTICLE_LIST_TIME_INVALID'],
+                errorStatuses: [400],
             ),
         ],
         '/adminapi/official.article.recycle.detail' => [
@@ -528,7 +533,7 @@ return [
                 'properties' => [
                     'code' => ['type' => 'integer', 'enum' => [20000]],
                     'msg' => ['type' => 'string', 'enum' => ['success']],
-                    'data' => $schemaRef('ArticlePage'),
+                    'data' => ['oneOf' => [$schemaRef('ArticlePage'), $schemaRef('ExportPageInfo'), $schemaRef('ExportFile')]],
                 ],
             ],
             'ArticleCategoryPageResponse' => [
@@ -538,7 +543,7 @@ return [
                 'properties' => [
                     'code' => ['type' => 'integer', 'enum' => [20000]],
                     'msg' => ['type' => 'string', 'enum' => ['success']],
-                    'data' => $schemaRef('ArticleCategoryPage'),
+                    'data' => ['oneOf' => [$schemaRef('ArticleCategoryPage'), $schemaRef('ExportPageInfo'), $schemaRef('ExportFile')]],
                 ],
             ],
             'ArticleDetailResponse' => [
