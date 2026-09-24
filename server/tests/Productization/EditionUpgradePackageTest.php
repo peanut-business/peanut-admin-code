@@ -384,6 +384,8 @@ try {
         'inventory_sha256' => hash('sha256', $inventoryBytes),
         'signature_base64' => base64_encode(sodium_crypto_sign_detached(hash('sha256', $inventoryBytes, true), $secret)),
     ]);
+    require_once __DIR__ . '/../Support/ProductUpgradeCoordinatorProbe.php';
+    productCoordinatorProbe($root, $temporary, $project, $package, $public, $secret);
     putenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON=' . json_encode(['test-release' => base64_encode($public)], JSON_THROW_ON_ERROR));
 
     $trusted = ['test-release' => base64_encode($public)];

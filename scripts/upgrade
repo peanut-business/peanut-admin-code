@@ -7,6 +7,13 @@ use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\validation\scaffold\ScaffoldPathGuard;
 
 $toolRoot = dirname(__DIR__);
+// 可信入口使用其自身已安装的Composer/Core；不能从未验签目标包加载依赖。
+$installedAutoload = $toolRoot . '/server/vendor/autoload.php';
+if (!is_file($installedAutoload)) {
+    fwrite(STDERR, json_encode(['status' => 'error', 'error' => 'PRODUCT_UPGRADE_DEPENDENCIES_MISSING'], JSON_THROW_ON_ERROR) . "\n");
+    exit(1);
+}
+require_once $installedAutoload;
 foreach ([
     ['/scripts/scaffold-runtime/ScaffoldPathGuard.php'],
     ['/scripts/scaffold-runtime/ScaffoldManifest.php'],
@@ -458,6 +465,10 @@ try {
             if ($state['phase'] === 'recovered') {
                 throw new RuntimeException('PRODUCT_UPGRADE_RECOVERED_PLAN_FINAL');
             }
+            // 已进入恢复方向的计划只能完成恢复；不能复用旧阶段回执重新切换/开放写入。
+            if ($state['phase'] === 'recovering' || array_key_exists('recovery_context', $state)) {
+                throw new RuntimeException('PRODUCT_UPGRADE_RECOVERY_IN_PROGRESS');
+            }
             $packageService = new EditionUpgradePackage();
             $managedFilesMayHaveChanged = isset($state['evidence']['managed_files'])
                 || $state['phase_in_progress'] === 'managed_files'
@@ -470,6 +481,8 @@ try {
                 throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_REBIND_FAILED');
             }
             if ($state['phase'] === 'completed') {
+                // 重复apply也必须验证原完成结果，不能仅凭Host健康回执忽略源码/定制漂移。
+                $runner->verify($instanceRoot, (string)$plan['scaffold_plan']);
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'migration-verify');
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
                 $result = [
