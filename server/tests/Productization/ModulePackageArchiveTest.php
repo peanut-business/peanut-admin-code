@@ -12,6 +12,14 @@ use app\platform\validation\plugin\ModulePackagePreflight;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
+// 默认保留完整测试。只读源码联调可显式只跑归档/独立接收/文件恢复，绝不触碰宿主运行日志。
+$arguments = realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__
+    ? array_slice($argv ?? [], 1) : [];
+if ($arguments !== [] && $arguments !== ['--archive-only']) {
+    throw new InvalidArgumentException('Usage: ModulePackageArchiveTest.php [--archive-only]');
+}
+$archiveOnly = $arguments === ['--archive-only'];
+
 function modulePackageExpect(bool $condition, string $message): void
 {
     if (!$condition) {
@@ -394,6 +402,7 @@ try {
     $officialPath = $temporary . '/official-signed.tar';
     $official = $service->packModule('official.rich-text', $officialPath, ['key_id' => 'fixture-release', 'secret_key' => $secret]);
     modulePackageRejects(fn() => $adopter->adopt($officialPath, $official['sha256'], 'fixture-release'), 'MODULE_PACKAGE_PRIVATE_REQUIRED');
+    if (!$archiveOnly) {
     // An incomplete source must still expose the development recovery CLI while ordinary boot fails closed.
     $bootJournal = $projectRoot . '/.local/module-source-adoption/journal.json';
     $bootEnvironment = $serverRoot . '/.env.module-package-' . bin2hex(random_bytes(4));
@@ -436,7 +445,10 @@ try {
         unlink($bootJournal);
         unlink($bootEnvironment);
     }
-    echo "MODULE-PACKAGE-ARCHIVE-001 passed sha256={$packedA['sha256']} adoption+crash-recovery\n";
+    }
+    echo $archiveOnly
+        ? "MODULE-PACKAGE-ARCHIVE-SOURCE-001 passed sha256={$packedA['sha256']} adoption+crash-recovery; runtime-boot=not-executed\n"
+        : "MODULE-PACKAGE-ARCHIVE-001 passed sha256={$packedA['sha256']} adoption+crash-recovery\n";
 } finally {
     modulePackageRemoveTree($temporary);
 }
