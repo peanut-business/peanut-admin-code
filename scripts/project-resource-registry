@@ -126,6 +126,75 @@ def emit(values: dict[str, str | int]) -> None:
         print(f"{name}={rendered}")
 
 
+def local_stack_defaults(registry: dict[str, Any], target: str) -> dict[str, int]:
+    values: dict[str, int] = {}
+    for item in registry["resources"]["local_listeners"]:
+        environment = "local-development" if item["environment"] == "development" else item["environment"]
+        if environment == target:
+            values[item["port_env"]] = item["port"]
+    if target == "local-development":
+        for item in registry["resources"].get("optional_services", []):
+            if "development" in item.get("environments", []) and item.get("port_env"):
+                values[item["port_env"]] = item["port"]
+    if not values:
+        fail(f"no listener registration for {target}")
+    return values
+
+
+def effective_local_stack_ports(registry: dict[str, Any], env_file: Path) -> dict[str, int]:
+    if not env_file.is_absolute() or env_file.is_symlink():
+        fail("local stack environment must be an absolute regular path, not a symlink")
+    defaults = {
+        **local_stack_defaults(registry, "local-development"),
+        **local_stack_defaults(registry, "local-production-preview"),
+    }
+    overrides: dict[str, int] = {}
+    if env_file.exists():
+        if not env_file.is_file():
+            fail("local stack environment is not a regular file")
+        try:
+            lines = env_file.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeError):
+            fail("cannot read local stack environment")
+        seen: set[str] = set()
+        for line in lines:
+            name, separator, raw = line.partition("=")
+            if not separator or name not in defaults:
+                continue
+            if name in seen:
+                fail(f"duplicate local listener setting: {name}")
+            seen.add(name)
+            if raw == "":
+                continue
+            if not re.fullmatch(r"[1-9][0-9]*", raw) or int(raw) > 65535:
+                fail(f"invalid local listener port: {name} (expected decimal 1-65535)")
+            overrides[name] = int(raw)
+
+    effective = defaults | overrides
+    selected_owner: dict[str, str] = {}
+    reserved_owner: dict[int, str] = {}
+    for item in [
+        *registry["resources"]["local_listeners"],
+        *registry["resources"].get("optional_services", []),
+    ]:
+        port = item.get("port")
+        owner = item.get("stable_resource_id")
+        name = item.get("port_env")
+        if isinstance(port, int) and isinstance(owner, str):
+            reserved_owner[port] = owner
+            if name in defaults and defaults[name] == port:
+                selected_owner[name] = owner
+    occupied: dict[int, str] = {}
+    for name, port in effective.items():
+        if port in occupied:
+            fail(f"local listener port collision: {name} and {occupied[port]}")
+        occupied[port] = name
+        owner = reserved_owner.get(port)
+        if owner is not None and owner != selected_owner.get(name):
+            fail(f"local listener port reserved by another resource: {name}")
+    return effective
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -142,6 +211,9 @@ def main() -> int:
         choices=("local-development", "local-production-preview", "local-multi-tenant-demo"),
         required=True,
     )
+
+    local_ports_parser = subparsers.add_parser("local-stack-ports")
+    local_ports_parser.add_argument("--env-file", type=Path, required=True)
 
     qualification_parser = subparsers.add_parser("qualification-env")
     qualification_parser.add_argument("--runner-id", required=True)
@@ -268,26 +340,9 @@ def main() -> int:
             "DB_NAME": selected_database_name,
         }
     if args.command == "local-stack-env":
-        environments = {
-            "local-development"
-            if item["environment"] == "development"
-            else item["environment"]
-            for item in registry["resources"]["local_listeners"]
-        }
-        if args.deployment_target not in environments:
-            fail(f"no listener registration for {args.deployment_target}")
-        for item in registry["resources"]["local_listeners"]:
-            environment = (
-                "local-development"
-                if item["environment"] == "development"
-                else item["environment"]
-            )
-            if environment == args.deployment_target:
-                values[item["port_env"]] = item["port"]
-        if args.deployment_target == "local-development":
-            for item in registry["resources"].get("optional_services", []):
-                if "development" in item.get("environments", []) and item.get("port_env"):
-                    values[item["port_env"]] = item["port"]
+        values = local_stack_defaults(registry, args.deployment_target)
+    if args.command == "local-stack-ports":
+        values = effective_local_stack_ports(registry, args.env_file)
     if args.command == "qualification-env":
         runner = resource_by_id(registry, "tooling", args.runner_id)
         if (

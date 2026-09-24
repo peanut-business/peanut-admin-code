@@ -17,7 +17,7 @@
 
 ## 普通管理动作的写法
 
-简单列表、详情和增删改可参考 `ArticleCateController`：声明 `$crudClass` 指向当前 App 已绑定的业务用例，`CRUD_VALIDATE` 指向校验器，再按动作声明 `CRUD_INPUT_FIELDS`。新增、修改和状态变更还必须分别声明 `CRUD_WRITABLE_FIELDS`；`id` 等定位字段是控制参数，不应作为可持久化字段。漏写可写声明会报配置错误，额外请求字段会被拒绝。服务仍负责 Tenant Scope、对象归属、业务不变量和事务，不能只靠 Controller 字段投影保护内部调用。
+简单列表、详情和增删改可参考 `ArticleCateController`：声明 `$crudClass` 指向当前 App 已绑定的业务用例，`CRUD_VALIDATE` 指向校验器，再按动作声明 `CRUD_INPUT_FIELDS`。新增、修改和状态变更还必须分别声明 `CRUD_WRITABLE_FIELDS`；`id` 等定位字段是控制参数，不应作为可持久化字段。已接入字段声明的 Controller 漏写场景或可写声明会报配置错误，额外请求字段会被拒绝；未接入声明的旧 Controller 仍按受控迁移保留旧路径，不能把本约束视作全站写入保护。服务仍负责 Tenant Scope、对象归属、业务不变量和事务，不能只靠 Controller 字段投影保护内部调用。
 
 分类模块的最小声明形态如下；实际字段、校验规则和授权由各模块决定：
 

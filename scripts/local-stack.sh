@@ -38,21 +38,27 @@ set_env_value() (
     value=$3
     target_dir=$(dirname "$target")
     temporary=$(mktemp "$target_dir/environment.XXXXXX")
-    awk -F= -v name="$name" '$1 != name { print }' "$target" > "$temporary"
-    printf '%s=%s\n' "$name" "$value" >> "$temporary"
+    found=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            "$name="*)
+                if [ "$found" -eq 0 ]; then
+                    printf '%s=%s\n' "$name" "$value"
+                    found=1
+                fi
+                ;;
+            *) printf '%s\n' "$line" ;;
+        esac
+    done < "$target" > "$temporary"
+    if [ "$found" -eq 0 ]; then
+        printf '%s=%s\n' "$name" "$value" >> "$temporary"
+    fi
     chmod 600 "$temporary"
     mv "$temporary" "$target"
 )
 
 clear_env_value() (
-    target=$1
-    name=$2
-    target_dir=$(dirname "$target")
-    temporary=$(mktemp "$target_dir/environment.XXXXXX")
-    awk -F= -v name="$name" '$1 != name { print }' "$target" > "$temporary"
-    printf '%s=\n' "$name" >> "$temporary"
-    chmod 600 "$temporary"
-    mv "$temporary" "$target"
+    set_env_value "$1" "$2" ''
 )
 
 remove_env_value() (
@@ -72,32 +78,26 @@ set_env_default() (
     grep -q "^${name}=." "$target" || set_env_value "$target" "$name" "$value"
 )
 
-set_registered_port_default() (
-    target=$1
-    name=$2
-    registered=$3
-    current=$(awk -F= -v name="$name" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$target")
-    [ -z "$current" ] || [ "$current" = "$registered" ] ||
-        die "$name differs from its registered port; inspect the local override before starting services"
-    set_env_default "$target" "$name" "$registered"
-)
-
 ensure_env() {
     source_commit=$(git -C "$repo_dir" rev-parse HEAD) || die 'cannot resolve the local source commit'
     source_tree=$(git -C "$repo_dir" rev-parse 'HEAD^{tree}') || die 'cannot resolve the local source tree'
     case "$source_commit$source_tree" in *[!0-9a-f]*|'') die 'local source commit/tree identity is invalid' ;; esac
     [ "${#source_commit}" -eq 40 ] && [ "${#source_tree}" -eq 40 ] \
         || die 'local source commit/tree identity is invalid'
+    [ ! -L "$orchestration_env" ] || die "orchestration environment must not be a symlink: $orchestration_env"
+    [ ! -L "$backend_env" ] || die "backend environment must not be a symlink: $backend_env"
+    if [ -f "$orchestration_env" ] &&
+        grep -Eq '^(PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE|PUBLIC_DEFAULT|PLATFORM_|TENANT_|ADMIN_|OWNER_|PEANUT_)|APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_(HOSTS|IDENTIFIER_HMAC_KEY|INITIAL_EMAIL|INITIAL_PASSWORD)=|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|RESOURCE_LEASE_PROOF|STORAGE_|DEMO_|MODULE_))' "$orchestration_env"; then
+        die "orchestration environment contains backend configuration: $orchestration_env"
+    fi
+    effective_ports=$("$resource_registry" local-stack-ports --env-file "$orchestration_env") \
+        || die 'local listener configuration failed preflight'
     umask 077
     mkdir -p "$state_dir" "$env_dir" "$(dirname "$backend_env")"
-    [ ! -L "$orchestration_env" ] || die "orchestration environment must not be a symlink: $orchestration_env"
     if [ ! -f "$orchestration_env" ]; then
         : > "$orchestration_env"
         chmod 600 "$orchestration_env"
         printf 'Created local orchestration environment in %s\n' "$orchestration_env"
-    fi
-    if grep -Eq '^(PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE|PUBLIC_DEFAULT|PLATFORM_|TENANT_|ADMIN_|OWNER_|PEANUT_)|APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_(HOSTS|IDENTIFIER_HMAC_KEY|INITIAL_EMAIL|INITIAL_PASSWORD)=|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|RESOURCE_LEASE_PROOF|STORAGE_|DEMO_|MODULE_))' "$orchestration_env"; then
-        die "orchestration environment contains backend configuration: $orchestration_env"
     fi
     if [ ! -f "$backend_env" ]; then
         {
@@ -108,7 +108,6 @@ ensure_env() {
         chmod 600 "$backend_env"
         printf 'Created backend environment in %s\n' "$backend_env"
     fi
-    [ ! -L "$backend_env" ] || die "backend environment must not be a symlink: $backend_env"
     chmod 600 "$orchestration_env" "$backend_env"
 
     set_env_value "$backend_env" APP_ENV development
@@ -127,13 +126,9 @@ ensure_env() {
     set_env_default "$backend_env" PEANUT_PLUGIN_LOCK ../plugins.lock
     set_env_default "$backend_env" PEANUT_MODULE_KERNEL_VERSION 1.0.0
     set_env_default "$backend_env" PEANUT_MODULE_TRUSTED_KEYS_JSON '{}'
-    "$resource_registry" local-stack-env --deployment-target local-development |
+    printf '%s\n' "$effective_ports" |
         while IFS='=' read -r name value; do
-            set_registered_port_default "$orchestration_env" "$name" "$value"
-        done
-    "$resource_registry" local-stack-env --deployment-target local-production-preview |
-        while IFS='=' read -r name value; do
-            set_registered_port_default "$orchestration_env" "$name" "$value"
+            set_env_default "$orchestration_env" "$name" "$value"
         done
     set_env_value "$orchestration_env" PEANUT_SOURCE_COMMIT "$source_commit"
     set_env_value "$orchestration_env" PEANUT_SOURCE_TREE "$source_tree"

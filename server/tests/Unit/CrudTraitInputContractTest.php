@@ -94,13 +94,66 @@ final class CrudTraitInputContractTest extends TestCase
 
     public function testDeclaredInputRequiresAnExplicitWritablePolicyForMutation(): void
     {
-        $request = (new Request())->withPost(['title' => 'hello']);
-        $this->app->instance(Request::class, $request);
-        $controller = new MissingWritablePolicyController($this->app);
+        foreach ([
+            'add' => [['title' => 'hello'], 'add'],
+            'edit' => [['uuid' => 'note-A', 'title' => 'hello'], 'edit'],
+            'updateStatus' => [['uuid' => 'note-A', 'state' => 1], 'status'],
+        ] as $action => [$params, $scene]) {
+            $this->app->instance(Request::class, (new Request())->withPost($params));
+            $controller = new MissingWritablePolicyController($this->app);
+            try {
+                $controller->{$action}();
+                self::fail("{$scene} accepted a missing writable policy");
+            } catch (\LogicException $exception) {
+                self::assertStringContainsString("CRUD_WRITABLE_FIELDS for {$scene}", $exception->getMessage());
+            }
+        }
+    }
 
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('must declare CRUD_WRITABLE_FIELDS for add');
-        $controller->add();
+    public function testMigratedControllerRejectsMissingOrMalformedSceneInsteadOfFallingBack(): void
+    {
+        $this->app->instance(Request::class, (new Request())->withPost(['uuid' => 'note-A', 'title' => 'hello']));
+        foreach ([new MissingInputSceneController($this->app), new MalformedInputPolicyController($this->app)] as $controller) {
+            try {
+                $controller->edit();
+                self::fail('migrated controller accepted a missing or malformed input scene');
+            } catch (\LogicException $exception) {
+                self::assertStringContainsString('valid CRUD_INPUT_FIELDS for edit', $exception->getMessage());
+            }
+        }
+    }
+
+    public function testLegacyConsumerRetainsItsExistingInputUntilMigrated(): void
+    {
+        $this->app->instance(Request::class, (new Request())->withPost([
+            'title' => 'hello', 'legacy_business_field' => 'retained',
+        ]));
+        (new LegacyInputController($this->app, $this->service))->add();
+        self::assertSame([
+            'title' => 'hello', 'legacy_business_field' => 'retained',
+        ], $this->service->lastAdd);
+    }
+
+    public function testNullEmptyAndMissingFieldsKeepTheirDeclaredMeaning(): void
+    {
+        $this->controller((new Request())->withPost([
+            'title' => 'hello', 'settings' => ['label' => null], 'workflow_note' => '',
+        ]))->add();
+        self::assertSame([
+            'title' => 'hello', 'settings' => ['label' => null], 'tenant_id' => 42,
+        ], $this->service->lastAdd);
+
+        foreach ([[], ['title' => '']] as $params) {
+            try {
+                $this->controller((new Request())->withPost($params))->add();
+                self::fail('required title accepted a missing or empty value');
+            } catch (ValidateException) {
+                self::assertSame('hello', $this->service->lastAdd['title']);
+            }
+        }
+
+        $this->expectException(ValidateException::class);
+        $this->controller((new Request())->withPost(['title' => 'hello', 'tenant_id' => 7]))->add();
     }
 
     private function controller(Request $request): ContractController
@@ -140,11 +193,63 @@ final class MissingWritablePolicyController extends BaseController
     use CrudTrait;
 
     protected const CRUD_VALIDATE = ContractValidate::class;
+    protected const CRUD_INPUT_FIELDS = [
+        'add' => ['title'],
+        'edit' => ['uuid', 'title'],
+        'status' => ['uuid', 'state'],
+    ];
+
+    protected function resolveCrudContext(): mixed
+    {
+        return null;
+    }
+}
+
+final class MalformedInputPolicyController extends BaseController
+{
+    use CrudTrait;
+
+    protected const CRUD_VALIDATE = ContractValidate::class;
+    protected const CRUD_INPUT_FIELDS = ['edit' => 'uuid,title'];
+
+    protected function resolveCrudContext(): mixed
+    {
+        return null;
+    }
+}
+
+final class MissingInputSceneController extends BaseController
+{
+    use CrudTrait;
+
+    protected const CRUD_VALIDATE = ContractValidate::class;
     protected const CRUD_INPUT_FIELDS = ['add' => ['title']];
 
     protected function resolveCrudContext(): mixed
     {
         return null;
+    }
+}
+
+final class LegacyInputController extends BaseController
+{
+    use CrudTrait;
+
+    protected const CRUD_VALIDATE = ContractValidate::class;
+
+    public function __construct(App $app, private readonly RecordingCrudService $service)
+    {
+        parent::__construct($app);
+    }
+
+    protected function resolveCrudContext(): mixed
+    {
+        return null;
+    }
+
+    protected function crudService(): object
+    {
+        return $this->service;
     }
 }
 

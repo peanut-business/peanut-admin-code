@@ -312,6 +312,14 @@ trait CrudTrait
             return $payload;
         }
 
+        if (defined(static::class . '::CRUD_INPUT_FIELDS')) {
+            throw new LogicException(sprintf(
+                '%s must declare valid CRUD_INPUT_FIELDS for %s.',
+                static::class,
+                $scene,
+            ));
+        }
+
         // 未迁移消费者保留原字段行为；显式字段政策按 Controller 逐个接入。
         return $this->validate($params, $validatorClass . '.' . $scene)->validated();
     }
