@@ -18,6 +18,7 @@ if [ "${PEANUT_SERVER_ENV_FILE+x}" = x ]; then
     preview_backend_env="$(dirname "$backend_env")/.env.local-production-preview"
 fi
 container_client_env="$state_dir/container-client.env"
+host_client_env="$state_dir/host-client.env"
 env_dir=$(dirname "$orchestration_env")
 dev_compose="$repo_dir/deploy/docker-compose.dev.yml"
 prod_compose="$repo_dir/deploy/docker-compose.prod.yml"
@@ -78,6 +79,28 @@ set_env_default() (
     grep -q "^${name}=." "$target" || set_env_value "$target" "$name" "$value"
 )
 
+# 两份文件都从同一 stack.env 派生；不是可独立修改的配置源。
+# 宿主机访问回环地址，容器通过 Docker Desktop 访问宿主机 PHP。
+write_client_environment() (
+    target=$1
+    api_host=$2
+    temporary=$(mktemp "$state_dir/client-environment.XXXXXX")
+    trap 'rm -f "$temporary"' 0
+    trap 'exit 1' 1 2 3 15
+    {
+        for name in PHP_PORT VITE_PORT PLATFORM_PORT MOBILE_PORT PC_PORT DOCS_PORT DEV_HTTP_PORT HTTP_PORT REDIS_PORT; do
+            value=$(awk -F= -v name="$name" '$1 == name { print $2; exit }' "$orchestration_env")
+            [ -z "$value" ] || printf '%s=%s\n' "$name" "$value"
+        done
+        printf 'VITE_API_PROXY_TARGET=http://%s:%s\n' "$api_host" "$php_port"
+        printf 'NUXT_DEV_PROXY_TARGET=http://%s:%s/api\n' "$api_host" "$php_port"
+        printf 'NUXT_DEV_PROXY_ORIGIN=http://%s:%s\n' "$api_host" "$php_port"
+        printf '%s\n' 'VITE_OPEN_BROWSER=false' 'VITEPRESS_DISABLE_GIT=true'
+    } > "$temporary"
+    chmod 600 "$temporary"
+    mv "$temporary" "$target"
+)
+
 ensure_env() {
     source_commit=$(git -C "$repo_dir" rev-parse HEAD) || die 'cannot resolve the local source commit'
     source_tree=$(git -C "$repo_dir" rev-parse 'HEAD^{tree}') || die 'cannot resolve the local source tree'
@@ -86,6 +109,10 @@ ensure_env() {
         || die 'local source commit/tree identity is invalid'
     [ ! -L "$orchestration_env" ] || die "orchestration environment must not be a symlink: $orchestration_env"
     [ ! -L "$backend_env" ] || die "backend environment must not be a symlink: $backend_env"
+    for target in "$container_client_env" "$host_client_env"; do
+        [ ! -L "$target" ] || die "generated client environment must not be a symlink: $target"
+        [ ! -e "$target" ] || [ -f "$target" ] || die "generated client environment must be a regular file: $target"
+    done
     if [ -f "$orchestration_env" ] &&
         grep -Eq '^(PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE|PUBLIC_DEFAULT|PLATFORM_|TENANT_|ADMIN_|OWNER_|PEANUT_)|APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_(HOSTS|IDENTIFIER_HMAC_KEY|INITIAL_EMAIL|INITIAL_PASSWORD)=|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|RESOURCE_LEASE_PROOF|STORAGE_|DEMO_|MODULE_))' "$orchestration_env"; then
         die "orchestration environment contains backend configuration: $orchestration_env"
@@ -134,17 +161,8 @@ ensure_env() {
     set_env_value "$orchestration_env" PEANUT_SOURCE_TREE "$source_tree"
     php_port=$(awk -F= '$1 == "PHP_PORT" { print $2; exit }' "$orchestration_env")
     [ -n "$php_port" ] || die 'registered PHP_PORT is missing from the orchestration environment'
-    : > "$container_client_env"
-    chmod 600 "$container_client_env"
-    for name in PHP_PORT VITE_PORT PLATFORM_PORT MOBILE_PORT PC_PORT DOCS_PORT DEV_HTTP_PORT HTTP_PORT REDIS_PORT; do
-        value=$(awk -F= -v name="$name" '$1 == name { print $2; exit }' "$orchestration_env")
-        [ -z "$value" ] || set_env_value "$container_client_env" "$name" "$value"
-    done
-    set_env_value "$container_client_env" VITE_API_PROXY_TARGET "http://host.docker.internal:$php_port"
-    set_env_value "$container_client_env" NUXT_DEV_PROXY_TARGET "http://host.docker.internal:$php_port/api"
-    set_env_value "$container_client_env" NUXT_DEV_PROXY_ORIGIN "http://host.docker.internal:$php_port"
-    set_env_value "$container_client_env" VITE_OPEN_BROWSER false
-    set_env_value "$container_client_env" VITEPRESS_DISABLE_GIT true
+    write_client_environment "$container_client_env" host.docker.internal
+    write_client_environment "$host_client_env" 127.0.0.1
     # Daily development uses the registered host endpoint and host PHP runtime.
     "$resource_registry" database-env --deployment-target local-development --consumer host |
         while IFS='=' read -r name value; do set_env_value "$backend_env" "$name" "$value"; done

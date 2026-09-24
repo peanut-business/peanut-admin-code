@@ -15,7 +15,7 @@ services:
   web:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/web
-    command: ["sh", "-c", "test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts --host 0.0.0.0 --port 5173"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts --host 0.0.0.0 --port 5173"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
@@ -30,7 +30,7 @@ services:
   platform:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/platform
-    command: ["sh", "-c", "test -x node_modules/.bin/vite || npm ci --legacy-peer-deps; exec node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5177"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || npm ci; exec node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5177"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
@@ -45,7 +45,7 @@ services:
   pc:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/pc
-    command: ["sh", "-c", "test -x node_modules/.bin/nuxt || npm ci; exec node node_modules/nuxt/bin/nuxt.mjs dev --port 3100 --host 0.0.0.0"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/nuxt || npm ci; exec node node_modules/nuxt/bin/nuxt.mjs dev --port 3100 --host 0.0.0.0"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
@@ -62,7 +62,7 @@ services:
   mobile:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/uniapp
-    command: ["sh", "-c", "test -x node_modules/.bin/uni || npm ci; exec node node_modules/@dcloudio/vite-plugin-uni/bin/uni.js --host 0.0.0.0 --port 5174"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/uni || npm ci; exec node node_modules/@dcloudio/vite-plugin-uni/bin/uni.js --host 0.0.0.0 --port 5174"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
@@ -77,7 +77,7 @@ services:
   docs:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/peanut-admin-project/docs-site
-    command: ["sh", "-c", "corepack enable && corepack prepare pnpm@9.15.6 --activate; test -x node_modules/.bin/vitepress || pnpm install --frozen-lockfile; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
+    command: ["sh", "-c", "set -e; corepack enable; corepack prepare pnpm@9.15.6 --activate; test -x node_modules/.bin/vitepress || pnpm install --frozen-lockfile; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
     environment:
       <<: *node-environment
       PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
@@ -98,7 +98,15 @@ services:
     environment:
       PEANUT_API_HOST: host.docker.internal
       PEANUT_API_PORT: ${PHP_PORT:?set the registered host PHP port}
-      NGINX_ENVSUBST_FILTER: ^PEANUT_API_
+      PEANUT_WEB_HOST: web
+      PEANUT_WEB_PORT: "5173"
+      PEANUT_PLATFORM_HOST: platform
+      PEANUT_PLATFORM_PORT: "5177"
+      PEANUT_PC_HOST: pc
+      PEANUT_PC_PORT: "3100"
+      PEANUT_MOBILE_HOST: mobile
+      PEANUT_MOBILE_PORT: "5174"
+      NGINX_ENVSUBST_FILTER: ^PEANUT_(API|WEB|PLATFORM|PC|MOBILE)_
     depends_on:
       - web
       - platform
