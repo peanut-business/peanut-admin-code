@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
 
+require_once __DIR__ . '/ReleaseDependencyIdentity.php';
+
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\scaffold\ScaffoldManifest;
 use app\platform\value\plugin\PluginDescriptor;
@@ -1176,48 +1178,12 @@ final class ScaffoldUpgradeRunner
 
     private function assertV3DependencyIdentity(mixed $php, mixed $web, string $error): void
     {
-        if (!is_array($php)
-            || array_keys($php) !== ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference']
-            || $php['package'] !== 'peanut-admin/core'
-            || !is_string($php['constraint'])
-            || preg_match('/^dev-[A-Za-z0-9._-]+$/D', $php['constraint']) !== 1
-            || !is_string($php['resolved_version']) || !str_starts_with($php['resolved_version'], 'dev-')
-            || $php['source_type'] !== 'git'
-            || !is_string($php['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $php['source_url']) !== 1
-            || !is_string($php['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) !== 1
-            || $php['constraint'] !== $php['resolved_version']) {
-            throw new RuntimeException($error . ': core_php');
-        }
-        $packages = is_array($web)
-            && array_keys($web) === ['source_type', 'source_url', 'source_reference', 'packages']
-            ? $web['packages']
-            : null;
-        if (!is_array($web) || $web['source_type'] !== 'git'
-            || !is_string($web['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $web['source_url']) !== 1
-            || !is_string($web['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $web['source_reference']) !== 1
-            || !is_array($packages) || array_keys($packages) !== self::CORE_WEB_PACKAGES) {
-            throw new RuntimeException($error . ': core_web');
-        }
-        foreach ($packages as $identity) {
-            if (!is_array($identity) || array_keys($identity) !== ['version', 'archive', 'sha256']
-                || !is_string($identity['version']) || !$this->isStrictSemanticVersion($identity['version'])
-                || !is_string($identity['archive'])
-                || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$#D', $identity['archive']) !== 1
-                || !is_string($identity['sha256']) || preg_match('/^[0-9a-f]{64}$/D', $identity['sha256']) !== 1) {
-                throw new RuntimeException($error . ': core_web');
-            }
-        }
+        ReleaseDependencyIdentity::validate($php, $web, $error . ': core_php', $error . ': core_web');
     }
 
     private function assertV3ArchiveDigests(string $root, array $web): void
     {
-        foreach ($web['packages'] as $identity) {
-            $path = ScaffoldPathGuard::projectPath($root, $identity['archive']);
-            $digest = is_file($path) && !is_link($path) ? hash_file('sha256', $path) : false;
-            if (!is_string($digest) || !hash_equals($identity['sha256'], $digest)) {
-                throw new RuntimeException('SCAFFOLD_VERSION_CONTRACT_CORE_WEB_ARCHIVE_INVALID');
-            }
-        }
+        ReleaseDependencyIdentity::verifyArchives($root, $web, 'SCAFFOLD_VERSION_CONTRACT_CORE_WEB_ARCHIVE_INVALID');
     }
 
     private function releaseIdentity(ScaffoldManifest $manifest): array { return $manifest->release() + ['manifest_sha256' => $manifest->digest()]; }

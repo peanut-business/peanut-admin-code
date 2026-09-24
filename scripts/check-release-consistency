@@ -3,7 +3,12 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { isAbsolute } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { readFileSync, writeFileSync } from 'node:fs'
+import { dependencyMode, verifyDependencyLocks, lockedYamlParser } from './release-dependency-locks.mjs'
+
+// 解析锁的工具依赖来自当前可信检查器，不从被检查候选加载执行代码。
+const toolRoot = fileURLToPath(new URL('..', import.meta.url))
 
 const options = {
   tag: '', candidate: '', qualification: '', remote: '', writeLock: '', requireMain: false,
@@ -81,6 +86,10 @@ if (options.candidate && !/^[0-9a-f]{40}$/.test(options.candidate)) {
   console.error('check-release-consistency: --candidate must be a full lowercase commit SHA')
   process.exit(64)
 }
+if (options.candidate && !options.qualification) {
+  console.error('check-release-consistency: --candidate requires --qualification; use --static-only for structural checks')
+  process.exit(64)
+}
 if (options.writeLock && (!options.qualification || !isAbsolute(options.writeLock))) {
   console.error('check-release-consistency: --write-lock requires --qualification and an absolute output path')
   process.exit(64)
@@ -128,59 +137,23 @@ if (options.staticOnly && options.editionManifests.length === 0 && !options.rele
   const stableVersion = /^\d+\.\d+\.\d+$/
   const strictSemver = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
   const currentV3 = versions.schema_version === 3 && versions.protocol === 'peanut.release-versions.v3'
-  const expectedWebPackages = ['@peanut-admin/client', '@peanut-admin/vue', '@peanut-admin/ui-vue', '@peanut-admin/nuxt', '@peanut-admin/uniapp', '@peanut-admin/testing']
-  const webPackages = versions.core_web?.packages ?? {}
-  const phpIdentity = versions.core_php ?? {}
-  if (!currentV3 || !strictSemver.test(target)
-    || versions.instance_version !== null
-    || versions.scaffold_template !== target
-    || phpIdentity.package !== 'peanut-admin/core'
-    || !/^dev-[A-Za-z0-9._-]+$/.test(phpIdentity.constraint ?? '')
-    || !/^dev-/.test(phpIdentity.resolved_version ?? '')
-    || phpIdentity.source_type !== 'git'
-    || !/^https:\/\//.test(phpIdentity.source_url ?? '')
-    || !/^[0-9a-f]{40}$/.test(phpIdentity.source_reference ?? '')
-    || phpIdentity.constraint !== phpIdentity.resolved_version
-    || JSON.stringify(Object.keys(webPackages)) !== JSON.stringify(expectedWebPackages)
-    || versions.core_web?.source_type !== 'git'
-    || !/^https:\/\//.test(versions.core_web?.source_url ?? '')
-    || !/^[0-9a-f]{40}$/.test(versions.core_web?.source_reference ?? '')
-    || Object.values(webPackages).some((identity) => !strictSemver.test(identity?.version ?? '')
-      || !/^packages\/core-web\/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$/.test(identity?.archive ?? '')
-      || !/^[0-9a-f]{64}$/.test(identity?.sha256 ?? ''))) {
-    developmentFailures.push('development version contract is invalid')
-  }
-  if (metadata.schema_version !== 2 || metadata.protocol !== 'peanut.release-metadata.v2'
+  if (!currentV3 || !strictSemver.test(target) || versions.instance_version !== null
+    || versions.scaffold_template !== target) developmentFailures.push('development version contract is invalid')
+  let dependencyIdentity = null
+  try {
+    const mode = dependencyMode(versions)
+    dependencyIdentity = verifyDependencyLocks(versions, path => readFileSync(path),
+      mode === 'registry' ? lockedYamlParser(toolRoot) : undefined)
+  } catch (error) { developmentFailures.push(error.message) }
+  if (![2, 3].includes(metadata.schema_version) || metadata.protocol !== `peanut.release-metadata.v${metadata.schema_version}`
     || !stableVersion.test(baseline) || metadata.instance_version !== null
     || metadata.expected_tag !== `v${baseline}` || versionCompare(baseline, target) > 0) {
     developmentFailures.push('published release metadata is invalid or newer than the development target')
   }
 
-  const sourceVersions = { composer: readJson('server/composer.json')?.require?.['peanut-admin/core'] ?? '' }
-  const requiredByClient = {
-    web: ['@peanut-admin/vue', '@peanut-admin/ui-vue'], platform: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
-    pc: ['@peanut-admin/client', '@peanut-admin/nuxt'], uniapp: ['@peanut-admin/client', '@peanut-admin/uniapp'],
-  }
-  if (sourceVersions.composer !== phpIdentity.constraint) developmentFailures.push('Composer source manifest does not name the fixed PHP Core candidate')
-  for (const [client, packages] of Object.entries(requiredByClient)) {
-    const dependencies = readJson(`${client}/package.json`)?.dependencies ?? {}
-    if (packages.some((name) => dependencies[name] !== `file:../${webPackages[name]?.archive}`)) {
-      developmentFailures.push(`${client} does not declare its independent Core Web package identities`)
-    }
-  }
-
-  const composerLock = readJson('server/composer.lock')
-  const lockedPhp = composerLock?.packages?.find((pkg) => pkg?.name === 'peanut-admin/core')
-  if (lockedPhp?.version !== phpIdentity.resolved_version || lockedPhp?.source?.type !== phpIdentity.source_type
-    || lockedPhp?.source?.url !== phpIdentity.source_url || lockedPhp?.source?.reference !== phpIdentity.source_reference) {
-    developmentFailures.push('Composer lock does not match the fixed PHP Core candidate')
-  }
-  for (const [name, identity] of Object.entries(webPackages)) {
-    try {
-      if (sha256(readFileSync(identity.archive)) !== identity.sha256) developmentFailures.push(`${name} candidate archive hash differs from release-versions.json`)
-    } catch (error) { developmentFailures.push(`${name} candidate archive is unreadable: ${error.message}`) }
-  }
-  pending.push('four clean client installs and builds must qualify the fixed Core Web candidate tarballs')
+  pending.push(dependencyIdentity?.mode === 'registry'
+    ? 'public channel availability and four native frozen installs/builds remain required'
+    : 'four clean client installs and builds must qualify the fixed Core Web candidate tarballs')
   if (baseline !== target) pending.push(`release metadata ${baseline} -> ${target} during candidate sealing`)
   if (inventory.template_version !== target) pending.push(`application inventory -> ${target}`)
   if (fixture.target_release?.version !== target) pending.push(`P0-E fixture -> ${target}`)
@@ -197,6 +170,7 @@ if (options.staticOnly && options.editionManifests.length === 0 && !options.rele
   console.log(JSON.stringify({
     status: 'passed',
     mode: 'development-static',
+    dependency_identity: dependencyIdentity,
     target_version: target,
     published_baseline: baseline,
     release_dependency_closure: pending.length === 0 ? 'closed' : 'pending',
@@ -253,7 +227,7 @@ try {
   metadata = JSON.parse(metadataText)
   versionContract = JSON.parse(versionContractText)
   inventory = JSON.parse(inventoryText)
-  version = metadata.schema_version === 2 && metadata.protocol === 'peanut.release-metadata.v2'
+  version = [2, 3].includes(metadata.schema_version) && metadata.protocol === `peanut.release-metadata.v${metadata.schema_version}`
     ? (metadata.instance_version ?? metadata.source_product_version ?? '')
     : (metadata.version ?? '')
   scaffoldText = show(`scaffold/releases/v${version}/scaffold-manifest.json`)
@@ -288,22 +262,26 @@ const historicalV1 = options.tag && versionContract?.schema_version === 1
 const currentV2 = versionContract?.schema_version === 2
   && versionContract?.protocol === 'peanut.release-versions.v2'
   && versionContract?.instance_version === null
-const contractProductVersion = currentV2
+const currentV3 = versionContract?.schema_version === 3
+  && versionContract?.protocol === 'peanut.release-versions.v3'
+  && versionContract?.instance_version === null
+const currentContract = currentV2 || currentV3
+const contractProductVersion = currentContract
   ? versionContract?.source_product_version
   : historicalV1 ? versionContract?.product_release : ''
-const metadataV2 = metadata?.schema_version === 2
-  && metadata?.protocol === 'peanut.release-metadata.v2'
-const metadataSourceVersion = metadataV2 ? metadata?.source_product_version : null
-const metadataInstanceVersion = metadataV2 ? metadata?.instance_version : null
-const metadataReleaseVersion = metadataV2
+const metadataCurrent = [2, 3].includes(metadata?.schema_version)
+  && metadata?.protocol === `peanut.release-metadata.v${metadata?.schema_version}`
+const metadataSourceVersion = metadataCurrent ? metadata?.source_product_version : null
+const metadataInstanceVersion = metadataCurrent ? metadata?.instance_version : null
+const metadataReleaseVersion = metadataCurrent
   ? (metadataInstanceVersion ?? metadataSourceVersion ?? '')
   : (metadata?.version ?? '')
-if (versionContract && ((!historicalV1 && !currentV2)
+if (versionContract && ((!historicalV1 && !currentContract)
   || !/^\d+\.\d+\.\d+$/.test(contractProductVersion ?? '')
-  || contractProductVersion !== (currentV2 ? metadataSourceVersion : metadataReleaseVersion)
+  || contractProductVersion !== (currentContract ? metadataSourceVersion : metadataReleaseVersion)
   || versionContract.scaffold_template !== inventory?.template_version
-  || (currentV2 && versionContract.generated_instance_default !== inventory?.application?.version)
-  || (currentV2 && !strictSemver.test(versionContract.generated_instance_default ?? ''))
+  || (currentContract && versionContract.generated_instance_default !== inventory?.application?.version)
+  || (currentContract && !strictSemver.test(versionContract.generated_instance_default ?? ''))
   || (currentV2 && (versionContract.core_php !== contractProductVersion
     || versionContract.core_web !== contractProductVersion
     || versionContract.scaffold_template !== contractProductVersion
@@ -319,11 +297,23 @@ if (versionContract && ((!historicalV1 && !currentV2)
     || metadata?.public_runtime_dependencies?.uniapp_npm !== `@peanut-admin/admin@${contractProductVersion}`)))) {
   failures.push('release version contract does not match metadata and inventory')
 }
-if (currentV2 && (!metadataV2
+if (currentContract && (!metadataCurrent
     || metadataSourceVersion !== versionContract?.source_product_version
     || metadataInstanceVersion !== versionContract?.instance_version
     || metadataReleaseVersion !== version)) {
   failures.push('release metadata does not preserve the source product and root instance identities')
+}
+if (currentV3) {
+  try {
+    if (dependencyMode(versionContract) !== 'registry') throw new Error('formal V3 candidate requires fixed native registry identities')
+    verifyDependencyLocks(versionContract, path => Buffer.from(show(path)), lockedYamlParser(toolRoot))
+    if (versionContract.scaffold_template !== contractProductVersion
+      || Object.values(declaredClientVersions).some(value => value !== contractProductVersion)
+      || JSON.stringify(metadata?.public_runtime_dependencies?.composer) !== JSON.stringify(versionContract.core_php)
+      || JSON.stringify(metadata?.public_runtime_dependencies?.npm) !== JSON.stringify(versionContract.core_web)) {
+      throw new Error('V3 metadata or client product identity does not match the fixed dependency contract')
+    }
+  } catch (error) { failures.push(error.message) }
 }
 if (!/^\d+\.\d+\.\d+$/.test(version)) failures.push(`metadata version is invalid: ${version || 'missing'}`)
 if (metadata && metadata.expected_tag !== expectedTag) failures.push(`metadata expected_tag does not match ${expectedTag}`)

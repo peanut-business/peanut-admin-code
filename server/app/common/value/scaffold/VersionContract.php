@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 namespace app\common\value\scaffold;
 
+require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
+
+use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
+
 use Composer\Semver\VersionParser;
 use RuntimeException;
 
@@ -231,42 +235,10 @@ final readonly class VersionContract
 
     private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
     {
-        $phpKeys = ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference'];
-        if (!is_array($php) || array_keys($php) !== $phpKeys
-            || $php['package'] !== 'peanut-admin/core'
-            || !is_string($php['constraint'])
-            || preg_match('/^dev-[A-Za-z0-9._-]+$/D', $php['constraint']) !== 1
-            || !is_string($php['resolved_version']) || !str_starts_with($php['resolved_version'], 'dev-')
-            || $php['source_type'] !== 'git'
-            || !is_string($php['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $php['source_url']) !== 1
-            || !is_string($php['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) !== 1
-            || $php['constraint'] !== $php['resolved_version']) {
-            throw new RuntimeException('VERSION_CONTRACT_CORE_PHP_INVALID');
-        }
-        $webKeys = ['source_type', 'source_url', 'source_reference', 'packages'];
-        $packages = is_array($web) && array_keys($web) === $webKeys ? $web['packages'] : null;
-        if (!is_array($web) || $web['source_type'] !== 'git'
-            || !is_string($web['source_url']) || preg_match('~^https://[^/?#]+/[^?#]+$~D', $web['source_url']) !== 1
-            || !is_string($web['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $web['source_reference']) !== 1) {
-            throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_INVALID');
-        }
-        if (!is_array($packages) || array_keys($packages) !== self::CORE_WEB_PACKAGES) {
-            throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_INVALID');
-        }
-        foreach ($packages as $package => $identity) {
-            if (!is_array($identity) || array_keys($identity) !== ['version', 'archive', 'sha256']
-                || !is_string($identity['version']) || preg_match(self::STRICT_SEMVER, $identity['version']) !== 1
-                || !is_string($identity['archive'])
-                || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$#D', $identity['archive']) !== 1
-                || !is_string($identity['sha256']) || preg_match('/^[0-9a-f]{64}$/D', $identity['sha256']) !== 1) {
-                throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_INVALID: ' . $package);
-            }
-            $archive = $root . '/' . $identity['archive'];
-            $digest = is_file($archive) && !is_link($archive) ? hash_file('sha256', $archive) : false;
-            if (!is_string($digest) || !hash_equals($identity['sha256'], $digest)) {
-                throw new RuntimeException('VERSION_CONTRACT_CORE_WEB_ARCHIVE_INVALID: ' . $package);
-            }
-        }
+        ReleaseDependencyIdentity::validate(
+            $php, $web, 'VERSION_CONTRACT_CORE_PHP_INVALID', 'VERSION_CONTRACT_CORE_WEB_INVALID',
+        );
+        ReleaseDependencyIdentity::verifyArchives($root, $web, 'VERSION_CONTRACT_CORE_WEB_ARCHIVE_INVALID');
     }
 
 }

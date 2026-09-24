@@ -68,38 +68,8 @@ if (count($matches) !== 1 || !is_array($expected) || $declared !== $expected["co
 ' "$APP_DIR/release-versions.json" "$APP_DIR/server/composer.lock" "$APP_DIR/server/composer.json" \
     || die 'PHP Core manifest/lock/version-contract identity mismatch'
 
-  while IFS=$'\t' read -r package archive expected_sha; do
-    [[ -f "$APP_DIR/$archive" && ! -L "$APP_DIR/$archive" ]] || die "$package candidate archive is missing: $archive"
-    actual_sha="$(shasum -a 256 "$APP_DIR/$archive" | awk '{print $1}')"
-    [[ "$actual_sha" == "$expected_sha" ]] || die "$package candidate archive hash differs from release-versions.json"
-  done < <(jq -r '.core_web.packages | to_entries[] | [.key,.value.archive,.value.sha256] | @tsv' "$APP_DIR/release-versions.json")
-
-  node - "$APP_DIR" <<'NODE' || exit $?
-const { readFileSync, realpathSync } = require('fs')
-const { join } = require('path')
-const root = process.argv[2]
-const fail = message => { process.stderr.write(`scaffold-doctor: ${message}\n`); process.exit(1) }
-const read = path => JSON.parse(readFileSync(path, 'utf8'))
-const versions = read(join(root, 'release-versions.json'))
-const expected = versions.core_web?.packages ?? {}
-const clients = {
-  web: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
-  platform: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
-  pc: ['@peanut-admin/client', '@peanut-admin/nuxt'],
-  uniapp: ['@peanut-admin/client', '@peanut-admin/uniapp'],
-}
-for (const [client, packages] of Object.entries(clients)) {
-  const manifest = read(join(root, client, 'package.json'))
-  for (const name of packages) {
-    const specifier = manifest.dependencies?.[name]
-    if (specifier !== `file:../${expected[name]?.archive}`) fail(`${client} does not declare the fixed local candidate for ${name}`)
-    let installed
-    try { installed = read(join(root, client, 'node_modules', ...name.split('/'), 'package.json')) }
-    catch { fail(`${client} has not installed ${name}`) }
-    if (installed.name !== name || installed.version !== expected[name]?.version) fail(`${client} ${name} identity does not match release-versions.json`)
-  }
-}
-NODE
+  # 共用固定 registry / 本地开发归档检查，资源授权仍由本脚本前置守卫负责。
+  node "$ROOT_DIR/scripts/release-dependency-locks.mjs" "$APP_DIR" --installed || exit $?
 
   if [[ "$LOCAL_CORE_MODE" == 1 ]]; then
     while IFS=$'\t' read -r package version; do

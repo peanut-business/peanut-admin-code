@@ -185,6 +185,7 @@ try {
             'scripts/scaffold-runtime/ScaffoldManifest.php' => ['scripts/scaffold-runtime/ScaffoldManifest.php', 0644],
             'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php' => ['scripts/scaffold-runtime/ScaffoldUpgradeLedger.php', 0644],
             'scripts/scaffold-runtime/Semver.php' => ['scripts/scaffold-runtime/Semver.php', 0644],
+            'scripts/scaffold-runtime/ReleaseDependencyIdentity.php' => ['scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 0644],
             'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => ['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 0644],
             'scripts/scaffold-runtime/EditionUpgradePackage.php' => ['scripts/scaffold-runtime/EditionUpgradePackage.php', 0644],
             'server/app/platform/exception/plugin/PluginLifecycleException.php' => ['scripts/upgrade-runtime/PluginLifecycleException.php', 0644],

@@ -3012,7 +3012,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "43a8bfbc3a927d2fde1137771cfb13f07b73a39c0a35d800bb69e176dbd04299"
+            "source_sha256": "2dcdcf402d3e7de84f45f250db14bd0e522a5958d91bdfbfb6d099c0f39be807"
         },
         {
             "path": "scripts/product-upgrade-database",
@@ -3125,6 +3125,20 @@
             ]
         },
         {
+            "path": "scripts/release-dependency-locks.mjs",
+            "target": "scripts/release-dependency-locks.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1ff42d9df5d04b7b56b987836c54bdbfa771cff36194f26a64a6877b9e08ac00"
+        },
+        {
             "path": "scripts/run-php-test",
             "target": "scripts/run-php-test",
             "classification": "managed",
@@ -3164,7 +3178,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c13ad622c89ac284428442ea5d25a9992d4d3ddc63c02f68d85070b86043c70e"
+            "source_sha256": "3300826cb468817ca360b5f4ec3a3f731ff8f33844f83148841c714228e37738"
         },
         {
             "path": "scripts/scaffold-runtime/EditionUpgradePackage.php",
@@ -3179,6 +3193,20 @@
                 "full"
             ],
             "source_sha256": "e61432ad48d770fab592010e3e7b615f320ac54bed7e9aeebb591e8e62fb2b19"
+        },
+        {
+            "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
+            "target": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "aed41e724049bd302539366c41e68e7983427983fd9b0ff17c58bf92e3990d2d"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldManifest.php",
@@ -3234,7 +3262,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dbe108f29527823c14cfc16cafd1fc8a602903baa40087e5d38d2e8a02f7aa99"
+            "source_sha256": "08d1c3802115135dda49ba2f90cccc7f3cd4564b94617c0776f194822319196b"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -3472,6 +3500,20 @@
             "source_sha256": "a11fe2a79f7a439fe6322190346f476a33a14aae3bea6c37067bfbe9d670961b"
         },
         {
+            "path": "scripts/tests/release-dependency-locks-test.mjs",
+            "target": "scripts/tests/release-dependency-locks-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "05b15155b253c00d430bb97e300b2705140ae91ab023b8d70dc116ae47c07859"
+        },
+        {
             "path": "scripts/tests/run-registered-mysql-tests",
             "target": "scripts/tests/run-registered-mysql-tests",
             "classification": "managed",
@@ -3497,7 +3539,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "158f93de1f3497f5ed620ef9e7798f89ea0407a1414f7132f4a4d40c473b303c"
+            "source_sha256": "1c845b18595404d3bc0eaa24dd3a570ee51cf53dafb559bf6e13a8066e99c30f"
         },
         {
             "path": "server/.env.example",
@@ -7898,7 +7940,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a6652e64a263df5424af8f0b1b23baa26bc926669f9526efb42b0796b979dda9"
+            "source_sha256": "54afde373dc71ec2cf8708fcbefa3a5056ca52f44bb2c815163ba22560e4e15c"
         },
         {
             "path": "server/app/common/value/module/ModulePhpNamespace.php",
@@ -7982,7 +8024,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b240e2ea00ea17ad02588515119fa59ba10a253e31979a003319604ec203ee43"
+            "source_sha256": "9d825874a606b9170bb88845ce007809fc0680e7e7e893051840f9d31a4a3fbb"
         },
         {
             "path": "server/app/controller/Index.php",
@@ -25336,6 +25378,19 @@
         {
             "path": "server/tests/Productization/PluginModuleContractTest.php",
             "target": "server/tests/Productization/PluginModuleContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/PortableReleaseDependencyTest.php",
+            "target": "server/tests/Productization/PortableReleaseDependencyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

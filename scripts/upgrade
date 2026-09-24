@@ -12,6 +12,7 @@ foreach ([
     ['/scripts/scaffold-runtime/ScaffoldManifest.php'],
     ['/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php'],
     ['/scripts/scaffold-runtime/Semver.php'],
+    ['/scripts/scaffold-runtime/ReleaseDependencyIdentity.php'],
     ['/server/app/platform/exception/plugin/PluginLifecycleException.php', '/scripts/upgrade-runtime/PluginLifecycleException.php'],
     ['/server/app/platform/value/plugin/PluginDescriptor.php', '/scripts/upgrade-runtime/PluginDescriptor.php'],
     ['/server/app/platform/infrastructure/plugin/PluginLockResolver.php', '/scripts/upgrade-runtime/PluginLockResolver.php'],

@@ -59,6 +59,8 @@ python3 "$SCRIPT_DIR/package-release-files.py" snapshot --application-root "$APP
 "$build/scripts/project-composer" install --working-dir="$build/server" --no-scripts --no-interaction --no-progress --prefer-dist
 HUSKY=0 pnpm --dir "$build/web" install --frozen-lockfile
 for client in platform pc uniapp; do HUSKY=0 npm --prefix "$build/$client" ci; done
+# 原生安装完成后，核对实际锁与已安装包，不只检查包名里的版本字符串。
+node "$SCRIPT_DIR/release-dependency-locks.mjs" "$build" --installed
 edition="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["application"]["edition"])' "$build/.peanut/application-manifest.json")"
 case "$edition" in standalone|multi-tenant) ;; *) die 'unknown generated application edition' ;; esac
 (cd "$build/web" && PEANUT_CLIENT_ENV_FILE="$build/web/.env.$edition" pnpm run build)

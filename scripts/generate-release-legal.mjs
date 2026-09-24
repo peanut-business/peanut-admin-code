@@ -26,8 +26,8 @@ const currentVersionContract = [2, 3].includes(versionContract.schema_version)
 const releaseVersion = currentVersionContract
   ? versionContract.source_product_version
   : versionContract.product_release
-const metadataVersion = releaseMetadata.schema_version === 2
-  && releaseMetadata.protocol === 'peanut.release-metadata.v2'
+const metadataVersion = [2, 3].includes(releaseMetadata.schema_version)
+  && releaseMetadata.protocol === `peanut.release-metadata.v${releaseMetadata.schema_version}`
   ? (releaseMetadata.instance_version ?? releaseMetadata.source_product_version)
   : releaseMetadata.version
 if (metadataVersion !== releaseVersion

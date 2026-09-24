@@ -198,6 +198,7 @@ foreach ([
     'scripts/product-upgrade-host',
     'scripts/product-upgrade-database',
     'scripts/scaffold-runtime/Semver.php',
+    'scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
     'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
     'web/src/views/user/setting/index.vue',
 ] as $managedPath) {
@@ -479,6 +480,7 @@ try {
         'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => false,
         'scripts/scaffold-runtime/EditionUpgradePackage.php' => false,
         'scripts/scaffold-runtime/Semver.php' => false,
+        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php' => false,
     ] as $managedRuntimePath => $mustBeExecutable) {
         $generatedRuntimePath = $first . '/' . $managedRuntimePath;
         $generatedRuntimeBaseline = $first . '/.peanut/scaffold-baseline/'

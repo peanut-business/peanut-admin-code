@@ -42,6 +42,7 @@ function excluded(string $path): bool
         'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
         'scripts/scaffold-runtime/EditionUpgradePackage.php',
         'scripts/scaffold-runtime/Semver.php',
+        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
     ], true)) {
         return false;
     }
