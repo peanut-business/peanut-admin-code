@@ -2758,7 +2758,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54208bb9b4e0def194cad5b0d6ee23a178bf634a15c7a43a59862d08966039c9"
+            "source_sha256": "6d02bcdfe3b949903a4bad834b4edef096261c26658bbe5ce139a20062bd2db3"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
@@ -3413,7 +3413,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cc2dbc0587a4f86fd6cb283040d7c50a0069e6d309536a48c9dcca6b41c2c3ad"
+            "source_sha256": "5f40fed29388e89f52949b91d1298532e06539017e1cf37166ee069803114459"
         },
         {
             "path": "scripts/tests/local-core-environment-test.py",

@@ -9,6 +9,7 @@ import subprocess
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,6 +36,29 @@ class FreezeCoreReleaseTest(unittest.TestCase):
         subprocess.run(['git', '-C', str(root), '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
                         'commit', '-qm', 'fixture'], check=True)
         return root
+
+    def test_default_composer_uses_project_pinned_entry_not_global_path(self):
+        with patch.object(release.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as run:
+            release.validate_composer_version('4.0.0-rc.1', self.root)
+        self.assertEqual(run.call_args.args[0][0], str(ROOT / 'scripts/project-composer'))
+        self.assertEqual(run.call_args.kwargs['cwd'], self.root / 'composer-version-probe')
+
+    def test_explicit_prepared_composer_is_literal_argv(self):
+        entry = self.root / 'prepared composer'
+        entry.write_text('#!/bin/sh\nexit 0\n'); entry.chmod(0o755)
+        with patch.object(release.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as run:
+            release.validate_composer_version('4.0.0-rc.1', self.root, entry)
+        self.assertEqual(run.call_args.args[0], [str(entry), 'show', '--self', '--format=json', '--no-interaction'])
+
+    def test_missing_composer_rejects_before_creating_probe(self):
+        with self.assertRaisesRegex(ValueError, 'Prepared project Composer'):
+            release.validate_composer_version('4.0.0-rc.1', self.root, self.root / 'missing')
+        self.assertFalse((self.root / 'composer-version-probe').exists())
+
+    def test_selected_version_still_requires_real_composer_acceptance(self):
+        with patch.object(release.subprocess, 'run', return_value=subprocess.CompletedProcess([], 1)):
+            with self.assertRaisesRegex(ValueError, 'Composer rejected'):
+                release.validate_composer_version('4.0.0-rc.1', self.root)
 
     def test_exact_versions_and_prereleases_are_accepted(self):
         for value in ('4.0.0', '4.0.0-rc.1', '4.0.0-dev.2', '4.0.0+build.12'):

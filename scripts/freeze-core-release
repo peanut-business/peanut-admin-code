@@ -25,18 +25,20 @@ def version(value: str) -> str:
     return value
 
 
-def validate_composer_version(selected_version: str, directory: Path) -> None:
-    """Let the installed Composer reject SemVer labels it cannot consume."""
-    composer = shutil.which('composer')
-    if composer is None:
-        raise ValueError('Composer is required to validate the selected PHP package version.')
+def validate_composer_version(selected_version: str, directory: Path,
+                              composer_command: Path | None = None) -> None:
+    """使用项目锁定入口；隔离 worktree 可显式复用已准备入口，不猜全局 Composer。"""
+    composer = composer_command or Path(__file__).resolve().parent / 'project-composer'
+    if not composer.is_file() or not os.access(composer, os.X_OK):
+        raise ValueError('Prepared project Composer entry is required; use scripts/project-composer '
+                         'prepare or --composer=/absolute/path/to/project-composer.')
     probe = directory / 'composer-version-probe'
     probe.mkdir()
     write_json(probe / 'composer.json', {
         'name': 'peanut-fixture/version-probe', 'version': '0.0.0',
         'require': {'peanut-admin/core': selected_version},
     })
-    result = subprocess.run([composer, 'show', '--self', '--format=json', '--no-interaction'],
+    result = subprocess.run([str(composer), 'show', '--self', '--format=json', '--no-interaction'],
                             cwd=probe, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
         raise ValueError('Composer rejected the selected exact PHP version; use a supported '
@@ -173,7 +175,7 @@ def inspect_web_archive(path: Path, suffix: str, selected_version: str) -> dict:
 
 
 def freeze(php_source: Path, web_source: Path, destination: Path,
-           php_version: str, web_version: str) -> dict:
+           php_version: str, web_version: str, composer_command: Path | None = None) -> dict:
     php_version, web_version = version(php_version), version(web_version)
     if not destination.is_absolute() or destination.exists():
         raise ValueError('Output must be a new absolute directory.')
@@ -191,7 +193,7 @@ def freeze(php_source: Path, web_source: Path, destination: Path,
         php_root, web_root = temporary / 'php-source', temporary / 'web-source'
         output = temporary / 'output'
         output.mkdir()
-        validate_composer_version(php_version, temporary)
+        validate_composer_version(php_version, temporary, composer_command)
         snapshot(php_source, sources['php']['commit'], php_root)
         snapshot(web_source, sources['web']['commit'], web_root)
         subprocess.run(['corepack', 'pnpm', 'install', '--frozen-lockfile'], cwd=web_root, check=True, timeout=900)
@@ -250,10 +252,14 @@ def main() -> None:
     parser.add_argument('--version', required=True, help='Default exact version for both Core projections.')
     parser.add_argument('--php-version', help='Optional independent PHP Core version.')
     parser.add_argument('--web-version', help='Optional independent Web Core version.')
+    parser.add_argument('--composer', type=Path,
+                        help='Explicit prepared project-composer entry for isolated builds; never installs globally.')
     args = parser.parse_args()
     try:
+        if args.composer is not None and not args.composer.is_absolute():
+            raise ValueError('--composer must be an absolute executable path, not a shell command.')
         receipt = freeze(args.php_core_dir, args.web_core_dir, args.output,
-                         args.php_version or args.version, args.web_version or args.version)
+                         args.php_version or args.version, args.web_version or args.version, args.composer)
     except (ValueError, OSError, subprocess.SubprocessError, tarfile.TarError, zipfile.BadZipFile) as error:
         parser.exit(1, f'freeze-core-release: {error}\n')
     print(json.dumps({'status': receipt['status'], 'sources': receipt['sources'],
