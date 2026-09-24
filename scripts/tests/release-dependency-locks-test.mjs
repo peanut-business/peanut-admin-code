@@ -3,11 +3,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createHash } from 'node:crypto'
-import { readFileSync, mkdirSync, mkdtempSync, writeFileSync, copyFileSync, symlinkSync, rmSync } from 'node:fs'
+import { readFileSync, mkdirSync, mkdtempSync, writeFileSync, copyFileSync, symlinkSync, renameSync, rmSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
-import { coreWebPackages, dependencyMode, verifyDependencyLocks, lockedYamlParser } from '../release-dependency-locks.mjs'
+import { coreWebPackages, dependencyMode, verifyDependencyLocks, verifyInstalledDependencies, lockedYamlParser } from '../release-dependency-locks.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const parseYaml = lockedYamlParser(process.argv[2] || root)
@@ -127,6 +127,92 @@ test('existing static checker reads native V3 metadata and preserves not-ready s
     assert.equal(r.status, 1); assert.match(r.stderr, /npm resolution/)
   } finally { rmSync(temporary, { recursive: true, force: true }) }
 })
+// 实际调用现有检查CLI，夹具只含合成元数据；不能把这些检查当作依赖安装或业务运行。
+function installedFixture(operation) {
+  assert.ok(process.env.TMPDIR?.includes('/.local/tmp/'), 'test requires checkout TMPDIR')
+  const temporary = mkdtempSync(join(process.env.TMPDIR, 'installed-identity-'))
+  const app = join(temporary, 'application')
+  const f = fixture()
+  const write = (relative, data) => {
+    const path = join(app, relative); mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, typeof data === 'string' ? data : JSON.stringify(data))
+  }
+  try {
+    for (const [relative, data] of f.files) write(relative, data)
+    write('release-versions.json', f.versions)
+    const phpRecord = { ...f.files.get('server/composer.lock').packages[0], 'install-path': '../peanut-admin/core' }
+    write('server/vendor/composer/installed.json', { packages: [phpRecord] })
+    write('server/vendor/autoload.php', '<?php // Synthetic metadata fixture; never executed.\n')
+    write('server/vendor/peanut-admin/core/composer.json', { name: 'peanut-admin/core' })
+    for (const client of ['web', 'platform', 'pc', 'uniapp']) {
+      for (const [name, version] of Object.entries(f.files.get(`${client}/package.json`).dependencies)) {
+        write(`${client}/node_modules/${name}/package.json`, { name, version })
+      }
+    }
+    symlinkSync(resolve(process.argv[2] || root, 'web/node_modules/openapi-typescript'), join(app, 'web/node_modules/openapi-typescript'))
+    const check = () => spawnSync(process.execPath, [join(root, 'scripts/release-dependency-locks.mjs'), app, '--installed'],
+      { encoding: 'utf8', timeout: 10000 })
+    operation({ app, temporary, phpRecord, versions: f.versions, write, check })
+  } finally { rmSync(temporary, { recursive: true, force: true }) }
+}
+
+test('installed fixed identities accept contained native package layout', () => installedFixture(({ check }) => {
+  const result = check(); assert.equal(result.status, 0, result.stderr)
+  const proof = JSON.parse(result.stdout)
+  assert.equal(proof.published, false)
+  assert.equal(proof.installed.php.version, 'v9.2.1')
+  assert.equal(proof.installed.independent_locations_checked, true)
+  assert.equal(proof.installed.runtime_qualified, false)
+}))
+test('installed check rejects missing PHP dependencies rather than only reading web versions', () => installedFixture(({ app, check }) => {
+  rmSync(join(app, 'server/vendor'), { recursive: true })
+  const result = check(); assert.notEqual(result.status, 0, 'missing PHP installation was accepted')
+}))
+test('installed PHP source commit must match the declared native lock', () => installedFixture(({ phpRecord, write, check }) => {
+  write('server/vendor/composer/installed.json', { packages: [{ ...phpRecord, source: { ...phpRecord.source, reference: '0'.repeat(40) } }] })
+  const result = check(); assert.notEqual(result.status, 0, 'different installed PHP source was accepted')
+}))
+test('installed PHP metadata cannot omit or duplicate the actual Core record', () => {
+  for (const duplicate of [false, true]) installedFixture(({ phpRecord, write, check }) => {
+    write('server/vendor/composer/installed.json', { packages: duplicate ? [phpRecord, phpRecord] : [] })
+    assert.notEqual(check().status, 0, 'ambiguous installed PHP record was accepted')
+  })
+})
+test('installed PHP metadata cannot point to a maintainer directory outside the application', () => installedFixture(({ app, temporary, phpRecord, write, check }) => {
+  const outside = join(temporary, 'maintainer-php-core')
+  renameSync(join(app, 'server/vendor/peanut-admin/core'), outside)
+  symlinkSync(outside, join(app, 'server/vendor/peanut-admin/core'))
+  write('server/vendor/composer/installed.json', { packages: [{ ...phpRecord, 'install-path': outside }] })
+  assert.notEqual(check().status, 0, 'maintainer PHP link was accepted as an installed release')
+}))
+test('installed Web Core same version outside the application is not independent consumption', () => installedFixture(({ app, temporary, check }) => {
+  const original = join(app, 'pc/node_modules/@peanut-admin/client')
+  const outside = join(temporary, 'maintainer-web-core')
+  renameSync(original, outside); symlinkSync(outside, original)
+  assert.notEqual(check().status, 0, 'maintainer Web link was accepted as an installed release')
+}))
+test('installed Web Core permits normal pnpm links into the same application', () => installedFixture(({ app, check }) => {
+  const original = join(app, 'web/node_modules/@peanut-admin/vue')
+  const internal = join(app, 'web/node_modules/.pnpm/core-fixture/node_modules/@peanut-admin/vue')
+  mkdirSync(dirname(internal), { recursive: true }); renameSync(original, internal); symlinkSync(internal, original)
+  const result = check(); assert.equal(result.status, 0, result.stderr)
+}))
+
+test('development linked Core remains allowed without claiming independent installation', () => installedFixture(({ app, temporary, versions }) => {
+  versions.core_php.constraint = versions.core_php.resolved_version = 'dev-dev'
+  for (const name of coreWebPackages) versions.core_web.packages[name] = {
+    version: '8.1.0-rc.2', archive: `packages/core-web/peanut-admin-${name.split('/')[1]}-8.1.0-rc.2.tgz`, sha256: 'a'.repeat(64),
+  }
+  rmSync(join(app, 'server/vendor'), { recursive: true })
+  const original = join(app, 'pc/node_modules/@peanut-admin/client'), outside = join(temporary, 'development-core')
+  renameSync(original, outside); symlinkSync(outside, original)
+  const proof = verifyInstalledDependencies(app, versions)
+  assert.equal(proof.independent_locations_checked, false)
+  assert.equal(proof.php, null)
+  assert.equal(proof.proof, 'development-web-manifests-only')
+  assert.equal(proof.web.find(item => item.client === 'pc' && item.package === '@peanut-admin/client').contained, false)
+}))
+
 test('candidate gate rejects absent qualification before reading candidate contents', () => {
   const r = spawnSync(process.execPath, [resolve(root, 'scripts/check-release-consistency'), '--candidate', 'a'.repeat(40)], { encoding: 'utf8' })
   assert.equal(r.status, 64); assert.match(r.stderr, /requires --qualification/)

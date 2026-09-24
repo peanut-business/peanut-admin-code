@@ -3,7 +3,7 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, realpathSync, lstatSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { resolve } from 'node:path'
+import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const coreWebPackages = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'].map(x => `@peanut-admin/${x}`)
@@ -126,6 +126,60 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
   return { mode, checked, proof: mode === 'registry' ? 'native-lock-identity' : 'development-archive-identity', published: false }
 }
 
+/** 只解析真实安装位置；pnpm目录内链接合法，发布候选不得借用应用外源码。 */
+function installedPath(root, path) {
+  const actual = realpathSync(path)
+  if (!actual.startsWith(root + sep)) fail('installed dependency outside application')
+  return actual
+}
+
+/** 读取Composer原生安装记录，不启动框架、不生成services.php、不访问数据库。
+ * 调用者仍须先以verifyDependencyLocks核对原生锁；本函数不证明业务运行或制品未被本地改写。
+ */
+export function verifyInstalledPhp(applicationRoot, expected) {
+  const root = realpathSync(applicationRoot)
+  const autoload = installedPath(root, resolve(root, 'server/vendor/autoload.php'))
+  if (!lstatSync(autoload).isFile()) fail('PHP autoload unavailable')
+  const metadataPath = installedPath(root, resolve(root, 'server/vendor/composer/installed.json'))
+  const document = JSON.parse(readFileSync(metadataPath, 'utf8'))
+  const records = Array.isArray(document) ? document : document?.packages
+  if (!Array.isArray(records)) fail('PHP installed metadata')
+  const matches = records.filter(item => item?.name === 'peanut-admin/core')
+  const installed = matches[0]
+  if (matches.length !== 1 || installed.version !== expected.resolved_version
+    || installed.source?.type !== expected.source_type || installed.source?.url !== expected.source_url
+    || installed.source?.reference !== expected.source_reference || installed.dist?.type === 'path'
+    || (installed.dist?.reference && installed.dist.reference !== expected.source_reference)
+    || typeof installed['install-path'] !== 'string' || installed['install-path'] === '') fail('PHP installed identity differs from native lock')
+  const location = installedPath(root, resolve(dirname(metadataPath), installed['install-path']))
+  const conventional = resolve(root, 'server/vendor/peanut-admin/core')
+  if (lstatSync(conventional).isSymbolicLink() || location !== installedPath(root, conventional)) fail('PHP installed location')
+  const manifest = JSON.parse(readFileSync(installedPath(root, resolve(location, 'composer.json')), 'utf8'))
+  if (manifest.name !== expected.package) fail('PHP installed package name')
+  return { package: installed.name, version: installed.version, source_reference: installed.source.reference,
+    path: relative(root, location), proof: 'native-installed-metadata-and-contained-location' }
+}
+
+/** 开发archive模式保持本地Core连接；registry候选严格核实际PHP/Web安装位置。 */
+export function verifyInstalledDependencies(applicationRoot, document) {
+  const root = realpathSync(applicationRoot), independent = dependencyMode(document) === 'registry'
+  const php = independent ? verifyInstalledPhp(root, document.core_php) : null
+  const web = []
+  for (const client of ['web', 'platform', 'pc', 'uniapp']) {
+    const manifest = JSON.parse(readFileSync(resolve(root, client, 'package.json'), 'utf8'))
+    for (const [name] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies })) {
+      if (!name.startsWith('@peanut-admin/')) continue
+      const file = resolve(root, client, 'node_modules', name, 'package.json')
+      const actual = independent ? installedPath(root, file) : realpathSync(file)
+      const installed = JSON.parse(readFileSync(actual, 'utf8'))
+      if (installed.name !== name || installed.version !== document.core_web.packages[name]?.version) fail(`${client} installed:${name}`)
+      web.push({ client, package: name, version: installed.version, contained: actual.startsWith(root + sep) })
+    }
+  }
+  return { php, web, independent_locations_checked: independent,
+    proof: independent ? 'native-installed-identities-and-locations' : 'development-web-manifests-only', runtime_qualified: false }
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const args = process.argv.slice(2)
@@ -138,16 +192,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     }
     const document = JSON.parse(read('release-versions.json'))
     const result = verifyDependencyLocks(document, read, dependencyMode(document) === 'registry' ? lockedYamlParser(root) : undefined)
-    if (args[1] === '--installed') {
-      for (const client of ['web', 'platform', 'pc', 'uniapp']) {
-        const manifest = JSON.parse(read(`${client}/package.json`))
-        for (const [name] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies })) {
-          if (!name.startsWith('@peanut-admin/')) continue
-          const installed = JSON.parse(readFileSync(resolve(root, client, 'node_modules', name, 'package.json')))
-          if (installed.name !== name || installed.version !== document.core_web.packages[name]?.version) fail(`${client} installed:${name}`)
-        }
-      }
-    }
-    console.log(JSON.stringify({ ...result, installed_manifests_checked: args[1] === '--installed' }))
+    const installed = args[1] === '--installed' ? verifyInstalledDependencies(root, document) : null
+    console.log(JSON.stringify({ ...result, installed_manifests_checked: args[1] === '--installed', installed }))
   } catch (error) { console.error(error.message); process.exitCode = 1 }
 }

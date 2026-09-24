@@ -3136,7 +3136,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ff42d9df5d04b7b56b987836c54bdbfa771cff36194f26a64a6877b9e08ac00"
+            "source_sha256": "376371cdd37796b81d3271360616c8a44a096d9a30802b2c33980d0274ac61b1"
         },
         {
             "path": "scripts/run-php-test",
@@ -3511,7 +3511,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "05b15155b253c00d430bb97e300b2705140ae91ab023b8d70dc116ae47c07859"
+            "source_sha256": "8f0e5d73e14bd9e190593e5d3191e4d7ef2d80a57acbc6fea81c5c93c0341cba"
         },
         {
             "path": "scripts/tests/run-registered-mysql-tests",
