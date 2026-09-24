@@ -35,7 +35,8 @@ class PackagingFilesTest(unittest.TestCase):
         self.add('release-versions.json', json.dumps(versions))
         self.add('server/composer.json', json.dumps({'require': {'peanut-admin/core': self.version}, 'repositories': []}))
         self.add('server/composer.lock', json.dumps({'packages': [{'name': 'peanut-admin/core', 'version': self.version, 'source': {'reference':'b'*40}}]}))
-        for file in ('server/database/install.php', 'server/public/index.php', 'scripts/upgrade', 'plugins.lock'):
+        for file in ('server/database/install.php', 'server/public/index.php', 'scripts/upgrade', 'plugins.lock',
+                     'scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 'scripts/release-dependency-locks.mjs'):
             self.add(file, '<?php /* packaging fixture, not an application */\n' if file.endswith('.php') else '{}\n')
         self.add('server/app/common/value/runtime/RuntimeNamespace.php', '<?php\n')
         self.add('server/runtime/.gitkeep', '')
@@ -111,6 +112,13 @@ class PackagingFilesTest(unittest.TestCase):
     def test_modified_upgrade_baseline_is_rejected(self):
         (self.source/self.manifest['files'][0]['baseline_path']).write_text('changed')
         with self.assertRaisesRegex(ValueError,'has changed'):pack.snapshot(self.source,self.out)
+
+    def test_package_cannot_omit_shared_dependency_readers(self):
+        self.manifest['files'] = [x for x in self.manifest['files']
+                                  if x['path'] != 'scripts/scaffold-runtime/ReleaseDependencyIdentity.php']
+        self.save()
+        with self.assertRaisesRegex(ValueError, 'omits installation'):
+            pack.snapshot(self.source, self.out)
 
     def test_missing_frontend_source_not_masked_by_package_manifest(self):
         self.manifest['files']=[x for x in self.manifest['files'] if x['path']!='pc/src/page.vue'];self.save()
@@ -218,6 +226,8 @@ class PackagingFilesTest(unittest.TestCase):
         self.assertIn('run build',script)
         self.assertIn('--skip-client-build|--core-web-candidates=*) die',script)
         self.assertIn('DeterministicEditionArchive',script)
+        self.assertIn('release-dependency-locks.mjs', script)
+        self.assertIn('--installed', script)
         self.assertIn('--application-root=',(ROOT/'scripts/build-edition-installers').read_text())
 
 

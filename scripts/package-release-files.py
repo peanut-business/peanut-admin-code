@@ -136,7 +136,8 @@ def snapshot(root: Path, target: Path) -> dict:
     if len({p.casefold() for p in paths}) != len(paths):
         raise ValueError('duplicate or case-colliding manifest paths')
     required = {'server/composer.json', 'server/composer.lock', 'server/database/install.php',
-                'server/public/index.php', 'scripts/upgrade', 'release-versions.json', 'plugins.lock'}
+                'server/public/index.php', 'scripts/upgrade', 'release-versions.json', 'plugins.lock',
+                'scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 'scripts/release-dependency-locks.mjs'}
     for client in CLIENTS:
         required.update({f'{client}/package.json', f'{client}/{LOCKS[client]}'})
     if not required.issubset(paths):

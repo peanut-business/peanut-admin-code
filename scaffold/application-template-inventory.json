@@ -2998,7 +2998,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a99b47a243dfb1720776c50888c7cda20ffa8b0f54db9f29bc33ade3cd00ddf5"
+            "source_sha256": "df5ada69880113239a18ac59fe2cbe9bb078a0d26f6c2dd99fcd93bb4d4d91a7"
         },
         {
             "path": "scripts/package-release.sh",
@@ -3483,7 +3483,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "901c0f9505ed53bca56e68d7e1dfd5c3237245f7a8ded3a8c3450a005021dab1"
+            "source_sha256": "a814a9d2cf2084df613820e51171f4f6d0d8dde63b057692da08e440b936d7aa"
         },
         {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
