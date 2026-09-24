@@ -17,7 +17,17 @@ SOURCE = Path(__file__).resolve().parents[1] / 'local-core-composer'
 
 class LocalCoreServiceDiscoveryTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix='peanut-services-')
+        # Keep every synthetic checkout inside this worktree, not macOS /var
+        # aliases. Never follow a redirected scratch root or edit vendor source.
+        fixture_parent = SOURCE.parents[1]
+        for component in ('.local', 'tmp', 'local-core-service-discovery'):
+            fixture_parent = fixture_parent / component
+            if fixture_parent.is_symlink():
+                raise RuntimeError('service fixture root must not be a symlink')
+            fixture_parent.mkdir(mode=0o700, exist_ok=True)
+            if not fixture_parent.is_dir():
+                raise RuntimeError('service fixture root must be a directory')
+        self.tmp = tempfile.TemporaryDirectory(prefix='peanut-services-', dir=fixture_parent)
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name) / 'application'
         self.server = self.root / 'server'
@@ -55,7 +65,7 @@ class LocalCoreServiceDiscoveryTest(unittest.TestCase):
 $root = dirname(__DIR__);
 file_put_contents($root . '/think-call.json', json_encode([
     'args' => array_slice($argv, 1), 'cwd' => getcwd(),
-    'env_path' => getenv('PEANUT_SERVER_ENV_FILE'),
+    'env_path' => getenv('PEANUT_SERVER_ENV_FILE'), 'tmpdir' => getenv('TMPDIR'),
 ]));
 if (array_slice($argv, 1) !== ['service:discover']) exit(31);
 if (is_file($root . '/discovery-fails')) exit(32);
@@ -94,7 +104,9 @@ exec "$@"
     def run_action(self, action):
         # Do not inherit credentials/backend variables from a developer shell.
         env = {key: value for key, value in os.environ.items()
-               if key in ('PATH', 'HOME', 'TMPDIR', 'SYSTEMROOT')}
+               if key in ('PATH', 'HOME', 'SYSTEMROOT')}
+        # Composer lock backups made by the wrapper must use the same owner root.
+        env['TMPDIR'] = self.tmp.name
         return subprocess.run([str(self.script), action, '--core-dir', str(self.core),
                                '--backend-env', str(self.env)], env=env,
                               capture_output=True, text=True, timeout=15)
@@ -114,6 +126,9 @@ exec "$@"
         self.assertEqual(call['args'], ['service:discover'])
         self.assertEqual(call['cwd'], str(self.server))
         self.assertEqual(call['env_path'], str(self.env))
+        self.assertEqual(call['tmpdir'], self.tmp.name)
+        self.assertEqual(Path(self.tmp.name).parent,
+                         SOURCE.parents[1] / '.local/tmp/local-core-service-discovery')
         self.assertEqual((self.lock.read_bytes(), self.manifest.read_bytes()), before)
 
     def test_autoload_refresh_discovers_services(self):

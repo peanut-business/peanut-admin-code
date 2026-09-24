@@ -6,7 +6,9 @@
     "source": "this versioned file",
     "resource_observation_policy": "validate this registry against the live resource before each stateful operation",
     "credentials_policy": "private production credentials use references only; owner-authorized disposable-demo account identifiers may be public and are documented in repo://peanut-admin-project/docs-site/demo-access.md, while passwords remain in controlled handoff and are never stored in Git",
-    "local_port_policy": "registered values are defaults; PEANUT_LOCAL_ENV_FILE or .local/stack.env is the per-clone runtime source and existing overrides are preserved"
+    "local_port_policy": "registered values are defaults; PEANUT_LOCAL_ENV_FILE or .local/stack.env is the per-clone runtime source and existing overrides are preserved",
+    "local_execution_directory_policy": "Use the existing dedicated Git worktree area for isolated edits; temporary fixtures and tool TMPDIR belong to the owning checkout's ignored .local/tmp/<task>. Do not use /private/var, its /var aliases, or /tmp for task worktrees or fixtures. Reject symlinked temporary roots and clean only task-owned children.",
+    "third_party_source_policy": "Never edit installed third-party package source under vendor or node_modules. Verify suspected drift against the exact locked upstream artifact without overwriting local evidence. Framework-generated metadata such as vendor/services.php may be generated only through the framework's supported command; this is not permission to patch vendor/topthink source."
   },
   "resources": {
     "tooling": [
@@ -1135,7 +1137,18 @@
           "development",
           "local-production-preview"
         ],
-        "owner": "Peanut Admin project; remote host mac-14",
+        "owner": "Peanut Admin project; local Mac mini (mac-14 and mac-2014 are aliases of the same physical host)",
+        "physical_host": {
+          "stable_host_id": "peanut-admin-local-mac-mini",
+          "aliases": ["mac-14", "mac-2014"],
+          "identity_basis": "Owner confirmed on 2026-09-24; verify the existing SSH host key and live host/container identity before data access",
+          "management_endpoints": [
+            {"ssh_alias": "mac-2014", "host": "192.168.192.2", "port": 22, "network_scope": "Ethernet direct-link address"},
+            {"ssh_alias": "mac-14", "host": "10.1.1.14", "port": 22, "network_scope": "virtual-network address"}
+          ],
+          "address_selection_policy": "Either listed reachable address may manage this same host. Reuse the operator's existing SSH identity and known-host verification; do not disable host-key checks, alter routing/VPN, or require en7 active. On connection failure, try the other listed address once; this is not fallback to a different server or database.",
+          "mysql_endpoint_policy": "Port 20183 refers to this host's registered MySQL service. Verify the live container mapping and MySQL handshake before selecting either address for an application connection; preserve the configured database and credentials."
+        },
         "service_type": "mysql",
         "version": "8.4.10",
         "database": "peanut_admin_development",
@@ -1160,10 +1173,11 @@
           "network_scope": "Docker Desktop direct route to private direct-link LAN"
         },
         "credential_ref": "mac-14:/Users/xing/.config/peanut-admin/development-db.env",
-        "data_source": "persistent Peanut Admin development data on mac-14",
+        "data_source": "persistent Peanut Admin development data on the same local Mac mini (mac-14 / mac-2014)",
         "freshness_requirement": "server/database/environment-guard.php --current must pass before application readiness",
         "health_check": {
-          "allocation": "ssh -o BatchMode=yes mac-14 \"/usr/local/bin/docker inspect peanut-admin-mysql84-development --format 'image={{.Config.Image}} status={{.State.Status}} health={{.State.Health.Status}}'\"",
+          "allocation": "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 mac-2014 \"/usr/local/bin/docker inspect peanut-admin-mysql84-development --format 'image={{.Config.Image}} status={{.State.Status}} health={{.State.Health.Status}}'\"",
+          "allocation_virtual_address": "ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 mac-14 \"/usr/local/bin/docker inspect peanut-admin-mysql84-development --format 'image={{.Config.Image}} status={{.State.Status}} health={{.State.Health.Status}}'\"",
           "host_connection": "scripts/local-stack.sh database-host-status",
           "container_connection": "scripts/local-stack.sh database-status"
         },
