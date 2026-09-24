@@ -205,7 +205,8 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         $exportMode = (int)$exportMode;
         if ($exportMode > 0) {
             $pageSize = PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->pageSize;
-            $info = ExportPageInfo::from((int)(clone $query)->count(), $pageSize, self::PAGE_SIZE_MAX, '资讯分类');
+            // Do not shallow-clone a Query with deferred tenant / onlyTrashed scope callbacks.
+            $info = ExportPageInfo::from($query->count(), $pageSize, self::PAGE_SIZE_MAX, '资讯分类');
             if ($exportMode === 1) {
                 return $info->toArray();
             }

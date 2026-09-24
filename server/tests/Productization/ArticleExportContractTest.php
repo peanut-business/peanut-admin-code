@@ -44,6 +44,7 @@ foreach ([
 ] as [$contract, $model, $permission, $queryMethod]) {
     $source = (string)file_get_contents($module . '/src/Service/' . $contract . 'Service.php');
     $expect(!str_contains($source, 'EXPORT_UNSUPPORTED'), $contract . ' still rejects every export');
+    $expect(!str_contains($source, '(clone $query)->count()'), $contract . ' must not detach deferred scope callbacks from the count query');
     $expect(str_contains($source, 'private readonly XlsxExportService $xlsxExport'), $contract . ' must reuse injected XLSX storage');
     $expect(str_contains($source, 'ExportPageInfo::from(') && str_contains($source, '->rowRange('), $contract . ' bypasses the public paged export protocol');
     $expect(str_contains($source, '$onlyTrashed ? ' . $model . '::onlyTrashed() : ' . $model . '::where([])'), $contract . ' lost ordinary/trash selection');

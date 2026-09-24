@@ -203,7 +203,9 @@ final class ArticleAdministrationService implements ArticleAdministration
         $exportMode = (int)$exportMode;
         if ($exportMode > 0) {
             $pageSize = PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->pageSize;
-            $info = ExportPageInfo::from((int)(clone $query)->count(), $pageSize, self::PAGE_SIZE_MAX, '资讯列表');
+            // Deferred ThinkORM scope callbacks retain their original Query argument.
+            // Count on that same query (the native aggregate restores its field projection), not a shallow clone.
+            $info = ExportPageInfo::from($query->count(), $pageSize, self::PAGE_SIZE_MAX, '资讯列表');
             if ($exportMode === 1) {
                 return $info->toArray();
             }
