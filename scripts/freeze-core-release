@@ -78,6 +78,33 @@ def identity(root: Path, expected_repository: str) -> dict:
             'tree': git(root, 'rev-parse', 'HEAD^{tree}')}
 
 
+def corepack_command() -> str:
+    command = shutil.which('corepack')
+    if command is None:
+        raise ValueError('Corepack is required to build with the Web Core declared package manager.')
+    return command
+
+
+def task_pnpm_environment(directory: Path, corepack: str) -> dict[str, str]:
+    """Create a task-local pnpm shim so recursive package scripts resolve bare pnpm."""
+    tool_bin = directory / 'tool-bin'
+    tool_bin.mkdir()
+    subprocess.run([corepack, 'enable', 'pnpm', f'--install-directory={tool_bin}'],
+                   check=True, timeout=30)
+    pnpm = tool_bin / 'pnpm'
+    if not pnpm.is_file() or not os.access(pnpm, os.X_OK):
+        raise ValueError('Corepack did not create the task-local pnpm entry.')
+    environment = os.environ.copy()
+    environment['PATH'] = str(tool_bin) + os.pathsep + environment.get('PATH', '')
+    return environment
+
+
+def run_pnpm(corepack: str, arguments: list[str], cwd: Path,
+             environment: dict[str, str], timeout: int) -> None:
+    subprocess.run([corepack, 'pnpm', *arguments], cwd=cwd, env=environment,
+                   check=True, timeout=timeout)
+
+
 def snapshot(root: Path, commit: str, destination: Path) -> None:
     raw = subprocess.check_output(['git', '-C', str(root), 'archive', '--format=tar', commit])
     destination.mkdir()
@@ -185,8 +212,7 @@ def freeze(php_source: Path, web_source: Path, destination: Path,
         raise ValueError('Release output must be outside both development repositories.')
     sources = {'php': identity(php_source, 'peanut-business/peanut-admin-core-php'),
                'web': identity(web_source, 'peanut-business/peanut-admin-core-web')}
-    if shutil.which('corepack') is None:
-        raise ValueError('Corepack is required to build with the Web Core declared package manager.')
+    corepack = corepack_command()
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix='.peanut-core-release-', dir=destination.parent))
     try:
@@ -196,15 +222,16 @@ def freeze(php_source: Path, web_source: Path, destination: Path,
         validate_composer_version(php_version, temporary, composer_command)
         snapshot(php_source, sources['php']['commit'], php_root)
         snapshot(web_source, sources['web']['commit'], web_root)
-        subprocess.run(['corepack', 'pnpm', 'install', '--frozen-lockfile'], cwd=web_root, check=True, timeout=900)
-        subprocess.run(['corepack', 'pnpm', 'run', 'build'], cwd=web_root, check=True, timeout=900)
+        pnpm_environment = task_pnpm_environment(temporary, corepack)
+        run_pnpm(corepack, ['install', '--frozen-lockfile'], web_root, pnpm_environment, 900)
+        run_pnpm(corepack, ['run', 'build'], web_root, pnpm_environment, 900)
         stamp_web(web_root, web_version)
         web_output = output / 'packages/core-web'
         web_output.mkdir(parents=True)
         web_packages = {}
         for suffix in PACKAGES:
-            subprocess.run(['corepack', 'pnpm', 'pack', '--pack-destination', str(web_output)],
-                           cwd=web_root / 'packages' / suffix, check=True, timeout=120)
+            run_pnpm(corepack, ['pack', '--pack-destination', str(web_output)],
+                     web_root / 'packages' / suffix, pnpm_environment, 120)
             path = web_output / f'peanut-admin-{suffix}-{web_version}.tgz'
             web_packages['@peanut-admin/' + suffix] = inspect_web_archive(path, suffix, web_version)
         php_path = output / 'packages/core-php' / f'peanut-admin-core-{php_version}.zip'
