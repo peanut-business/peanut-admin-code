@@ -67,7 +67,7 @@ class LocalStackPortContractTest(unittest.TestCase):
             self.assertIn("Development: http://127.0.0.1:8080/\n", ready.stdout)
             self.assertIn("http://127.0.0.1:8080/admin/", ready.stdout)
             self.assertIn("http://127.0.0.1:5173/admin/", ready.stdout)
-            self.assertIn("http://127.0.0.1:3100/", ready.stdout)
+            self.assertIn("PC direct:   http://127.0.0.1:3100/\n", ready.stdout)
             self.assertEqual(values(stack)["PHP_PORT"], "8000")
             client = values(Path(directory) / "container-client.env")
             self.assertEqual(client["VITE_API_PROXY_TARGET"], "http://host.docker.internal:8000")
