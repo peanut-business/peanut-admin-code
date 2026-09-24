@@ -3539,7 +3539,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1c845b18595404d3bc0eaa24dd3a570ee51cf53dafb559bf6e13a8066e99c30f"
+            "source_sha256": "3399f71ad64aabdbd7d7f519720a2845016bdf523615ea2f6cb6b7d6ae405ee5"
         },
         {
             "path": "server/.env.example",
@@ -25495,6 +25495,19 @@
         {
             "path": "server/tests/Support/IsolatedBackendEnvironment.php",
             "target": "server/tests/Support/IsolatedBackendEnvironment.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Support/ProductUpgradeCoordinatorProbe.php",
+            "target": "server/tests/Support/ProductUpgradeCoordinatorProbe.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
