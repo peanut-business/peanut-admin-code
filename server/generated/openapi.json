@@ -16017,6 +16017,14 @@
                     },
                     {
                         "in": "query",
+                        "name": "file_name",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    },
+                    {
+                        "in": "query",
                         "name": "page_type",
                         "schema": {
                             "type": "integer",
@@ -16131,7 +16139,8 @@
                 },
                 "x-peanut-errors": [
                     "ARTICLE_CATEGORY_ADMIN_PERMISSION_DENIED",
-                    "ARTICLE_CATEGORY_EXPORT_UNSUPPORTED"
+                    "ARTICLE_EXPORT_RANGE_INVALID",
+                    "ARTICLE_LIST_TIME_INVALID"
                 ],
                 "security": [
                     {
@@ -16633,6 +16642,14 @@
                     },
                     {
                         "in": "query",
+                        "name": "file_name",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    },
+                    {
+                        "in": "query",
                         "name": "page_type",
                         "schema": {
                             "type": "integer",
@@ -16711,6 +16728,17 @@
                         "schema": {
                             "type": "number"
                         }
+                    },
+                    {
+                        "in": "query",
+                        "name": "export",
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                1,
+                                2
+                            ]
+                        }
                     }
                 ],
                 "responses": {
@@ -16729,10 +16757,15 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/ArticleErrorResponse"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ArticleErrorResponse"
                     }
                 },
                 "x-peanut-errors": [
-                    "ARTICLE_CATEGORY_ADMIN_PERMISSION_DENIED"
+                    "ARTICLE_CATEGORY_ADMIN_PERMISSION_DENIED",
+                    "ARTICLE_EXPORT_RANGE_INVALID",
+                    "ARTICLE_LIST_TIME_INVALID"
                 ],
                 "security": [
                     {
@@ -17014,6 +17047,14 @@
                     },
                     {
                         "in": "query",
+                        "name": "file_name",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    },
+                    {
+                        "in": "query",
                         "name": "page_type",
                         "schema": {
                             "type": "integer",
@@ -17135,7 +17176,8 @@
                 },
                 "x-peanut-errors": [
                     "ARTICLE_ADMIN_PERMISSION_DENIED",
-                    "ARTICLE_EXPORT_UNSUPPORTED"
+                    "ARTICLE_EXPORT_RANGE_INVALID",
+                    "ARTICLE_LIST_TIME_INVALID"
                 ],
                 "security": [
                     {
@@ -17581,6 +17623,14 @@
                     },
                     {
                         "in": "query",
+                        "name": "file_name",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    },
+                    {
+                        "in": "query",
                         "name": "page_type",
                         "schema": {
                             "type": "integer",
@@ -17666,6 +17716,17 @@
                         "schema": {
                             "$ref": "#/components/schemas/ArticlePositiveIntegerInput"
                         }
+                    },
+                    {
+                        "in": "query",
+                        "name": "export",
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                1,
+                                2
+                            ]
+                        }
                     }
                 ],
                 "responses": {
@@ -17684,10 +17745,15 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/ArticleErrorResponse"
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ArticleErrorResponse"
                     }
                 },
                 "x-peanut-errors": [
-                    "ARTICLE_ADMIN_PERMISSION_DENIED"
+                    "ARTICLE_ADMIN_PERMISSION_DENIED",
+                    "ARTICLE_EXPORT_RANGE_INVALID",
+                    "ARTICLE_LIST_TIME_INVALID"
                 ],
                 "security": [
                     {
@@ -36884,7 +36950,17 @@
                         ]
                     },
                     "data": {
-                        "$ref": "#/components/schemas/ArticlePage"
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticlePage"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ExportPageInfo"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ExportFile"
+                            }
+                        ]
                     }
                 }
             },
@@ -36910,7 +36986,17 @@
                         ]
                     },
                     "data": {
-                        "$ref": "#/components/schemas/ArticleCategoryPage"
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticleCategoryPage"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ExportPageInfo"
+                            },
+                            {
+                                "$ref": "#/components/schemas/ExportFile"
+                            }
+                        ]
                     }
                 }
             },

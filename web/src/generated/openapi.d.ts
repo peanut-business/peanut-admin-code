@@ -7068,14 +7068,14 @@ export interface components {
             code: 20000;
             /** @enum {string} */
             msg: "success";
-            data: components["schemas"]["ArticlePage"];
+            data: components["schemas"]["ArticlePage"] | components["schemas"]["ExportPageInfo"] | components["schemas"]["ExportFile"];
         };
         ArticleCategoryPageResponse: {
             /** @enum {integer} */
             code: 20000;
             /** @enum {string} */
             msg: "success";
-            data: components["schemas"]["ArticleCategoryPage"];
+            data: components["schemas"]["ArticleCategoryPage"] | components["schemas"]["ExportPageInfo"] | components["schemas"]["ExportFile"];
         };
         ArticleDetailResponse: {
             /** @enum {integer} */
@@ -14871,6 +14871,7 @@ export interface operations {
                 page_size?: components["parameters"]["PageSize"];
                 page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
                 page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                file_name?: string;
                 page_type?: 0 | 1;
                 order_by?: "asc" | "desc";
                 field?: "create_time" | "id";
@@ -15073,6 +15074,7 @@ export interface operations {
                 page_size?: components["parameters"]["PageSize"];
                 page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
                 page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                file_name?: string;
                 page_type?: 0 | 1;
                 order_by?: "asc" | "desc";
                 field?: "create_time" | "id";
@@ -15084,6 +15086,7 @@ export interface operations {
                 end_time?: string;
                 start?: number;
                 end?: number;
+                export?: 1 | 2;
             };
             header?: never;
             path?: never;
@@ -15100,6 +15103,7 @@ export interface operations {
                     "application/json": components["schemas"]["ArticleCategoryPageResponse"];
                 };
             };
+            400: components["responses"]["ArticleErrorResponse"];
             401: components["responses"]["ArticleErrorResponse"];
             403: components["responses"]["ArticleErrorResponse"];
         };
@@ -15193,6 +15197,7 @@ export interface operations {
                 page_size?: components["parameters"]["PageSize"];
                 page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
                 page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                file_name?: string;
                 page_type?: 0 | 1;
                 order_by?: "asc" | "desc";
                 field?: "create_time" | "id";
@@ -15375,6 +15380,7 @@ export interface operations {
                 page_size?: components["parameters"]["PageSize"];
                 page_start?: components["schemas"]["ArticlePositiveIntegerInput"];
                 page_end?: components["schemas"]["ArticlePositiveIntegerInput"];
+                file_name?: string;
                 page_type?: 0 | 1;
                 order_by?: "asc" | "desc";
                 field?: "create_time" | "id";
@@ -15387,6 +15393,7 @@ export interface operations {
                 start?: number;
                 end?: number;
                 cid?: components["schemas"]["ArticlePositiveIntegerInput"];
+                export?: 1 | 2;
             };
             header?: never;
             path?: never;
@@ -15403,6 +15410,7 @@ export interface operations {
                     "application/json": components["schemas"]["ArticlePageResponse"];
                 };
             };
+            400: components["responses"]["ArticleErrorResponse"];
             401: components["responses"]["ArticleErrorResponse"];
             403: components["responses"]["ArticleErrorResponse"];
         };

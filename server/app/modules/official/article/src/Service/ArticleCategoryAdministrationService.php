@@ -204,7 +204,13 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         }
         $exportMode = (int)$exportMode;
         if ($exportMode > 0) {
-            $pageSize = PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->pageSize;
+            try {
+                $pageSize = (int)($params['page_type'] ?? 1) === 0
+                    ? self::PAGE_SIZE_MAX
+                    : PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->pageSize;
+            } catch (\InvalidArgumentException $exception) {
+                throw BusinessException::invalid('ARTICLE_EXPORT_RANGE_INVALID', $exception->getMessage());
+            }
             // Do not shallow-clone a Query with deferred tenant / onlyTrashed scope callbacks.
             $info = ExportPageInfo::from($query->count(), $pageSize, self::PAGE_SIZE_MAX, '资讯分类');
             if ($exportMode === 1) {

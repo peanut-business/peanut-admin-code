@@ -144,6 +144,21 @@ SQL);
         });
     }
 
+    public function testExplicitUnpagedExportUsesTheSameBoundAsTheList(): void
+    {
+        $this->runAs(101, function (TenantContext $context): void {
+            foreach ([$this->articles, $this->categories] as $service) {
+                $params = ['page_type' => 0, 'page_size' => 25000];
+                $page = $service->lists($context, $params);
+                $info = $service->lists($context, $params + ['export' => 1]);
+                self::assertSame($page->total, $info['count']);
+                self::assertSame(25000, $info['page_size']);
+                $service->lists($context, $params + ['export' => 2]);
+                self::assertEquals($page->items, $this->exportedRecords());
+            }
+        });
+    }
+
     public function testCategoryExportPreservesActiveAndRecycledAssociationCounts(): void
     {
         $this->runAs(101, function (TenantContext $context): void {

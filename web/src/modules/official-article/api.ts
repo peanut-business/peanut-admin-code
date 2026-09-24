@@ -51,18 +51,34 @@ export function getArticleCateList(
 }
 
 // Reuse the existing export=1/2 protocol without making list callers handle a union.
-export function getArticleCateExportInfo(params: ArticleCateListParams = {}, recycled = false) {
-  const path = recycled ? 'official.article.category.recycle.list' : 'official.article.category.list';
-  return axios.get<ArticleExportInfo>(`/adminapi/${path}`, { params: { ...params, export: 1 } });
+export function getArticleCateExportInfo(
+  params: ArticleCateListParams = {},
+  recycled = false
+) {
+  const path = recycled
+    ? 'official.article.category.recycle.list'
+    : 'official.article.category.list';
+  return axios.get<ArticleExportInfo>(`/adminapi/${path}`, {
+    params: { ...params, export: 1 },
+  });
 }
 
-export function exportArticleCategories(params: ArticleCateListParams & ArticleExportRange = {}, recycled = false) {
-  const path = recycled ? 'official.article.category.recycle.list' : 'official.article.category.list';
-  return axios.get<ArticleExportResult>(`/adminapi/${path}`, { params: { ...params, export: 2 } });
+export function exportArticleCategories(
+  params: ArticleCateListParams & ArticleExportRange = {},
+  recycled = false
+) {
+  const path = recycled
+    ? 'official.article.category.recycle.list'
+    : 'official.article.category.list';
+  return axios.get<ArticleExportResult>(`/adminapi/${path}`, {
+    params: { ...params, export: 2 },
+  });
 }
 
 export function getArticleCateAll() {
-  return axios.get<ArticleCateOption[]>('/adminapi/official.article.category.all');
+  return axios.get<ArticleCateOption[]>(
+    '/adminapi/official.article.category.all'
+  );
 }
 
 export function getArticleCateDetail(id: number, signal?: AbortSignal) {
@@ -76,7 +92,9 @@ export function addArticleCate(
   data: Partial<ArticleCateRecord>,
   signal?: AbortSignal
 ) {
-  return axios.post('/adminapi/official.article.category.add', data, { signal });
+  return axios.post('/adminapi/official.article.category.add', data, {
+    signal,
+  });
 }
 
 export function editArticleCate(
@@ -150,14 +168,28 @@ export function getArticleList(params: ArticleListParams = {}) {
   });
 }
 
-export function getArticleExportInfo(params: ArticleListParams = {}, recycled = false) {
-  const path = recycled ? 'official.article.recycle.list' : 'official.article.list';
-  return axios.get<ArticleExportInfo>(`/adminapi/${path}`, { params: { ...params, export: 1 } });
+export function getArticleExportInfo(
+  params: ArticleListParams = {},
+  recycled = false
+) {
+  const path = recycled
+    ? 'official.article.recycle.list'
+    : 'official.article.list';
+  return axios.get<ArticleExportInfo>(`/adminapi/${path}`, {
+    params: { ...params, export: 1 },
+  });
 }
 
-export function exportArticles(params: ArticleListParams & ArticleExportRange = {}, recycled = false) {
-  const path = recycled ? 'official.article.recycle.list' : 'official.article.list';
-  return axios.get<ArticleExportResult>(`/adminapi/${path}`, { params: { ...params, export: 2 } });
+export function exportArticles(
+  params: ArticleListParams & ArticleExportRange = {},
+  recycled = false
+) {
+  const path = recycled
+    ? 'official.article.recycle.list'
+    : 'official.article.list';
+  return axios.get<ArticleExportResult>(`/adminapi/${path}`, {
+    params: { ...params, export: 2 },
+  });
 }
 
 export function getArticleDetail(id: number) {

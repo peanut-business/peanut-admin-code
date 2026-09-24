@@ -32,7 +32,7 @@
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
-            "sha256": "69ba80546fefa0d017d0d5c95b3c90a5421ff056cb4a5cd4f40627a62cf8b8ab"
+            "sha256": "b2f57a68e56bf2b70201243129c0c73801a87fefbfba2dcb7106048b2418d2f4"
         },
         {
             "path": "server/app/modules/official/article/route/app.php",
@@ -4405,6 +4405,7 @@
                 }
             ],
             "errors": [
+                400,
                 401,
                 403
             ],
@@ -4706,6 +4707,7 @@
                 }
             ],
             "errors": [
+                400,
                 401,
                 403
             ],
