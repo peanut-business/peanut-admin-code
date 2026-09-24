@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
-use app\common\service\installation\InstallationPreflightHost;
+use app\common\services\installation\InstallationPreflightHost;
 
-require dirname(__DIR__, 2) . '/app/common/service/installation/InstallationPreflightHost.php';
+require dirname(__DIR__, 2) . '/app/common/services/installation/InstallationPreflightHost.php';
 
 function installerExpect(bool $condition, string $message): void
 {
@@ -107,7 +107,7 @@ try {
     );
 
     $hostSource = (string)file_get_contents(
-        dirname(__DIR__, 2) . '/app/common/service/installation/InstallationPreflightHost.php'
+        dirname(__DIR__, 2) . '/app/common/services/installation/InstallationPreflightHost.php'
     );
     foreach (['new PDO', 'guardedConnection(', 'waitForDatabase(', 'file_put_contents(', 'touch(', 'mkdir(', 'unlink('] as $mutation) {
         installerExpect(!str_contains($hostSource, $mutation), 'preflight host must stay read-only: ' . $mutation);
