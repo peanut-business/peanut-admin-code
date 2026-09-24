@@ -189,11 +189,12 @@ show_urls() {
     docs_port=$(awk -F= '$1 == "DOCS_PORT" { print $2 }' "$orchestration_env")
     production_port=$(awk -F= '$1 == "HTTP_PORT" { print $2 }' "$orchestration_env")
     printf '%s\n' \
-        "Development: http://127.0.0.1:$development_port/admin/" \
+        "Development: http://127.0.0.1:$development_port/" \
+        "Admin gateway:http://127.0.0.1:$development_port/admin/" \
         "API direct:  http://127.0.0.1:$php_port/" \
         "Admin direct:http://127.0.0.1:$admin_port/admin/" \
         "Platform direct:http://127.0.0.1:$platform_port/platform/" \
-        "PC direct:   http://127.0.0.1:$pc_port/pc/" \
+        "PC direct:   http://127.0.0.1:$pc_port/" \
         "Mobile direct:http://127.0.0.1:$mobile_port/mobile/" \
         "Docs:        http://127.0.0.1:$docs_port/" \
         "Production:  http://127.0.0.1:$production_port/admin/"
