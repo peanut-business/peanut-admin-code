@@ -116,8 +116,7 @@ try {
     ] as [$root, $moduleName]) {
         $expectedBackendFiles = [
             'module.json', 'src/ModuleProvider.php', 'src/Contract/' . $moduleName . 'Commands.php',
-            'src/Controller/.gitkeep', 'src/Validation/.gitkeep', 'src/Service/.gitkeep',
-            'src/Infrastructure/.gitkeep', 'src/Model/.gitkeep', 'route/app.php',
+            'route/app.php',
             'resources/permissions.json', 'resources/menus.json',
             'resources/setting-definitions.json', 'database/migrations/README.md', 'composer.json',
         ];
@@ -125,6 +124,9 @@ try {
             moduleCreateExpect(is_file($root . '/' . $relative), "generated backend file is missing: {$relative}");
         }
         moduleCreateExpect(!file_exists($root . '/Application/.gitkeep'), 'legacy Application scaffold path must be absent');
+        foreach (['Controller', 'Validation', 'Service', 'Infrastructure', 'Model'] as $unusedLayer) {
+            moduleCreateExpect(!file_exists($root . '/src/' . $unusedLayer), 'unused backend layer must not be generated: ' . $unusedLayer);
+        }
     }
     foreach ([$officialFrontend, $customFrontend] as $root) {
         foreach ($expectedFrontendFiles as $relative) {

@@ -1418,7 +1418,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "028e8411ebcdda0322ed1b64efe88f853b3e02d9347a11d75bbdfb5eaedb6782"
+                "sha256": "41e5c411c60659e26e14b16e0b0e1fa08c5a8a2c22e4ac73151ee7d9fb22f23a"
             },
             "trust": {
                 "channel": "bundled",
@@ -1511,7 +1511,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "60d0efaa34788c477af96a7cbe911b70d504d5cace76912441f38e8acb35880c"
+            "manifest_sha256": "f8e9c01927104d566cc0781c220ea952102835f5f48ee33f776a246e91bfae00"
         },
         {
             "key": "peanut.artifact-revision",

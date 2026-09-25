@@ -1,5 +1,7 @@
 # 模块开发
 
+目录和大小写说明统一见产品包内 `docs/module-layout.md`。Module key 与 `--vendor` 使用小写标识；例如 `dcs.product --vendor=dcs` 的后端根为 `server/app/modules/dcs/product`，PHP 前缀由模块自身 Composer 声明，不从历史 `app/Modules` 路径猜测。
+
 在 `server/` 执行 `php think module:create <vendor.module> --vendor=<vendor>`，再执行 `module:check`。模块根包含正式 `module.json`、Composer 声明、`src/`、数据库迁移和资源；仅建立实际使用的子目录，不机械生成空的分层。
 
 类名使用该模块声明的唯一 PSR-4 前缀；公开服务、稳定结果、依赖及数据所有者随版本登记。其他模块不能导入私有 Model 或跨模块 ORM 关联；使用目标模块的公开查询或业务操作。Controller 可声明受保护的 `xxClass`，通过只读 `$this->xx` 取得已绑定对象；安全身份仍由正式入口建立，声明不授予权限。

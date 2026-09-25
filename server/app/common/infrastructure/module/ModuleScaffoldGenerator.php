@@ -16,12 +16,7 @@ final class ModuleScaffoldGenerator
         'module.json' => 'backend/module.json.stub',
         'src/ModuleProvider.php' => 'backend/ModuleProvider.php.stub',
         'src/Contract/${MODULE}Commands.php' => 'backend/Contract/ModuleCommands.php.stub',
-        'src/Controller/.gitkeep' => null,
-        'src/Validation/.gitkeep' => null,
-        'src/Service/.gitkeep' => null,
         'route/app.php' => 'backend/route/app.php.stub',
-        'src/Infrastructure/.gitkeep' => null,
-        'src/Model/.gitkeep' => null,
         'resources/permissions.json' => 'backend/empty-array.json.stub',
         'resources/menus.json' => 'backend/empty-array.json.stub',
         'resources/setting-definitions.json' => 'backend/empty-array.json.stub',
@@ -290,11 +285,11 @@ final class ModuleScaffoldGenerator
 
     private function postflight(string $moduleKey, string $backendRoot): void
     {
-        foreach (['module.json', 'composer.json', 'src/ModuleProvider.php', 'src/Contract', 'src/Controller',
-            'src/Validation', 'src/Service', 'route/app.php', 'src/Infrastructure', 'src/Model',
-            'resources/permissions.json', 'resources/menus.json',
-            'resources/setting-definitions.json', 'database/migrations/README.md'] as $relative) {
-            if (!file_exists($backendRoot . '/' . $relative)) {
+        $segments = ModuleKey::fromString($moduleKey)->pascalSegments();
+        // 生成与验收使用同一份文件清单；没有消费者的类分层不预建空目录。
+        foreach (array_keys(self::BACKEND_FILES) as $relative) {
+            $relative = strtr($relative, ['${MODULE}' => $segments[array_key_last($segments)]]);
+            if (!is_file($backendRoot . '/' . $relative)) {
                 throw new ModuleScaffoldException('MODULE_CREATE_POSTCHECK_FAILED', 'Generated Module backend is incomplete.');
             }
         }

@@ -589,6 +589,19 @@
             ]
         },
         {
+            "path": "docs/module-layout.md",
+            "target": "docs/module-layout.md",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "docs/public/README.md",
             "target": "docs/public/README.md",
             "classification": "managed",
@@ -1993,7 +2006,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08127543128d0b66e1a4228d1ac828d7216ec49b99e28fa364f8b4c89cafd3bc"
+            "source_sha256": "95a11a8d60175690b1a487148e7cb2c772cfac6bdb6e5a09ef1a25739e211638"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2229,7 +2242,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "60d0efaa34788c477af96a7cbe911b70d504d5cace76912441f38e8acb35880c"
+            "source_sha256": "f8e9c01927104d566cc0781c220ea952102835f5f48ee33f776a246e91bfae00"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -2543,6 +2556,20 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "scripts/check-source-layout.php",
+            "target": "scripts/check-source-layout.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eb0a37ace82f50b4f39685c0ba300118c0ece791afaac8ce61692e370ee2a79d"
         },
         {
             "path": "scripts/check-test-integrity",
@@ -3581,6 +3608,20 @@
                 "full"
             ],
             "source_sha256": "ccf0e6b8d9fb84fca177659ea4909c7ee8676cee117fc5c1ddd9a722b760f5d4"
+        },
+        {
+            "path": "scripts/tests/source-layout-test.php",
+            "target": "scripts/tests/source-layout-test.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c7a5b8d6ac288428deb61d17bc7a4638b29f2671d3c78e65c25019d4665e6f3b"
         },
         {
             "path": "scripts/upgrade",
@@ -6776,7 +6817,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a4179c7598a82f04fb35b1376b55c1625a348b59c2481862d6f9a5332925df5d"
+            "source_sha256": "fa38fab6550881d086c266eaa2b71f794c92111d295b79a61131d83ea7ecd041"
         },
         {
             "path": "server/app/common/infrastructure/module/OfficialModuleMiddleware.php",
@@ -18600,7 +18641,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97121fa4b1c54f4318d5f0e34cf0df059491d258bd0f51bf985d0ba0bfe2abfe"
+            "source_sha256": "816dd8f0a9bf39c77d071e401b854ea52338edc7f7181eb25c69f9a7666c28fb"
         },
         {
             "path": "server/app/modules/official/task/src/Service/TaskAdminApplicationService.php",
@@ -22756,7 +22797,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "653a4c32663b2262a7e71ee2ff491b08dba0a40d86cf45f0338b8e68e00e2abc"
+            "source_sha256": "7607ceb4361c00a7a511a8bcad63f9235fd0d6ab8c387688a4f54528ffe40bb8"
         },
         {
             "path": "server/resources/module-scaffold/frontend/package.json.stub",
@@ -22966,7 +23007,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "741a5a682d45ca783e1fa6842f656e73c277057a00c27d9025370bfbe2abf544"
+            "source_sha256": "36ec3ca345871b79e1ca894aa09ae4b8294695cf29acaa7ee87cae84234e23b7"
         },
         {
             "path": "server/resources/scaffold-application/docs-site/index.md.stub",
@@ -25264,6 +25305,19 @@
         {
             "path": "server/tests/Productization/ModuleRuntimeGovernanceTest.php",
             "target": "server/tests/Productization/ModuleRuntimeGovernanceTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleScaffoldLayoutTest.php",
+            "target": "server/tests/Productization/ModuleScaffoldLayoutTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
