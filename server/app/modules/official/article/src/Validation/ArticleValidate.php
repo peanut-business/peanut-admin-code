@@ -83,8 +83,9 @@ class ArticleValidate extends TenantContextValidate
 
     public function sceneRecycle(): self
     {
-        // A deleted category remains a valid filter for its deleted articles.
-        return $this->sceneLists()->remove('cid', 'checkCategory');
+        // remove 对同一字段是替换而非追加；保留列表已移除的 require，分类筛选仍可省略。
+        // 已删除分类可用于回收查询，但传入值仍须是正整数。
+        return $this->sceneLists()->remove('cid', 'require|checkCategory');
     }
 
     public function sceneRecycleDetail(): self

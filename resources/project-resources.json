@@ -2193,6 +2193,36 @@
     ],
     "local_listeners": [
       {
+        "stable_resource_id": "peanut-generated-single-20260925-http",
+        "environment": "development-test",
+        "owner": "generated-runtime-20260925",
+        "host": "127.0.0.1",
+        "port": 20427,
+        "service_type": "http",
+        "namespace": "installed standalone synthetic application; existing database peanut-generated-single-20260925-mysql84",
+        "credential_ref": "existing generated application private installation credential reference; never log values",
+        "data_source": "retained generated standalone application with completed installation",
+        "freshness_requirement": "verify source manifest, installed record, exact DB UUID and active parent/application leases",
+        "health_check": "actual HTTP authentication and tenant-owned synthetic business, not a static HTML probe",
+        "fallback": "none",
+        "cleanup_responsibility": "this test invocation terminates only its own PHP subprocess; preserve application and database"
+      },
+      {
+        "stable_resource_id": "peanut-generated-multi-20260925-http",
+        "environment": "development-test",
+        "owner": "generated-runtime-20260925",
+        "host": "127.0.0.1",
+        "port": 20428,
+        "service_type": "http",
+        "namespace": "installed multi-tenant synthetic application; existing database peanut-generated-multi-20260925-mysql84",
+        "credential_ref": "existing generated application private installation credential reference; never log values",
+        "data_source": "retained generated multi-tenant application with completed installation",
+        "freshness_requirement": "verify source manifest, installed record, exact DB UUID and active parent/application leases",
+        "health_check": "actual HTTP authentication and tenant-owned synthetic business, not a static HTML probe",
+        "fallback": "none",
+        "cleanup_responsibility": "this test invocation terminates only its own PHP subprocess; preserve application and database"
+      },
+      {
         "stable_resource_id": "peanut-admin-local-development-gateway",
         "environment": "development",
         "owner": "scripts/local-stack.sh",

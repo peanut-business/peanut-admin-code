@@ -1980,7 +1980,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ba2c824ba6ccdb467c4bc2b362e72b9ddbaa11d62127c814baa44b1431ee5fe"
+            "source_sha256": "08127543128d0b66e1a4228d1ac828d7216ec49b99e28fa364f8b4c89cafd3bc"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2034,7 +2034,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "04db2e05ace47609a438157025ae84d539a9b26d06dee636dbcbcfad34fc5944"
+            "source_sha256": "99e087b171e7e1b253ef5850f33fd6d9d126972943767b31e0b9433e249c919c"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -3442,6 +3442,20 @@
                 "full"
             ],
             "source_sha256": "87f8fd049ffc9b7494428b2cf2caabb95d2bd98df0d2be8a21c4a0c8418c391f"
+        },
+        {
+            "path": "scripts/tests/installed-business-http.py",
+            "target": "scripts/tests/installed-business-http.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ae5b3692876e45ee9456277db8e3a439908f878ec70adcbe23609be1ed34fdf1"
         },
         {
             "path": "scripts/tests/local-core-environment-test.py",
@@ -8708,7 +8722,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "90e333069b0eb6440d525a23985d57a373ad4bbe8d02797a8bc063b235997952"
+            "source_sha256": "39eb3d59578c6912f9b3dc5d39801191aa82c2457e4e1453cb3726b4a3bb2c22"
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
@@ -24872,6 +24886,19 @@
         {
             "path": "server/tests/Productization/ArticleExportContractTest.php",
             "target": "server/tests/Productization/ArticleExportContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ArticleValidationScenesTest.php",
+            "target": "server/tests/Productization/ArticleValidationScenesTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
