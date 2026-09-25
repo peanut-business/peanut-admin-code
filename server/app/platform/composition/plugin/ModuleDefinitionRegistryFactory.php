@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\composition\plugin;
@@ -23,9 +24,7 @@ use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 /** Compiles immutable deployment metadata without opening a database connection. */
 final readonly class ModuleDefinitionRegistryFactory
 {
-    public function __construct(private string $serverRoot)
-    {
-    }
+    public function __construct(private string $serverRoot) {}
 
     /** @param array<string,mixed> $deploymentConfig */
     public function fromDeploymentConfig(array $deploymentConfig): CompiledModuleRegistry
@@ -84,7 +83,7 @@ final readonly class ModuleDefinitionRegistryFactory
         if ($roots === []) {
             throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'No locked Module roots are available.');
         }
-        $kernelVersion = trim((string)($deploymentConfig['kernel_version'] ?? ''));
+        $kernelVersion = trim((string) ($deploymentConfig['kernel_version'] ?? ''));
         $clients = is_array($deploymentConfig['registered_client_keys'] ?? null)
             ? array_values($deploymentConfig['registered_client_keys'])
             : [];
@@ -150,7 +149,7 @@ final readonly class ModuleDefinitionRegistryFactory
         $owners = [];
         foreach (['official.identity' => 'identity', 'official.ops' => 'ops'] as $key => $directory) {
             $path = $this->serverRoot . '/app/modules/official/' . $directory . '/module.json';
-            $manifest = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            $manifest = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($manifest) || ($manifest['key'] ?? null) !== $key
                 || ($manifest['lifecycle']['protected'] ?? false) !== true) {
                 throw new ModuleException('MODULE_MANIFEST_INVALID', "The protected {$key} manifest is unavailable.");
@@ -173,7 +172,7 @@ final readonly class ModuleDefinitionRegistryFactory
         foreach ($roots as $root) {
             $manifest = $loader->load($root);
             $catalog = is_array($manifest->data['catalog'] ?? null) ? $manifest->data['catalog'] : [];
-            foreach ((array)($catalog['menus'] ?? []) as $menu) {
+            foreach ((array) ($catalog['menus'] ?? []) as $menu) {
                 if (!is_array($menu) || ($menu['type'] ?? null) !== 'page') {
                     continue;
                 }

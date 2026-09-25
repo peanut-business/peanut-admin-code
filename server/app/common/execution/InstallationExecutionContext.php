@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\execution;
@@ -12,8 +13,20 @@ final readonly class InstallationExecutionContext implements ExecutionContext
         }
     }
 
-    public function operation(): string { return trim($this->operation); }
-    public function requestId(): string { return trim($this->requestId); }
-    public function tenantId(): ?int { return null; }
-    public function actor(): array { return ['actor_key' => 'installation']; }
+    public function operation(): string
+    {
+        return trim($this->operation);
+    }
+    public function requestId(): string
+    {
+        return trim($this->requestId);
+    }
+    public function tenantId(): ?int
+    {
+        return null;
+    }
+    public function actor(): array
+    {
+        return ['actor_key' => 'installation'];
+    }
 }

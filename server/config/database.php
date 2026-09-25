@@ -5,7 +5,7 @@ $requiredDatabaseValue = static function (string $name): string {
     if (!is_string($value) && !is_int($value)) {
         throw new RuntimeException("BACKEND_ENVIRONMENT_REQUIRED:{$name}");
     }
-    $value = (string)$value;
+    $value = (string) $value;
     if (trim($value) === '') {
         throw new RuntimeException("BACKEND_ENVIRONMENT_REQUIRED:{$name}");
     }

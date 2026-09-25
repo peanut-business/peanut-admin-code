@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\http;
@@ -11,7 +12,7 @@ final class PlatformRequest
 {
     public static function bearerToken($request): string
     {
-        $authorization = trim((string)$request->header('Authorization', ''));
+        $authorization = trim((string) $request->header('Authorization', ''));
         if (preg_match('/^Bearer\s+(\S+)$/iD', $authorization, $matches) !== 1) {
             return '';
         }
@@ -21,7 +22,7 @@ final class PlatformRequest
 
     public static function refreshToken($request): string
     {
-        return trim((string)$request->cookie(PlatformRefreshCookie::NAME, ''));
+        return trim((string) $request->cookie(PlatformRefreshCookie::NAME, ''));
     }
 
     public static function requestId(CurrentExecutionContext $executionContext, $request): string
@@ -29,7 +30,5 @@ final class PlatformRequest
         return RequestTrace::id($executionContext, $request, 'platform');
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

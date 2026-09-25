@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit\RegisteredMysqlSchemaBoundary;
@@ -54,7 +55,7 @@ final class MetadataPdo extends PDO
     {
         $this->queries[] = $query;
         preg_match('/information_schema\.([A-Z]+)/', $query, $matches);
-        return new MetadataStatement($this, (int)($this->counts[$matches[1] ?? ''] ?? 0));
+        return new MetadataStatement($this, (int) ($this->counts[$matches[1] ?? ''] ?? 0));
     }
 }
 

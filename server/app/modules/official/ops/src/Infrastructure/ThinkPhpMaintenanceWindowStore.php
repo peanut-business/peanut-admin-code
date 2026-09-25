@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
@@ -17,8 +18,7 @@ final readonly class ThinkPhpMaintenanceWindowStore implements MaintenanceWindow
 {
     public function __construct(
         private AuditContractHost $audit,
-    ) {
-    }
+    ) {}
 
     public function current(PlatformContext $context): ?MaintenanceWindow
     {
@@ -47,7 +47,7 @@ final readonly class ThinkPhpMaintenanceWindowStore implements MaintenanceWindow
             $replayed = Db::name('ops_maintenance_window')->where('created_by_operator_id', $context->operatorId)
                 ->where('idempotency_digest', $idempotencyDigest)->lock(true)->find();
             if ($replayed !== null) {
-                if (!hash_equals((string)$replayed['request_digest'], $requestDigest)) {
+                if (!hash_equals((string) $replayed['request_digest'], $requestDigest)) {
                     throw OpsConsoleException::idempotencyConflict();
                 }
                 return $this->window($replayed);
@@ -56,7 +56,7 @@ final readonly class ThinkPhpMaintenanceWindowStore implements MaintenanceWindow
             $existing = Db::name('ops_maintenance_window')->whereIn('state', ['scheduled', 'active'])
                 ->field('revision')->order('id', 'desc')->lock(true)->find();
             if (($existing === null && $expectedRevision !== 0)
-                || ($existing !== null && (int)$existing['revision'] !== $expectedRevision)
+                || ($existing !== null && (int) $existing['revision'] !== $expectedRevision)
             ) {
                 throw OpsConsoleException::revisionConflict();
             }
@@ -107,27 +107,27 @@ final readonly class ThinkPhpMaintenanceWindowStore implements MaintenanceWindow
             if ($current === null) {
                 throw OpsConsoleException::revisionConflict();
             }
-            if ((string)$current['state'] === 'closed'
-                && hash_equals((string)$current['idempotency_digest'], $idempotencyDigest)
+            if ((string) $current['state'] === 'closed'
+                && hash_equals((string) $current['idempotency_digest'], $idempotencyDigest)
             ) {
-                if (!hash_equals((string)$current['request_digest'], $requestDigest)) {
+                if (!hash_equals((string) $current['request_digest'], $requestDigest)) {
                     throw OpsConsoleException::idempotencyConflict();
                 }
                 return $this->window($current);
             }
-            if ((int)$current['revision'] !== $expectedRevision || (string)$current['state'] === 'closed') {
+            if ((int) $current['revision'] !== $expectedRevision || (string) $current['state'] === 'closed') {
                 throw OpsConsoleException::revisionConflict();
             }
 
             $changed = Db::name('ops_maintenance_window')->where('id', $current['id'])
                 ->where('revision', $expectedRevision)->update([
-                'state' => 'closed',
-                'revision' => Db::raw('revision + 1'),
-                'idempotency_digest' => $idempotencyDigest,
-                'request_digest' => $requestDigest,
-                'closed_at' => Db::raw('UTC_TIMESTAMP(3)'),
-                'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
-            ]);
+                    'state' => 'closed',
+                    'revision' => Db::raw('revision + 1'),
+                    'idempotency_digest' => $idempotencyDigest,
+                    'request_digest' => $requestDigest,
+                    'closed_at' => Db::raw('UTC_TIMESTAMP(3)'),
+                    'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
+                ]);
             if ($changed !== 1) {
                 throw OpsConsoleException::revisionConflict();
             }
@@ -145,12 +145,12 @@ final readonly class ThinkPhpMaintenanceWindowStore implements MaintenanceWindow
     private function window(array $row): MaintenanceWindow
     {
         return new MaintenanceWindow(
-            (string)$row['maintenance_key'],
-            (string)$row['state'],
-            (string)$row['reason_key'],
-            $this->publicInstant((string)$row['starts_at']),
-            $this->publicInstant((string)$row['ends_at']),
-            (int)$row['revision'],
+            (string) $row['maintenance_key'],
+            (string) $row['state'],
+            (string) $row['reason_key'],
+            $this->publicInstant((string) $row['starts_at']),
+            $this->publicInstant((string) $row['ends_at']),
+            (int) $row['revision'],
         );
     }
 

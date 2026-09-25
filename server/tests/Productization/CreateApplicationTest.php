@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ApplicationCreator;
@@ -22,7 +23,9 @@ function createApplicationExpect(bool $condition, string $message): void
 
 function createApplicationDelete(string $path): void
 {
-    if (!file_exists($path) && !is_link($path)) return;
+    if (!file_exists($path) && !is_link($path)) {
+        return;
+    }
     if (is_dir($path) && !is_link($path)) {
         foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $entry) {
             createApplicationDelete($path . '/' . $entry);
@@ -38,7 +41,7 @@ function createApplicationCopy(string $source, string $target): void
     mkdir($target, 0775, true);
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
+        RecursiveIteratorIterator::SELF_FIRST,
     );
     foreach ($iterator as $file) {
         $relative = substr($file->getPathname(), strlen($source) + 1);
@@ -57,7 +60,7 @@ function createApplicationWriteJson(string $path, array $data): void
 {
     file_put_contents($path, json_encode(
         $data,
-        JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+        JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
     ) . "\n");
 }
 
@@ -85,9 +88,9 @@ function createApplicationRun(array $command, ?string $cwd = null): string
     fclose($pipes[2]);
     $code = proc_close($process);
     if ($code !== 0) {
-        throw new RuntimeException('application scaffold command failed(' . $code . '): ' . trim((string)$stderr));
+        throw new RuntimeException('application scaffold command failed(' . $code . '): ' . trim((string) $stderr));
     }
-    return (string)$stdout;
+    return (string) $stdout;
 }
 
 function createApplicationBuildCurrentRelease(string $root, string $version, string $output): string
@@ -95,7 +98,7 @@ function createApplicationBuildCurrentRelease(string $root, string $version, str
     $commit = trim(createApplicationRun(['git', '-C', $root, 'rev-parse', 'HEAD']));
     createApplicationExpect(
         preg_match('/^[a-f0-9]{40}$/D', $commit) === 1,
-        'current scaffold source identity must be a full commit'
+        'current scaffold source identity must be a full commit',
     );
     createApplicationRun([
         'php',
@@ -116,19 +119,19 @@ function createApplicationTamperedReleaseFails(
     string $temporary,
     string $case,
     callable $mutate,
-    string $error
+    string $error,
 ): void {
     $releaseRoot = $temporary . '/release-' . $case;
     createApplicationCopy(dirname($releasePath), $releaseRoot);
     $manifestPath = $releaseRoot . '/scaffold-manifest.json';
-    $manifest = json_decode((string)file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+    $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
     $mutate($manifest, $releaseRoot);
     createApplicationWriteJson($manifestPath, $manifest);
     $target = $temporary . '/tampered-' . $case;
     $creator = new ApplicationCreator($root, $inventoryPath, $identity, $manifestPath);
     createApplicationFails(
         fn() => $creator->create('Acme Console', 'acme-console', 'acme/acme-console', $target, 'multi-tenant', null, 'full'),
-        $error
+        $error,
     );
     createApplicationExpect(!file_exists($target), 'failed adoption committed target: ' . $case);
 }
@@ -139,7 +142,9 @@ function createApplicationFiles(string $root): array
     $files = [];
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
     foreach ($iterator as $file) {
-        if ($file->isFile()) $files[] = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+        if ($file->isFile()) {
+            $files[] = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+        }
     }
     sort($files, SORT_STRING);
     return $files;
@@ -156,7 +161,7 @@ foreach (array_filter(explode(DIRECTORY_SEPARATOR, sys_get_temp_dir()), 'strlen'
 $temporary = $systemTemporary . '/peanut-create-app-' . bin2hex(random_bytes(6));
 createApplicationExpect(mkdir($temporary, 0700), 'cannot create task-owned fixture directory');
 $inventoryPath = $root . '/scaffold/application-template-inventory.json';
-$inventory = json_decode((string)file_get_contents($inventoryPath), true, 512, JSON_THROW_ON_ERROR);
+$inventory = json_decode((string) file_get_contents($inventoryPath), true, 512, JSON_THROW_ON_ERROR);
 $inventoryByPath = [];
 foreach ($inventory['files'] ?? [] as $entry) {
     if (is_array($entry) && is_string($entry['path'] ?? null)) {
@@ -165,7 +170,7 @@ foreach ($inventory['files'] ?? [] as $entry) {
 }
 createApplicationExpect(
     array_filter(array_keys($inventoryByPath), static fn(string $path): bool => str_starts_with($path, 'output/')) === [],
-    'source qualification evidence must not participate in application template identity'
+    'source qualification evidence must not participate in application template identity',
 );
 foreach ([
     'README.md' => 'readme',
@@ -176,11 +181,11 @@ foreach ([
     $semanticDigest = hash('sha256', "peanut.create-app-semantic-source.v1\0{$path}\0{$transform}");
     createApplicationExpect(
         ($inventoryByPath[$path]['source_sha256'] ?? null) === $semanticDigest,
-        "{$path} must use the versioned semantic source digest"
+        "{$path} must use the versioned semantic source digest",
     );
     createApplicationExpect(
-        !hash_equals($semanticDigest, (string)hash_file('sha256', $root . '/' . $path)),
-        "{$path} semantic digest must not depend on release prose bytes"
+        !hash_equals($semanticDigest, (string) hash_file('sha256', $root . '/' . $path)),
+        "{$path} semantic digest must not depend on release prose bytes",
     );
 }
 // Generated application documentation has real, content-addressed template inputs, not absent source pages.
@@ -224,15 +229,17 @@ foreach (['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/
 }
 // Deployment test fixtures contain maintainer-only target selectors and must not enter apps or upgrade baselines.
 foreach ($inventory['files'] as $entry) {
-    if (str_starts_with((string)$entry['path'], 'deploy/tests/')) {
-        createApplicationExpect(($entry['classification'] ?? null) === 'excluded',
-            'maintainer deployment tests leaked into the generated application inventory');
+    if (str_starts_with((string) $entry['path'], 'deploy/tests/')) {
+        createApplicationExpect(
+            ($entry['classification'] ?? null) === 'excluded',
+            'maintainer deployment tests leaked into the generated application inventory',
+        );
     }
 }
-$templateVersion = (string)($inventory['template_version'] ?? '');
+$templateVersion = (string) ($inventory['template_version'] ?? '');
 createApplicationExpect(
     preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', $templateVersion) === 1,
-    'inventory template version must be SemVer'
+    'inventory template version must be SemVer',
 );
 $releaseRoot = $temporary . '/current-scaffold-release';
 $releasePath = $releaseRoot . '/scaffold-manifest.json';
@@ -277,11 +284,13 @@ try {
     );
     createApplicationExpect(
         ($standardManifest['application']['profile'] ?? null) === 'standard',
-        'ApplicationCreator must retain standard as the implicit profile'
+        'ApplicationCreator must retain standard as the implicit profile',
     );
     foreach (['platform/src/modules/official-ops/contribution.ts', 'server/route/platform.php'] as $requiredHostPath) {
-        createApplicationExpect(is_file($standardTarget . '/' . $requiredHostPath),
-            'standard profile omitted a selected Module contribution or multi-tenant Host: ' . $requiredHostPath);
+        createApplicationExpect(
+            is_file($standardTarget . '/' . $requiredHostPath),
+            'standard profile omitted a selected Module contribution or multi-tenant Host: ' . $requiredHostPath,
+        );
     }
     $creator = new ApplicationCreator($root, $inventoryPath, $identity, $releasePath);
     $first = $temporary . '/first';
@@ -292,7 +301,7 @@ try {
     $manifestTwo = $creator->create('Acme Console', 'acme-console', 'acme/acme-console', $second, 'multi-tenant', null, 'full');
     $manifestOther = $creator->create('Beta Workspace', 'beta-workspace', 'beta/beta-workspace', $other, 'multi-tenant', null, 'full');
     $standaloneManifest = $creator->create('Acme Console', 'acme-console', 'acme/acme-console', $standalone, 'standalone', null, 'full');
-    $release = json_decode((string)file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR)['release'];
+    $release = json_decode((string) file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR)['release'];
 
     createApplicationExpect($manifestOne['template'] === [
         'version' => $release['version'],
@@ -317,29 +326,31 @@ try {
             && $manifestOne['application']['version'] === '0.1.0'
             && $manifestOne['application']['edition'] === 'multi-tenant'
             && $manifestOne['edition']['name'] === 'multi-tenant',
-        'generated application manifest must carry the default application version contract'
+        'generated application manifest must carry the default application version contract',
     );
     createApplicationExpect(
         ($release['version'] ?? null) === $templateVersion
-            && (json_decode((string)file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR)['application']['version'] ?? null) === '0.1.0',
-        'current scaffold release must expose the independent default application version'
+            && (json_decode((string) file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR)['application']['version'] ?? null) === '0.1.0',
+        'current scaffold release must expose the independent default application version',
     );
 
     createApplicationExpect($manifestOne === $manifestTwo, 'same template identity and parameters must produce the same manifest');
     createApplicationExpect(
         hash_file('sha256', $first . '/.peanut/application-manifest.json') === hash_file('sha256', $second . '/.peanut/application-manifest.json'),
-        'application manifests must be byte-identical'
+        'application manifests must be byte-identical',
     );
     foreach ($manifestOne['files'] as $file) {
         createApplicationExpect(
             hash_file('sha256', $first . '/' . $file['path']) === hash_file('sha256', $second . '/' . $file['path']),
-            'generated file changed across identical runs: ' . $file['path']
+            'generated file changed across identical runs: ' . $file['path'],
         );
     }
 
     $expected = ['.peanut/application-manifest.json'];
     foreach ($inventory['files'] as $entry) {
-        if ($entry['classification'] === 'excluded' || !in_array('full', $entry['profiles'], true)) continue;
+        if ($entry['classification'] === 'excluded' || !in_array('full', $entry['profiles'], true)) {
+            continue;
+        }
         $expected[] = $entry['target'];
         if (in_array($entry['classification'], ['managed', 'generated-managed'], true)) {
             $expected[] = '.peanut/scaffold-baseline/' . $inventory['template_version'] . '/files/' . $entry['target'];
@@ -364,12 +375,12 @@ try {
             'maintainer-only operation tool leaked into generated application: ' . $maintainerOperation,
         );
     }
-    $generatedDocsConfig = (string)file_get_contents($first . '/docs-site/.vitepress/config.ts');
-    $generatedDocsTheme = (string)file_get_contents($first . '/docs-site/.vitepress/theme/index.ts');
+    $generatedDocsConfig = (string) file_get_contents($first . '/docs-site/.vitepress/config.ts');
+    $generatedDocsTheme = (string) file_get_contents($first . '/docs-site/.vitepress/theme/index.ts');
     createApplicationExpect(
         !str_contains($generatedDocsConfig, 'productStatus')
             && !str_contains($generatedDocsTheme, 'ProductStatus'),
-        'generated docs must not reference the source-only product status projection'
+        'generated docs must not reference the source-only product status projection',
     );
     createApplicationExpect(!is_dir($first . '/plugins/fixture.delivery-record'), 'demo Plugin artifact must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/app/modules/fixture/delivery_record'), 'demo backend Module must remain source-only');
@@ -377,58 +388,63 @@ try {
     createApplicationExpect(!is_dir($first . '/web/src/modules/fixture-delivery-record'), 'demo frontend Module must remain source-only');
     $sourcePlugins = (new PluginLockResolver($root . '/server', '../plugins.lock'))->all();
     createApplicationExpect($sourcePlugins !== [], 'source fixture lock must resolve at least one fixture Plugin');
-    $generatedLock = json_decode((string)file_get_contents($first . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+    $generatedLock = json_decode((string) file_get_contents($first . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
     $expectedOfficialPlugins = array_values(array_filter(
         $sourcePlugins,
-        static fn(object $plugin): bool => $plugin->key !== 'fixture.delivery-record'
+        static fn(object $plugin): bool => $plugin->key !== 'fixture.delivery-record',
     ));
     $generatedPlugins = (new PluginLockResolver($first . '/server', '../plugins.lock'))->all();
     createApplicationExpect($expectedOfficialPlugins !== [], 'source lock must contain official Plugins');
     createApplicationExpect(
         array_keys($generatedPlugins) === array_map(static fn(object $plugin): string => $plugin->key, $expectedOfficialPlugins),
-        'generated Plugin lock must contain every selected production Plugin and exclude the test fixture'
+        'generated Plugin lock must contain every selected production Plugin and exclude the test fixture',
     );
     createApplicationExpect(
         !array_key_exists('fixture.delivery-record', $generatedPlugins),
-        'source-only fixture Plugin leaked into the generated Plugin lock'
+        'source-only fixture Plugin leaked into the generated Plugin lock',
     );
-    $generatedProductionDockerfile = (string)file_get_contents($first . '/deploy/docker/production.Dockerfile');
+    $generatedProductionDockerfile = (string) file_get_contents($first . '/deploy/docker/production.Dockerfile');
     // 检查真正的构建依赖顺序，不要求 COPY 与 RUN 相邻；环境选择文件也必须在构建前生成。
-    createApplicationExpect(preg_match('/FROM client-base AS admin-builder(.*?)FROM client-base AS mobile-builder/s',
-        $generatedProductionDockerfile, $adminBuildMatch) === 1, 'admin builder stage is missing');
+    createApplicationExpect(preg_match(
+        '/FROM client-base AS admin-builder(.*?)FROM client-base AS mobile-builder/s',
+        $generatedProductionDockerfile,
+        $adminBuildMatch,
+    ) === 1, 'admin builder stage is missing');
     $adminBuild = $adminBuildMatch[1];
     $compilePosition = strpos($adminBuild, 'pnpm exec vite build');
     foreach (['COPY plugins.lock /build/plugins.lock', 'COPY scripts/client-environment.ts', 'COPY web/ ./',
         'pnpm exec vue-tsc --noEmit', 'VITE_DEPLOYMENT_MODE=multi-tenant'] as $requiredInput) {
         $inputPosition = strpos($adminBuild, $requiredInput);
-        createApplicationExpect(is_int($inputPosition) && is_int($compilePosition) && $inputPosition < $compilePosition,
-            'admin production build prerequisite is missing or occurs after compilation: ' . $requiredInput);
+        createApplicationExpect(
+            is_int($inputPosition) && is_int($compilePosition) && $inputPosition < $compilePosition,
+            'admin production build prerequisite is missing or occurs after compilation: ' . $requiredInput,
+        );
     }
     createApplicationExpect(
         str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
             && !str_contains($generatedProductionDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
             && substr_count($generatedProductionDockerfile, 'COPY . .') === 1
             && !str_contains($generatedProductionDockerfile, 'seed-multi-tenant-demo.php'),
-        'multi-tenant artifact must compile only its selected admin bundle and copy the complete fixed package without source-only demo tooling'
+        'multi-tenant artifact must compile only its selected admin bundle and copy the complete fixed package without source-only demo tooling',
     );
-    $standaloneDockerfile = (string)file_get_contents($standalone . '/deploy/docker/production.Dockerfile');
+    $standaloneDockerfile = (string) file_get_contents($standalone . '/deploy/docker/production.Dockerfile');
     createApplicationExpect(
         str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build')
             && !str_contains($standaloneDockerfile, 'PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build')
             && substr_count($standaloneDockerfile, 'COPY . .') === 1
             && !str_contains($standaloneDockerfile, 'AS platform-builder')
             && !str_contains($standaloneDockerfile, '/server/public/platform'),
-        'Standalone artifact must copy the complete fixed package while omitting multi-tenant admin and Platform build outputs'
+        'Standalone artifact must copy the complete fixed package while omitting multi-tenant admin and Platform build outputs',
     );
     createApplicationExpect(
-        !str_contains((string)file_get_contents($standalone . '/server/config/app.php'), "'platformapi' => 'platform'")
-            && str_contains((string)file_get_contents($first . '/server/config/app.php'), "'platformapi' => 'platform'")
-            && str_contains((string)file_get_contents($standalone . '/server/.env.example'), 'DEPLOYMENT_MODE=standalone')
-            && str_contains((string)file_get_contents($first . '/server/.env.example'), 'DEPLOYMENT_MODE=multi-tenant'),
-        'Edition route and environment composition changed outside the selected profile'
+        !str_contains((string) file_get_contents($standalone . '/server/config/app.php'), "'platformapi' => 'platform'")
+            && str_contains((string) file_get_contents($first . '/server/config/app.php'), "'platformapi' => 'platform'")
+            && str_contains((string) file_get_contents($standalone . '/server/.env.example'), 'DEPLOYMENT_MODE=standalone')
+            && str_contains((string) file_get_contents($first . '/server/.env.example'), 'DEPLOYMENT_MODE=multi-tenant'),
+        'Edition route and environment composition changed outside the selected profile',
     );
-    $standaloneSchema = (string)file_get_contents($standalone . '/server/database/init.sql');
-    $multiTenantSchema = (string)file_get_contents($first . '/server/database/init.sql');
+    $standaloneSchema = (string) file_get_contents($standalone . '/server/database/init.sql');
+    $multiTenantSchema = (string) file_get_contents($first . '/server/database/init.sql');
     createApplicationExpect(
         $standaloneSchema === $multiTenantSchema
             && str_contains($standaloneSchema, '`tenant_id`')
@@ -439,8 +455,8 @@ try {
         'server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql',
         'server/database/migrations/20260824-payment-channel-grants.sql',
     ] as $projectedMigration) {
-        $standaloneMigration = (string)file_get_contents($standalone . '/' . $projectedMigration);
-        $multiTenantMigration = (string)file_get_contents($first . '/' . $projectedMigration);
+        $standaloneMigration = (string) file_get_contents($standalone . '/' . $projectedMigration);
+        $multiTenantMigration = (string) file_get_contents($first . '/' . $projectedMigration);
         createApplicationExpect(
             $standaloneMigration === $multiTenantMigration
                 && str_contains($standaloneMigration, '`tenant_id`'),
@@ -448,47 +464,50 @@ try {
         );
     }
     createApplicationExpect(
-        (string)file_get_contents($standalone . '/server/database/migrations/20260828-provider-qualification-evidence.sql')
-            === (string)file_get_contents($first . '/server/database/migrations/20260828-provider-qualification-evidence.sql'),
+        (string) file_get_contents($standalone . '/server/database/migrations/20260828-provider-qualification-evidence.sql')
+            === (string) file_get_contents($first . '/server/database/migrations/20260828-provider-qualification-evidence.sql'),
         'Edition projection must not fork migration history',
     );
     createApplicationExpect(
         str_contains($generatedProductionDockerfile, 'nginx-select-admin.sh /docker-entrypoint.d/40-select-admin.sh')
             && is_executable($first . '/deploy/docker/nginx-select-admin.sh'),
-        'production Nginx image must install the executable deployment-mode selector'
+        'production Nginx image must install the executable deployment-mode selector',
     );
-    $generatedProductionCompose = (string)file_get_contents($first . '/deploy/docker-compose.prod.yml');
-    createApplicationExpect(preg_match('/^  nginx:\\R(.*?)(?=^  [a-z]+:|^volumes:)/ms',
-        $generatedProductionCompose, $nginxService) === 1, 'production Nginx service is missing');
-    $generatedSelector = (string)file_get_contents($first . '/deploy/docker/nginx-select-admin.sh');
+    $generatedProductionCompose = (string) file_get_contents($first . '/deploy/docker-compose.prod.yml');
+    createApplicationExpect(preg_match(
+        '/^  nginx:\\R(.*?)(?=^  [a-z]+:|^volumes:)/ms',
+        $generatedProductionCompose,
+        $nginxService,
+    ) === 1, 'production Nginx service is missing');
+    $generatedSelector = (string) file_get_contents($first . '/deploy/docker/nginx-select-admin.sh');
     createApplicationExpect(
         str_contains($nginxService[1], '/var/www/peanut-admin/server/.env.source:ro')
             && str_contains($generatedSelector, 'peanut-read-backend-enum "$backend_source" DEPLOYMENT_MODE')
             && is_file($first . '/deploy/docker/read-backend-enum.sh'),
-        'production Nginx must select its explicit mode from the read-only backend source'
+        'production Nginx must select its explicit mode from the read-only backend source',
     );
     createApplicationExpect(
         is_file($first . '/server/.env.example')
             && is_file($first . '/server/bootstrap/environment.php')
-            && !str_contains((string)file_get_contents($first . '/.env.example'), 'DB_HOST=')
-            && str_contains((string)file_get_contents($first . '/server/.env.example'), 'DB_HOST='),
-        'generated application must keep orchestration and backend environment samples separate'
+            && !str_contains((string) file_get_contents($first . '/.env.example'), 'DB_HOST=')
+            && str_contains((string) file_get_contents($first . '/server/.env.example'), 'DB_HOST='),
+        'generated application must keep orchestration and backend environment samples separate',
     );
     createApplicationExpect(
         !str_contains($generatedProductionCompose, 'env_file:')
             && substr_count($generatedProductionCompose, '/var/www/peanut-admin/server/.env.source:ro') === 3
             && str_contains($generatedProductionCompose, '["/usr/local/bin/peanut-php-entrypoint", "cron"]'),
-        'production PHP and cron services must consume the single backend environment source safely'
+        'production PHP and cron services must consume the single backend environment source safely',
     );
     createApplicationExpect(
         preg_match('/FROM php:[^\n]+ AS php(.*?)FROM nginx:/s', $generatedProductionDockerfile, $phpImageMatch) === 1
             && substr_count($phpImageMatch[1], 'COPY . .') === 1
             && !str_contains($phpImageMatch[1], 'COPY resources/project-resources.json resources/project-resources.json')
             && !str_contains($phpImageMatch[1], 'COPY server/database server/database'),
-        'production PHP image must copy the complete fixed application package once instead of maintaining partial runtime copies'
+        'production PHP image must copy the complete fixed application package once instead of maintaining partial runtime copies',
     );
     $generatedResourceRegistry = json_decode(
-        (string)file_get_contents($first . '/resources/project-resources.json'),
+        (string) file_get_contents($first . '/resources/project-resources.json'),
         true,
         512,
         JSON_THROW_ON_ERROR,
@@ -497,7 +516,7 @@ try {
         ($generatedResourceRegistry['schema_version'] ?? null) === 1
             && ($generatedResourceRegistry['project_id'] ?? null) === 'acme-console'
             && is_array($generatedResourceRegistry['resources']['databases'] ?? null),
-        'whole-package production image context must contain the generated application resource registry consumed by the database environment guard'
+        'whole-package production image context must contain the generated application resource registry consumed by the database environment guard',
     );
     foreach ([
         'server/database/install.php' => false,
@@ -533,12 +552,12 @@ try {
             && str_contains($generatedProductionDockerfile, 'ln -s /var/www/peanut-admin/server/database/seed-demo-data.php /usr/local/bin/peanut-seed-demo-data')
             && is_executable($first . '/server/database/seed-demo-data.php')
             && is_file($first . '/.peanut/scaffold-baseline/' . $inventory['template_version'] . '/files/server/database/seed-demo-data.php'),
-        'generated application and production PHP image must use the managed demo seeder without the root wrapper'
+        'generated application and production PHP image must use the managed demo seeder without the root wrapper',
     );
-    $generatedModulesConfig = (string)file_get_contents($first . '/server/config/modules.php');
+    $generatedModulesConfig = (string) file_get_contents($first . '/server/config/modules.php');
     createApplicationExpect(!str_contains($generatedModulesConfig, 'fixture.delivery-record'), 'demo Module identity leaked into generated deployment config');
     createApplicationExpect(str_contains($generatedModulesConfig, "env('PEANUT_PLUGIN_LOCK', '../plugins.lock')"), 'generated deployment must enable its scaffold-owned official Plugin lock');
-    $releaseMetadata = json_decode((string)file_get_contents($first . '/RELEASE_METADATA.json'), true, 512, JSON_THROW_ON_ERROR);
+    $releaseMetadata = json_decode((string) file_get_contents($first . '/RELEASE_METADATA.json'), true, 512, JSON_THROW_ON_ERROR);
     $generatedReleaseVersion = in_array(($releaseMetadata['schema_version'] ?? null), [2, 3], true)
         && in_array(($releaseMetadata['protocol'] ?? null), [
             'peanut.release-metadata.v2',
@@ -547,23 +566,23 @@ try {
             ? ($releaseMetadata['instance_version'] ?? null)
             : ($releaseMetadata['version'] ?? null);
     createApplicationExpect($releaseMetadata['product'] === 'Acme Console' && $generatedReleaseVersion === '0.1.0', 'release metadata must be regenerated for the new application');
-    createApplicationExpect(str_contains((string)file_get_contents($first . '/CHANGELOG.md'), "## 0.1.0\n"), 'changelog must use application.version');
-    $sbom = json_decode((string)file_get_contents($first . '/RELEASE_SBOM.spdx.json'), true, 512, JSON_THROW_ON_ERROR);
+    createApplicationExpect(str_contains((string) file_get_contents($first . '/CHANGELOG.md'), "## 0.1.0\n"), 'changelog must use application.version');
+    $sbom = json_decode((string) file_get_contents($first . '/RELEASE_SBOM.spdx.json'), true, 512, JSON_THROW_ON_ERROR);
     $sbomRoots = array_values(array_filter(
         $sbom['packages'] ?? [],
-        static fn(array $package): bool => ($package['SPDXID'] ?? null) === 'SPDXRef-Package-Peanut-Admin'
+        static fn(array $package): bool => ($package['SPDXID'] ?? null) === 'SPDXRef-Package-Peanut-Admin',
     ));
     createApplicationExpect(
         count($sbomRoots) === 1
             && ($sbomRoots[0]['name'] ?? null) === 'Acme Console'
             && ($sbomRoots[0]['versionInfo'] ?? null) === '0.1.0',
-        'SBOM root package must use application.version'
+        'SBOM root package must use application.version',
     );
     $sourceVersionContract = json_decode(
-        (string)file_get_contents($root . '/release-versions.json'),
+        (string) file_get_contents($root . '/release-versions.json'),
         true,
         512,
-        JSON_THROW_ON_ERROR
+        JSON_THROW_ON_ERROR,
     );
     $coreWebPackages = $sourceVersionContract['core_web']['packages'] ?? null;
     createApplicationExpect(is_array($coreWebPackages), 'source Core Web package identities must be declared');
@@ -574,7 +593,7 @@ try {
         'uniapp' => ['@peanut-admin/client', '@peanut-admin/uniapp'],
     ];
     foreach ($clientCorePackages as $client => $packageNames) {
-        $package = json_decode((string)file_get_contents($first . "/{$client}/package.json"), true, 512, JSON_THROW_ON_ERROR);
+        $package = json_decode((string) file_get_contents($first . "/{$client}/package.json"), true, 512, JSON_THROW_ON_ERROR);
         createApplicationExpect(($package['version'] ?? null) === '0.1.0', "{$client} root package must use application.version");
         foreach ($packageNames as $packageName) {
             $archive = $coreWebPackages[$packageName]['archive'] ?? null;
@@ -582,58 +601,64 @@ try {
             $expected = 'file:../' . $archive;
             createApplicationExpect(
                 ($package['dependencies'][$packageName] ?? null) === $expected,
-                "{$client} dependency {$packageName} must remain {$expected}"
+                "{$client} dependency {$packageName} must remain {$expected}",
             );
         }
     }
     foreach (['platform', 'pc', 'uniapp'] as $client) {
-        $lock = json_decode((string)file_get_contents($first . "/{$client}/package-lock.json"), true, 512, JSON_THROW_ON_ERROR);
+        $lock = json_decode((string) file_get_contents($first . "/{$client}/package-lock.json"), true, 512, JSON_THROW_ON_ERROR);
         createApplicationExpect(
             ($lock['version'] ?? null) === '0.1.0' && ($lock['packages']['']['version'] ?? null) === '0.1.0',
-            "{$client} root lock metadata must use application.version"
+            "{$client} root lock metadata must use application.version",
         );
         foreach ($clientCorePackages[$client] as $packageName) {
             $expected = 'file:../' . $coreWebPackages[$packageName]['archive'];
             createApplicationExpect(
                 ($lock['packages']['']['dependencies'][$packageName] ?? null) === $expected,
-                "{$client} lock dependency {$packageName} must remain {$expected}"
+                "{$client} lock dependency {$packageName} must remain {$expected}",
             );
         }
     }
     foreach (['server/config/project.php', 'server/app/adminapi/services/WorkbenchApplicationService.php', 'server/app/api/services/IndexApplicationService.php'] as $versionSurface) {
         createApplicationExpect(
-            !str_contains((string)file_get_contents($first . '/' . $versionSurface), "'2.0.1'"),
-            $versionSurface . ' must not retain a historical product version'
+            !str_contains((string) file_get_contents($first . '/' . $versionSurface), "'2.0.1'"),
+            $versionSurface . ' must not retain a historical product version',
         );
     }
     createApplicationExpect(
-        str_contains((string)file_get_contents($first . '/server/config/project.php'), 'release-versions.json')
-            && str_contains((string)file_get_contents($first . '/uniapp/src/pages/as_us/as_us.vue'), "'0.1.0'"),
-        'generated Runtime version surfaces must use the application version authority'
+        str_contains((string) file_get_contents($first . '/server/config/project.php'), 'release-versions.json')
+            && str_contains((string) file_get_contents($first . '/uniapp/src/pages/as_us/as_us.vue'), "'0.1.0'"),
+        'generated Runtime version surfaces must use the application version authority',
     );
-    $uniappManifest = (string)file_get_contents($first . '/uniapp/src/manifest.json');
+    $uniappManifest = (string) file_get_contents($first . '/uniapp/src/manifest.json');
     createApplicationExpect(
         preg_match('/"versionName"\s*:\s*"0\.1\.0"/', $uniappManifest) === 1
             && preg_match('/"versionCode"\s*:\s*"10"/', $uniappManifest) === 1,
-        'new UniApp must use versionName 0.1.0 and versionCode 10'
+        'new UniApp must use versionName 0.1.0 and versionCode 10',
     );
-    createApplicationExpect(!str_contains((string)file_get_contents($first . '/server/database/init.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
-    createApplicationExpect((string)json_decode((string)file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
+    createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/init.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
+    createApplicationExpect((string) json_decode((string) file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
     createApplicationExpect(is_file($first . '/server/config/peanut.php') && is_file($first . '/web/src/peanut.overrides.ts'), 'stable Host override entries must be preserved');
-    $sourceComposerLock = json_decode((string)file_get_contents($root . '/server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+    $sourceComposerLock = json_decode((string) file_get_contents($root . '/server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
     foreach (createApplicationFiles($first) as $path) {
         $absolute = $first . '/' . $path;
-        if (filesize($absolute) > 5_000_000) continue;
+        if (filesize($absolute) > 5_000_000) {
+            continue;
+        }
         $content = file_get_contents($absolute);
-        if (!is_string($content)) continue;
+        if (!is_string($content)) {
+            continue;
+        }
         $applicationContent = $content;
         if ($path === 'server/composer.lock'
             || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/server/composer.lock') {
             $generatedComposerLock = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
             // 上游包描述、作者和许可属于依赖身份，不随应用改名。先核原样保留，再检查应用字段。
             foreach (['packages', 'packages-dev'] as $dependencyGroup) {
-                createApplicationExpect(($generatedComposerLock[$dependencyGroup] ?? []) === ($sourceComposerLock[$dependencyGroup] ?? []),
-                    'generated Composer lock changed upstream dependency metadata: ' . $path);
+                createApplicationExpect(
+                    ($generatedComposerLock[$dependencyGroup] ?? []) === ($sourceComposerLock[$dependencyGroup] ?? []),
+                    'generated Composer lock changed upstream dependency metadata: ' . $path,
+                );
                 unset($generatedComposerLock[$dependencyGroup]);
             }
             $applicationContent = json_encode($generatedComposerLock, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
@@ -641,8 +666,10 @@ try {
         $upstreamLicense = 'web/src/modules/official-file/optional-runtime/LICENSE';
         if ($path === $upstreamLicense
             || $path === '.peanut/scaffold-baseline/' . $templateVersion . '/files/' . $upstreamLicense) {
-            createApplicationExpect($content === (string)file_get_contents($root . '/' . $upstreamLicense),
-                'application generation changed upstream license attribution: ' . $path);
+            createApplicationExpect(
+                $content === (string) file_get_contents($root . '/' . $upstreamLicense),
+                'application generation changed upstream license attribution: ' . $path,
+            );
             $applicationContent = '';
         }
         createApplicationExpect(!str_contains($applicationContent, 'Peanut Admin'), 'source application brand leaked into ' . $path);
@@ -667,7 +694,7 @@ try {
     symlink($temporary . '/outside-parent', $temporary . '/linked-parent');
     createApplicationFails(fn() => $creator->create('Acme Console', 'acme-console', 'acme/acme-console', $temporary . '/linked-parent/escape', 'multi-tenant', null, 'full'), 'CREATE_APP_TARGET_SYMLINK_REJECTED');
 
-    $generatedCi = (string)file_get_contents($first . '/.github/workflows/ci.yml');
+    $generatedCi = (string) file_get_contents($first . '/.github/workflows/ci.yml');
     createApplicationExpect(
         str_contains($generatedCi, 'name: Application CI')
             && str_contains($generatedCi, 'composer validate --strict')
@@ -681,7 +708,7 @@ try {
             && !str_contains($generatedCi, 'plugin-contribution.test.ts'),
         'generated CI must use only shipped application build inputs',
     );
-    $generatedReadme = (string)file_get_contents($first . '/README.md');
+    $generatedReadme = (string) file_get_contents($first . '/README.md');
     createApplicationExpect(
         str_contains($generatedReadme, '`server/app/modules/custom/`')
             && str_contains($generatedReadme, '`resources/project-resources.json`')
@@ -690,9 +717,9 @@ try {
         'generated README must describe the exact managed and app-owned boundaries',
     );
     createApplicationExpect(is_file($first . '/server/database/environment-guard.php'), 'production database guard must remain in the deployment inventory');
-    $generatedSchema = (string)file_get_contents($first . '/server/database/init.sql');
+    $generatedSchema = (string) file_get_contents($first . '/server/database/init.sql');
     createApplicationExpect(str_contains($generatedSchema, 'pa_schema_migration'), 'generated application is missing the application migration ledger');
-    createApplicationExpect(!str_contains((string)file_get_contents($first . '/server/database/install.php'), "'--migrate'"), 'generated fresh installer still exposes the retired upgrade mode');
+    createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/install.php'), "'--migrate'"), 'generated fresh installer still exposes the retired upgrade mode');
     createApplicationExpect(is_file($first . '/scripts/upgrade'), 'generated application is missing the standalone product upgrade entry');
     foreach ([
         'pa_tenant_setting',
@@ -704,27 +731,33 @@ try {
     ] as $baselineTable) {
         createApplicationExpect(
             str_contains($generatedSchema, 'CREATE TABLE `' . $baselineTable . '`'),
-            'generated application fresh schema is missing: ' . $baselineTable
+            'generated application fresh schema is missing: ' . $baselineTable,
         );
     }
 
     $builderTarget = $temporary . '/builder-identity';
     $builderManifest = (new ApplicationCreator($root, $inventoryPath, $identity))->create(
-        'Builder Token', 'builder-token', 'builder/builder-token', $builderTarget, 'multi-tenant'
+        'Builder Token',
+        'builder-token',
+        'builder/builder-token',
+        $builderTarget,
+        'multi-tenant',
     );
     createApplicationExpect(
         $builderManifest['template']['source_commit'] === $identity['commit']
             && $builderManifest['template']['source_tree'] === $identity['tree']
             && $builderManifest['generation_source']['commit'] === $identity['commit']
             && $builderManifest['generation_source']['tree'] === $identity['tree'],
-        'release builder mode must keep its explicit source identity without recursive adoption'
+        'release builder mode must keep its explicit source identity without recursive adoption',
     );
 
     $sourceOnlyInventory = $inventory;
     // Replace one app-owned generated security page with another real source file.
     // This exercises preserved app-owned customization without mutating any managed bytes.
-    $sourceOnlyInventory['files'] = array_values(array_filter($sourceOnlyInventory['files'],
-        static fn(array $entry): bool => $entry['path'] !== 'SECURITY.md'));
+    $sourceOnlyInventory['files'] = array_values(array_filter(
+        $sourceOnlyInventory['files'],
+        static fn(array $entry): bool => $entry['path'] !== 'SECURITY.md',
+    ));
     foreach ($sourceOnlyInventory['files'] as &$entry) {
         if ($entry['path'] === 'server/resources/scaffold-application/SECURITY.md.stub') {
             $entry['path'] = 'SECURITY.md';
@@ -747,16 +780,22 @@ try {
     createApplicationWriteJson($sourceOnlyInventoryPath, $sourceOnlyInventory);
     $sourceOnlyTarget = $temporary . '/source-only-allowed';
     $sourceOnlyManifest = (new ApplicationCreator($root, $sourceOnlyInventoryPath, $identity, $releasePath))->create(
-        'Acme Console', 'acme-console', 'acme/acme-console', $sourceOnlyTarget, 'multi-tenant', null, 'full'
+        'Acme Console',
+        'acme-console',
+        'acme/acme-console',
+        $sourceOnlyTarget,
+        'multi-tenant',
+        null,
+        'full',
     );
     createApplicationExpect($sourceOnlyManifest['template'] === $manifestOne['template'], 'app-owned/excluded-only source changes must retain release adoption');
     createApplicationExpect(
         $sourceOnlyManifest['generation_source']['inventory_sha256'] === hash_file('sha256', $sourceOnlyInventoryPath),
-        'source-only inventory change must remain visible in generation source'
+        'source-only inventory change must remain visible in generation source',
     );
     createApplicationExpect(
         $sourceOnlyManifest['digests']['app_owned_tree_sha256'] !== $manifestOne['digests']['app_owned_tree_sha256'],
-        'app-owned-only change fixture must actually change app-owned output'
+        'app-owned-only change fixture must actually change app-owned output',
     );
     createApplicationExpect(!file_exists($sourceOnlyTarget . '/source-only/adoption-proof.txt'), 'excluded-only source must not enter the generated application');
 
@@ -775,34 +814,65 @@ try {
     $managedChangeCreator = new ApplicationCreator($root, $managedChangeInventoryPath, $identity, $releasePath);
     createApplicationFails(
         fn() => $managedChangeCreator->create('Acme Console', 'acme-console', 'acme/acme-console', $managedChangeTarget, 'multi-tenant', null, 'full'),
-        'CREATE_APP_ADOPTION_RENDER_MISMATCH'
+        'CREATE_APP_ADOPTION_RENDER_MISMATCH',
     );
     createApplicationExpect(!file_exists($managedChangeTarget), 'managed source change committed an unsealed target');
 
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'token',
-        static function (array &$manifest): void { $manifest['release']['tokens']['slug'] = 'tampered-slug-token'; },
-        'CREATE_APP_ADOPTION_RENDER_MISMATCH'
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'token',
+        static function (array &$manifest): void {
+            $manifest['release']['tokens']['slug'] = 'tampered-slug-token';
+        },
+        'CREATE_APP_ADOPTION_RENDER_MISMATCH',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'token-keys',
-        static function (array &$manifest): void { $manifest['release']['tokens']['extra'] = 'extra-token'; },
-        'CREATE_APP_ADOPTION_MANIFEST_INVALID: SCAFFOLD_MANIFEST_APPLICATION_INVALID'
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'token-keys',
+        static function (array &$manifest): void {
+            $manifest['release']['tokens']['extra'] = 'extra-token';
+        },
+        'CREATE_APP_ADOPTION_MANIFEST_INVALID: SCAFFOLD_MANIFEST_APPLICATION_INVALID',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'artifact',
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'artifact',
         static function (array &$manifest, string $releaseRoot): void {
             file_put_contents($releaseRoot . '/' . $manifest['files'][0]['source'], "\ntampered\n", FILE_APPEND);
         },
-        'CREATE_APP_ADOPTION_ARTIFACT_DIGEST_MISMATCH'
+        'CREATE_APP_ADOPTION_ARTIFACT_DIGEST_MISMATCH',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'mode',
-        static function (array &$manifest): void { $manifest['files'][0]['mode'] = 0755; },
-        'CREATE_APP_ADOPTION_FILE_METADATA_MISMATCH'
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'mode',
+        static function (array &$manifest): void {
+            $manifest['files'][0]['mode'] = 0755;
+        },
+        'CREATE_APP_ADOPTION_FILE_METADATA_MISMATCH',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'classification',
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'classification',
         static function (array &$manifest): void {
             foreach ($manifest['files'] as &$file) {
                 if ($file['classification'] === 'generated-managed') {
@@ -813,31 +883,57 @@ try {
             }
             unset($file);
         },
-        'CREATE_APP_ADOPTION_FILE_METADATA_MISMATCH'
+        'CREATE_APP_ADOPTION_FILE_METADATA_MISMATCH',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'managed-added',
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'managed-added',
         static function (array &$manifest): void {
             $extra = $manifest['files'][0];
             $extra['path'] = 'extra-managed.txt';
             $manifest['files'][] = $extra;
         },
-        'CREATE_APP_ADOPTION_MANAGED_SET_MISMATCH'
+        'CREATE_APP_ADOPTION_MANAGED_SET_MISMATCH',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'managed-removed',
-        static function (array &$manifest): void { array_pop($manifest['files']); },
-        'CREATE_APP_ADOPTION_MANAGED_SET_MISMATCH'
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'managed-removed',
+        static function (array &$manifest): void {
+            array_pop($manifest['files']);
+        },
+        'CREATE_APP_ADOPTION_MANAGED_SET_MISMATCH',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'managed-tree',
-        static function (array &$manifest): void { $manifest['release']['managed_tree_sha256'] = str_repeat('0', 64); },
-        'CREATE_APP_ADOPTION_MANAGED_TREE_MISMATCH'
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'managed-tree',
+        static function (array &$manifest): void {
+            $manifest['release']['managed_tree_sha256'] = str_repeat('0', 64);
+        },
+        'CREATE_APP_ADOPTION_MANAGED_TREE_MISMATCH',
     );
     createApplicationTamperedReleaseFails(
-        $root, $inventoryPath, $identity, $releasePath, $temporary, 'application-version',
-        static function (array &$manifest): void { $manifest['application']['version'] = '0.2.0'; },
-        'CREATE_APP_ADOPTION_APPLICATION_VERSION_MISMATCH'
+        $root,
+        $inventoryPath,
+        $identity,
+        $releasePath,
+        $temporary,
+        'application-version',
+        static function (array &$manifest): void {
+            $manifest['application']['version'] = '0.2.0';
+        },
+        'CREATE_APP_ADOPTION_APPLICATION_VERSION_MISMATCH',
     );
 
     $unknown = $inventory;

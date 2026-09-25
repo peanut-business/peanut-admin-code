@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Service;
@@ -14,19 +15,17 @@ class WebPageApplicationService
 
     public function __construct(
         private readonly TenantApplicationSettings $applicationSettings,
-    ) {
-    }
+    ) {}
 
     public function getConfig(
         AuthenticatedMemberContext|TenantContext $context,
         string $domain,
-    ): array
-    {
+    ): array {
         $setting = $this->applicationSettings->webPage($context);
         return [
-            'status'      => (int)$setting['status'],
-            'page_status' => (int)$setting['page_status'],
-            'page_url'    => (string)$setting['page_url'],
+            'status'      => (int) $setting['status'],
+            'page_status' => (int) $setting['page_status'],
+            'page_url'    => (string) $setting['page_url'],
             'url'         => rtrim($domain, '/') . '/mobile',
         ];
     }

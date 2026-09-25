@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
@@ -27,8 +28,7 @@ final readonly class ThinkPhpBackupTaskExecutionService
     public function __construct(
         private AuditContractHost $audit,
         private PlatformOperatorIdentityQuery $operators,
-    ) {
-    }
+    ) {}
 
     /** @return array{task_key:string,backup_reference_key:string,provider_key:string,execution_revision:int}|null */
     public function claim(): ?array
@@ -43,11 +43,11 @@ final readonly class ThinkPhpBackupTaskExecutionService
                 return null;
             }
 
-            $payload = json_decode((string)$row['payload_json'], true, 8, JSON_THROW_ON_ERROR);
+            $payload = json_decode((string) $row['payload_json'], true, 8, JSON_THROW_ON_ERROR);
             if (!is_array($payload)
                 || array_keys($payload) !== ['provider_key']
                 || ($payload['provider_key'] ?? null) !== PairedBackupProvider::PROVIDER_KEY
-                || (int)$row['attempt_count'] >= (int)$row['max_attempts']
+                || (int) $row['attempt_count'] >= (int) $row['max_attempts']
             ) {
                 throw new RuntimeException('OPS_BACKUP_TASK_INVALID');
             }
@@ -61,12 +61,12 @@ final readonly class ThinkPhpBackupTaskExecutionService
                 throw new RuntimeException('OPS_BACKUP_TASK_CLAIM_CONFLICT');
             }
 
-            $taskKey = (string)$row['task_key'];
+            $taskKey = (string) $row['task_key'];
             return [
                 'task_key' => $taskKey,
                 'backup_reference_key' => 'backup_' . substr($taskKey, 4),
                 'provider_key' => PairedBackupProvider::PROVIDER_KEY,
-                'execution_revision' => (int)$row['revision'] + 1,
+                'execution_revision' => (int) $row['revision'] + 1,
             ];
         });
     }
@@ -79,8 +79,8 @@ final readonly class ThinkPhpBackupTaskExecutionService
 
         return $this->transaction(function () use ($taskKey, $executionRevision): array {
             $task = $this->taskForUpdate($taskKey);
-            if ((string)$task['status'] !== 'running'
-                || (int)$task['revision'] !== $executionRevision
+            if ((string) $task['status'] !== 'running'
+                || (int) $task['revision'] !== $executionRevision
             ) {
                 throw new RuntimeException('OPS_BACKUP_EXECUTION_FENCED');
             }
@@ -108,7 +108,7 @@ final readonly class ThinkPhpBackupTaskExecutionService
             ]);
             if ($updated === 1) {
                 $this->audit($task, 'platform.ops.backup.failed', 'backup.fail', [
-                    'task_key' => (string)$task['task_key'],
+                    'task_key' => (string) $task['task_key'],
                     'provider_key' => PairedBackupProvider::PROVIDER_KEY,
                 ], AuditOutcome::Error, 'OPS_BACKUP_RUNTIME_FAILED');
             }
@@ -132,7 +132,7 @@ final readonly class ThinkPhpBackupTaskExecutionService
             $existing = $this->evidence($taskKey);
             $sha256 = hash('sha256', $canonical);
             if ($existing !== null) {
-                if (!hash_equals((string)$existing['manifest_sha256'], $sha256)) {
+                if (!hash_equals((string) $existing['manifest_sha256'], $sha256)) {
                     throw new RuntimeException('OPS_BACKUP_EVIDENCE_CONFLICT');
                 }
                 return [
@@ -142,8 +142,8 @@ final readonly class ThinkPhpBackupTaskExecutionService
                     'status' => 'succeeded',
                 ];
             }
-            if ((string)$task['status'] !== 'running'
-                || (int)$task['revision'] !== $executionRevision
+            if ((string) $task['status'] !== 'running'
+                || (int) $task['revision'] !== $executionRevision
             ) {
                 throw new RuntimeException('OPS_BACKUP_EXECUTION_FENCED');
             }
@@ -197,11 +197,11 @@ final readonly class ThinkPhpBackupTaskExecutionService
 
         return $this->transaction(function () use ($taskKey, $executionRevision, $errorCode): array {
             $task = $this->taskForUpdate($taskKey);
-            if ((string)$task['status'] === 'dead' && hash_equals((string)$task['last_error_code'], $errorCode)) {
+            if ((string) $task['status'] === 'dead' && hash_equals((string) $task['last_error_code'], $errorCode)) {
                 return ['task_key' => $taskKey, 'status' => 'dead', 'last_error_code' => $errorCode];
             }
-            if ((string)$task['status'] !== 'running'
-                || (int)$task['revision'] !== $executionRevision
+            if ((string) $task['status'] !== 'running'
+                || (int) $task['revision'] !== $executionRevision
             ) {
                 throw new RuntimeException('OPS_BACKUP_EXECUTION_FENCED');
             }
@@ -249,13 +249,12 @@ final readonly class ThinkPhpBackupTaskExecutionService
         array $metadata,
         AuditOutcome $outcome,
         ?string $reasonCode,
-    ): void
-    {
+    ): void {
         $this->audit->recordPlatform(
             $eventType,
             $action,
             'ops-worker-' . bin2hex(random_bytes(16)),
-            (int)$task['submitted_by_operator_id'],
+            (int) $task['submitted_by_operator_id'],
             $this->operators->accountId((int) $task['submitted_by_operator_id']),
             $metadata,
             $outcome,

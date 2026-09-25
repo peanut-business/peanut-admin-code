@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
@@ -12,7 +13,9 @@ require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 function moduleCatalogExpect(bool $condition, string $message): void
 {
-    if (!$condition) throw new RuntimeException($message);
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
 }
 
 $host = getenv('DB_HOST') ?: '';
@@ -31,7 +34,7 @@ $pdo = new PDO(
     $password,
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
 );
-moduleCatalogExpect((int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn() === 0, 'catalog test database must start empty');
+moduleCatalogExpect((int) $pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn() === 0, 'catalog test database must start empty');
 initializeCoreIdentity(
     $pdo,
     'module-catalog@example.test',
@@ -79,12 +82,12 @@ SQL)->fetch() === $identity, 'idempotent catalog apply changed string-key identi
 
 $applier->retire(['fixture.delivery-record']);
 foreach (['pa_permission', 'pa_menu_definition', 'pa_setting_definition'] as $table) {
-    moduleCatalogExpect((int)$pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE module_key='fixture.delivery-record' AND status='active'")->fetchColumn() === 0, "retire left active rows in {$table}");
-    moduleCatalogExpect((int)$pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE module_key='fixture.delivery-record' AND status='retired'")->fetchColumn() > 0, "retire deleted or omitted rows in {$table}");
+    moduleCatalogExpect((int) $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE module_key='fixture.delivery-record' AND status='active'")->fetchColumn() === 0, "retire left active rows in {$table}");
+    moduleCatalogExpect((int) $pdo->query("SELECT COUNT(*) FROM `{$table}` WHERE module_key='fixture.delivery-record' AND status='retired'")->fetchColumn() > 0, "retire deleted or omitted rows in {$table}");
 }
 $reactivated = $applier->apply($registry);
 moduleCatalogExpect($reactivated['operation'] === 'synced', 'catalog apply did not reactivate retired rows');
-moduleCatalogExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_permission WHERE module_key='fixture.delivery-record' AND retired_at IS NOT NULL")->fetchColumn() === 0, 'permission reactivation retained retired_at');
+moduleCatalogExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_permission WHERE module_key='fixture.delivery-record' AND retired_at IS NOT NULL")->fetchColumn() === 0, 'permission reactivation retained retired_at');
 
 $pdo->exec("UPDATE pa_permission SET status='retired',retired_at=UTC_TIMESTAMP(3) WHERE `key`='fixture.delivery-record.read'");
 $pdo->exec("UPDATE pa_permission SET module_key='fixture.conflict-owner' WHERE `key`='fixture.delivery-record.create'");
@@ -96,7 +99,7 @@ try {
     moduleCatalogExpect($exception->getMessage() === 'Catalog key is already owned by another module.', 'catalog owner conflict error changed');
 }
 moduleCatalogExpect($applier->catalogRevision() === $beforeFailure, 'failed catalog apply was not atomic');
-moduleCatalogExpect((string)$pdo->query("SELECT status FROM pa_permission WHERE `key`='fixture.delivery-record.read'")->fetchColumn() === 'retired', 'failed apply leaked a partial permission reactivation');
+moduleCatalogExpect((string) $pdo->query("SELECT status FROM pa_permission WHERE `key`='fixture.delivery-record.read'")->fetchColumn() === 'retired', 'failed apply leaked a partial permission reactivation');
 
 echo 'MODULE-CATALOG-APPLIER-B-001 passed first=' . $first['catalog_revision']
     . ' reactivated=' . $reactivated['catalog_revision'] . "\n";

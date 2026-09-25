@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services;
@@ -14,13 +15,13 @@ class AdminLoginAttemptService
 
     public function isLocked(string $ip): bool
     {
-        return (int)Cache::get(self::cacheKey($ip), 0) >= $this->maxAttempts();
+        return (int) Cache::get(self::cacheKey($ip), 0) >= $this->maxAttempts();
     }
 
     public function recordFailure(string $ip): int
     {
         $key   = self::cacheKey($ip);
-        $count = (int)Cache::get($key, 0) + 1;
+        $count = (int) Cache::get($key, 0) + 1;
         Cache::tag('application:v1')->set($key, $count, $this->lockSeconds());
         return $count;
     }
@@ -35,7 +36,7 @@ class AdminLoginAttemptService
         return sprintf(
             '密码连续%d次输入错误，请%d分钟后重试',
             $this->maxAttempts(),
-            $this->lockMinutes()
+            $this->lockMinutes(),
         );
     }
 

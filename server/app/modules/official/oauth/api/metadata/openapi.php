@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /*
@@ -39,9 +40,15 @@ $operation = static function (
         'responses' => ['200' => $ok($responseSchema, $summary . '成功')],
         'x-peanut-audience' => $audience,
     ];
-    if ($requestSchema !== null) $value['requestBody'] = $body($requestSchema);
-    foreach ($statuses as $status) $value['responses'][(string)$status] = $error;
-    if ($errors !== []) $value['x-peanut-errors'] = $errors;
+    if ($requestSchema !== null) {
+        $value['requestBody'] = $body($requestSchema);
+    }
+    foreach ($statuses as $status) {
+        $value['responses'][(string) $status] = $error;
+    }
+    if ($errors !== []) {
+        $value['x-peanut-errors'] = $errors;
+    }
     return $value;
 };
 $envelope = static fn(array $data): array => [
@@ -87,45 +94,80 @@ $textForbidden = [
 return [
     'paths' => [
         '/adminapi/official.oauth.web-page.config' => ['get' => $operation(
-            'getOAuthWebPageConfig', '查询 H5 网页渠道配置', 'OAuthWebPageConfigResponse', 'tenant_admin',
+            'getOAuthWebPageConfig',
+            '查询 H5 网页渠道配置',
+            'OAuthWebPageConfigResponse',
+            'tenant_admin',
             statuses: [401, 403, 503],
         )],
         '/adminapi/official.oauth.web-page.save' => ['post' => $operation(
-            'replaceOAuthWebPageConfig', '保存 H5 网页渠道配置', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthWebPageConfigRequest', statuses: [400, 401, 403, 422, 503],
+            'replaceOAuthWebPageConfig',
+            '保存 H5 网页渠道配置',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthWebPageConfigRequest',
+            statuses: [400, 401, 403, 422, 503],
         )],
         '/adminapi/official.oauth.mini-program.config' => ['get' => $operation(
-            'getOAuthMiniProgramConfig', '查询微信小程序配置', 'OAuthMiniProgramConfigResponse', 'tenant_admin',
+            'getOAuthMiniProgramConfig',
+            '查询微信小程序配置',
+            'OAuthMiniProgramConfigResponse',
+            'tenant_admin',
             statuses: [401, 403, 503],
         )],
         '/adminapi/official.oauth.mini-program.save' => ['post' => $operation(
-            'replaceOAuthMiniProgramConfig', '保存微信小程序配置', 'OAuthMutationResponse', 'tenant_admin',
+            'replaceOAuthMiniProgramConfig',
+            '保存微信小程序配置',
+            'OAuthMutationResponse',
+            'tenant_admin',
             requestSchema: 'OAuthMiniProgramConfigRequest',
-            errors: ['OAUTH_APP_SECRET_REQUIRED'], statuses: [400, 401, 403, 422, 503],
+            errors: ['OAUTH_APP_SECRET_REQUIRED'],
+            statuses: [400, 401, 403, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.config' => ['get' => $operation(
-            'getOAuthOfficialAccountConfig', '查询微信公众号配置', 'OAuthOfficialAccountConfigResponse', 'tenant_admin',
+            'getOAuthOfficialAccountConfig',
+            '查询微信公众号配置',
+            'OAuthOfficialAccountConfigResponse',
+            'tenant_admin',
             statuses: [401, 403, 503],
         )],
         '/adminapi/official.oauth.official-account.save' => ['post' => $operation(
-            'replaceOAuthOfficialAccountConfig', '保存微信公众号配置', 'OAuthMutationResponse', 'tenant_admin',
+            'replaceOAuthOfficialAccountConfig',
+            '保存微信公众号配置',
+            'OAuthMutationResponse',
+            'tenant_admin',
             requestSchema: 'OAuthOfficialAccountConfigRequest',
-            errors: ['OAUTH_APP_SECRET_REQUIRED'], statuses: [400, 401, 403, 422, 503],
+            errors: ['OAUTH_APP_SECRET_REQUIRED'],
+            statuses: [400, 401, 403, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.menu.detail' => ['get' => $operation(
-            'getOAuthOfficialAccountMenu', '查询微信公众号菜单', 'OAuthMenuResponse', 'tenant_admin',
+            'getOAuthOfficialAccountMenu',
+            '查询微信公众号菜单',
+            'OAuthMenuResponse',
+            'tenant_admin',
             statuses: [401, 403, 503],
         )],
         '/adminapi/official.oauth.official-account.menu.save' => ['post' => $operation(
-            'saveOAuthOfficialAccountMenu', '保存微信公众号菜单', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthMenuRequest', statuses: [400, 401, 403, 422, 503],
+            'saveOAuthOfficialAccountMenu',
+            '保存微信公众号菜单',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthMenuRequest',
+            statuses: [400, 401, 403, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.menu.publish' => ['post' => $operation(
-            'publishOAuthOfficialAccountMenu', '保存并发布微信公众号菜单', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthMenuRequest', statuses: [400, 401, 403, 422, 500, 503],
+            'publishOAuthOfficialAccountMenu',
+            '保存并发布微信公众号菜单',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthMenuRequest',
+            statuses: [400, 401, 403, 422, 500, 503],
         )],
         '/adminapi/official.oauth.official-account.reply.list' => ['get' => $operation(
-            'listOAuthOfficialAccountReplies', '查询微信公众号自动回复', 'OAuthReplyPageResponse', 'tenant_admin',
+            'listOAuthOfficialAccountReplies',
+            '查询微信公众号自动回复',
+            'OAuthReplyPageResponse',
+            'tenant_admin',
             [
                 ['$ref' => '#/components/parameters/PageNo'],
                 ['in' => 'query', 'name' => 'page_size', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 15]],
@@ -136,45 +178,80 @@ return [
             statuses: [400, 401, 403, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.reply.detail' => ['get' => $operation(
-            'getOAuthOfficialAccountReply', '查询微信公众号自动回复详情', 'OAuthReplyDetailResponse', 'tenant_admin',
-            [$idQuery], errors: ['ADMIN_RESOURCE_NOT_FOUND'], statuses: [400, 401, 403, 404, 422, 503],
+            'getOAuthOfficialAccountReply',
+            '查询微信公众号自动回复详情',
+            'OAuthReplyDetailResponse',
+            'tenant_admin',
+            [$idQuery],
+            errors: ['ADMIN_RESOURCE_NOT_FOUND'],
+            statuses: [400, 401, 403, 404, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.reply.add' => ['post' => $operation(
-            'createOAuthOfficialAccountReply', '创建微信公众号自动回复', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthReplyCreateRequest', statuses: [400, 401, 403, 409, 422, 503],
+            'createOAuthOfficialAccountReply',
+            '创建微信公众号自动回复',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthReplyCreateRequest',
+            statuses: [400, 401, 403, 409, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.reply.edit' => ['post' => $operation(
-            'updateOAuthOfficialAccountReply', '更新微信公众号自动回复', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthReplyUpdateRequest', errors: ['OAUTH_REPLY_NOT_FOUND'],
+            'updateOAuthOfficialAccountReply',
+            '更新微信公众号自动回复',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthReplyUpdateRequest',
+            errors: ['OAUTH_REPLY_NOT_FOUND'],
             statuses: [400, 401, 403, 404, 409, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.reply.delete' => ['post' => $operation(
-            'deleteOAuthOfficialAccountReply', '删除微信公众号自动回复', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthIdentifierRequest', errors: ['OAUTH_REPLY_NOT_FOUND'],
+            'deleteOAuthOfficialAccountReply',
+            '删除微信公众号自动回复',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthIdentifierRequest',
+            errors: ['OAUTH_REPLY_NOT_FOUND'],
             statuses: [400, 401, 403, 404, 422, 503],
         )],
         '/adminapi/official.oauth.official-account.reply.update-status' => ['post' => $operation(
-            'updateOAuthOfficialAccountReplyStatus', '更新微信公众号自动回复状态', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthReplyStatusRequest', errors: ['OAUTH_REPLY_NOT_FOUND'],
+            'updateOAuthOfficialAccountReplyStatus',
+            '更新微信公众号自动回复状态',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthReplyStatusRequest',
+            errors: ['OAUTH_REPLY_NOT_FOUND'],
             statuses: [400, 401, 403, 404, 409, 422, 503],
         )],
         '/adminapi/official.oauth.open-platform.config' => ['get' => $operation(
-            'getOAuthOpenPlatformConfig', '查询微信开放平台配置', 'OAuthOpenPlatformConfigResponse', 'tenant_admin',
+            'getOAuthOpenPlatformConfig',
+            '查询微信开放平台配置',
+            'OAuthOpenPlatformConfigResponse',
+            'tenant_admin',
             statuses: [401, 403, 503],
         )],
         '/adminapi/official.oauth.open-platform.save' => ['post' => $operation(
-            'replaceOAuthOpenPlatformConfig', '保存微信开放平台配置', 'OAuthMutationResponse', 'tenant_admin',
-            requestSchema: 'OAuthOpenPlatformConfigRequest', errors: ['OAUTH_APP_SECRET_REQUIRED'],
+            'replaceOAuthOpenPlatformConfig',
+            '保存微信开放平台配置',
+            'OAuthMutationResponse',
+            'tenant_admin',
+            requestSchema: 'OAuthOpenPlatformConfigRequest',
+            errors: ['OAUTH_APP_SECRET_REQUIRED'],
             statuses: [400, 401, 403, 422, 503],
         )],
 
         '/api/oauth/wechat/begin' => ['post' => $operation(
-            'beginWechatOAuth', '发起微信浏览器授权', 'OAuthAuthorizationResponse', 'public_external_callback',
+            'beginWechatOAuth',
+            '发起微信浏览器授权',
+            'OAuthAuthorizationResponse',
+            'public_external_callback',
             requestSchema: 'OAuthBeginRequest',
-            errors: ['OAUTH_SCENE_UNSUPPORTED', 'OAUTH_RETURN_PATH_INVALID'], statuses: [400, 403, 409, 422, 500, 503],
+            errors: ['OAUTH_SCENE_UNSUPPORTED', 'OAUTH_RETURN_PATH_INVALID'],
+            statuses: [400, 403, 409, 422, 500, 503],
         )],
         '/api/oauth/wechat/callback' => ['post' => $operation(
-            'completeWechatOAuthCallback', '处理微信浏览器授权回调', 'OAuthLoginResponse', 'public_external_callback',
+            'completeWechatOAuthCallback',
+            '处理微信浏览器授权回调',
+            'OAuthLoginResponse',
+            'public_external_callback',
             requestSchema: 'OAuthCallbackRequest',
             errors: [
                 'OAUTH_SCENE_INVALID', 'OAUTH_STATE_REQUIRED', 'OAUTH_STATE_INVALID', 'MEMBER_DISABLED',
@@ -184,7 +261,10 @@ return [
             statuses: [400, 403, 404, 409, 422, 500, 503],
         )],
         '/api/oauth/wechat/mini-program' => ['post' => $operation(
-            'loginWithWechatMiniProgram', '微信小程序登录', 'OAuthLoginResponse', 'public_external_callback',
+            'loginWithWechatMiniProgram',
+            '微信小程序登录',
+            'OAuthLoginResponse',
+            'public_external_callback',
             requestSchema: 'OAuthMiniProgramLoginRequest',
             errors: [
                 'MEMBER_DISABLED', 'OAUTH_MEMBER_NOT_FOUND', 'OAUTH_PRINCIPAL_OWNERSHIP_CONFLICT',
@@ -193,7 +273,10 @@ return [
             statuses: [400, 403, 404, 409, 422, 500, 503],
         )],
         '/api/oauth/wechat/complete' => ['post' => $operation(
-            'completeWechatOAuthProfile', '补全微信登录资料', 'OAuthLoginResponse', 'public_external_callback',
+            'completeWechatOAuthProfile',
+            '补全微信登录资料',
+            'OAuthLoginResponse',
+            'public_external_callback',
             requestSchema: 'OAuthCompletionRequest',
             errors: [
                 'OAUTH_COMPLETION_TICKET_REQUIRED', 'OAUTH_COMPLETION_TICKET_INVALID', 'MEMBER_UNAVAILABLE',
@@ -212,7 +295,10 @@ return [
             'responses' => ['302' => $redirectResponse], 'x-peanut-audience' => 'public_external_callback',
         ]],
         '/api/oauth/wechat/bind' => ['post' => $operation(
-            'bindWechatIdentity', '绑定当前会员的微信身份', 'OAuthMutationResponse', 'member',
+            'bindWechatIdentity',
+            '绑定当前会员的微信身份',
+            'OAuthMutationResponse',
+            'member',
             requestSchema: 'OAuthBindRequest',
             errors: [
                 'OAUTH_BIND_SCENE_UNSUPPORTED', 'MEMBER_UNAVAILABLE', 'OAUTH_IDENTITY_ALREADY_BOUND',

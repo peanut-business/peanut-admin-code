@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\infrastructure;
@@ -62,7 +63,7 @@ final class AdminApiAccessRegistry
         }
 
         return array_values(array_unique(array_map(
-            static fn(mixed $route): string => self::normalizeConfiguredRoute((string)$route),
+            static fn(mixed $route): string => self::normalizeConfiguredRoute((string) $route),
             $routes,
         )));
     }

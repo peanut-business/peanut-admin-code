@@ -33,9 +33,12 @@ export default {
   'recharge.action.refund': 'Refund',
   'recharge.refund.success': 'Refund request submitted',
   'recharge.refund.amount.title': 'Issue Refund',
-  'recharge.refund.amount.prompt': 'Enter refund amount; up to {amount} is available',
-  'recharge.refund.amount.invalid': 'Enter a positive amount with up to two decimals',
-  'recharge.refund.amount.range': 'Refund amount is outside the available range',
+  'recharge.refund.amount.prompt':
+    'Enter refund amount; up to {amount} is available',
+  'recharge.refund.amount.invalid':
+    'Enter a positive amount with up to two decimals',
+  'recharge.refund.amount.range':
+    'Refund amount is outside the available range',
   'recharge.refund.amount.confirm': 'Submit Refund',
   'recharge.refund.amount.cancel': 'Cancel',
 
@@ -43,8 +46,7 @@ export default {
   'recharge.export.confirm': 'Export',
   'recharge.export.summary':
     '{count} records, {pages} pages, {size} records per page',
-  'recharge.export.limit':
-    'Up to {pages} pages and {count} records per export',
+  'recharge.export.limit': 'Up to {pages} pages and {count} records per export',
   'recharge.export.range': 'Export Range',
   'recharge.export.all': 'All Records',
   'recharge.export.pages': 'Page Range',

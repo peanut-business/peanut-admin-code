@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\scaffold;
@@ -21,8 +22,7 @@ final class ScaffoldManifest
         public readonly string $path,
         public readonly string $directory,
         public readonly array $data,
-    ) {
-    }
+    ) {}
 
     public static function load(string $path): self
     {
@@ -45,10 +45,10 @@ final class ScaffoldManifest
             throw new RuntimeException('SCAFFOLD_MANIFEST_SCHEMA_UNSUPPORTED');
         }
         $release = $data['release'] ?? null;
-        if (!is_array($release) || preg_match(self::VERSION_PATTERN, (string)($release['version'] ?? '')) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string)($release['source_commit'] ?? '')) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string)($release['source_tree'] ?? '')) !== 1
-            || preg_match('/^[a-f0-9]{64}$/D', (string)($release['inventory_sha256'] ?? '')) !== 1
+        if (!is_array($release) || preg_match(self::VERSION_PATTERN, (string) ($release['version'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($release['source_commit'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($release['source_tree'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($release['inventory_sha256'] ?? '')) !== 1
             || !self::nonEmptyString($release['inventory_template_version'] ?? null)
             || !is_array($release['tokens'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_MANIFEST_RELEASE_INVALID');
@@ -57,7 +57,7 @@ final class ScaffoldManifest
             $application = $data['application'] ?? null;
             if (!is_array($application)
                 || array_keys($application) !== ['version']
-                || preg_match(self::VERSION_PATTERN, (string)$application['version']) !== 1
+                || preg_match(self::VERSION_PATTERN, (string) $application['version']) !== 1
                 || array_keys($release['tokens']) !== ['product_name', 'slug', 'package_identity', 'application_version']) {
                 throw new RuntimeException('SCAFFOLD_MANIFEST_APPLICATION_INVALID');
             }
@@ -78,7 +78,7 @@ final class ScaffoldManifest
             if (!is_array($file)) {
                 throw new RuntimeException("SCAFFOLD_MANIFEST_FILE_INVALID: {$index}");
             }
-            self::validateFile($file, (string)$index);
+            self::validateFile($file, (string) $index);
             if (isset($seen[$file['path']])) {
                 throw new RuntimeException('SCAFFOLD_MANIFEST_PATH_DUPLICATE: ' . $file['path']);
             }
@@ -92,9 +92,9 @@ final class ScaffoldManifest
             if (!is_array($rename)) {
                 throw new RuntimeException("SCAFFOLD_MANIFEST_RENAME_INVALID: {$index}");
             }
-            self::path((string)($rename['from'] ?? ''));
-            self::path((string)($rename['to'] ?? ''));
-            self::owner((string)($rename['owner'] ?? ''));
+            self::path((string) ($rename['from'] ?? ''));
+            self::path((string) ($rename['to'] ?? ''));
+            self::owner((string) ($rename['owner'] ?? ''));
         }
 
         return new self($resolved, dirname($resolved), $data);
@@ -102,7 +102,7 @@ final class ScaffoldManifest
 
     public function version(): string
     {
-        return (string)$this->data['release']['version'];
+        return (string) $this->data['release']['version'];
     }
 
     public function supportsApplicationVersion(): bool
@@ -112,7 +112,7 @@ final class ScaffoldManifest
 
     public function defaultApplicationVersion(): ?string
     {
-        return $this->supportsApplicationVersion() ? (string)$this->data['application']['version'] : null;
+        return $this->supportsApplicationVersion() ? (string) $this->data['application']['version'] : null;
     }
 
     /** @return array<string,array<string,mixed>> */
@@ -120,7 +120,7 @@ final class ScaffoldManifest
     {
         $files = [];
         foreach ($this->data['files'] as $file) {
-            $files[(string)$file['path']] = $file;
+            $files[(string) $file['path']] = $file;
         }
         ksort($files, SORT_STRING);
         return $files;
@@ -145,7 +145,7 @@ final class ScaffoldManifest
 
     public function artifactPath(array $file): string
     {
-        $source = (string)($file['source'] ?? ('files/' . $file['path']));
+        $source = (string) ($file['source'] ?? ('files/' . $file['path']));
         self::path($source);
         $candidate = $this->directory . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $source);
         return ScaffoldPathGuard::existingFileWithin($this->directory, $candidate, 'SCAFFOLD_ARTIFACT_PATH_INVALID');
@@ -213,7 +213,9 @@ final class ScaffoldManifest
             if ($character === '"') {
                 $keyStart = $offset;
                 $keyEnd = self::jsonStringEnd($json, $offset);
-                if ($keyEnd === null) return null;
+                if ($keyEnd === null) {
+                    return null;
+                }
                 $rawKey = substr($json, $keyStart, $keyEnd - $keyStart);
                 try {
                     $decodedKey = json_decode($rawKey, true, 512, JSON_THROW_ON_ERROR);
@@ -221,13 +223,21 @@ final class ScaffoldManifest
                     return null;
                 }
                 $cursor = $keyEnd;
-                while ($cursor < $length && ctype_space($json[$cursor])) $cursor++;
+                while ($cursor < $length && ctype_space($json[$cursor])) {
+                    $cursor++;
+                }
                 if ($depth === 1 && $decodedKey === $key && ($json[$cursor] ?? null) === ':') {
                     $cursor++;
-                    while ($cursor < $length && ctype_space($json[$cursor])) $cursor++;
-                    if (($json[$cursor] ?? null) !== '"') return null;
+                    while ($cursor < $length && ctype_space($json[$cursor])) {
+                        $cursor++;
+                    }
+                    if (($json[$cursor] ?? null) !== '"') {
+                        return null;
+                    }
                     $valueEnd = self::jsonStringEnd($json, $cursor);
-                    if ($valueEnd === null) return null;
+                    if ($valueEnd === null) {
+                        return null;
+                    }
                     $matches[] = [$cursor, $valueEnd];
                     $offset = $valueEnd;
                     continue;
@@ -235,8 +245,11 @@ final class ScaffoldManifest
                 $offset = $keyEnd;
                 continue;
             }
-            if ($character === '{' || $character === '[') $depth++;
-            elseif ($character === '}' || $character === ']') $depth--;
+            if ($character === '{' || $character === '[') {
+                $depth++;
+            } elseif ($character === '}' || $character === ']') {
+                $depth--;
+            }
             $offset++;
         }
         return count($matches) === 1 ? $matches[0] : null;
@@ -255,7 +268,9 @@ final class ScaffoldManifest
                 $escaped = true;
                 continue;
             }
-            if ($json[$offset] === '"') return $offset + 1;
+            if ($json[$offset] === '"') {
+                return $offset + 1;
+            }
         }
         return null;
     }
@@ -263,14 +278,14 @@ final class ScaffoldManifest
     /** @param array<string,mixed> $file */
     private static function validateFile(array $file, string $index): void
     {
-        $path = (string)($file['path'] ?? '');
+        $path = (string) ($file['path'] ?? '');
         self::path($path);
-        $policy = (string)($file['policy'] ?? '');
+        $policy = (string) ($file['policy'] ?? '');
         if (!in_array($policy, self::POLICIES, true)) {
             throw new RuntimeException("SCAFFOLD_MANIFEST_POLICY_INVALID: {$path}");
         }
-        self::owner((string)($file['owner'] ?? ''));
-        $classification = (string)($file['classification'] ?? '');
+        self::owner((string) ($file['owner'] ?? ''));
+        $classification = (string) ($file['classification'] ?? '');
         $transform = $file['transform'] ?? null;
         if (!in_array($classification, ['managed', 'generated-managed'], true)
             || ($classification === 'generated-managed') !== ($policy === 'generated')

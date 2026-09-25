@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -36,13 +37,13 @@ final readonly class OAuthApplicationService
     /** @param array<string,mixed> $params @return array<string,mixed> */
     public function begin(array $params, string $domain, string $operationId): array
     {
-        $scene = (string)$params['scene'];
+        $scene = (string) $params['scene'];
         if (!in_array($scene, ['oa', 'open_pc'], true)) {
             throw BusinessException::invalid('OAUTH_SCENE_UNSUPPORTED', '该微信场景不支持浏览器授权');
         }
         $callbackUrl = OAuthBrowserCallbackService::callbackUrl($domain, $scene);
         $provider = ExternalProvider::oauth($scene);
-        $clientId = trim((string)($params['client_id'] ?? ''));
+        $clientId = trim((string) ($params['client_id'] ?? ''));
         $resolution = $clientId === ''
             ? $this->externalTenants->onlyActiveBinding($provider, 'oauth.begin', $operationId)
             : $this->externalTenants->clientIdentity($provider, $clientId, 'oauth.begin', $operationId);
@@ -51,7 +52,11 @@ final readonly class OAuthApplicationService
             function () use ($resolution, $scene, $params, $callbackUrl) {
                 $this->modules->assertExternalCallback('official.oauth');
                 return $this->commands->begin(
-                    $resolution->context, $scene, (string)$params['return_path'], $callbackUrl, $resolution->binding,
+                    $resolution->context,
+                    $scene,
+                    (string) $params['return_path'],
+                    $callbackUrl,
+                    $resolution->binding,
                 );
             },
         );
@@ -61,19 +66,26 @@ final readonly class OAuthApplicationService
     /** @param array<string,mixed> $params @return array<string,mixed> */
     public function callback(array $params, string $ip, string $operationId): array
     {
-        $provider = ExternalProvider::oauth((string)$params['scene']);
-        $state = (string)$params['state'];
+        $provider = ExternalProvider::oauth((string) $params['scene']);
+        $state = (string) $params['state'];
         $resolution = $this->externalTenants->verifiedCandidates(
             $this->callbackLocator->locateState($provider, hash('sha256', trim($state))),
-            $provider, $state, 'oauth.callback', $operationId,
+            $provider,
+            $state,
+            'oauth.callback',
+            $operationId,
         );
         $result = $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $params, $ip) {
                 $this->modules->assertExternalCallback('official.oauth');
                 return $this->commands->callback(
-                    $resolution->context, (string)$params['scene'], (string)$params['code'],
-                    (string)$params['state'], $resolution->binding, $ip,
+                    $resolution->context,
+                    (string) $params['scene'],
+                    (string) $params['code'],
+                    (string) $params['state'],
+                    $resolution->binding,
+                    $ip,
                 );
             },
         );
@@ -83,7 +95,7 @@ final readonly class OAuthApplicationService
     /** @param array<string,mixed> $params @return array<string,mixed> */
     public function miniProgram(array $params, string $ip, string $operationId): array
     {
-        $clientId = trim((string)($params['client_id'] ?? ''));
+        $clientId = trim((string) ($params['client_id'] ?? ''));
         $resolution = $clientId === ''
             ? $this->externalTenants->onlyActiveBinding(ExternalProvider::WECHAT_MINI_PROGRAM, 'oauth.mini-program', $operationId)
             : $this->externalTenants->clientIdentity(ExternalProvider::WECHAT_MINI_PROGRAM, $clientId, 'oauth.mini-program', $operationId);
@@ -91,7 +103,7 @@ final readonly class OAuthApplicationService
             new SystemExecutionContext($resolution->context),
             function () use ($resolution, $params, $ip) {
                 $this->modules->assertExternalCallback('official.oauth');
-                return $this->commands->miniProgramLogin($resolution->context, (string)$params['code'], $resolution->binding, $ip);
+                return $this->commands->miniProgramLogin($resolution->context, (string) $params['code'], $resolution->binding, $ip);
             },
         );
         return $this->loginResult($result);
@@ -100,11 +112,15 @@ final readonly class OAuthApplicationService
     /** @param array<string,mixed> $params @return array<string,mixed> */
     public function complete(array $params, string $ip, string $operationId): array
     {
-        $params['code'] = (string)($params['verification_code'] ?? '');
-        $ticket = (string)$params['ticket'];
+        $params['code'] = (string) ($params['verification_code'] ?? '');
+        $ticket = (string) $params['ticket'];
         $resolution = $this->externalTenants->verifiedCandidates(
             $this->callbackLocator->locateTicket(hash('sha256', trim($ticket))),
-            'oauth.wechat.completion', $ticket, 'oauth.complete', $operationId, false,
+            'oauth.wechat.completion',
+            $ticket,
+            'oauth.complete',
+            $operationId,
+            false,
         );
         $result = $this->executionContexts->run(
             new SystemExecutionContext($resolution->context),

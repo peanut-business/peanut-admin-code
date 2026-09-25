@@ -1,0 +1,11 @@
+# Machine-derived and immutable inputs retain their generator's byte contract.
+**/generated/**
+**/fixtures/**
+**/__snapshots__/**
+**/node_modules/**
+**/vendor/**
+**/.local/**
+scaffold/releases/**
+scaffold/legacy/**
+**/pnpm-lock.yaml
+**/package-lock.json

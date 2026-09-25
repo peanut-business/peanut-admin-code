@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Contract\Dto;
@@ -12,6 +13,5 @@ final readonly class MemberIdentitySnapshot
         public string $avatar,
         public string $mobile,
         public int $status,
-    ) {
-    }
+    ) {}
 }

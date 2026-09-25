@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { RouteRecordRaw, RouteRecordNormalized } from 'vue-router';
+import type { RouteRecordRaw } from 'vue-router';
 import usePermission from '@/hooks/permission';
 import { useAppStore } from '@/store';
 import appClientMenus from '@/router/app-menus';
@@ -15,16 +15,17 @@ export default function useMenuTree() {
     return appClientMenus;
   });
   const menuTree = computed(() => {
-    const copyRouter = cloneDeep(appRoute.value) as RouteRecordNormalized[];
+    const copyRouter: RouteRecordRaw[] = cloneDeep(appRoute.value);
     if (!appStore.menuFromServer) {
-      copyRouter.sort((a: RouteRecordNormalized, b: RouteRecordNormalized) => {
-        return (a.meta.order || 0) - (b.meta.order || 0);
+      copyRouter.sort((a, b) => {
+        return (a.meta?.order || 0) - (b.meta?.order || 0);
       });
     }
-    function travel(_routes: RouteRecordRaw[], layer: number) {
-      if (!_routes) return null;
-
-      const collector: any = _routes.map((element) => {
+    function travel(
+      _routes: RouteRecordRaw[],
+      layer: number
+    ): RouteRecordRaw[] {
+      const collector: Array<RouteRecordRaw | null> = _routes.map((element) => {
         // no access
         if (!permission.accessRouter(element)) {
           return null;
@@ -60,7 +61,9 @@ export default function useMenuTree() {
 
         return null;
       });
-      return collector.filter(Boolean);
+      return collector.filter(
+        (route): route is RouteRecordRaw => route !== null
+      );
     }
     return travel(copyRouter, 0);
   });

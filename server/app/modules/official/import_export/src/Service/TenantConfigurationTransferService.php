@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Service;
@@ -16,8 +17,7 @@ final readonly class TenantConfigurationTransferService
         private AdminAuthorizationQuery $authorization,
         private ConfigurationTransferCommands $commands,
         private ConfigurationTransferQueries $queries,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function export(TenantContext $context, AdminPrincipal $principal): array

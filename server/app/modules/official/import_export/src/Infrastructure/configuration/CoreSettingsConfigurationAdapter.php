@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\configuration;
@@ -12,8 +13,14 @@ final readonly class CoreSettingsConfigurationAdapter implements ConfigurationTr
 {
     public function __construct(private DeploymentSettingsTransfer $settings) {}
 
-    public function key(): string { return ConfigurationPackageCodec::ADAPTER_CORE_SETTINGS; }
-    public function supportsCreate(): bool { return true; }
+    public function key(): string
+    {
+        return ConfigurationPackageCodec::ADAPTER_CORE_SETTINGS;
+    }
+    public function supportsCreate(): bool
+    {
+        return true;
+    }
 
     public function export(TenantContext|PlatformContext $context): array
     {
@@ -46,7 +53,9 @@ final readonly class CoreSettingsConfigurationAdapter implements ConfigurationTr
     /** @param array{key:string,exists:bool,secret:bool,configured:bool,value:mixed,revision:?int} $state */
     private function entry(array $state): array
     {
-        if (!$state['secret']) return ConfigurationTransferValue::entry($this->key(), $state['key'], $state['value']);
+        if (!$state['secret']) {
+            return ConfigurationTransferValue::entry($this->key(), $state['key'], $state['value']);
+        }
         $references = [];
         $marker = SecretReferenceCodec::marker(
             $state['configured'] ? 'configured' : '',

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\decoration;
@@ -34,7 +35,7 @@ class DecorationPageApplicationService
     public function detail(TenantContext $context, int $id, array $allowedTypes): array
     {
         $page = DecoratePage::where('id', $id)->findOrEmpty();
-        if ($page->isEmpty() || !in_array((int)$page->type, $allowedTypes, true)) {
+        if ($page->isEmpty() || !in_array((int) $page->type, $allowedTypes, true)) {
             throw BusinessException::notFound('DECORATION_PAGE_NOT_FOUND', '装修页面不存在或无权访问');
         }
         return $this->decoration->formatPage($page->toArray());
@@ -47,7 +48,7 @@ class DecorationPageApplicationService
 
     public function save(TenantContext $context, array $params, array $allowedTypes): bool
     {
-        $type = (int)$params['type'];
+        $type = (int) $params['type'];
         if (!in_array($type, $allowedTypes, true)) {
             throw BusinessException::forbidden('DECORATION_PAGE_WRITE_FORBIDDEN', '无权保存该装修页面');
         }
@@ -59,23 +60,23 @@ class DecorationPageApplicationService
             throw BusinessException::invalid('DECORATION_PAGE_INVALID', $exception->getMessage());
         }
         Db::transaction(function () use ($context, $params, $type, $data, $meta): void {
-                $page = DecoratePage::where([])
-                    ->where('id', (int)$params['id'])->lock(true)->findOrEmpty();
-                if ($page->isEmpty()) {
-                    throw BusinessException::notFound('DECORATION_PAGE_NOT_FOUND', '装修页面不存在');
-                }
-                if ((int)$page->type !== $type) {
-                    throw BusinessException::conflict('DECORATION_PAGE_TYPE_IMMUTABLE', '装修页面类型不可修改');
-                }
-                $page->data = json_encode(
-                    $this->schema->resourcesForStorage($data, $context),
-                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
-                );
-                $page->meta = json_encode(
-                    $this->schema->resourcesForStorage($meta, $context),
-                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
-                );
-                $page->save();
+            $page = DecoratePage::where([])
+                ->where('id', (int) $params['id'])->lock(true)->findOrEmpty();
+            if ($page->isEmpty()) {
+                throw BusinessException::notFound('DECORATION_PAGE_NOT_FOUND', '装修页面不存在');
+            }
+            if ((int) $page->type !== $type) {
+                throw BusinessException::conflict('DECORATION_PAGE_TYPE_IMMUTABLE', '装修页面类型不可修改');
+            }
+            $page->data = json_encode(
+                $this->schema->resourcesForStorage($data, $context),
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            );
+            $page->meta = json_encode(
+                $this->schema->resourcesForStorage($meta, $context),
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
+            );
+            $page->save();
         });
         return true;
     }
@@ -89,7 +90,7 @@ class DecorationPageApplicationService
         }
         $rows = $this->articles->options($context, $limit);
         foreach ($rows as &$row) {
-            $row['image'] = $this->assets->forRead((string)($row['image'] ?? ''));
+            $row['image'] = $this->assets->forRead((string) ($row['image'] ?? ''));
         }
         unset($row);
         return $rows;

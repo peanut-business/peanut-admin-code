@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\http\middleware;
@@ -40,7 +41,7 @@ class AuthMiddleware
         }
 
         $path = 'adminapi/' . strtolower(trim($request->pathinfo(), '/'));
-        if ($this->accessRegistry->isAuthenticatedOnly((string)$request->method(), $path)) {
+        if ($this->accessRegistry->isAuthenticatedOnly((string) $request->method(), $path)) {
             return $next($request);
         }
 
@@ -64,7 +65,7 @@ class AuthMiddleware
             throw \app\common\http\ApiProblem::fromEnvelope('暂无访问权限', null, 40300);
         }
 
-        if (in_array(strtoupper((string)$request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'], true)
+        if (in_array(strtoupper((string) $request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'], true)
             && $this->demoAccounts->mutationLocked($adminInfo, $accessUri)) {
             throw \app\common\http\ApiProblem::fromEnvelope('演示账号已锁定关键配置和权限操作', null, 40300);
         }

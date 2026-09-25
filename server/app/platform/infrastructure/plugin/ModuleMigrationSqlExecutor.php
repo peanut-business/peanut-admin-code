@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -24,7 +25,7 @@ final class ModuleMigrationSqlExecutor
             throw new PluginLifecycleException('MODULE_MIGRATION_DRIVER_UNAVAILABLE', 'Module SQL migrations require the registered PDO driver.');
         }
         $pdo = $connection->connect();
-        $emulatedPrepares = (bool)$pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
+        $emulatedPrepares = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
         if (!$emulatedPrepares) {
             $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
         }

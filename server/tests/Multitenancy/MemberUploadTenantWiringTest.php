@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\api\controller\UploadController;
@@ -40,11 +41,11 @@ INSERT INTO pa_tenant
 VALUES
   (101, 'default', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
+    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
     expectMemberUpload($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
-    $storageMigration = (string)file_get_contents(
-        $serverRoot . '/database/migrations/20260823-unify-storage-service.sql'
+    $storageMigration = (string) file_get_contents(
+        $serverRoot . '/database/migrations/20260823-unify-storage-service.sql',
     );
     expectMemberUpload($storageMigration !== '', 'canonical storage migration is missing');
     $pdo->exec($storageMigration);
@@ -61,7 +62,7 @@ SQL);
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$routeSource = (string)file_get_contents($serverRoot . '/app/modules/official/file/route/app.php');
+$routeSource = (string) file_get_contents($serverRoot . '/app/modules/official/file/route/app.php');
 $uploadRoute = "Route::post('upload/image', [ApiUploadController::class, 'image'])";
 expectMemberUpload(substr_count($routeSource, $uploadRoute) === 1, 'member upload route is missing or duplicated');
 expectMemberUpload(
@@ -69,18 +70,18 @@ expectMemberUpload(
         $routeSource,
         $uploadRoute . "\n    ->middleware(CheckTokenMiddleware::class)\n    ->middleware(OfficialModuleMiddleware::class",
     ),
-    'member upload route is not protected by identity and Module middleware'
+    'member upload route is not protected by identity and Module middleware',
 );
 
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $database = IsolatedBackendEnvironment::required('DB_NAME');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(5)));
 expectMemberUpload(
     preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1,
-    'member upload Gate requires its exact registered P0-E plugin_lifecycle database'
+    'member upload Gate requires its exact registered P0-E plugin_lifecycle database',
 );
 $storedObject = null;
 $temporaryUpload = tempnam(sys_get_temp_dir(), 'peanut-member-upload-');
@@ -90,7 +91,7 @@ try {
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
     );
     memberUploadSchema($pdo, $serverRoot);
 
@@ -118,7 +119,7 @@ try {
     expectMemberUpload($temporaryUpload !== false, 'could not allocate upload fixture');
     file_put_contents(
         $temporaryUpload,
-        base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true)
+        base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true),
     );
     $request->withFiles([
         'file' => [
@@ -155,23 +156,23 @@ JOIN pa_storage_account a ON a.id = s.account_id
 LIMIT 1
 SQL)->fetch(PDO::FETCH_ASSOC);
     expectMemberUpload(is_array($row), 'member upload did not create a file row');
-    expectMemberUpload((int)$row['tenant_id'] === 101, 'payload forged uploaded file Tenant ownership');
-    expectMemberUpload((int)$row['source_id'] === 501, 'payload forged uploaded file member owner');
-    expectMemberUpload((int)$row['source'] === FileEnum::SOURCE_USER, 'member upload was stored as an admin upload');
-    expectMemberUpload((int)$row['type'] === FileEnum::IMAGE, 'member upload file type changed');
+    expectMemberUpload((int) $row['tenant_id'] === 101, 'payload forged uploaded file Tenant ownership');
+    expectMemberUpload((int) $row['source_id'] === 501, 'payload forged uploaded file member owner');
+    expectMemberUpload((int) $row['source'] === FileEnum::SOURCE_USER, 'member upload was stored as an admin upload');
+    expectMemberUpload((int) $row['type'] === FileEnum::IMAGE, 'member upload file type changed');
     expectMemberUpload($row['name'] === 'member-avatar.png', 'member upload original name changed');
-    expectMemberUpload(preg_match('/^file_[0-9a-f]{32}$/D', (string)$row['file_key']) === 1, 'member upload file identity changed');
-    expectMemberUpload(str_starts_with((string)$row['object_key'], 'tenants/v1/101/material/image/'), 'member upload escaped its Tenant object namespace');
-    expectMemberUpload(!str_contains((string)$row['object_key'], '/202/'), 'payload Tenant appeared in stored object namespace');
+    expectMemberUpload(preg_match('/^file_[0-9a-f]{32}$/D', (string) $row['file_key']) === 1, 'member upload file identity changed');
+    expectMemberUpload(str_starts_with((string) $row['object_key'], 'tenants/v1/101/material/image/'), 'member upload escaped its Tenant object namespace');
+    expectMemberUpload(!str_contains((string) $row['object_key'], '/202/'), 'payload Tenant appeared in stored object namespace');
     expectMemberUpload($row['driver'] === 'local' && $row['local_path'] === 'public/storage', 'member upload did not use the registered local public storage route');
     expectMemberUpload($row['status'] === 'ready', 'member upload object was not made ready');
-    expectMemberUpload((int)$row['created_by_member_id'] === 501, 'payload forged the storage object member owner');
+    expectMemberUpload((int) $row['created_by_member_id'] === 501, 'payload forged the storage object member owner');
     expectMemberUpload(($body['data']['file_key'] ?? null) === $row['file_key'], 'upload response did not return the canonical file identity');
 
     $storedObject = $serverRoot . '/public/storage/' . $row['object_key'];
     expectMemberUpload(is_file($storedObject), 'member upload object was not written to storage');
-    expectMemberUpload((int)$pdo->query('SELECT COUNT(*) FROM pa_file')->fetchColumn() === 1, 'member upload created an unexpected number of rows');
-    expectMemberUpload((int)$pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn() === 1, 'member upload created an unexpected number of object rows');
+    expectMemberUpload((int) $pdo->query('SELECT COUNT(*) FROM pa_file')->fetchColumn() === 1, 'member upload created an unexpected number of rows');
+    expectMemberUpload((int) $pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn() === 1, 'member upload created an unexpected number of object rows');
 
     echo "MT03-MEMBER-UPLOAD-TENANT-WIRING-001 passed\n";
 } finally {

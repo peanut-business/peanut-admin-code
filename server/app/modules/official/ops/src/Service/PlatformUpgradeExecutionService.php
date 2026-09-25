@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Service;
@@ -24,8 +25,7 @@ final readonly class PlatformUpgradeExecutionService
         private string $projectRoot,
         private ApplicationRuntimeStatusProvider $runtimeStatus,
         private PlatformPermissionChecker $permissions,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function submit(PlatformContext $context, string $idempotencyKey): array
@@ -56,7 +56,7 @@ final readonly class PlatformUpgradeExecutionService
             'source_tree' => $this->commit($sourceRuntime['tree'] ?? null),
             'source_release_key' => $this->releaseKey($sourceRuntime['release_key'] ?? null, true),
             'source_application_manifest_sha256' => $this->sha256(
-                $sourceApplication['application_manifest_sha256'] ?? null
+                $sourceApplication['application_manifest_sha256'] ?? null,
             ),
             'target_release_key' => $this->releaseKey($target['release_key'] ?? null),
             'target_commit' => $this->commit($target['commit'] ?? null),
@@ -73,8 +73,10 @@ final readonly class PlatformUpgradeExecutionService
     public function snapshot(PlatformContext $context): array
     {
         $this->assertRead($context);
-        $tasks = array_map(fn(array $row): array => $this->taskProjection($row),
-            Db::name('ops_task')->where('task_type', self::TASK_TYPE)->order('id', 'desc')->limit(10)->select()->toArray());
+        $tasks = array_map(
+            fn(array $row): array => $this->taskProjection($row),
+            Db::name('ops_task')->where('task_type', self::TASK_TYPE)->order('id', 'desc')->limit(10)->select()->toArray(),
+        );
         return ['tasks' => $tasks];
     }
 
@@ -92,8 +94,8 @@ final readonly class PlatformUpgradeExecutionService
     /** @param array<string,mixed> $task @return array<string,mixed> */
     private function taskProjection(array $task): array
     {
-        $execution = $this->execution((string)$task['task_key']);
-        $payload = json_decode((string)$task['payload_json'], true, 512, JSON_THROW_ON_ERROR);
+        $execution = $this->execution((string) $task['task_key']);
+        $payload = json_decode((string) $task['payload_json'], true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($payload)) {
             throw OpsConsoleException::taskUnavailable();
         }
@@ -104,25 +106,25 @@ final readonly class PlatformUpgradeExecutionService
         }
 
         return [
-            'task_key' => (string)$task['task_key'],
+            'task_key' => (string) $task['task_key'],
             'task_type' => self::TASK_TYPE,
-            'status' => (string)$task['status'],
-            'attempt_count' => (int)$task['attempt_count'],
-            'max_attempts' => (int)$task['max_attempts'],
-            'revision' => (int)$task['revision'],
-            'last_error_code' => $task['last_error_code'] === null ? null : (string)$task['last_error_code'],
-            'current_step' => is_array($execution) ? (string)$execution['current_step'] : 'preflight',
+            'status' => (string) $task['status'],
+            'attempt_count' => (int) $task['attempt_count'],
+            'max_attempts' => (int) $task['max_attempts'],
+            'revision' => (int) $task['revision'],
+            'last_error_code' => $task['last_error_code'] === null ? null : (string) $task['last_error_code'],
+            'current_step' => is_array($execution) ? (string) $execution['current_step'] : 'preflight',
             'source' => [
-                'commit' => (string)$payload['source_commit'],
-                'tree' => (string)$payload['source_tree'],
-                'release_key' => $payload['source_release_key'] === '' ? null : (string)$payload['source_release_key'],
-                'application_manifest_sha256' => (string)$payload['source_application_manifest_sha256'],
+                'commit' => (string) $payload['source_commit'],
+                'tree' => (string) $payload['source_tree'],
+                'release_key' => $payload['source_release_key'] === '' ? null : (string) $payload['source_release_key'],
+                'application_manifest_sha256' => (string) $payload['source_application_manifest_sha256'],
             ],
             'target' => [
-                'release_key' => (string)$payload['target_release_key'],
-                'commit' => (string)$payload['target_commit'],
-                'tree' => (string)$payload['target_tree'],
-                'descriptor_sha256' => (string)$payload['target_descriptor_sha256'],
+                'release_key' => (string) $payload['target_release_key'],
+                'commit' => (string) $payload['target_commit'],
+                'tree' => (string) $payload['target_tree'],
+                'descriptor_sha256' => (string) $payload['target_descriptor_sha256'],
             ],
             'backup_reference_key' => is_array($execution) && is_string($execution['backup_reference_key'] ?? null)
                 ? $execution['backup_reference_key'] : null,
@@ -133,11 +135,11 @@ final readonly class PlatformUpgradeExecutionService
             'recovery_pointer' => $recoveryPointer,
             'recovery_pointer_sha256' => is_array($execution) && is_string($execution['recovery_pointer_sha256'] ?? null)
                 ? $execution['recovery_pointer_sha256'] : null,
-            'steps' => $this->steps((string)$task['task_key']),
-            'available_at' => $this->instant((string)$task['available_at']),
-            'created_at' => $this->instant((string)$task['created_at']),
-            'updated_at' => $this->instant((string)$task['updated_at']),
-            'completed_at' => $task['completed_at'] === null ? null : $this->instant((string)$task['completed_at']),
+            'steps' => $this->steps((string) $task['task_key']),
+            'available_at' => $this->instant((string) $task['available_at']),
+            'created_at' => $this->instant((string) $task['created_at']),
+            'updated_at' => $this->instant((string) $task['updated_at']),
+            'completed_at' => $task['completed_at'] === null ? null : $this->instant((string) $task['completed_at']),
         ];
     }
 
@@ -157,14 +159,14 @@ final readonly class PlatformUpgradeExecutionService
             ->order('step_order')->select()->toArray();
         foreach ($rows as $row) {
             $steps[] = [
-                'step_key' => (string)$row['step_key'],
-                'step_order' => (int)$row['step_order'],
-                'status' => (string)$row['status'],
-                'input_sha256' => (string)$row['input_sha256'],
-                'output_sha256' => $row['output_sha256'] === null ? null : (string)$row['output_sha256'],
-                'last_error_code' => $row['last_error_code'] === null ? null : (string)$row['last_error_code'],
-                'started_at' => $row['started_at'] === null ? null : $this->instant((string)$row['started_at']),
-                'completed_at' => $row['completed_at'] === null ? null : $this->instant((string)$row['completed_at']),
+                'step_key' => (string) $row['step_key'],
+                'step_order' => (int) $row['step_order'],
+                'status' => (string) $row['status'],
+                'input_sha256' => (string) $row['input_sha256'],
+                'output_sha256' => $row['output_sha256'] === null ? null : (string) $row['output_sha256'],
+                'last_error_code' => $row['last_error_code'] === null ? null : (string) $row['last_error_code'],
+                'started_at' => $row['started_at'] === null ? null : $this->instant((string) $row['started_at']),
+                'completed_at' => $row['completed_at'] === null ? null : $this->instant((string) $row['completed_at']),
             ];
         }
         return $steps;

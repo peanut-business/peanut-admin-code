@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\generator;
@@ -78,28 +79,32 @@ final class GeneratorRenderService
     /** @return array<string,mixed> */
     private static function context(array $table): array
     {
-        $tableName = trim((string)($table['table_name'] ?? $table['name'] ?? ''));
+        $tableName = trim((string) ($table['table_name'] ?? $table['name'] ?? ''));
         if (preg_match('/^[a-z][a-z0-9_]*$/D', $tableName) !== 1) {
             throw new RuntimeException('数据表名称不符合生成规范');
         }
         $rawColumns = $table['columns'] ?? [];
-        if (is_string($rawColumns)) $rawColumns = json_decode($rawColumns, true) ?? [];
-        if (!is_array($rawColumns) || $rawColumns === []) throw new RuntimeException('数据表字段不能为空');
+        if (is_string($rawColumns)) {
+            $rawColumns = json_decode($rawColumns, true) ?? [];
+        }
+        if (!is_array($rawColumns) || $rawColumns === []) {
+            throw new RuntimeException('数据表字段不能为空');
+        }
         $columns = self::columns($rawColumns);
         $primary = self::primaryColumn($columns);
 
-        $module = self::module(trim((string)($table['module_name'] ?? '')));
-        $entity = trim((string)($table['entity_name'] ?? ''));
+        $module = self::module(trim((string) ($table['module_name'] ?? '')));
+        $entity = trim((string) ($table['entity_name'] ?? ''));
         if (preg_match('/^[A-Z][A-Za-z0-9]{0,63}$/D', $entity) !== 1) {
             throw new RuntimeException('实体名称不符合生成规范');
         }
-        $owner = strtolower(trim((string)($table['data_owner'] ?? $table['owner'] ?? '')));
+        $owner = strtolower(trim((string) ($table['data_owner'] ?? $table['owner'] ?? '')));
         $owner = match ($owner) {
             'tenant', 'tenant_owned', 'tenant-orm' => 'tenant-orm',
             'platform', 'instance', 'shared' => $owner,
             default => throw new RuntimeException('生成配置必须声明有效的数据所有权'),
         };
-        $edition = strtolower(trim((string)($table['target_edition'] ?? $table['edition'] ?? '')));
+        $edition = strtolower(trim((string) ($table['target_edition'] ?? $table['edition'] ?? '')));
         if (!in_array($edition, ['multi-tenant', 'standalone'], true)) {
             throw new RuntimeException('生成配置必须声明 standalone 或 multi-tenant Edition');
         }
@@ -111,14 +116,18 @@ final class GeneratorRenderService
         }
 
         $resource = self::kebab($entity);
-        $title = self::plainText((string)($table['table_comment'] ?? $table['comment'] ?? $entity));
-        $templateType = strtolower(trim((string)($table['template_type'] ?? 'crud')));
+        $title = self::plainText((string) ($table['table_comment'] ?? $table['comment'] ?? $entity));
+        $templateType = strtolower(trim((string) ($table['template_type'] ?? 'crud')));
         if (!in_array($templateType, ['crud', 'tree'], true)) {
             throw new RuntimeException('生成模板类型无效');
         }
         $storedConfig = $table['tree_config'] ?? [];
-        if (is_string($storedConfig)) $storedConfig = json_decode($storedConfig, true) ?? [];
-        if (!is_array($storedConfig)) throw new RuntimeException('生成配置格式无效');
+        if (is_string($storedConfig)) {
+            $storedConfig = json_decode($storedConfig, true) ?? [];
+        }
+        if (!is_array($storedConfig)) {
+            throw new RuntimeException('生成配置格式无效');
+        }
         $softDelete = self::softDeleteConfig(
             $table['soft_delete'] ?? ($storedConfig['soft_delete'] ?? []),
             $columns,
@@ -149,7 +158,7 @@ final class GeneratorRenderService
             'primary' => $primary['name'],
             'primaryType' => $primaryType,
             'primaryTsType' => $primaryType === 'int' ? 'number' : 'string',
-            'primaryLength' => (int)$primary['length'],
+            'primaryLength' => (int) $primary['length'],
             'primaryRule' => self::primaryRule($primary, $primaryType),
             'tree' => $tree,
             'relations' => $relations,
@@ -196,9 +205,9 @@ final class GeneratorRenderService
             } catch (\JsonException $exception) {
                 throw new RuntimeException('已登记模块清单无效：' . $manifestPath, 0, $exception);
             }
-            $key = is_array($manifest) ? (string)($manifest['key'] ?? '') : '';
+            $key = is_array($manifest) ? (string) ($manifest['key'] ?? '') : '';
             $parts = explode('.', $key);
-            $leaf = (string)end($parts);
+            $leaf = (string) end($parts);
             $directoryLeaf = basename(dirname($manifestAbsolute));
             if ($key === $input
                 || str_replace('-', '_', $leaf) === str_replace('-', '_', $input)
@@ -209,7 +218,9 @@ final class GeneratorRenderService
         if ($matches === []) {
             throw new RuntimeException('目标模块未登记，请先使用现有 module:create/module:check 机制创建模块');
         }
-        if (count($matches) !== 1) throw new RuntimeException('目标模块名称不唯一，请使用完整 Module key');
+        if (count($matches) !== 1) {
+            throw new RuntimeException('目标模块名称不唯一，请使用完整 Module key');
+        }
 
         [$manifestPath, $manifestSource, $manifest] = $matches[0];
         $backendRelative = dirname($manifestPath);
@@ -222,7 +233,7 @@ final class GeneratorRenderService
         if (!is_array($psr4) || count($psr4) !== 1 || current($psr4) !== 'src/') {
             throw new RuntimeException('目标模块必须声明唯一且指向 src/ 的 PSR-4 前缀');
         }
-        $namespace = (string)array_key_first($psr4);
+        $namespace = (string) array_key_first($psr4);
         if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+\\\\$/D', $namespace) !== 1) {
             throw new RuntimeException('目标模块 PHP 命名空间无效');
         }
@@ -230,15 +241,15 @@ final class GeneratorRenderService
         if (!is_string($frontendEntry) || !str_ends_with($frontendEntry, '/contribution.ts')) {
             throw new RuntimeException('目标模块未登记 admin-web 前端贡献，不能生成可装配 CRUD 页面');
         }
-        $permissionsRelative = (string)($manifest['backend']['permissions'] ?? '');
+        $permissionsRelative = (string) ($manifest['backend']['permissions'] ?? '');
         if ($permissionsRelative === '' || str_starts_with($permissionsRelative, '/') || str_contains($permissionsRelative, '..')) {
             throw new RuntimeException('目标模块权限清单路径无效');
         }
         $permissionsPath = $backendRelative . '/' . $permissionsRelative;
         $routePath = $backendRelative . '/route/app.php';
         return [
-            'moduleKey' => (string)$manifest['key'],
-            'key' => (string)$manifest['key'],
+            'moduleKey' => (string) $manifest['key'],
+            'key' => (string) $manifest['key'],
             'backendRelative' => $backendRelative,
             'frontendRelative' => dirname($frontendEntry),
             'namespace' => $namespace,
@@ -259,11 +270,15 @@ final class GeneratorRenderService
     {
         $columns = [];
         foreach ($rawColumns as $raw) {
-            if (!is_array($raw)) continue;
-            $name = trim((string)($raw['column_name'] ?? $raw['name'] ?? ''));
-            if (preg_match('/^[a-z][a-z0-9_]*$/D', $name) !== 1) throw new RuntimeException('数据表包含不安全的字段名称');
-            $type = strtolower((string)($raw['php_type'] ?? $raw['data_type'] ?? $raw['type'] ?? 'string'));
-            $comment = self::plainText((string)($raw['column_comment'] ?? $raw['comment'] ?? $name));
+            if (!is_array($raw)) {
+                continue;
+            }
+            $name = trim((string) ($raw['column_name'] ?? $raw['name'] ?? ''));
+            if (preg_match('/^[a-z][a-z0-9_]*$/D', $name) !== 1) {
+                throw new RuntimeException('数据表包含不安全的字段名称');
+            }
+            $type = strtolower((string) ($raw['php_type'] ?? $raw['data_type'] ?? $raw['type'] ?? 'string'));
+            $comment = self::plainText((string) ($raw['column_comment'] ?? $raw['comment'] ?? $name));
             $enum = self::columnEnum($raw);
             $columns[] = [
                 'name' => $name,
@@ -285,7 +300,9 @@ final class GeneratorRenderService
                 'rule' => self::validationRule($type, self::columnLength($raw)),
             ];
         }
-        if ($columns === []) throw new RuntimeException('没有可生成的安全字段');
+        if ($columns === []) {
+            throw new RuntimeException('没有可生成的安全字段');
+        }
         return $columns;
     }
 
@@ -293,16 +310,28 @@ final class GeneratorRenderService
     private static function primaryColumn(array $columns): array
     {
         $primary = array_values(array_filter($columns, static fn(array $column): bool => $column['primary']));
-        if (count($primary) > 1) throw new RuntimeException('当前 CRUD 模板不支持复合主键');
-        if ($primary !== []) return $primary[0];
-        foreach ($columns as $column) if ($column['name'] === 'id') return $column;
+        if (count($primary) > 1) {
+            throw new RuntimeException('当前 CRUD 模板不支持复合主键');
+        }
+        if ($primary !== []) {
+            return $primary[0];
+        }
+        foreach ($columns as $column) {
+            if ($column['name'] === 'id') {
+                return $column;
+            }
+        }
         throw new RuntimeException('生成实体必须具有主键');
     }
 
     private static function primaryType(array $primary): string
     {
-        if (in_array($primary['type'], ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) return 'int';
-        if (in_array($primary['type'], ['string', 'varchar', 'char', 'uuid'], true)) return 'string';
+        if (in_array($primary['type'], ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) {
+            return 'int';
+        }
+        if (in_array($primary['type'], ['string', 'varchar', 'char', 'uuid'], true)) {
+            return 'string';
+        }
         throw new RuntimeException('主键仅支持整数或字符串类型');
     }
 
@@ -319,9 +348,15 @@ final class GeneratorRenderService
         $list = [$primary['name']];
         $detail = [$primary['name']];
         foreach ($columns as $column) {
-            if (!self::publicColumn($column['name'], $softDeleteField)) continue;
-            if ($column['list']) $list[] = $column['name'];
-            if ($column['list'] || $column['query'] || $column['insert'] || $column['update']) $detail[] = $column['name'];
+            if (!self::publicColumn($column['name'], $softDeleteField)) {
+                continue;
+            }
+            if ($column['list']) {
+                $list[] = $column['name'];
+            }
+            if ($column['list'] || $column['query'] || $column['insert'] || $column['update']) {
+                $detail[] = $column['name'];
+            }
         }
         if ($tree !== []) {
             $list[] = $tree['parent'];
@@ -332,21 +367,29 @@ final class GeneratorRenderService
 
     private static function publicColumn(string $name, string $softDeleteField = ''): bool
     {
-        if (in_array($name, array_filter(['tenant_id', 'delete_time', $softDeleteField]), true)) return false;
+        if (in_array($name, array_filter(['tenant_id', 'delete_time', $softDeleteField]), true)) {
+            return false;
+        }
         return preg_match('/(?:password|passwd|secret|token|credential|private_key|api_key|access_key|refresh_key|salt|digest|hash)$/i', $name) !== 1;
     }
 
     /** @param list<array<string,mixed>> $columns @return array{enabled:bool,field:string} */
     private static function softDeleteConfig(mixed $raw, array $columns, array $primary): array
     {
-        if (!is_array($raw)) throw new RuntimeException('软删除配置必须是对象');
+        if (!is_array($raw)) {
+            throw new RuntimeException('软删除配置必须是对象');
+        }
         if (array_diff(array_keys($raw), ['enabled', 'field']) !== []) {
             throw new RuntimeException('软删除配置包含未声明字段');
         }
         $enabled = $raw['enabled'] ?? false;
-        if (!is_bool($enabled)) throw new RuntimeException('软删除 enabled 必须是布尔值');
-        if (!$enabled) return ['enabled' => false, 'field' => ''];
-        $field = trim((string)($raw['field'] ?? ''));
+        if (!is_bool($enabled)) {
+            throw new RuntimeException('软删除 enabled 必须是布尔值');
+        }
+        if (!$enabled) {
+            return ['enabled' => false, 'field' => ''];
+        }
+        $field = trim((string) ($raw['field'] ?? ''));
         if ($field === '' || !in_array($field, array_column($columns, 'name'), true)) {
             throw new RuntimeException('启用软删除时必须声明当前表存在的软删除字段');
         }
@@ -359,12 +402,18 @@ final class GeneratorRenderService
     /** @param list<array<string,mixed>> $columns */
     private static function treeConfig(mixed $rawTree, array $columns, string $templateType): array
     {
-        if (is_string($rawTree)) $rawTree = json_decode($rawTree, true) ?? [];
-        if (!is_array($rawTree) || $templateType !== 'tree') return [];
+        if (is_string($rawTree)) {
+            $rawTree = json_decode($rawTree, true) ?? [];
+        }
+        if (!is_array($rawTree) || $templateType !== 'tree') {
+            return [];
+        }
         $names = array_column($columns, 'name');
-        $parent = (string)($rawTree['parent_field'] ?? $rawTree['pid_field'] ?? 'pid');
-        $label = (string)($rawTree['label_field'] ?? $rawTree['name_field'] ?? 'name');
-        if (!in_array($parent, $names, true) || !in_array($label, $names, true)) throw new RuntimeException('树形配置引用了不存在的字段');
+        $parent = (string) ($rawTree['parent_field'] ?? $rawTree['pid_field'] ?? 'pid');
+        $label = (string) ($rawTree['label_field'] ?? $rawTree['name_field'] ?? 'name');
+        if (!in_array($parent, $names, true) || !in_array($label, $names, true)) {
+            throw new RuntimeException('树形配置引用了不存在的字段');
+        }
         return ['parent' => $parent, 'label' => $label];
     }
 
@@ -378,44 +427,62 @@ final class GeneratorRenderService
                 throw new RuntimeException('关联配置 JSON 无效', 0, $exception);
             }
         }
-        if (!is_array($rawRelations)) throw new RuntimeException('关联配置必须是数组');
+        if (!is_array($rawRelations)) {
+            throw new RuntimeException('关联配置必须是数组');
+        }
         $relations = [];
         $used = [];
         foreach ($rawRelations as $raw) {
-            if (!is_array($raw)) throw new RuntimeException('关联配置项格式无效');
-            $name = self::safeIdentifier((string)($raw['name'] ?? ''));
-            if (isset($used[$name])) throw new RuntimeException('关联名称不能重复');
+            if (!is_array($raw)) {
+                throw new RuntimeException('关联配置项格式无效');
+            }
+            $name = self::safeIdentifier((string) ($raw['name'] ?? ''));
+            if (isset($used[$name])) {
+                throw new RuntimeException('关联名称不能重复');
+            }
             $used[$name] = true;
-            $model = trim((string)($raw['model'] ?? ''));
-            if (preg_match('/^[A-Z][A-Za-z0-9]{0,63}$/D', $model) !== 1) throw new RuntimeException('关联模型配置不符合生成规范');
-            $relatedModule = self::module((string)($raw['module'] ?? $defaultModule['key']));
+            $model = trim((string) ($raw['model'] ?? ''));
+            if (preg_match('/^[A-Z][A-Za-z0-9]{0,63}$/D', $model) !== 1) {
+                throw new RuntimeException('关联模型配置不符合生成规范');
+            }
+            $relatedModule = self::module((string) ($raw['module'] ?? $defaultModule['key']));
             if ($relatedModule['key'] !== $defaultModule['key']) {
                 throw new RuntimeException('不允许跨模块 ORM 关联；请使用目标模块公开 query 合同');
             }
-            $relatedEdition = strtolower(trim((string)($raw['target_edition'] ?? '')));
-            $relatedOwner = strtolower(trim((string)($raw['data_owner'] ?? '')));
+            $relatedEdition = strtolower(trim((string) ($raw['target_edition'] ?? '')));
+            $relatedOwner = strtolower(trim((string) ($raw['data_owner'] ?? '')));
             if ($relatedEdition !== $edition || $relatedOwner !== 'tenant-orm') {
                 throw new RuntimeException('同模块 ORM 关联必须保持 tenant-orm 所有权且 Edition 一致');
             }
-            $method = match (strtolower((string)($raw['relation_type'] ?? $raw['type'] ?? 'belongsTo'))) {
+            $method = match (strtolower((string) ($raw['relation_type'] ?? $raw['type'] ?? 'belongsTo'))) {
                 'hasone', 'has_one' => 'hasOne',
                 'hasmany', 'has_many' => 'hasMany',
                 'belongsto', 'belongs_to' => 'belongsTo',
                 default => throw new RuntimeException('关联类型只允许 belongsTo、hasOne 或 hasMany'),
             };
             $summary = $raw['summary_fields'] ?? [];
-            if (!is_array($summary) || count($summary) > 12) throw new RuntimeException('关联摘要字段配置无效');
+            if (!is_array($summary) || count($summary) > 12) {
+                throw new RuntimeException('关联摘要字段配置无效');
+            }
             $summary = array_values(array_unique(array_map(
-                static fn(mixed $field): string => self::safeIdentifier((string)$field),
+                static fn(mixed $field): string => self::safeIdentifier((string) $field),
                 $summary,
             )));
-            $relatedSoftDeleteField = (string)($raw['soft_delete_field'] ?? '');
-            foreach ($summary as $field) if (!self::publicColumn($field, $relatedSoftDeleteField)) throw new RuntimeException('关联摘要不能公开租户、删除或秘密字段');
-            $summaryTypes = $raw['summary_types'] ?? [];
-            if (!is_array($summaryTypes)) throw new RuntimeException('关联摘要类型配置无效');
+            $relatedSoftDeleteField = (string) ($raw['soft_delete_field'] ?? '');
             foreach ($summary as $field) {
-                $fieldType = strtolower((string)($summaryTypes[$field] ?? ''));
-                if ($fieldType === '') throw new RuntimeException('关联摘要字段必须声明类型');
+                if (!self::publicColumn($field, $relatedSoftDeleteField)) {
+                    throw new RuntimeException('关联摘要不能公开租户、删除或秘密字段');
+                }
+            }
+            $summaryTypes = $raw['summary_types'] ?? [];
+            if (!is_array($summaryTypes)) {
+                throw new RuntimeException('关联摘要类型配置无效');
+            }
+            foreach ($summary as $field) {
+                $fieldType = strtolower((string) ($summaryTypes[$field] ?? ''));
+                if ($fieldType === '') {
+                    throw new RuntimeException('关联摘要字段必须声明类型');
+                }
                 $summaryTypes[$field] = $fieldType;
             }
             $relations[] = [
@@ -423,8 +490,8 @@ final class GeneratorRenderService
                 'method' => $method,
                 'namespace' => $relatedModule['namespace'],
                 'entity' => $model,
-                'localKey' => self::safeIdentifier((string)($raw['local_key'] ?? 'id')),
-                'foreignKey' => self::safeIdentifier((string)($raw['foreign_key'] ?? 'id')),
+                'localKey' => self::safeIdentifier((string) ($raw['local_key'] ?? 'id')),
+                'foreignKey' => self::safeIdentifier((string) ($raw['foreign_key'] ?? 'id')),
                 'summaryFields' => $summary,
                 'summaryTypes' => $summaryTypes,
                 'softDelete' => ($raw['soft_delete_enabled'] ?? false) === true,
@@ -511,7 +578,9 @@ PHP, $c + self::controllerFieldPolicies($c) + compact('listResponse', 'softDelet
         $policies = self::fieldPolicies($c);
         $queryCode = '';
         foreach ($c['columns'] as $column) {
-            if (!$column['query'] || !self::publicColumn($column['name'])) continue;
+            if (!$column['query'] || !self::publicColumn($column['name'])) {
+                continue;
+            }
             $operator = $column['enum'] === [] && in_array($column['type'], ['string', 'varchar', 'char', 'text'], true)
                 ? 'whereLike'
                 : 'where';
@@ -692,7 +761,9 @@ PHP, $c + $policies + [
 
     private static function renderSoftDeleteService(array $c, string $queryCode, string $listBody): string
     {
-        if (!$c['softDelete']) return '';
+        if (!$c['softDelete']) {
+            return '';
+        }
 
         $relationNames = array_values(array_map(
             static fn(array $relation): string => $relation['name'],
@@ -858,27 +929,39 @@ PHP, $c + compact(
         $messages = [];
         $relevant = array_unique([...$policies['insertFieldsArray'], ...$policies['updateFieldsArray'], ...$policies['listFieldsArray']]);
         foreach ($c['columns'] as $column) {
-            if (!in_array($column['name'], $relevant, true) || $column['name'] === $c['primary']) continue;
+            if (!in_array($column['name'], $relevant, true) || $column['name'] === $c['primary']) {
+                continue;
+            }
             $parts = [];
-            if ($column['required'] && $column['insert']) $parts[] = 'require';
-            if ($column['rule'] !== '') $parts[] = $column['rule'];
+            if ($column['required'] && $column['insert']) {
+                $parts[] = 'require';
+            }
+            if ($column['rule'] !== '') {
+                $parts[] = $column['rule'];
+            }
             if ($parts !== []) {
                 $parts = array_values(array_unique($parts));
                 $rules[$column['name']] = $column['enum'] === []
                     ? implode('|', $parts)
                     : [...$parts, 'in' => $column['enum']];
             }
-            if ($column['required'] && $column['insert']) $messages[$column['name'] . '.require'] = $column['comment'] . '不能为空';
+            if ($column['required'] && $column['insert']) {
+                $messages[$column['name'] . '.require'] = $column['comment'] . '不能为空';
+            }
         }
         $rules['page_no'] = 'integer|gt:0';
         $rules['page_size'] = 'integer|gt:0|elt:100';
-        if ($c['softDelete']) $rules['ids'] = 'array|checkIds';
+        if ($c['softDelete']) {
+            $rules['ids'] = 'array|checkIds';
+        }
         $listRemovals = '';
         foreach ($policies['listFieldsArray'] as $field) {
             if (isset($rules[$field]) && (
                 (is_string($rules[$field]) && str_contains($rules[$field], 'require'))
                 || (is_array($rules[$field]) && in_array('require', $rules[$field], true))
-            )) $listRemovals .= "\n            ->remove('{$field}', 'require')";
+            )) {
+                $listRemovals .= "\n            ->remove('{$field}', 'require')";
+            }
         }
         $softScenes = $c['softDelete']
             ? "        'recycle' => {$policies['listFields']},\n"
@@ -1059,7 +1142,9 @@ TS, $c + [
     {
         $visible = array_values(array_filter($c['columns'], static fn(array $column): bool => in_array($column['name'], $c['listFields'], true)));
         $columns = '';
-        foreach (array_slice($visible, 0, 8) as $column) $columns .= "    { title: '{$column['comment']}', dataIndex: '{$column['name']}' },\n";
+        foreach (array_slice($visible, 0, 8) as $column) {
+            $columns .= "    { title: '{$column['comment']}', dataIndex: '{$column['name']}' },\n";
+        }
         $recycleToggle = $c['softDelete'] ? self::replace(<<<'VUE'
       <a-button v-permission="['{{permissionPrefix}}.recycle.list']" @click="toggleRecycle">
         {{ showRecycle ? '返回普通列表' : '回收站' }}
@@ -1100,7 +1185,9 @@ VUE, $c) : '';
     await fetchData(pagination.current);
   };
 TS, $c) : '';
-        if ($c['softDelete']) $columns .= "    { title: '操作', slotName: 'actions', width: 180 },\n";
+        if ($c['softDelete']) {
+            $columns .= "    { title: '操作', slotName: 'actions', width: 180 },\n";
+        }
         return self::replace(<<<'VUE'
 <template>
   <a-card class="general-card" title="{{title}}">
@@ -1219,26 +1306,40 @@ PHP, $c + compact('softRoutes'));
         $schemaRef = static fn(string $name): array => ['$ref' => '#/components/schemas/' . $name];
         $responseRef = static fn(string $name): array => ['$ref' => '#/components/responses/' . $name];
         $columnSchema = static function (string $name) use ($columns, $schemaRef, $c): array {
-            if ($name === $c['primary']) return $schemaRef($c['entity'] . 'PrimaryKey');
+            if ($name === $c['primary']) {
+                return $schemaRef($c['entity'] . 'PrimaryKey');
+            }
             $column = $columns[$name] ?? null;
-            if (!is_array($column)) throw new RuntimeException('接口字段政策引用了未知字段：' . $name);
+            if (!is_array($column)) {
+                throw new RuntimeException('接口字段政策引用了未知字段：' . $name);
+            }
             $schema = ['type' => $column['openApiType']];
-            if ($column['length'] > 0 && $column['openApiType'] === 'string') $schema['maxLength'] = $column['length'];
-            if ($column['enum'] !== []) $schema['enum'] = $column['enum'];
+            if ($column['length'] > 0 && $column['openApiType'] === 'string') {
+                $schema['maxLength'] = $column['length'];
+            }
+            if ($column['enum'] !== []) {
+                $schema['enum'] = $column['enum'];
+            }
             return $schema;
         };
         $objectSchema = static function (array $fields, array $required = []) use ($columnSchema): array {
             $properties = [];
-            foreach ($fields as $field) $properties[$field] = $columnSchema($field);
+            foreach ($fields as $field) {
+                $properties[$field] = $columnSchema($field);
+            }
             $schema = ['type' => 'object', 'additionalProperties' => false, 'properties' => $properties];
-            if ($required !== []) $schema['required'] = array_values($required);
+            if ($required !== []) {
+                $schema['required'] = array_values($required);
+            }
             return $schema;
         };
 
         $listProperties = $objectSchema($c['listFields'], [$c['primary']])['properties'];
         $detailProperties = $objectSchema($c['detailFields'], [$c['primary']])['properties'];
         foreach ($c['relations'] as $relation) {
-            if ($relation['summaryFields'] === []) continue;
+            if ($relation['summaryFields'] === []) {
+                continue;
+            }
             $summaryProperties = [];
             foreach ($relation['summaryFields'] as $field) {
                 $summaryProperties[$field] = ['type' => self::openApiType($relation['summaryTypes'][$field])];
@@ -1252,12 +1353,17 @@ PHP, $c + compact('softRoutes'));
         }
 
         $primarySchema = ['type' => $c['primaryType'] === 'int' ? 'integer' : 'string'];
-        if ($c['primaryType'] === 'int') $primarySchema['minimum'] = 1;
-        elseif ($c['primaryLength'] > 0) $primarySchema['maxLength'] = $c['primaryLength'];
+        if ($c['primaryType'] === 'int') {
+            $primarySchema['minimum'] = 1;
+        } elseif ($c['primaryLength'] > 0) {
+            $primarySchema['maxLength'] = $c['primaryLength'];
+        }
 
         $createRequired = [];
         foreach ($policies['insertFieldsArray'] as $field) {
-            if (($columns[$field]['required'] ?? false) === true) $createRequired[] = $field;
+            if (($columns[$field]['required'] ?? false) === true) {
+                $createRequired[] = $field;
+            }
         }
         $schemas = [
             $c['entity'] . 'PrimaryKey' => $primarySchema,
@@ -1338,7 +1444,9 @@ PHP, $c + compact('softRoutes'));
                     ...$errors,
                 ])),
             ];
-            if ($body !== null) $value['requestBody'] = $requestBody($body);
+            if ($body !== null) {
+                $value['requestBody'] = $requestBody($body);
+            }
             return [$method => $value];
         };
 
@@ -1404,7 +1512,9 @@ PHP, $c + compact('softRoutes'));
     {
         $manifest = $c['manifest'];
         $tables = $manifest['database']['owned_tables'] ?? [];
-        if (!is_array($tables)) throw new RuntimeException('目标模块 owned_tables 声明无效');
+        if (!is_array($tables)) {
+            throw new RuntimeException('目标模块 owned_tables 声明无效');
+        }
         $tables[] = $c['databaseTable'];
         $tables = array_values(array_unique(array_map('strval', $tables)));
         sort($tables, SORT_STRING);
@@ -1419,7 +1529,9 @@ PHP, $c + compact('softRoutes'));
         } catch (\JsonException $exception) {
             throw new RuntimeException('目标模块权限清单无效', 0, $exception);
         }
-        if (!is_array($permissions) || !array_is_list($permissions)) throw new RuntimeException('目标模块权限清单必须是列表');
+        if (!is_array($permissions) || !array_is_list($permissions)) {
+            throw new RuntimeException('目标模块权限清单必须是列表');
+        }
         $existing = array_column($permissions, 'key');
         $actions = [
             'list' => ['api', 'normal', '查询'], 'detail' => ['api', 'normal', '查看'],
@@ -1436,7 +1548,9 @@ PHP, $c + compact('softRoutes'));
         }
         foreach ($actions as $action => [$type, $risk, $verb]) {
             $key = $c['permissionPrefix'] . '.' . $action;
-            if (in_array($key, $existing, true)) throw new RuntimeException('目标模块已登记同名权限：' . $key);
+            if (in_array($key, $existing, true)) {
+                throw new RuntimeException('目标模块已登记同名权限：' . $key);
+            }
             $permissions[] = ['key' => $key, 'type' => $type, 'name' => $verb . $c['title'], 'risk_level' => $risk];
         }
         return self::json($permissions);
@@ -1445,7 +1559,9 @@ PHP, $c + compact('softRoutes'));
     private static function mergeRouteRegistry(array $c): string
     {
         $include = "require __DIR__ . '/generated/{$c['resource']}.php';";
-        if (str_contains($c['routeSource'], $include)) throw new RuntimeException('目标模块已登记同名生成路由');
+        if (str_contains($c['routeSource'], $include)) {
+            throw new RuntimeException('目标模块已登记同名生成路由');
+        }
         return rtrim($c['routeSource']) . "\n\n{$include}\n";
     }
 
@@ -1465,14 +1581,22 @@ PHP, $c + compact('softRoutes'));
     private static function mergeOpenApiRegistry(array $c): string
     {
         $include = "require __DIR__ . '/generated/{$c['resource']}.php'";
-        if (!$c['openApiExists']) return "<?php\ndeclare(strict_types=1);\n\nreturn {$include};\n";
-        if (str_contains($c['openApiSource'], $include)) throw new RuntimeException('目标模块已登记同名接口元数据');
+        if (!$c['openApiExists']) {
+            return "<?php\ndeclare(strict_types=1);\n\nreturn {$include};\n";
+        }
+        if (str_contains($c['openApiSource'], $include)) {
+            throw new RuntimeException('目标模块已登记同名接口元数据');
+        }
         preg_match_all('/^return\s+\[/m', $c['openApiSource'], $matches, PREG_OFFSET_CAPTURE);
-        if (count($matches[0] ?? []) !== 1) throw new RuntimeException('目标模块 OpenAPI 元数据不是可安全合并的单一顶层 return 数组');
+        if (count($matches[0] ?? []) !== 1) {
+            throw new RuntimeException('目标模块 OpenAPI 元数据不是可安全合并的单一顶层 return 数组');
+        }
         $offset = $matches[0][0][1];
         $source = substr_replace($c['openApiSource'], '$base = [', $offset, strlen($matches[0][0][0]));
         $trimmed = rtrim($source);
-        if (!str_ends_with($trimmed, '];')) throw new RuntimeException('目标模块 OpenAPI 元数据结尾无法安全合并');
+        if (!str_ends_with($trimmed, '];')) {
+            throw new RuntimeException('目标模块 OpenAPI 元数据结尾无法安全合并');
+        }
         return $trimmed . "\n\nreturn array_replace_recursive(\$base, {$include});\n";
     }
 
@@ -1480,9 +1604,13 @@ PHP, $c + compact('softRoutes'));
     {
         $variable = 'generated' . $c['entity'] . 'Contribution';
         $import = "import {$variable} from './generated/{$c['resource']}/contribution';";
-        if (str_contains($c['frontendContributionSource'], $import)) throw new RuntimeException('目标模块已登记同名生成前端贡献');
+        if (str_contains($c['frontendContributionSource'], $import)) {
+            throw new RuntimeException('目标模块已登记同名生成前端贡献');
+        }
         $export = 'export default contribution;';
-        if (substr_count($c['frontendContributionSource'], $export) !== 1) throw new RuntimeException('目标模块前端贡献不是可安全合并的标准结构');
+        if (substr_count($c['frontendContributionSource'], $export) !== 1) {
+            throw new RuntimeException('目标模块前端贡献不是可安全合并的标准结构');
+        }
         return str_replace(
             $export,
             "contribution.routes.push(...{$variable}.routes);\n\n{$export}",
@@ -1551,11 +1679,15 @@ PHP, $c + compact('softRoutes'));
         $result = '';
         foreach ($fieldNames as $name) {
             $column = $byName[$name] ?? null;
-            if (!is_array($column)) continue;
+            if (!is_array($column)) {
+                continue;
+            }
             $result .= "  {$name}" . ($column['required'] || $column['primary'] ? '' : '?') . ": {$column['tsType']};\n";
         }
         foreach ($includeRelationSummaries ? $c['relations'] : [] as $relation) {
-            if ($relation['summaryFields'] === []) continue;
+            if ($relation['summaryFields'] === []) {
+                continue;
+            }
             $summary = implode(' ', array_map(
                 static fn(string $field): string => $field . ': ' . self::tsType($relation['summaryTypes'][$field]) . ';',
                 $relation['summaryFields'],
@@ -1582,20 +1714,28 @@ PHP, $c + compact('softRoutes'));
     private static function replace(string $template, array $values): string
     {
         $replace = [];
-        foreach ($values as $key => $value) if (is_scalar($value)) $replace['{{' . $key . '}}'] = (string)$value;
+        foreach ($values as $key => $value) {
+            if (is_scalar($value)) {
+                $replace['{{' . $key . '}}'] = (string) $value;
+            }
+        }
         return strtr($template, $replace) . "\n";
     }
 
     private static function repositoryRoot(): string
     {
         $root = realpath(dirname(__DIR__, 5));
-        if ($root === false || !is_dir($root . '/server/app/modules')) throw new RuntimeException('应用源码根目录不可用');
+        if ($root === false || !is_dir($root . '/server/app/modules')) {
+            throw new RuntimeException('应用源码根目录不可用');
+        }
         return $root;
     }
 
     private static function readFile(string $relative): string
     {
-        if ($relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) throw new RuntimeException('模块登记路径无效');
+        if ($relative === '' || str_starts_with($relative, '/') || str_contains($relative, '..')) {
+            throw new RuntimeException('模块登记路径无效');
+        }
         $root = self::repositoryRoot();
         $path = $root . '/' . $relative;
         $real = realpath($path);
@@ -1603,7 +1743,9 @@ PHP, $c + compact('softRoutes'));
             throw new RuntimeException('模块登记文件不存在或越界：' . $relative);
         }
         $content = file_get_contents($real);
-        if (!is_string($content)) throw new RuntimeException('模块登记文件无法读取：' . $relative);
+        if (!is_string($content)) {
+            throw new RuntimeException('模块登记文件无法读取：' . $relative);
+        }
         return $content;
     }
 
@@ -1619,7 +1761,9 @@ PHP, $c + compact('softRoutes'));
 
     private static function safeIdentifier(string $value): string
     {
-        if (preg_match('/^[a-z][a-z0-9_]*$/D', $value) !== 1) throw new RuntimeException('字段或关联名称不符合生成规范');
+        if (preg_match('/^[a-z][a-z0-9_]*$/D', $value) !== 1) {
+            throw new RuntimeException('字段或关联名称不符合生成规范');
+        }
         return $value;
     }
 
@@ -1635,16 +1779,22 @@ PHP, $c + compact('softRoutes'));
 
     private static function columnLength(array $column): int
     {
-        if (isset($column['max_length'])) return max(0, (int)$column['max_length']);
-        return preg_match('/\((\d+)\)/', (string)($column['column_type'] ?? ''), $matches) === 1 ? (int)$matches[1] : 0;
+        if (isset($column['max_length'])) {
+            return max(0, (int) $column['max_length']);
+        }
+        return preg_match('/\((\d+)\)/', (string) ($column['column_type'] ?? ''), $matches) === 1 ? (int) $matches[1] : 0;
     }
 
     /** @return list<string> */
     private static function columnEnum(array $column): array
     {
-        $columnType = trim((string)($column['column_type'] ?? ''));
-        if (preg_match('/^enum\((.*)\)$/iD', $columnType, $matches) !== 1) return [];
-        if (preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $matches[1], $values) === false) return [];
+        $columnType = trim((string) ($column['column_type'] ?? ''));
+        if (preg_match('/^enum\((.*)\)$/iD', $columnType, $matches) !== 1) {
+            return [];
+        }
+        if (preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $matches[1], $values) === false) {
+            return [];
+        }
         return array_values(array_unique(array_map(
             static fn(string $value): string => stripcslashes($value),
             $values[1],
@@ -1653,23 +1803,37 @@ PHP, $c + compact('softRoutes'));
 
     private static function tsType(string $type): string
     {
-        if ($type === 'array' || $type === 'json') return 'Record<string, unknown> | unknown[]';
+        if ($type === 'array' || $type === 'json') {
+            return 'Record<string, unknown> | unknown[]';
+        }
         return in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint', 'decimal', 'float', 'double'], true) ? 'number' : 'string';
     }
 
     private static function openApiType(string $type): string
     {
-        if (in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) return 'integer';
-        if (in_array($type, ['decimal', 'float', 'double'], true)) return 'number';
-        if ($type === 'array' || $type === 'json') return 'object';
+        if (in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) {
+            return 'integer';
+        }
+        if (in_array($type, ['decimal', 'float', 'double'], true)) {
+            return 'number';
+        }
+        if ($type === 'array' || $type === 'json') {
+            return 'object';
+        }
         return 'string';
     }
 
     private static function validationRule(string $type, int $length): string
     {
-        if (in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) return 'integer';
-        if (in_array($type, ['decimal', 'float', 'double'], true)) return 'float';
-        if ($type === 'array' || $type === 'json') return 'array';
+        if (in_array($type, ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'], true)) {
+            return 'integer';
+        }
+        if (in_array($type, ['decimal', 'float', 'double'], true)) {
+            return 'float';
+        }
+        if ($type === 'array' || $type === 'json') {
+            return 'array';
+        }
         return $length > 0 ? 'max:' . $length : 'string';
     }
 }

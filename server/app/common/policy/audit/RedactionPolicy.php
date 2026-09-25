@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\policy\audit;
@@ -34,7 +35,7 @@ final class RedactionPolicy
             return $value;
         }
         foreach ($value as $childKey => $childValue) {
-            $value[$childKey] = self::sanitize($childValue, (string)$childKey);
+            $value[$childKey] = self::sanitize($childValue, (string) $childKey);
         }
         return $value;
     }
@@ -43,7 +44,7 @@ final class RedactionPolicy
     {
         $encoded = json_encode(
             self::sanitize($value),
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE,
         );
         if (!is_string($encoded) || strlen($encoded) > self::MAX_JSON_BYTES) {
             return '{"_redacted":"payload_unavailable"}';

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -66,26 +67,45 @@ function controllerTenant(int $tenantId, int $accountId, int $memberId): TenantC
 
 class SampleAdminController extends BaseAdminController
 {
-    public function exposedContext(): CurrentExecutionContext { return $this->executionContext(); }
-    public function exposedAdminId(): int { return $this->adminId; }
-    public function exposedTenant(): TenantContext { return $this->tenantAdminContext(); }
+    public function exposedContext(): CurrentExecutionContext
+    {
+        return $this->executionContext();
+    }
+    public function exposedAdminId(): int
+    {
+        return $this->adminId;
+    }
+    public function exposedTenant(): TenantContext
+    {
+        return $this->tenantAdminContext();
+    }
 }
 
 class SampleApiController extends BaseApiController
 {
-    public function exposedContext(): CurrentExecutionContext { return $this->executionContext(); }
-    public function exposedMember(): mixed { return $this->memberContext(); }
+    public function exposedContext(): CurrentExecutionContext
+    {
+        return $this->executionContext();
+    }
+    public function exposedMember(): mixed
+    {
+        return $this->memberContext();
+    }
 }
 
 class SamplePlatformController extends BasePlatformController
 {
-    public function exposedContext(): CurrentExecutionContext { return $this->executionContext(); }
-    public function exposedPlatformContext(): ?PlatformOperatorContext { return $this->platformContext; }
+    public function exposedContext(): CurrentExecutionContext
+    {
+        return $this->executionContext();
+    }
+    public function exposedPlatformContext(): ?PlatformOperatorContext
+    {
+        return $this->platformContext;
+    }
 }
 
-class SampleRawController extends BaseController
-{
-}
+class SampleRawController extends BaseController {}
 
 $previousContainer = Container::getInstance();
 try {
@@ -109,11 +129,15 @@ try {
             'unknown magic property read was accepted',
         );
         expectControllerContextThrows(
-            static function () use ($controller): void { $controller->context = new stdClass(); },
+            static function () use ($controller): void {
+                $controller->context = new stdClass();
+            },
             'readonly magic context alias accepted a write',
         );
         expectControllerContextThrows(
-            static function () use ($controller): void { unset($controller->context); },
+            static function () use ($controller): void {
+                unset($controller->context);
+            },
             'readonly magic context alias accepted unset',
         );
     });

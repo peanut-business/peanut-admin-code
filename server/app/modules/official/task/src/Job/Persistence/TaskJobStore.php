@@ -87,7 +87,7 @@ final class TaskJobStore
     private function isUniqueConflict(Throwable $exception): bool
     {
         for ($current = $exception; $current !== null; $current = $current->getPrevious()) {
-            if ((string)$current->getCode() === '23000'
+            if ((string) $current->getCode() === '23000'
                 || str_contains(strtolower($current->getMessage()), 'duplicate entry')
             ) {
                 return true;
@@ -196,8 +196,15 @@ final class TaskJobStore
         $this->insertEvent($tenantId, (int) $row['id'], 'tenant.task.claimed', null, ['attempt' => $attempt]);
 
         return new JobClaim(
-            (int) $row['id'], (string) $row['job_key'], $tenantId, (string) $row['handler_key'],
-            $payload, (string) $row['trusted_envelope'], $attempt, (int) $row['max_attempts'], $leaseToken,
+            (int) $row['id'],
+            (string) $row['job_key'],
+            $tenantId,
+            (string) $row['handler_key'],
+            $payload,
+            (string) $row['trusted_envelope'],
+            $attempt,
+            (int) $row['max_attempts'],
+            $leaseToken,
         );
     }
 
@@ -415,11 +422,17 @@ final class TaskJobStore
     private function map(array $row, int $logicalTenantId): JobRecord
     {
         return new JobRecord(
-            (int) $row['id'], (string) $row['job_key'], $this->tenantScope->tenantId($row, $logicalTenantId),
-            (string) $row['task_type'], (string) $row['status'], (int) $row['attempt_count'],
-            (int) $row['max_attempts'], (int) $row['revision'],
+            (int) $row['id'],
+            (string) $row['job_key'],
+            $this->tenantScope->tenantId($row, $logicalTenantId),
+            (string) $row['task_type'],
+            (string) $row['status'],
+            (int) $row['attempt_count'],
+            (int) $row['max_attempts'],
+            (int) $row['revision'],
             is_string($row['last_error_code']) ? $row['last_error_code'] : null,
-            $this->timestamp($row['available_at']), $this->timestamp($row['created_at']),
+            $this->timestamp($row['available_at']),
+            $this->timestamp($row['created_at']),
             $this->timestamp($row['updated_at']),
             $row['completed_at'] === null ? null : $this->timestamp($row['completed_at']),
         );

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\provider;
@@ -80,27 +81,31 @@ final class PlatformProviderQualificationService
     /** @param list<array<string,mixed>> $rows @return array<string,mixed> */
     private function project(ProviderQualificationSubject $subject, array $rows, DateTimeImmutable $now): array
     {
-        $matching = array_values(array_filter($rows, static fn(array $row): bool =>
-            (string)($row['provider_key'] ?? '') === $subject->providerKey
-            && (string)($row['scope_type'] ?? '') === $subject->scopeType
-            && (($row['tenant_id'] ?? null) === null ? null : (int)$row['tenant_id']) === $subject->tenantId
-            && (string)($row['scope_reference'] ?? '') === $subject->scopeReference
+        $matching = array_values(array_filter(
+            $rows,
+            static fn(array $row): bool =>
+            (string) ($row['provider_key'] ?? '') === $subject->providerKey
+            && (string) ($row['scope_type'] ?? '') === $subject->scopeType
+            && (($row['tenant_id'] ?? null) === null ? null : (int) $row['tenant_id']) === $subject->tenantId
+            && (string) ($row['scope_reference'] ?? '') === $subject->scopeReference,
         ));
-        usort($matching, static fn(array $left, array $right): int =>
-            strcmp((string)($right['observed_at'] ?? ''), (string)($left['observed_at'] ?? ''))
+        usort(
+            $matching,
+            static fn(array $left, array $right): int =>
+            strcmp((string) ($right['observed_at'] ?? ''), (string) ($left['observed_at'] ?? '')),
         );
         $valid = array_values(array_filter($matching, static function (array $row) use ($subject, $now): bool {
-            $expiresAt = new DateTimeImmutable((string)$row['expires_at']);
-            return hash_equals($subject->configDigest, (string)($row['config_digest'] ?? ''))
+            $expiresAt = new DateTimeImmutable((string) $row['expires_at']);
+            return hash_equals($subject->configDigest, (string) ($row['config_digest'] ?? ''))
                 && $expiresAt > $now;
         }));
         $latestByType = [];
         foreach ($valid as $row) {
-            $type = (string)$row['evidence_type'];
+            $type = (string) $row['evidence_type'];
             $latestByType[$type] ??= $row;
         }
         $passed = static fn(string $type): bool => isset($latestByType[$type])
-            && (string)$latestByType[$type]['outcome'] === 'passed';
+            && (string) $latestByType[$type]['outcome'] === 'passed';
         $connected = $subject->implemented && $passed('connectivity');
         $callbackVerified = $subject->implemented && $passed('callback');
         $production = $subject->implemented && $passed('production');
@@ -108,14 +113,14 @@ final class PlatformProviderQualificationService
             && (!$subject->callbackRequired || $callbackVerified);
         $recentFailure = null;
         foreach ($matching as $row) {
-            $observed = new DateTimeImmutable((string)$row['observed_at']);
-            if ((string)($row['outcome'] ?? '') === 'failed'
-                && hash_equals($subject->configDigest, (string)($row['config_digest'] ?? ''))
+            $observed = new DateTimeImmutable((string) $row['observed_at']);
+            if ((string) ($row['outcome'] ?? '') === 'failed'
+                && hash_equals($subject->configDigest, (string) ($row['config_digest'] ?? ''))
                 && $observed >= $now->modify('-30 days')
             ) {
                 $recentFailure = [
-                    'code' => (string)$row['status_code'],
-                    'observed_at' => $this->iso((string)$row['observed_at']),
+                    'code' => (string) $row['status_code'],
+                    'observed_at' => $this->iso((string) $row['observed_at']),
                 ];
                 break;
             }
@@ -134,7 +139,7 @@ final class PlatformProviderQualificationService
         $validObserved = array_column($valid, 'observed_at');
         $validExpires = array_column($valid, 'expires_at');
         $scopeKey = 'scope_' . hash_hmac('sha256', $subject->internalKey(), $this->scopeDigestKey);
-        $evidenceKeys = array_map(static fn(array $row): string => (string)$row['evidence_key'], $matching);
+        $evidenceKeys = array_map(static fn(array $row): string => (string) $row['evidence_key'], $matching);
         sort($evidenceKeys, SORT_STRING);
         return [
             'provider_key' => $subject->providerKey,

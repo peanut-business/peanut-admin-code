@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /** Dependency-free export range/contract regression; NOT a MySQL or browser acceptance test. */
@@ -42,7 +43,7 @@ foreach ([
     ['ArticleAdministration', 'Article', 'official.article', 'articleLists'],
     ['ArticleCategoryAdministration', 'ArticleCate', 'official.article.category', 'categoryLists'],
 ] as [$contract, $model, $permission, $queryMethod]) {
-    $source = (string)file_get_contents($module . '/src/Service/' . $contract . 'Service.php');
+    $source = (string) file_get_contents($module . '/src/Service/' . $contract . 'Service.php');
     $expect(!str_contains($source, 'EXPORT_UNSUPPORTED'), $contract . ' still rejects every export');
     $expect(!str_contains($source, '(clone $query)->count()'), $contract . ' must not detach deferred scope callbacks from the count query');
     $expect(str_contains($source, 'private readonly XlsxExportService $xlsxExport'), $contract . ' must reuse injected XLSX storage');

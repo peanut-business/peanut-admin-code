@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\exception\storage;
@@ -10,8 +11,7 @@ final class StorageProviderException extends \RuntimeException
         public readonly int $httpStatus,
         string $message,
         ?\Throwable $previous = null,
-    )
-    {
+    ) {
         parent::__construct($message, 0, $previous);
     }
 

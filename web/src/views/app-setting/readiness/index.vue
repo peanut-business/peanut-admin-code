@@ -15,7 +15,9 @@
         <div class="card-header">
           <div>
             <div class="card-title">{{ $t('readiness.title') }}</div>
-            <div class="card-description">{{ $t('readiness.description') }}</div>
+            <div class="card-description">{{
+              $t('readiness.description')
+            }}</div>
           </div>
           <el-tag
             :type="checklist.production_ready ? 'success' : 'danger'"
@@ -50,7 +52,10 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('readiness.columns.impact')" min-width="260">
+        <el-table-column
+          :label="$t('readiness.columns.impact')"
+          min-width="260"
+        >
           <template #default="{ row }">
             {{ $t(row.impact_key) }}
           </template>
@@ -70,7 +75,10 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('readiness.columns.action')" min-width="280">
+        <el-table-column
+          :label="$t('readiness.columns.action')"
+          min-width="280"
+        >
           <template #default="{ row }">
             <div>{{ $t(row.action_key) }}</div>
             <el-button

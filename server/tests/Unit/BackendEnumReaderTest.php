@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -53,7 +54,9 @@ final class BackendEnumReaderTest extends TestCase
     private function runReader(string $input, string $key, bool $link = false): array
     {
         $directory = sys_get_temp_dir() . '/peanut-enum-' . bin2hex(random_bytes(8));
-        if (!mkdir($directory, 0700)) throw new RuntimeException('Cannot create enum fixture');
+        if (!mkdir($directory, 0700)) {
+            throw new RuntimeException('Cannot create enum fixture');
+        }
         $file = $directory . '/backend.env';
         file_put_contents($file, $input);
         chmod($file, 0600);
@@ -61,18 +64,27 @@ final class BackendEnumReaderTest extends TestCase
         try {
             if ($link) {
                 $selected = $directory . '/linked.env';
-                if (!symlink($file, $selected)) throw new RuntimeException('Cannot create test symlink');
+                if (!symlink($file, $selected)) {
+                    throw new RuntimeException('Cannot create test symlink');
+                }
             }
-            $process = proc_open(['/bin/sh', dirname(__DIR__, 3) . '/deploy/docker/read-backend-enum.sh', $selected, $key],
-                [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-            if (!is_resource($process)) throw new RuntimeException('Cannot start enum reader');
+            $process = proc_open(
+                ['/bin/sh', dirname(__DIR__, 3) . '/deploy/docker/read-backend-enum.sh', $selected, $key],
+                [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+                $pipes,
+            );
+            if (!is_resource($process)) {
+                throw new RuntimeException('Cannot start enum reader');
+            }
             $output = stream_get_contents($pipes[1]);
             $error = stream_get_contents($pipes[2]);
             fclose($pipes[1]);
             fclose($pipes[2]);
             return [proc_close($process), $output, $error];
         } finally {
-            if ($link && is_link($selected)) unlink($selected);
+            if ($link && is_link($selected)) {
+                unlink($selected);
+            }
             unlink($file);
             rmdir($directory);
         }

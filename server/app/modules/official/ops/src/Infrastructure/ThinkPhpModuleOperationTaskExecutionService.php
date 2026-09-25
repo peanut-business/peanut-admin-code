@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
@@ -43,8 +44,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
         private BackupRestoreProviderRegistry $backupProviders,
         private ApplicationRuntimeStatusProvider|Closure $runtimeStatus,
         private PlatformOperatorIdentityQuery $operators,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed>|null */
     public function claim(): ?array
@@ -69,7 +69,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
             if ($updated !== 1) {
                 throw new \RuntimeException('OPS_MODULE_CLAIM_CONFLICT');
             }
-            $revision = (int)$task['revision'] + 1;
+            $revision = (int) $task['revision'] + 1;
             Db::name('ops_module_execution')->insert([
                 'task_key' => $task['task_key'], 'request_key' => $payload['request_key'], 'current_step' => 'preflight',
             ]);
@@ -83,7 +83,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
                 'execution_revision' => $revision,
             ], AuditOutcome::Success, null);
             return [
-                'task_key' => (string)$task['task_key'],
+                'task_key' => (string) $task['task_key'],
                 'execution_revision' => $revision,
                 'current_step' => 'preflight',
                 'operation' => $payload['operation'],
@@ -96,7 +96,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     public function advance(string $taskKey, int $revision): array
     {
         $task = $this->runningTask($taskKey, $revision);
-        return match ((string)$this->execution($taskKey)['current_step']) {
+        return match ((string) $this->execution($taskKey)['current_step']) {
             'preflight' => $this->advancePreflight($task, $revision),
             'backup' => $this->advanceBackup($task, $revision),
             'restore_verification' => $this->advanceRestore($task, $revision),
@@ -112,7 +112,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     {
         $task = $this->runningTask($taskKey, $revision);
         $execution = $this->execution($taskKey);
-        if ((string)$execution['current_step'] !== 'execution') {
+        if ((string) $execution['current_step'] !== 'execution') {
             throw new \RuntimeException('OPS_MODULE_STEP_INVALID');
         }
         $payload = $this->payload($task);
@@ -123,8 +123,8 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
             'purge' => ['purged', 'unchanged'],
             default => [],
         };
-        if (!in_array((string)($result['operation'] ?? ''), $expected, true)
-            || !hash_equals($payload['package_key'], (string)($result['package_key'] ?? ''))
+        if (!in_array((string) ($result['operation'] ?? ''), $expected, true)
+            || !hash_equals($payload['package_key'], (string) ($result['package_key'] ?? ''))
         ) {
             throw new \RuntimeException('OPS_MODULE_EXECUTION_FAILED');
         }
@@ -148,30 +148,30 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
         $task = $this->runningTask($taskKey, $revision);
         $payload = $this->payload($task);
         $execution = $this->execution($taskKey);
-        if ((string)$execution['current_step'] !== 'smoke') {
+        if ((string) $execution['current_step'] !== 'smoke') {
             throw new \RuntimeException('OPS_MODULE_STEP_INVALID');
         }
-        $result = json_decode((string)$execution['operation_result_json'], true, 128, JSON_THROW_ON_ERROR);
+        $result = json_decode((string) $execution['operation_result_json'], true, 128, JSON_THROW_ON_ERROR);
         if (!is_array($result) || !$this->smoke($payload, $result)) {
             throw new \RuntimeException('OPS_MODULE_SMOKE_FAILED');
         }
         return $this->transaction(function () use ($task, $payload): array {
-            $locked = $this->lockedRunningTask((string)$task['task_key'], (int)$task['revision']);
-            $current = $this->execution((string)$task['task_key'], true);
-            if ((string)$current['current_step'] !== 'smoke') {
+            $locked = $this->lockedRunningTask((string) $task['task_key'], (int) $task['revision']);
+            $current = $this->execution((string) $task['task_key'], true);
+            if ((string) $current['current_step'] !== 'smoke') {
                 throw new \RuntimeException('OPS_MODULE_STEP_INVALID');
             }
             $pointer = $this->recoveryPointer($payload, $current);
             $pointerJson = $this->canonicalJson($pointer);
             $pointerSha = hash('sha256', $pointerJson);
             $context = $this->context($task);
-            $maintenanceKey = (string)$current['maintenance_key'];
-            $maintenanceRevision = (int)$current['maintenance_revision'];
+            $maintenanceKey = (string) $current['maintenance_key'];
+            $maintenanceRevision = (int) $current['maintenance_revision'];
             $this->maintenance->close(
                 $context,
                 $maintenanceKey,
                 $maintenanceRevision,
-                hash('sha256', (string)$task['task_key'] . ':maintenance-close'),
+                hash('sha256', (string) $task['task_key'] . ':maintenance-close'),
                 hash('sha256', $maintenanceKey . ':' . $maintenanceRevision),
                 new OpsAuditEvent('platform.ops.maintenance.closed', 'maintenance.close', [
                     'maintenance_key' => $maintenanceKey,
@@ -202,7 +202,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
                 'recovery_pointer_sha256' => $pointerSha,
             ], AuditOutcome::Success, null);
             return [
-                'task_key' => (string)$task['task_key'],
+                'task_key' => (string) $task['task_key'],
                 'status' => 'succeeded',
                 'operation' => $payload['operation'],
                 'package_key' => $payload['package_key'],
@@ -224,7 +224,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
             $pointerSha = null;
             if ($execution['backup_reference_key'] !== null) {
                 $pointer = $this->recoveryPointer($payload, $execution) + [
-                    'failed_step' => (string)$execution['current_step'],
+                    'failed_step' => (string) $execution['current_step'],
                     'error_code' => $errorCode,
                 ];
                 $pointerJson = $this->canonicalJson($pointer);
@@ -281,7 +281,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
         $payload = $this->payload($task);
         $request = $this->requestStore()->assertPrepared($payload['request_key']);
         $runtime = $this->runtime($this->context($task));
-        if (!hash_equals($payload['request_sha256'], (string)$request['request_sha256'])
+        if (!hash_equals($payload['request_sha256'], (string) $request['request_sha256'])
             || !hash_equals($payload['source_commit'], $runtime['commit'])
             || !hash_equals($payload['source_tree'], $runtime['tree'])
             || $runtime['health'] === 'unhealthy'
@@ -297,9 +297,9 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
             $payload['signature_key_id'] === '' ? null : $payload['signature_key_id'],
         );
         return $this->transaction(function () use ($task, $revision): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
-            if ((string)$execution['current_step'] !== 'preflight') {
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
+            if ((string) $execution['current_step'] !== 'preflight') {
                 throw new \RuntimeException('OPS_MODULE_STEP_INVALID');
             }
             $context = $this->context($task);
@@ -310,7 +310,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
                 ['provider_key' => $provider->key],
                 Package::BACKUP_TASK_TYPE . '.' . $provider->key,
                 $provider->maximumAttempts,
-                (string)$task['task_key'] . ':backup',
+                (string) $task['task_key'] . ':backup',
                 'platform.ops.backup.submitted',
                 'backup.submit',
             ));
@@ -330,20 +330,20 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     private function advanceBackup(array $task, int $revision): array
     {
         return $this->transaction(function () use ($task, $revision): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
             $child = Db::name('ops_task')->where('task_key', $execution['backup_task_key'])->lock(true)->find();
-            if ($child === null || (string)$child['status'] !== 'succeeded') {
-                if ($child !== null && in_array((string)$child['status'], ['queued', 'running'], true)) {
-                    return ['action' => 'wait_backup', 'child_task_key' => (string)$child['task_key']];
+            if ($child === null || (string) $child['status'] !== 'succeeded') {
+                if ($child !== null && in_array((string) $child['status'], ['queued', 'running'], true)) {
+                    return ['action' => 'wait_backup', 'child_task_key' => (string) $child['task_key']];
                 }
                 throw new \RuntimeException('OPS_MODULE_BACKUP_FAILED');
             }
             $evidence = Db::name('ops_backup_evidence')->where('task_key', $child['task_key'])->lock(true)->find();
             $payload = $this->payload($task);
             if ($evidence === null
-                || !hash_equals($payload['source_commit'], (string)$evidence['source_commit'])
-                || !hash_equals($payload['source_tree'], (string)$evidence['source_tree'])
+                || !hash_equals($payload['source_commit'], (string) $evidence['source_commit'])
+                || !hash_equals($payload['source_tree'], (string) $evidence['source_tree'])
             ) {
                 throw new \RuntimeException('OPS_MODULE_BACKUP_FAILED');
             }
@@ -353,12 +353,12 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
                 $provider->restoreHandlerKey,
                 [
                     'provider_key' => $provider->key,
-                    'backup_reference_key' => (string)$evidence['backup_reference_key'],
+                    'backup_reference_key' => (string) $evidence['backup_reference_key'],
                     'target_key' => PairedBackupProvider::RESTORE_TARGET_KEY,
                 ],
                 Package::RESTORE_TASK_TYPE . '.' . $provider->key,
                 $provider->maximumAttempts,
-                (string)$task['task_key'] . ':restore',
+                (string) $task['task_key'] . ':restore',
                 'platform.ops.restore.submitted',
                 'restore.submit',
             ));
@@ -378,21 +378,21 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     private function advanceRestore(array $task, int $revision): array
     {
         $result = $this->transaction(function () use ($task, $revision): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
             $child = Db::name('ops_task')->where('task_key', $execution['restore_task_key'])->lock(true)->find();
-            if ($child === null || (string)$child['status'] !== 'succeeded') {
-                if ($child !== null && in_array((string)$child['status'], ['queued', 'running'], true)) {
-                    return ['action' => 'wait_restore', 'child_task_key' => (string)$child['task_key']];
+            if ($child === null || (string) $child['status'] !== 'succeeded') {
+                if ($child !== null && in_array((string) $child['status'], ['queued', 'running'], true)) {
+                    return ['action' => 'wait_restore', 'child_task_key' => (string) $child['task_key']];
                 }
                 throw new \RuntimeException('OPS_MODULE_RESTORE_FAILED');
             }
             $evidence = Db::name('ops_restore_evidence')->where('task_key', $child['task_key'])->lock(true)->find();
             $payload = $this->payload($task);
             if ($evidence === null
-                || !hash_equals((string)$execution['backup_reference_key'], (string)$evidence['backup_reference_key'])
-                || !hash_equals($payload['source_commit'], (string)$evidence['source_commit'])
-                || !hash_equals($payload['source_tree'], (string)$evidence['source_tree'])
+                || !hash_equals((string) $execution['backup_reference_key'], (string) $evidence['backup_reference_key'])
+                || !hash_equals($payload['source_commit'], (string) $evidence['source_commit'])
+                || !hash_equals($payload['source_tree'], (string) $evidence['source_tree'])
             ) {
                 throw new \RuntimeException('OPS_MODULE_RESTORE_FAILED');
             }
@@ -414,9 +414,9 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     private function advanceMaintenance(array $task, int $revision): array
     {
         return $this->transaction(function () use ($task, $revision): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
-            if ((string)$execution['current_step'] !== 'maintenance'
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
+            if ((string) $execution['current_step'] !== 'maintenance'
                 || $execution['maintenance_key'] !== null
             ) {
                 throw new \RuntimeException('OPS_MODULE_STEP_INVALID');
@@ -432,7 +432,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
                 $now->modify('+23 hours')->format('Y-m-d\TH:i:s.v\Z'),
                 1,
             );
-            $idempotencyDigest = hash('sha256', (string)$task['task_key'] . ':maintenance-open');
+            $idempotencyDigest = hash('sha256', (string) $task['task_key'] . ':maintenance-open');
             $requestDigest = hash('sha256', $key . ':' . $window->startsAt . ':' . $window->endsAt);
             $created = $this->maintenance->schedule(
                 $context,
@@ -462,20 +462,20 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     /** @param array<string,string> $payload @param array<string,mixed> $result */
     private function smoke(array $payload, array $result): bool
     {
-        if (!hash_equals($payload['package_key'], (string)($result['package_key'] ?? ''))) {
+        if (!hash_equals($payload['package_key'], (string) ($result['package_key'] ?? ''))) {
             return false;
         }
         $row = Db::name('plugin_installation')->where('plugin_key', $payload['package_key'])
             ->field('status,installed_version,artifact_sha256,lock_digest')->find();
         if ($payload['operation'] === 'update') {
             return is_array($row)
-                && (string)$row['status'] === 'active'
-                && hash_equals((string)($result['version'] ?? ''), (string)$row['installed_version'])
-                && hash_equals((string)($result['artifact_sha256'] ?? ''), (string)$row['artifact_sha256'])
-                && hash_equals((string)($result['lock_digest'] ?? ''), (string)$row['lock_digest']);
+                && (string) $row['status'] === 'active'
+                && hash_equals((string) ($result['version'] ?? ''), (string) $row['installed_version'])
+                && hash_equals((string) ($result['artifact_sha256'] ?? ''), (string) $row['artifact_sha256'])
+                && hash_equals((string) ($result['lock_digest'] ?? ''), (string) $row['lock_digest']);
         }
         if ($payload['operation'] === 'retire') {
-            return is_array($row) && (string)$row['status'] === 'uninstalled';
+            return is_array($row) && (string) $row['status'] === 'uninstalled';
         }
         if ($row !== null) {
             return false;
@@ -514,12 +514,12 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
             'operation' => $payload['operation'],
             'source_commit' => $payload['source_commit'],
             'source_tree' => $payload['source_tree'],
-            'provider_key' => (string)$backup['provider_key'],
-            'backup_reference_key' => (string)$execution['backup_reference_key'],
-            'backup_manifest_sha256' => (string)$backup['manifest_sha256'],
-            'restore_evidence_sha256' => (string)$execution['restore_evidence_sha256'],
+            'provider_key' => (string) $backup['provider_key'],
+            'backup_reference_key' => (string) $execution['backup_reference_key'],
+            'backup_manifest_sha256' => (string) $backup['manifest_sha256'],
+            'restore_evidence_sha256' => (string) $execution['restore_evidence_sha256'],
             'operation_result_sha256' => $execution['operation_result_sha256'] === null
-                ? null : (string)$execution['operation_result_sha256'],
+                ? null : (string) $execution['operation_result_sha256'],
         ];
     }
 
@@ -533,7 +533,9 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     {
         if ($this->runtimeStatus instanceof Closure) {
             $identity = ($this->runtimeStatus)($context);
-            if (is_array($identity)) return $identity;
+            if (is_array($identity)) {
+                return $identity;
+            }
         }
         $snapshot = $this->runtimeStatus->snapshot($context);
         return [
@@ -591,7 +593,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     /** @param array<string,mixed> $task @return array<string,string> */
     private function payload(array $task): array
     {
-        $payload = json_decode((string)$task['payload_json'], true, 64, JSON_THROW_ON_ERROR);
+        $payload = json_decode((string) $task['payload_json'], true, 64, JSON_THROW_ON_ERROR);
         $expected = [
             'archive_sha256', 'confirm_plan_json', 'confirm_plan_sha256',
             'delivery_resource_id', 'environment', 'operation', 'package_key',
@@ -625,13 +627,13 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
         return PlatformContext::fromValidatedSession(
             new ValidatedPlatformSession(
                 1,
-                'module-worker-' . substr((string)$task['task_key'], 4, 16),
-                (int)$task['account_id'],
-                (int)$task['submitted_by_operator_id'],
+                'module-worker-' . substr((string) $task['task_key'], 4, 16),
+                (int) $task['account_id'],
+                (int) $task['submitted_by_operator_id'],
                 'platform-web',
                 new DateTimeImmutable('now'),
             ),
-            'module-' . substr((string)$task['task_key'], 4),
+            'module-' . substr((string) $task['task_key'], 4),
         );
     }
 
@@ -674,13 +676,12 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
         array $metadata,
         AuditOutcome $outcome,
         ?string $reasonCode,
-    ): void
-    {
+    ): void {
         $this->audit->recordPlatform(
             $eventType,
             $action,
-            'module-' . substr((string)$task['task_key'], 4),
-            (int)$task['submitted_by_operator_id'],
+            'module-' . substr((string) $task['task_key'], 4),
+            (int) $task['submitted_by_operator_id'],
             $this->operators->accountId((int) $task['submitted_by_operator_id']),
             $metadata,
             $outcome,
@@ -706,9 +707,15 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService
     private function canonicalJson(array $value): string
     {
         $normalize = function (mixed $item) use (&$normalize): mixed {
-            if (!is_array($item)) return $item;
-            if (!array_is_list($item)) ksort($item, SORT_STRING);
-            foreach ($item as $key => $child) $item[$key] = $normalize($child);
+            if (!is_array($item)) {
+                return $item;
+            }
+            if (!array_is_list($item)) {
+                ksort($item, SORT_STRING);
+            }
+            foreach ($item as $key => $child) {
+                $item[$key] = $normalize($child);
+            }
             return $item;
         };
         return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);

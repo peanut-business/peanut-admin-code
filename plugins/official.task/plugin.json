@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "41e5c411c60659e26e14b16e0b0e1fa08c5a8a2c22e4ac73151ee7d9fb22f23a"
+        "sha256": "ac0b2f248549d228a678c4772f88c5013ee640e0c4fc57efcd882449af294824"
     },
     "trust": {
         "channel": "bundled",
@@ -88,7 +88,7 @@
             "package": "@peanut-admin/official-task",
             "version": "1.0.0",
             "entry": "web/src/modules/official-task/contribution.ts",
-            "sha256": "ab76f9155d122adf7d06fa64fc7dd093567b197f9cde11b9fcabeef73ff2ce42"
+            "sha256": "973efb4a55feba39510935dddad887e02af16f163e250090b22fcc0add71f638"
         }
     ],
     "modules": [

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\plugin;
@@ -16,8 +17,7 @@ final readonly class PluginCatalogSyncService
         private string $serverRoot,
         private array $moduleConfig,
         private ModuleCatalogApplier $catalogs,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function sync(?string $moduleKey = null): array
@@ -28,7 +28,7 @@ final readonly class PluginCatalogSyncService
             ->compiled();
         $registered = [];
         foreach ($compiled->modules as $manifest) {
-            $key = (string)($manifest->data['key'] ?? '');
+            $key = (string) ($manifest->data['key'] ?? '');
             $registered[$key] = true;
         }
         if ($moduleKey !== null && !isset($registered[$moduleKey])) {

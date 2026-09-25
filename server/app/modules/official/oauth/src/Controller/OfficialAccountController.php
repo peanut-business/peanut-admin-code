@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Controller;
@@ -16,7 +17,7 @@ class OfficialAccountController extends BaseAdminController
     {
         return $this->data($this->officialAccounts->getConfig(
             $this->tenantAdminContext(),
-            (string)$this->request->domain(),
+            (string) $this->request->domain(),
         ));
     }
 

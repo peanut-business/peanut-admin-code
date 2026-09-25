@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\decoration;
@@ -50,11 +51,11 @@ class DecorationTabbarApplicationService
                 $item = $this->schema->resourcesForStorage($item, $context);
                 $rows[] = [
                     'position' => $position,
-                    'name' => trim((string)$item['name']),
-                    'selected' => (string)$item['selected'],
-                    'unselected' => (string)$item['unselected'],
+                    'name' => trim((string) $item['name']),
+                    'selected' => (string) $item['selected'],
+                    'unselected' => (string) $item['unselected'],
                     'link' => json_encode($item['link'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-                    'is_show' => (int)$item['is_show'],
+                    'is_show' => (int) $item['is_show'],
                 ];
             }
             if ($rows !== []) {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 $h = require __DIR__ . '/common.php';
@@ -81,12 +82,14 @@ $schemas = [
 
 $paths = [
     '/installapi/status' => ['get' => $operation(
-        'getInstallationStatus', 'Installation',
+        'getInstallationStatus',
+        'Installation',
         ['200' => $success($ref('InstallationStatus')), '503' => $error],
         description: '只读安装状态与 preflight；不会执行数据库安装。',
     )],
     '/installapi/execute' => ['post' => $operation(
-        'executeGuidedInstallation', 'Installation',
+        'executeGuidedInstallation',
+        'Installation',
         ['200' => $success($ref('InstallationResult')), '403' => $error, '409' => $error, '422' => $error, '503' => $error],
         requestBody: $jsonBody($ref('InstallationExecuteRequest')),
         errors: [

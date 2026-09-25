@@ -22,14 +22,14 @@ final readonly class ThinkPhpTenantAuditDiagnosticQuery implements TenantAuditDi
             ->order('occurred_at', 'desc')->order('id', 'desc')->limit($limit)->select()->toArray();
 
         return array_map(static fn(array $row): array => [
-            'tenant_id' => (int)$row['tenant_id'],
-            'request_id' => (string)$row['request_id'],
-            'operation_id' => $row['operation_id'] === null ? null : (string)$row['operation_id'],
-            'operation' => (string)$row['action'],
-            'outcome' => (string)$row['outcome'],
-            'reason_code' => $row['reason_code'] === null ? null : (string)$row['reason_code'],
-            'route' => (string)$row['target_resource_id'],
-            'occurred_at' => self::instant((string)$row['occurred_at']),
+            'tenant_id' => (int) $row['tenant_id'],
+            'request_id' => (string) $row['request_id'],
+            'operation_id' => $row['operation_id'] === null ? null : (string) $row['operation_id'],
+            'operation' => (string) $row['action'],
+            'outcome' => (string) $row['outcome'],
+            'reason_code' => $row['reason_code'] === null ? null : (string) $row['reason_code'],
+            'route' => (string) $row['target_resource_id'],
+            'occurred_at' => self::instant((string) $row['occurred_at']),
         ], $rows);
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\http\middleware;
@@ -18,8 +19,7 @@ final class PlatformLoginMiddleware
         private readonly CurrentExecutionContext $executionContext,
         private readonly ApplicationHostPolicy $hosts,
         private readonly PlatformOperatorSessionService $sessions,
-    ) {
-    }
+    ) {}
 
     public function handle($request, \Closure $next)
     {
@@ -36,7 +36,7 @@ final class PlatformLoginMiddleware
         try {
             $context = $this->sessions->context(
                 $token,
-                PlatformRequest::requestId($this->executionContext, $request)
+                PlatformRequest::requestId($this->executionContext, $request),
             );
         } catch (AuthException|\DomainException|\InvalidArgumentException) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication credential is invalid.', null, 40100);
@@ -44,8 +44,8 @@ final class PlatformLoginMiddleware
 
         $operation = sprintf(
             'http.platform.%s.%s',
-            strtolower((string)$request->method()),
-            trim((string)$request->pathinfo(), '/'),
+            strtolower((string) $request->method()),
+            trim((string) $request->pathinfo(), '/'),
         );
         return $this->executionContexts->run(
             new \app\common\execution\PlatformExecutionContext($context, $operation),

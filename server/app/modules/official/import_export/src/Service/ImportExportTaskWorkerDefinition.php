@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Service;
@@ -17,8 +18,7 @@ final readonly class ImportExportTaskWorkerDefinition implements TaskWorkerDefin
     public function __construct(
         private ImportExportTaskHandler $handler,
         private AdminAsyncAuthorization $authorization,
-    ) {
-    }
+    ) {}
 
     public function ownerModuleKey(): string
     {

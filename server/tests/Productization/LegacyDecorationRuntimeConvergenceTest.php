@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -13,38 +14,38 @@ function expectLegacyDecorationConvergence(bool $condition, string $message): vo
 $serverRoot = dirname(__DIR__, 2);
 $repositoryRoot = dirname($serverRoot);
 
-$decorationEnum = (string)file_get_contents(
-    $serverRoot . '/app/common/enum/decoration/DecorationEnum.php'
+$decorationEnum = (string) file_get_contents(
+    $serverRoot . '/app/common/enum/decoration/DecorationEnum.php',
 );
-$decorationSchema = (string)file_get_contents(
-    $serverRoot . '/app/common/service/decoration/DecorationSchemaService.php'
+$decorationSchema = (string) file_get_contents(
+    $serverRoot . '/app/common/service/decoration/DecorationSchemaService.php',
 );
 expectLegacyDecorationConvergence(
     str_contains($decorationEnum, 'public const MOBILE_CUSTOMER_SERVICE = 3')
         && str_contains($decorationEnum, 'self::MOBILE_CUSTOMER_SERVICE'),
-    'customer-service type=3 is not part of the authoritative mobile Runtime'
+    'customer-service type=3 is not part of the authoritative mobile Runtime',
 );
 expectLegacyDecorationConvergence(
     str_contains($decorationSchema, "DecorationEnum::MOBILE_CUSTOMER_SERVICE => ['customer-service']"),
-    'customer-service type=3 does not own the customer-service component'
+    'customer-service type=3 does not own the customer-service component',
 );
 foreach (['title', 'time', 'mobile', 'qrcode', 'remark'] as $field) {
     expectLegacyDecorationConvergence(
         str_contains($decorationSchema, "'{$field}'"),
-        'customer-service schema is missing contracted field: ' . $field
+        'customer-service schema is missing contracted field: ' . $field,
     );
 }
 expectLegacyDecorationConvergence(
     str_contains($decorationSchema, 'resourcesForStorage')
         && str_contains($decorationSchema, "'qrcode'"),
-    'customer-service QR is not normalized by the Decoration resource boundary'
+    'customer-service QR is not normalized by the Decoration resource boundary',
 );
 
 $routeSource = peanut_route_registry_source($serverRoot);
 foreach (['setting/customer-service/config', 'setting/customer-service/save', 'setting/decorate/config', 'setting/decorate/save'] as $legacyRoute) {
     expectLegacyDecorationConvergence(
         !str_contains($routeSource, $legacyRoute),
-        'retired setting API remains routable: ' . $legacyRoute
+        'retired setting API remains routable: ' . $legacyRoute,
     );
 }
 foreach (['decoration/mobile/page/lists', 'decoration/mobile/page/detail', 'decoration/mobile/page/save'] as $route) {
@@ -60,24 +61,24 @@ foreach ([
     expectLegacyDecorationConvergence(!is_file($serverRoot . '/' . $retiredPath), 'retired setting Runtime remains: ' . $retiredPath);
 }
 
-$webRoutes = (string)file_get_contents($repositoryRoot . '/web/src/router/routes/modules/app-setting.ts');
+$webRoutes = (string) file_get_contents($repositoryRoot . '/web/src/router/routes/modules/app-setting.ts');
 foreach (['customer-service', 'decorate'] as $legacyPath) {
     expectLegacyDecorationConvergence(
         preg_match(
             "/path: '{$legacyPath}'[\\s\\S]*?redirect: '\/decoration\/mobile'[\\s\\S]*?hideInMenu: true/",
-            $webRoutes
+            $webRoutes,
         ) === 1,
-        'legacy Web URL does not explicitly redirect and stay hidden: ' . $legacyPath
+        'legacy Web URL does not explicitly redirect and stay hidden: ' . $legacyPath,
     );
 }
 expectLegacyDecorationConvergence(
     !str_contains($webRoutes, "@/views/app-setting/customer-service")
         && !str_contains($webRoutes, "@/views/app-setting/decorate"),
-    'legacy setting page remains mounted'
+    'legacy setting page remains mounted',
 );
 
-$menuMigration = (string)file_get_contents(
-    $serverRoot . '/database/init.sql'
+$menuMigration = (string) file_get_contents(
+    $serverRoot . '/database/init.sql',
 );
 foreach ([
     '/app-setting/decorate',
@@ -92,43 +93,43 @@ foreach ([
 expectLegacyDecorationConvergence(
     str_contains($menuMigration, 'DELETE FROM `pa_system_role_menu`')
         && str_contains($menuMigration, 'DELETE FROM `pa_system_menu`'),
-    'menu retirement does not remove role grants before menu nodes'
+    'menu retirement does not remove role grants before menu nodes',
 );
-$decorationMenu = (string)file_get_contents(
-    $serverRoot . '/database/init.sql'
+$decorationMenu = (string) file_get_contents(
+    $serverRoot . '/database/init.sql',
 );
 expectLegacyDecorationConvergence(
     substr_count($decorationMenu, "'移动端装修' AS `name`") === 1
         && str_contains($decorationMenu, "'/decoration/mobile' AS `paths`"),
-    'authoritative mobile decoration menu is missing or duplicated'
+    'authoritative mobile decoration menu is missing or duplicated',
 );
 
-$editor = (string)file_get_contents($repositoryRoot . '/web/src/views/decoration/mobile/index.vue');
+$editor = (string) file_get_contents($repositoryRoot . '/web/src/views/decoration/mobile/index.vue');
 foreach (['title', 'time', 'mobile', 'qrcode', 'remark'] as $field) {
     expectLegacyDecorationConvergence(
         str_contains($editor, "content(component).{$field}"),
-        'authoritative editor does not edit customer-service field: ' . $field
+        'authoritative editor does not edit customer-service field: ' . $field,
     );
 }
 expectLegacyDecorationConvergence(
     str_contains($editor, 'saveMobileDecoration') && str_contains($editor, 'type: activeType.value'),
-    'authoritative editor does not save through the typed Decoration Runtime'
+    'authoritative editor does not save through the typed Decoration Runtime',
 );
 
-$h5CustomerPage = (string)file_get_contents(
-    $repositoryRoot . '/uniapp/src/pages/customer_service/customer_service.vue'
+$h5CustomerPage = (string) file_get_contents(
+    $repositoryRoot . '/uniapp/src/pages/customer_service/customer_service.vue',
 );
 expectLegacyDecorationConvergence(
     str_contains($h5CustomerPage, 'getMobileDecoration(3)')
         && str_contains($h5CustomerPage, "getDecorationComponent(page, 'customer-service')")
         && str_contains($h5CustomerPage, 'onShow(loadService)'),
-    'H5 customer page does not refresh from Decoration type=3'
+    'H5 customer page does not refresh from Decoration type=3',
 );
 foreach (['title', 'time', 'mobile', 'qrcode', 'remark'] as $field) {
     expectLegacyDecorationConvergence(
         str_contains($h5CustomerPage, "service.{$field}")
             && str_contains($h5CustomerPage, "content.{$field}"),
-        'H5 refresh does not project customer-service field: ' . $field
+        'H5 refresh does not project customer-service field: ' . $field,
     );
 }
 

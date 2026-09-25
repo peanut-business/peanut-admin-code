@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
@@ -39,7 +40,7 @@ final class StorageController extends BaseApiController
         return response($contents, 200, [
             'Cache-Control' => 'no-store, private',
             'Content-Disposition' => $file['disposition'] . "; filename*=UTF-8''" . $filename,
-            'Content-Length' => (string)strlen($contents),
+            'Content-Length' => (string) strlen($contents),
             'Content-Type' => $file['media_type'],
             'Pragma' => 'no-cache',
             'X-Content-Type-Options' => 'nosniff',
@@ -48,12 +49,12 @@ final class StorageController extends BaseApiController
 
     private function positiveInteger(mixed $value): int
     {
-        $candidate = is_int($value) ? (string)$value : (is_string($value) ? trim($value) : '');
+        $candidate = is_int($value) ? (string) $value : (is_string($value) ? trim($value) : '');
         if (preg_match('/^[1-9][0-9]*$/D', $candidate) !== 1
             || filter_var($candidate, FILTER_VALIDATE_INT) === false
         ) {
             throw new \InvalidArgumentException('文件链接参数无效');
         }
-        return (int)$candidate;
+        return (int) $candidate;
     }
 }

@@ -41,7 +41,11 @@ export interface UninstallPreview {
   removed: UninstallPlanEntry[];
   blockers: Array<{
     code: string;
-    kind?: 'product_policy' | 'business_dependency' | 'tenant_enablement' | 'data_integrity';
+    kind?:
+      | 'product_policy'
+      | 'business_dependency'
+      | 'tenant_enablement'
+      | 'data_integrity';
     identifiers: string[];
   }>;
 }
@@ -106,8 +110,10 @@ const MODULE_ERROR_MESSAGES: Record<string, string> = {
   MODULE_STATE_INVALID: '模块当前状态不允许执行该操作',
   MODULE_CHANGE_REASON_INVALID: '变更原因需为 3 至 500 个字符',
   MODULE_LIFECYCLE_PROTECTED: '该模块属于实例核心能力，不允许停用、退役或清除',
-  PLUGIN_INSTALL_RECOVERY_IDENTITY_MISMATCH: '安装恢复包身份不一致，必须重试原包或使用更高版本修复包',
-  MODULE_MIGRATION_REPAIR_REQUIRED: '数据库迁移处于不确定状态，需要追加幂等修复 migration 后前滚',
+  PLUGIN_INSTALL_RECOVERY_IDENTITY_MISMATCH:
+    '安装恢复包身份不一致，必须重试原包或使用更高版本修复包',
+  MODULE_MIGRATION_REPAIR_REQUIRED:
+    '数据库迁移处于不确定状态，需要追加幂等修复 migration 后前滚',
   MODULE_MIGRATION_REPAIR_INVALID: '修复 migration 的前驱声明无效',
   MODULE_CREATE_KEY_INVALID: 'Module key 格式无效',
   MODULE_CREATE_VENDOR_INVALID: 'Module vendor 格式无效',
@@ -157,15 +163,19 @@ export function installPackage(form: FormData) {
   );
 }
 
-export function createModule(moduleKey: string) {
+export function createModule(
+  moduleKey: string,
+  targetClient: 'none' | 'admin-web' = 'none'
+) {
   return unwrap<{
     operation: 'created';
     module_key: string;
     backend_path: string;
-    frontend_path: string;
+    frontend_path: string | null;
   }>(
     client.post('/platformapi/instance-tools/modules/create', {
       module_key: moduleKey,
+      client: targetClient,
     })
   );
 }

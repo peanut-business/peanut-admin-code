@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services;
@@ -13,9 +14,8 @@ final readonly class PlatformTenantQueryService
 
     public function __construct(
         private PlatformOperatorSessionService $sessions,
-        private PlatformWorkspaceQueryService $workspace
-    ) {
-    }
+        private PlatformWorkspaceQueryService $workspace,
+    ) {}
 
     /** @return array{items:list<array<string,mixed>>,total:int} */
     public function tenants(PlatformOperatorContext $context, PageRequest $page): array

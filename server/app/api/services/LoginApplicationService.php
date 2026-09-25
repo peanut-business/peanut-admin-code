@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -23,8 +24,7 @@ class LoginApplicationService
         private readonly FileReferences $files,
         private readonly UserTokenService $tokens,
         private readonly string $defaultAvatar,
-    ) {
-    }
+    ) {}
 
     /**
      * 账号注册
@@ -35,8 +35,8 @@ class LoginApplicationService
         $this->assertLoginWayEnabled($context, 1);
         $this->memberIdentities->register(
             $context,
-            (string)$params['account'],
-            (string)$params['password'],
+            (string) $params['account'],
+            (string) $params['password'],
             $this->defaultAvatar($context),
         );
 
@@ -52,8 +52,8 @@ class LoginApplicationService
         $this->assertLoginWayEnabled($context, 1);
         $member = $this->memberIdentities->login(
             $context,
-            (string)$params['account'],
-            (string)$params['password'],
+            (string) $params['account'],
+            (string) $params['password'],
             $ip,
         );
 
@@ -95,12 +95,12 @@ class LoginApplicationService
 
     public function resetPassword(TenantContext|TenantSystemContext $context, array $params): bool
     {
-        $this->memberIdentities->assertMobileBound($context, (string)$params['mobile']);
+        $this->memberIdentities->assertMobileBound($context, (string) $params['mobile']);
         $result = $this->verificationCodes->verifyCode(
             $context,
             NoticeSceneEnum::RESET_PASSWORD,
             (string) $params['mobile'],
-            (string) $params['code']
+            (string) $params['code'],
         );
         if (!$result->accepted) {
             throw BusinessException::invalid('MEMBER_VERIFICATION_REJECTED', $result->error);
@@ -108,8 +108,8 @@ class LoginApplicationService
 
         $this->memberIdentities->resetPasswordByVerifiedMobile(
             $context,
-            (string)$params['mobile'],
-            (string)$params['password'],
+            (string) $params['mobile'],
+            (string) $params['password'],
         );
         return true;
     }
@@ -133,8 +133,7 @@ class LoginApplicationService
     private function assertLoginWayEnabled(
         TenantContext|TenantSystemContext $context,
         int $way,
-    ): void
-    {
+    ): void {
         $enabled = $this->applicationSettings->login($context)['login_way'];
         if (!in_array($way, $enabled, true)) {
             throw BusinessException::forbidden('MEMBER_LOGIN_WAY_DISABLED', '当前登录方式未启用');
@@ -143,7 +142,7 @@ class LoginApplicationService
 
     private function defaultAvatar(TenantContext|TenantSystemContext $context): string
     {
-        $avatar = trim((string)$this->applicationSettings->memberProfile($context)['user_avatar']);
+        $avatar = trim((string) $this->applicationSettings->memberProfile($context)['user_avatar']);
         return $avatar !== '' ? $avatar : $this->defaultAvatar;
     }
 

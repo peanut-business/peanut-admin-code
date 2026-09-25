@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\crontab;
@@ -8,9 +9,7 @@ use PeanutAdmin\Kernel\Tenancy\TenantScope;
 
 final readonly class CrontabTenantLock
 {
-    public function __construct(private ThinkPhpTenantLockStore $locks)
-    {
-    }
+    public function __construct(private ThinkPhpTenantLockStore $locks) {}
 
     public static function name(TenantScope $scope, int $jobId): string
     {

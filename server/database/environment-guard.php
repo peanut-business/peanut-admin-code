@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
@@ -147,8 +148,8 @@ function activeLeaseMetadata(string $proofPath, int $now, string $expectedGate):
         || preg_match('/^[0-9]+$/D', $metadata['created_at']) !== 1
         || preg_match('/^[0-9]+$/D', $metadata['expires_at']) !== 1
         || $metadata['status'] !== 'ACTIVE'
-        || (int)$metadata['created_at'] > $now
-        || (int)$metadata['expires_at'] <= $now) {
+        || (int) $metadata['created_at'] > $now
+        || (int) $metadata['expires_at'] <= $now) {
         throw new RuntimeException('active lease 未激活、已过期或 metadata 合同不匹配');
     }
     return $metadata;
@@ -207,7 +208,7 @@ function templatedDatabaseIdentity(array $database, string $name): array
     $matcher = str_replace(
         [preg_quote('<run_id>', '/'), preg_quote('<scenario>', '/')],
         ['(?P<run_id>.+?)', '(?P<scenario>.+?)'],
-        $matcher
+        $matcher,
     );
     if (preg_match('/^' . $matcher . '$/D', $name, $matches) !== 1
         || !in_array($matches['scenario'], $allowedScenarios, true)) {
@@ -251,7 +252,7 @@ function leaseGit(array $arguments): string
     $process = proc_open(
         array_merge(['/usr/bin/git'], $arguments),
         [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-        $pipes
+        $pipes,
     );
     if (!is_resource($process)) {
         throw new RuntimeException('consumer-upgrade candidate Git identity 不可用');
@@ -261,7 +262,7 @@ function leaseGit(array $arguments): string
     fclose($pipes[1]);
     fclose($pipes[2]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('consumer-upgrade candidate Git identity 无法解析: ' . trim((string)$stderr));
+        throw new RuntimeException('consumer-upgrade candidate Git identity 无法解析: ' . trim((string) $stderr));
     }
     return trim($stdout);
 }
@@ -276,7 +277,7 @@ function leaseGit(array $arguments): string
 function assertConsumerUpgradeCandidateLeaseIdentity(
     string $proofPath,
     array $metadata,
-    array $resources
+    array $resources,
 ): void {
     $candidateRepository = realpath($metadata['candidate_repository']);
     $worktree = realpath($metadata['worktree']);
@@ -331,7 +332,7 @@ function assertP0eLeaseContract(
     array $identity,
     string $resourceId,
     string $deploymentTarget,
-    string $deploymentMode
+    string $deploymentMode,
 ): void {
     $expectedCounts = [
         'browser-host' => 2,
@@ -371,9 +372,9 @@ function assertP0eLeaseContract(
         static fn(string $scenario): string => str_replace(
             ['<run_id>', '<scenario>'],
             [$runId, $scenario],
-            (string)$database['database']
+            (string) $database['database'],
         ),
-        $allowedScenarios
+        $allowedScenarios,
     );
     assertLeaseResourceValues($resources, 'resource-id', [$resourceId]);
     assertLeaseResourceValues($resources, 'environment', ['development']);
@@ -385,7 +386,7 @@ function assertP0eLeaseContract(
         if (!is_array($registered)) {
             throw new RuntimeException("P0-E database {$endpointKey} 登记缺失");
         }
-        $registeredEndpoints[] = (string)$registered['host'] . ':' . (string)$registered['port'];
+        $registeredEndpoints[] = (string) $registered['host'] . ':' . (string) $registered['port'];
     }
     assertLeaseResourceValues($resources, 'endpoint', $registeredEndpoints);
     assertLeaseResourceValues($resources, 'run-id', [$runId]);
@@ -397,7 +398,7 @@ function assertP0eLeaseContract(
     assertLeaseResourceValues(
         $resources,
         'database-tunnel',
-        ['peanut-admin-p0e-mysql84-container-tunnel']
+        ['peanut-admin-p0e-mysql84-container-tunnel'],
     );
     assertLeaseResourceValues($resources, 'compose-project', ['peanut-p0e-' . $runId]);
     assertLeaseResourceValues($resources, 'browser-session', ['p0e-' . $runId]);
@@ -447,7 +448,7 @@ function assertConsumerUpgradeLeaseContract(
     array $identity,
     string $resourceId,
     string $deploymentTarget,
-    string $deploymentMode
+    string $deploymentMode,
 ): void {
     $expectedCounts = [
         'backup-root' => 2,
@@ -473,7 +474,9 @@ function assertConsumerUpgradeLeaseContract(
         'worktree' => 1,
     ];
     $actualCounts = [];
-    foreach ($resources as $type => $values) $actualCounts[$type] = count($values);
+    foreach ($resources as $type => $values) {
+        $actualCounts[$type] = count($values);
+    }
     ksort($actualCounts, SORT_STRING);
     if ($actualCounts !== $expectedCounts || array_sum($actualCounts) !== array_sum($expectedCounts)) {
         throw new RuntimeException('consumer-upgrade lease resource set 存在缺失、额外项或 cardinality 冲突');
@@ -482,25 +485,25 @@ function assertConsumerUpgradeLeaseContract(
     $runId = $identity['run_id'];
     $scenarios = $database['allowed_scenarios'];
     $expectedDatabases = array_map(
-        static fn(string $scenario): string => str_replace(['<run_id>', '<scenario>'], [$runId, $scenario], (string)$database['database']),
-        $scenarios
+        static fn(string $scenario): string => str_replace(['<run_id>', '<scenario>'], [$runId, $scenario], (string) $database['database']),
+        $scenarios,
     );
     assertLeaseResourceValues($resources, 'resource-id', [$resourceId]);
     assertLeaseResourceValues($resources, 'environment', ['development']);
     assertLeaseResourceValues($resources, 'deployment-target', [$deploymentTarget]);
     assertLeaseResourceValues($resources, 'consumer', ['host']);
-    assertLeaseResourceValues($resources, 'endpoint', [(string)$database['upstream_endpoint']['host'] . ':' . (string)$database['upstream_endpoint']['port']]);
+    assertLeaseResourceValues($resources, 'endpoint', [(string) $database['upstream_endpoint']['host'] . ':' . (string) $database['upstream_endpoint']['port']]);
     assertLeaseResourceValues($resources, 'run-id', [$runId]);
     assertLeaseResourceValues($resources, 'mysql-db', $expectedDatabases);
-    assertLeaseResourceValues($resources, 'tooling-resource-id', [(string)$database['administrative_tooling_resource_id']]);
-    assertLeaseResourceValues($resources, 'listener-resource-id', [(string)$database['http_listener_resource_id']]);
-    assertLeaseResourceValues($resources, 'object-storage-resource-id', [(string)$database['local_object_storage_resource_id']]);
+    assertLeaseResourceValues($resources, 'tooling-resource-id', [(string) $database['administrative_tooling_resource_id']]);
+    assertLeaseResourceValues($resources, 'listener-resource-id', [(string) $database['http_listener_resource_id']]);
+    assertLeaseResourceValues($resources, 'object-storage-resource-id', [(string) $database['local_object_storage_resource_id']]);
     assertLeaseResourceValues($resources, 'port', ['20190']);
     assertLeaseResourceValues($resources, 'http-port', ['20190']);
     assertLeaseResourceValues(
         $resources,
         'object-prefix',
-        array_map(static fn(string $scenario): string => 'cr03/' . $runId . '/' . $scenario . '/', $scenarios)
+        array_map(static fn(string $scenario): string => 'cr03/' . $runId . '/' . $scenario . '/', $scenarios),
     );
     assertLeaseResourceValues($resources, 'gate', [$metadata['gate']]);
     assertLeaseResourceValues($resources, 'worktree', [$metadata['worktree']]);
@@ -534,7 +537,8 @@ function assertConsumerUpgradeLeaseContract(
 }
 
 /** @return array{environment:string,deployment_target:string,resource_id:string,endpoint_id:string,consumer:string,host:string,port:string,database:string,user:string,password:string} */
-function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null): array {
+function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null): array
+{
     $registry = projectResourceRegistry();
     $environment = requiredEnvironment('APP_ENV');
     $deploymentTarget = requiredEnvironment('PEANUT_DEPLOYMENT_TARGET');
@@ -564,7 +568,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
     $endpoint = registeredDatabaseEndpoint($database, $consumer);
     $configuredEndpointId = getenv('PEANUT_DATABASE_ENDPOINT_ID');
     if ($configuredEndpointId !== false && trim($configuredEndpointId) !== ''
-        && !hash_equals((string)$endpoint['endpoint_id'], trim($configuredEndpointId))) {
+        && !hash_equals((string) $endpoint['endpoint_id'], trim($configuredEndpointId))) {
         throw new RuntimeException("数据库资源 {$resourceId} 的 endpoint identity 不匹配登记值");
     }
 
@@ -573,8 +577,8 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         'port' => requiredEnvironment('DB_PORT'),
         'database' => requiredEnvironment('DB_NAME'),
     ];
-    if (!hash_equals((string)$endpoint['host'], $actual['host'])
-        || !hash_equals((string)$endpoint['port'], $actual['port'])) {
+    if (!hash_equals((string) $endpoint['host'], $actual['host'])
+        || !hash_equals((string) $endpoint['port'], $actual['port'])) {
         throw new RuntimeException("数据库资源 {$resourceId} 的地址不匹配登记值");
     }
     $deploymentMode = requiredEnvironment('DEPLOYMENT_MODE');
@@ -604,7 +608,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
             $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
             $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), 'consumer-upgrade-qualification');
             $resources = activeLeaseResources($leaseProofPath);
-                assertConsumerUpgradeLeaseContract($leaseProofPath, $metadata, $resources, $database, $identity, $resourceId, $deploymentTarget, $deploymentMode);
+            assertConsumerUpgradeLeaseContract($leaseProofPath, $metadata, $resources, $database, $identity, $resourceId, $deploymentTarget, $deploymentMode);
         } else {
             throw new RuntimeException('templated database resource 未获 qualification guard 授权');
         }
@@ -634,7 +638,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
         $resources = activeLeaseResources($leaseProofPath);
         $root = realpath(dirname(__DIR__, 2));
-        $common = leaseGit(['-C', (string)$root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+        $common = leaseGit(['-C', (string) $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
         $expectedProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease'];
         if ($metadata['owner'] !== ($database['owner'] ?? null)
             || realpath($metadata['worktree']) !== $root
@@ -664,7 +668,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         'environment' => $environment,
         'deployment_target' => $deploymentTarget,
         'resource_id' => $resourceId,
-        'endpoint_id' => (string)$endpoint['endpoint_id'],
+        'endpoint_id' => (string) $endpoint['endpoint_id'],
         'consumer' => $consumer,
         ...$actual,
         'user' => requiredEnvironment('DB_USER'),
@@ -679,7 +683,7 @@ function guardedConnection(array $config): PDO
             'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
             $config['host'],
             $config['port'],
-            $config['database']
+            $config['database'],
         ),
         $config['user'],
         $config['password'],
@@ -687,7 +691,7 @@ function guardedConnection(array $config): PDO
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]
+        ],
     );
 }
 
@@ -716,7 +720,7 @@ function canonicalBaselineTables(): array
     }
     preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $schema, $matches);
     foreach ($matches[1] ?? [] as $table) {
-        $tables[(string)$table] = true;
+        $tables[(string) $table] = true;
     }
     $names = array_keys($tables);
     sort($names, SORT_STRING);
@@ -728,7 +732,7 @@ function assertRequiredColumns(PDO $pdo, array $requirements): void
 {
     $statement = $pdo->prepare(
         'SELECT COLUMN_NAME FROM information_schema.COLUMNS '
-        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
     );
     foreach ($requirements as $table => $expected) {
         $statement->execute([$table]);
@@ -745,7 +749,7 @@ function assertRequiredIndexes(PDO $pdo, array $requirements): void
 {
     $statement = $pdo->prepare(
         'SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS '
-        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
     );
     foreach ($requirements as $table => $expected) {
         $statement->execute([$table]);
@@ -763,7 +767,7 @@ function assertCurrentDatabase(PDO $pdo): array
     $expected = canonicalBaselineTables();
     $actual = array_map('strval', $pdo->query(
         'SELECT TABLE_NAME FROM information_schema.TABLES '
-        . 'WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME'
+        . 'WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME',
     )->fetchAll(PDO::FETCH_COLUMN));
     $missing = array_values(array_diff($expected, $actual));
     if ($missing !== []) {
@@ -791,17 +795,17 @@ function assertCurrentDatabase(PDO $pdo): array
         'pa_schema_migration' => ['PRIMARY', 'idx_schema_migration_status'],
     ]);
 
-    $menuCount = (int)$pdo->query('SELECT COUNT(*) FROM pa_system_menu')->fetchColumn();
-    $configCount = (int)$pdo->query('SELECT COUNT(*) FROM pa_config')->fetchColumn();
-    $permissionCount = (int)$pdo->query(
-        "SELECT COUNT(*) FROM pa_permission WHERE status = 'active'"
+    $menuCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_system_menu')->fetchColumn();
+    $configCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_config')->fetchColumn();
+    $permissionCount = (int) $pdo->query(
+        "SELECT COUNT(*) FROM pa_permission WHERE status = 'active'",
     )->fetchColumn();
-    $moduleMigrationCount = (int)$pdo->query('SELECT COUNT(*) FROM pa_module_migration')->fetchColumn();
-    $applicationMigrationCount = (int)$pdo->query("SELECT COUNT(*) FROM pa_schema_migration WHERE status = 'applied'")->fetchColumn();
-    $tenantCount = (int)$pdo->query(
-        "SELECT COUNT(*) FROM pa_tenant WHERE code = 'default' AND status = 'active'"
+    $moduleMigrationCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_module_migration')->fetchColumn();
+    $applicationMigrationCount = (int) $pdo->query("SELECT COUNT(*) FROM pa_schema_migration WHERE status = 'applied'")->fetchColumn();
+    $tenantCount = (int) $pdo->query(
+        "SELECT COUNT(*) FROM pa_tenant WHERE code = 'default' AND status = 'active'",
     )->fetchColumn();
-    $ownerCount = (int)$pdo->query(<<<'SQL'
+    $ownerCount = (int) $pdo->query(<<<'SQL'
 SELECT COUNT(DISTINCT tm.id)
 FROM pa_tenant t
 JOIN pa_tenant_member tm ON tm.tenant_id = t.id AND tm.status = 'active'
@@ -811,7 +815,7 @@ JOIN pa_member_role mr ON mr.tenant_id = tm.tenant_id AND mr.tenant_member_id = 
 JOIN pa_role r ON r.tenant_id = mr.tenant_id AND r.id = mr.role_id
 WHERE t.code = 'default' AND t.status = 'active' AND r.`key` = 'core.tenant-owner'
 SQL)->fetchColumn();
-    $operatorCount = (int)$pdo->query(<<<'SQL'
+    $operatorCount = (int) $pdo->query(<<<'SQL'
 SELECT COUNT(DISTINCT po.id)
 FROM pa_platform_operator po
 JOIN pa_account a ON a.id = po.account_id AND a.status = 'active'
@@ -859,8 +863,8 @@ function environmentGuardMain(array $arguments): int
         $validateConfigOnly = in_array('--validate-config', $arguments, true);
         $wait = 0;
         foreach ($arguments as $argument) {
-            if (preg_match('/^--wait=(\d+)$/D', (string)$argument, $matches) === 1) {
-                $wait = min(300, max(0, (int)$matches[1]));
+            if (preg_match('/^--wait=(\d+)$/D', (string) $argument, $matches) === 1) {
+                $wait = min(300, max(0, (int) $matches[1]));
             }
         }
         $result = [
@@ -870,7 +874,7 @@ function environmentGuardMain(array $arguments): int
             'endpoint_id' => $config['endpoint_id'],
             'consumer' => $config['consumer'],
             'host' => $config['host'],
-            'port' => (int)$config['port'],
+            'port' => (int) $config['port'],
             'database' => $config['database'],
             'status' => 'validated',
         ];
@@ -890,6 +894,6 @@ function environmentGuardMain(array $arguments): int
     }
 }
 
-if (realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
     exit(environmentGuardMain($_SERVER['argv'] ?? []));
 }

@@ -1,5 +1,6 @@
-export const SETTINGS_PACKAGE = '@peanut-admin/official-settings/runtime' as const
-export const SETTINGS_VERSION = '0.1.0' as const
+export const SETTINGS_PACKAGE =
+  '@peanut-admin/official-settings/runtime' as const;
+export const SETTINGS_VERSION = '0.1.0' as const;
 
 export {
   createSettingsFetchTransport,
@@ -8,7 +9,7 @@ export {
   parseSettingResponse,
   parseSettingsList,
   settingEditorKind,
-} from './contracts'
+} from './contracts';
 export type {
   ReplaceSettingRequest,
   SettingEditorKind,
@@ -22,7 +23,7 @@ export type {
   SettingsTransport,
   SettingsTransportResult,
   UnsetSettingRequest,
-} from './contracts'
+} from './contracts';
 export {
   createSettingsModuleContribution,
   createSettingsRuntime,
@@ -34,7 +35,7 @@ export {
   SETTINGS_STORE_KEY,
   settingsRuntimeKey,
   useSettingsRuntime,
-} from './runtime'
+} from './runtime';
 export type {
   SettingConflictState,
   SettingFormState,
@@ -42,4 +43,4 @@ export type {
   SettingsRuntime,
   SettingsRuntimeOptions,
   SettingsRuntimeState,
-} from './runtime'
+} from './runtime';

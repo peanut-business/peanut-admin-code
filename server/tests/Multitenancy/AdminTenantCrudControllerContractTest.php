@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /** Static contract for flat admin CRUD controllers composed with CrudTrait. */
@@ -100,7 +101,7 @@ foreach ([
     );
     expectAdminTenantCrud(
         str_contains(
-            (string)$class->getDocComment(),
+            (string) $class->getDocComment(),
             '@property-read ' . basename(str_replace('\\', '/', $contract['service'])) . ' $' . $propertyName,
         ),
         $className . ' must expose the accurate readonly property type',
@@ -140,9 +141,9 @@ expectAdminTenantCrud(
 );
 
 $articleModuleRoot = dirname(__DIR__, 2) . '/app/modules/official/article';
-$articleRoutes = (string)file_get_contents($articleModuleRoot . '/route/app.php');
+$articleRoutes = (string) file_get_contents($articleModuleRoot . '/route/app.php');
 $articlePermissions = json_decode(
-    (string)file_get_contents($articleModuleRoot . '/resources/permissions.json'),
+    (string) file_get_contents($articleModuleRoot . '/resources/permissions.json'),
     true,
     64,
     JSON_THROW_ON_ERROR,

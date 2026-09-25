@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit\ControllerDeclaredDependencyMigration;
@@ -100,7 +101,7 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
                 || !str_ends_with($file->getFilename(), 'Controller.php')) {
                 continue;
             }
-            $nodes = $parser->parse((string)file_get_contents($file->getPathname())) ?? [];
+            $nodes = $parser->parse((string) file_get_contents($file->getPathname())) ?? [];
             $traverser = new NodeTraverser();
             $traverser->addVisitor(new NameResolver());
             $nodes = $traverser->traverse($nodes);

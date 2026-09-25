@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -93,14 +94,19 @@ PHP);
         // Child tests are isolated syntax/runner fixtures and must not inherit a real database environment.
         $environment = getenv();
         unset($environment['PEANUT_SERVER_ENV_FILE'], $environment['PEANUT_INTEGRATION']);
-        $process = proc_open([PHP_BINARY, $root . '/scripts/run-php-test', $file],
-            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root, $environment);
+        $process = proc_open(
+            [PHP_BINARY, $root . '/scripts/run-php-test', $file],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $root,
+            $environment,
+        );
         self::assertIsResource($process);
         fclose($pipes[0]);
         $output = stream_get_contents($pipes[1]);
         $error = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
-        return [proc_close($process), (string)$output . (string)$error];
+        return [proc_close($process), (string) $output . (string) $error];
     }
 }

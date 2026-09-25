@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
@@ -15,7 +16,6 @@ use think\App;
 
 class LoginController extends BaseAdminController
 {
-
     public function __construct(
         App $app,
         private readonly AdminAuthorizationQuery $authorization,
@@ -30,8 +30,8 @@ class LoginController extends BaseAdminController
         $params = $this->request->post();
 
         // 管理端登录表单提交 username，业务层统一映射为管理员账号。
-        $params['account']  = trim((string)($params['account'] ?? $params['username'] ?? ''));
-        $params['terminal'] = (int)($params['terminal'] ?? 1);
+        $params['account']  = trim((string) ($params['account'] ?? $params['username'] ?? ''));
+        $params['terminal'] = (int) ($params['terminal'] ?? 1);
 
         $this->validate($params, LoginValidate::class);
         return $this->data($this->loginApplication->login($this->request, $params));
@@ -40,7 +40,9 @@ class LoginController extends BaseAdminController
     public function info()
     {
         $admin = $this->adminInfo;
-        if ($admin === []) throw BusinessException::notFound('ADMIN_PRINCIPAL_NOT_FOUND', '管理员不存在');
+        if ($admin === []) {
+            throw BusinessException::notFound('ADMIN_PRINCIPAL_NOT_FOUND', '管理员不存在');
+        }
         $roleNames = array_column($admin['roles'] ?? [], 'name');
         $accessData = $this->authorization->accessData(
             $this->executionContext()->tenantAdmin(),
@@ -63,7 +65,7 @@ class LoginController extends BaseAdminController
             'tenantName' => $admin['tenant_name'],
             'canSwitchTenant' => !$this->executionContext()->tenantEntryBound()
                 && ($admin['switchable_tenant_count'] ?? 0) > 1,
-            'demoMode' => $this->demoAccounts->isDemoEmail((string)$admin['username']),
+            'demoMode' => $this->demoAccounts->isDemoEmail((string) $admin['username']),
         ]);
     }
 

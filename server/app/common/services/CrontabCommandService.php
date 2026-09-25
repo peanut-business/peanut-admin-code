@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services;
@@ -21,7 +22,7 @@ class CrontabCommandService
         $commands = array_keys($this->configuredCommands);
         return array_values(array_filter(
             $commands,
-            static fn(string $command): bool => $command !== 'crontab'
+            static fn(string $command): bool => $command !== 'crontab',
         ));
     }
 

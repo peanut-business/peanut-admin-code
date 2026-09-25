@@ -17,7 +17,5 @@ final class ApplicationPasswordPolicy
         return new PasswordHasher(self::MINIMUM_LENGTH, self::MAXIMUM_LENGTH);
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

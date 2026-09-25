@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
@@ -58,10 +59,10 @@ function pm01ModuleRejects(Closure $operation, string $expected): void
     try {
         $operation();
     } catch (Throwable $exception) {
-        $code = property_exists($exception, 'errorCode') ? (string)$exception->errorCode : '';
+        $code = property_exists($exception, 'errorCode') ? (string) $exception->errorCode : '';
         pm01ModuleExpect(
             $code === $expected || str_contains($exception->getMessage(), $expected),
-            "unexpected rejection: {$code} {$exception->getMessage()}"
+            "unexpected rejection: {$code} {$exception->getMessage()}",
         );
         return;
     }
@@ -82,23 +83,21 @@ function pm01ModuleSessions(): PlatformOperatorSessionService
             new PasswordHasher(),
             new SystemClock(),
             new TokenIssuer(),
-            str_repeat('m', 32)
+            str_repeat('m', 32),
         ),
         new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()),
-        $permissions
+        $permissions,
     );
 }
 
 function pm01ModuleCompiler(string $schemaPath): ModuleRegistryCompiler
 {
-    $schemaValidator = new class($schemaPath) implements ManifestSchemaValidator {
-        public function __construct(private readonly string $schemaPath)
-        {
-        }
+    $schemaValidator = new class ($schemaPath) implements ManifestSchemaValidator {
+        public function __construct(private readonly string $schemaPath) {}
 
         public function assertValid(object $manifest): void
         {
-            $schema = json_decode((string)file_get_contents($this->schemaPath));
+            $schema = json_decode((string) file_get_contents($this->schemaPath));
             if (!is_object($schema) || !(new Validator())->validate($manifest, $schema)->isValid()) {
                 throw new ModuleException('MODULE_MANIFEST_INVALID', 'Fixture manifest schema validation failed.');
             }
@@ -143,7 +142,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
 $database = 'pa_pm01_module_' . strtolower(bin2hex(random_bytes(6)));
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -157,7 +156,7 @@ try {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]
+        ],
     );
     foreach (KernelSchema::tableNames() as $table) {
         $pdo->exec(KernelSchema::createSql($table));
@@ -177,7 +176,7 @@ try {
         'module-owner@example.test',
         'ModuleOwnerPassword2026',
         'Module Owner',
-        'pm01-module-platform-bootstrap'
+        'pm01-module-platform-bootstrap',
     );
     $sessions = pm01ModuleSessions();
     $authentication = $sessions->login(
@@ -185,7 +184,7 @@ try {
         'ModuleOwnerPassword2026',
         '127.0.0.1',
         'PM01 TenantModule fixture',
-        'pm01-module-login'
+        'pm01-module-login',
     );
     $credential = $authentication->tokens->access->expose();
 
@@ -193,12 +192,12 @@ try {
     $kernelRoot = dirname((new ReflectionClass(ModuleProvider::class))->getFileName(), 3);
     $registry = DeployedTenantModuleRegistry::compile(
         [$moduleRoot],
-        pm01ModuleCompiler($kernelRoot . '/resources/schemas/module-manifest.schema.json')
+        pm01ModuleCompiler($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
     );
     $validator = new OpisTenantModuleConfigValidator();
     $repository = new VerifiedTenantModuleRepository(
         new ThinkPhpModuleRuntimeRepository(true),
-        $registry
+        $registry,
     );
     $governance = new TenantGovernanceService(
         new CorePlatformOperatorIdentityPort($sessions),
@@ -214,19 +213,19 @@ try {
                 int $memberId,
                 int $coreRoleId,
                 string $tenantCode,
-                string $displayName
+                string $displayName,
             ): int {
                 return 1;
             }
-        }
+        },
     );
     $service = new PlatformTenantModuleService($sessions, $governance, $registry, $validator);
 
     pm01ModuleRejects(
         static fn() => new DeployedTenantModuleRegistry(
-            new CompiledModuleRegistry([], [], [], [], hash('sha256', ''))
+            new CompiledModuleRegistry([], [], [], [], hash('sha256', '')),
         ),
-        'MODULE_REGISTRY_UNAVAILABLE'
+        'MODULE_REGISTRY_UNAVAILABLE',
     );
 
     $candidate = $governance->provision(
@@ -236,20 +235,20 @@ try {
         'module-tenant-owner@example.test',
         'ModuleTenantOwner2026',
         'Module Tenant Owner',
-        'pm01-module-provision'
+        'pm01-module-provision',
     );
-    $tenantId = (int)$candidate['tenant_id'];
+    $tenantId = (int) $candidate['tenant_id'];
     $governance->transition(
         $credential,
         $tenantId,
         1,
         TenantStatus::Active,
         'module fixture ready',
-        'pm01-module-activate'
+        'pm01-module-activate',
     );
     pm01ModuleRejects(
         static fn() => $registry->requireInstalled('fixture.content'),
-        'MODULE_NOT_INSTALLED'
+        'MODULE_NOT_INSTALLED',
     );
     $manifest = $registry->compiled()->modules[0];
     $pdo->prepare(<<<'SQL'
@@ -269,9 +268,9 @@ SQL)->execute(['fixture.content', '1.0.0', $manifest->digest]);
             null,
             null,
             'unknown module',
-            'pm01-module-unknown'
+            'pm01-module-unknown',
         ),
-        'MODULE_NOT_INSTALLED'
+        'MODULE_NOT_INSTALLED',
     );
     pm01ModuleRejects(
         static fn() => $service->enable(
@@ -283,11 +282,11 @@ SQL)->execute(['fixture.content', '1.0.0', $manifest->digest]);
             null,
             null,
             'invalid config',
-            'pm01-module-invalid'
+            'pm01-module-invalid',
         ),
-        'MODULE_CONFIG_INVALID'
+        'MODULE_CONFIG_INVALID',
     );
-    pm01ModuleExpect((int)$pdo->query('SELECT COUNT(*) FROM pa_tenant_module')->fetchColumn() === 0, 'invalid config wrote state');
+    pm01ModuleExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant_module')->fetchColumn() === 0, 'invalid config wrote state');
 
     $pdo->exec("UPDATE pa_module_installation SET manifest_digest=REPEAT('0',64) WHERE module_key='fixture.content'");
     pm01ModuleRejects(
@@ -300,9 +299,9 @@ SQL)->execute(['fixture.content', '1.0.0', $manifest->digest]);
             null,
             null,
             'mismatched manifest',
-            'pm01-module-mismatch'
+            'pm01-module-mismatch',
         ),
-        'MODULE_INSTALLATION_MISMATCH'
+        'MODULE_INSTALLATION_MISMATCH',
     );
     $pdo->prepare('UPDATE pa_module_installation SET manifest_digest=? WHERE module_key=?')
         ->execute([$manifest->digest, 'fixture.content']);
@@ -316,24 +315,24 @@ SQL)->execute(['fixture.content', '1.0.0', $manifest->digest]);
         null,
         null,
         'enable content',
-        'pm01-module-enable'
+        'pm01-module-enable',
     );
     pm01ModuleExpect($enabled['status'] === 'enabled', 'module was not enabled');
-    pm01ModuleExpect((int)$enabled['config_revision'] === 1, 'config revision did not start at one');
+    pm01ModuleExpect((int) $enabled['config_revision'] === 1, 'config revision did not start at one');
     pm01ModuleExpect(
-        (int)$pdo->query("SELECT revision FROM pa_tenant WHERE id={$tenantId}")->fetchColumn() === 3,
-        'Core Tenant revision did not advance after module enable'
+        (int) $pdo->query("SELECT revision FROM pa_tenant WHERE id={$tenantId}")->fetchColumn() === 3,
+        'Core Tenant revision did not advance after module enable',
     );
     pm01ModuleExpect(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_platform_audit_event WHERE event_type='tenant-module.enabled'")->fetchColumn() === 1,
-        'platform audit was not recorded'
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_platform_audit_event WHERE event_type='tenant-module.enabled'")->fetchColumn() === 1,
+        'platform audit was not recorded',
     );
     pm01ModuleExpect(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId} AND event_type='tenant-module.enabled'")->fetchColumn() === 1,
-        'tenant audit was not recorded'
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId} AND event_type='tenant-module.enabled'")->fetchColumn() === 1,
+        'tenant audit was not recorded',
     );
 
-    $ownerRoleId = (int)$pdo->query("SELECT id FROM pa_platform_role WHERE `key`='platform.bootstrap-owner'")
+    $ownerRoleId = (int) $pdo->query("SELECT id FROM pa_platform_role WHERE `key`='platform.bootstrap-owner'")
         ->fetchColumn();
     $pdo->exec("UPDATE pa_platform_role SET status='disabled', revision=revision+1 WHERE id={$ownerRoleId}");
     pm01ModuleRejects(
@@ -342,13 +341,13 @@ SQL)->execute(['fixture.content', '1.0.0', $manifest->digest]);
             $tenantId,
             'fixture.content',
             'permission denied',
-            'pm01-module-denied'
+            'pm01-module-denied',
         ),
-        'AUTHZ_PERMISSION_DENIED'
+        'AUTHZ_PERMISSION_DENIED',
     );
     pm01ModuleExpect(
         $pdo->query("SELECT status FROM pa_tenant_module WHERE tenant_id={$tenantId}")->fetchColumn() === 'enabled',
-        'permission denial changed state'
+        'permission denial changed state',
     );
     $pdo->exec("UPDATE pa_platform_role SET status='active', revision=revision+1 WHERE id={$ownerRoleId}");
 
@@ -357,21 +356,21 @@ SQL)->execute(['fixture.content', '1.0.0', $manifest->digest]);
         $tenantId,
         'fixture.content',
         'disable content',
-        'pm01-module-disable'
+        'pm01-module-disable',
     );
     pm01ModuleExpect($disabled['status'] === 'disabled', 'module was not disabled');
-    pm01ModuleExpect((int)$disabled['config_revision'] === 1, 'disable changed config revision');
+    pm01ModuleExpect((int) $disabled['config_revision'] === 1, 'disable changed config revision');
     pm01ModuleExpect(
-        (int)$pdo->query("SELECT revision FROM pa_tenant WHERE id={$tenantId}")->fetchColumn() === 4,
-        'Core Tenant revision did not advance after module disable'
+        (int) $pdo->query("SELECT revision FROM pa_tenant WHERE id={$tenantId}")->fetchColumn() === 4,
+        'Core Tenant revision did not advance after module disable',
     );
     pm01ModuleExpect(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_platform_audit_event WHERE event_type LIKE 'tenant-module.%'")->fetchColumn() === 2,
-        'platform module audit is incomplete'
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_platform_audit_event WHERE event_type LIKE 'tenant-module.%'")->fetchColumn() === 2,
+        'platform module audit is incomplete',
     );
     pm01ModuleExpect(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId} AND event_type LIKE 'tenant-module.%'")->fetchColumn() === 2,
-        'tenant module audit is incomplete'
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId} AND event_type LIKE 'tenant-module.%'")->fetchColumn() === 2,
+        'tenant module audit is incomplete',
     );
 
     echo "PM01-TENANT-MODULE-SERVICE-001 passed\n";

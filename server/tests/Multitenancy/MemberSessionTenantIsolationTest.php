@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Multitenancy;
@@ -71,10 +72,10 @@ final class MemberSessionTenantIsolationTest extends TestCase
         self::assertSame(self::MEMBER_A, self::$tokens->parseToken($first));
         self::assertSame(self::MEMBER_A, self::$tokens->parseToken($second));
         self::assertSame(self::MEMBER_B, self::$tokens->parseToken($foreign));
-        self::assertSame(3, (int)self::$pdo->query('SELECT COUNT(*) FROM pa_member_session')->fetchColumn());
-        self::assertSame(0, (int)self::$pdo->query("SELECT COUNT(*) FROM pa_member_session WHERE session_hash IN (" . self::$pdo->quote($first) . ',' . self::$pdo->quote($second) . ')')->fetchColumn());
+        self::assertSame(3, (int) self::$pdo->query('SELECT COUNT(*) FROM pa_member_session')->fetchColumn());
+        self::assertSame(0, (int) self::$pdo->query("SELECT COUNT(*) FROM pa_member_session WHERE session_hash IN (" . self::$pdo->quote($first) . ',' . self::$pdo->quote($second) . ')')->fetchColumn());
 
-        $claims = (array)JWT::decode($first, new Key(self::jwtSecret(), 'HS256'));
+        $claims = (array) JWT::decode($first, new Key(self::jwtSecret(), 'HS256'));
         $claims['tenant_id'] = self::TENANT_B;
         $forged = JWT::encode($claims, self::jwtSecret(), 'HS256');
         $this->assertInvalidToken($forged, 'a signed foreign Tenant claim was accepted');
@@ -87,16 +88,18 @@ final class MemberSessionTenantIsolationTest extends TestCase
         )->fetchColumn());
 
         $member = self::memberContext(self::TENANT_A, self::MEMBER_A, 'member-password-change');
-        self::$contexts->run(ConsumerExecutionContext::member($member, 'member.password.change'), fn() =>
+        self::$contexts->run(
+            ConsumerExecutionContext::member($member, 'member.password.change'),
+            fn() =>
             self::$identities->changePassword($member, self::MEMBER_A, self::OLD_PASSWORD, self::CHANGED_PASSWORD),
         );
         self::assertTrue(self::$contexts->isEmpty());
         $this->assertInvalidToken($second, 'password change did not invalidate the previous session');
         self::assertSame(2, $this->memberRevision(self::MEMBER_A));
-        self::assertSame(0, (int)self::$pdo->query(
+        self::assertSame(0, (int) self::$pdo->query(
             "SELECT COUNT(*) FROM pa_member_session WHERE tenant_id=31 AND member_id=7 AND revoked_at IS NULL",
         )->fetchColumn());
-        self::assertGreaterThanOrEqual(1, (int)self::$pdo->query(
+        self::assertGreaterThanOrEqual(1, (int) self::$pdo->query(
             "SELECT COUNT(*) FROM pa_member_session WHERE tenant_id=31 AND member_id=7 AND revoke_reason='password_change'",
         )->fetchColumn());
 
@@ -118,11 +121,13 @@ final class MemberSessionTenantIsolationTest extends TestCase
         $this->login($winningPassword);
         $activeBeforeDisable = self::$tokens->createToken(self::MEMBER_A);
         $admin = self::adminContext(self::TENANT_A, 501, 301, 'member-disable');
-        self::$contexts->run(new AdminExecutionContext($admin, 'member.disable'), fn() =>
+        self::$contexts->run(
+            new AdminExecutionContext($admin, 'member.disable'),
+            fn() =>
             self::$profiles->updateStatus($admin, self::MEMBER_A, 0),
         );
         self::assertTrue(self::$contexts->isEmpty());
-        self::assertSame(0, (int)self::$pdo->query('SELECT status FROM pa_member WHERE id=7')->fetchColumn());
+        self::assertSame(0, (int) self::$pdo->query('SELECT status FROM pa_member WHERE id=7')->fetchColumn());
         self::assertSame(4, $this->memberRevision(self::MEMBER_A));
         self::assertSame('member_disabled', self::$pdo->query(
             'SELECT revoke_reason FROM pa_member_session WHERE session_hash=' . self::$pdo->quote(self::sessionHash($activeBeforeDisable)),
@@ -156,7 +161,9 @@ final class MemberSessionTenantIsolationTest extends TestCase
                     \RegisteredMysqlTestResource::assertSelectedDatabase($pdo, self::database());
                     self::configureRuntime($pdo);
                     $context = self::memberContext(self::TENANT_A, self::MEMBER_A, 'member-concurrent-' . $index);
-                    self::$contexts->run(ConsumerExecutionContext::member($context, 'member.password.change'), fn() =>
+                    self::$contexts->run(
+                        ConsumerExecutionContext::member($context, 'member.password.change'),
+                        fn() =>
                         self::$identities->changePassword($context, self::MEMBER_A, $oldPassword, $newPassword),
                     );
                     fwrite($sockets[1], 'SUCCESS');
@@ -193,7 +200,7 @@ final class MemberSessionTenantIsolationTest extends TestCase
     /** @param list<string> $passwords */
     private function winningPassword(array $passwords): string
     {
-        $hash = (string)self::$pdo->query('SELECT password FROM pa_member WHERE id=7')->fetchColumn();
+        $hash = (string) self::$pdo->query('SELECT password FROM pa_member WHERE id=7')->fetchColumn();
         $winners = array_values(array_filter($passwords, static fn(string $password): bool => password_verify($password, $hash)));
         self::assertCount(1, $winners);
         return $winners[0];
@@ -202,7 +209,9 @@ final class MemberSessionTenantIsolationTest extends TestCase
     private function login(string $password): void
     {
         $system = new TenantSystemContext(self::TENANT_A, 'member-auth', 'member.login', 'member-login-' . hash('sha256', $password));
-        $snapshot = self::$contexts->run(new SystemExecutionContext($system), fn() =>
+        $snapshot = self::$contexts->run(
+            new SystemExecutionContext($system),
+            fn() =>
             self::$identities->login($system, 'member-a@example.test', $password, '127.0.0.1'),
         );
         // 公开 MemberIdentitySnapshot 使用 id；不能读取不存在的 memberId 后误判登录结果。
@@ -223,7 +232,7 @@ final class MemberSessionTenantIsolationTest extends TestCase
 
     private function memberRevision(int $memberId): int
     {
-        return (int)self::$pdo->query('SELECT session_revision FROM pa_member WHERE id=' . $memberId)->fetchColumn();
+        return (int) self::$pdo->query('SELECT session_revision FROM pa_member WHERE id=' . $memberId)->fetchColumn();
     }
 
     private static function configureRuntime(PDO $pdo): void
@@ -250,12 +259,12 @@ final class MemberSessionTenantIsolationTest extends TestCase
     private static function createSchema(PDO $pdo): void
     {
         $pdo->exec(KernelSchema::createSql('pa_tenant'));
-        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/database/init.sql');
+        $source = (string) file_get_contents(dirname(__DIR__, 2) . '/database/init.sql');
         if (preg_match('/CREATE TABLE `pa_member` \(.*?\n\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT=\'会员\';/s', $source, $match) !== 1) {
             throw new \RuntimeException('MEMBER_SESSION_CANONICAL_MEMBER_SCHEMA_MISSING');
         }
         $pdo->exec($match[0]);
-        $migration = (string)file_get_contents(
+        $migration = (string) file_get_contents(
             dirname(__DIR__, 2) . '/app/modules/official/member/database/migrations/20260921-create-member-session.sql',
         );
         if ($migration === '') {
@@ -270,10 +279,10 @@ final class MemberSessionTenantIsolationTest extends TestCase
         );
         $insert->execute([self::MEMBER_A, 'M-A', 'member-a@example.test', password_hash(self::OLD_PASSWORD, PASSWORD_ARGON2ID), 'Member A', 1, self::TENANT_A]);
         $insert->execute([self::MEMBER_B, 'M-B', 'member-b@example.test', password_hash('Member-b-password-2026!', PASSWORD_ARGON2ID), 'Member B', 1, self::TENANT_B]);
-        self::assertSame(1, (int)$pdo->query(
+        self::assertSame(1, (int) $pdo->query(
             "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='" . self::database() . "' AND TABLE_NAME='pa_member' AND COLUMN_NAME='session_revision'",
         )->fetchColumn());
-        self::assertSame(1, (int)$pdo->query(
+        self::assertSame(1, (int) $pdo->query(
             "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='" . self::database() . "' AND TABLE_NAME='pa_member_session'",
         )->fetchColumn());
     }
@@ -282,8 +291,8 @@ final class MemberSessionTenantIsolationTest extends TestCase
     {
         return new PDO(
             sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', getenv('DB_HOST'), getenv('DB_PORT'), self::database()),
-            (string)getenv('DB_USER'),
-            (string)getenv('DB_PASS'),
+            (string) getenv('DB_USER'),
+            (string) getenv('DB_PASS'),
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
         );
     }
@@ -314,8 +323,8 @@ final class MemberSessionTenantIsolationTest extends TestCase
 
     private static function sessionHash(string $token): string
     {
-        $claims = (array)JWT::decode($token, new Key(self::jwtSecret(), 'HS256'));
-        return hash('sha256', (string)$claims['sid']);
+        $claims = (array) JWT::decode($token, new Key(self::jwtSecret(), 'HS256'));
+        return hash('sha256', (string) $claims['sid']);
     }
 
     private static function jwtSecret(): string

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\config;
@@ -16,8 +17,8 @@ final class ReadinessController extends BaseAdminController
     {
         return $this->data($this->readiness->checklist(
             $this->tenantAdminContext(),
-            (string)$this->request->domain(),
-            (string)config('deployment.mode'),
+            (string) $this->request->domain(),
+            (string) config('deployment.mode'),
         ));
     }
 }

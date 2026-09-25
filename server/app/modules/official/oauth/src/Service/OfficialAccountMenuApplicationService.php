@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Service;
@@ -31,15 +32,14 @@ class OfficialAccountMenuApplicationService
     public function saveAndPublish(
         TenantContext $context,
         array $menu,
-    ): bool
-    {
+    ): bool {
         $config = $this->config($context);
-            $this->officialAccount->publishMenu(
-                (string)($config['app_id'] ?? ''),
-                (string)($config['app_secret'] ?? ''),
-                $menu
-            );
-            $this->store($context, $menu, $config);
+        $this->officialAccount->publishMenu(
+            (string) ($config['app_id'] ?? ''),
+            (string) ($config['app_secret'] ?? ''),
+            $menu,
+        );
+        $this->store($context, $menu, $config);
         return true;
     }
 
@@ -51,7 +51,7 @@ class OfficialAccountMenuApplicationService
             $context,
             ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
             $config,
-            (string)($config['original_id'] ?? $config['app_id'] ?? '')
+            (string) ($config['original_id'] ?? $config['app_id'] ?? ''),
         );
     }
 
@@ -59,7 +59,7 @@ class OfficialAccountMenuApplicationService
     {
         return $this->bindings->config(
             $context,
-            ExternalProvider::WECHAT_OFFICIAL_CALLBACK
+            ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
         );
     }
 }

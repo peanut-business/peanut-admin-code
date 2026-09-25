@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use think\Container;
@@ -13,9 +14,7 @@ use think\db\connector\Sqlite;
 /** Adapts an existing fixture PDO into the exact ThinkPHP connection used by production services. */
 final class ThinkPhpTestConnection
 {
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function fromPdo(PDO $pdo): PDOConnection
     {

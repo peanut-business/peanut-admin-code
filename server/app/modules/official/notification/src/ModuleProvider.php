@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification;
@@ -48,13 +49,13 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
             NoticeSmsSender::class => fn(App $app): NoticeSmsSender => new ApplicationNoticeSmsSender(
                 $app->make(CurrentExecutionContext::class),
                 $app->make(NoticeChannelService::class),
-                (string)Config::get('peanut.environment', '') === 'development',
+                (string) Config::get('peanut.environment', '') === 'development',
             ),
             VerificationCodeService::class => fn(App $app): VerificationCodeService => new VerificationCodeService(
                 $app->make(NoticeSmsSender::class),
                 $app->make(CurrentExecutionContext::class),
-                (string)Config::get('peanut.environment', '') === 'development',
-                (int)Config::get('notification.verification.max_failed_attempts', VerificationCodeService::DEFAULT_MAX_FAILED_ATTEMPTS),
+                (string) Config::get('peanut.environment', '') === 'development',
+                (int) Config::get('notification.verification.max_failed_attempts', VerificationCodeService::DEFAULT_MAX_FAILED_ATTEMPTS),
             ),
             NotificationCommands::class => NotificationApplicationService::class,
             NotificationBootstrapCommands::class => NotificationBootstrapService::class,
@@ -63,7 +64,7 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
             NotificationRepository::class => NotificationStore::class,
             RecipientResolver::class => TenantMemberRecipientResolver::class,
             SmsRecipientResolver::class => UnavailableSmsRecipientResolver::class,
-            SmsProvider::class => fn(): SmsProvider => (string)Config::get('peanut.environment', '') === 'development'
+            SmsProvider::class => fn(): SmsProvider => (string) Config::get('peanut.environment', '') === 'development'
                 ? new LocalDevSmsProvider()
                 : new DisabledSmsProvider(),
             NotificationOutboxDispatcher::class => fn(App $app): NotificationOutboxDispatcher => new NotificationOutboxDispatcher(

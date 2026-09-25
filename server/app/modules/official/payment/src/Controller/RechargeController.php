@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Controller;
@@ -19,7 +20,7 @@ class RechargeController extends BaseAdminController
         $context = $this->tenantAdminContext();
         $this->validate($params, RechargeValidate::class . '.lists');
         $result = $this->recharges->lists($context, $params);
-        if ((int)($params['export'] ?? 0) === 2) {
+        if ((int) ($params['export'] ?? 0) === 2) {
             // 沿用当前统一响应合同；旧 JsonService/show 参数已退出，不能当成响应 code。
             return JsonResponseFactory::success('', $result);
         }
@@ -35,7 +36,7 @@ class RechargeController extends BaseAdminController
             $context,
             $params,
             $this->adminId,
-            trim((string)$this->request->header('Idempotency-Key', '')),
+            trim((string) $this->request->header('Idempotency-Key', '')),
         );
         return $this->success($message);
     }

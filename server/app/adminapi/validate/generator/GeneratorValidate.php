@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\validate\generator;
@@ -19,7 +20,7 @@ class GeneratorValidate extends Validate
         'entity_name'   => 'require|regex:/^[A-Z][A-Za-z0-9]{0,63}$/',
         'template_type' => 'require|in:crud,tree',
         'data_owner'    => 'require|in:tenant-orm,platform,instance,shared',
-        'target_edition'=> 'require|in:standalone,multi-tenant',
+        'target_edition' => 'require|in:standalone,multi-tenant',
         'author'        => 'max:100',
         'tree_config'   => 'array',
         'soft_delete'   => 'require|array',
@@ -63,27 +64,39 @@ class GeneratorValidate extends Validate
 
     protected function checkIds(mixed $value): bool|string
     {
-        if (!is_array($value) || $value === [] || count($value) > 20) return '生成配置数量须在 1 到 20 之间';
+        if (!is_array($value) || $value === [] || count($value) > 20) {
+            return '生成配置数量须在 1 到 20 之间';
+        }
         foreach ($value as $id) {
-            if (filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) return '生成配置 ID 格式错误';
+            if (filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+                return '生成配置 ID 格式错误';
+            }
         }
         return true;
     }
 
     protected function checkTableNames(mixed $value): bool|string
     {
-        if (!is_array($value) || $value === [] || count($value) > 20) return '数据表数量须在 1 到 20 之间';
+        if (!is_array($value) || $value === [] || count($value) > 20) {
+            return '数据表数量须在 1 到 20 之间';
+        }
         foreach ($value as $name) {
-            if (!is_string($name) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,63}$/D', $name)) return '数据表名称格式错误';
+            if (!is_string($name) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,63}$/D', $name)) {
+                return '数据表名称格式错误';
+            }
         }
         return true;
     }
 
     protected function checkColumns(mixed $value): bool|string
     {
-        if (!is_array($value) || $value === [] || count($value) > 300) return '字段配置格式错误';
+        if (!is_array($value) || $value === [] || count($value) > 300) {
+            return '字段配置格式错误';
+        }
         foreach ($value as $column) {
-            if (!is_array($column) || empty($column['id'])) return '字段配置 ID 缺失';
+            if (!is_array($column) || empty($column['id'])) {
+                return '字段配置 ID 缺失';
+            }
         }
         return true;
     }

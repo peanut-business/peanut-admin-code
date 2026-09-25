@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
@@ -35,7 +36,7 @@ function mt05BootstrapAdminConnection(): PDO
         "mysql:host={$host};port={$port};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
     );
 }
 
@@ -55,7 +56,7 @@ function mt05BootstrapDatabase(PDO $admin, string $database): PDO
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ]
+        ],
     );
 }
 
@@ -81,10 +82,10 @@ function mt05BootstrapPlatformSessions(PDO $pdo): PlatformOperatorSessionService
             new PasswordHasher(),
             new SystemClock(),
             new TokenIssuer(),
-            str_repeat('h', 32)
+            str_repeat('h', 32),
         ),
         new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()),
-        $permissions
+        $permissions,
     );
 }
 
@@ -115,7 +116,7 @@ try {
             $failed = true;
             mt05BootstrapExpect(
                 !str_contains($exception->getMessage(), $platformPassword),
-                "{$case} exposed the platform password"
+                "{$case} exposed the platform password",
             );
         }
         mt05BootstrapExpect($failed, "{$case} must fail closed");
@@ -133,12 +134,12 @@ try {
     ]);
     ob_start();
     $installCode = main();
-    $installOutput = (string)ob_get_clean();
+    $installOutput = (string) ob_get_clean();
     mt05BootstrapExpect($installCode === 0, 'multi-tenant fresh installer failed');
     mt05BootstrapExpect(
         !str_contains($installOutput, $adminPassword)
             && !str_contains($installOutput, $platformPassword),
-        'installer output exposed a bootstrap password'
+        'installer output exposed a bootstrap password',
     );
 
     $identity = $install->query(<<<'SQL'
@@ -158,30 +159,30 @@ WHERE po.status = 'active'
 GROUP BY po.account_id, tm.account_id, a.status, tm.status, c.status
 SQL)->fetch();
     mt05BootstrapExpect(is_array($identity), 'multi-tenant identities missing');
-    mt05BootstrapExpect((string)$identity['owner_account_status'] === 'active', 'default owner account is not active');
-    mt05BootstrapExpect((string)$identity['owner_member_status'] === 'active', 'default owner member is not active');
-    mt05BootstrapExpect((string)$identity['owner_credential_status'] === 'active', 'default owner credential is not active');
-    mt05BootstrapExpect((int)$identity['owner_role_count'] === 1, 'default owner role is invalid');
+    mt05BootstrapExpect((string) $identity['owner_account_status'] === 'active', 'default owner account is not active');
+    mt05BootstrapExpect((string) $identity['owner_member_status'] === 'active', 'default owner member is not active');
+    mt05BootstrapExpect((string) $identity['owner_credential_status'] === 'active', 'default owner credential is not active');
+    mt05BootstrapExpect((int) $identity['owner_role_count'] === 1, 'default owner role is invalid');
     mt05BootstrapExpect(
-        (int)$identity['platform_account_id'] !== (int)$identity['owner_account_id'],
-        'platform operator and default owner reused one Account'
+        (int) $identity['platform_account_id'] !== (int) $identity['owner_account_id'],
+        'platform operator and default owner reused one Account',
     );
     mt05BootstrapExpect(
-        (int)$install->query(
-            'SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=' . (int)$identity['platform_account_id']
+        (int) $install->query(
+            'SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=' . (int) $identity['platform_account_id'],
         )->fetchColumn() === 0,
-        'platform operator became a TenantMember'
+        'platform operator became a TenantMember',
     );
     $authentication = mt05BootstrapPlatformSessions($install)->login(
         $platformEmail,
         $platformPassword,
         '127.0.0.1',
         'MT05 bootstrap fixture',
-        'mt05-platform-login'
+        'mt05-platform-login',
     );
     mt05BootstrapExpect(
         str_starts_with($authentication->tokens->access->expose(), 'pa_pat_'),
-        'fresh multi-tenant platform operator cannot login'
+        'fresh multi-tenant platform operator cannot login',
     );
 
     echo "MT05-PLATFORM-BOOTSTRAP-001 passed\n";

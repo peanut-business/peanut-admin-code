@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\plugin;
@@ -53,10 +54,10 @@ final class PluginPackageArchiveService
         $totalBytes = 0;
         foreach ($built['entries'] as $path => $entry) {
             if (isset($entry['source'])) {
-                $size = filesize((string)$entry['source']);
-                $digest = hash_file('sha256', (string)$entry['source']);
+                $size = filesize((string) $entry['source']);
+                $digest = hash_file('sha256', (string) $entry['source']);
             } else {
-                $contents = (string)$entry['contents'];
+                $contents = (string) $entry['contents'];
                 $size = strlen($contents);
                 $digest = hash('sha256', $contents);
             }
@@ -354,8 +355,8 @@ final class PluginPackageArchiveService
         $inventory = '';
         foreach ($entries as $path => $entry) {
             $digest = isset($entry['source'])
-                ? hash_file('sha256', (string)$entry['source'])
-                : hash('sha256', (string)$entry['contents']);
+                ? hash_file('sha256', (string) $entry['source'])
+                : hash('sha256', (string) $entry['contents']);
             if (!is_string($digest)) {
                 throw new PluginPackageException('MODULE_PACKAGE_SOURCE_INVALID', 'Package source digest failed.');
             }
@@ -408,7 +409,7 @@ final class PluginPackageArchiveService
                 || !hash_equals($inventoryDigest, $document['inventory_sha256'])) {
                 throw new PluginPackageException('MODULE_PACKAGE_SIGNATURE_INVALID', 'Package signature inventory digest differs.');
             }
-            $signature = base64_decode((string)($document['signature_base64'] ?? ''), true);
+            $signature = base64_decode((string) ($document['signature_base64'] ?? ''), true);
             $publicKey = $trustedPublicKeys[$keyId];
             if (!is_string($signature) || strlen($signature) !== SODIUM_CRYPTO_SIGN_BYTES
                 || strlen($publicKey) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES
@@ -496,7 +497,7 @@ final class PluginPackageArchiveService
         }
         [$key, $path] = $matches[0];
         try {
-            $manifest = json_decode((string)file_get_contents($stageRoot . '/' . $path), true, 128, JSON_THROW_ON_ERROR);
+            $manifest = json_decode((string) file_get_contents($stageRoot . '/' . $path), true, 128, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw new PluginPackageException('MODULE_PACKAGE_MANIFEST_INVALID', 'Plugin manifest JSON is invalid.');
         }
@@ -510,7 +511,7 @@ final class PluginPackageArchiveService
     private function assertPluginSchema(array $manifest): void
     {
         try {
-            $schema = json_decode((string)file_get_contents($this->serverRoot . '/resources/schemas/plugin.schema.json'));
+            $schema = json_decode((string) file_get_contents($this->serverRoot . '/resources/schemas/plugin.schema.json'));
             $document = json_decode(json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             $result = (new Validator())->validate($document, $schema);
         } catch (\JsonException $exception) {
@@ -548,7 +549,7 @@ final class PluginPackageArchiveService
     private function assertPublishableSourcePath(string $relative): void
     {
         $segments = array_map('strtolower', explode('/', $relative));
-        $basename = (string)end($segments);
+        $basename = (string) end($segments);
         $forbiddenDirectories = [
             '.cache', '.git', '.hg', '.idea', '.local', '.svn', '.vscode',
             'build', 'coverage', 'dist', 'node_modules', 'tmp', 'vendor',
@@ -606,7 +607,7 @@ final class PluginPackageArchiveService
             return null;
         }
         try {
-            $manifest = json_decode((string)file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
+            $manifest = json_decode((string) file_get_contents($path), true, 32, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             return null;
         }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\validation\module;
@@ -22,9 +23,9 @@ final class StrictVersionConstraintMatcher implements VersionConstraintMatcher
             return false;
         }
 
-        $major = (int)$match[1];
-        $minor = (int)$match[2];
-        $patch = isset($match[3]) && $match[3] !== '' ? (int)$match[3] : 0;
+        $major = (int) $match[1];
+        $minor = (int) $match[2];
+        $patch = isset($match[3]) && $match[3] !== '' ? (int) $match[3] : 0;
         $lower = "{$major}.{$minor}.{$patch}";
         $upper = $major > 0
             ? ($major + 1) . '.0.0'

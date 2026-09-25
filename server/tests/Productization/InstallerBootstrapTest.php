@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\services\installation\InstallationPreflightHost;
@@ -61,7 +62,7 @@ try {
         $temporary,
         static fn(string $extension): bool => true,
         static fn(): array => $resourceIdentity,
-        '8.3.0'
+        '8.3.0',
     );
     $ready = $host->inspect();
     installerExpect($ready['status'] === 'ready', 'valid preflight fixture must be ready');
@@ -69,7 +70,7 @@ try {
     installerExpect(count($ready['checks']) === 7, 'preflight check set changed');
     installerExpect($ready['resource'] === array_intersect_key(
         $resourceIdentity,
-        array_flip(['environment', 'deployment_target', 'resource_id', 'endpoint_id', 'consumer'])
+        array_flip(['environment', 'deployment_target', 'resource_id', 'endpoint_id', 'consumer']),
     ), 'preflight must expose only stable resource identity fields');
     $encoded = json_encode($ready, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     foreach (['must-not-appear.example', 'must_not_appear', 'must-not-appear-user', 'must-not-appear-secret'] as $secret) {
@@ -80,34 +81,34 @@ try {
         $temporary,
         static fn(string $extension): bool => $extension !== 'zip',
         static fn(): array => $resourceIdentity,
-        '8.3.0'
+        '8.3.0',
     ))->inspect();
     installerExpect($missingExtension['status'] === 'blocked', 'missing extension must block preflight');
     installerExpect($missingExtension['code'] === 'INSTALL_PREFLIGHT_BLOCKED', 'blocked preflight code changed');
     $extensionCheck = array_values(array_filter(
         $missingExtension['checks'],
-        static fn(array $check): bool => $check['id'] === 'php-extensions'
+        static fn(array $check): bool => $check['id'] === 'php-extensions',
     ))[0] ?? null;
     installerExpect(
         ($extensionCheck['code'] ?? null) === 'INSTALL_PHP_EXTENSIONS_MISSING',
-        'missing extension reason code changed'
+        'missing extension reason code changed',
     );
 
     $resourceFailure = (new InstallationPreflightHost(
         $temporary,
         static fn(string $extension): bool => true,
         static fn(): array => throw new RuntimeException('must-not-appear-resource-error'),
-        '8.3.0'
+        '8.3.0',
     ))->inspect();
     installerExpect($resourceFailure['status'] === 'blocked', 'invalid resource identity must block preflight');
     installerExpect($resourceFailure['resource'] === null, 'invalid resource identity must not be exposed');
     installerExpect(
         !str_contains(json_encode($resourceFailure, JSON_THROW_ON_ERROR), 'must-not-appear-resource-error'),
-        'resource validation exception leaked through preflight'
+        'resource validation exception leaked through preflight',
     );
 
-    $hostSource = (string)file_get_contents(
-        dirname(__DIR__, 2) . '/app/common/services/installation/InstallationPreflightHost.php'
+    $hostSource = (string) file_get_contents(
+        dirname(__DIR__, 2) . '/app/common/services/installation/InstallationPreflightHost.php',
     );
     foreach (['new PDO', 'guardedConnection(', 'waitForDatabase(', 'file_put_contents(', 'touch(', 'mkdir(', 'unlink('] as $mutation) {
         installerExpect(!str_contains($hostSource, $mutation), 'preflight host must stay read-only: ' . $mutation);
@@ -131,7 +132,7 @@ foreach (['', '12345678901'] as $weakPassword) {
     } catch (RuntimeException $exception) {
         installerExpect(
             $exception->getMessage() === 'ADMIN_INITIAL_PASSWORD 至少 12 位',
-            'weak password must fail at the installer boundary'
+            'weak password must fail at the installer boundary',
         );
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task\Service;
@@ -20,7 +21,7 @@ final readonly class TaskSchedulerService implements TaskScheduler
             $now,
             fn(TenantScope $scope, array $item) => $this->tasks->enqueueCrontab(
                 $scope,
-                (int)$item['id'],
+                (int) $item['id'],
                 $scope->contextIdentity(),
             ),
         );
@@ -31,7 +32,7 @@ final readonly class TaskSchedulerService implements TaskScheduler
 
     public function start(TenantScope $scope, array $item): void
     {
-        $this->tasks->enqueueCrontab($scope, (int)($item['id'] ?? 0), $scope->contextIdentity());
+        $this->tasks->enqueueCrontab($scope, (int) ($item['id'] ?? 0), $scope->contextIdentity());
         $this->tasks->runTenant($scope->tenantId(), $this->workerId());
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -34,7 +35,9 @@ final class OpsModuleRequest extends ModuleContextualCommand
     {
         try {
             $config = Config::get('modules', []);
-            if (!is_array($config)) throw new \RuntimeException('OPS_MODULE_CONFIG_INVALID');
+            if (!is_array($config)) {
+                throw new \RuntimeException('OPS_MODULE_CONFIG_INVALID');
+            }
             $catalogs = $this->moduleCatalogs();
             $service = new DeploymentModuleRequestService(
                 dirname(__DIR__, 3),
@@ -44,17 +47,17 @@ final class OpsModuleRequest extends ModuleContextualCommand
                 $catalogs,
             );
             $arguments = [
-                trim((string)$input->getOption('delivery-resource-id')),
-                trim((string)$input->getOption('target-resource-id')),
-                trim((string)$input->getOption('operation')),
-                trim((string)$input->getOption('package-key')),
-                ($sha = trim((string)$input->getOption('archive-sha256'))) === '' ? null : $sha,
-                ($key = trim((string)$input->getOption('signature-key-id'))) === '' ? null : $key,
+                trim((string) $input->getOption('delivery-resource-id')),
+                trim((string) $input->getOption('target-resource-id')),
+                trim((string) $input->getOption('operation')),
+                trim((string) $input->getOption('package-key')),
+                ($sha = trim((string) $input->getOption('archive-sha256'))) === '' ? null : $sha,
+                ($key = trim((string) $input->getOption('signature-key-id'))) === '' ? null : $key,
             ];
-            $action = trim((string)$input->getArgument('action'));
+            $action = trim((string) $input->getArgument('action'));
             $prepareArguments = [
                 ...$arguments,
-                ($digest = trim((string)$input->getOption('confirm-plan-digest'))) === '' ? null : $digest,
+                ($digest = trim((string) $input->getOption('confirm-plan-digest'))) === '' ? null : $digest,
             ];
             $result = match ($action) {
                 'preview' => $service->preview(...$arguments),
@@ -75,7 +78,7 @@ final class OpsModuleRequest extends ModuleContextualCommand
     private function trustedKeys(): array
     {
         $trusted = [];
-        foreach ((array)Config::get('module_packages.trusted_ed25519_keys', []) as $keyId => $encoded) {
+        foreach ((array) Config::get('module_packages.trusted_ed25519_keys', []) as $keyId => $encoded) {
             $decoded = is_string($encoded) ? base64_decode($encoded, true) : false;
             if (is_string($keyId) && is_string($decoded) && strlen($decoded) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
                 $trusted[$keyId] = $decoded;

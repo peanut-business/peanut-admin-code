@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
@@ -70,7 +71,7 @@ final class ScaffoldUpgradeRunner
         $to = ScaffoldManifest::load($toManifestPath);
         $this->assertReleaseChain($application, $from, $to);
         [$versionContract, $versionContractDigest] = $this->versionContract($root, $application);
-        $fromParameters = $this->parameters($application, (string)$application['application']['version']);
+        $fromParameters = $this->parameters($application, (string) $application['application']['version']);
         $instanceVersion = $this->instanceVersion($versionContract);
         $targetParameters = $this->parameters($application, $instanceVersion);
         $actions = $this->classify($root, $application, $from, $to, $fromParameters, $targetParameters, $versionContract);
@@ -133,7 +134,7 @@ final class ScaffoldUpgradeRunner
                 'preflight',
                 $plan['status'],
                 $plan['identity']['managed_pre_sha256'],
-                null
+                null,
             ));
         }
         return $plan + ['plan_path' => $this->relative($root, $path)];
@@ -242,7 +243,9 @@ final class ScaffoldUpgradeRunner
         return $this->locked($projectRoot, function (string $root) use ($planPath): array {
             $plan = $this->loadPlan($root, $planPath);
             $ledger = $this->ledger($root);
-            if ($plan['status'] !== 'ready') throw new RuntimeException('SCAFFOLD_PLAN_BLOCKED');
+            if ($plan['status'] !== 'ready') {
+                throw new RuntimeException('SCAFFOLD_PLAN_BLOCKED');
+            }
             if (in_array($this->candidateState($ledger, $plan['candidate']), ['applied', 'verified'], true)) {
                 $this->assertAppliedState($root, $plan);
                 return ['status' => 'applied', 'candidate' => $plan['candidate'], 'idempotent' => true];
@@ -257,10 +260,14 @@ final class ScaffoldUpgradeRunner
             try {
                 $writes = 0;
                 foreach ($plan['actions'] as $action) {
-                    if ($action['action'] !== 'delete') continue;
+                    if ($action['action'] !== 'delete') {
+                        continue;
+                    }
                     $this->assertActionFresh($root, $action);
                     $target = ScaffoldPathGuard::projectPath($root, $action['path']);
-                    if (!unlink($target)) throw new RuntimeException('SCAFFOLD_ATOMIC_DELETE_FAILED: ' . $action['path']);
+                    if (!unlink($target)) {
+                        throw new RuntimeException('SCAFFOLD_ATOMIC_DELETE_FAILED: ' . $action['path']);
+                    }
                     $this->pruneEmptyParents(dirname($target), $root);
                     $writes++;
                     if ($this->failAfterReplacements !== null && $writes >= $this->failAfterReplacements) {
@@ -268,10 +275,12 @@ final class ScaffoldUpgradeRunner
                     }
                 }
                 foreach ($plan['actions'] as $action) {
-                    if (!in_array($action['action'], ['create', 'replace', 'regenerate'], true)) continue;
+                    if (!in_array($action['action'], ['create', 'replace', 'regenerate'], true)) {
+                        continue;
+                    }
                     $this->assertActionFresh($root, $action);
                     $artifact = $this->targetContent($to, $action, $plan);
-                    $this->writeFileAtomic(ScaffoldPathGuard::projectPath($root, $action['path']), $artifact, (int)$action['mode']);
+                    $this->writeFileAtomic(ScaffoldPathGuard::projectPath($root, $action['path']), $artifact, (int) $action['mode']);
                     $baseline = '.peanut/scaffold-baseline/' . $to->version() . '/files/' . $action['path'];
                     $this->writeFileAtomic(ScaffoldPathGuard::projectPath($root, $baseline), $artifact, 0644);
                     $writes++;
@@ -280,7 +289,9 @@ final class ScaffoldUpgradeRunner
                     }
                 }
                 foreach ($plan['actions'] as $action) {
-                    if ($action['action'] !== 'preserve') continue;
+                    if ($action['action'] !== 'preserve') {
+                        continue;
+                    }
                     $this->assertActionFresh($root, $action);
                     $artifact = $this->baselineContent($root, $to, $action, $plan);
                     $baseline = '.peanut/scaffold-baseline/' . $to->version() . '/files/' . $action['path'];
@@ -309,7 +320,9 @@ final class ScaffoldUpgradeRunner
                 $this->assertAppliedState($root, $plan);
                 return ['status' => 'verified', 'candidate' => $plan['candidate'], 'idempotent' => true];
             }
-            if (!in_array($this->candidateState($ledger, $plan['candidate']), ['applied','verified'], true)) throw new RuntimeException('SCAFFOLD_APPLY_NOT_COMMITTED');
+            if (!in_array($this->candidateState($ledger, $plan['candidate']), ['applied','verified'], true)) {
+                throw new RuntimeException('SCAFFOLD_APPLY_NOT_COMMITTED');
+            }
             [$application, $actualAppOwned] = $this->assertAppliedState($root, $plan);
             $post = $this->managedDigestFromManifest($root, $application);
             $ledger->append($this->event($plan, 'verify', 'verified', $plan['identity']['managed_pre_sha256'], $post));
@@ -323,28 +336,36 @@ final class ScaffoldUpgradeRunner
             $plan = $this->loadPlan($root, $planPath);
             $ledger = $this->ledger($root);
             $manifestPath = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/backups/' . $plan['candidate'] . '/recovery.json');
-            if (!is_file($manifestPath)) throw new RuntimeException('SCAFFOLD_RECOVERY_NOT_FOUND');
-            $recovery = json_decode((string)file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+            if (!is_file($manifestPath)) {
+                throw new RuntimeException('SCAFFOLD_RECOVERY_NOT_FOUND');
+            }
+            $recovery = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($recovery) || ($recovery['candidate'] ?? null) !== $plan['candidate'] || !is_array($recovery['files'] ?? null)
-                || !hash_equals((string)($recovery['pre_tree_sha256'] ?? ''), 'sha256:' . hash('sha256', self::canonicalJson($recovery['files'])))) {
+                || !hash_equals((string) ($recovery['pre_tree_sha256'] ?? ''), 'sha256:' . hash('sha256', self::canonicalJson($recovery['files'])))) {
                 throw new RuntimeException('SCAFFOLD_RECOVERY_INVALID');
             }
             $already = $this->recoveryMatches($root, $recovery);
             if (!$already) {
                 foreach ($recovery['files'] as $relative => $state) {
-                    $target = ScaffoldPathGuard::projectPath($root, (string)$relative);
+                    $target = ScaffoldPathGuard::projectPath($root, (string) $relative);
                     if ($state['present']) {
                         $backup = ScaffoldPathGuard::existingFileWithin(dirname($manifestPath), dirname($manifestPath) . '/' . $state['backup'], 'SCAFFOLD_RECOVERY_BACKUP_INVALID');
                         $content = file_get_contents($backup);
-                        if (!is_string($content) || !hash_equals($state['sha256'], hash('sha256', $content))) throw new RuntimeException('SCAFFOLD_RECOVERY_BACKUP_DRIFT');
-                        $this->writeFileAtomic($target, $content, (int)$state['mode']);
+                        if (!is_string($content) || !hash_equals($state['sha256'], hash('sha256', $content))) {
+                            throw new RuntimeException('SCAFFOLD_RECOVERY_BACKUP_DRIFT');
+                        }
+                        $this->writeFileAtomic($target, $content, (int) $state['mode']);
                     } elseif (file_exists($target)) {
-                        if (!is_file($target) || is_link($target)) throw new RuntimeException('SCAFFOLD_RECOVERY_PATH_COLLISION: ' . $relative);
+                        if (!is_file($target) || is_link($target)) {
+                            throw new RuntimeException('SCAFFOLD_RECOVERY_PATH_COLLISION: ' . $relative);
+                        }
                         unlink($target);
                         $this->pruneEmptyParents(dirname($target), $root);
                     }
                 }
-                if (!$this->recoveryMatches($root, $recovery)) throw new RuntimeException('SCAFFOLD_RECOVERY_VERIFY_FAILED');
+                if (!$this->recoveryMatches($root, $recovery)) {
+                    throw new RuntimeException('SCAFFOLD_RECOVERY_VERIFY_FAILED');
+                }
             }
             $this->assertPluginProjection($root, $plan);
             if (!$this->hasEvent($ledger, $plan['candidate'], 'recover', 'recovered')) {
@@ -366,11 +387,11 @@ final class ScaffoldUpgradeRunner
             if (!is_file($manifestPath) || is_link($manifestPath)) {
                 throw new RuntimeException('SCAFFOLD_RECOVERY_NOT_FOUND');
             }
-            $recovery = json_decode((string)file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+            $recovery = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($recovery) || ($recovery['candidate'] ?? null) !== $plan['candidate']
                 || !is_array($recovery['files'] ?? null)
                 || !hash_equals(
-                    (string)($recovery['pre_tree_sha256'] ?? ''),
+                    (string) ($recovery['pre_tree_sha256'] ?? ''),
                     'sha256:' . hash('sha256', self::canonicalJson($recovery['files'])),
                 )
                 || !$this->recoveryMatches($root, $recovery)) {
@@ -443,7 +464,9 @@ final class ScaffoldUpgradeRunner
         $parameters = $this->parameters($application, $this->instanceVersion($versionContract));
         $applicationFiles = [];
         foreach ($application['files'] as $file) {
-            if (is_array($file) && is_string($file['path'] ?? null)) $applicationFiles[$file['path']] = $file;
+            if (is_array($file) && is_string($file['path'] ?? null)) {
+                $applicationFiles[$file['path']] = $file;
+            }
         }
         $targetFiles = $to->files();
         $actions = [];
@@ -456,10 +479,12 @@ final class ScaffoldUpgradeRunner
                 throw new RuntimeException('SCAFFOLD_ADOPTION_NOT_REQUIRED: ' . $path);
             }
             $current = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $path), $path);
-            if (!$current['present']) throw new RuntimeException('SCAFFOLD_ADOPTION_FILE_MISSING: ' . $path);
-            $oldSource = (string)$entry['absolute_source'];
+            if (!$current['present']) {
+                throw new RuntimeException('SCAFFOLD_ADOPTION_FILE_MISSING: ' . $path);
+            }
+            $oldSource = (string) $entry['absolute_source'];
             $oldBytes = file_get_contents($oldSource);
-            if (!is_string($oldBytes) || !hash_equals((string)$entry['sha256'], hash('sha256', $oldBytes))) {
+            if (!is_string($oldBytes) || !hash_equals((string) $entry['sha256'], hash('sha256', $oldBytes))) {
                 throw new RuntimeException('SCAFFOLD_ADOPTION_SOURCE_DRIFT: ' . $path);
             }
             $targetBytes = $this->renderCurrentVersionArtifact($to, $target, $parameters, $versionContract);
@@ -490,7 +515,9 @@ final class ScaffoldUpgradeRunner
         ];
         $candidateDigest = hash('sha256', self::canonicalJson([$identity, $actions]));
         $metadataWrites = ['.peanut/application-manifest.json'];
-        foreach ($actions as $action) $metadataWrites[] = $action['baseline_path'];
+        foreach ($actions as $action) {
+            $metadataWrites[] = $action['baseline_path'];
+        }
         sort($metadataWrites, SORT_STRING);
         return [
             'schema_version' => 1,
@@ -516,7 +543,9 @@ final class ScaffoldUpgradeRunner
         $adopted = array_fill_keys($plan['paths'], true);
         $files = [];
         foreach ($application['files'] as $file) {
-            if (!isset($adopted[$file['path']])) $files[] = $file;
+            if (!isset($adopted[$file['path']])) {
+                $files[] = $file;
+            }
         }
         foreach ($plan['actions'] as $action) {
             $files[] = [
@@ -563,19 +592,24 @@ final class ScaffoldUpgradeRunner
         array $fromParameters,
         array $targetParameters,
         array $versionContract,
-    ): array
-    {
-        if ($from->renames() !== [] || $to->renames() !== []) throw new RuntimeException('SCAFFOLD_RENAME_UNSUPPORTED');
-        $old = $from->files(); $new = $to->files(); $actions = [];
+    ): array {
+        if ($from->renames() !== [] || $to->renames() !== []) {
+            throw new RuntimeException('SCAFFOLD_RENAME_UNSUPPORTED');
+        }
+        $old = $from->files();
+        $new = $to->files();
+        $actions = [];
         $applicationFiles = [];
         foreach ($application['files'] as $file) {
             if (is_array($file) && is_string($file['path'] ?? null)) {
                 $applicationFiles[$file['path']] = $file;
             }
         }
-        $paths = array_unique(array_merge(array_keys($old), array_keys($new))); sort($paths, SORT_STRING);
+        $paths = array_unique(array_merge(array_keys($old), array_keys($new)));
+        sort($paths, SORT_STRING);
         foreach ($paths as $path) {
-            $before = $old[$path] ?? null; $after = $new[$path] ?? null;
+            $before = $old[$path] ?? null;
+            $after = $new[$path] ?? null;
             $projectPath = ScaffoldPathGuard::projectPath($root, $path);
             $current = $this->regularFileState($projectPath, $path);
             $instanceFile = $applicationFiles[$path] ?? null;
@@ -631,9 +665,13 @@ final class ScaffoldUpgradeRunner
                 || ($current['mode'] ?? null) !== ($before['mode'] ?? null);
             $upstreamChanged = !hash_equals($currentVersionDigest, $targetDigest)
                 || ($before['mode'] ?? null) !== ($after['mode'] ?? null);
-            if ($projectChanged && $upstreamChanged) $actions[] = $this->action($path, $after, 'conflict', 'both_project_and_upstream_modified', true, $current, $targetDigest);
-            elseif ($projectChanged) $actions[] = $this->action($path, $after, 'preserve', 'project_modified_only', false, $current, $targetDigest);
-            else $actions[] = $this->action($path, $after, $after['classification'] === 'generated-managed' ? 'regenerate' : 'replace', $upstreamChanged ? 'upstream_modified_only' : 'application_version_projection', false, $current, $targetDigest);
+            if ($projectChanged && $upstreamChanged) {
+                $actions[] = $this->action($path, $after, 'conflict', 'both_project_and_upstream_modified', true, $current, $targetDigest);
+            } elseif ($projectChanged) {
+                $actions[] = $this->action($path, $after, 'preserve', 'project_modified_only', false, $current, $targetDigest);
+            } else {
+                $actions[] = $this->action($path, $after, $after['classification'] === 'generated-managed' ? 'regenerate' : 'replace', $upstreamChanged ? 'upstream_modified_only' : 'application_version_projection', false, $current, $targetDigest);
+            }
         }
         return $actions;
     }
@@ -650,20 +688,26 @@ final class ScaffoldUpgradeRunner
     {
         $path = $manifest->artifactPath($file);
         $raw = file_get_contents($path);
-        if (!is_string($raw) || !hash_equals($file['template_sha256'], hash('sha256', $raw))) throw new RuntimeException('SCAFFOLD_ARTIFACT_DIGEST_MISMATCH: ' . $file['path']);
-        $tokens=$manifest->release()['tokens'];
-        $expectedKeys=$manifest->supportsApplicationVersion()
+        if (!is_string($raw) || !hash_equals($file['template_sha256'], hash('sha256', $raw))) {
+            throw new RuntimeException('SCAFFOLD_ARTIFACT_DIGEST_MISMATCH: ' . $file['path']);
+        }
+        $tokens = $manifest->release()['tokens'];
+        $expectedKeys = $manifest->supportsApplicationVersion()
             ? ['product_name','slug','package_identity','application_version']
             : ['product_name','slug','package_identity'];
-        if(array_keys($tokens)!==$expectedKeys)throw new RuntimeException('SCAFFOLD_RELEASE_TOKENS_INVALID');
-        $values=[
-            'product_name'=>$parameters['PRODUCT_NAME'],
-            'slug'=>$parameters['SLUG'],
-            'package_identity'=>$parameters['PACKAGE_IDENTITY'],
-            'application_version'=>$parameters['APPLICATION_VERSION'],
+        if (array_keys($tokens) !== $expectedKeys) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_TOKENS_INVALID');
+        }
+        $values = [
+            'product_name' => $parameters['PRODUCT_NAME'],
+            'slug' => $parameters['SLUG'],
+            'package_identity' => $parameters['PACKAGE_IDENTITY'],
+            'application_version' => $parameters['APPLICATION_VERSION'],
         ];
-        $rendered=$raw;
-        foreach($tokens as $key=>$token)$rendered=str_replace($token,$values[$key],$rendered);
+        $rendered = $raw;
+        foreach ($tokens as $key => $token) {
+            $rendered = str_replace($token, $values[$key], $rendered);
+        }
         if (($file['transform'] ?? null) === 'composer-lock') {
             $composer = $manifest->files()['server/composer.json'] ?? null;
             if (!is_array($composer)) {
@@ -672,7 +716,7 @@ final class ScaffoldUpgradeRunner
             $composerPath = $manifest->artifactPath($composer);
             $composerRaw = file_get_contents($composerPath);
             if (!is_string($composerRaw)
-                || !hash_equals((string)($composer['template_sha256'] ?? ''), hash('sha256', $composerRaw))) {
+                || !hash_equals((string) ($composer['template_sha256'] ?? ''), hash('sha256', $composerRaw))) {
                 throw new RuntimeException('SCAFFOLD_COMPOSER_COMPANION_INVALID');
             }
             foreach ($tokens as $key => $token) {
@@ -735,7 +779,7 @@ final class ScaffoldUpgradeRunner
         $content = $state['present'] ? file_get_contents($path) : false;
         if (!is_string($content)
             || $state !== $action['current']
-            || !hash_equals((string)$action['target_sha256'], hash('sha256', $content))) {
+            || !hash_equals((string) $action['target_sha256'], hash('sha256', $content))) {
             throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_CHANGED: ' . $action['path']);
         }
         return $content;
@@ -763,7 +807,7 @@ final class ScaffoldUpgradeRunner
             $lockEndState = $this->regularFileState($lockPath, 'plugins.lock');
             if (!is_string($lockBytes)
                 || $lockEndState !== $lockState
-                || !hash_equals((string)$lockState['sha256'], hash('sha256', $lockBytes))) {
+                || !hash_equals((string) $lockState['sha256'], hash('sha256', $lockBytes))) {
                 throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_CHANGED');
             }
             $lock = json_decode($lockBytes, true, 64, JSON_THROW_ON_ERROR);
@@ -797,7 +841,7 @@ final class ScaffoldUpgradeRunner
             /** @var PluginDescriptor $descriptor */
             $descriptor = $resolved[$key];
             if (!$manifestState['present']
-                || !hash_equals($descriptor->manifestDigest, (string)$manifestState['sha256'])) {
+                || !hash_equals($descriptor->manifestDigest, (string) $manifestState['sha256'])) {
                 throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID: PLUGIN_MANIFEST_INVALID');
             }
             $moduleRoots = [];
@@ -880,7 +924,7 @@ final class ScaffoldUpgradeRunner
         $plugins = [];
         foreach ($lock['plugins'] as $entry) {
             if (!is_array($entry)
-                || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', (string)($entry['key'] ?? '')) !== 1
+                || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', (string) ($entry['key'] ?? '')) !== 1
                 || !is_string($entry['manifest'] ?? null)
                 || !is_array($entry['frontend'] ?? null)
                 || !array_is_list($entry['frontend'])
@@ -889,7 +933,7 @@ final class ScaffoldUpgradeRunner
                 || !array_is_list($entry['modules'])) {
                 throw new RuntimeException('SCAFFOLD_TARGET_PLUGIN_LOCK_INVALID');
             }
-            $key = (string)$entry['key'];
+            $key = (string) $entry['key'];
             $manifestPath = ScaffoldManifest::path($entry['manifest']);
             if (isset($plugins[$key]) || !isset($files[$manifestPath])) {
                 throw new RuntimeException('SCAFFOLD_TARGET_PLUGIN_LOCK_INVALID');
@@ -898,7 +942,7 @@ final class ScaffoldUpgradeRunner
             $frontendRoots = [];
             foreach ($entry['modules'] as $module) {
                 if (!is_array($module)
-                    || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', (string)($module['key'] ?? '')) !== 1
+                    || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', (string) ($module['key'] ?? '')) !== 1
                     || !is_string($module['root'] ?? null)) {
                     throw new RuntimeException('SCAFFOLD_TARGET_PLUGIN_LOCK_INVALID');
                 }
@@ -945,7 +989,7 @@ final class ScaffoldUpgradeRunner
         }
 
         foreach ($actions as &$action) {
-            $path = (string)$action['path'];
+            $path = (string) $action['path'];
             if ($path === 'plugins.lock' && $adoptionRequired !== []) {
                 $action['action'] = 'conflict';
                 $action['reason'] = 'plugin_adoption_required';
@@ -1011,7 +1055,9 @@ final class ScaffoldUpgradeRunner
     private function summary(array $actions): array
     {
         $summary = ['total' => count($actions), 'automatic' => 0, 'preserved' => 0, 'conflicts' => 0];
-        foreach ($actions as $action) $action['conflict'] ? $summary['conflicts']++ : (in_array($action['action'], ['create','delete','replace','regenerate'], true) ? $summary['automatic']++ : $summary['preserved']++);
+        foreach ($actions as $action) {
+            $action['conflict'] ? $summary['conflicts']++ : (in_array($action['action'], ['create','delete','replace','regenerate'], true) ? $summary['automatic']++ : $summary['preserved']++);
+        }
         return $summary;
     }
 
@@ -1022,9 +1068,13 @@ final class ScaffoldUpgradeRunner
         $conflicts = [];
         foreach ($actions as $action) {
             $item = ['path' => $action['path'], 'action' => $action['action'], 'reason' => $action['reason']];
-            if ($action['conflict']) $conflicts[] = $item;
-            elseif (in_array($action['action'], ['create', 'delete', 'replace', 'regenerate'], true)) $changes[] = $item;
-            else $preserved[] = $item;
+            if ($action['conflict']) {
+                $conflicts[] = $item;
+            } elseif (in_array($action['action'], ['create', 'delete', 'replace', 'regenerate'], true)) {
+                $changes[] = $item;
+            } else {
+                $preserved[] = $item;
+            }
         }
         return [
             'message' => $conflicts === []
@@ -1042,9 +1092,9 @@ final class ScaffoldUpgradeRunner
     {
         return [
             'APPLICATION_VERSION' => $applicationVersion,
-            'PACKAGE_IDENTITY' => (string)$application['application']['package_identity'],
-            'PRODUCT_NAME' => (string)$application['application']['name'],
-            'SLUG' => (string)$application['application']['slug'],
+            'PACKAGE_IDENTITY' => (string) $application['application']['package_identity'],
+            'PRODUCT_NAME' => (string) $application['application']['name'],
+            'SLUG' => (string) $application['application']['slug'],
         ];
     }
 
@@ -1071,7 +1121,7 @@ final class ScaffoldUpgradeRunner
         if ($document['scaffold_template'] !== ($application['template']['version'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_VERSION_CONTRACT_IDENTITY_MISMATCH');
         }
-        return [$document, 'sha256:' . hash('sha256', (string)$raw)];
+        return [$document, 'sha256:' . hash('sha256', (string) $raw)];
     }
 
     /** Compare the known version contract semantically while all other managed files remain byte-exact. */
@@ -1085,11 +1135,11 @@ final class ScaffoldUpgradeRunner
             return false;
         }
         if ($path !== 'release-versions.json') {
-            return hash_equals(hash('sha256', $expected), (string)$current['sha256']);
+            return hash_equals(hash('sha256', $expected), (string) $current['sha256']);
         }
         $actual = file_get_contents(ScaffoldPathGuard::projectPath($root, $path));
         return is_string($actual)
-            && hash_equals(hash('sha256', $actual), (string)$current['sha256'])
+            && hash_equals(hash('sha256', $actual), (string) $current['sha256'])
             && $this->normalizeVersionContractDocument($actual, 'SCAFFOLD_VERSION_CONTRACT_INVALID')
                 === $this->normalizeVersionContractDocument($expected, 'SCAFFOLD_VERSION_CONTRACT_TARGET_INVALID');
     }
@@ -1186,14 +1236,25 @@ final class ScaffoldUpgradeRunner
         ReleaseDependencyIdentity::verifyArchives($root, $web, 'SCAFFOLD_VERSION_CONTRACT_CORE_WEB_ARCHIVE_INVALID');
     }
 
-    private function releaseIdentity(ScaffoldManifest $manifest): array { return $manifest->release() + ['manifest_sha256' => $manifest->digest()]; }
-    private function assertManifestDigest(ScaffoldManifest $manifest, string $digest): void { if (!hash_equals($digest, $manifest->digest())) throw new RuntimeException('SCAFFOLD_MANIFEST_CHECKSUM_DRIFT'); }
+    private function releaseIdentity(ScaffoldManifest $manifest): array
+    {
+        return $manifest->release() + ['manifest_sha256' => $manifest->digest()];
+    }
+    private function assertManifestDigest(ScaffoldManifest $manifest, string $digest): void
+    {
+        if (!hash_equals($digest, $manifest->digest())) {
+            throw new RuntimeException('SCAFFOLD_MANIFEST_CHECKSUM_DRIFT');
+        }
+    }
 
     private function applicationManifest(string $root): array
     {
         $path = ScaffoldPathGuard::projectPath($root, '.peanut/application-manifest.json');
-        if (!is_file($path) || is_link($path)) throw new RuntimeException('SCAFFOLD_APPLICATION_MANIFEST_MISSING');
-        $raw = file_get_contents($path); $data = is_string($raw) ? json_decode($raw, true, 512, JSON_THROW_ON_ERROR) : null;
+        if (!is_file($path) || is_link($path)) {
+            throw new RuntimeException('SCAFFOLD_APPLICATION_MANIFEST_MISSING');
+        }
+        $raw = file_get_contents($path);
+        $data = is_string($raw) ? json_decode($raw, true, 512, JSON_THROW_ON_ERROR) : null;
         if (!is_array($data) || !is_array($data['application'] ?? null) || !is_array($data['files'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_APPLICATION_MANIFEST_INVALID');
         }
@@ -1206,10 +1267,10 @@ final class ScaffoldUpgradeRunner
         } else {
             throw new RuntimeException('SCAFFOLD_APPLICATION_MANIFEST_INVALID');
         }
-        if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', (string)$version) !== 1) {
+        if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$/D', (string) $version) !== 1) {
             throw new RuntimeException('SCAFFOLD_APPLICATION_VERSION_INVALID');
         }
-        return [$data, 'sha256:' . hash('sha256', (string)$raw)];
+        return [$data, 'sha256:' . hash('sha256', (string) $raw)];
     }
 
     private function legacyApplicationVersion(string $root): string
@@ -1219,7 +1280,7 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SCAFFOLD_LEGACY_APPLICATION_VERSION_UNAVAILABLE');
         }
         try {
-            $metadata = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            $metadata = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new RuntimeException('SCAFFOLD_LEGACY_APPLICATION_VERSION_UNAVAILABLE', 0, $exception);
         }
@@ -1246,49 +1307,71 @@ final class ScaffoldUpgradeRunner
 
     private function regularFileState(string $path, string $relative): array
     {
-        if (!file_exists($path)) return ['present' => false, 'sha256' => null, 'mode' => null];
-        if (!is_file($path) || is_link($path)) throw new RuntimeException('SCAFFOLD_PATH_TYPE_REJECTED: ' . $relative);
+        if (!file_exists($path)) {
+            return ['present' => false, 'sha256' => null, 'mode' => null];
+        }
+        if (!is_file($path) || is_link($path)) {
+            throw new RuntimeException('SCAFFOLD_PATH_TYPE_REJECTED: ' . $relative);
+        }
         $stat = lstat($path);
-        if (!is_array($stat) || ($stat['nlink'] ?? 0) !== 1) throw new RuntimeException('SCAFFOLD_PATH_HARDLINK_REJECTED: ' . $relative);
+        if (!is_array($stat) || ($stat['nlink'] ?? 0) !== 1) {
+            throw new RuntimeException('SCAFFOLD_PATH_HARDLINK_REJECTED: ' . $relative);
+        }
         return ['present' => true, 'sha256' => hash_file('sha256', $path), 'mode' => fileperms($path) & 0777];
     }
 
     private function actionState(string $root, array $actions): array
     {
         $files = [];
-        foreach ($actions as $action) $files[$action['path']] = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $action['path']), $action['path']);
-        ksort($files, SORT_STRING); return ['files' => $files, 'digest' => 'sha256:' . hash('sha256', self::canonicalJson($files))];
+        foreach ($actions as $action) {
+            $files[$action['path']] = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $action['path']), $action['path']);
+        }
+        ksort($files, SORT_STRING);
+        return ['files' => $files, 'digest' => 'sha256:' . hash('sha256', self::canonicalJson($files))];
     }
 
     private function ownershipState(string $root, array $application, string $classification): array
     {
         $files = [];
-        foreach ($application['files'] as $file) if (($file['classification'] ?? null) === $classification) $files[$file['path']] = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['path']), $file['path']);
-        ksort($files, SORT_STRING); return ['files' => $files, 'digest' => 'sha256:' . hash('sha256', self::canonicalJson($files))];
+        foreach ($application['files'] as $file) {
+            if (($file['classification'] ?? null) === $classification) {
+                $files[$file['path']] = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['path']), $file['path']);
+            }
+        }
+        ksort($files, SORT_STRING);
+        return ['files' => $files, 'digest' => 'sha256:' . hash('sha256', self::canonicalJson($files))];
     }
 
     private function loadPlan(string $root, string $path): array
     {
         $resolved = ScaffoldPathGuard::existingFileWithin($root, $path, 'SCAFFOLD_PLAN_PATH_INVALID');
-        $data = json_decode((string)file_get_contents($resolved), true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($data) || ($data['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2' || preg_match('/^scaffold-[a-f0-9]{24}$/D', (string)($data['candidate'] ?? '')) !== 1) throw new RuntimeException('SCAFFOLD_PLAN_INVALID');
-        $expected='scaffold-'.substr(hash('sha256',self::canonicalJson([$data['identity']??null,$data['actions']??null])),0,24);
-        if(!hash_equals($expected,$data['candidate']))throw new RuntimeException('SCAFFOLD_PLAN_CHECKSUM_DRIFT');
-        $expectedStatus=count(array_filter($data['actions'],static fn(array $action):bool=>($action['conflict']??null)===true))===0?'ready':'blocked';
-        if(($data['status']??null)!==$expectedStatus)throw new RuntimeException('SCAFFOLD_PLAN_STATUS_DRIFT');
-        if (($data['impact'] ?? null) !== $this->impact($data['actions'])) throw new RuntimeException('SCAFFOLD_PLAN_IMPACT_DRIFT');
+        $data = json_decode((string) file_get_contents($resolved), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($data) || ($data['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2' || preg_match('/^scaffold-[a-f0-9]{24}$/D', (string) ($data['candidate'] ?? '')) !== 1) {
+            throw new RuntimeException('SCAFFOLD_PLAN_INVALID');
+        }
+        $expected = 'scaffold-' . substr(hash('sha256', self::canonicalJson([$data['identity'] ?? null,$data['actions'] ?? null])), 0, 24);
+        if (!hash_equals($expected, $data['candidate'])) {
+            throw new RuntimeException('SCAFFOLD_PLAN_CHECKSUM_DRIFT');
+        }
+        $expectedStatus = count(array_filter($data['actions'], static fn(array $action): bool => ($action['conflict'] ?? null) === true)) === 0 ? 'ready' : 'blocked';
+        if (($data['status'] ?? null) !== $expectedStatus) {
+            throw new RuntimeException('SCAFFOLD_PLAN_STATUS_DRIFT');
+        }
+        if (($data['impact'] ?? null) !== $this->impact($data['actions'])) {
+            throw new RuntimeException('SCAFFOLD_PLAN_IMPACT_DRIFT');
+        }
         return $data;
     }
 
     private function loadAdoptionPlan(string $root, string $path): array
     {
         $resolved = ScaffoldPathGuard::existingFileWithin($root, $path, 'SCAFFOLD_ADOPTION_PLAN_PATH_INVALID');
-        $data = json_decode((string)file_get_contents($resolved), true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode((string) file_get_contents($resolved), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($data)
             || ($data['schema_version'] ?? null) !== 1
             || ($data['protocol'] ?? null) !== 'peanut.scaffold-ownership-adoption-plan.v1'
             || ($data['status'] ?? null) !== 'ready'
-            || preg_match('/^ownership-adoption-[a-f0-9]{24}$/D', (string)($data['candidate'] ?? '')) !== 1
+            || preg_match('/^ownership-adoption-[a-f0-9]{24}$/D', (string) ($data['candidate'] ?? '')) !== 1
             || !is_array($data['identity'] ?? null)
             || !is_array($data['actions'] ?? null)
             || !is_array($data['paths'] ?? null)
@@ -1300,16 +1383,18 @@ final class ScaffoldUpgradeRunner
         $candidateDigest = hash('sha256', self::canonicalJson([$data['identity'], $data['actions']]));
         $metadataWrites = ['.peanut/application-manifest.json'];
         foreach ($data['actions'] as $action) {
-            if (!is_array($action) || !is_string($action['path'] ?? null)) throw new RuntimeException('SCAFFOLD_ADOPTION_PLAN_INVALID');
-            $metadataWrites[] = (string)($action['baseline_path'] ?? '');
+            if (!is_array($action) || !is_string($action['path'] ?? null)) {
+                throw new RuntimeException('SCAFFOLD_ADOPTION_PLAN_INVALID');
+            }
+            $metadataWrites[] = (string) ($action['baseline_path'] ?? '');
         }
         sort($metadataWrites, SORT_STRING);
         if ($data['paths'] !== $paths
             || array_column($data['actions'], 'path') !== $paths
             || $data['metadata_writes'] !== $metadataWrites
             || !hash_equals('ownership-adoption-' . substr($candidateDigest, 0, 24), $data['candidate'])
-            || !hash_equals('sha256:' . $candidateDigest, (string)($data['plan_sha256'] ?? ''))
-            || !hash_equals('sha256:' . hash('sha256', self::canonicalJson($paths)), (string)($data['paths_sha256'] ?? ''))) {
+            || !hash_equals('sha256:' . $candidateDigest, (string) ($data['plan_sha256'] ?? ''))
+            || !hash_equals('sha256:' . hash('sha256', self::canonicalJson($paths)), (string) ($data['paths_sha256'] ?? ''))) {
             throw new RuntimeException('SCAFFOLD_ADOPTION_PLAN_CHECKSUM_DRIFT');
         }
         return $data;
@@ -1317,15 +1402,19 @@ final class ScaffoldUpgradeRunner
 
     private function assertActionFresh(string $root, array $action): void
     {
-        $actual=$this->regularFileState(ScaffoldPathGuard::projectPath($root,$action['path']),$action['path']);
-        if($actual!==$action['current'])throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED: '.$action['path']);
+        $actual = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $action['path']), $action['path']);
+        if ($actual !== $action['current']) {
+            throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED: ' . $action['path']);
+        }
     }
 
     /** Reject any manifest, version authority, managed, app-owned, or release drift since preflight. */
     private function assertPlanFresh(string $root, array $plan): void
     {
         [$application, $manifestDigest] = $this->applicationManifest($root);
-        if (!hash_equals($plan['identity']['application_manifest_sha256'], $manifestDigest)) throw new RuntimeException('SCAFFOLD_PLAN_APPLICATION_LOCK_CHANGED');
+        if (!hash_equals($plan['identity']['application_manifest_sha256'], $manifestDigest)) {
+            throw new RuntimeException('SCAFFOLD_PLAN_APPLICATION_LOCK_CHANGED');
+        }
         $this->assertPluginProjection($root, $plan);
         [$versionContract, $versionContractDigest] = $this->versionContract($root, $application);
         if ($versionContract !== ($plan['identity']['version_contract'] ?? null)
@@ -1334,9 +1423,14 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SCAFFOLD_PLAN_VERSION_CONTRACT_CHANGED');
         }
         $managed = $this->actionState($root, $plan['actions']);
-        if (!hash_equals($plan['identity']['managed_pre_sha256'], $managed['digest'])) throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED');
-        [$application] = $this->applicationManifest($root); $app = $this->ownershipState($root, $application, 'app-owned');
-        if (!hash_equals($plan['identity']['app_owned_pre_sha256'], $app['digest'])) throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED');
+        if (!hash_equals($plan['identity']['managed_pre_sha256'], $managed['digest'])) {
+            throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED');
+        }
+        [$application] = $this->applicationManifest($root);
+        $app = $this->ownershipState($root, $application, 'app-owned');
+        if (!hash_equals($plan['identity']['app_owned_pre_sha256'], $app['digest'])) {
+            throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED');
+        }
         $this->assertManifestDigest(ScaffoldManifest::load($plan['manifest_paths']['from']), $plan['identity']['from']['manifest_sha256']);
         $this->assertManifestDigest(ScaffoldManifest::load($plan['manifest_paths']['to']), $plan['identity']['to']['manifest_sha256']);
     }
@@ -1376,7 +1470,7 @@ final class ScaffoldUpgradeRunner
             }
             $path = ScaffoldPathGuard::projectPath($root, $file['path']);
             if (!is_file($path) || is_link($path)
-                || !hash_equals((string)$file['sha256'], (string)hash_file('sha256', $path))
+                || !hash_equals((string) $file['sha256'], (string) hash_file('sha256', $path))
                 || ((fileperms($path) & 0777) !== ($file['mode'] ?? 0644))) {
                 throw new RuntimeException('SCAFFOLD_VERIFY_MANAGED_MISMATCH: ' . $file['path']);
             }
@@ -1389,24 +1483,51 @@ final class ScaffoldUpgradeRunner
     {
         $expected = $this->preview(
             $root,
-            (string)$plan['manifest_paths']['from'],
-            (string)$plan['manifest_paths']['to'],
+            (string) $plan['manifest_paths']['from'],
+            (string) $plan['manifest_paths']['to'],
         );
-        if (!hash_equals((string)$expected['candidate'], (string)$plan['candidate'])) {
+        if (!hash_equals((string) $expected['candidate'], (string) $plan['candidate'])) {
             throw new RuntimeException('SCAFFOLD_PLAN_MANIFEST_REBIND_FAILED');
         }
     }
 
-    private function ledger(string $root): ScaffoldUpgradeLedger { return new ScaffoldUpgradeLedger(ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/ledger.ndjson')); }
-    private function hasEvent(ScaffoldUpgradeLedger $ledger, string $candidate, string $operation, string $status): bool { foreach ($ledger->entries($candidate) as $entry) if (($entry['operation'] ?? null) === $operation && ($entry['status'] ?? null) === $status) return true; return false; }
-    private function candidateState(ScaffoldUpgradeLedger $ledger, string $candidate): ?string { $entries=$ledger->entries($candidate); return $entries === [] ? null : (string)($entries[array_key_last($entries)]['status'] ?? ''); }
-    private function event(array $plan, string $operation, string $status, ?string $pre, ?string $post, array $extra = []): array { return ['schema_version'=>2,'candidate'=>$plan['candidate'],'operation'=>$operation,'status'=>$status,'from'=>$plan['identity']['from'],'to'=>$plan['identity']['to'],'pre_sha256'=>$pre,'post_sha256'=>$post] + $extra; }
+    private function ledger(string $root): ScaffoldUpgradeLedger
+    {
+        return new ScaffoldUpgradeLedger(ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/ledger.ndjson'));
+    }
+    private function hasEvent(ScaffoldUpgradeLedger $ledger, string $candidate, string $operation, string $status): bool
+    {
+        foreach ($ledger->entries($candidate) as $entry) {
+            if (($entry['operation'] ?? null) === $operation && ($entry['status'] ?? null) === $status) {
+                return true;
+            }
+        } return false;
+    }
+    private function candidateState(ScaffoldUpgradeLedger $ledger, string $candidate): ?string
+    {
+        $entries = $ledger->entries($candidate);
+        return $entries === [] ? null : (string) ($entries[array_key_last($entries)]['status'] ?? '');
+    }
+    private function event(array $plan, string $operation, string $status, ?string $pre, ?string $post, array $extra = []): array
+    {
+        return ['schema_version' => 2,'candidate' => $plan['candidate'],'operation' => $operation,'status' => $status,'from' => $plan['identity']['from'],'to' => $plan['identity']['to'],'pre_sha256' => $pre,'post_sha256' => $post] + $extra;
+    }
 
     private function locked(string $projectRoot, callable $operation): array
     {
-        $root = ScaffoldPathGuard::projectRoot($projectRoot); $path = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/project.lock'); ScaffoldPathGuard::ensureDirectory(dirname($path));
-        $handle = fopen($path, 'c+b'); if ($handle === false || !flock($handle, LOCK_EX)) throw new RuntimeException('SCAFFOLD_PROJECT_LOCK_FAILED');
-        try { return $operation($root); } finally { flock($handle, LOCK_UN); fclose($handle); }
+        $root = ScaffoldPathGuard::projectRoot($projectRoot);
+        $path = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/project.lock');
+        ScaffoldPathGuard::ensureDirectory(dirname($path));
+        $handle = fopen($path, 'c+b');
+        if ($handle === false || !flock($handle, LOCK_EX)) {
+            throw new RuntimeException('SCAFFOLD_PROJECT_LOCK_FAILED');
+        }
+        try {
+            return $operation($root);
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
     }
 
     private function createRecovery(string $root, array $plan): string
@@ -1416,7 +1537,8 @@ final class ScaffoldUpgradeRunner
             $paths[] = $action['path'];
             $paths[] = '.peanut/scaffold-baseline/' . $plan['identity']['to']['version'] . '/files/' . $action['path'];
         }
-        $paths = array_values(array_unique($paths)); sort($paths, SORT_STRING);
+        $paths = array_values(array_unique($paths));
+        sort($paths, SORT_STRING);
         return $this->createRecoveryForPaths($root, $plan['candidate'], $paths);
     }
 
@@ -1424,13 +1546,16 @@ final class ScaffoldUpgradeRunner
     {
         $directory = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/backups/' . $candidate);
         ScaffoldPathGuard::ensureDirectory($directory . '/files');
-        chmod($directory, 0700); chmod($directory . '/files', 0700);
+        chmod($directory, 0700);
+        chmod($directory . '/files', 0700);
         $files = [];
         foreach ($paths as $relative) {
             $state = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $relative), $relative);
             if ($state['present']) {
                 $content = file_get_contents(ScaffoldPathGuard::projectPath($root, $relative));
-                if (!is_string($content)) throw new RuntimeException('SCAFFOLD_BACKUP_READ_FAILED: ' . $relative);
+                if (!is_string($content)) {
+                    throw new RuntimeException('SCAFFOLD_BACKUP_READ_FAILED: ' . $relative);
+                }
                 $backupRelative = 'files/' . $relative;
                 $this->writeFileAtomic($directory . '/' . $backupRelative, $content, 0600);
                 $state['backup'] = $backupRelative;
@@ -1439,12 +1564,14 @@ final class ScaffoldUpgradeRunner
             }
             $files[$relative] = $state;
         }
-        $recovery = ['schema_version'=>2,'protocol'=>'peanut.scaffold-recovery.v2','candidate'=>$candidate,
-            'pre_tree_sha256'=>'sha256:'.hash('sha256',self::canonicalJson($files)),'files'=>$files];
+        $recovery = ['schema_version' => 2,'protocol' => 'peanut.scaffold-recovery.v2','candidate' => $candidate,
+            'pre_tree_sha256' => 'sha256:' . hash('sha256', self::canonicalJson($files)),'files' => $files];
         $path = $directory . '/recovery.json';
         if (is_file($path)) {
-            $existing = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-            if ($existing !== $recovery) throw new RuntimeException('SCAFFOLD_RECOVERY_COLLISION');
+            $existing = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            if ($existing !== $recovery) {
+                throw new RuntimeException('SCAFFOLD_RECOVERY_COLLISION');
+            }
         } else {
             $this->writeJsonAtomic($path, $recovery, 0600);
         }
@@ -1455,28 +1582,36 @@ final class ScaffoldUpgradeRunner
     {
         $ledger = $this->ledger($root);
         $manifestPath = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/backups/' . $plan['candidate'] . '/recovery.json');
-        if (!is_file($manifestPath)) throw new RuntimeException('SCAFFOLD_RECOVERY_NOT_FOUND');
-        $recovery = json_decode((string)file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_file($manifestPath)) {
+            throw new RuntimeException('SCAFFOLD_RECOVERY_NOT_FOUND');
+        }
+        $recovery = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($recovery) || ($recovery['candidate'] ?? null) !== $plan['candidate'] || !is_array($recovery['files'] ?? null)
-            || !hash_equals((string)($recovery['pre_tree_sha256'] ?? ''), 'sha256:' . hash('sha256', self::canonicalJson($recovery['files'])))) {
+            || !hash_equals((string) ($recovery['pre_tree_sha256'] ?? ''), 'sha256:' . hash('sha256', self::canonicalJson($recovery['files'])))) {
             throw new RuntimeException('SCAFFOLD_RECOVERY_INVALID');
         }
         $already = $this->recoveryMatches($root, $recovery);
         if (!$already) {
             foreach ($recovery['files'] as $relative => $state) {
-                $target = ScaffoldPathGuard::projectPath($root, (string)$relative);
+                $target = ScaffoldPathGuard::projectPath($root, (string) $relative);
                 if ($state['present']) {
                     $backup = ScaffoldPathGuard::existingFileWithin(dirname($manifestPath), dirname($manifestPath) . '/' . $state['backup'], 'SCAFFOLD_RECOVERY_BACKUP_INVALID');
                     $content = file_get_contents($backup);
-                    if (!is_string($content) || !hash_equals($state['sha256'], hash('sha256', $content))) throw new RuntimeException('SCAFFOLD_RECOVERY_BACKUP_DRIFT');
-                    $this->writeFileAtomic($target, $content, (int)$state['mode']);
+                    if (!is_string($content) || !hash_equals($state['sha256'], hash('sha256', $content))) {
+                        throw new RuntimeException('SCAFFOLD_RECOVERY_BACKUP_DRIFT');
+                    }
+                    $this->writeFileAtomic($target, $content, (int) $state['mode']);
                 } elseif (file_exists($target)) {
-                    if (!is_file($target) || is_link($target)) throw new RuntimeException('SCAFFOLD_RECOVERY_PATH_COLLISION: ' . $relative);
+                    if (!is_file($target) || is_link($target)) {
+                        throw new RuntimeException('SCAFFOLD_RECOVERY_PATH_COLLISION: ' . $relative);
+                    }
                     unlink($target);
                     $this->pruneEmptyParents(dirname($target), $root);
                 }
             }
-            if (!$this->recoveryMatches($root, $recovery)) throw new RuntimeException('SCAFFOLD_RECOVERY_VERIFY_FAILED');
+            if (!$this->recoveryMatches($root, $recovery)) {
+                throw new RuntimeException('SCAFFOLD_RECOVERY_VERIFY_FAILED');
+            }
         }
         $this->assertPluginProjection($root, $plan);
         if (!$this->hasEvent($ledger, $plan['candidate'], $operation, 'recovered')) {
@@ -1490,29 +1625,36 @@ final class ScaffoldUpgradeRunner
     {
         [$application] = $this->applicationManifest($root);
         $oldByPath = [];
-        foreach ($application['files'] as $file) $oldByPath[$file['path']] = $file;
+        foreach ($application['files'] as $file) {
+            $oldByPath[$file['path']] = $file;
+        }
         $managedPaths = array_column($plan['actions'], 'path');
         $files = [];
         foreach ($application['files'] as $file) {
             if (!in_array($file['classification'], ['managed','generated-managed'], true)) {
                 $state = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['path']), $file['path']);
-                $file['sha256'] = $state['sha256']; $file['mode'] = $state['mode'];
+                $file['sha256'] = $state['sha256'];
+                $file['mode'] = $state['mode'];
                 $files[] = $file;
             }
         }
         foreach ($plan['actions'] as $action) {
-            if (in_array($action['action'], ['delete', 'omit'], true)) continue;
+            if (in_array($action['action'], ['delete', 'omit'], true)) {
+                continue;
+            }
             $state = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $action['path']), $action['path']);
-            if (!$state['present']) throw new RuntimeException('SCAFFOLD_APPLY_MANAGED_MISSING: ' . $action['path']);
-            $files[] = ['path'=>$action['path'],'sha256'=>$state['sha256'],'mode'=>$state['mode'],'classification'=>$action['classification'],
-                'owner'=>'scaffold','source'=>$action['path'],'baseline_path'=>'.peanut/scaffold-baseline/'.$to->version().'/files/'.$action['path'],
-                'baseline_sha256'=>$action['target_sha256']];
+            if (!$state['present']) {
+                throw new RuntimeException('SCAFFOLD_APPLY_MANAGED_MISSING: ' . $action['path']);
+            }
+            $files[] = ['path' => $action['path'],'sha256' => $state['sha256'],'mode' => $state['mode'],'classification' => $action['classification'],
+                'owner' => 'scaffold','source' => $action['path'],'baseline_path' => '.peanut/scaffold-baseline/' . $to->version() . '/files/' . $action['path'],
+                'baseline_sha256' => $action['target_sha256']];
         }
-        usort($files, static fn(array $a,array $b): int => strcmp($a['path'],$b['path']));
-        $managed = array_values(array_filter($files, static fn(array $f): bool => in_array($f['classification'],['managed','generated-managed'],true)));
-        $appOwned = array_values(array_filter($files, static fn(array $f): bool => $f['classification']==='app-owned'));
-        $application['template'] = ['version'=>$to->version(),'inventory_sha256'=>$to->release()['inventory_sha256'],
-            'source_commit'=>$to->release()['source_commit'],'source_tree'=>$to->release()['source_tree']];
+        usort($files, static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+        $managed = array_values(array_filter($files, static fn(array $f): bool => in_array($f['classification'], ['managed','generated-managed'], true)));
+        $appOwned = array_values(array_filter($files, static fn(array $f): bool => $f['classification'] === 'app-owned'));
+        $application['template'] = ['version' => $to->version(),'inventory_sha256' => $to->release()['inventory_sha256'],
+            'source_commit' => $to->release()['source_commit'],'source_tree' => $to->release()['source_tree']];
         $edition = $plan['identity']['edition'] ?? null;
         if (is_array($edition)) {
             $application['edition'] = $edition;
@@ -1521,12 +1663,12 @@ final class ScaffoldUpgradeRunner
         $application['protocol'] = 'peanut.application-scaffold.v2';
         $application['application']['version'] = $plan['identity']['application_version'];
         $application['ownership']['baseline_root'] = '.peanut/scaffold-baseline/' . $to->version() . '/files';
-        $application['digests'] = ['managed_tree_sha256'=>$this->manifestTreeDigest($managed),'app_owned_tree_sha256'=>$this->manifestTreeDigest($appOwned)];
+        $application['digests'] = ['managed_tree_sha256' => $this->manifestTreeDigest($managed),'app_owned_tree_sha256' => $this->manifestTreeDigest($appOwned)];
         $application['files'] = $files;
         $application['last_scaffold_upgrade'] = [
-            'candidate'=>$plan['candidate'],
-            'from'=>$plan['identity']['from']['version'],
-            'to'=>$to->version(),
+            'candidate' => $plan['candidate'],
+            'from' => $plan['identity']['from']['version'],
+            'to' => $to->version(),
         ];
         if (is_array($edition)) {
             $application['last_scaffold_upgrade']['edition_profile_sha256'] = $edition['source_sha256'];
@@ -1537,27 +1679,70 @@ final class ScaffoldUpgradeRunner
 
     private function managedDigestFromManifest(string $root, array $manifest): string
     {
-        $files=[];
-        foreach($manifest['files'] as $file) if(in_array($file['classification'],['managed','generated-managed'],true)) $files[$file['path']]=$this->regularFileState(ScaffoldPathGuard::projectPath($root,$file['path']),$file['path']);
-        ksort($files,SORT_STRING); return 'sha256:'.hash('sha256',self::canonicalJson($files));
+        $files = [];
+        foreach ($manifest['files'] as $file) {
+            if (in_array($file['classification'], ['managed','generated-managed'], true)) {
+                $files[$file['path']] = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['path']), $file['path']);
+            }
+        }
+        ksort($files, SORT_STRING);
+        return 'sha256:' . hash('sha256', self::canonicalJson($files));
     }
-    private function manifestTreeDigest(array $files): string { $rows=array_map(static fn(array $f):string=>$f['path']."\0".$f['sha256'],$files); sort($rows,SORT_STRING); return hash('sha256',implode("\n",$rows)); }
-    private function recoveryMatches(string $root, array $recovery): bool { foreach ($recovery['files'] as $relative=>$state) { $actual=$this->regularFileState(ScaffoldPathGuard::projectPath($root,(string)$relative),(string)$relative); if ($actual['present'] !== $state['present'] || $actual['sha256'] !== $state['sha256'] || $actual['mode'] !== $state['mode']) return false; } return true; }
+    private function manifestTreeDigest(array $files): string
+    {
+        $rows = array_map(static fn(array $f): string => $f['path'] . "\0" . $f['sha256'], $files);
+        sort($rows, SORT_STRING);
+        return hash('sha256', implode("\n", $rows));
+    }
+    private function recoveryMatches(string $root, array $recovery): bool
+    {
+        foreach ($recovery['files'] as $relative => $state) {
+            $actual = $this->regularFileState(ScaffoldPathGuard::projectPath($root, (string) $relative), (string) $relative);
+            if ($actual['present'] !== $state['present'] || $actual['sha256'] !== $state['sha256'] || $actual['mode'] !== $state['mode']) {
+                return false;
+            }
+        } return true;
+    }
 
     private function writeFileAtomic(string $path, string $content, int $mode): void
     {
-        ScaffoldPathGuard::ensureDirectory(dirname($path)); $tmp=dirname($path).'/.'.basename($path).'.stage-'.bin2hex(random_bytes(6));
-        if (file_put_contents($tmp,$content,LOCK_EX)===false || !chmod($tmp,$mode) || !rename($tmp,$path)) { @unlink($tmp); throw new RuntimeException('SCAFFOLD_ATOMIC_WRITE_FAILED: '.$path); }
-    }
-    private function pruneEmptyParents(string $directory,string $root): void
-    {
-        while($directory!==$root&&str_starts_with($directory,$root.DIRECTORY_SEPARATOR)){
-            if(!is_dir($directory)||is_link($directory)||(scandir($directory)?:[])!==['.','..']||!rmdir($directory))return;
-            $directory=dirname($directory);
+        ScaffoldPathGuard::ensureDirectory(dirname($path));
+        $tmp = dirname($path) . '/.' . basename($path) . '.stage-' . bin2hex(random_bytes(6));
+        if (file_put_contents($tmp, $content, LOCK_EX) === false || !chmod($tmp, $mode) || !rename($tmp, $path)) {
+            @unlink($tmp);
+            throw new RuntimeException('SCAFFOLD_ATOMIC_WRITE_FAILED: ' . $path);
         }
     }
-    private function writeJsonAtomic(string $path, array $data, int $mode): void { $this->writeFileAtomic($path,json_encode($data,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n",$mode); }
-    private function relative(string $root,string $path): string { return str_replace(DIRECTORY_SEPARATOR,'/',substr($path,strlen($root)+1)); }
-    private static function canonicalJson(array $value): string { self::sortRecursive($value); return json_encode($value,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR); }
-    private static function sortRecursive(array &$value): void { if(!array_is_list($value))ksort($value,SORT_STRING); foreach($value as &$item)if(is_array($item))self::sortRecursive($item); }
+    private function pruneEmptyParents(string $directory, string $root): void
+    {
+        while ($directory !== $root && str_starts_with($directory, $root . DIRECTORY_SEPARATOR)) {
+            if (!is_dir($directory) || is_link($directory) || (scandir($directory) ?: []) !== ['.','..'] || !rmdir($directory)) {
+                return;
+            }
+            $directory = dirname($directory);
+        }
+    }
+    private function writeJsonAtomic(string $path, array $data, int $mode): void
+    {
+        $this->writeFileAtomic($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n", $mode);
+    }
+    private function relative(string $root, string $path): string
+    {
+        return str_replace(DIRECTORY_SEPARATOR, '/', substr($path, strlen($root) + 1));
+    }
+    private static function canonicalJson(array $value): string
+    {
+        self::sortRecursive($value);
+        return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+    private static function sortRecursive(array &$value): void
+    {
+        if (!array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        } foreach ($value as &$item) {
+            if (is_array($item)) {
+                self::sortRecursive($item);
+            }
+        }
+    }
 }

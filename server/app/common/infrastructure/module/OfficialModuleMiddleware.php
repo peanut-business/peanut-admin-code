@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\module;
@@ -8,9 +9,7 @@ use PeanutAdmin\Kernel\Module\ModuleException;
 /** Enforces deployment and Tenant enablement after an upstream identity boundary. */
 final class OfficialModuleMiddleware
 {
-    public function __construct(private readonly ModuleExecutionBoundary $modules)
-    {
-    }
+    public function __construct(private readonly ModuleExecutionBoundary $modules) {}
 
     public function handle($request, \Closure $next, string $moduleKey, string $operation)
     {

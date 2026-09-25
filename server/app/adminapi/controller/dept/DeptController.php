@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\dept;
@@ -31,7 +32,7 @@ class DeptController extends BaseAdminController
     protected function validatedInput(mixed $_context, string $scene, array $params): array
     {
         if (!array_key_exists('status', $params) && array_key_exists('is_disable', $params)) {
-            $params['status'] = (int)$params['is_disable'] === 0 ? 1 : 0;
+            $params['status'] = (int) $params['is_disable'] === 0 ? 1 : 0;
         }
         $rules = $this->departments->validationRules($scene);
         if (in_array($scene, ['detail', 'delete'], true)) {

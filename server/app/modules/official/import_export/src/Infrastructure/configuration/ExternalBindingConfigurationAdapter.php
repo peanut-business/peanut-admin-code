@@ -1,7 +1,9 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\configuration;
+
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\PlatformContext;
@@ -26,15 +28,15 @@ final class ExternalBindingConfigurationAdapter implements ConfigurationTransfer
         $entries = [];
         foreach (Db::name('external_channel_binding')->where('tenant_id', $tenantId)
             ->field('provider,identity_hash,identity_hint,config_json,status')->order('provider')->select()->toArray() as $row) {
-            $provider = (string)($row['provider'] ?? '');
+            $provider = (string) ($row['provider'] ?? '');
             $this->assertProvider($provider);
             $config = $this->decodeConfig($row['config_json'] ?? null);
-            $identityHash = $this->identityHash($row['identity_hash'] ?? null, (int)($row['status'] ?? 0) === 1);
+            $identityHash = $this->identityHash($row['identity_hash'] ?? null, (int) ($row['status'] ?? 0) === 1);
             $value = [
                 'identity_hash' => $identityHash,
-                'identity_hint' => (string)($row['identity_hint'] ?? ''),
+                'identity_hint' => (string) ($row['identity_hint'] ?? ''),
                 'config' => $config,
-                'status' => (int)($row['status'] ?? 0) === 1,
+                'status' => (int) ($row['status'] ?? 0) === 1,
             ];
             $entries[] = ConfigurationTransferValue::entry($this->key(), $provider, $value);
         }
@@ -53,10 +55,10 @@ final class ExternalBindingConfigurationAdapter implements ConfigurationTransfer
         }
 
         $value = [
-            'identity_hash' => $this->identityHash($row['identity_hash'] ?? null, (int)($row['status'] ?? 0) === 1),
-            'identity_hint' => (string)($row['identity_hint'] ?? ''),
+            'identity_hash' => $this->identityHash($row['identity_hash'] ?? null, (int) ($row['status'] ?? 0) === 1),
+            'identity_hint' => (string) ($row['identity_hint'] ?? ''),
             'config' => $this->decodeConfig($row['config_json'] ?? null),
-            'status' => (int)($row['status'] ?? 0) === 1,
+            'status' => (int) ($row['status'] ?? 0) === 1,
         ];
 
         return [
@@ -136,7 +138,7 @@ final class ExternalBindingConfigurationAdapter implements ConfigurationTransfer
     private function decodeConfig(mixed $encoded): array
     {
         try {
-            $config = json_decode((string)$encoded, true, 512, JSON_THROW_ON_ERROR);
+            $config = json_decode((string) $encoded, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw new \runtimeException('TRANSFER_EXTERNAL_BINDING_INVALID');
         }
@@ -148,7 +150,7 @@ final class ExternalBindingConfigurationAdapter implements ConfigurationTransfer
 
     private function identityHash(mixed $value, bool $required): ?string
     {
-        $identityHash = trim((string)$value);
+        $identityHash = trim((string) $value);
         if ($identityHash === '') {
             if ($required) {
                 throw new \runtimeException('TRANSFER_EXTERNAL_BINDING_INVALID');
@@ -274,7 +276,7 @@ final class ExternalBindingConfigurationAdapter implements ConfigurationTransfer
             $changes['identity_hash'] = $identityHash;
             $changes['identity_hint'] = $identityHint;
         }
-        Db::name('external_channel_binding')->where('id', (int)$binding['id'])
+        Db::name('external_channel_binding')->where('id', (int) $binding['id'])
             ->where('tenant_id', $tenantId)->where('provider', $provider)->update($changes);
     }
 }

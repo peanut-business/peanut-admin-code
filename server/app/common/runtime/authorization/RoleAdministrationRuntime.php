@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\runtime\authorization;
@@ -15,8 +16,7 @@ final readonly class RoleAdministrationRuntime
     public function __construct(
         private RoleAdminService $roles,
         private AdminAuthorizationService $authorization,
-    ) {
-    }
+    ) {}
 
     public function service(): RoleAdminService
     {
@@ -32,8 +32,8 @@ final readonly class RoleAdministrationRuntime
         $ids = array_map('intval', SystemMenu::where('is_disable', 0)
             ->whereIn('perms', $permissionKeys)->order('id')->column('id'));
         foreach ($this->authorization->assignableMenuRecords($context) as $menu) {
-            if (in_array((string)$menu['required_permission'], $permissionKeys, true)) {
-                $ids[] = (int)$menu['id'];
+            if (in_array((string) $menu['required_permission'], $permissionKeys, true)) {
+                $ids[] = (int) $menu['id'];
             }
         }
         return array_values(array_unique($ids));
@@ -60,8 +60,8 @@ final readonly class RoleAdministrationRuntime
             ->column('permission.key'))));
         $selected = array_fill_keys($menuIds, true);
         foreach ($this->authorization->assignableMenuRecordsForTenant($tenantId) as $menu) {
-            if (isset($selected[(int)$menu['id']]) && trim((string)$menu['required_permission']) !== '') {
-                $keys[] = (string)$menu['required_permission'];
+            if (isset($selected[(int) $menu['id']]) && trim((string) $menu['required_permission']) !== '') {
+                $keys[] = (string) $menu['required_permission'];
             }
         }
         return array_values(array_unique($keys));

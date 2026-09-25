@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -79,150 +80,156 @@ final class PluginPackageInstaller
                     return $plan + ['operation' => 'update', 'dry_run' => true];
                 }
             }
-        $promoted = [];
-        $replaced = [];
-        $recoveryRoot = null;
-        $lockPath = $this->projectRoot() . '/plugins.lock';
-        $lockBefore = is_file($lockPath) ? file_get_contents($lockPath) : null;
-        $lifecycleStarted = false;
-        $plan = null;
-        $lockName = 'pa:module-runtime:' . substr(hash('sha256', $package->packageKey), 0, 40);
-        try {
-            return (new AdvisoryLockExecution())->run($lockName, 0, function () use (
-                $operation,
-                $package,
-                &$promoted,
-                &$replaced,
-                &$recoveryRoot,
-                $lockPath,
-                $lockBefore,
-                &$lifecycleStarted,
-                &$plan,
-            ): array {
+            $promoted = [];
+            $replaced = [];
+            $recoveryRoot = null;
+            $lockPath = $this->projectRoot() . '/plugins.lock';
+            $lockBefore = is_file($lockPath) ? file_get_contents($lockPath) : null;
+            $lifecycleStarted = false;
+            $plan = null;
+            $lockName = 'pa:module-runtime:' . substr(hash('sha256', $package->packageKey), 0, 40);
             try {
-            $current = $this->currentDescriptors();
-            $plan = $operation === 'update' ? $this->updatePlan($package, $current) : null;
-            foreach ($current as $pluginKey => $descriptor) {
-                foreach (array_keys($descriptor->moduleRoots) as $moduleKey) {
-                    if (isset($package->modules[$moduleKey]) && $pluginKey !== $package->packageKey) {
-                        throw new PluginPackageException('PLUGIN_MODULE_CONFLICT', 'Module is owned by another package.');
-                    }
-                }
-            }
-            $recoverableReplacement = $operation === 'update'
-                || $this->recoverableReplacement($package, $current);
-            $scopes = [$package->manifestRelative => dirname($package->manifestRelative)];
-            foreach ($package->modules as $module) {
-                $scopes[$module['backend_relative']] = $module['backend_relative'];
-                foreach ($module['frontend_contributions'] as $contribution) {
-                    $scopes[$contribution['root']] = $contribution['root'];
-                }
-            }
-            $scopeRoots = array_values(array_unique(array_map(
-                static fn(string $scope): string => str_ends_with($scope, 'plugin.json') ? dirname($scope) : $scope,
-                array_keys($scopes),
-            )));
-            usort($scopeRoots, static fn(string $left, string $right): int => strlen($right) <=> strlen($left));
-            foreach ($scopeRoots as $relative) {
-                $source = $package->stageRoot . '/' . $relative;
-                $target = $this->projectRoot() . '/' . $relative;
-                if (file_exists($target)) {
-                    if (!$this->scopeMatches($relative, $target, $package->inventory)) {
-                        if (!$recoverableReplacement) {
-                            throw new PluginPackageException('MODULE_PACKAGE_TARGET_CONFLICT', 'Package target contains a different identity.');
-                        }
-                        $recoveryRoot ??= $this->recoveryRoot($package->packageKey);
-                        $backup = $recoveryRoot . '/' . $relative;
-                        if (!is_dir(dirname($backup)) && !mkdir(dirname($backup), 0700, true) && !is_dir(dirname($backup))) {
-                            throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_FAILED', 'Package recovery backup cannot be created.');
-                        }
-                        if (!rename($target, $backup)) {
-                            throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_FAILED', 'Package recovery backup cannot be promoted.');
-                        }
-                        $replaced[$target] = $backup;
-                    } else {
-                        $this->removeTree($source);
-                        continue;
-                    }
-                }
-                $parent = dirname($target);
-                if (!is_dir($parent) && !mkdir($parent, 0775, true) && !is_dir($parent)) {
-                    throw new PluginPackageException('MODULE_PACKAGE_PROMOTION_FAILED', 'Package target parent is unavailable.');
-                }
-                if (!rename($source, $target)) {
-                    throw new PluginPackageException('MODULE_PACKAGE_PROMOTION_FAILED', 'Package target promotion failed.');
-                }
-                $promoted[] = $target;
-            }
-
-            (new PluginArtifactWriter($this->serverRoot))->writeLock();
-            $resolver = new PluginLockResolver($this->serverRoot, '../plugins.lock');
-            $lifecycle = new PluginLifecycleService(
-                $resolver,
-                new PluginModuleRegistryFactory($this->serverRoot),
-                $this->moduleConfig,
-                $this->catalogs,
-                new ModuleMigrationSqlExecutor(),
-            );
-            $lifecycleStarted = true;
-            $result = $operation === 'update'
-                ? $lifecycle->upgrade($package->packageKey, false)
-                : $lifecycle->install($package->packageKey, false);
-            if ($operation === 'install') $this->clearQuarantine($package->packageKey);
-            if (is_string($recoveryRoot)) $this->removeTree($recoveryRoot);
-            return $result + [
-                'archive_sha256' => $package->archiveSha256,
-                'package_key' => $package->packageKey,
-                'modules' => array_map(
-                    static fn(array $module): array => [
-                        'module_key' => $module['key'],
-                        'version' => $module['version'],
-                        'status' => 'active',
-                    ],
-                    array_values($package->modules),
-                ),
-                'dry_run' => false,
-                'plan' => $plan,
-            ];
-        } catch (\Throwable $exception) {
-            if (!$lifecycleStarted) {
-                if (is_string($lockBefore)) {
-                    $this->writeAtomic($lockPath, $lockBefore);
-                } elseif (is_file($lockPath)) {
-                    unlink($lockPath);
-                }
-                foreach (array_reverse($promoted) as $target) {
-                    $this->removeTree($target);
-                }
-                foreach (array_reverse($replaced, true) as $target => $backup) {
-                    if (file_exists($backup) && !rename($backup, $target)) {
-                        throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_FAILED', 'Package recovery restore failed.', 0, $exception);
-                    }
-                }
-            }
-            if ($operation === 'update' && $lifecycleStarted) {
-                $recoveryRoot ??= $this->recoveryRoot($package->packageKey);
-                $pointer = $this->writeUpdateRecoveryPointer(
-                    $recoveryRoot,
+                return (new AdvisoryLockExecution())->run($lockName, 0, function () use (
+                    $operation,
                     $package,
-                    $plan ?? [],
-                    $exception,
-                );
-                throw new PluginPackageException(
-                    'PACKAGE_UPDATE_RECOVERY_REQUIRED',
-                    'Package update stopped in a recoverable failed state.',
-                    0,
-                    $exception,
-                    ['recovery_pointer' => $pointer],
-                );
+                    &$promoted,
+                    &$replaced,
+                    &$recoveryRoot,
+                    $lockPath,
+                    $lockBefore,
+                    &$lifecycleStarted,
+                    &$plan,
+                ): array {
+                    try {
+                        $current = $this->currentDescriptors();
+                        $plan = $operation === 'update' ? $this->updatePlan($package, $current) : null;
+                        foreach ($current as $pluginKey => $descriptor) {
+                            foreach (array_keys($descriptor->moduleRoots) as $moduleKey) {
+                                if (isset($package->modules[$moduleKey]) && $pluginKey !== $package->packageKey) {
+                                    throw new PluginPackageException('PLUGIN_MODULE_CONFLICT', 'Module is owned by another package.');
+                                }
+                            }
+                        }
+                        $recoverableReplacement = $operation === 'update'
+                            || $this->recoverableReplacement($package, $current);
+                        $scopes = [$package->manifestRelative => dirname($package->manifestRelative)];
+                        foreach ($package->modules as $module) {
+                            $scopes[$module['backend_relative']] = $module['backend_relative'];
+                            foreach ($module['frontend_contributions'] as $contribution) {
+                                $scopes[$contribution['root']] = $contribution['root'];
+                            }
+                        }
+                        $scopeRoots = array_values(array_unique(array_map(
+                            static fn(string $scope): string => str_ends_with($scope, 'plugin.json') ? dirname($scope) : $scope,
+                            array_keys($scopes),
+                        )));
+                        usort($scopeRoots, static fn(string $left, string $right): int => strlen($right) <=> strlen($left));
+                        foreach ($scopeRoots as $relative) {
+                            $source = $package->stageRoot . '/' . $relative;
+                            $target = $this->projectRoot() . '/' . $relative;
+                            if (file_exists($target)) {
+                                if (!$this->scopeMatches($relative, $target, $package->inventory)) {
+                                    if (!$recoverableReplacement) {
+                                        throw new PluginPackageException('MODULE_PACKAGE_TARGET_CONFLICT', 'Package target contains a different identity.');
+                                    }
+                                    $recoveryRoot ??= $this->recoveryRoot($package->packageKey);
+                                    $backup = $recoveryRoot . '/' . $relative;
+                                    if (!is_dir(dirname($backup)) && !mkdir(dirname($backup), 0700, true) && !is_dir(dirname($backup))) {
+                                        throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_FAILED', 'Package recovery backup cannot be created.');
+                                    }
+                                    if (!rename($target, $backup)) {
+                                        throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_FAILED', 'Package recovery backup cannot be promoted.');
+                                    }
+                                    $replaced[$target] = $backup;
+                                } else {
+                                    $this->removeTree($source);
+                                    continue;
+                                }
+                            }
+                            $parent = dirname($target);
+                            if (!is_dir($parent) && !mkdir($parent, 0775, true) && !is_dir($parent)) {
+                                throw new PluginPackageException('MODULE_PACKAGE_PROMOTION_FAILED', 'Package target parent is unavailable.');
+                            }
+                            if (!rename($source, $target)) {
+                                throw new PluginPackageException('MODULE_PACKAGE_PROMOTION_FAILED', 'Package target promotion failed.');
+                            }
+                            $promoted[] = $target;
+                        }
+
+                        (new PluginArtifactWriter($this->serverRoot))->writeLock();
+                        $resolver = new PluginLockResolver($this->serverRoot, '../plugins.lock');
+                        $lifecycle = new PluginLifecycleService(
+                            $resolver,
+                            new PluginModuleRegistryFactory($this->serverRoot),
+                            $this->moduleConfig,
+                            $this->catalogs,
+                            new ModuleMigrationSqlExecutor(),
+                        );
+                        $lifecycleStarted = true;
+                        $result = $operation === 'update'
+                            ? $lifecycle->upgrade($package->packageKey, false)
+                            : $lifecycle->install($package->packageKey, false);
+                        if ($operation === 'install') {
+                            $this->clearQuarantine($package->packageKey);
+                        }
+                        if (is_string($recoveryRoot)) {
+                            $this->removeTree($recoveryRoot);
+                        }
+                        return $result + [
+                            'archive_sha256' => $package->archiveSha256,
+                            'package_key' => $package->packageKey,
+                            'modules' => array_map(
+                                static fn(array $module): array => [
+                                    'module_key' => $module['key'],
+                                    'version' => $module['version'],
+                                    'status' => 'active',
+                                ],
+                                array_values($package->modules),
+                            ),
+                            'dry_run' => false,
+                            'plan' => $plan,
+                        ];
+                    } catch (\Throwable $exception) {
+                        if (!$lifecycleStarted) {
+                            if (is_string($lockBefore)) {
+                                $this->writeAtomic($lockPath, $lockBefore);
+                            } elseif (is_file($lockPath)) {
+                                unlink($lockPath);
+                            }
+                            foreach (array_reverse($promoted) as $target) {
+                                $this->removeTree($target);
+                            }
+                            foreach (array_reverse($replaced, true) as $target => $backup) {
+                                if (file_exists($backup) && !rename($backup, $target)) {
+                                    throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_FAILED', 'Package recovery restore failed.', 0, $exception);
+                                }
+                            }
+                        }
+                        if ($operation === 'update' && $lifecycleStarted) {
+                            $recoveryRoot ??= $this->recoveryRoot($package->packageKey);
+                            $pointer = $this->writeUpdateRecoveryPointer(
+                                $recoveryRoot,
+                                $package,
+                                $plan ?? [],
+                                $exception,
+                            );
+                            throw new PluginPackageException(
+                                'PACKAGE_UPDATE_RECOVERY_REQUIRED',
+                                'Package update stopped in a recoverable failed state.',
+                                0,
+                                $exception,
+                                ['recovery_pointer' => $pointer],
+                            );
+                        }
+                        if (is_string($recoveryRoot) && is_dir($recoveryRoot)) {
+                            $this->removeTree($recoveryRoot);
+                        }
+                        throw $exception;
+                    }
+                });
+            } catch (AdvisoryLockUnavailable) {
+                throw new PluginLifecycleException('MODULE_LIFECYCLE_BUSY', 'Module lifecycle is busy.');
             }
-            if (is_string($recoveryRoot) && is_dir($recoveryRoot)) $this->removeTree($recoveryRoot);
-            throw $exception;
-            }
-            });
-        } catch (AdvisoryLockUnavailable) {
-            throw new PluginLifecycleException('MODULE_LIFECYCLE_BUSY', 'Module lifecycle is busy.');
-        }
         } finally {
             if ($package instanceof VerifiedPluginPackage) {
                 $archive->cleanup($package);
@@ -237,7 +244,7 @@ final class PluginPackageInstaller
     private function assertApplicationInstalled(): void
     {
         try {
-            $connection = (string)Config::get('database.default', 'mysql');
+            $connection = (string) Config::get('database.default', 'mysql');
             $prefix = Config::get("database.connections.{$connection}.prefix", '');
             if (!is_string($prefix) || preg_match('/^[A-Za-z0-9_]*$/D', $prefix) !== 1) {
                 throw new RuntimeException('Database table prefix is invalid.');
@@ -252,7 +259,7 @@ final class PluginPackageInstaller
                 $expected,
             );
             $tables = array_fill_keys(array_map(
-                static fn(array $row): string => (string)($row['table_name'] ?? ''),
+                static fn(array $row): string => (string) ($row['table_name'] ?? ''),
                 $rows,
             ), true);
         } catch (\Throwable $exception) {
@@ -286,13 +293,13 @@ final class PluginPackageInstaller
         if (!in_array($installation['status'] ?? null, ['active', 'failed'], true)) {
             throw new PluginPackageException('PLUGIN_STATE_INVALID', 'Package cannot be updated from its current state.');
         }
-        $comparison = version_compare($package->packageVersion, (string)$installation['installed_version']);
+        $comparison = version_compare($package->packageVersion, (string) $installation['installed_version']);
         if ($comparison < 0) {
             throw new PluginPackageException('PLUGIN_DOWNGRADE_REJECTED', 'Package update cannot install an older version.');
         }
         $sameContents = hash_equals(
-            (string)$descriptor->source['sha256'],
-            (string)$package->descriptor->source['sha256'],
+            (string) $descriptor->source['sha256'],
+            (string) $package->descriptor->source['sha256'],
         );
         if ($comparison === 0 && !$sameContents) {
             throw new PluginPackageException(
@@ -314,15 +321,15 @@ final class PluginPackageInstaller
             'schema_version' => 1,
             'package_key' => $package->packageKey,
             'source' => [
-                'version' => (string)$installation['installed_version'],
-                'artifact_sha256' => (string)$installation['artifact_sha256'],
-                'lock_digest' => (string)$installation['lock_digest'],
-                'status' => (string)$installation['status'],
+                'version' => (string) $installation['installed_version'],
+                'artifact_sha256' => (string) $installation['artifact_sha256'],
+                'lock_digest' => (string) $installation['lock_digest'],
+                'status' => (string) $installation['status'],
             ],
             'target' => [
                 'version' => $package->packageVersion,
                 'archive_sha256' => $package->archiveSha256,
-                'artifact_sha256' => (string)$package->descriptor->source['sha256'],
+                'artifact_sha256' => (string) $package->descriptor->source['sha256'],
                 'modules' => $targetModules,
             ],
             'unchanged' => $comparison === 0 && $sameContents && $installation['status'] === 'active',
@@ -384,7 +391,7 @@ final class PluginPackageInstaller
         foreach ($descriptors as $descriptor) {
             foreach ($descriptor->moduleRoots as $moduleKey => $root) {
                 try {
-                    $manifest = json_decode((string)file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
+                    $manifest = json_decode((string) file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
                 } catch (\JsonException) {
                     continue;
                 }
@@ -444,12 +451,14 @@ final class PluginPackageInstaller
     private function recoverableReplacement(VerifiedPluginPackage $package, array $current): bool
     {
         $descriptor = $current[$package->packageKey] ?? null;
-        if (!$descriptor instanceof PluginDescriptor) return false;
+        if (!$descriptor instanceof PluginDescriptor) {
+            return false;
+        }
         $installation = Db::name('plugin_installation')->where('plugin_key', $package->packageKey)
             ->field('installed_version,status')->find();
         if ($installation === null
             || !in_array($installation['status'] ?? null, ['failed', 'installing'], true)
-            || version_compare($package->packageVersion, (string)$installation['installed_version'], '<=')) {
+            || version_compare($package->packageVersion, (string) $installation['installed_version'], '<=')) {
             return false;
         }
         $currentModules = array_keys($descriptor->moduleRoots);
@@ -492,7 +501,9 @@ final class PluginPackageInstaller
             throw new PluginPackageException('MODULE_QUARANTINE_INVALID', 'Module package key is invalid.');
         }
         $root = $this->projectRoot() . '/.local/module-quarantine';
-        if (!is_dir($root)) return;
+        if (!is_dir($root)) {
+            return;
+        }
         $resolvedRoot = realpath($root);
         if (!is_string($resolvedRoot)) {
             throw new PluginPackageException('MODULE_QUARANTINE_INVALID', 'Module quarantine root is invalid.');

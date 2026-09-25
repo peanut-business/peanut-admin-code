@@ -47,7 +47,9 @@ const useAppStore = defineStore('app', {
     },
     setServerMenu(menu: ServerMenuRecord[]) {
       this.serverMenu = mapServerMenu(menu);
-      this.enabledTenantModules = enabledTenantModulesFromRoutes(this.serverMenu);
+      this.enabledTenantModules = enabledTenantModulesFromRoutes(
+        this.serverMenu
+      );
       this.serverMenuLoaded = true;
     },
     async fetchServerMenuConfig() {

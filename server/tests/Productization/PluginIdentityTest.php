@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\platform\service\plugin\PluginDescriptor;
@@ -28,7 +29,7 @@ $descriptor = new PluginDescriptor(
         'entry' => 'fixture.ts',
         'sha256' => str_repeat('e', 64),
     ]],
-    ['fixture.identity' => '/fixture']
+    ['fixture.identity' => '/fixture'],
 );
 
 $current = [
@@ -52,7 +53,7 @@ $service = (new ReflectionClass(PluginLifecycleService::class))->newInstanceWith
 $sameIdentity = new ReflectionMethod(PluginLifecycleService::class, 'sameIdentity');
 pluginIdentityExpect(
     $sameIdentity->invoke($service, $descriptor, $current) === true,
-    'semantically identical persisted JSON identity was not unchanged'
+    'semantically identical persisted JSON identity was not unchanged',
 );
 
 $drifts = [
@@ -65,27 +66,27 @@ foreach ($drifts as $name => [$field, $value]) {
     $drifted[$field] = $value;
     pluginIdentityExpect(
         $sameIdentity->invoke($service, $descriptor, $drifted) === false,
-        "{$name} identity drift was treated as unchanged"
+        "{$name} identity drift was treated as unchanged",
     );
 }
 
 foreach (['composer_identity_json', 'npm_identity_json', 'frontend_identity_json'] as $field) {
     $drifted = $current;
-    $decoded = json_decode((string)$drifted[$field], true, 64, JSON_THROW_ON_ERROR);
+    $decoded = json_decode((string) $drifted[$field], true, 64, JSON_THROW_ON_ERROR);
     $decoded[0][array_key_first($decoded[0])] = 'drifted';
     $drifted[$field] = json_encode($decoded, JSON_THROW_ON_ERROR);
     pluginIdentityExpect(
         $sameIdentity->invoke($service, $descriptor, $drifted) === false,
-        "{$field} drift was treated as unchanged"
+        "{$field} drift was treated as unchanged",
     );
 }
 
-$installSource = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLifecycleService.php'
+$installSource = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLifecycleService.php',
 );
 pluginIdentityExpect(
     str_contains($installSource, "\$current['status'] === 'active'"),
-    'unchanged identity no longer requires an active installation state'
+    'unchanged identity no longer requires an active installation state',
 );
 
 echo "PLUGIN-IDENTITY-001 passed\n";

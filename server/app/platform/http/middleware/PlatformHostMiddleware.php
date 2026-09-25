@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\http\middleware;
@@ -8,9 +9,7 @@ use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 
 final class PlatformHostMiddleware
 {
-    public function __construct(private readonly ApplicationHostPolicy $hosts)
-    {
-    }
+    public function __construct(private readonly ApplicationHostPolicy $hosts) {}
 
     public function handle($request, \Closure $next)
     {

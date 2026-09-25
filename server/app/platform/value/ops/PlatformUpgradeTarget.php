@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\value\ops;
@@ -48,8 +49,7 @@ final readonly class PlatformUpgradeTarget
         public string $releaseRoot,
         public string $releaseServerRoot,
         public string $targetLockPath,
-    ) {
-    }
+    ) {}
 
     /** Verify staged application source plus its release and scaffold identities. */
     public static function load(string $projectRoot): self
@@ -74,7 +74,7 @@ final readonly class PlatformUpgradeTarget
         $sourceScaffoldRelease = self::assertScaffoldVersion($fromManifestPath, $scaffold['from_version']);
         $targetScaffoldRelease = self::assertScaffoldVersion(
             $toManifestPath,
-            $scaffold['to_version']
+            $scaffold['to_version'],
         );
         if ($scaffold['from_version'] === $scaffold['to_version']
             && !hash_equals($scaffold['from_manifest_sha256'], $scaffold['to_manifest_sha256'])) {
@@ -338,7 +338,7 @@ final readonly class PlatformUpgradeTarget
     private static function json(string $path, string $code): array
     {
         try {
-            $decoded = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new RuntimeException($code, 0, $exception);
         }
@@ -442,7 +442,7 @@ final readonly class PlatformUpgradeTarget
             $previous = $entry['migration_id'];
         }
         $map = self::migrationMap($value['files']);
-        $actual = hash('sha256', (string)json_encode($map, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $actual = hash('sha256', (string) json_encode($map, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         if (!hash_equals($value['inventory_sha256'], $actual)) {
             throw new RuntimeException('UPGRADE_TARGET_MIGRATION_INVENTORY_INVALID');
         }

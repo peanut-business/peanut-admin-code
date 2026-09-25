@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit\GeneratorRuntimeAssembly;
@@ -64,7 +65,7 @@ final class GeneratorRuntimeAssemblyTest extends TestCase
         if (!class_exists('think\\facade\\Route', false)) {
             self::assertTrue(class_alias(\PeanutRouteInventoryRoute::class, 'think\\facade\\Route'));
         }
-        \PeanutRouteInventoryRoute::reset((string)realpath($this->temporary . '/server'));
+        \PeanutRouteInventoryRoute::reset((string) realpath($this->temporary . '/server'));
         \PeanutRouteInventoryRoute::beginApplication('adminapi', 'adminapi');
         $peanutRouteApplication = 'adminapi';
         require $routeFile;
@@ -226,7 +227,7 @@ final class GeneratorRuntimeAssemblyTest extends TestCase
         if (!class_exists('think\\facade\\Route', false)) {
             self::assertTrue(class_alias(\PeanutRouteInventoryRoute::class, 'think\\facade\\Route'));
         }
-        \PeanutRouteInventoryRoute::reset((string)realpath($this->temporary . '/server'));
+        \PeanutRouteInventoryRoute::reset((string) realpath($this->temporary . '/server'));
         \PeanutRouteInventoryRoute::beginApplication('adminapi', 'adminapi');
         $peanutRouteApplication = 'adminapi';
         require $this->temporary . '/' . $backend . '/route/generated/soft-runtime-note.php';
@@ -339,9 +340,13 @@ final class GeneratorRuntimeAssemblyTest extends TestCase
 
     private function removeTree(string $directory): void
     {
-        if (!is_dir($directory)) return;
+        if (!is_dir($directory)) {
+            return;
+        }
         foreach (scandir($directory) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') continue;
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
             $path = $directory . '/' . $entry;
             if (is_dir($path) && !is_link($path)) {
                 $this->removeTree($path);

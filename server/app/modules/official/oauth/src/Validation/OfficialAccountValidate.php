@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Validation;
@@ -29,6 +30,6 @@ class OfficialAccountValidate extends Validate
 
     protected function checkNotBlank(mixed $value): bool|string
     {
-        return trim((string)$value) !== '' ? true : '应用凭证不能为空';
+        return trim((string) $value) !== '' ? true : '应用凭证不能为空';
     }
 }

@@ -51,12 +51,7 @@
       "
       :close-on-click-modal="false"
     >
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-position="top"
-      >
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item prop="name" :label="$t('memberTag.field.name')">
           <el-input
             v-model="form.name"
@@ -74,7 +69,11 @@
         <el-button @click="modalVisible = false">
           {{ $t('userSetting.cancel') }}
         </el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
+        <el-button
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmit"
+        >
           {{ $t('userSetting.save') }}
         </el-button>
       </template>

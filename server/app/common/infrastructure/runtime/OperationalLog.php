@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\runtime;
@@ -22,8 +23,7 @@ final class OperationalLog
         CurrentExecutionContext $executionContext,
         string $event,
         array $attributes = [],
-    ): void
-    {
+    ): void {
         self::write($executionContext, 'info', $event, $attributes);
     }
 
@@ -32,8 +32,7 @@ final class OperationalLog
         CurrentExecutionContext $executionContext,
         string $event,
         array $attributes = [],
-    ): void
-    {
+    ): void {
         self::write($executionContext, 'notice', $event, $attributes);
     }
 
@@ -42,8 +41,7 @@ final class OperationalLog
         CurrentExecutionContext $executionContext,
         string $event,
         array $attributes = [],
-    ): void
-    {
+    ): void {
         self::write($executionContext, 'warning', $event, $attributes);
     }
 
@@ -52,8 +50,7 @@ final class OperationalLog
         CurrentExecutionContext $executionContext,
         string $event,
         array $attributes = [],
-    ): void
-    {
+    ): void {
         self::write($executionContext, 'error', $event, $attributes);
     }
 
@@ -63,8 +60,7 @@ final class OperationalLog
         string $level,
         string $event,
         array $attributes,
-    ): void
-    {
+    ): void {
         try {
             Log::$level(RedactionPolicy::encode([
                 'event' => self::event($event),
@@ -111,7 +107,5 @@ final class OperationalLog
         return $event;
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Service;
@@ -152,9 +153,9 @@ final readonly class NotificationAdminApplicationService
             $operation,
             [],
             hash('sha256', implode("\0", [
-                (string)$tenant->tenantId,
-                (string)$tenant->memberId,
-                (string)$tenant->authorizationRevision,
+                (string) $tenant->tenantId,
+                (string) $tenant->memberId,
+                (string) $tenant->authorizationRevision,
                 $tenant->requestId,
                 $permission,
                 $operation,

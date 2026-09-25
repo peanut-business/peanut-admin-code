@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -31,21 +32,21 @@ final class TenantTaskWorker extends ContextualCommand
 
     protected function handle(Input $input, Output $output): int
     {
-        $raw = (string)$input->getArgument('tenant_id');
+        $raw = (string) $input->getArgument('tenant_id');
         if (preg_match('/^[1-9][0-9]*$/D', $raw) !== 1) {
             $output->writeln('[tenant-task:work] invalid tenant');
             return 1;
         }
         try {
             $processed = $this->runtime()->runTenant(
-                (int)$raw,
+                (int) $raw,
                 'tenant-worker-' . getmypid() . '-' . bin2hex(random_bytes(6)),
             );
-            $output->writeln(sprintf('[tenant-task:work] tenant=%d processed=%d', (int)$raw, $processed));
+            $output->writeln(sprintf('[tenant-task:work] tenant=%d processed=%d', (int) $raw, $processed));
             return 0;
         } catch (\Throwable $exception) {
             OperationalLog::error($this->executionContext(), 'tenant_task_worker_startup_failed', [
-                'tenant_id' => (int)$raw,
+                'tenant_id' => (int) $raw,
                 'failure_code' => self::startupFailureCode($exception),
             ]);
             $output->writeln('[tenant-task:work] failed');

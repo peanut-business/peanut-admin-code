@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\platform\service\plugin\PluginLifecycleException;
@@ -49,7 +50,7 @@ try {
     pluginMigrationDiscoveryExpect(
         $identity->invoke(null, $sameRoot . '/manifest-alias')
             === $identity->invoke(null, $sameRoot . '/Database/Migrations'),
-        'directory aliases did not resolve to one device/inode identity'
+        'directory aliases did not resolve to one device/inode identity',
     );
     $sameManifest = ManifestDocument::fromArray($sameRoot, [
         'key' => 'fixture.same-root',
@@ -58,7 +59,7 @@ try {
     $sameFiles = $discover->invoke($service, $sameRoot, $sameManifest);
     pluginMigrationDiscoveryExpect(
         array_keys($sameFiles) === ['fixture.same-root:20260814050101_same'],
-        'the same physical migration directory was traversed more than once'
+        'the same physical migration directory was traversed more than once',
     );
 
     $differentRoot = $fixtureRoot . '/different-roots';
@@ -77,7 +78,7 @@ try {
         pluginMigrationDiscoveryExpect(
             $exception->errorCode === 'MODULE_MIGRATION_INVALID'
                 && str_contains($exception->getMessage(), 'Duplicate migration key'),
-            'different physical roots did not fail closed on a duplicate migration key'
+            'different physical roots did not fail closed on a duplicate migration key',
         );
     }
 } finally {

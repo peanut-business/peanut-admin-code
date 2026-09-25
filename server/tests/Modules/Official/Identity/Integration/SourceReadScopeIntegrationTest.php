@@ -65,7 +65,7 @@ final class SourceReadScopeIntegrationTest extends TestCase
         }
         $migration = $serverRoot
             . '/app/modules/official/identity/database/migrations/20260921020000_create_pa_source_read_grant.sql';
-        $this->database->exec((string)file_get_contents($migration));
+        $this->database->exec((string) file_get_contents($migration));
         $identityManifest = (new ManifestLoader())->load($serverRoot . '/app/modules/official/identity');
         $this->modules = new CompiledModuleRegistry(
             [$identityManifest],
@@ -151,7 +151,7 @@ SQL);
         self::assertSame('aggregate', $persistedAllow['action']);
         self::assertSame('allow', $persistedAllow['effect']);
         self::assertSame(['amount', 'id', 'status'], json_decode($persistedAllow['fields_json'], true, flags: JSON_THROW_ON_ERROR));
-        self::assertSame(1, (int)$persistedAllow['revision']);
+        self::assertSame(1, (int) $persistedAllow['revision']);
 
         $scope = $authority->authorize($receiver, 'fixture.order-summary', 'aggregate', [202, 303]);
         self::assertSame(101, $scope->actor->tenantId, 'source scope must not change the actor Tenant');
@@ -178,7 +178,7 @@ SQL);
 
         $countQuery = Db::table('pa_scope_order')->alias('o');
         $applier->apply($countQuery, $constraint);
-        self::assertSame(2, (int)(clone $countQuery)->count());
+        self::assertSame(2, (int) (clone $countQuery)->count());
         self::assertSame(
             [['tenant_id' => 202, 'id' => 1]],
             array_map(
@@ -189,7 +189,7 @@ SQL);
 
         $aggregate = Db::table('pa_scope_order')->alias('o');
         $applier->apply($aggregate, $constraint);
-        self::assertSame(30, (int)$aggregate->sum('o.amount'));
+        self::assertSame(30, (int) $aggregate->sum('o.amount'));
 
         $outer = Db::table('pa_scope_order')->alias('o');
         $applier->apply($outer, $constraint);
@@ -203,7 +203,7 @@ SQL);
         $subquery->parseOptions();
         $sql = $outer->getConnection()->getBuilder()->select($subquery);
         $outer->whereExists(new Raw($sql, $subquery->getBind(false)));
-        self::assertSame(2, (int)$outer->count(), 'the correlated subquery must retain the same source scope');
+        self::assertSame(2, (int) $outer->count(), 'the correlated subquery must retain the same source scope');
 
         $this->expectAuthorizationCode(
             'AUTHZ_READ_SOURCE_REQUIRED',
@@ -231,10 +231,10 @@ SQL);
         )->fetch(PDO::FETCH_ASSOC);
         self::assertIsArray($persistedRevocation);
         self::assertSame('revoked', $persistedRevocation['status']);
-        self::assertSame(2, (int)$persistedRevocation['revision']);
+        self::assertSame(2, (int) $persistedRevocation['revision']);
         self::assertSame(
             5,
-            (int)$this->database->query(
+            (int) $this->database->query(
                 "SELECT COUNT(*) FROM pa_tenant_audit_event WHERE event_type IN ('tenant.source-read-grant.changed','tenant.source-read-grant.revoked')",
             )->fetchColumn(),
         );
@@ -254,8 +254,15 @@ SQL);
     public function testDistinctModuleEntitlementsAndObjectFieldProjectionUseTheRealGrantStore(): void
     {
         $registry = new SourceReadCapabilityRegistry([
-            new SourceReadCapability('fixture.order-summary', 'aggregate', 'official.inventory',
-                'core.role.read', 'core.role.data-policy.manage', ['id', 'amount', 'status'], 'official.summary'),
+            new SourceReadCapability(
+                'fixture.order-summary',
+                'aggregate',
+                'official.inventory',
+                'core.role.read',
+                'core.role.data-policy.manage',
+                ['id', 'amount', 'status'],
+                'official.summary',
+            ),
         ]);
         $repository = new ThinkPhpTenantAuthorizationRepository();
         $permissions = new TenantAuthorizationEvaluator($repository, new RevisionPermissionCache());
@@ -344,7 +351,7 @@ SQL);
     {
         foreach (['tenant_id', 'id', 'amount', 'quantity'] as $field) {
             if (array_key_exists($field, $row)) {
-                $row[$field] = (int)$row[$field];
+                $row[$field] = (int) $row[$field];
             }
         }
         return $row;

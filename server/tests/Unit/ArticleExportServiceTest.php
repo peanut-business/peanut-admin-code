@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -67,8 +68,13 @@ final class ArticleExportServiceTest extends TestCase
             $this->exports[] = ['headings' => $headings, 'rows' => $rows];
             return ['url' => '/unit-only-not-a-download', 'original_name' => $name . '.xlsx'];
         });
-        $this->articles = new ArticleAdministrationService($current, $authorization,
-            new ProductAssetReferenceService($files, 'https://unit.invalid'), new RichTextResourceService($files), $xlsx);
+        $this->articles = new ArticleAdministrationService(
+            $current,
+            $authorization,
+            new ProductAssetReferenceService($files, 'https://unit.invalid'),
+            new RichTextResourceService($files),
+            $xlsx,
+        );
         $this->categories = new ArticleCategoryAdministrationService($current, $authorization, $xlsx);
         $this->pdo->exec(<<<'SQL'
 CREATE TABLE pa_article_cate (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT, sort INTEGER DEFAULT 0, is_show INTEGER DEFAULT 1, create_time INTEGER DEFAULT 10, update_time INTEGER DEFAULT 10, delete_time INTEGER DEFAULT NULL);
@@ -81,8 +87,14 @@ SQL);
     private function context(int $tenantId): TenantContext
     {
         return TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            $tenantId + 2000, 'article-export-unit-' . $tenantId, $tenantId,
-            $tenantId + 1000, $tenantId + 2000, 'admin-web', new \DateTimeImmutable('2031-01-01T00:00:00Z'), 1,
+            $tenantId + 2000,
+            'article-export-unit-' . $tenantId,
+            $tenantId,
+            $tenantId + 1000,
+            $tenantId + 2000,
+            'admin-web',
+            new \DateTimeImmutable('2031-01-01T00:00:00Z'),
+            1,
         ), 'article-export-unit-request-' . $tenantId);
     }
 

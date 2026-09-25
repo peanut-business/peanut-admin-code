@@ -61,7 +61,7 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
             }
             if ($row['status'] === 'active') {
                 $now = $this->format(new DateTimeImmutable('now', new DateTimeZone('UTC')));
-                $updated = TenantSession::where('id', (int)$row['id'])
+                $updated = TenantSession::where('id', (int) $row['id'])
                     ->where('tenant_id', $member->tenantId)
                     ->where('account_id', $member->accountId)
                     ->where('tenant_member_id', $member->memberId)
@@ -75,7 +75,7 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
                 if ($updated !== 1) {
                     throw TenantSessionAccessException::conflict();
                 }
-                TenantSessionToken::where('session_id', (int)$row['id'])
+                TenantSessionToken::where('session_id', (int) $row['id'])
                     ->where('status', 'active')
                     ->update(['status' => 'revoked', 'revoked_at' => $now]);
                 $this->audit->tenantMember(
@@ -88,7 +88,7 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
                 );
             }
 
-            $updated = TenantSession::where('id', (int)$row['id'])
+            $updated = TenantSession::where('id', (int) $row['id'])
                 ->where('tenant_id', $member->tenantId)
                 ->where('account_id', $member->accountId)
                 ->where('tenant_member_id', $member->memberId)
@@ -133,16 +133,16 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
         $agent = is_string($row['user_agent_hash']) ? substr($row['user_agent_hash'], 0, 12) : null;
 
         return new TenantSessionSummary(
-            (string)$row['session_key'],
-            (string)$row['client_key'],
-            (string)$row['status'],
-            hash_equals($context->sessionKey, (string)$row['session_key']),
+            (string) $row['session_key'],
+            (string) $row['client_key'],
+            (string) $row['status'],
+            hash_equals($context->sessionKey, (string) $row['session_key']),
             $ip,
             $agent,
-            $this->instant((string)$row['issued_at']),
-            $this->instant((string)$row['last_seen_at']),
-            $this->instant((string)$row['absolute_expires_at']),
-            $row['revoked_at'] === null ? null : $this->instant((string)$row['revoked_at']),
+            $this->instant((string) $row['issued_at']),
+            $this->instant((string) $row['last_seen_at']),
+            $this->instant((string) $row['absolute_expires_at']),
+            $row['revoked_at'] === null ? null : $this->instant((string) $row['revoked_at']),
             $member->authorizationRevision,
         );
     }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\service\authorization\AdminAuthorizationService;
@@ -27,7 +28,7 @@ function containsImportExportMenu(array $menus): bool
     ];
     foreach ($menus as $menu) {
         if (($menu['module_key'] ?? null) === 'official.import-export'
-            || in_array((string)($menu['perms'] ?? ''), $forbiddenPermissions, true)
+            || in_array((string) ($menu['perms'] ?? ''), $forbiddenPermissions, true)
             || containsImportExportMenu(is_array($menu['children'] ?? null) ? $menu['children'] : [])) {
             return true;
         }
@@ -62,11 +63,11 @@ INSERT INTO pa_tenant
 VALUES
   (1, 'default', 'Default', 'Default', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
+    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
     expectRbacTenant($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
-    $moduleMigration = (string)file_get_contents(
-        $serverRoot . '/app/modules/official/import_export/database/migrations/20260826-namespace-permission-keys.sql'
+    $moduleMigration = (string) file_get_contents(
+        $serverRoot . '/app/modules/official/import_export/database/migrations/20260826-namespace-permission-keys.sql',
     );
     expectRbacTenant($moduleMigration !== '', 'Import/Export permission migration is missing');
     $pdo->exec($moduleMigration);
@@ -76,9 +77,9 @@ $serverRoot = dirname(__DIR__, 2);
 $manifestLoader = new ManifestLoader();
 $moduleIdentities = [];
 foreach (['File' => 'official.file', 'Task' => 'official.task', 'ImportExport' => 'official.import-export'] as $directory => $moduleKey) {
-    $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $directory));
+    $directory = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $directory));
     $manifest = $manifestLoader->load($serverRoot . '/app/modules/official/' . $directory);
-    $version = (string)($manifest->data['version'] ?? '');
+    $version = (string) ($manifest->data['version'] ?? '');
     if (preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/D', $version) !== 1
         || preg_match('/^[a-f0-9]{64}$/D', $manifest->digest) !== 1
     ) {
@@ -90,7 +91,7 @@ $fileIdentity = $moduleIdentities['official.file'];
 $taskIdentity = $moduleIdentities['official.task'];
 $importExportIdentity = $moduleIdentities['official.import-export'];
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $database = IsolatedBackendEnvironment::required('DB_NAME');
@@ -102,7 +103,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
 );
 $admin->exec("DROP DATABASE IF EXISTS `{$database}`");
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -117,7 +118,7 @@ try {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ]
+        ],
     );
     createNativeRbacSchema($pdo, $serverRoot);
     $now = '2030-01-01 00:00:00.000';
@@ -176,15 +177,15 @@ INSERT INTO pa_member_role (tenant_id, tenant_member_id, role_id, assigned_at) V
   (101, 503, 33, '{$now}'),
   (202, 504, 44, '{$now}');
 SQL);
-    $permissionId = (int)$pdo->query("SELECT id FROM pa_permission WHERE `key` = 'official.import-export.operation-log.export'")->fetchColumn();
-    $applicationPermissionId = (int)$pdo->query("SELECT id FROM pa_permission WHERE `key` = 'dict/type/lists'")->fetchColumn();
+    $permissionId = (int) $pdo->query("SELECT id FROM pa_permission WHERE `key` = 'official.import-export.operation-log.export'")->fetchColumn();
+    $applicationPermissionId = (int) $pdo->query("SELECT id FROM pa_permission WHERE `key` = 'dict/type/lists'")->fetchColumn();
     expectRbacTenant($permissionId > 0, 'canonical export permission is missing');
     expectRbacTenant($applicationPermissionId > 0, 'application-owned dictionary permission is missing');
     $pdo->prepare(
-        'INSERT INTO pa_role_permission (tenant_id, role_id, permission_id, granted_at) VALUES (?, ?, ?, ?)'
+        'INSERT INTO pa_role_permission (tenant_id, role_id, permission_id, granted_at) VALUES (?, ?, ?, ?)',
     )->execute([101, 11, $permissionId, $now]);
     $pdo->prepare(
-        'INSERT INTO pa_role_permission (tenant_id, role_id, permission_id, granted_at) VALUES (?, ?, ?, ?)'
+        'INSERT INTO pa_role_permission (tenant_id, role_id, permission_id, granted_at) VALUES (?, ?, ?, ?)',
     )->execute([101, 11, $applicationPermissionId, $now]);
 
     IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
@@ -203,64 +204,64 @@ SQL);
 
     expectRbacTenant(
         $authorization->decide($alphaContext, $alpha, 'official.import-export.operation-log.export')->allowed,
-        'same-Tenant RBAC permission was denied'
+        'same-Tenant RBAC permission was denied',
     );
     expectRbacTenant(
         $authorization->decide($alphaContext, $alpha, 'dict/type/lists')->allowed,
-        'application-owned RBAC permission was denied'
+        'application-owned RBAC permission was denied',
     );
     expectRbacTenant(
         !$authorization->decide($betaContext, $beta, 'dict/type/lists')->allowed,
-        'application-owned RBAC permission leaked across Tenants'
+        'application-owned RBAC permission leaked across Tenants',
     );
     expectRbacTenant(
         !$authorization->decide($betaContext, $alpha, 'official.import-export.operation-log.export')->allowed,
-        'mismatched TenantContext accepted an Alpha principal'
+        'mismatched TenantContext accepted an Alpha principal',
     );
     expectRbacTenant(
         !$authorization->decide(null, $alpha, 'official.import-export.operation-log.export')->allowed,
-        'missing TenantContext did not fail closed'
+        'missing TenantContext did not fail closed',
     );
     expectRbacTenant(
         $authorization->decide($alphaRootContext, $alphaRoot, 'official.import-export.operation-log.export')->allowed,
-        'root did not bypass role grant for an active Module permission'
+        'root did not bypass role grant for an active Module permission',
     );
     expectRbacTenant(
         $authorization->decide($betaRootContext, $betaRoot, 'dict/type/lists')->allowed,
-        'Tenant owner did not receive registered application-owned permission'
+        'Tenant owner did not receive registered application-owned permission',
     );
     expectRbacTenant(
         !$authorization->decide($alphaRootContext, $alphaRoot, 'unregistered/read')->allowed,
-        'root bypassed route registration'
+        'root bypassed route registration',
     );
     expectRbacTenant(
         !$authorization->decide($betaRootContext, $betaRoot, 'official.import-export.operation-log.export')->allowed,
-        'root bypassed disabled Tenant Module'
+        'root bypassed disabled Tenant Module',
     );
 
     $data = $authorization->accessData($alphaContext, $alpha);
     expectRbacTenant($data->menu !== [], 'enabled Tenant Module menu projection was empty');
     expectRbacTenant(
         !containsImportExportMenu($authorization->accessData($betaContext, $beta)->menu),
-        'disabled Tenant Module menu leaked into Beta'
+        'disabled Tenant Module menu leaked into Beta',
     );
 
     $pdo->exec('DELETE FROM pa_role_permission WHERE tenant_id = 101 AND role_id = 11');
     expectRbacTenant(
         !$authorization->decide($alphaContext, $alpha, 'official.import-export.operation-log.export')->allowed,
-        'revoked RBAC permission still authorized'
+        'revoked RBAC permission still authorized',
     );
     expectRbacTenant(
         !$authorization->decide($alphaContext, $alpha, 'dict/type/lists')->allowed,
-        'revoked application-owned permission still authorized'
+        'revoked application-owned permission still authorized',
     );
     $pdo->prepare(
-        'INSERT INTO pa_role_permission (tenant_id, role_id, permission_id, granted_at) VALUES (?, ?, ?, ?)'
+        'INSERT INTO pa_role_permission (tenant_id, role_id, permission_id, granted_at) VALUES (?, ?, ?, ?)',
     )->execute([101, 11, $permissionId, $now]);
     $pdo->exec("UPDATE pa_tenant_module SET status = 'disabled', disabled_at = UTC_TIMESTAMP(3) WHERE tenant_id = 101");
     expectRbacTenant(
         !$authorization->decide($alphaRootContext, $alphaRoot, 'official.import-export.operation-log.export')->allowed,
-        'root bypassed Module revocation'
+        'root bypassed Module revocation',
     );
 } finally {
     $admin->exec("DROP DATABASE IF EXISTS `{$database}`");

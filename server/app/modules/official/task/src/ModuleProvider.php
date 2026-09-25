@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task;
@@ -34,8 +35,7 @@ final class ModuleProvider implements ModuleProviderContract
     public function scheduler(
         TaskJobRuntime $tasks,
         CrontabSchedulerService $crontabs,
-    ): TaskScheduler
-    {
+    ): TaskScheduler {
         return new TaskSchedulerService($tasks, $crontabs);
     }
 
@@ -50,8 +50,7 @@ final class ModuleProvider implements ModuleProviderContract
         Closure $dispatch,
         array $workerDefinitions,
         int $workerLimit,
-    ): TaskJobRuntime
-    {
+    ): TaskJobRuntime {
         return new ThinkPhpTaskJobRuntime(
             new TaskJobStore($persistence->mode, $persistence->instanceTenantId),
             $signingKey,
@@ -71,7 +70,7 @@ final class ModuleProvider implements ModuleProviderContract
         return [
             TaskJobRuntime::class => fn(App $app): TaskJobRuntime => $this->jobs(
                 $app->make(TenantPersistenceConfiguration::class),
-                (string)$app->config->get('async.signing_key', ''),
+                (string) $app->config->get('async.signing_key', ''),
                 $app->make(ExecutionContextStore::class),
                 $app->make(CurrentExecutionContext::class),
                 $app->make(AdminDirectoryQuery::class),
@@ -79,7 +78,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(CrontabCommandService::class),
                 Closure::fromCallable([$app->make('console'), 'call']),
                 $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app),
-                (int)$app->config->get('async.worker_limit', 25),
+                (int) $app->config->get('async.worker_limit', 25),
             ),
             TaskBootstrapCommands::class => TaskBootstrapService::class,
             TaskDiagnosticQuery::class => TaskDiagnosticService::class,

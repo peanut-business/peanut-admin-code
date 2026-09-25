@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -25,7 +26,7 @@ final class TenantOwnerInvitationPublicController extends BaseController
         $params = $this->request->get();
         $this->validate($params, TenantOwnerInvitationValidate::class . '.inspect');
         return $this->data($this->invitations->inspect(
-            (string)$params['token']
+            (string) $params['token'],
         ));
     }
 
@@ -34,10 +35,10 @@ final class TenantOwnerInvitationPublicController extends BaseController
         $params = $this->request->post();
         $this->validate($params, TenantOwnerInvitationValidate::class . '.accept');
         return $this->data($this->invitations->accept(
-            (string)$params['token'],
-            isset($params['new_account_password']) && (string)$params['new_account_password'] !== ''
-                ? (string)$params['new_account_password']
-                : null
+            (string) $params['token'],
+            isset($params['new_account_password']) && (string) $params['new_account_password'] !== ''
+                ? (string) $params['new_account_password']
+                : null,
         ));
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -26,18 +27,18 @@ final class PluginReleaseComposition extends ModuleContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            $currentRoot = trim((string)$input->getOption('current-root'));
+            $currentRoot = trim((string) $input->getOption('current-root'));
             if ($currentRoot === '') {
                 throw new PluginLifecycleException(
                     'PLUGIN_RELEASE_CURRENT_ROOT_REQUIRED',
-                    'Current application release root is required.'
+                    'Current application release root is required.',
                 );
             }
             $config = Config::get('modules', []);
             if (!is_array($config)) {
                 throw new PluginLifecycleException(
                     'MODULE_REGISTRY_UNAVAILABLE',
-                    'Module deployment config is invalid.'
+                    'Module deployment config is invalid.',
                 );
             }
             $serverRoot = dirname(__DIR__, 2);
@@ -46,12 +47,12 @@ final class PluginReleaseComposition extends ModuleContextualCommand
                 $config,
                 $this->moduleCatalogs(),
             ))->verify($currentRoot);
-            $output->writeln((string)json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            $output->writeln((string) json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;
         } catch (PluginLifecycleException $exception) {
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 ['error' => $exception->errorCode],
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 1;
         } catch (\Throwable) {

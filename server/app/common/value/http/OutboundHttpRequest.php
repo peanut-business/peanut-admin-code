@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\http;
@@ -33,7 +34,7 @@ final readonly class OutboundHttpRequest
             throw new \InvalidArgumentException('OUTBOUND_HTTP_REQUEST_INVALID');
         }
         foreach ($multipart as $part) {
-            if (!is_array($part) || trim((string)($part['name'] ?? '')) === ''
+            if (!is_array($part) || trim((string) ($part['name'] ?? '')) === ''
                 || !array_key_exists('contents', $part)) {
                 throw new \InvalidArgumentException('OUTBOUND_HTTP_MULTIPART_INVALID');
             }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\contract\authorization\AdminAuthorizationQuery;
@@ -50,7 +51,9 @@ final class PublicSettingsAuthorizationTest extends TestCase
             },
         );
         $contexts->run(new AdminExecutionContext($tenant, 'test.settings', $this->principal()), function () use ($contexts, $auth, $tenant): void {
-            foreach ($this->operations($contexts, $auth, $tenant) as $operation) $this->denied($operation);
+            foreach ($this->operations($contexts, $auth, $tenant) as $operation) {
+                $this->denied($operation);
+            }
         });
         self::assertSame([
             'official.settings.read', 'official.settings.manage', 'official.settings.manage',
@@ -67,7 +70,9 @@ final class PublicSettingsAuthorizationTest extends TestCase
         $auth->expects(self::never())->method('decide');
         $contexts->run(new AdminExecutionContext($this->tenant(), 'test.settings', $this->principal()), function () use ($contexts, $auth): void {
             foreach ([$this->tenant(102), $this->tenant(101, 2)] as $supplied) {
-                foreach ($this->operations($contexts, $auth, $supplied) as $operation) $this->denied($operation);
+                foreach ($this->operations($contexts, $auth, $supplied) as $operation) {
+                    $this->denied($operation);
+                }
             }
         });
         self::assertTrue($contexts->isEmpty());

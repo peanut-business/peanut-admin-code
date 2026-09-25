@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\adminapi\application\setting\HotSearchApplicationService as AdminHotSearchLogic;
@@ -23,7 +24,7 @@ function hotSearchTenantContext(int $tenantId, int $memberId, string $requestId)
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT03HOTSEARCH' . str_pad((string)$memberId, 11, '0', STR_PAD_LEFT),
+        '01JMT03HOTSEARCH' . str_pad((string) $memberId, 11, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 10000,
         $memberId,
@@ -82,7 +83,7 @@ SQL);
 }
 
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(5)));
@@ -91,7 +92,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
 );
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
@@ -100,7 +101,7 @@ try {
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
     );
     createHotSearchTenantSchema($pdo);
     seedHotSearchTenantSchema($pdo);
@@ -111,7 +112,7 @@ try {
     $alpha = hotSearchTenantContext(101, 501, 'mt03-hot-search-alpha-' . $runId);
     $beta = hotSearchTenantContext(202, 502, 'mt03-hot-search-beta-' . $runId);
     $before = $pdo->query("SELECT id, name, sort FROM pa_hot_search WHERE tenant_id = 202 ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
-    $statusBefore = (string)$pdo->query("SELECT config_json FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn();
+    $statusBefore = (string) $pdo->query("SELECT config_json FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn();
 
     try {
         app(CurrentExecutionContext::class)->tenantAdmin();
@@ -121,11 +122,11 @@ try {
     }
     expectHotSearchTenant(
         $pdo->query("SELECT id, name, sort FROM pa_hot_search WHERE tenant_id = 202 ORDER BY id")->fetchAll(PDO::FETCH_ASSOC) === $before,
-        'missing context changed Beta terms'
+        'missing context changed Beta terms',
     );
     expectHotSearchTenant(
-        (string)$pdo->query("SELECT config_json FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn() === $statusBefore,
-        'missing context changed Beta status'
+        (string) $pdo->query("SELECT config_json FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn() === $statusBefore,
+        'missing context changed Beta status',
     );
     try {
         app(ApiSearchLogic::class)->hotLists();
@@ -149,18 +150,18 @@ try {
     );
     expectHotSearchTenant(
         $pdo->query("SELECT id, name, sort FROM pa_hot_search WHERE tenant_id = 202 ORDER BY id")->fetchAll(PDO::FETCH_ASSOC) === $before,
-        'Alpha full replacement changed Beta terms'
+        'Alpha full replacement changed Beta terms',
     );
-    expectHotSearchTenant((int)$pdo->query("SELECT COUNT(*) FROM pa_hot_search WHERE tenant_id = 101")->fetchColumn() === 2, 'Alpha replacement did not remain Tenant-scoped');
-    expectHotSearchTenant((int)$pdo->query("SELECT COUNT(*) FROM pa_hot_search WHERE tenant_id = 202 AND name = 'Same term'")->fetchColumn() === 1, 'Beta same-name term was deleted');
-    expectHotSearchTenant((int)$pdo->query("SELECT COUNT(*) FROM pa_hot_search WHERE tenant_id = 202 AND name = 'Alpha only'")->fetchColumn() === 0, 'payload forged hot-search owner');
+    expectHotSearchTenant((int) $pdo->query("SELECT COUNT(*) FROM pa_hot_search WHERE tenant_id = 101")->fetchColumn() === 2, 'Alpha replacement did not remain Tenant-scoped');
+    expectHotSearchTenant((int) $pdo->query("SELECT COUNT(*) FROM pa_hot_search WHERE tenant_id = 202 AND name = 'Same term'")->fetchColumn() === 1, 'Beta same-name term was deleted');
+    expectHotSearchTenant((int) $pdo->query("SELECT COUNT(*) FROM pa_hot_search WHERE tenant_id = 202 AND name = 'Alpha only'")->fetchColumn() === 0, 'payload forged hot-search owner');
     expectHotSearchTenant(
-        (int)$pdo->query("SELECT JSON_UNQUOTE(JSON_EXTRACT(config_json, '$.status')) FROM pa_tenant_setting WHERE tenant_id = 101 AND namespace = 'hot-search'")->fetchColumn() === 0,
-        'Alpha status was not updated'
+        (int) $pdo->query("SELECT JSON_UNQUOTE(JSON_EXTRACT(config_json, '$.status')) FROM pa_tenant_setting WHERE tenant_id = 101 AND namespace = 'hot-search'")->fetchColumn() === 0,
+        'Alpha status was not updated',
     );
     expectHotSearchTenant(
-        (int)$pdo->query("SELECT JSON_UNQUOTE(JSON_EXTRACT(config_json, '$.status')) FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn() === 1,
-        'Alpha status update changed Beta status'
+        (int) $pdo->query("SELECT JSON_UNQUOTE(JSON_EXTRACT(config_json, '$.status')) FROM pa_tenant_setting WHERE tenant_id = 202 AND namespace = 'hot-search'")->fetchColumn() === 1,
+        'Alpha status update changed Beta status',
     );
 
     $adminAlpha = app(ExecutionContextStore::class)->run(

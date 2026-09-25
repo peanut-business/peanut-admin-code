@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Contract;
@@ -13,7 +14,5 @@ final class PaymentMethod
         return in_array($value, [self::WECHAT, self::ALIPAY], true);
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

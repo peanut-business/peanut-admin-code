@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\decoration;
@@ -15,7 +16,7 @@ class DecorationTabbarController extends BaseAdminController
     public function detail()
     {
         return $this->data($this->decorationTabbars->detail(
-            $this->tenantAdminContext()
+            $this->tenantAdminContext(),
         ));
     }
 
@@ -25,8 +26,8 @@ class DecorationTabbarController extends BaseAdminController
         $this->validate($params, DecorationTabbarValidate::class);
         $this->decorationTabbars->save(
             $this->tenantAdminContext(),
-            (array)$params['style'],
-            (array)$params['list']
+            (array) $params['style'],
+            (array) $params['list'],
         );
         return $this->success('保存成功');
     }

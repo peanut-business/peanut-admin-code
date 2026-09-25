@@ -7,7 +7,7 @@
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": ${PHP_PACKAGE_JSON},
-  "web_package": ${WEB_PACKAGE_JSON},
+  ${WEB_PACKAGE_FIELD}
   "dependencies": [],
   "lifecycle": {
     "protected": false
@@ -19,14 +19,12 @@
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
   },
-  "frontend": {
-    "entry": ${FRONTEND_ENTRY_JSON}
-  },
+  "frontend": ${FRONTEND_DECLARATION_JSON},
   "database": {
     "owned_tables": []
   },
   "contracts": {
-    "exports": [${COMMANDS_CONTRACT_JSON}],
+    "exports": [],
     "events": []
   },
   "tenant": {

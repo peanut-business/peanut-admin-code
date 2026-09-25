@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -27,15 +28,15 @@ final class ModuleUpdatePackage extends ModuleContextualCommand
         try {
             $this->assertDevelopmentInstanceMaintenanceAccess();
             $result = $this->moduleRuntime()->update(
-                (string)$input->getArgument('package'),
-                ($pin = trim((string)$input->getOption('sha256'))) === '' ? null : $pin,
-                ($keyId = trim((string)$input->getOption('signature-key-id'))) === '' ? null : $keyId,
-                (bool)$input->getOption('dry-run'),
+                (string) $input->getArgument('package'),
+                ($pin = trim((string) $input->getOption('sha256'))) === '' ? null : $pin,
+                ($keyId = trim((string) $input->getOption('signature-key-id'))) === '' ? null : $keyId,
+                (bool) $input->getOption('dry-run'),
             );
-            $output->writeln((string)json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            $output->writeln((string) json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;
         } catch (PluginPackageException|PluginLifecycleException $exception) {
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 [
                     'code' => $exception->errorCode,
                     'reason' => $exception->getMessage(),

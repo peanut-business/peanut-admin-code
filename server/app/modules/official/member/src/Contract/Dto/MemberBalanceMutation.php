@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Contract\Dto;
@@ -17,6 +18,5 @@ final readonly class MemberBalanceMutation
         public int $adminId = 0,
         public int $rechargeDeltaCents = 0,
         public string $insufficientMessage = '',
-    ) {
-    }
+    ) {}
 }

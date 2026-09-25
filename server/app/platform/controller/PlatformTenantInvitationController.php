@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -19,11 +20,11 @@ final class PlatformTenantInvitationController extends BasePlatformController
         return $this->mutate('provision', function (array $params): array {
             return $this->invitations->provision(
                 $this->platformContext,
-                trim((string)$params['tenant_code']),
-                trim((string)$params['tenant_name']),
-                trim((string)$params['owner_email']),
-                trim((string)$params['owner_display_name']),
-                (int)($params['expires_in_hours'] ?? 72)
+                trim((string) $params['tenant_code']),
+                trim((string) $params['tenant_name']),
+                trim((string) $params['owner_email']),
+                trim((string) $params['owner_display_name']),
+                (int) ($params['expires_in_hours'] ?? 72),
             );
         });
     }
@@ -33,10 +34,10 @@ final class PlatformTenantInvitationController extends BasePlatformController
         return $this->mutate('invite', function (array $params): array {
             return $this->invitations->invite(
                 $this->platformContext,
-                (int)$params['tenant_id'],
-                trim((string)$params['owner_email']),
-                trim((string)$params['owner_display_name']),
-                (int)($params['expires_in_hours'] ?? 72)
+                (int) $params['tenant_id'],
+                trim((string) $params['owner_email']),
+                trim((string) $params['owner_display_name']),
+                (int) ($params['expires_in_hours'] ?? 72),
             );
         });
     }
@@ -48,12 +49,12 @@ final class PlatformTenantInvitationController extends BasePlatformController
         }
         $params = $this->request->get();
         $this->validate($params, TenantOwnerInvitationValidate::class . '.lists');
-        $page = (int)($params['page'] ?? 1);
-        $pageSize = (int)($params['page_size'] ?? 20);
+        $page = (int) ($params['page'] ?? 1);
+        $pageSize = (int) ($params['page_size'] ?? 20);
         $result = $this->invitations->invitations(
             $this->platformContext,
-            (int)$params['tenant_id'],
-            new PageRequest($page, $pageSize)
+            (int) $params['tenant_id'],
+            new PageRequest($page, $pageSize),
         );
         return $this->dataLists(new PageResult($result['items'], $result['total'], $page, $pageSize));
     }
@@ -63,8 +64,8 @@ final class PlatformTenantInvitationController extends BasePlatformController
         return $this->mutate('resend', function (array $params): array {
             return $this->invitations->resend(
                 $this->platformContext,
-                (int)$params['invitation_id'],
-                (int)($params['expires_in_hours'] ?? 72)
+                (int) $params['invitation_id'],
+                (int) ($params['expires_in_hours'] ?? 72),
             );
         });
     }
@@ -74,7 +75,7 @@ final class PlatformTenantInvitationController extends BasePlatformController
         return $this->mutate('revoke', function (array $params): array {
             return $this->invitations->revoke(
                 $this->platformContext,
-                (int)$params['invitation_id']
+                (int) $params['invitation_id'],
             );
         });
     }

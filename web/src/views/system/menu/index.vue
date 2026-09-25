@@ -28,7 +28,7 @@
         <el-table-column prop="name" :label="$t('systemMenu.columns.name')" />
         <el-table-column :label="$t('systemMenu.columns.type')" width="90">
           <template #default="{ row }">
-            <el-tag :type="typeColor[row.type as MenuType] as any">{{
+            <el-tag :type="typeColor[row.type as MenuType]">{{
               $t(`systemMenu.type.${row.type}`)
             }}</el-tag>
           </template>
@@ -186,7 +186,7 @@
   import { computed, ref, reactive } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
-  import type { FormInstance } from 'element-plus';
+  import type { FormInstance, TagProps } from 'element-plus';
   import { Plus, Refresh } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import {
@@ -204,7 +204,7 @@
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<MenuRecord[]>([]);
 
-  const typeColor: Record<MenuType, string> = {
+  const typeColor: Record<MenuType, TagProps['type']> = {
     M: 'primary',
     C: 'success',
     A: 'info',
@@ -222,8 +222,14 @@
   fetchData();
 
   // ---- 上级菜单选择树：只允许挂在 M/C 下，按钮(A)不能当父级 ----
-  const parentTree = computed(() => {
-    const strip = (nodes: MenuRecord[]): any[] =>
+  interface MenuParentOption {
+    id: number;
+    name: string;
+    children: MenuParentOption[];
+  }
+
+  const parentTree = computed<MenuParentOption[]>(() => {
+    const strip = (nodes: MenuRecord[]): MenuParentOption[] =>
       nodes
         .filter((n) => n.type !== 'A')
         .map((n) => ({

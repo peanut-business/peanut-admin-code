@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -16,34 +17,38 @@ final class PlatformTenantEntryBindingController extends BasePlatformController
         if ($this->platformContext === null) {
             throw \app\common\http\ApiProblem::fromEnvelope('Platform authentication is required.', null, 40100);
         }
-        $tenantId = trim((string)$this->request->get('tenant_id', ''));
+        $tenantId = trim((string) $this->request->get('tenant_id', ''));
         return $this->data($this->entryBindings->lists(
             $this->platformContext,
-            $tenantId === '' ? null : (int)$tenantId
+            $tenantId === '' ? null : (int) $tenantId,
         ));
     }
 
     public function enable()
     {
-        return $this->mutate('enable', fn(array $params): array =>
+        return $this->mutate(
+            'enable',
+            fn(array $params): array =>
             $this->entryBindings->enable(
                 $this->platformContext,
-                (int)$params['tenant_id'],
-                (string)$params['host'],
-                (string)$params['client_key'],
-                (string)$params['change_reason']
-            )
+                (int) $params['tenant_id'],
+                (string) $params['host'],
+                (string) $params['client_key'],
+                (string) $params['change_reason'],
+            ),
         );
     }
 
     public function disable()
     {
-        return $this->mutate('disable', fn(array $params): array =>
+        return $this->mutate(
+            'disable',
+            fn(array $params): array =>
             $this->entryBindings->disable(
                 $this->platformContext,
-                (int)$params['binding_id'],
-                (string)$params['change_reason']
-            )
+                (int) $params['binding_id'],
+                (string) $params['change_reason'],
+            ),
         );
     }
 

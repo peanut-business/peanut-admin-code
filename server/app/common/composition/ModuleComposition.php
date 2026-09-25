@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\composition;
@@ -15,9 +16,7 @@ use think\App;
 /** Registers compiled Module bindings into the one ThinkPHP container. */
 final readonly class ModuleComposition
 {
-    public function __construct(private App $app)
-    {
-    }
+    public function __construct(private App $app) {}
 
     public function register(CompiledModuleRegistry $registry): void
     {

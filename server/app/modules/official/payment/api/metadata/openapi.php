@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 $schema = static fn(string $name): array => ['$ref' => '#/components/schemas/' . $name];
@@ -31,10 +32,18 @@ $operation = static function (
         'parameters' => $parameters,
         'responses' => ['200' => $ok($responseSchema, $summary . '成功')],
     ];
-    if ($requestSchema !== null) $value['requestBody'] = $body($requestSchema);
-    foreach ($statuses as $status) $value['responses'][(string)$status] = $error;
-    if ($errors !== []) $value['x-peanut-errors'] = $errors;
-    if ($description !== null) $value['description'] = $description;
+    if ($requestSchema !== null) {
+        $value['requestBody'] = $body($requestSchema);
+    }
+    foreach ($statuses as $status) {
+        $value['responses'][(string) $status] = $error;
+    }
+    if ($errors !== []) {
+        $value['x-peanut-errors'] = $errors;
+    }
+    if ($description !== null) {
+        $value['description'] = $description;
+    }
     return $value;
 };
 
@@ -76,11 +85,15 @@ $page = [
 return [
     'paths' => [
         '/adminapi/official.payment.settings.detail' => ['get' => $operation(
-            'getPaymentSettings', '查询支付渠道配置', 'PaymentSettingsResponse',
+            'getPaymentSettings',
+            '查询支付渠道配置',
+            'PaymentSettingsResponse',
             statuses: [401, 403],
         )],
         '/adminapi/official.payment.settings.save' => ['post' => $operation(
-            'savePaymentSettings', '保存支付渠道配置', 'PaymentMutationResponse',
+            'savePaymentSettings',
+            '保存支付渠道配置',
+            'PaymentMutationResponse',
             requestSchema: 'PaymentSettingsSaveRequest',
             errors: [
                 'PAYMENT_WECHAT_CONFIG_INCOMPLETE', 'PAYMENT_WECHAT_SECRET_INVALID',
@@ -89,16 +102,23 @@ return [
             statuses: [400, 401, 403, 422],
         )],
         '/adminapi/official.payment.recharge-settings.detail' => ['get' => $operation(
-            'getPaymentRechargeSettings', '查询充值配置', 'PaymentRechargeSettingsResponse',
+            'getPaymentRechargeSettings',
+            '查询充值配置',
+            'PaymentRechargeSettingsResponse',
             statuses: [401, 403],
         )],
         '/adminapi/official.payment.recharge-settings.save' => ['post' => $operation(
-            'savePaymentRechargeSettings', '保存充值配置', 'PaymentMutationResponse',
+            'savePaymentRechargeSettings',
+            '保存充值配置',
+            'PaymentMutationResponse',
             requestSchema: 'PaymentRechargeSettingsSaveRequest',
-            errors: ['RECHARGE_CHANNEL_DISABLED'], statuses: [400, 401, 403, 409, 422],
+            errors: ['RECHARGE_CHANNEL_DISABLED'],
+            statuses: [400, 401, 403, 409, 422],
         )],
         '/adminapi/official.payment.recharge.list' => ['get' => $operation(
-            'listPaymentRecharges', '查询充值订单', 'PaymentAdminRechargeListResponse',
+            'listPaymentRecharges',
+            '查询充值订单',
+            'PaymentAdminRechargeListResponse',
             [
                 ...$page,
                 $query('sn', ['type' => 'string', 'maxLength' => 64]),
@@ -116,7 +136,9 @@ return [
             statuses: [401, 403, 422],
         )],
         '/adminapi/official.payment.recharge.refund' => ['post' => $operation(
-            'refundPaymentRecharge', '发起充值退款', 'PaymentMutationResponse',
+            'refundPaymentRecharge',
+            '发起充值退款',
+            'PaymentMutationResponse',
             [[
                 'in' => 'header', 'name' => 'Idempotency-Key', 'required' => true,
                 'description' => '退款幂等键；服务按租户和请求摘要登记。',
@@ -133,7 +155,9 @@ return [
             description: '渠道明确成功时退款记录进入成功；渠道明确失败时接口返回错误。若 gateway 报告 ERROR_RESULT_UNKNOWN，现实现保留 refund_status=0（退款中）并等待 refund:reconcile 收敛，但本接口仍返回成功消息；该消息不表示退款资金已到达终态。',
         )],
         '/adminapi/official.payment.refund.retry' => ['post' => $operation(
-            'retryPaymentRefund', '重试失败退款', 'PaymentMutationResponse',
+            'retryPaymentRefund',
+            '重试失败退款',
+            'PaymentMutationResponse',
             requestSchema: 'PaymentRefundRetryRequest',
             errors: [
                 'REFUND_RECORD_NOT_FOUND', 'REFUND_ALREADY_SUCCEEDED', 'REFUND_IN_PROGRESS',
@@ -143,11 +167,15 @@ return [
             description: '重试会先把失败记录恢复为 refund_status=0（退款中）。若 gateway 报告 ERROR_RESULT_UNKNOWN，记录继续保持退款中并等待 refund:reconcile 收敛，但本接口仍返回成功消息；该消息不表示退款资金已到达终态。',
         )],
         '/adminapi/official.payment.refund.stat' => ['get' => $operation(
-            'getPaymentRefundStatistics', '查询退款统计', 'PaymentRefundStatisticsResponse',
+            'getPaymentRefundStatistics',
+            '查询退款统计',
+            'PaymentRefundStatisticsResponse',
             statuses: [401, 403],
         )],
         '/adminapi/official.payment.refund.list' => ['get' => $operation(
-            'listPaymentRefunds', '查询退款记录', 'PaymentRefundListResponse',
+            'listPaymentRefunds',
+            '查询退款记录',
+            'PaymentRefundListResponse',
             [
                 ...$page,
                 $query('sn', ['type' => 'string', 'maxLength' => 32]),
@@ -160,11 +188,15 @@ return [
                 $query('page_type', ['type' => 'integer', 'enum' => [0, 1]]),
                 $query('export', ['type' => 'integer', 'enum' => [1, 2]]),
             ],
-            errors: ['REFUND_EXPORT_UNSUPPORTED'], statuses: [400, 401, 403, 422],
+            errors: ['REFUND_EXPORT_UNSUPPORTED'],
+            statuses: [400, 401, 403, 422],
         )],
         '/adminapi/official.payment.refund.log' => ['get' => $operation(
-            'listPaymentRefundLogs', '查询退款操作日志', 'PaymentRefundLogResponse',
-            [$query('record_id', $positiveInteger, true)], statuses: [401, 403, 422],
+            'listPaymentRefundLogs',
+            '查询退款操作日志',
+            'PaymentRefundLogResponse',
+            [$query('record_id', $positiveInteger, true)],
+            statuses: [401, 403, 422],
         )],
 
         '/api/payment/notify/wechat/{binding}' => ['post' => [
@@ -214,12 +246,17 @@ return [
         ]],
 
         '/api/recharge/config' => ['get' => $operation(
-            'getMemberRechargeConfig', '查询会员充值配置', 'PaymentMemberRechargeConfigResponse',
+            'getMemberRechargeConfig',
+            '查询会员充值配置',
+            'PaymentMemberRechargeConfigResponse',
             [$query('terminal', ['type' => 'integer', 'enum' => [1, 2, 3, 4, 5, 6]], true)],
-            errors: ['MEMBER_NOT_FOUND'], statuses: [401, 403, 404, 422],
+            errors: ['MEMBER_NOT_FOUND'],
+            statuses: [401, 403, 404, 422],
         )],
         '/api/recharge/create' => ['post' => $operation(
-            'createMemberRecharge', '创建会员充值订单', 'PaymentRechargeOrderResponse',
+            'createMemberRecharge',
+            '创建会员充值订单',
+            'PaymentRechargeOrderResponse',
             requestSchema: 'PaymentMemberRechargeCreateRequest',
             errors: [
                 'RECHARGE_DISABLED', 'RECHARGE_AMOUNT_BELOW_MINIMUM', 'RECHARGE_AMOUNT_ABOVE_MAXIMUM',
@@ -228,7 +265,9 @@ return [
             statuses: [400, 401, 403, 404, 409, 422],
         )],
         '/api/recharge/prepay' => ['post' => $operation(
-            'prepayMemberRecharge', '创建充值预支付参数', 'PaymentRechargePrepayResponse',
+            'prepayMemberRecharge',
+            '创建充值预支付参数',
+            'PaymentRechargePrepayResponse',
             requestSchema: 'PaymentMemberRechargePrepayRequest',
             errors: [
                 'RECHARGE_ORDER_NOT_FOUND', 'RECHARGE_ORDER_ALREADY_PAID', 'RECHARGE_PAY_WAY_DISABLED',
@@ -237,12 +276,17 @@ return [
             statuses: [400, 401, 403, 404, 409, 422, 500],
         )],
         '/api/recharge/detail' => ['get' => $operation(
-            'getMemberRecharge', '查询本人充值订单', 'PaymentRechargeOrderResponse',
+            'getMemberRecharge',
+            '查询本人充值订单',
+            'PaymentRechargeOrderResponse',
             [$query('order_id', $positiveInteger, true)],
-            errors: ['RECHARGE_ORDER_NOT_FOUND'], statuses: [401, 403, 404, 422],
+            errors: ['RECHARGE_ORDER_NOT_FOUND'],
+            statuses: [401, 403, 404, 422],
         )],
         '/api/recharge/lists' => ['get' => $operation(
-            'listMemberRecharges', '查询本人充值订单列表', 'PaymentMemberRechargeListResponse',
+            'listMemberRecharges',
+            '查询本人充值订单列表',
+            'PaymentMemberRechargeListResponse',
             [
                 $query('page_no', ['type' => 'integer', 'minimum' => 1, 'default' => 1]),
                 $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 15]),

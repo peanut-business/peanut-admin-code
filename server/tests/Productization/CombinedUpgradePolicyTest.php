@@ -1,10 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 $root = dirname(__DIR__, 3);
 $runner = $root . '/scripts/combined-upgrade-qualification';
 $fixturePath = $root . '/server/tests/fixtures/core-upgrade-compatibility/combined-upgrade.json';
-$fixture = json_decode((string)file_get_contents($fixturePath), true, 512, JSON_THROW_ON_ERROR);
+$fixture = json_decode((string) file_get_contents($fixturePath), true, 512, JSON_THROW_ON_ERROR);
 $temporary = sys_get_temp_dir() . '/pa-combined-upgrade-policy-' . bin2hex(random_bytes(8));
 if (!mkdir($temporary, 0700, true) && !is_dir($temporary)) {
     throw new RuntimeException('unable to create policy test directory');
@@ -12,7 +13,9 @@ if (!mkdir($temporary, 0700, true) && !is_dir($temporary)) {
 
 function combinedPolicyExpect(bool $condition, string $message): void
 {
-    if (!$condition) throw new RuntimeException($message);
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
 }
 
 /** @return array{exit:int,output:string} */
@@ -20,8 +23,10 @@ function combinedPolicyRun(string $runner, string $fixture): array
 {
     $pipes = [];
     $process = proc_open([$runner, '--validate-policy', $fixture], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-    if (!is_resource($process)) throw new RuntimeException('unable to execute policy validator');
-    $output = (string)stream_get_contents($pipes[1]) . (string)stream_get_contents($pipes[2]);
+    if (!is_resource($process)) {
+        throw new RuntimeException('unable to execute policy validator');
+    }
+    $output = (string) stream_get_contents($pipes[1]) . (string) stream_get_contents($pipes[2]);
     fclose($pipes[1]);
     fclose($pipes[2]);
     return ['exit' => proc_close($process), 'output' => $output];
@@ -33,7 +38,7 @@ function combinedPolicyWrite(string $path, array $fixture): void
 }
 
 try {
-    $workflow = (string)file_get_contents($root . '/.github/workflows/core-upgrade-compatibility.yml');
+    $workflow = (string) file_get_contents($root . '/.github/workflows/core-upgrade-compatibility.yml');
     foreach ([
         "'server/composer.json'",
         "'server/composer.lock'",
@@ -50,7 +55,7 @@ try {
     ] as $requiredTrigger) {
         combinedPolicyExpect(
             str_contains($workflow, $requiredTrigger),
-            'combined compatibility workflow trigger is missing: ' . $requiredTrigger
+            'combined compatibility workflow trigger is missing: ' . $requiredTrigger,
         );
     }
 
@@ -64,7 +69,7 @@ try {
     $missingActionResult = combinedPolicyRun($runner, $missingActionPath);
     combinedPolicyExpect(
         $missingActionResult['exit'] !== 0 && str_contains($missingActionResult['output'], 'needs a machine-readable migration'),
-        'breaking release without an action must fail closed'
+        'breaking release without an action must fail closed',
     );
 
     $stableSmuggling = $fixture;
@@ -79,7 +84,7 @@ try {
     $stableSmugglingResult = combinedPolicyRun($runner, $stableSmugglingPath);
     combinedPolicyExpect(
         $stableSmugglingResult['exit'] !== 0 && str_contains($stableSmugglingResult['output'], 'must not smuggle migration actions'),
-        'stable release must not hide a breaking action'
+        'stable release must not hide a breaking action',
     );
 
     $machineReadable = $fixture;
@@ -95,7 +100,9 @@ try {
     $machineReadableResult = combinedPolicyRun($runner, $machineReadablePath);
     combinedPolicyExpect($machineReadableResult['exit'] === 0, 'machine-readable breaking action must be accepted');
 } finally {
-    foreach (glob($temporary . '/*') ?: [] as $path) unlink($path);
+    foreach (glob($temporary . '/*') ?: [] as $path) {
+        unlink($path);
+    }
     rmdir($temporary);
 }
 

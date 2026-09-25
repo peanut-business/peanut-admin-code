@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Dto;
@@ -17,7 +18,7 @@ final readonly class DictionaryPageDto
     public function toArray(): array
     {
         return [
-            'lists' => array_map(static fn (DictionaryTypeDto|DictionaryEntryDto $item): array => $item->toArray(), $this->items),
+            'lists' => array_map(static fn(DictionaryTypeDto|DictionaryEntryDto $item): array => $item->toArray(), $this->items),
             'count' => $this->count,
             'pageNo' => $this->page,
             'pageSize' => $this->pageSize,

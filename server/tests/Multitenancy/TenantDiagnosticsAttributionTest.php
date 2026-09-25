@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
@@ -22,15 +23,15 @@ expectTenantDiagnostics($attributes === [
 ], 'trusted Tenant diagnostic attributes changed shape');
 expectTenantDiagnostics(
     TenantDiagnosticAttributes::fromScope($scope) === $attributes,
-    'one trusted command scope did not retain a stable correlation ID'
+    'one trusted command scope did not retain a stable correlation ID',
 );
 
 $serverRoot = dirname(__DIR__, 2);
-$refund = (string)file_get_contents($serverRoot . '/app/command/RefundReconcile.php');
-$refundService = (string)file_get_contents(
-    $serverRoot . '/app/modules/official/payment/src/Infrastructure/ThinkPhpRefundReconciliationCommands.php'
+$refund = (string) file_get_contents($serverRoot . '/app/command/RefundReconcile.php');
+$refundService = (string) file_get_contents(
+    $serverRoot . '/app/modules/official/payment/src/Infrastructure/ThinkPhpRefundReconciliationCommands.php',
 );
-$demo = (string)file_get_contents($serverRoot . '/app/command/CrontabDemo.php');
+$demo = (string) file_get_contents($serverRoot . '/app/command/CrontabDemo.php');
 expectTenantDiagnostics($refund !== '' && $demo !== '', 'Tenant-aware command source is unavailable');
 
 $refundRequire = strpos($refund, 'ScheduledTenantContext::require()');
@@ -40,7 +41,7 @@ expectTenantDiagnostics(
     $refundRequire !== false && $refundAttributes !== false && $refundDispatch !== false
         && $refundRequire < $refundAttributes && $refundAttributes < $refundDispatch
         && str_contains($refundService, 'RefundRecord::where([])'),
-    'refund reconciliation no longer refuses before diagnostics and native business queries'
+    'refund reconciliation no longer refuses before diagnostics and native business queries',
 );
 
 $events = [
@@ -53,17 +54,17 @@ expectTenantDiagnostics(substr_count($refundService, '$this->warning(') === coun
 foreach ($events as $event) {
     expectTenantDiagnostics(
         str_contains($refundService, "\$this->warning('{$event}', \$diagnostics"),
-        "{$event} lost structured Tenant attribution"
+        "{$event} lost structured Tenant attribution",
     );
 }
 expectTenantDiagnostics(
     !str_contains($refundService, '$e->getMessage()'),
-    'refund diagnostics expose exception messages that may contain sensitive provider data'
+    'refund diagnostics expose exception messages that may contain sensitive provider data',
 );
 expectTenantDiagnostics(
     !str_contains($refundService, "'receipt' =>") && !str_contains($refundService, "'token' =>")
         && !str_contains($refundService, "'password' =>") && !str_contains($refundService, "'secret' =>"),
-    'refund diagnostic attributes contain prohibited sensitive fields'
+    'refund diagnostic attributes contain prohibited sensitive fields',
 );
 
 $demoRequire = strpos($demo, 'ScheduledTenantContext::require()');
@@ -72,12 +73,12 @@ $demoLog = strpos($demo, 'Log::info($msg, $diagnostics)');
 expectTenantDiagnostics(
     $demoRequire !== false && $demoAttributes !== false && $demoLog !== false
         && $demoRequire < $demoAttributes && $demoAttributes < $demoLog,
-    'demo command lost fail-closed structured Tenant attribution'
+    'demo command lost fail-closed structured Tenant attribution',
 );
 expectTenantDiagnostics(
     str_contains($demo, "'[crontab:demo] tenant_id=%d executed at %s'")
         && str_contains($demo, '$output->writeln($msg)'),
-    'demo command output compatibility changed'
+    'demo command output compatibility changed',
 );
 
 echo "MT03-TENANT-DIAGNOSTICS-ATTRIBUTION-001 passed\n";

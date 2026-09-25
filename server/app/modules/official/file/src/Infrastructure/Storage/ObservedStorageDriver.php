@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Infrastructure\Storage;
@@ -15,8 +16,7 @@ final readonly class ObservedStorageDriver implements StorageDriver
         private string $provider,
         private StorageDriver $delegate,
         private CurrentExecutionContext $executionContext,
-    ) {
-    }
+    ) {}
 
     /** 执行对象写入，并将 Provider 原始异常收敛为应用存储异常。 */
     public function put(string $objectKey, string $sourcePath): void

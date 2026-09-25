@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\configuration;
@@ -53,13 +54,11 @@ final class ConfigurationTransferValue
         }
         $result = [];
         foreach ($value as $key => $child) {
-            $result[(string)$key] = self::comparable($child);
+            $result[(string) $key] = self::comparable($child);
         }
         ksort($result, SORT_STRING);
         return $result;
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

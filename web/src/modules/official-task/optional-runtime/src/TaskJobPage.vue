@@ -1,15 +1,29 @@
 <script setup lang="ts">
-import { EmptyState, ForbiddenState, ModuleUnavailableState, PageContent, PageHeader, PageToolbar, SessionExpiredState } from '@peanut-admin/ui-vue'
-import { ElButton } from 'element-plus'
-import { computed, onMounted } from 'vue'
-import { useTaskJobRuntime } from './runtime'
+  import {
+    EmptyState,
+    ForbiddenState,
+    ModuleUnavailableState,
+    PageContent,
+    PageHeader,
+    PageToolbar,
+    SessionExpiredState,
+  } from '@peanut-admin/ui-vue';
+  import { ElButton } from 'element-plus';
+  import { computed, onMounted } from 'vue';
+  import { useTaskJobRuntime } from './runtime';
 
-const runtime = useTaskJobRuntime()
-const state = runtime.state
-const canManage = computed(runtime.canManage)
-const statuses = ['queued', 'running', 'succeeded', 'dead', 'cancelled'] as const
+  const runtime = useTaskJobRuntime();
+  const state = runtime.state;
+  const canManage = computed(runtime.canManage);
+  const statuses = [
+    'queued',
+    'running',
+    'succeeded',
+    'dead',
+    'cancelled',
+  ] as const;
 
-onMounted(runtime.load)
+  onMounted(runtime.load);
 </script>
 
 <template>
@@ -50,22 +64,14 @@ onMounted(runtime.load)
       :message="state.error.message"
       @action="runtime.load"
     />
-    <section
-      v-else-if="state.error"
-      role="alert"
-      class="task-state"
-    >
+    <section v-else-if="state.error" role="alert" class="task-state">
       <h2>Unable to complete the task request</h2>
       <p>{{ state.error.message }}</p>
       <p v-if="state.error.requestId">
         Request ID: {{ state.error.requestId }}
       </p>
     </section>
-    <div
-      v-else-if="state.loading"
-      class="task-state"
-      role="status"
-    >
+    <div v-else-if="state.loading" class="task-state" role="status">
       Loading tasks...
     </div>
     <EmptyState
@@ -73,20 +79,21 @@ onMounted(runtime.load)
       title="No tasks"
       message="No tasks match this status."
     />
-    <div
-      v-else
-      class="task-table-wrap"
-    >
+    <div v-else class="task-table-wrap">
       <table class="task-table">
-        <thead><tr><th>Type</th><th>Status</th><th>Attempts</th><th>Error</th><th>Updated</th><th>Actions</th></tr></thead>
+        <thead
+          ><tr
+            ><th>Type</th><th>Status</th><th>Attempts</th><th>Error</th
+            ><th>Updated</th><th>Actions</th></tr
+          ></thead
+        >
         <tbody>
-          <tr
-            v-for="job in state.items"
-            :key="job.jobKey"
-          >
-            <td>{{ job.taskType }}</td><td>{{ job.status }}</td>
+          <tr v-for="job in state.items" :key="job.jobKey">
+            <td>{{ job.taskType }}</td
+            ><td>{{ job.status }}</td>
             <td>{{ job.attemptCount }} / {{ job.maxAttempts }}</td>
-            <td>{{ job.lastErrorCode ?? '-' }}</td><td>{{ job.updatedAt }}</td>
+            <td>{{ job.lastErrorCode ?? '-' }}</td
+            ><td>{{ job.updatedAt }}</td>
             <td>
               <ElButton
                 v-if="job.status === 'queued'"
@@ -113,8 +120,20 @@ onMounted(runtime.load)
 </template>
 
 <style scoped>
-.task-state { padding: 24px 0; }
-.task-table-wrap { overflow-x: auto; }
-.task-table { width: 100%; border-collapse: collapse; }
-.task-table th, .task-table td { padding: 10px 8px; border-bottom: 1px solid var(--el-border-color); text-align: left; }
+  .task-state {
+    padding: 24px 0;
+  }
+  .task-table-wrap {
+    overflow-x: auto;
+  }
+  .task-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .task-table th,
+  .task-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--el-border-color);
+    text-align: left;
+  }
 </style>

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\value\installation\ApplicationReleaseVersions;
@@ -42,7 +43,7 @@ function loadConfig(string $serverDir): array
 {
     $hostLeaseProof = getenv('P0E_HOST_LEASE_PROOF');
     $config = guardedDatabaseConfig(
-        $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof
+        $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof,
     );
     return [
         'DB_HOST' => $config['host'],
@@ -67,7 +68,7 @@ function initialAdminEmail(string $serverDir): string
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('ADMIN_INITIAL_EMAIL 必须是有效邮箱');
     }
-    return strtolower((string)$email);
+    return strtolower((string) $email);
 }
 
 function validateInitialAdminPassword(string $password): void
@@ -97,7 +98,7 @@ function initialPlatformCredentials(string $serverDir, string $adminEmail): ?arr
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须是有效邮箱');
     }
-    $email = strtolower((string)$email);
+    $email = strtolower((string) $email);
     if (hash_equals($adminEmail, $email)) {
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须与 ADMIN_INITIAL_EMAIL 不同');
     }
@@ -105,16 +106,16 @@ function initialPlatformCredentials(string $serverDir, string $adminEmail): ?arr
     $environmentPassword = getenv('PLATFORM_INITIAL_PASSWORD');
     $password = $environmentPassword === false ? '' : $environmentPassword;
     if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
-        if ((string)$password !== 'peanut1234') {
+        if ((string) $password !== 'peanut1234') {
             throw new RuntimeException('演示模式的 Platform 初始密码必须统一为 peanut1234');
         }
-        return ['email' => $email, 'password' => (string)$password];
+        return ['email' => $email, 'password' => (string) $password];
     }
-    if (strlen((string)$password) < 12) {
+    if (strlen((string) $password) < 12) {
         throw new RuntimeException('PLATFORM_INITIAL_PASSWORD 至少 12 位');
     }
 
-    return ['email' => $email, 'password' => (string)$password];
+    return ['email' => $email, 'password' => (string) $password];
 }
 
 /**
@@ -129,11 +130,11 @@ function normalizeInstallationCredentials(array $input): array
         throw new RuntimeException('安装身份包含不支持的字段');
     }
 
-    $adminEmail = strtolower(trim((string)($input['admin_email'] ?? '')));
+    $adminEmail = strtolower(trim((string) ($input['admin_email'] ?? '')));
     if (filter_var($adminEmail, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('ADMIN_INITIAL_EMAIL 必须是有效邮箱');
     }
-    $adminPassword = (string)($input['admin_password'] ?? '');
+    $adminPassword = (string) ($input['admin_password'] ?? '');
     validateInitialAdminPassword($adminPassword);
 
     $mode = getenv('DEPLOYMENT_MODE');
@@ -141,8 +142,8 @@ function normalizeInstallationCredentials(array $input): array
         throw new RuntimeException('DEPLOYMENT_MODE 必须是 standalone 或 multi-tenant');
     }
     if ($mode === 'standalone') {
-        if (trim((string)($input['platform_email'] ?? '')) !== ''
-            || (string)($input['platform_password'] ?? '') !== '') {
+        if (trim((string) ($input['platform_email'] ?? '')) !== ''
+            || (string) ($input['platform_password'] ?? '') !== '') {
             throw new RuntimeException('standalone 安装不得提供 Platform 初始身份');
         }
         return [
@@ -152,14 +153,14 @@ function normalizeInstallationCredentials(array $input): array
         ];
     }
 
-    $platformEmail = strtolower(trim((string)($input['platform_email'] ?? '')));
+    $platformEmail = strtolower(trim((string) ($input['platform_email'] ?? '')));
     if (filter_var($platformEmail, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须是有效邮箱');
     }
     if (hash_equals($adminEmail, $platformEmail)) {
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须与 ADMIN_INITIAL_EMAIL 不同');
     }
-    $platformPassword = (string)($input['platform_password'] ?? '');
+    $platformPassword = (string) ($input['platform_password'] ?? '');
     if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
         if ($platformPassword !== 'peanut1234') {
             throw new RuntimeException('演示模式的 Platform 初始密码必须统一为 peanut1234');
@@ -179,10 +180,10 @@ function normalizeInstallationCredentials(array $input): array
 function installationCredentialsFromEnvironment(): array
 {
     return [
-        'admin_email' => (string)(getenv('ADMIN_INITIAL_EMAIL') ?: ''),
-        'admin_password' => (string)(getenv('ADMIN_INITIAL_PASSWORD') ?: ''),
-        'platform_email' => (string)(getenv('PLATFORM_INITIAL_EMAIL') ?: ''),
-        'platform_password' => (string)(getenv('PLATFORM_INITIAL_PASSWORD') ?: ''),
+        'admin_email' => (string) (getenv('ADMIN_INITIAL_EMAIL') ?: ''),
+        'admin_password' => (string) (getenv('ADMIN_INITIAL_PASSWORD') ?: ''),
+        'platform_email' => (string) (getenv('PLATFORM_INITIAL_EMAIL') ?: ''),
+        'platform_password' => (string) (getenv('PLATFORM_INITIAL_PASSWORD') ?: ''),
     ];
 }
 
@@ -258,7 +259,7 @@ function installationTenantBootstrapContract(string $serverDir): array
             throw new RuntimeException('INSTALL_EDITION_MANIFEST_INVALID');
         }
         try {
-            $manifest = json_decode((string)file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+            $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             throw new RuntimeException('INSTALL_EDITION_MANIFEST_INVALID', 0, $exception);
         }
@@ -271,7 +272,7 @@ function installationTenantBootstrapContract(string $serverDir): array
             || !is_string($manifest['edition']['source_sha256'] ?? null)
             || !hash_equals(
                 $manifest['edition']['source_sha256'],
-                (string)(isset($manifest['last_scaffold_upgrade'])
+                (string) (isset($manifest['last_scaffold_upgrade'])
                     ? ($manifest['last_scaffold_upgrade']['edition_profile_sha256'] ?? '')
                     : ($manifest['generation_source']['edition_profile_sha256'] ?? '')),
             )) {
@@ -342,7 +343,7 @@ function executeSqlFiles(PDO $pdo, array $files): void
             throw new RuntimeException(
                 '执行 SQL 文件失败：' . basename($file) . '；' . $exception->getMessage(),
                 0,
-                $exception
+                $exception,
             );
         }
     }
@@ -360,7 +361,7 @@ function executeSqlFile(PDO $pdo, string $file): void
         throw new RuntimeException(
             '执行 SQL 文件失败：' . basename($file) . '；' . $exception->getMessage(),
             0,
-            $exception
+            $exception,
         );
     }
 }
@@ -377,8 +378,7 @@ function initializeCoreIdentity(
     ?array $platformCredentials,
     \app\common\policy\DemoAccountPolicy $demoAccounts,
     array $tenantBootstrap,
-): array
-{
+): array {
     foreach (KernelSchema::tableNames() as $table) {
         $pdo->exec(KernelSchema::createSql($table));
     }
@@ -401,7 +401,7 @@ function initializeCoreIdentity(
         $platformCredentials['email'] ?? $email,
         $platformPassword,
         $separatePlatformOperator ? 'Platform Operator' : '超级管理员',
-        'fresh-install-platform-owner'
+        'fresh-install-platform-owner',
     );
     $owner = $service->provisionTenantOwnerCandidate(
         $platform->operatorId,
@@ -410,18 +410,18 @@ function initializeCoreIdentity(
         $email,
         $ownerPassword,
         '超级管理员',
-        'fresh-install-default-owner'
+        'fresh-install-default-owner',
     );
     $service->activateTenantOwner(
         $platform->operatorId,
         $owner->tenantId,
         $owner->memberId,
-        'fresh-install-default-owner-activate'
+        'fresh-install-default-owner-activate',
     );
     $service->activateTenant(
         $platform->operatorId,
         $owner->tenantId,
-        'fresh-install-default-tenant-activate'
+        'fresh-install-default-tenant-activate',
     );
 
     return [
@@ -463,7 +463,7 @@ SQL);
 function ensureTenantChallengeClientKey(PDO $pdo): void
 {
     $column = $pdo->query(
-        "SHOW COLUMNS FROM `pa_login_challenge` LIKE 'client_key'"
+        "SHOW COLUMNS FROM `pa_login_challenge` LIKE 'client_key'",
     )->fetch(PDO::FETCH_ASSOC);
     if ($column !== false) {
         return;
@@ -494,10 +494,10 @@ WHERE t.code = ? AND t.status = 'active' AND r.`key` = 'core.tenant-owner'
 SQL);
     $owner->execute([$tenantCode]);
     return [
-        'tenant_count' => (int)$tenant->fetchColumn(),
-        'owner_count' => (int)$owner->fetchColumn(),
-        'operator_count' => (int)$pdo->query(
-            "SELECT COUNT(*) FROM pa_platform_operator WHERE status = 'active'"
+        'tenant_count' => (int) $tenant->fetchColumn(),
+        'owner_count' => (int) $owner->fetchColumn(),
+        'operator_count' => (int) $pdo->query(
+            "SELECT COUNT(*) FROM pa_platform_operator WHERE status = 'active'",
         )->fetchColumn(),
     ];
 }
@@ -508,7 +508,7 @@ function seedBrandDefaults(PDO $pdo, array $website): void
     $statement = $pdo->prepare(
         'INSERT INTO pa_config (type, name, value, create_time, update_time) '
         . "VALUES ('website', ?, ?, ?, ?) "
-        . 'ON DUPLICATE KEY UPDATE value = VALUES(value), update_time = VALUES(update_time)'
+        . 'ON DUPLICATE KEY UPDATE value = VALUES(value), update_time = VALUES(update_time)',
     );
     $now = time();
     $pdo->beginTransaction();
@@ -575,7 +575,7 @@ function applicationMigrationTargetVersion(string $serverDir, array $versions): 
         throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID');
     }
     try {
-        $overlay = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $overlay = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
     } catch (JsonException $exception) {
         throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID', 0, $exception);
     }
@@ -657,7 +657,7 @@ function installationDatabaseState(string $serverDir): array
             'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
             $config['DB_HOST'],
             $config['DB_PORT'],
-            $config['DB_NAME']
+            $config['DB_NAME'],
         ),
         $config['DB_USER'],
         $config['DB_PASS'],
@@ -665,10 +665,10 @@ function installationDatabaseState(string $serverDir): array
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]
+        ],
     );
-    $tableCount = (int)$pdo->query(
-        'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'
+    $tableCount = (int) $pdo->query(
+        'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
     )->fetchColumn();
     if ($tableCount === 0) {
         return ['state' => 'uninstalled', 'code' => 'INSTALL_DATABASE_EMPTY', 'health' => null];
@@ -704,7 +704,7 @@ function installFreshDatabase(string $serverDir, array $input): array
             'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
             $config['DB_HOST'],
             $config['DB_PORT'],
-            $database
+            $database,
         ),
         $config['DB_USER'],
         $config['DB_PASS'],
@@ -713,21 +713,21 @@ function installFreshDatabase(string $serverDir, array $input): array
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ]
+        ],
     );
 
     $lockName = 'peanut_install_' . substr(hash('sha256', $database), 0, 48);
     $lockStatement = $pdo->prepare('SELECT GET_LOCK(?, 10)');
     $lockStatement->execute([$lockName]);
-    if ((int)$lockStatement->fetchColumn() !== 1) {
+    if ((int) $lockStatement->fetchColumn() !== 1) {
         throw new RuntimeException('无法获取安装锁，请稍后重试');
     }
 
     try {
         $files = sqlFiles($databaseDir);
         $expected = expectedTables($files);
-        $tableCount = (int)$pdo->query(
-            'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()'
+        $tableCount = (int) $pdo->query(
+            'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
         )->fetchColumn();
         if ($tableCount !== 0) {
             throw new RuntimeException('目标数据库不是空库，已拒绝执行首次安装');
@@ -761,11 +761,11 @@ function installFreshDatabase(string $serverDir, array $input): array
         seedBrandDefaults($pdo, brandWebsiteDefaults($serverDir));
 
         $actual = array_map('strval', $pdo->query(
-            'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME'
+            'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME',
         )->fetchAll(PDO::FETCH_COLUMN));
         $missing = array_values(array_diff($expected, $actual));
-        $activeMenus = (int)$pdo->query('SELECT COUNT(*) FROM pa_system_menu')->fetchColumn();
-        $configCount = (int)$pdo->query('SELECT COUNT(*) FROM pa_config')->fetchColumn();
+        $activeMenus = (int) $pdo->query('SELECT COUNT(*) FROM pa_system_menu')->fetchColumn();
+        $configCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_config')->fetchColumn();
         $identityCounts = coreIdentityCounts($pdo, $tenantBootstrap['code']);
         if ($missing !== []
             || $activeMenus === 0

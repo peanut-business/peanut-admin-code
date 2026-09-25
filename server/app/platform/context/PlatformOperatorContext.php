@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\context;
@@ -9,9 +10,7 @@ use PeanutAdmin\Kernel\Context\PlatformContext;
 /** Application-owned proof that Core validated a platform-only session. */
 final readonly class PlatformOperatorContext
 {
-    private function __construct(public PlatformContext $core)
-    {
-    }
+    private function __construct(public PlatformContext $core) {}
 
     public static function fromValidatedPlatformSession(PlatformContext $context): self
     {

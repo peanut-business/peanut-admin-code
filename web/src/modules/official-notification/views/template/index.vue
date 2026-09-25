@@ -44,7 +44,10 @@
         >
           <template #default="{ row }">
             <el-button
-              v-permission="['official.notification.scene.detail', 'official.notification.scene.save']"
+              v-permission="[
+                'official.notification.scene.detail',
+                'official.notification.scene.save',
+              ]"
               link
               type="primary"
               size="small"

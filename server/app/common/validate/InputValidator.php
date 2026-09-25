@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\validate;
@@ -15,8 +16,7 @@ final readonly class InputValidator
     public function __construct(
         private App $app,
         private CurrentExecutionContext $execution,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string,mixed> $data
@@ -190,10 +190,10 @@ final readonly class InputValidator
         $wildcard = $policy['*'] ?? null;
         if ($rejectUnknown) {
             foreach ($data as $field => $_value) {
-                if (!array_key_exists((string)$field, $policy) && $wildcard === null) {
+                if (!array_key_exists((string) $field, $policy) && $wildcard === null) {
                     throw new ValidateException(sprintf(
                         '请求包含未声明字段：%s',
-                        ltrim($path . '.' . (string)$field, '.'),
+                        ltrim($path . '.' . (string) $field, '.'),
                     ));
                 }
             }
@@ -201,7 +201,7 @@ final readonly class InputValidator
 
         $result = [];
         foreach ($data as $field => $value) {
-            $definition = $policy[(string)$field] ?? $wildcard;
+            $definition = $policy[(string) $field] ?? $wildcard;
             if ($definition === null) {
                 continue;
             }
@@ -212,13 +212,13 @@ final readonly class InputValidator
             if (!is_array($value)) {
                 throw new ValidateException(sprintf(
                     '字段必须是数组：%s',
-                    ltrim($path . '.' . (string)$field, '.'),
+                    ltrim($path . '.' . (string) $field, '.'),
                 ));
             }
             $result[$field] = self::project(
                 $value,
                 $definition,
-                $path . '.' . (string)$field,
+                $path . '.' . (string) $field,
                 $rejectUnknown,
             );
         }

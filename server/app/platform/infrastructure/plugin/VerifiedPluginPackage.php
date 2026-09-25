@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
 
 use app\platform\value\plugin\PluginDescriptor;
+
 final readonly class VerifiedPluginPackage
 {
     /**

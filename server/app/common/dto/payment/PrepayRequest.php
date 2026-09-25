@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\dto\payment;
@@ -30,7 +31,7 @@ final class PrepayRequest
         string $description = '账户充值',
         string $currency = 'CNY',
         string $openid = '',
-        string $clientIp = ''
+        string $clientIp = '',
     ) {
         $orderSn = trim($orderSn);
         $notifyUrl = trim($notifyUrl);
@@ -53,12 +54,36 @@ final class PrepayRequest
         $this->clientIp = trim($clientIp);
     }
 
-    public function orderSn(): string { return $this->orderSn; }
-    public function amount(): int { return $this->amount; }
-    public function terminal(): int { return $this->terminal; }
-    public function notifyUrl(): string { return $this->notifyUrl; }
-    public function description(): string { return $this->description; }
-    public function currency(): string { return $this->currency; }
-    public function openid(): string { return $this->openid; }
-    public function clientIp(): string { return $this->clientIp; }
+    public function orderSn(): string
+    {
+        return $this->orderSn;
+    }
+    public function amount(): int
+    {
+        return $this->amount;
+    }
+    public function terminal(): int
+    {
+        return $this->terminal;
+    }
+    public function notifyUrl(): string
+    {
+        return $this->notifyUrl;
+    }
+    public function description(): string
+    {
+        return $this->description;
+    }
+    public function currency(): string
+    {
+        return $this->currency;
+    }
+    public function openid(): string
+    {
+        return $this->openid;
+    }
+    public function clientIp(): string
+    {
+        return $this->clientIp;
+    }
 }

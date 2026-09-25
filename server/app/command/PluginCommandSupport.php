@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -28,15 +29,15 @@ trait PluginCommandSupport
     private function runPluginOperation(Output $output, callable $operation): int
     {
         try {
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 $operation($this->pluginLifecycle()),
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 0;
         } catch (PluginLifecycleException $exception) {
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 ['error' => $exception->errorCode],
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 1;
         } catch (\Throwable) {

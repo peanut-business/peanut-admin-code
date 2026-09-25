@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\payment;
@@ -15,15 +16,14 @@ final class WechatRefundGateway implements RefundGatewayInterface
 
     public function __construct(
         private array $config,
-        private PaymentTransportInterface $transport
-    ) {
-    }
+        private PaymentTransportInterface $transport,
+    ) {}
 
     public function refund(array $order, string $refundSn, int $refundAmountCents): array
     {
         $this->assertConfig();
-        $transactionId = trim((string)($order['transaction_id'] ?? ''));
-        $orderAmountCents = PaymentCrypto::decimalToCent((string)($order['order_amount'] ?? ''));
+        $transactionId = trim((string) ($order['transaction_id'] ?? ''));
+        $orderAmountCents = PaymentCrypto::decimalToCent((string) ($order['order_amount'] ?? ''));
         if ($refundSn === '' || $transactionId === '' || $refundAmountCents <= 0
             || $refundAmountCents > $orderAmountCents) {
             throw new \RuntimeException('微信退款订单参数无效');
@@ -49,14 +49,14 @@ final class WechatRefundGateway implements RefundGatewayInterface
                     'Content-Type: application/json',
                     'Authorization: ' . $authorization,
                 ],
-                $body
+                $body,
             );
             $this->verifyResponse($response);
         } catch (\Throwable $exception) {
             throw new \RuntimeException(
                 $exception->getMessage() !== '' ? $exception->getMessage() : '微信退款结果未知',
                 self::ERROR_RESULT_UNKNOWN,
-                $exception
+                $exception,
             );
         }
 
@@ -66,27 +66,27 @@ final class WechatRefundGateway implements RefundGatewayInterface
             throw new \RuntimeException(
                 $exception->getMessage(),
                 self::ERROR_RESULT_UNKNOWN,
-                $exception
+                $exception,
             );
         }
         if ($response->statusCode() < 200 || $response->statusCode() >= 300) {
-            $message = (string)($data['message'] ?? $data['code'] ?? '退款请求失败');
+            $message = (string) ($data['message'] ?? $data['code'] ?? '退款请求失败');
             $code = $response->statusCode();
             throw new \RuntimeException(
                 '微信支付:' . $message,
                 $code >= 500 || in_array($code, [408, 429], true)
                     ? self::ERROR_RESULT_UNKNOWN
-                    : 0
+                    : 0,
             );
         }
-        $channelStatus = strtoupper((string)($data['status'] ?? ''));
+        $channelStatus = strtoupper((string) ($data['status'] ?? ''));
         if (in_array($channelStatus, ['CLOSED', 'ABNORMAL'], true)) {
             throw new \RuntimeException('微信支付:退款请求失败（' . $channelStatus . '）');
         }
 
         return [
             'status' => self::STATUS_PENDING,
-            'transaction_id' => (string)($data['refund_id'] ?? ''),
+            'transaction_id' => (string) ($data['refund_id'] ?? ''),
             'receipt' => $this->safeReceipt($data),
         ];
     }
@@ -104,21 +104,21 @@ final class WechatRefundGateway implements RefundGatewayInterface
             [
                 'Accept: application/json',
                 'Authorization: ' . $this->authorization('GET', $path, ''),
-            ]
+            ],
         );
         $this->verifyResponse($response);
         $data = $this->decode($response, '微信退款查询响应格式异常');
         if ($response->statusCode() < 200 || $response->statusCode() >= 300) {
             throw new \RuntimeException(
-                '微信支付:' . (string)($data['message'] ?? $data['code'] ?? '退款查询失败')
+                '微信支付:' . (string) ($data['message'] ?? $data['code'] ?? '退款查询失败'),
             );
         }
-        $status = match (strtoupper((string)($data['status'] ?? ''))) {
+        $status = match (strtoupper((string) ($data['status'] ?? ''))) {
             'SUCCESS' => self::STATUS_SUCCESS,
             'CLOSED', 'ABNORMAL' => self::STATUS_FAILED,
             default => self::STATUS_PENDING,
         };
-        $transactionId = (string)($data['refund_id'] ?? '');
+        $transactionId = (string) ($data['refund_id'] ?? '');
         if ($status === self::STATUS_SUCCESS && trim($transactionId) === '') {
             throw new \RuntimeException('微信退款成功响应缺少退款流水号');
         }
@@ -131,14 +131,14 @@ final class WechatRefundGateway implements RefundGatewayInterface
 
     private function assertConfig(): void
     {
-        if ((int)($this->config['wx_pay_status'] ?? 0) !== 1) {
+        if ((int) ($this->config['wx_pay_status'] ?? 0) !== 1) {
             throw new \RuntimeException('微信支付未开启');
         }
         foreach ([
             'wx_pay_mch_id', 'wx_pay_cert_path', 'wx_pay_cert_key_path',
             'wx_pay_platform_cert_path',
         ] as $key) {
-            if (trim((string)($this->config[$key] ?? '')) === '') {
+            if (trim((string) ($this->config[$key] ?? '')) === '') {
                 throw new \RuntimeException('微信支付配置不完整:' . $key);
             }
         }
@@ -146,19 +146,19 @@ final class WechatRefundGateway implements RefundGatewayInterface
 
     private function authorization(string $method, string $path, string $body): string
     {
-        $timestamp = (string)time();
+        $timestamp = (string) time();
         $nonce = bin2hex(random_bytes(16));
         $message = strtoupper($method) . "\n{$path}\n{$timestamp}\n{$nonce}\n{$body}\n";
         return 'WECHATPAY2-SHA256-RSA2048 '
-            . 'mchid="' . trim((string)$this->config['wx_pay_mch_id']) . '",'
+            . 'mchid="' . trim((string) $this->config['wx_pay_mch_id']) . '",'
             . 'nonce_str="' . $nonce . '",'
             . 'signature="' . PaymentCrypto::sign(
                 $message,
-                PaymentCrypto::privateKey((string)$this->config['wx_pay_cert_key_path'])
+                PaymentCrypto::privateKey((string) $this->config['wx_pay_cert_key_path']),
             ) . '",'
             . 'timestamp="' . $timestamp . '",'
             . 'serial_no="' . PaymentCrypto::certificateSerial(
-                (string)$this->config['wx_pay_cert_path']
+                (string) $this->config['wx_pay_cert_path'],
             ) . '"';
     }
 
@@ -166,7 +166,7 @@ final class WechatRefundGateway implements RefundGatewayInterface
     {
         PaymentCrypto::verifyWechatResponse(
             $response,
-            (string)$this->config['wx_pay_platform_cert_path']
+            (string) $this->config['wx_pay_platform_cert_path'],
         );
     }
 
@@ -186,8 +186,8 @@ final class WechatRefundGateway implements RefundGatewayInterface
             'create_time', 'success_time',
         ]));
         return array_map(
-            static fn(mixed $value): string => mb_substr((string)$value, 0, 500),
-            $receipt
+            static fn(mixed $value): string => mb_substr((string) $value, 0, 500),
+            $receipt,
         );
     }
 }

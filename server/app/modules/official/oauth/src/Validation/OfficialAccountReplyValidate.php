@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Validation;
@@ -51,21 +52,21 @@ class OfficialAccountReplyValidate extends Validate
 
     protected function checkNotBlank(mixed $value): bool|string
     {
-        return trim((string)$value) !== '' ? true : '内容不能为空';
+        return trim((string) $value) !== '' ? true : '内容不能为空';
     }
 
     protected function checkKeywordFields(mixed $value, mixed $rule, array $data): bool|string
     {
-        if ((int)$value !== 2) {
+        if ((int) $value !== 2) {
             return true;
         }
-        if (trim((string)($data['keyword'] ?? '')) === '') {
+        if (trim((string) ($data['keyword'] ?? '')) === '') {
             return '关键词回复必须填写关键词';
         }
-        if (!in_array((int)($data['matching_type'] ?? 0), [1, 2], true)) {
+        if (!in_array((int) ($data['matching_type'] ?? 0), [1, 2], true)) {
             return '关键词回复必须选择匹配方式';
         }
-        if (!isset($data['sort']) || filter_var($data['sort'], FILTER_VALIDATE_INT) === false || (int)$data['sort'] < 0) {
+        if (!isset($data['sort']) || filter_var($data['sort'], FILTER_VALIDATE_INT) === false || (int) $data['sort'] < 0) {
             return '关键词回复排序必须为非负整数';
         }
         return true;

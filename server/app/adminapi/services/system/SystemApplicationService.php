@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\system;
@@ -75,6 +76,6 @@ class SystemApplicationService
     private static function directoryWritable(string $relativePath): int
     {
         $path = root_path() . trim($relativePath, '/');
-        return (int)(is_dir($path) && is_readable($path) && is_writable($path));
+        return (int) (is_dir($path) && is_readable($path) && is_writable($path));
     }
 }

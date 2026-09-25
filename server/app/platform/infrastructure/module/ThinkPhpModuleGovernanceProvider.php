@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\module;
@@ -36,7 +37,7 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
         if ($this->registryInstance instanceof DeployedTenantModuleRegistry) {
             return $this->registryInstance;
         }
-        $lockPath = trim((string)($this->moduleConfig['plugin_lock'] ?? ''));
+        $lockPath = trim((string) ($this->moduleConfig['plugin_lock'] ?? ''));
         if ($lockPath !== '' && is_file($this->lockFile($lockPath))) {
             return $this->registryInstance = $this->registryFactory->fromPluginLock(
                 $this->lockResolver($lockPath),
@@ -64,7 +65,7 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
 
     private function lockResolver(?string $lockPath = null): PluginLockResolver
     {
-        $lockPath ??= trim((string)($this->moduleConfig['plugin_lock'] ?? ''));
+        $lockPath ??= trim((string) ($this->moduleConfig['plugin_lock'] ?? ''));
         if ($lockPath === '') {
             throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
         }

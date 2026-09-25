@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Infrastructure\Persistence;
@@ -28,11 +29,11 @@ final class ThinkPhpOAuthPersistence implements OAuthPersistence
     {
         $model = OAuthAttempt::where('state_hash', $stateHash)->lock(true)->findOrEmpty();
         return $model->isEmpty() ? null : new OAuthAttemptRecord(
-            (int)$model->id,
-            (string)$model->scene,
-            (string)$model->return_path,
-            (int)$model->expires_at,
-            empty($model->used_at) ? null : (int)$model->used_at,
+            (int) $model->id,
+            (string) $model->scene,
+            (string) $model->return_path,
+            (int) $model->expires_at,
+            empty($model->used_at) ? null : (int) $model->used_at,
         );
     }
 
@@ -51,12 +52,12 @@ final class ThinkPhpOAuthPersistence implements OAuthPersistence
     {
         $model = OAuthCompletionTicket::where('token_hash', $tokenHash)->lock(true)->findOrEmpty();
         return $model->isEmpty() ? null : new OAuthCompletionRecord(
-            (int)$model->id,
-            (int)$model->member_id,
-            (int)$model->need_profile === 1,
-            (int)$model->need_mobile === 1,
-            (int)$model->expires_at,
-            empty($model->used_at) ? null : (int)$model->used_at,
+            (int) $model->id,
+            (int) $model->member_id,
+            (int) $model->need_profile === 1,
+            (int) $model->need_mobile === 1,
+            (int) $model->expires_at,
+            empty($model->used_at) ? null : (int) $model->used_at,
         );
     }
 
@@ -103,8 +104,8 @@ final class ThinkPhpOAuthPersistence implements OAuthPersistence
             'union_id' => $unionId,
         ])->lock(true)->findOrEmpty();
         return $model->isEmpty() ? null : new OAuthPrincipalRecord(
-            (int)$model->id,
-            (int)$model->member_id,
+            (int) $model->id,
+            (int) $model->member_id,
         );
     }
 
@@ -114,7 +115,7 @@ final class ThinkPhpOAuthPersistence implements OAuthPersistence
     ): OAuthPrincipalRecord {
         unset($data['tenant_id']);
         $model = OAuthPrincipal::create($data);
-        return new OAuthPrincipalRecord((int)$model->id, (int)$model->member_id);
+        return new OAuthPrincipalRecord((int) $model->id, (int) $model->member_id);
     }
 
     public function createIdentity(
@@ -138,7 +139,7 @@ final class ThinkPhpOAuthPersistence implements OAuthPersistence
         int $memberId,
         int $terminal,
     ): string {
-        return (string)OAuthIdentity::where([
+        return (string) OAuthIdentity::where([
             'provider' => 'wechat',
             'member_id' => $memberId,
             'terminal' => $terminal,
@@ -148,9 +149,9 @@ final class ThinkPhpOAuthPersistence implements OAuthPersistence
     private static function identity(OAuthIdentity $model): ?OAuthIdentityRecord
     {
         return $model->isEmpty() ? null : new OAuthIdentityRecord(
-            (int)$model->id,
-            (int)$model->member_id,
-            $model->principal_id === null ? null : (int)$model->principal_id,
+            (int) $model->id,
+            (int) $model->member_id,
+            $model->principal_id === null ? null : (int) $model->principal_id,
         );
     }
 }

@@ -59,9 +59,16 @@ final readonly class PlatformTenantAdminService
             ]);
             $tenant = $this->tenant($tenantId);
             $this->audit->platform(
-                $actor->operatorId, $actor->accountId, $actor->requestId, 'tenant.created',
-                'platform.tenant.create', ['tenant_id' => (string) $tenantId],
-                'tenant', (string) $tenantId, null, $tenant,
+                $actor->operatorId,
+                $actor->accountId,
+                $actor->requestId,
+                'tenant.created',
+                'platform.tenant.create',
+                ['tenant_id' => (string) $tenantId],
+                'tenant',
+                (string) $tenantId,
+                null,
+                $tenant,
             );
 
             return $tenant;
@@ -83,7 +90,14 @@ final readonly class PlatformTenantAdminService
         $changeReason = $this->changeReason($changeReason);
 
         return Db::transaction(function () use (
-            $actor, $tenantId, $expectedRevision, $name, $displayName, $locale, $timezone, $changeReason,
+            $actor,
+            $tenantId,
+            $expectedRevision,
+            $name,
+            $displayName,
+            $locale,
+            $timezone,
+            $changeReason,
         ): array {
             $this->requireOperator($actor);
             $before = $this->tenant($tenantId, true);
@@ -149,7 +163,14 @@ final readonly class PlatformTenantAdminService
                 ? 'activated'
                 : ($next === TenantStatus::Suspended ? 'suspended' : 'closed'));
             $this->auditTenantChange(
-                $actor, $eventType, 'platform.tenant.lifecycle', $tenantId, $before, $after, $changeReason, true,
+                $actor,
+                $eventType,
+                'platform.tenant.lifecycle',
+                $tenantId,
+                $before,
+                $after,
+                $changeReason,
+                true,
             );
 
             return $after;
@@ -178,7 +199,14 @@ final readonly class PlatformTenantAdminService
         }
         try {
             return Db::transaction(function () use (
-                $actor, $tenantId, $moduleKey, $config, $source, $effectiveAt, $expiresAt, $changeReason,
+                $actor,
+                $tenantId,
+                $moduleKey,
+                $config,
+                $source,
+                $effectiveAt,
+                $expiresAt,
+                $changeReason,
             ): array {
                 $this->requireOperator($actor);
                 if ($this->tenant($tenantId, true)['status'] !== TenantStatus::Active->value) {
@@ -186,8 +214,13 @@ final readonly class PlatformTenantAdminService
                 }
                 $before = $this->tenantModule($tenantId, $moduleKey, true);
                 $this->modules->enable(
-                    $tenantId, $moduleKey, $config, new DateTimeImmutable('now', new DateTimeZone('UTC')),
-                    $source, $effectiveAt, $expiresAt,
+                    $tenantId,
+                    $moduleKey,
+                    $config,
+                    new DateTimeImmutable('now', new DateTimeZone('UTC')),
+                    $source,
+                    $effectiveAt,
+                    $expiresAt,
                 );
                 $after = $this->tenantModule($tenantId, $moduleKey)
                     ?? throw new AdminAccessException('MODULE_WRITE_FAILED', 500, 'The module state could not be loaded.');
@@ -362,13 +395,30 @@ final readonly class PlatformTenantAdminService
     ): void {
         $metadata = ['tenant_id' => (string) $tenantId, 'change_reason' => $changeReason];
         $this->audit->platform(
-            $actor->operatorId, $actor->accountId, $actor->requestId, $eventType, $action, $metadata,
-            'tenant', (string) $tenantId, $before, $after,
+            $actor->operatorId,
+            $actor->accountId,
+            $actor->requestId,
+            $eventType,
+            $action,
+            $metadata,
+            'tenant',
+            (string) $tenantId,
+            $before,
+            $after,
         );
         if ($alsoTenant) {
             $this->audit->tenantPlatformOperator(
-                $tenantId, $actor->operatorId, $actor->accountId, $eventType, $action, $actor->requestId,
-                $metadata, 'tenant', (string) $tenantId, $before, $after,
+                $tenantId,
+                $actor->operatorId,
+                $actor->accountId,
+                $eventType,
+                $action,
+                $actor->requestId,
+                $metadata,
+                'tenant',
+                (string) $tenantId,
+                $before,
+                $after,
             );
         }
     }
@@ -389,19 +439,38 @@ final readonly class PlatformTenantAdminService
         $before = $this->moduleAuditSnapshot($before);
         $after = $this->moduleAuditSnapshot($after);
         $this->audit->platform(
-            $actor->operatorId, $actor->accountId, $actor->requestId, $eventType,
-            'platform.tenant.module.manage', $metadata, 'tenant-module', $tenantId . ':' . $moduleKey, $before, $after,
+            $actor->operatorId,
+            $actor->accountId,
+            $actor->requestId,
+            $eventType,
+            'platform.tenant.module.manage',
+            $metadata,
+            'tenant-module',
+            $tenantId . ':' . $moduleKey,
+            $before,
+            $after,
         );
         $this->audit->tenantPlatformOperator(
-            $tenantId, $actor->operatorId, $actor->accountId, $eventType,
-            'platform.tenant.module.manage', $actor->requestId, $metadata, 'tenant-module', $moduleKey, $before, $after,
+            $tenantId,
+            $actor->operatorId,
+            $actor->accountId,
+            $eventType,
+            'platform.tenant.module.manage',
+            $actor->requestId,
+            $metadata,
+            'tenant-module',
+            $moduleKey,
+            $before,
+            $after,
         );
     }
 
     private function moduleError(ModuleException $exception): AdminAccessException
     {
         return new AdminAccessException(
-            $exception->errorCode, $exception->errorCode === 'MODULE_CONFIG_INVALID' ? 422 : 409, $exception->getMessage(),
+            $exception->errorCode,
+            $exception->errorCode === 'MODULE_CONFIG_INVALID' ? 422 : 409,
+            $exception->getMessage(),
         );
     }
 

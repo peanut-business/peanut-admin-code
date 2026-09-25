@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Controller;
@@ -19,7 +20,7 @@ final class ImportExportOperationController extends BaseAdminController
     public function index(): Json
     {
         try {
-            $status = trim((string)$this->request->get('status', 'queued'));
+            $status = trim((string) $this->request->get('status', 'queued'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
             $result = $this->operations->operations(
@@ -56,8 +57,8 @@ final class ImportExportOperationController extends BaseAdminController
             $operation = $this->operations->submitImport(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
-                trim((string)$this->request->post('provider_key', '')),
-                trim((string)$this->request->post('file_key', '')),
+                trim((string) $this->request->post('provider_key', '')),
+                trim((string) $this->request->post('file_key', '')),
                 $mapping,
                 $this->idempotencyKey(),
             );
@@ -73,7 +74,7 @@ final class ImportExportOperationController extends BaseAdminController
             $operation = $this->operations->submitExport(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),
-                trim((string)$this->request->post('provider_key', '')),
+                trim((string) $this->request->post('provider_key', '')),
                 $this->idempotencyKey(),
             );
             return $this->operationResponse($operation, 201);
@@ -121,7 +122,7 @@ final class ImportExportOperationController extends BaseAdminController
 
     private function idempotencyKey(): string
     {
-        $value = trim((string)$this->request->header('Idempotency-Key', ''));
+        $value = trim((string) $this->request->header('Idempotency-Key', ''));
         if (strlen($value) < 8 || strlen($value) > 160 || preg_match('/^[\x21-\x7e]+$/D', $value) !== 1) {
             throw ImportExportException::invalid();
         }
@@ -131,11 +132,11 @@ final class ImportExportOperationController extends BaseAdminController
     private function positiveInteger(mixed $value): int
     {
         if ((!is_int($value) && !(is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1))
-            || (int)$value < 1
+            || (int) $value < 1
         ) {
             throw ImportExportException::invalid();
         }
-        return (int)$value;
+        return (int) $value;
     }
 
     private function problem(ImportExportException $exception): ApiProblem

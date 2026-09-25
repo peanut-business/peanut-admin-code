@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\RichText\Service;
@@ -27,13 +28,13 @@ final readonly class RichTextDocumentService
             'id', 'title', 'revision', 'created_by_member_id', 'updated_by_member_id',
             'create_time', 'update_time',
         ]);
-        if (trim((string)($params['title'] ?? '')) !== '') {
-            $query->whereLike('title', '%' . trim((string)$params['title']) . '%');
+        if (trim((string) ($params['title'] ?? '')) !== '') {
+            $query->whereLike('title', '%' . trim((string) $params['title']) . '%');
         }
         $page = $pagination->result($query->order(['update_time' => 'desc', 'id' => 'desc']));
         return $page->map(static fn(mixed $row): array => $row instanceof \think\Model
             ? $row->toArray()
-            : (array)$row);
+            : (array) $row);
     }
 
     /** @return array<string,mixed> */
@@ -44,8 +45,8 @@ final readonly class RichTextDocumentService
             return [];
         }
         $row = $document->toArray();
-        $row['document'] = json_decode((string)$row['document_json'], true, 64, JSON_THROW_ON_ERROR);
-        $row['collaboration_state'] = base64_encode((string)($row['collaboration_state'] ?? ''));
+        $row['document'] = json_decode((string) $row['document_json'], true, 64, JSON_THROW_ON_ERROR);
+        $row['collaboration_state'] = base64_encode((string) ($row['collaboration_state'] ?? ''));
         unset($row['document_json'], $row['tenant_id'], $row['delete_time']);
         return $row;
     }
@@ -54,7 +55,7 @@ final readonly class RichTextDocumentService
     {
         $memberId = $this->executionContext->tenantAdmin()->memberId;
         RichTextDocument::create([
-            'title' => trim((string)$params['title']),
+            'title' => trim((string) $params['title']),
             'document_json' => $this->encodeDocument($params['document']),
             'collaboration_state' => $this->decodeCollaborationState($params['collaboration_state'] ?? ''),
             'revision' => 1,
@@ -66,18 +67,18 @@ final readonly class RichTextDocumentService
 
     public function edit(array $params): bool
     {
-        $id = (int)$params['id'];
-        $revision = (int)$params['revision'];
+        $id = (int) $params['id'];
+        $revision = (int) $params['revision'];
         Db::transaction(function () use ($id, $revision, $params): void {
             $document = RichTextDocument::where('id', $id)->lock(true)->findOrEmpty();
             if ($document->isEmpty()) {
                 throw BusinessException::notFound('RICH_TEXT_DOCUMENT_NOT_FOUND', '文档不存在');
             }
-            if ((int)$document['revision'] !== $revision) {
+            if ((int) $document['revision'] !== $revision) {
                 throw BusinessException::conflict('RICH_TEXT_DOCUMENT_REVISION_CONFLICT', '文档已被其他人更新，请重新打开后编辑');
             }
             $document->save([
-                'title' => trim((string)$params['title']),
+                'title' => trim((string) $params['title']),
                 'document_json' => $this->encodeDocument($params['document']),
                 'collaboration_state' => $this->decodeCollaborationState($params['collaboration_state'] ?? ''),
                 'revision' => $revision + 1,
@@ -112,7 +113,7 @@ final readonly class RichTextDocumentService
             throw new \runtimeException('RICH_TEXT_COLLABORATION_CONFIG_INVALID');
         }
         $expiresAt = time() + 300;
-        $payload = $this->base64UrlEncode((string)json_encode([
+        $payload = $this->base64UrlEncode((string) json_encode([
             'version' => 1,
             'document_name' => $documentName,
             'tenant_id' => $tenant->tenantId,
@@ -132,7 +133,7 @@ final readonly class RichTextDocumentService
 
     private function validCollaborationConfiguration(): bool
     {
-        $scheme = strtolower((string)parse_url($this->collaborationUrl, PHP_URL_SCHEME));
+        $scheme = strtolower((string) parse_url($this->collaborationUrl, PHP_URL_SCHEME));
         return in_array($scheme, ['ws', 'wss'], true)
             && is_string(parse_url($this->collaborationUrl, PHP_URL_HOST))
             && strlen($this->collaborationSecret) >= 32;
@@ -143,12 +144,12 @@ final readonly class RichTextDocumentService
         if (!is_array($document) || ($document['schemaVersion'] ?? null) !== self::DOCUMENT_VERSION) {
             throw BusinessException::invalid('RICH_TEXT_DOCUMENT_INVALID', '文档格式无效');
         }
-        return (string)json_encode($document, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE, 64);
+        return (string) json_encode($document, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE, 64);
     }
 
     private function decodeCollaborationState(mixed $value): ?string
     {
-        $value = trim((string)$value);
+        $value = trim((string) $value);
         if ($value === '') {
             return null;
         }

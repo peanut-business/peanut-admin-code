@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\dept;
@@ -27,7 +28,7 @@ class JobsApplicationService
     {
         $params = TenantContextRequirement::withoutTenantId($params);
         if (!array_key_exists('status', $params) && array_key_exists('is_disable', $params)) {
-            $params['status'] = (int)$params['is_disable'] === 0 ? 1 : 0;
+            $params['status'] = (int) $params['is_disable'] === 0 ? 1 : 0;
         }
         return $params;
     }
@@ -54,13 +55,13 @@ class JobsApplicationService
     {
         $params = self::normalizeInput($params);
         $count = self::buildListQuery($context, $params)->count();
-        $pageSize = (int)($params['page_size'] ?? $params['limit'] ?? 15);
+        $pageSize = (int) ($params['page_size'] ?? $params['limit'] ?? 15);
         $pageSize = max(1, min(100, $pageSize));
 
-        if ((int)($params['export'] ?? 0) === 1) {
+        if ((int) ($params['export'] ?? 0) === 1) {
             return self::exportInfo($count, $pageSize);
         }
-        if ((int)($params['export'] ?? 0) === 2) {
+        if ((int) ($params['export'] ?? 0) === 2) {
             return $this->export($context, $params, $count, $pageSize);
         }
 
@@ -68,7 +69,7 @@ class JobsApplicationService
         $pageResult = $pagination->result(self::buildListQuery($context, $params));
         $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof Jobs
             ? $item->toArray()
-            : (array)$item);
+            : (array) $item);
         $rows = $pageResult->items;
 
         return new PageResult(
@@ -102,15 +103,15 @@ class JobsApplicationService
     {
         $params = self::normalizeInput($params);
         return Db::transaction(function () use ($context, $params): bool {
-            self::assertUnique($context, (string)$params['name'], (string)$params['code']);
-            $status = (int)$params['status'];
+            self::assertUnique($context, (string) $params['name'], (string) $params['code']);
+            $status = (int) $params['status'];
             Jobs::create([
-                'name'       => trim((string)$params['name']),
-                'code'       => trim((string)$params['code']),
-                'sort'       => (int)($params['sort'] ?? 0),
+                'name'       => trim((string) $params['name']),
+                'code'       => trim((string) $params['code']),
+                'sort'       => (int) ($params['sort'] ?? 0),
                 'status'     => $status,
                 'is_disable' => $status === 1 ? 0 : 1,
-                'remark'     => (string)($params['remark'] ?? ''),
+                'remark'     => (string) ($params['remark'] ?? ''),
             ]);
             return true;
         });
@@ -120,20 +121,20 @@ class JobsApplicationService
     {
         $params = self::normalizeInput($params);
         return Db::transaction(function () use ($context, $params): bool {
-            $id = (int)$params['id'];
+            $id = (int) $params['id'];
             $jobs = self::jobs($context)->where('id', $id)->lock(true)->findOrEmpty();
             if ($jobs->isEmpty()) {
                 throw BusinessException::notFound('ADMIN_JOB_NOT_FOUND', '岗位不存在');
             }
-            self::assertUnique($context, (string)$params['name'], (string)$params['code'], $id);
-            $status = (int)$params['status'];
+            self::assertUnique($context, (string) $params['name'], (string) $params['code'], $id);
+            $status = (int) $params['status'];
             $jobs->save([
-                'name'       => trim((string)$params['name']),
-                'code'       => trim((string)$params['code']),
-                'sort'       => (int)($params['sort'] ?? 0),
+                'name'       => trim((string) $params['name']),
+                'code'       => trim((string) $params['code']),
+                'sort'       => (int) ($params['sort'] ?? 0),
                 'status'     => $status,
                 'is_disable' => $status === 1 ? 0 : 1,
-                'remark'     => (string)($params['remark'] ?? ''),
+                'remark'     => (string) ($params['remark'] ?? ''),
             ]);
             return true;
         });
@@ -170,13 +171,13 @@ class JobsApplicationService
     {
         $query = self::jobs($context);
         if (!empty($params['code'])) {
-            $query->where('code', trim((string)$params['code']));
+            $query->where('code', trim((string) $params['code']));
         }
         if (!empty($params['name'])) {
-            $query->whereLike('name', '%' . trim((string)$params['name']) . '%');
+            $query->whereLike('name', '%' . trim((string) $params['name']) . '%');
         }
         if (isset($params['status']) && $params['status'] !== '') {
-            $query->where('status', (int)$params['status']);
+            $query->where('status', (int) $params['status']);
         }
         return $query->order(['sort' => 'desc', 'id' => 'desc']);
     }
@@ -213,10 +214,10 @@ class JobsApplicationService
             throw new \RuntimeException('没有数据，无法导出');
         }
 
-        $pageType = (int)($params['page_type'] ?? 0);
+        $pageType = (int) ($params['page_type'] ?? 0);
         if ($pageType === 1) {
-            $pageStart = max(1, (int)($params['page_start'] ?? 1));
-            $pageEnd = max($pageStart, (int)($params['page_end'] ?? $pageStart));
+            $pageStart = max(1, (int) ($params['page_start'] ?? 1));
+            $pageEnd = max($pageStart, (int) ($params['page_end'] ?? $pageStart));
             $offset = ($pageStart - 1) * $pageSize;
             $limit = ($pageEnd - $pageStart + 1) * $pageSize;
             if ($limit > self::EXPORT_MAX_ROWS) {
@@ -236,7 +237,7 @@ class JobsApplicationService
             ->toArray();
         $rows = self::formatRows($rows);
         $file = $this->xlsxExport->create(
-            (string)($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
+            (string) ($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
             ['岗位编码', '岗位名称', '备注', '状态', '添加时间'],
             array_map(static fn(array $row): array => [
                 $row['code'],
@@ -244,7 +245,7 @@ class JobsApplicationService
                 $row['remark'],
                 $row['status_desc'],
                 $row['create_time'],
-            ], $rows)
+            ], $rows),
         );
 
         return [
@@ -256,9 +257,9 @@ class JobsApplicationService
     private static function formatRows(array $rows): array
     {
         foreach ($rows as &$row) {
-            $row['id'] = (int)$row['id'];
-            $row['sort'] = (int)$row['sort'];
-            $row['status'] = (int)$row['status'];
+            $row['id'] = (int) $row['id'];
+            $row['sort'] = (int) $row['sort'];
+            $row['status'] = (int) $row['status'];
             $row['is_disable'] = $row['status'] === 1 ? 0 : 1;
             $row['status_desc'] = $row['status'] === 1 ? '正常' : '停用';
             $row['create_time'] = self::formatTime($row['create_time'] ?? 0);
@@ -279,8 +280,8 @@ class JobsApplicationService
             return '';
         }
         if (!is_numeric($value)) {
-            return (string)$value;
+            return (string) $value;
         }
-        return date('Y-m-d H:i:s', (int)$value);
+        return date('Y-m-d H:i:s', (int) $value);
     }
 }

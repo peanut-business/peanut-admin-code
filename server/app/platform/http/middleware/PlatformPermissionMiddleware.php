@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\http\middleware;
@@ -16,8 +17,7 @@ final class PlatformPermissionMiddleware
         private readonly CurrentExecutionContext $execution,
         private readonly PlatformOperatorSessionService $sessions,
         private readonly DemoAccountPolicy $demoAccounts,
-    ) {
-    }
+    ) {}
 
     public function handle($request, \Closure $next, string $permission)
     {
@@ -39,7 +39,7 @@ final class PlatformPermissionMiddleware
             throw \app\common\http\ApiProblem::fromEnvelope('Platform permission is required.', null, 40300);
         }
 
-        if (in_array(strtoupper((string)$request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+        if (in_array(strtoupper((string) $request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
             if ($this->demoAccounts->platformMutationLocked($context->core->accountId)) {
                 throw \app\common\http\ApiProblem::fromEnvelope('演示账号已锁定平台权限和关键配置操作', null, 40300);
             }

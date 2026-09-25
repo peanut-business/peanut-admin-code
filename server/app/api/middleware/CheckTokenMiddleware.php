@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\middleware;
@@ -28,7 +29,7 @@ class CheckTokenMiddleware
 
     public function handle($request, \Closure $next)
     {
-        $token = self::bearerToken((string)$request->header('Authorization', ''));
+        $token = self::bearerToken((string) $request->header('Authorization', ''));
 
         if (empty($token)) {
             throw \app\common\http\ApiProblem::fromEnvelope('请求缺少 token', null, 40100);
@@ -56,8 +57,8 @@ class CheckTokenMiddleware
         return $this->executionContexts->run(
             \app\common\execution\ConsumerExecutionContext::member($memberContext, sprintf(
                 'http.member.%s.%s',
-                strtolower((string)$request->method()),
-                trim((string)$request->pathinfo(), '/'),
+                strtolower((string) $request->method()),
+                trim((string) $request->pathinfo(), '/'),
             )),
             function () use ($memberContext, $memberId, $next, $request) {
                 $member = $this->members->identity($memberContext, $memberId);

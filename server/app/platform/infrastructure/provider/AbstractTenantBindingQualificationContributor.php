@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\provider;
@@ -33,13 +34,13 @@ abstract class AbstractTenantBindingQualificationContributor implements Provider
         $bindings = $this->bindings($bindingProviders);
         $subjects = [];
         foreach ($tenants as $tenantValue) {
-            $tenantId = (int)$tenantValue;
+            $tenantId = (int) $tenantValue;
             foreach ($definitions as $definition) {
                 $bindingProvider = $definition['binding_provider'];
                 $row = $bindings[$tenantId][$bindingProvider] ?? null;
-                $config = is_array($row) ? json_decode((string)$row['config_json'], true) : [];
+                $config = is_array($row) ? json_decode((string) $row['config_json'], true) : [];
                 $config = is_array($config) ? $config : [];
-                $status = is_array($row) ? (int)$row['status'] : 0;
+                $status = is_array($row) ? (int) $row['status'] : 0;
                 $providerKey = $definition['provider_key'];
                 $subjects[] = new ProviderQualificationSubject(
                     $providerKey,
@@ -68,7 +69,7 @@ abstract class AbstractTenantBindingQualificationContributor implements Provider
             ->field('id,tenant_id,provider,identity_hash,config_json,status,update_time')
             ->order('tenant_id')->order('provider')->select()->toArray();
         foreach ($rows as $row) {
-            $indexed[(int)$row['tenant_id']][(string)$row['provider']] = $row;
+            $indexed[(int) $row['tenant_id']][(string) $row['provider']] = $row;
         }
         return $indexed;
     }
@@ -79,13 +80,13 @@ abstract class AbstractTenantBindingQualificationContributor implements Provider
         $payload = is_array($row)
             ? implode("\0", [
                 $providerKey,
-                (string)$row['id'],
-                (string)$row['identity_hash'],
-                (string)$row['status'],
-                (string)$row['update_time'],
-                (string)$row['config_json'],
+                (string) $row['id'],
+                (string) $row['identity_hash'],
+                (string) $row['status'],
+                (string) $row['update_time'],
+                (string) $row['config_json'],
             ])
-            : implode("\0", [$providerKey, (string)$tenantId, 'missing']);
+            : implode("\0", [$providerKey, (string) $tenantId, 'missing']);
         return hash_hmac('sha256', $payload, $this->digestKey);
     }
 
@@ -93,7 +94,7 @@ abstract class AbstractTenantBindingQualificationContributor implements Provider
     protected function complete(array $config, array $fields): bool
     {
         foreach ($fields as $field) {
-            if (trim((string)($config[$field] ?? '')) === '') {
+            if (trim((string) ($config[$field] ?? '')) === '') {
                 return false;
             }
         }

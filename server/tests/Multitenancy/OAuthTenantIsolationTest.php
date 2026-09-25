@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\OAuth\Contract\OAuthQueries;
@@ -21,14 +22,20 @@ use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require __DIR__ . '/../Support/IsolatedBackendEnvironment.php';
 spl_autoload_register(static function (string $class): void {
-    if (!str_starts_with($class, 'app\\')) return;
+    if (!str_starts_with($class, 'app\\')) {
+        return;
+    }
     $path = dirname(__DIR__, 2) . '/app/' . str_replace('\\', '/', substr($class, 4)) . '.php';
-    if (is_file($path)) require_once $path;
+    if (is_file($path)) {
+        require_once $path;
+    }
 }, true, true);
 
 function expectOAuthTenant(bool $condition, string $message): void
 {
-    if (!$condition) throw new RuntimeException($message);
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
 }
 
 function oauthTenantContext(int $tenantId, int $memberId, string $requestId): TenantContext
@@ -51,7 +58,7 @@ function oauthPdo(string $host, int $port, string $user, string $password, strin
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
     );
 }
 
@@ -67,7 +74,7 @@ INSERT INTO pa_tenant
 VALUES
   (101, 'default', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
+    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
     expectOAuthTenant($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
 }
@@ -148,10 +155,10 @@ function oauthCommands(OAuthTransport $transport): OAuthCommandService
 if (($argv[1] ?? '') === 'oauth-worker') {
     $app = new think\App();
     $app->initialize();
-    $tenantId = (int)($argv[2] ?? 0);
-    $bindingId = (int)($argv[3] ?? 0);
-    $subject = (string)($argv[4] ?? '');
-    $unionId = (string)($argv[5] ?? '');
+    $tenantId = (int) ($argv[2] ?? 0);
+    $bindingId = (int) ($argv[3] ?? 0);
+    $subject = (string) ($argv[4] ?? '');
+    $unionId = (string) ($argv[5] ?? '');
     $context = oauthSystemContext($tenantId, 'oauth-worker-' . getmypid());
     $result = oauthRunSystem(
         $context,
@@ -170,18 +177,18 @@ if (($argv[1] ?? '') === 'oauth-worker') {
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$host = (string)getenv('DB_HOST');
-$port = (int)getenv('DB_PORT');
-$database = (string)getenv('DB_NAME');
-$user = (string)getenv('DB_USER');
-$password = (string)getenv('DB_PASS');
+$host = (string) getenv('DB_HOST');
+$port = (int) getenv('DB_PORT');
+$database = (string) getenv('DB_NAME');
+$user = (string) getenv('DB_USER');
+$password = (string) getenv('DB_PASS');
 expectOAuthTenant(
     $host !== '' && $port > 0 && $database !== '' && $user !== '' && $password !== '',
-    'registered P0-E database credentials are required'
+    'registered P0-E database credentials are required',
 );
 expectOAuthTenant(
     preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1,
-    'OAuth Tenant Gate requires its exact registered P0-E plugin_lifecycle database'
+    'OAuth Tenant Gate requires its exact registered P0-E plugin_lifecycle database',
 );
 
 try {
@@ -219,7 +226,8 @@ INSERT INTO pa_tenant_setting (tenant_id, namespace, config_json, revision, crea
 VALUES (202, 'login', JSON_OBJECT('login_way', JSON_ARRAY(1, 2), 'coerce_mobile', 1), 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP());
 SQL);
     IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
-    $app = new think\App(); $app->initialize();
+    $app = new think\App();
+    $app->initialize();
     $persistence = app(OAuthPersistence::class);
     $locator = app(OAuthCallbackLocator::class);
 
@@ -236,7 +244,7 @@ SQL);
     expectOAuthTenant($loggedIn->id > 0 && $loggedIn->status === 1, 'normal login identity snapshot changed');
     expectOAuthTenant((new ReflectionClass($loggedIn))->isReadOnly(), 'member identity snapshot is writable');
 
-    $membersBeforeConcurrent = (int)$pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 101')->fetchColumn();
+    $membersBeforeConcurrent = (int) $pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 101')->fetchColumn();
     $commands = [
         [PHP_BINARY, __FILE__, 'oauth-worker', '101', '301', 'same-concurrent-subject', 'same-concurrent-union'],
         [PHP_BINARY, __FILE__, 'oauth-worker', '101', '301', 'same-concurrent-subject', 'same-concurrent-union'],
@@ -252,15 +260,15 @@ SQL);
         $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
-        expectOAuthTenant(proc_close($process) === 0, 'concurrent OAuth worker failed: ' . trim((string)$stderr));
-        expectOAuthTenant(json_validate(trim((string)$stdout)), 'concurrent OAuth worker returned invalid output');
+        expectOAuthTenant(proc_close($process) === 0, 'concurrent OAuth worker failed: ' . trim((string) $stderr));
+        expectOAuthTenant(json_validate(trim((string) $stdout)), 'concurrent OAuth worker returned invalid output');
     }
     expectOAuthTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 101')->fetchColumn() === $membersBeforeConcurrent + 1,
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 101')->fetchColumn() === $membersBeforeConcurrent + 1,
         'same OAuth identity concurrency created duplicate members',
     );
     expectOAuthTenant(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_oauth_identity WHERE tenant_id = 101 AND subject = 'same-concurrent-subject'")->fetchColumn() === 1,
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_oauth_identity WHERE tenant_id = 101 AND subject = 'same-concurrent-subject'")->fetchColumn() === 1,
         'same OAuth identity concurrency created duplicate identities',
     );
 
@@ -276,12 +284,12 @@ SQL);
     );
     expectOAuthTenant($betaOAuth !== false, 'Beta OAuth login failed');
     expectOAuthTenant(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_oauth_identity WHERE tenant_id = 202 AND subject = 'same-concurrent-subject'")->fetchColumn() === 1,
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_oauth_identity WHERE tenant_id = 202 AND subject = 'same-concurrent-subject'")->fetchColumn() === 1,
         'same OAuth identity did not remain isolated in Beta',
     );
 
-    $betaMembersBeforeRollback = (int)$pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 202')->fetchColumn();
-    $betaPrincipalsBeforeRollback = (int)$pdo->query('SELECT COUNT(*) FROM pa_oauth_principal WHERE tenant_id = 202')->fetchColumn();
+    $betaMembersBeforeRollback = (int) $pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 202')->fetchColumn();
+    $betaPrincipalsBeforeRollback = (int) $pdo->query('SELECT COUNT(*) FROM pa_oauth_principal WHERE tenant_id = 202')->fetchColumn();
     $pdo->exec("ALTER TABLE pa_oauth_identity ADD CONSTRAINT chk_oauth_rollback_subject CHECK (subject <> 'rollback-subject')");
     $rollbackContext = oauthSystemContext(202, 'beta-rollback');
     $rolledBack = oauthRunSystem(
@@ -295,11 +303,11 @@ SQL);
     );
     expectOAuthTenant($rolledBack === false, 'forced OAuth identity failure unexpectedly succeeded');
     expectOAuthTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 202')->fetchColumn() === $betaMembersBeforeRollback,
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_member WHERE tenant_id = 202')->fetchColumn() === $betaMembersBeforeRollback,
         'failed OAuth identity creation did not roll back the Member write',
     );
     expectOAuthTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_oauth_principal WHERE tenant_id = 202')->fetchColumn() === $betaPrincipalsBeforeRollback,
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_oauth_principal WHERE tenant_id = 202')->fetchColumn() === $betaPrincipalsBeforeRollback,
         'failed OAuth identity creation did not roll back the principal write',
     );
     $betaPrincipal = oauthRunTenant($beta, 'create-beta-principal', static fn() => $persistence->createPrincipal($beta, [
@@ -311,15 +319,21 @@ SQL);
     oauthRunTenant($beta, 'create-beta-identity', static fn() => $persistence->createIdentity($beta, [
         'tenant_id' => 101,
         'provider' => 'wechat', 'client_key' => 'mnp:app-instance',
-        'subject' => 'openid-shared', 'principal_id' => (int)$betaPrincipal->id,
+        'subject' => 'openid-shared', 'principal_id' => (int) $betaPrincipal->id,
         'member_id' => 22, 'terminal' => 1,
     ]));
     $betaIdentity = oauthRunTenant($beta, 'read-beta-identity', static fn() => $persistence->identityBySubjectForUpdate(
-        $beta, 'wechat', 'mnp:app-instance', 'openid-shared',
+        $beta,
+        'wechat',
+        'mnp:app-instance',
+        'openid-shared',
     ));
     expectOAuthTenant($betaIdentity?->memberId === 22, 'payload forged OAuth identity Tenant ownership');
     expectOAuthTenant(oauthRunTenant($alpha, 'read-beta-identity', static fn() => $persistence->identityBySubjectForUpdate(
-        $alpha, 'wechat', 'mnp:app-instance', 'openid-shared',
+        $alpha,
+        'wechat',
+        'mnp:app-instance',
+        'openid-shared',
     ))?->memberId === 11, 'Alpha read Beta OAuth identity');
     expectOAuthTenant(oauthRunTenant($beta, 'read-beta-subject', static fn() => app(OAuthQueries::class)
         ->wechatSubjectForMember($beta, 22, 1)) === 'openid-shared', 'payment compatibility lookup lost Beta owned subject');
@@ -357,7 +371,7 @@ SQL);
     oauthRunTenant($alpha, 'consume-alpha-state', static fn() => $persistence->markAttemptUsed($alpha, $alphaAttempt->id, time()));
     expectOAuthTenant(count($locator->locateState($officialProvider, $validStateHash)) === 0, 'replayed OAuth state was accepted');
 
-    $alphaBindingId = (int)$pdo->query("SELECT id FROM pa_external_channel_binding WHERE tenant_id = 101 AND provider = 'oauth.wechat.oa'")->fetchColumn();
+    $alphaBindingId = (int) $pdo->query("SELECT id FROM pa_external_channel_binding WHERE tenant_id = 101 AND provider = 'oauth.wechat.oa'")->fetchColumn();
     expectOAuthTenant($alphaBindingId > 0, 'Alpha OAuth binding is missing');
     $ticketHash = str_repeat('f', 64);
     $expiredTicketHash = str_repeat('9', 64);
@@ -382,19 +396,21 @@ SQL);
         expectOAuthTenant($exception->getMessage() !== '', 'forged OAuth actor denial lost shape');
     }
 
-    $controller = (string)file_get_contents($serverRoot . '/app/api/controller/OAuthController.php');
-    $application = (string)file_get_contents($serverRoot . '/app/api/services/OAuthApplicationService.php');
-    expectOAuthTenant(str_contains($controller, '$this->application->begin(')
+    $controller = (string) file_get_contents($serverRoot . '/app/api/controller/OAuthController.php');
+    $application = (string) file_get_contents($serverRoot . '/app/api/services/OAuthApplicationService.php');
+    expectOAuthTenant(
+        str_contains($controller, '$this->application->begin(')
         && str_contains($application, '$this->externalTenants->onlyActiveBinding(')
         && str_contains($application, "assertExternalCallback('official.oauth')"),
-        'OAuth begin does not use the trusted external binding and module boundary');
+        'OAuth begin does not use the trusted external binding and module boundary',
+    );
     foreach ([
         'app/api/application/LoginApplicationService.php',
         'app/modules/official/oauth/src/Service/OAuthCommandService.php',
         'app/api/middleware/CheckTokenMiddleware.php',
         'app/modules/official/oauth/src/Infrastructure/Persistence/ThinkPhpOAuthPersistence.php',
     ] as $relative) {
-        $source = (string)file_get_contents($serverRoot . '/' . $relative);
+        $source = (string) file_get_contents($serverRoot . '/' . $relative);
         expectOAuthTenant(!str_contains($source, 'Member\\Model\\Member'), 'Member model leaked outside its owner: ' . $relative);
         expectOAuthTenant(!str_contains($source, 'MemberTenantRepository'), 'Member repository leaked outside its owner: ' . $relative);
     }

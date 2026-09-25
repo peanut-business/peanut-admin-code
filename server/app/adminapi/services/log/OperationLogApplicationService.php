@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\log;
@@ -27,11 +28,11 @@ class OperationLogApplicationService
     {
         $query = self::buildQuery($context, $params);
         $count = $query->count();
-        $pageSize = min(self::EXPORT_MAX_ROWS, max(1, (int)($params['page_size'] ?? $params['limit'] ?? 15)));
-        if ((int)($params['export'] ?? 0) === 1) {
+        $pageSize = min(self::EXPORT_MAX_ROWS, max(1, (int) ($params['page_size'] ?? $params['limit'] ?? 15)));
+        if ((int) ($params['export'] ?? 0) === 1) {
             return self::exportInfo($count, $pageSize);
         }
-        if ((int)($params['export'] ?? 0) === 2) {
+        if ((int) ($params['export'] ?? 0) === 2) {
             return $this->export($context, $params, $count, $pageSize);
         }
 
@@ -53,20 +54,20 @@ class OperationLogApplicationService
     {
         $query = OperationLog::where([]);
         if (!empty($params['username'])) {
-            $query->where('username', 'like', '%' . trim((string)$params['username']) . '%');
+            $query->where('username', 'like', '%' . trim((string) $params['username']) . '%');
         }
         if (!empty($params['uri'])) {
-            $query->where('uri', 'like', '%' . trim((string)$params['uri']) . '%');
+            $query->where('uri', 'like', '%' . trim((string) $params['uri']) . '%');
         }
         if (!empty($params['method'])) {
-            $query->where('method', strtoupper((string)$params['method']));
+            $query->where('method', strtoupper((string) $params['method']));
         }
         if (!empty($params['ip'])) {
-            $query->where('ip', 'like', '%' . trim((string)$params['ip']) . '%');
+            $query->where('ip', 'like', '%' . trim((string) $params['ip']) . '%');
         }
         if (!empty($params['start_time']) && !empty($params['end_time'])) {
-            $start = strtotime((string)$params['start_time']);
-            $end = strtotime((string)$params['end_time']);
+            $start = strtotime((string) $params['start_time']);
+            $end = strtotime((string) $params['end_time']);
             if ($start !== false && $end !== false) {
                 $query->whereBetween('create_time', [$start, $end]);
             }
@@ -89,10 +90,10 @@ class OperationLogApplicationService
         if ($count === 0) {
             throw new \RuntimeException('没有数据,无法导出');
         }
-        $pageType = (int)($params['page_type'] ?? 0);
+        $pageType = (int) ($params['page_type'] ?? 0);
         if ($pageType === 1) {
-            $pageStart = max(1, (int)($params['page_start'] ?? 1));
-            $pageEnd = max($pageStart, (int)($params['page_end'] ?? $pageStart));
+            $pageStart = max(1, (int) ($params['page_start'] ?? 1));
+            $pageEnd = max($pageStart, (int) ($params['page_end'] ?? $pageStart));
             $offset = ($pageStart - 1) * $pageSize;
             $limit = ($pageEnd - $pageStart + 1) * $pageSize;
         } else {
@@ -105,19 +106,19 @@ class OperationLogApplicationService
         $rows = self::buildQuery($context, $params)->order('id', 'desc')
             ->limit($offset, $limit)->select()->toArray();
         $sheetRows = array_map(static fn(array $row): array => [
-            (int)$row['id'],
-            (string)$row['username'],
-            (string)$row['ip'],
-            (string)$row['uri'],
-            (string)$row['method'],
-            (string)$row['params'],
-            empty($row['create_time']) ? '' : date('Y-m-d H:i:s', (int)$row['create_time']),
+            (int) $row['id'],
+            (string) $row['username'],
+            (string) $row['ip'],
+            (string) $row['uri'],
+            (string) $row['method'],
+            (string) $row['params'],
+            empty($row['create_time']) ? '' : date('Y-m-d H:i:s', (int) $row['create_time']),
         ], $rows);
         $file = $this->xlsxExport->create(
-            (string)($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
+            (string) ($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
             ['ID', '管理员', 'IP', '请求地址', '方法', '参数', '操作时间'],
             $sheetRows,
-            'operation-logs'
+            'operation-logs',
         );
         return ['url' => $file['url'], 'file_name' => $file['original_name']];
     }
@@ -126,7 +127,7 @@ class OperationLogApplicationService
     public function clear(TenantContext $context, int $adminId, string $username, string $ip): int
     {
         return Db::transaction(function () use ($context, $adminId, $username, $ip): int {
-            $count = (int)OperationLog::where([])->count();
+            $count = (int) OperationLog::where([])->count();
             OperationLog::where([])->delete();
             $this->operationLogs->record(
                 $context,
@@ -135,7 +136,7 @@ class OperationLogApplicationService
                 $ip,
                 'log/clear',
                 'POST',
-                ['cleared_count' => $count]
+                ['cleared_count' => $count],
             );
             return $count;
         });

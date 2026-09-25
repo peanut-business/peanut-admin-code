@@ -558,10 +558,7 @@
     authHalfCheckedKeys.value = orderKeys(halfCheckedSet);
   };
 
-  const handleTreeCheck = (
-    data: MenuRecord,
-    checked: AuthTreeCheckedInfo
-  ) => {
+  const handleTreeCheck = (data: MenuRecord, checked: AuthTreeCheckedInfo) => {
     handleAuthCheck(checked.checkedKeys, {
       checked: checked.checked,
       node: data,

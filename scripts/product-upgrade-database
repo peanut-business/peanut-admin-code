@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\services\upgrade\ApplicationMigrationRunner;
@@ -14,9 +15,15 @@ function upgradeDatabaseUsage(): never
 function upgradeDatabaseCanonicalJson(array $value): string
 {
     $normalize = static function (mixed $item) use (&$normalize): mixed {
-        if (!is_array($item)) return $item;
-        if (!array_is_list($item)) ksort($item, SORT_STRING);
-        foreach ($item as $key => $child) $item[$key] = $normalize($child);
+        if (!is_array($item)) {
+            return $item;
+        }
+        if (!array_is_list($item)) {
+            ksort($item, SORT_STRING);
+        }
+        foreach ($item as $key => $child) {
+            $item[$key] = $normalize($child);
+        }
         return $item;
     };
     return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -28,7 +35,7 @@ function upgradeDatabasePlan(string $path): array
     if (!str_starts_with($path, '/') || !is_file($path) || is_link($path)) {
         throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PLAN_INVALID');
     }
-    $plan = json_decode((string)file_get_contents($path), true, 256, JSON_THROW_ON_ERROR);
+    $plan = json_decode((string) file_get_contents($path), true, 256, JSON_THROW_ON_ERROR);
     $digest = is_array($plan) ? ($plan['plan_sha256'] ?? null) : null;
     if (!is_array($plan)
         || ($plan['schema_version'] ?? null) !== 2
@@ -50,11 +57,11 @@ function upgradeDatabaseFiles(string $package, array $plan): array
     $inventoryPath = $package . '/META-INF/files.sha256';
     if (!is_file($manifestPath) || is_link($manifestPath)
         || !is_file($inventoryPath) || is_link($inventoryPath)
-        || !hash_equals((string)($plan['package']['manifest_sha256'] ?? ''), 'sha256:' . hash_file('sha256', $manifestPath))
-        || !hash_equals((string)($plan['package']['inventory_sha256'] ?? ''), 'sha256:' . hash_file('sha256', $inventoryPath))) {
+        || !hash_equals((string) ($plan['package']['manifest_sha256'] ?? ''), 'sha256:' . hash_file('sha256', $manifestPath))
+        || !hash_equals((string) ($plan['package']['inventory_sha256'] ?? ''), 'sha256:' . hash_file('sha256', $inventoryPath))) {
         throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PACKAGE_REBIND_FAILED');
     }
-    $manifest = json_decode((string)file_get_contents($manifestPath), true, 128, JSON_THROW_ON_ERROR);
+    $manifest = json_decode((string) file_get_contents($manifestPath), true, 128, JSON_THROW_ON_ERROR);
     $entries = is_array($manifest) ? ($manifest['migration_chain']['files'] ?? null) : null;
     if (!is_array($entries) || !array_is_list($entries) || ($plan['migration']['files'] ?? null) !== $entries
         || ($manifest['target']['version'] ?? null) !== ($plan['migration']['target_version'] ?? null)) {
@@ -72,7 +79,7 @@ function upgradeDatabaseFiles(string $package, array $plan): array
         }
         $previous = $relative;
         $file = $package . '/target/files/' . $relative;
-        if (!is_file($file) || is_link($file) || !hash_equals($digest, (string)hash_file('sha256', $file))) {
+        if (!is_file($file) || is_link($file) || !hash_equals($digest, (string) hash_file('sha256', $file))) {
             throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_MIGRATION_CHAIN_INVALID');
         }
         $files[] = $file;
@@ -90,7 +97,9 @@ function upgradeDatabaseReconcile(string $root): array
         $pipes,
         $root . '/server',
     );
-    if (!is_resource($process)) throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
+    if (!is_resource($process)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
+    }
     $stdout = stream_get_contents($pipes[1]);
     fclose($pipes[1]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
@@ -104,7 +113,9 @@ function upgradeDatabaseReconcile(string $root): array
 }
 
 $operation = $argv[1] ?? null;
-if (!in_array($operation, ['preflight', 'apply', 'verify'], true)) upgradeDatabaseUsage();
+if (!in_array($operation, ['preflight', 'apply', 'verify'], true)) {
+    upgradeDatabaseUsage();
+}
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
     if (preg_match('/^--(application-root|package|plan)=(\/.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
@@ -112,8 +123,11 @@ foreach (array_slice($argv, 2) as $argument) {
     }
     $options[$matches[1]] = $matches[2];
 }
-$actualOptions = array_keys($options); sort($actualOptions, SORT_STRING);
-if ($actualOptions !== ['application-root', 'package', 'plan']) upgradeDatabaseUsage();
+$actualOptions = array_keys($options);
+sort($actualOptions, SORT_STRING);
+if ($actualOptions !== ['application-root', 'package', 'plan']) {
+    upgradeDatabaseUsage();
+}
 
 try {
     $root = realpath($options['application-root']);
@@ -137,11 +151,11 @@ try {
     $files = upgradeDatabaseFiles($package, $plan);
     $config = guardedDatabaseConfig();
     $runner = new ApplicationMigrationRunner([
-        'host' => (string)$config['host'], 'port' => (string)$config['port'],
-        'database' => (string)$config['database'], 'user' => (string)$config['user'],
-        'password' => (string)$config['password'],
+        'host' => (string) $config['host'], 'port' => (string) $config['port'],
+        'database' => (string) $config['database'], 'user' => (string) $config['user'],
+        'password' => (string) $config['password'],
     ]);
-    $target = (string)$plan['migration']['target_version'];
+    $target = (string) $plan['migration']['target_version'];
     $migration = $operation === 'apply'
         ? $runner->run($files, $target, $target, false)
         : $runner->run($files, $target, $target, true);
@@ -153,12 +167,16 @@ try {
         $statuses = $runner->statuses($ids);
     }
     if ($operation === 'verify') {
-        foreach ($statuses as $status) if ($status !== 'applied') {
-            throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_VERIFY_FAILED');
+        foreach ($statuses as $status) {
+            if ($status !== 'applied') {
+                throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_VERIFY_FAILED');
+            }
         }
         $pdo = guardedConnection($config);
-        $incomplete = (int)$pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn();
-        if ($incomplete !== 0) throw new RuntimeException('PRODUCT_UPGRADE_MODULE_MIGRATION_VERIFY_FAILED');
+        $incomplete = (int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn();
+        if ($incomplete !== 0) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_MIGRATION_VERIFY_FAILED');
+        }
         $module = ['incomplete_migration_count' => $incomplete];
     }
     echo json_encode([

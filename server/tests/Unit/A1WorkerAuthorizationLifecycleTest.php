@@ -114,7 +114,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
     public function testAuthorizationRevocationStopsNextBatchWhileLeaseRemainsOwned(): void
     {
         [$authorization, $fence] = $this->authorizationFence();
-        $counters = (object)['renew' => 0, 'lease' => 0];
+        $counters = (object) ['renew' => 0, 'lease' => 0];
         $execution = $this->execution($fence, $counters);
 
         $fence->handle(static fn(AuthorizedOperationContext $context): null => null);
@@ -140,7 +140,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
         [$authorization, $fence] = $this->authorizationFence([
             new RequestedTargetSet('official.order', ['order-a', 'order-b']),
         ]);
-        $counters = (object)['renew' => 0, 'lease' => 0];
+        $counters = (object) ['renew' => 0, 'lease' => 0];
         $execution = $this->execution($fence, $counters);
 
         $fence->handle(static fn(AuthorizedOperationContext $context): null => null);
@@ -161,7 +161,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
     public function testUnchangedAuthorizationAllowsMultipleBatchesAndFinalFence(): void
     {
         [$authorization, $fence] = $this->authorizationFence();
-        $counters = (object)['renew' => 0, 'lease' => 0];
+        $counters = (object) ['renew' => 0, 'lease' => 0];
         $execution = $this->execution($fence, $counters);
 
         $fence->handle(static fn(AuthorizedOperationContext $context): null => null);
@@ -178,18 +178,17 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
     public function testOwningModuleDisabledBetweenBatchesStopsExecutionAndRestoresContext(): void
     {
         [$authorization, $fence] = $this->authorizationFence();
-        $counters = (object)['renew' => 0, 'lease' => 0];
+        $counters = (object) ['renew' => 0, 'lease' => 0];
         $execution = $this->execution($fence, $counters);
         $contexts = new ExecutionContextStore();
         $modules = new A1MutableModuleRuntimeRepository();
-        $handler = new class($contexts, $modules) implements TaskHandler {
+        $handler = new class ($contexts, $modules) implements TaskHandler {
             public int $batches = 0;
 
             public function __construct(
                 private ExecutionContextStore $contexts,
                 private A1MutableModuleRuntimeRepository $modules,
-            ) {
-            }
+            ) {}
 
             public function key(): string
             {
@@ -226,14 +225,12 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
     public function testHandlerExceptionRestoresNestedSystemExecutionContext(): void
     {
         [, $fence] = $this->authorizationFence();
-        $counters = (object)['renew' => 0, 'lease' => 0];
+        $counters = (object) ['renew' => 0, 'lease' => 0];
         $execution = $this->execution($fence, $counters);
         $contexts = new ExecutionContextStore();
         $modules = new A1MutableModuleRuntimeRepository();
-        $handler = new class($contexts) implements TaskHandler {
-            public function __construct(private ExecutionContextStore $contexts)
-            {
-            }
+        $handler = new class ($contexts) implements TaskHandler {
+            public function __construct(private ExecutionContextStore $contexts) {}
 
             public function key(): string
             {
@@ -267,16 +264,14 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
     public function testModuleWrapperFinalFenceRejectsAuthorizationRevokedAfterHandlerReturns(): void
     {
         [$authorization, $fence] = $this->authorizationFence();
-        $counters = (object)['renew' => 0, 'lease' => 0];
+        $counters = (object) ['renew' => 0, 'lease' => 0];
         $execution = $this->execution($fence, $counters);
         $contexts = new ExecutionContextStore();
         $modules = new A1MutableModuleRuntimeRepository();
-        $handler = new class($authorization) implements TaskHandler {
+        $handler = new class ($authorization) implements TaskHandler {
             public bool $completed = false;
 
-            public function __construct(private A1MutableWorkerAuthorization $authorization)
-            {
-            }
+            public function __construct(private A1MutableWorkerAuthorization $authorization) {}
 
             public function key(): string
             {

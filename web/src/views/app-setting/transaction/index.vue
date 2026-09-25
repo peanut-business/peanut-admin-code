@@ -104,8 +104,8 @@
 
   const fetchConfig = async () => {
     const res = await getTransactionConfig();
-    const data = (res.data as any).data as TransactionConfig;
-    Object.assign(form, data);
+    // The shared response interceptor already returns the business envelope.
+    Object.assign(form, res.data);
   };
 
   const handleSave = async () => {

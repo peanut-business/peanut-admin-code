@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -141,13 +142,13 @@ qualificationExpect(
         && str_contains($sources['file_namespace_core'], "sprintf('tenants/v1/%d/'")
         && str_contains($sources['file_namespace_core'], "str_contains(\$relativeDirectory, '..')")
         && str_contains($sources['file_namespace_core'], 'assertTenantId($tenantId)'),
-    'file objects lost the Core-owned Tenant namespace'
+    'file objects lost the Core-owned Tenant namespace',
 );
 qualificationExpect(
     str_contains($sources['async_files'], "'export.csv'")
         && str_contains($sources['async_files'], '->storePath(')
         && str_contains($sources['storage_path'], 'TenantObjectNamespace::directory'),
-    'async exports lost private Tenant namespace'
+    'async exports lost private Tenant namespace',
 );
 qualificationExpect(
     str_contains($sources['app_service'], 'use PeanutAdmin\\Modules\\Identity\\Tenancy\\DefaultTenantContextResolver;')
@@ -158,7 +159,7 @@ qualificationExpect(
         && str_contains($sources['default_context_module'], 'count($ids) !== 1')
         && str_contains($sources['default_context_module'], 'DEFAULT_TENANT_CONTEXT_UNAVAILABLE')
         && !str_contains($sources['default_context_module'], 'default_tenant_bootstrap'),
-    'anonymous default-Tenant resolution does not fail closed'
+    'anonymous default-Tenant resolution does not fail closed',
 );
 qualificationExpect(
     str_contains($sources['member_context'], 'MemberSubjectLookup')
@@ -167,7 +168,7 @@ qualificationExpect(
         && str_contains($sources['member_subject_lookup'], "whereNull('delete_time')")
         && str_contains($sources['member_subject_lookup'], "getData('tenant_id')")
         && str_contains($sources['member_middleware'], 'MemberApiTenantContextResolver'),
-    'member JWT ownership does not establish an active trusted Tenant context'
+    'member JWT ownership does not establish an active trusted Tenant context',
 );
 qualificationExpect(
     str_contains($sources['member_context'], 'use PeanutAdmin\\Kernel\\Context\\AuthenticatedMemberContext;')
@@ -178,7 +179,7 @@ qualificationExpect(
         && !str_contains($sources['authenticated_member_context_core'], 'accountId')
         && !str_contains($sources['authenticated_member_context_core'], 'tenantMember')
         && !str_contains($sources['authenticated_member_context_core'], 'PeanutAdmin\\Kernel\\Auth'),
-    'application-member identity is mixed with Core Account or TenantMember identity'
+    'application-member identity is mixed with Core Account or TenantMember identity',
 );
 qualificationExpect(
     str_contains($sources['member_context'], 'new AuthenticatedMemberContext(')
@@ -188,7 +189,7 @@ qualificationExpect(
         && str_contains($sources['member_middleware'], 'ExecutionContextStore')
         && !str_contains($sources['member_middleware'], '$request->authenticatedMemberContext =')
         && !str_contains($sources['member_middleware'], '$request->tenantContext = $this->tenantContexts()'),
-    'member JWT context is still written into the Core TenantContext request boundary'
+    'member JWT context is still written into the Core TenantContext request boundary',
 );
 qualificationExpect(
     str_contains($sources['entry_schema'], 'pa_tenant_entry_binding')
@@ -210,7 +211,7 @@ qualificationExpect(
         && str_contains($sources['entry_binding_lookup'], "tenant_status'] ?? null) !== 'active'")
         && str_contains($sources['entry_binding_core'], '$this->lookup->binding($host, $clientKey)')
         && str_contains($sources['entry_binding_core'], 'TENANT_ENTRY_BINDING_CONFLICT'),
-    'Tenant entry bindings are not instance-owned and active-Tenant scoped'
+    'Tenant entry bindings are not instance-owned and active-Tenant scoped',
 );
 qualificationExpect(
     str_contains($sources['tenant_session'], 'TenantSessionApplicationService')
@@ -219,14 +220,14 @@ qualificationExpect(
         && str_contains($sources['admin_login_application'], 'loginTenantCode(')
         && str_contains($sources['public_tenant_module_middleware'], '$this->entryBindings->system(')
         && !str_contains($sources['public_tenant_module_middleware'], 'DefaultTenantContextResolver::system('),
-    'Admin or anonymous member authentication bypasses Tenant entry resolution'
+    'Admin or anonymous member authentication bypasses Tenant entry resolution',
 );
 qualificationExpect(
     str_contains($sources['routes'], "Route::get('search/hotLists'")
         && str_contains($sources['routes'], "PublicTenantModuleMiddleware::class, 'peanut.hot-search.public-read', '', 'hot-search.lists'")
         && str_contains($sources['routes'], "Route::get('index/policy'")
         && substr_count($sources['routes'], "PublicTenantModuleMiddleware::class, 'peanut.decoration.public-read'") >= 6,
-    'public hot-search or policy route is missing a Host-bound Tenant guard'
+    'public hot-search or policy route is missing a Host-bound Tenant guard',
 );
 qualificationExpect(
     str_contains($sources['integration_module_provider'], 'use PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantAudit;')
@@ -242,7 +243,7 @@ qualificationExpect(
         && str_contains($sources['external_resolver_module'], '!$binding->active')
         && str_contains($sources['external_resolver_module'], '!hash_equals($provider, $binding->provider)')
         && str_contains($sources['external_resolver_module'], "\$this->audit->record('rejected'"),
-    'external callbacks do not reject ambiguous or suspended Tenant ownership'
+    'external callbacks do not reject ambiguous or suspended Tenant ownership',
 );
 foreach (['ExternalTenantAudit.php', 'ExternalTenantBinding.php', 'ExternalTenantBindingRepository.php', 'ExternalTenantResolution.php', 'ExternalTenantResolver.php'] as $bridge) {
     qualificationExpect(
@@ -254,7 +255,7 @@ qualificationExpect(
     str_contains($sources['oauth_queries'], 'wechatSubjectForMember($context, $memberId, $terminal)')
         && str_contains($sources['oauth_repository'], "'member_id' => \$memberId")
         && str_contains($sources['oauth_repository'], 'OAuthIdentity::where('),
-    'OAuth subject lookup is not explicitly bound to the member Tenant context'
+    'OAuth subject lookup is not explicitly bound to the member Tenant context',
 );
 qualificationExpect(
     str_contains($sources['crontab_scheduler'], "where('t.status', 'active')")
@@ -267,7 +268,7 @@ qualificationExpect(
         && str_contains($sources['scheduled_context_core'], "throw new \\RuntimeException('Scheduled TenantContext is required')")
         && str_contains($sources['tenant_scope_core'], 'fromTrustedContext(')
         && str_contains($sources['tenant_scope_core'], 'private function __construct('),
-    'scheduled work does not re-establish active Tenant ownership'
+    'scheduled work does not re-establish active Tenant ownership',
 );
 qualificationExpect(
     str_contains($sources['async_authorization'], 'AdminAuthorizationService')
@@ -276,7 +277,7 @@ qualificationExpect(
         && str_contains($sources['async_authorization'], 'envelope->resourceKey')
         && str_contains($sources['async_authorization'], 'envelope->operation')
         && str_contains($sources['async_authorization'], 'envelope->requestedTargets'),
-    'async work does not recheck Tenant availability and authorization'
+    'async work does not recheck Tenant availability and authorization',
 );
 qualificationExpect(
     str_contains($sources['notice_channel'], "private const BINDING_PROVIDER = 'notice.sms'")
@@ -284,7 +285,7 @@ qualificationExpect(
         && str_contains($sources['notice_channel'], "'tenant:' . \$tenantId")
         && str_contains($sources['notice_channel'], '$this->resolver')
         && !str_contains($sources['notice_channel'], 'ConfigService'),
-    'notification Provider configuration is not Tenant-owned'
+    'notification Provider configuration is not Tenant-owned',
 );
 qualificationExpect(
     str_contains($sources['tenant_settings'], 'implements TenantSettingsQuery, TenantSettingsCommands')
@@ -303,12 +304,12 @@ qualificationExpect(
         && !str_contains($sources['application_tenant_bootstrap'], 'TenantSettingsBootstrapRuntimeFactory')
         && !str_contains($sources['application_tenant_bootstrap'], 'PdoTenantSettingsBootstrapProvider')
         && str_contains($sources['recharge_settings'], '$this->channelGrants->channelConfigured('),
-    'recharge policy or payment channel configuration is not Tenant-owned'
+    'recharge policy or payment channel configuration is not Tenant-owned',
 );
 foreach (['agreement', 'site-statistics', 'member-profile', 'login', 'web-page', 'hot-search'] as $namespace) {
     qualificationExpect(
         str_contains($sources['tenant_application_settings'], "'{$namespace}'"),
-        'Tenant application setting namespace is missing: ' . $namespace
+        'Tenant application setting namespace is missing: ' . $namespace,
     );
 }
 qualificationExpect(
@@ -317,16 +318,16 @@ qualificationExpect(
         && str_contains($sources['member_token'], 'strlen($this->secret) < 32')
         && !str_contains($sources['jwt_config'], 'peanut-admin-change-this-in-production')
         && !str_contains($sources['member_token'], 'peanut-admin-secret-key'),
-    'member JWT is missing key strength, lifetime, issuer/audience, or subject validation'
+    'member JWT is missing key strength, lifetime, issuer/audience, or subject validation',
 );
 qualificationExpect(
     str_contains($sources['menu_controller'], 'instanceMenuDenial()')
         && str_contains($sources['system_controller'], 'instanceToolAccessDenial()'),
-    'Tenant Admin can still reach an instance-global control plane'
+    'Tenant Admin can still reach an instance-global control plane',
 );
 qualificationExpect(
     !is_file($root . '/app/adminapi/controller/setting/StorageController.php'),
-    'retired Tenant Admin storage controller remains available for accidental route registration'
+    'retired Tenant Admin storage controller remains available for accidental route registration',
 );
 qualificationExpect(
     str_contains($sources['platform_storage_controller'], 'protected string $storageClass = StorageConfiguration::class')
@@ -338,7 +339,7 @@ qualificationExpect(
         && !is_file($root . '/app/common/service/platform/InstanceControlPlanePolicy.php')
         && str_contains($sources['routes'], 'infrastructure/storage')
         && !str_contains($sources['routes'], "Route::post('storage/setup'"),
-    'instance storage control remains reachable from a Tenant Admin audience'
+    'instance storage control remains reachable from a Tenant Admin audience',
 );
 foreach ([
     'app/common/service/member/MemberTenantContext.php',
@@ -374,14 +375,14 @@ foreach ([
     foreach ($routeGuards as $routeGuard) {
         qualificationExpect(
             str_contains($sources[$sourceKey], $routeGuard),
-            'public Tenant guard is missing: ' . $routeGuard
+            'public Tenant guard is missing: ' . $routeGuard,
         );
     }
 }
 qualificationExpect(
     str_contains($sources['official_member_routes'], "'peanut.notice.verification', 'official.notification'")
         && str_contains($sources['official_member_routes'], 'notice.verification.verify'),
-    'member password/mobile flows are missing the Tenant-owned notification guard'
+    'member password/mobile flows are missing the Tenant-owned notification guard',
 );
 
 $matrix = [
@@ -411,7 +412,7 @@ foreach (array_diff(array_keys($matrix), ['tenant_module', 'official_article_mod
     qualificationExpect(
         ($matrix[$capability]['trusted_context'] ?? false) === true
             && ($matrix[$capability]['sql_scope'] ?? false) === true,
-        'official capability is not mandatorily Tenant-scoped: ' . $capability
+        'official capability is not mandatorily Tenant-scoped: ' . $capability,
     );
 }
 qualificationExpect(
@@ -420,7 +421,7 @@ qualificationExpect(
         && str_contains($sources['official_article_public'], '$this->entryBindings->system(')
         && str_contains($sources['official_article_public'], 'ModuleExecutionBoundary')
         && str_contains($sources['article_model'], 'extends TenantOwnedModel'),
-    'official Article Module is not guarded by the shared execution and public Host boundaries'
+    'official Article Module is not guarded by the shared execution and public Host boundaries',
 );
 qualificationExpect(
     str_contains($sources['module_manifest'], "'/module.json'")
@@ -434,7 +435,7 @@ qualificationExpect(
         && str_contains($sources['deployed_module_registry'], '!$compiled->isRequiredTenantFoundation($key)')
         && str_contains($sources['module_compiled_registry'], "(\$manifest->data['lifecycle']['protected'] ?? false) === true")
         && str_contains($sources['module_compiled_registry'], "(\$manifest->data['tenant']['enableable'] ?? null) === false"),
-    'optional Modules are not guarded by both module.json and Tenant enablement'
+    'optional Modules are not guarded by both module.json and Tenant enablement',
 );
 
 $officialModules = [
@@ -451,7 +452,7 @@ foreach ($officialModules as $moduleKey => $routeSourceKey) {
     qualificationExpect(
         str_contains($sources[$routeSourceKey], "OfficialModuleMiddleware::class, '{$moduleKey}'")
             && str_contains($sources['routes'], "/* {$routeFile} */"),
-        'official Module HTTP entry is not loaded and Tenant guarded: ' . $moduleKey
+        'official Module HTTP entry is not loaded and Tenant guarded: ' . $moduleKey,
     );
 }
 qualificationExpect(
@@ -472,7 +473,7 @@ qualificationExpect(
         && str_contains($sources['module_execution_boundary'], '$this->guard->assertTenant(')
         && str_contains($sources['module_guard_core'], "MODULE_TENANT_DISABLED")
         && str_contains($sources['module_guard_core'], "AUTHORIZATION_PERMISSION_DENIED"),
-    'shared official Module middleware does not require a trusted Tenant context and TenantModule state'
+    'shared official Module middleware does not require a trusted Tenant context and TenantModule state',
 );
 qualificationExpect(
     str_contains($sources['oauth_controller'], '$this->application->callback(')
@@ -489,7 +490,7 @@ qualificationExpect(
         && str_contains($sources['module_worker'], "assertWorker('official.task')")
         && str_contains($sources['crontab_task_definition'], "assertScheduled('official.task')")
         && str_contains($sources['console'], "'refund:reconcile' => 'official.payment'"),
-    'external callback, worker or scheduler entry bypasses its official Module lifecycle'
+    'external callback, worker or scheduler entry bypasses its official Module lifecycle',
 );
 
 $shippedManifests = glob($root . '/app/modules/*/*/module.json') ?: [];
@@ -499,10 +500,10 @@ $requiredFoundationCount = 0;
 $optionalModuleCount = 0;
 foreach ($shippedManifests as $manifestPath) {
     $manifest = json_decode(
-        (string)file_get_contents($manifestPath),
+        (string) file_get_contents($manifestPath),
         true,
         512,
-        JSON_THROW_ON_ERROR
+        JSON_THROW_ON_ERROR,
     );
     $tenant = is_array($manifest['tenant'] ?? null) ? $manifest['tenant'] : [];
     $backend = is_array($manifest['backend'] ?? null) ? $manifest['backend'] : [];
@@ -515,10 +516,10 @@ foreach ($shippedManifests as $manifestPath) {
             && ($tenant['disable_behavior'] ?? null) === 'reject_new_operations'))
             && is_array($tenant['requires'] ?? null)
             && is_string($backend['provider'] ?? null)
-            && trim((string)$backend['provider']) !== ''
+            && trim((string) $backend['provider']) !== ''
             && is_array($database['owned_tables'] ?? null),
         'shipped Module is neither a protected required foundation nor Tenant-enableable: '
-            . basename(dirname($manifestPath))
+            . basename(dirname($manifestPath)),
     );
     $requiredFoundation ? $requiredFoundationCount++ : $optionalModuleCount++;
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\payment;
@@ -11,9 +12,7 @@ use PeanutAdmin\Kernel\Tenancy\TenantScope;
 /** Payment-owned adapter for the tenant-scoped retry lock. */
 final readonly class PaymentRetryLock
 {
-    public function __construct(private AdvisoryLockExecution $locks)
-    {
-    }
+    public function __construct(private AdvisoryLockExecution $locks) {}
 
     public function name(TenantContext $context, int $recordId): string
     {
@@ -23,7 +22,7 @@ final readonly class PaymentRetryLock
 
         $scope = TenantScope::fromTrustedContext(
             $context->tenantId,
-            (string)($context->requestId ?? ''),
+            (string) ($context->requestId ?? ''),
         );
 
         return (new TenantLockNamespace($scope))->name('recharge:refund-retry:' . $recordId);

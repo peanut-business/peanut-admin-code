@@ -1,18 +1,26 @@
 <?php
+
 declare(strict_types=1);
 
 /**
  * 用既有签名包夹具执行真实 scripts/upgrade 子进程及文件引擎。
  * Host 为明确合成的阶段回执/故障注入，不运行Docker、数据库、网站或真实业务。
  */
-function productCoordinatorProbe(string $toolRoot, string $temporary, string $sourceProject,
-    string $sourcePackage, string $public, string $secret): void
-{
+function productCoordinatorProbe(
+    string $toolRoot,
+    string $temporary,
+    string $sourceProject,
+    string $sourcePackage,
+    string $public,
+    string $secret,
+): void {
     $checks = 0;
     $failures = [];
     $assert = static function (bool $ok, string $message) use (&$checks): void {
         $checks++;
-        if (!$ok) throw new RuntimeException($message);
+        if (!$ok) {
+            throw new RuntimeException($message);
+        }
     };
     $host = <<<'PHP'
 #!/usr/bin/env php
@@ -49,10 +57,15 @@ PHP;
     mkdir($missing . '/scripts', 0700, true);
     copy($toolRoot . '/scripts/upgrade', $missing . '/scripts/upgrade');
     $pipes = [];
-    $process = proc_open([PHP_BINARY, $missing . '/scripts/upgrade', 'plan'],
-        [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes, $missing);
+    $process = proc_open(
+        [PHP_BINARY, $missing . '/scripts/upgrade', 'plan'],
+        [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['redirect', 1]],
+        $pipes,
+        $missing,
+    );
     $assert(is_resource($process), 'cannot run missing dependency check');
-    $output = stream_get_contents($pipes[1]); fclose($pipes[1]);
+    $output = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
     $assert(proc_close($process) === 1 && str_contains($output, 'PRODUCT_UPGRADE_DEPENDENCIES_MISSING')
         && !str_contains($output, 'Fatal error'), 'missing dependencies must fail before package access');
 
@@ -60,7 +73,8 @@ PHP;
         'recovery-resume-rejected', 'activation-failure', 'untrusted-package', 'wrong-evidence', 'lock-contention'];
     foreach ($cases as $case) {
         $base = $temporary . '/coordinator-' . $case;
-        $project = $base . '/instance'; $package = $base . '/package';
+        $project = $base . '/instance';
+        $package = $base . '/package';
         editionUpgradeCopyTree($sourceProject, $project);
         editionUpgradeCopyTree($sourcePackage, $package);
         $hostPath = $package . '/scripts/upgrade-runtime/product-upgrade-host';
@@ -69,12 +83,19 @@ PHP;
         $inventory = [];
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($package, FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
-            if (!$file->isFile()) continue;
+            if (!$file->isFile()) {
+                continue;
+            }
             $relative = substr($file->getPathname(), strlen($package) + 1);
-            if (!str_starts_with($relative, 'META-INF/')) $inventory[$relative] = hash_file('sha256', $file->getPathname());
+            if (!str_starts_with($relative, 'META-INF/')) {
+                $inventory[$relative] = hash_file('sha256', $file->getPathname());
+            }
         }
-        ksort($inventory, SORT_STRING); $bytes = '';
-        foreach ($inventory as $path => $hash) $bytes .= $path . "\0" . $hash . "\n";
+        ksort($inventory, SORT_STRING);
+        $bytes = '';
+        foreach ($inventory as $path => $hash) {
+            $bytes .= $path . "\0" . $hash . "\n";
+        }
         editionUpgradeFile($package . '/META-INF/files.sha256', $bytes);
         editionUpgradeJson($package . '/META-INF/signatures/test-release.json', [
             'schema_version' => 1, 'algorithm' => 'ed25519', 'key_id' => 'test-release',
@@ -97,17 +118,25 @@ PHP;
             $arguments = [PHP_BINARY, $toolRoot . '/scripts/upgrade', $operation,
                 '--instance-root=' . $project, '--package=' . $package,
                 '--signature-key-id=test-release', '--env-file=' . $keys];
-            if ($plan !== null) $arguments[] = '--plan=' . $plan;
+            if ($plan !== null) {
+                $arguments[] = '--plan=' . $plan;
+            }
             $env = [];
             foreach (['PATH', 'HOME', 'TMPDIR', 'SystemRoot'] as $key) {
-                if (($value = getenv($key)) !== false) $env[$key] = $value;
+                if (($value = getenv($key)) !== false) {
+                    $env[$key] = $value;
+                }
             }
             // 只把当前真实PHP解释器目录加入该子进程，Host脚本不依赖全局PHP版本。
             $env['PATH'] = dirname(PHP_BINARY) . PATH_SEPARATOR . ($env['PATH'] ?? '');
             $pipes = [];
             $process = proc_open($arguments, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes, $toolRoot, $env);
-            if (!is_resource($process)) throw new RuntimeException('cannot start coordinator');
-            $output = stream_get_contents($pipes[1]); fclose($pipes[1]); $exit = proc_close($process);
+            if (!is_resource($process)) {
+                throw new RuntimeException('cannot start coordinator');
+            }
+            $output = stream_get_contents($pipes[1]);
+            fclose($pipes[1]);
+            $exit = proc_close($process);
             file_put_contents($base . '/commands.log', json_encode($arguments) . "\nEXIT {$exit}\n" . $output . "\n", FILE_APPEND);
             $json = json_decode(trim($output), true);
             return ['exit' => $exit, 'output' => $output, 'json' => is_array($json) ? $json : []];
@@ -117,8 +146,10 @@ PHP;
             return $result['json'];
         };
         $reject = static function (array $result, string $error) use ($assert): void {
-            $assert($result['exit'] !== 0 && str_contains($result['output'], $error),
-                'expected ' . $error . ', got: ' . $result['output']);
+            $assert(
+                $result['exit'] !== 0 && str_contains($result['output'], $error),
+                'expected ' . $error . ', got: ' . $result['output'],
+            );
         };
         try {
             if ($case === 'untrusted-package') {
@@ -135,9 +166,15 @@ PHP;
             $assert(($again['idempotent'] ?? false) && $initialState === file_get_contents($plan['state_path']), 'repeat plan reset state');
             if ($case === 'lock-contention') {
                 $lock = fopen($project . '/.peanut/upgrades/product.lock', 'c+');
-                if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) throw new RuntimeException('cannot acquire fixture lock');
-                try { $reject($run('apply', $planPath), 'PRODUCT_UPGRADE_ALREADY_RUNNING'); }
-                finally { flock($lock, LOCK_UN); fclose($lock); }
+                if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
+                    throw new RuntimeException('cannot acquire fixture lock');
+                }
+                try {
+                    $reject($run('apply', $planPath), 'PRODUCT_UPGRADE_ALREADY_RUNNING');
+                } finally {
+                    flock($lock, LOCK_UN);
+                    fclose($lock);
+                }
                 $assert($calls() === [], 'contending process invoked Host');
                 continue;
             }
@@ -155,7 +192,9 @@ PHP;
                 if ($case === 'recovery-resume-rejected') {
                     $control(['fail' => 'recover']);
                     $reject($run('recover', $planPath), 'PRODUCT_UPGRADE_HOST_PHASE_FAILED:recover:exit-23');
-                    $control([]); $beforeCalls = $calls(); $beforeState = file_get_contents($plan['state_path']);
+                    $control([]);
+                    $beforeCalls = $calls();
+                    $beforeState = file_get_contents($plan['state_path']);
                     $reject($run('apply', $planPath), 'PRODUCT_UPGRADE_RECOVERY_IN_PROGRESS');
                     $assert($beforeCalls === $calls() && $beforeState === file_get_contents($plan['state_path']), 'apply resumed during recovery');
                 }
@@ -191,7 +230,8 @@ PHP;
                 $relative = $case === 'managed-drift' ? 'managed.txt' : 'business.php';
                 $error = $case === 'managed-drift' ? 'SCAFFOLD_VERIFY_MANAGED_MISMATCH' : 'SCAFFOLD_VERIFY_APP_OWNED_CHANGED';
                 file_put_contents($project . '/' . $relative, "changed after upgrade\n");
-                $beforeState = file_get_contents($plan['state_path']); $beforeCalls = $calls();
+                $beforeState = file_get_contents($plan['state_path']);
+                $beforeCalls = $calls();
                 $reject($run('apply', $planPath), $error);
                 $assert($beforeState === file_get_contents($plan['state_path']) && $beforeCalls === $calls(), 'drift rejection had Host/state side effects');
                 $reject($run('verify', $planPath), $error);
@@ -203,5 +243,7 @@ PHP;
     }
     echo 'PRODUCT-UPGRADE-COORDINATOR-001 cases=' . (count($cases) + 1) . ' checks=' . $checks
         . ' failures=' . count($failures) . "; host=synthetic; database-not-executed\n";
-    if ($failures !== []) throw new RuntimeException(implode("\n", $failures));
+    if ($failures !== []) {
+        throw new RuntimeException(implode("\n", $failures));
+    }
 }

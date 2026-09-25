@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Service;
@@ -33,8 +34,7 @@ final readonly class PlatformUpgradeReadinessService
         private PlatformBackupCenterService $backups,
         private MaintenanceService $maintenance,
         private PlatformPermissionChecker $permissions,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array{
@@ -72,7 +72,7 @@ final readonly class PlatformUpgradeReadinessService
                 $checks[] = $this->check(
                     'source.identity',
                     'configuration_required',
-                    'UPGRADE_SOURCE_APPLICATION_MANIFEST_REQUIRED'
+                    'UPGRADE_SOURCE_APPLICATION_MANIFEST_REQUIRED',
                 );
             } else {
                 $checks[] = $this->check('source.identity', 'ready', 'UPGRADE_SOURCE_IDENTITY_READY');
@@ -96,7 +96,7 @@ final readonly class PlatformUpgradeReadinessService
             $checks[] = $this->check(
                 'source.identity',
                 $sourceError === null ? 'configuration_required' : 'blocked',
-                $sourceError ?? 'UPGRADE_SOURCE_APPLICATION_MANIFEST_REQUIRED'
+                $sourceError ?? 'UPGRADE_SOURCE_APPLICATION_MANIFEST_REQUIRED',
             );
             return $this->projection(
                 $checks,
@@ -134,12 +134,12 @@ final readonly class PlatformUpgradeReadinessService
         $scaffold = $this->scaffoldProjection($target);
         $checks[] = $scaffold['status'] === 'ready'
             ? $this->check('scaffold.plan', 'ready', 'UPGRADE_SCAFFOLD_READY')
-            : $this->check('scaffold.plan', 'blocked', (string)$scaffold['code']);
+            : $this->check('scaffold.plan', 'blocked', (string) $scaffold['code']);
 
         $modules = $this->moduleProjection($target);
         $checks[] = $modules['status'] === 'ready'
             ? $this->check('module.compatibility', 'ready', 'UPGRADE_MODULES_READY')
-            : $this->check('module.compatibility', 'blocked', (string)$modules['blockers'][0]);
+            : $this->check('module.compatibility', 'blocked', (string) $modules['blockers'][0]);
 
         $staticCheckCount = count($checks);
         $backup = $this->backupProjection($context, $runtime['identity']['commit']);
@@ -162,23 +162,23 @@ final readonly class PlatformUpgradeReadinessService
             $checks[] = $this->check(
                 'restore.verified',
                 'blocked',
-                'UPGRADE_RESTORE_EVIDENCE_REQUIRED'
+                'UPGRADE_RESTORE_EVIDENCE_REQUIRED',
             );
         } elseif ($latestBackup === null
             || !hash_equals(
-                (string)$latestBackup['backup_reference_key'],
-                (string)$latestRestore['backup_reference_key']
+                (string) $latestBackup['backup_reference_key'],
+                (string) $latestRestore['backup_reference_key'],
             )) {
             $checks[] = $this->check(
                 'restore.verified',
                 'blocked',
-                'UPGRADE_RESTORE_BACKUP_MISMATCH'
+                'UPGRADE_RESTORE_BACKUP_MISMATCH',
             );
         } else {
             $checks[] = $this->check(
                 'restore.verified',
                 'ready',
-                'UPGRADE_RESTORE_EVIDENCE_READY'
+                'UPGRADE_RESTORE_EVIDENCE_READY',
             );
         }
 
@@ -290,18 +290,18 @@ final readonly class PlatformUpgradeReadinessService
     /** Reject cross-application deployment, product non-upgrades and unsupported scaffold movement. */
     private function directionCode(array $source, PlatformUpgradeTarget $target): ?string
     {
-        if (!hash_equals((string)$source['slug'], $target->application['slug'])
-            || !hash_equals((string)$source['package_identity'], $target->application['package_identity'])) {
+        if (!hash_equals((string) $source['slug'], $target->application['slug'])
+            || !hash_equals((string) $source['package_identity'], $target->application['package_identity'])) {
             return 'UPGRADE_APPLICATION_IDENTITY_MISMATCH';
         }
-        if (version_compare((string)$source['product_release'], $target->application['product_release'], '>=')) {
+        if (version_compare((string) $source['product_release'], $target->application['product_release'], '>=')) {
             return 'UPGRADE_TARGET_NOT_NEWER';
         }
         $sourceTemplate = [
-            'version' => (string)$source['template_version'],
-            'source_commit' => (string)$source['template_source_commit'],
-            'source_tree' => (string)$source['template_source_tree'],
-            'inventory_sha256' => (string)$source['template_inventory_sha256'],
+            'version' => (string) $source['template_version'],
+            'source_commit' => (string) $source['template_source_commit'],
+            'source_tree' => (string) $source['template_source_tree'],
+            'inventory_sha256' => (string) $source['template_inventory_sha256'],
         ];
         if (!$this->sameScaffoldRelease($sourceTemplate, $target->sourceTemplate)) {
             return 'UPGRADE_SOURCE_RELEASE_MISMATCH';
@@ -320,7 +320,7 @@ final readonly class PlatformUpgradeReadinessService
     /** @return array<string,mixed> */
     private function targetProjection(PlatformUpgradeTarget $target): array
     {
-        $manifest = json_decode((string)file_get_contents($target->toManifestPath), true, 512, JSON_THROW_ON_ERROR);
+        $manifest = json_decode((string) file_get_contents($target->toManifestPath), true, 512, JSON_THROW_ON_ERROR);
         $release = is_array($manifest['release'] ?? null) ? $manifest['release'] : [];
         return [
             'release_key' => $target->release['key'],
@@ -415,7 +415,7 @@ final readonly class PlatformUpgradeReadinessService
                 if (($plugin->trustResult()['status'] ?? null) !== 'eligible') {
                     throw new PluginLifecycleException(
                         'PLUGIN_TRUST_QUALIFICATION_INVALID',
-                        'Target Plugin trust is not eligible.'
+                        'Target Plugin trust is not eligible.',
                     );
                 }
                 foreach (($plugin->trust['compatibility']['modules'] ?? []) as $module) {
@@ -445,12 +445,12 @@ final readonly class PlatformUpgradeReadinessService
                     $blockers[] = 'UPGRADE_MODULE_REMOVED';
                     continue;
                 }
-                $targetVersion = (string)($targetModule['version'] ?? '');
+                $targetVersion = (string) ($targetModule['version'] ?? '');
                 if (version_compare($targetVersion, $version, '<')) {
                     $blockers[] = 'UPGRADE_MODULE_DOWNGRADE_FORBIDDEN';
                     continue;
                 }
-                if (!$matcher->matches($kernel, (string)($targetModule['kernel_constraint'] ?? ''))) {
+                if (!$matcher->matches($kernel, (string) ($targetModule['kernel_constraint'] ?? ''))) {
                     $blockers[] = 'UPGRADE_MODULE_KERNEL_INCOMPATIBLE';
                     continue;
                 }
@@ -548,8 +548,8 @@ final readonly class PlatformUpgradeReadinessService
         if (!is_array($latest) || !is_array($restore)
             || ($latest['source_matches_runtime'] ?? false) !== true
             || !hash_equals(
-                (string)$latest['backup_reference_key'],
-                (string)$restore['backup_reference_key']
+                (string) $latest['backup_reference_key'],
+                (string) $restore['backup_reference_key'],
             )) {
             return null;
         }
@@ -646,7 +646,7 @@ final readonly class PlatformUpgradeReadinessService
     private function sourceJson(string $path, string $code): array
     {
         try {
-            $decoded = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new RuntimeException($code, 0, $exception);
         }

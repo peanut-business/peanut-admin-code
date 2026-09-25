@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
@@ -18,8 +19,8 @@ class PaymentNotifyController extends BaseApiController
     public function wechat()
     {
         $this->application->wechat(
-            new CallbackRequest((string)$this->request->getContent(), (array)$this->request->header()),
-            (string)$this->request->route('binding'),
+            new CallbackRequest((string) $this->request->getContent(), (array) $this->request->header()),
+            (string) $this->request->route('binding'),
             $this->operationId(),
         );
         return json(['code' => 'SUCCESS', 'message' => '成功']);
@@ -29,7 +30,7 @@ class PaymentNotifyController extends BaseApiController
     {
         $this->application->alipay(
             new CallbackRequest('', [], $this->request->post()),
-            (string)$this->request->route('binding'),
+            (string) $this->request->route('binding'),
             $this->operationId(),
         );
         return response('success');

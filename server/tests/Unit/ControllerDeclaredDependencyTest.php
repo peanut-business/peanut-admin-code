@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit\ControllerDeclaredDependency;
@@ -26,12 +27,18 @@ final class BoundProbe extends AbstractProbe {}
 class NativeDeclarationController extends BaseController
 {
     protected string $nativeValidatorClass = Validate::class;
-    public function nativeValidator(): Validate { return $this->nativeValidator; }
+    public function nativeValidator(): Validate
+    {
+        return $this->nativeValidator;
+    }
 }
 class AbstractDeclarationController extends BaseController
 {
     protected string $probeClass = AbstractProbe::class;
-    public function probe(): AbstractProbe { return $this->probe; }
+    public function probe(): AbstractProbe
+    {
+        return $this->probe;
+    }
 }
 
 class ProbeQuery extends BaseQuery
@@ -52,17 +59,35 @@ class DeclaredController extends BaseController
     protected string $queryClass = ProbeQuery::class;
     protected string $recordClass = ProbeModel::class;
 
-    public function probe(): ProbeContract { return $this->probe; }
-    public function validator(): ProbeValidate { return $this->validator; }
-    public function query(): ProbeQuery { return $this->query; }
-    public function record(): ProbeModel { return $this->record; }
-    public function resetRecord(): void { $this->resetControllerModel('record'); }
+    public function probe(): ProbeContract
+    {
+        return $this->probe;
+    }
+    public function validator(): ProbeValidate
+    {
+        return $this->validator;
+    }
+    public function query(): ProbeQuery
+    {
+        return $this->query;
+    }
+    public function record(): ProbeModel
+    {
+        return $this->record;
+    }
+    public function resetRecord(): void
+    {
+        $this->resetControllerModel('record');
+    }
 }
 
 class ParentOverrideController extends BaseController
 {
     protected string $probeClass = ProbeA::class;
-    public function probe(): ProbeContract { return $this->probe; }
+    public function probe(): ProbeContract
+    {
+        return $this->probe;
+    }
 }
 
 class ChildOverrideController extends ParentOverrideController
@@ -73,7 +98,10 @@ class ChildOverrideController extends ParentOverrideController
 class CycleController extends BaseController
 {
     protected string $cycleClass = CycleContract::class;
-    public function cycle(): CycleContract { return $this->cycle; }
+    public function cycle(): CycleContract
+    {
+        return $this->cycle;
+    }
 }
 
 class ReservedDeclarationController extends BaseController
@@ -173,7 +201,9 @@ final class ControllerDeclaredDependencyTest extends TestCase
     public function testUnrelatedFactoryTypeErrorIsNotMisreportedAsAControllerCycle(): void
     {
         $app = $this->app();
-        $app->bind(ProbeContract::class, static function (): ProbeContract { return null; });
+        $app->bind(ProbeContract::class, static function (): ProbeContract {
+            return null;
+        });
         $controller = new DeclaredController($app);
         $this->expectException(\TypeError::class);
         $controller->probe();

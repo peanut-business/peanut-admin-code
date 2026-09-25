@@ -152,7 +152,12 @@ final readonly class TenantOwnerAdminService
         ]));
 
         return $this->transaction(function () use (
-            $actor, $tenantId, $memberId, $expectedRevision, $idempotencyHash, $changeReason,
+            $actor,
+            $tenantId,
+            $memberId,
+            $expectedRevision,
+            $idempotencyHash,
+            $changeReason,
         ): array {
             $this->requireOperator($actor);
             $this->requireProvisioningTenant($tenantId);

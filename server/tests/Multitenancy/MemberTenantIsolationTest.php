@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\enum\AccountLogEnum;
@@ -27,7 +28,7 @@ function memberTenantContext(int $tenantId, int $memberId, string $requestId): T
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT03MEMBER' . str_pad((string)$memberId, 13, '0', STR_PAD_LEFT),
+        '01JMT03MEMBER' . str_pad((string) $memberId, 13, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 10000,
         $memberId,
@@ -112,19 +113,19 @@ SQL);
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$host = (string)getenv('DB_HOST');
-$port = (int)getenv('DB_PORT');
-$database = (string)getenv('DB_NAME');
-$user = (string)getenv('DB_USER');
-$password = (string)getenv('DB_PASS');
+$host = (string) getenv('DB_HOST');
+$port = (int) getenv('DB_PORT');
+$database = (string) getenv('DB_NAME');
+$user = (string) getenv('DB_USER');
+$password = (string) getenv('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(5)));
 expectMemberTenant(
     $host !== '' && $port > 0 && $database !== '' && $user !== '' && $password !== '',
-    'registered P0-E database credentials are required'
+    'registered P0-E database credentials are required',
 );
 expectMemberTenant(
     preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1,
-    'Member Tenant Gate requires its exact registered P0-E plugin_lifecycle database'
+    'Member Tenant Gate requires its exact registered P0-E plugin_lifecycle database',
 );
 
 try {
@@ -145,7 +146,8 @@ VALUES
   (41, 101, 'FLOW-SAME', 11, 1, 100, 1, 10.00, 10.00, 0, 'SOURCE-SAME', 'alpha', 0, 1);
 SQL);
     IsolatedBackendEnvironment::activateDatabase($host, $port, $database, $user, $password, 'multi-tenant');
-    $app = new think\App(); $app->initialize();
+    $app = new think\App();
+    $app->initialize();
     set_error_handler(static function (int $severity, string $message, string $file, int $line): never {
         throw new ErrorException($message, 0, $severity, $file, $line);
     });
@@ -155,22 +157,27 @@ SQL);
     });
     $alpha = memberTenantContext(101, 501, 'mt03-member-alpha-' . $runId);
     $beta = memberTenantContext(202, 502, 'mt03-member-beta-' . $runId);
-    try { app(CurrentExecutionContext::class)->tenantAdmin(); throw new RuntimeException('missing TenantContext was accepted'); } catch (Throwable $e) { expectMemberTenant($e->getMessage() !== '', 'missing context denial lost shape'); }
+    try {
+        app(CurrentExecutionContext::class)->tenantAdmin();
+        throw new RuntimeException('missing TenantContext was accepted');
+    } catch (Throwable $e) {
+        expectMemberTenant($e->getMessage() !== '', 'missing context denial lost shape');
+    }
 
     $betaMember = memberTenantRun($beta, static fn() => Member::create([
         'tenant_id' => 101, 'sn' => 'M-SHARED-11', 'account' => 'same-account', 'nickname' => 'Beta member',
         'mobile' => '13800000000', 'status' => 1, 'user_money' => 20,
     ]));
-    expectMemberTenant((int)$betaMember->tenant_id === 202, 'member payload forged Tenant ownership');
+    expectMemberTenant((int) $betaMember->tenant_id === 202, 'member payload forged Tenant ownership');
     memberTenantRun($beta, static fn() => (new MemberTagContractService())->create($beta, 'same-tag', ''));
-    $betaTag = (int)memberTenantRun($beta, static fn() => MemberTag::where([])->where('name', 'same-tag')->value('id'));
+    $betaTag = (int) memberTenantRun($beta, static fn() => MemberTag::where([])->where('name', 'same-tag')->value('id'));
     expectMemberTenant($betaTag > 0, 'same-name tag was not tenant-scoped');
     memberTenantRun($beta, static fn() => MemberTagRelation::create([
-        'tenant_id' => 202, 'member_id' => (int)$betaMember->id, 'tag_id' => $betaTag,
+        'tenant_id' => 202, 'member_id' => (int) $betaMember->id, 'tag_id' => $betaTag,
     ]));
     memberTenantRun($beta, static fn() => MemberBalanceLog::create([
         'sn' => MemberBalanceLog::generateSn($beta),
-        'member_id' => (int)$betaMember->id,
+        'member_id' => (int) $betaMember->id,
         'change_object' => AccountLogEnum::getChangeObject(AccountLogEnum::USER_MONEY_INC_ADMIN),
         'change_type' => AccountLogEnum::USER_MONEY_INC_ADMIN,
         'action' => AccountLogEnum::INC,
@@ -181,28 +188,34 @@ SQL);
         'remark' => '',
         'admin_id' => 0,
     ]));
-    $alphaMember = (int)memberTenantRun($alpha, static fn() => Member::where([])->where('account', 'same-account')->value('id'));
+    $alphaMember = (int) memberTenantRun($alpha, static fn() => Member::where([])->where('account', 'same-account')->value('id'));
     expectMemberTenant($alphaMember === 11, 'Alpha same-account member disappeared');
-    expectMemberTenant(memberTenantRun($alpha, static fn() => Member::where([])->where('id', (int)$betaMember->id)->findOrEmpty()->isEmpty()), 'Alpha read Beta member');
+    expectMemberTenant(memberTenantRun($alpha, static fn() => Member::where([])->where('id', (int) $betaMember->id)->findOrEmpty()->isEmpty()), 'Alpha read Beta member');
     try {
-        memberTenantRun($alpha, static fn() => (new MemberProfileContractService())->updateStatus($alpha, (int)$betaMember->id, 0));
+        memberTenantRun($alpha, static fn() => (new MemberProfileContractService())->updateStatus($alpha, (int) $betaMember->id, 0));
         throw new RuntimeException('Alpha updated Beta member');
     } catch (Throwable $e) {
         expectMemberTenant($e->getMessage() !== '', 'cross-Tenant status denial lost shape');
     }
-    expectMemberTenant((int)memberTenantRun($beta, static fn() => Member::where([])->where('id', (int)$betaMember->id)->value('status')) === 1, 'cross-Tenant status denial mutated Beta');
+    expectMemberTenant((int) memberTenantRun($beta, static fn() => Member::where([])->where('id', (int) $betaMember->id)->value('status')) === 1, 'cross-Tenant status denial mutated Beta');
 
-    $alphaBefore = (string)memberTenantRun($alpha, static fn() => Member::where([])->where('id', 11)->value('user_money'));
-    $betaBefore = (string)memberTenantRun($beta, static fn() => Member::where([])->where('id', (int)$betaMember->id)->value('user_money'));
+    $alphaBefore = (string) memberTenantRun($alpha, static fn() => Member::where([])->where('id', 11)->value('user_money'));
+    $betaBefore = (string) memberTenantRun($beta, static fn() => Member::where([])->where('id', (int) $betaMember->id)->value('user_money'));
     memberTenantRun($alpha, static function () use ($alpha): void {
         think\facade\Db::transaction(static fn() => MemberBalanceService::applyInTransaction(
-            $alpha, 11, AccountLogEnum::USER_MONEY_INC_ADMIN, AccountLogEnum::INC, 100, 'SOURCE-ALPHA-ADJUST', 'alpha'
+            $alpha,
+            11,
+            AccountLogEnum::USER_MONEY_INC_ADMIN,
+            AccountLogEnum::INC,
+            100,
+            'SOURCE-ALPHA-ADJUST',
+            'alpha',
         ));
     });
-    expectMemberTenant((string)memberTenantRun($alpha, static fn() => Member::where([])->where('id', 11)->value('user_money')) !== $alphaBefore, 'Alpha balance did not change');
-    expectMemberTenant((string)memberTenantRun($beta, static fn() => Member::where([])->where('id', (int)$betaMember->id)->value('user_money')) === $betaBefore, 'Alpha adjustment changed Beta balance');
-    expectMemberTenant((int)memberTenantRun($alpha, static fn() => MemberBalanceLog::where([])->count()) === 2, 'Alpha admin ledger leaked or lost rows');
-    expectMemberTenant((int)memberTenantRun($beta, static fn() => MemberBalanceLog::where([])->where('member_id', (int)$betaMember->id)->count()) === 1, 'Beta API ledger leaked or lost rows');
+    expectMemberTenant((string) memberTenantRun($alpha, static fn() => Member::where([])->where('id', 11)->value('user_money')) !== $alphaBefore, 'Alpha balance did not change');
+    expectMemberTenant((string) memberTenantRun($beta, static fn() => Member::where([])->where('id', (int) $betaMember->id)->value('user_money')) === $betaBefore, 'Alpha adjustment changed Beta balance');
+    expectMemberTenant((int) memberTenantRun($alpha, static fn() => MemberBalanceLog::where([])->count()) === 2, 'Alpha admin ledger leaked or lost rows');
+    expectMemberTenant((int) memberTenantRun($beta, static fn() => MemberBalanceLog::where([])->where('member_id', (int) $betaMember->id)->count()) === 1, 'Beta API ledger leaked or lost rows');
 
     try {
         memberTenantRun($alpha, static fn() => (new MemberTagContractService())->delete($alpha, $betaTag));
@@ -211,9 +224,9 @@ SQL);
         expectMemberTenant($e->getMessage() !== '', 'cross-Tenant tag denial lost shape');
     }
     expectMemberTenant(memberTenantRun($beta, static fn() => !MemberTag::where([])->where('id', $betaTag)->findOrEmpty()->isEmpty()), 'Beta tag changed after Alpha cleanup');
-    expectMemberTenant((int)memberTenantRun($beta, static fn() => MemberTagRelation::where([])->where('tag_id', $betaTag)->count()) === 1, 'Alpha cleanup changed Beta relation');
-    expectMemberTenant((int)memberTenantRun($alpha, static fn() => MemberBalanceLog::where([])->where('source_sn', 'SOURCE-SAME')->count()) === 1, 'Alpha source_sn scope mismatch');
-    expectMemberTenant((int)memberTenantRun($beta, static fn() => MemberBalanceLog::where([])->where('source_sn', 'SOURCE-SAME')->count()) === 1, 'Beta source_sn scope mismatch');
+    expectMemberTenant((int) memberTenantRun($beta, static fn() => MemberTagRelation::where([])->where('tag_id', $betaTag)->count()) === 1, 'Alpha cleanup changed Beta relation');
+    expectMemberTenant((int) memberTenantRun($alpha, static fn() => MemberBalanceLog::where([])->where('source_sn', 'SOURCE-SAME')->count()) === 1, 'Alpha source_sn scope mismatch');
+    expectMemberTenant((int) memberTenantRun($beta, static fn() => MemberBalanceLog::where([])->where('source_sn', 'SOURCE-SAME')->count()) === 1, 'Beta source_sn scope mismatch');
     try {
         memberTenantRun($alpha, static fn() => MemberBalanceLog::create([
             'sn' => MemberBalanceLog::generateSn($alpha),
@@ -235,13 +248,13 @@ SQL);
             : [];
         expectMemberTenant(
             ($errorInfo['SQLSTATE'] ?? '') === '23000'
-                && (int)($errorInfo['Driver Error Code'] ?? 0) === 1062,
-            'same-Tenant source_sn did not fail with SQLSTATE 23000 / MySQL 1062'
+                && (int) ($errorInfo['Driver Error Code'] ?? 0) === 1062,
+            'same-Tenant source_sn did not fail with SQLSTATE 23000 / MySQL 1062',
         );
     }
     expectMemberTenant(
-        (int)memberTenantRun($alpha, static fn() => MemberBalanceLog::where([])->where('source_sn', 'SOURCE-SAME')->count()) === 1,
-        'duplicate same-Tenant source_sn row was inserted'
+        (int) memberTenantRun($alpha, static fn() => MemberBalanceLog::where([])->where('source_sn', 'SOURCE-SAME')->count()) === 1,
+        'duplicate same-Tenant source_sn row was inserted',
     );
 
     foreach (['Modules/Official/Member/Application/MemberAdministrationService.php', 'Modules/Official/Member/Application/MemberTagContractService.php', 'Modules/Official/Member/Application/MemberBalanceService.php', 'Modules/Official/Member/Model/MemberBalanceLog.php'] as $relative) {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -61,10 +62,10 @@ function poSessions(): PlatformOperatorSessionService
             new PasswordHasher(),
             new SystemClock(),
             new TokenIssuer(),
-            str_repeat('p', 32)
+            str_repeat('p', 32),
         ),
         new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()),
-        $repository
+        $repository,
     );
 }
 
@@ -76,7 +77,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
 $database = 'pa_pm01_operator_' . strtolower(bin2hex(random_bytes(6)));
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -90,7 +91,7 @@ try {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]
+        ],
     );
     foreach (KernelSchema::tableNames() as $table) {
         $pdo->exec(KernelSchema::createSql($table));
@@ -111,7 +112,7 @@ try {
         'platform-only@example.test',
         'PlatformPassword2026',
         'Platform Only',
-        'pm01-operator-bootstrap'
+        'pm01-operator-bootstrap',
     );
     $sessions = poSessions();
     $authentication = $sessions->login(
@@ -119,27 +120,27 @@ try {
         'PlatformPassword2026',
         '127.0.0.1',
         'PM01 fixture',
-        'pm01-operator-login'
+        'pm01-operator-login',
     );
     $access = $authentication->tokens->access->expose();
     poExpect(str_starts_with($access, 'pa_pat_'), 'platform access token audience prefix is wrong');
-    poExpect((int)$pdo->query('SELECT COUNT(*) FROM pa_admin_session')->fetchColumn() === 0, 'platform login reused admin session storage');
-    poExpect((int)$pdo->query('SELECT COUNT(*) FROM pa_platform_session')->fetchColumn() === 1, 'platform session was not persisted independently');
-    poExpect((int)$pdo->query('SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=' . $platform->accountId)->fetchColumn() === 0, 'platform operator became a TenantMember');
+    poExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_admin_session')->fetchColumn() === 0, 'platform login reused admin session storage');
+    poExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_platform_session')->fetchColumn() === 1, 'platform session was not persisted independently');
+    poExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=' . $platform->accountId)->fetchColumn() === 0, 'platform operator became a TenantMember');
 
     $context = $sessions->context($access, 'pm01-context');
     poExpect($context->core->operatorId === $platform->operatorId, 'validated platform context resolved the wrong operator');
     poRejected(
         static fn() => $sessions->context('pa_tat_' . str_repeat('a', 43), 'pm01-forged-tenant-token'),
-        'Credential cannot be used for this entry.'
+        'Credential cannot be used for this entry.',
     );
     $wrongClientContext = PlatformContext::fromValidatedSession(
         new ValidatedPlatformSession(999, 'fixture-session', 999, 999, 'admin-web', new DateTimeImmutable()),
-        'pm01-wrong-client'
+        'pm01-wrong-client',
     );
     poRejected(
         static fn() => PlatformOperatorContext::fromValidatedPlatformSession($wrongClientContext),
-        'PLATFORM_OPERATOR_CONTEXT_UNTRUSTED'
+        'PLATFORM_OPERATOR_CONTEXT_UNTRUSTED',
     );
 
     $identity = (new CorePlatformOperatorIdentityPort($sessions))->requireActive($access);
@@ -150,7 +151,7 @@ try {
     // A non-builtin role receives only explicit platform permissions; ordinary admin tables are irrelevant.
     $now = '2026-08-12 12:00:00.000';
     $pdo->exec("INSERT INTO pa_account (display_name,status,created_at,updated_at) VALUES ('Scoped Operator','active','{$now}','{$now}')");
-    $scopedAccountId = (int)$pdo->lastInsertId();
+    $scopedAccountId = (int) $pdo->lastInsertId();
     $hash = password_hash('ScopedPassword2026', PASSWORD_ARGON2ID);
     $statement = $pdo->prepare(<<<'SQL'
 INSERT INTO pa_credential (
@@ -169,10 +170,10 @@ SQL);
         'updated_at' => $now,
     ]);
     $pdo->exec("INSERT INTO pa_platform_operator (account_id,display_name,status,created_at,updated_at) VALUES ({$scopedAccountId},'Scoped Operator','active','{$now}','{$now}')");
-    $scopedOperatorId = (int)$pdo->lastInsertId();
+    $scopedOperatorId = (int) $pdo->lastInsertId();
     $pdo->exec("INSERT INTO pa_platform_role (`key`,name,is_builtin,status,created_at,updated_at) VALUES ('platform.scoped-reader','Scoped Reader',0,'active','{$now}','{$now}')");
-    $roleId = (int)$pdo->lastInsertId();
-    $permissionId = (int)$pdo->query("SELECT id FROM pa_permission WHERE `key`='platform.tenant.read'")->fetchColumn();
+    $roleId = (int) $pdo->lastInsertId();
+    $permissionId = (int) $pdo->query("SELECT id FROM pa_permission WHERE `key`='platform.tenant.read'")->fetchColumn();
     $pdo->exec("INSERT INTO pa_platform_role_permission (platform_role_id,permission_id,granted_at) VALUES ({$roleId},{$permissionId},'{$now}')");
     $pdo->exec("INSERT INTO pa_platform_operator_role (platform_operator_id,platform_role_id,assigned_at) VALUES ({$scopedOperatorId},{$roleId},'{$now}')");
     $scoped = $sessions->login('scoped@example.test', 'ScopedPassword2026', '127.0.0.2', 'PM01 fixture', 'pm01-scoped-login');
@@ -188,25 +189,25 @@ SQL);
         'scoped@example.test',
         null,
         'Scoped Operator',
-        'pm01-dual-identity-membership'
+        'pm01-dual-identity-membership',
     );
     poExpect($candidate->memberId > 0, 'membership boundary fixture was not established');
     $dualIdentityContext = $sessions->context(
         $scoped->tokens->access->expose(),
-        'pm01-membership-recheck'
+        'pm01-membership-recheck',
     );
     poExpect(
         $dualIdentityContext->core->operatorId === $scopedOperatorId,
-        'TenantMember identity changed the validated platform operator'
+        'TenantMember identity changed the validated platform operator',
     );
     $sessions->assertAllowed($dualIdentityContext, 'platform.tenant.read');
     poRejected(
         static fn() => $sessions->assertAllowed($dualIdentityContext, 'core.member.read'),
-        'AUTHZ_PERMISSION_DENIED'
+        'AUTHZ_PERMISSION_DENIED',
     );
     poExpect(
         $pdo->query("SELECT status FROM pa_platform_session WHERE platform_operator_id={$scopedOperatorId}")->fetchColumn() === 'active',
-        'TenantMember identity revoked the independent platform session'
+        'TenantMember identity revoked the independent platform session',
     );
 
     $routeSource = peanut_route_registry_source(dirname(__DIR__, 2));

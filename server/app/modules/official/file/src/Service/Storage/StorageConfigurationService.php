@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Service\Storage;
@@ -57,7 +58,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
                 'credential_rotated_at' => $account['credential']['rotated_at'], 'status' => 'active',
                 'created_at' => StorageAccount::raw('UTC_TIMESTAMP(3)'), 'updated_at' => StorageAccount::raw('UTC_TIMESTAMP(3)'),
             ]);
-            return (int)$created->id;
+            return (int) $created->id;
         });
     }
 
@@ -69,7 +70,9 @@ final readonly class StorageConfigurationService implements StorageConfiguration
             $this->assertKeys($value, ['id', 'name', 'status', 'credentials', 'credential_ref']);
             $id = $this->id($value['id'] ?? 0);
             $existing = StorageAccount::where('id', $id)->field('account_key,driver')->find();
-            if ($existing === null) throw new \InvalidArgumentException('存储账号不存在');
+            if ($existing === null) {
+                throw new \InvalidArgumentException('存储账号不存在');
+            }
             $account = $this->account([
                 'account_key' => $existing->account_key, 'driver' => $existing->driver,
                 'name' => $value['name'] ?? '', 'credentials' => $value['credentials'] ?? null,
@@ -77,7 +80,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
             ], false);
             $data = [
                 'name' => $account['name'],
-                'status' => $this->status((string)($value['status'] ?? 'active'), ['active', 'disabled']),
+                'status' => $this->status((string) ($value['status'] ?? 'active'), ['active', 'disabled']),
                 'updated_at' => StorageAccount::raw('UTC_TIMESTAMP(3)'),
             ];
             if ($account['credential'] !== null) {
@@ -107,7 +110,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
                 'local_path' => $space['local_path'], 'status' => 'active',
                 'created_at' => StorageSpace::raw('UTC_TIMESTAMP(3)'), 'updated_at' => StorageSpace::raw('UTC_TIMESTAMP(3)'),
             ]);
-            return (int)$created->id;
+            return (int) $created->id;
         });
     }
 
@@ -118,7 +121,9 @@ final readonly class StorageConfigurationService implements StorageConfiguration
             $id = $this->id($value['id'] ?? 0);
             $existing = StorageSpace::where('id', $id)
                 ->field('account_id,space_key,access_type,bucket,region,endpoint,local_path')->find();
-            if ($existing === null) throw new \InvalidArgumentException('Space 不存在');
+            if ($existing === null) {
+                throw new \InvalidArgumentException('Space 不存在');
+            }
             $space = $this->space([
                 ...$existing->toArray(),
                 'name' => $value['name'] ?? '',
@@ -136,10 +141,12 @@ final readonly class StorageConfigurationService implements StorageConfiguration
     {
         $this->mutate($context, 'storage.route.updated', 'STORAGE_ROUTE', [], function () use ($value): void {
             $this->assertKeys($value, ['route_key', 'access_type', 'space_id']);
-            $key = $this->key((string)($value['route_key'] ?? ''), 96);
-            $access = StorageAccess::assertType((string)($value['access_type'] ?? ''));
+            $key = $this->key((string) ($value['route_key'] ?? ''), 96);
+            $access = StorageAccess::assertType((string) ($value['access_type'] ?? ''));
             if (str_starts_with($key, 'default.')) {
-                if ($key !== 'default.' . $access) throw new \InvalidArgumentException('默认路由属性不匹配');
+                if ($key !== 'default.' . $access) {
+                    throw new \InvalidArgumentException('默认路由属性不匹配');
+                }
             } elseif (StoragePurpose::accessType($key) !== $access) {
                 throw new \InvalidArgumentException('用途路由属性不匹配');
             }
@@ -157,11 +164,11 @@ final readonly class StorageConfigurationService implements StorageConfiguration
     private function account(array $value, bool $credentialRequired): array
     {
         $this->assertNoReference($value);
-        $driver = $this->driver((string)($value['driver'] ?? ''));
+        $driver = $this->driver((string) ($value['driver'] ?? ''));
         return [
-            'account_key' => $this->key((string)($value['account_key'] ?? ''), 64),
+            'account_key' => $this->key((string) ($value['account_key'] ?? ''), 64),
             'driver' => $driver,
-            'name' => $this->name((string)($value['name'] ?? '')),
+            'name' => $this->name((string) ($value['name'] ?? '')),
             'credential' => $this->credential($driver, $value, $credentialRequired),
         ];
     }
@@ -170,14 +177,16 @@ final readonly class StorageConfigurationService implements StorageConfiguration
     {
         $accountId = $this->id($value['account_id'] ?? 0);
         $driver = StorageAccount::where('id', $accountId)->value('driver');
-        if (!is_string($driver)) throw new \InvalidArgumentException('存储账号不存在');
+        if (!is_string($driver)) {
+            throw new \InvalidArgumentException('存储账号不存在');
+        }
         $driver = $this->driver($driver);
-        $access = StorageAccess::assertType((string)($value['access_type'] ?? ''));
-        $bucket = $this->nullable((string)($value['bucket'] ?? ''));
-        $region = $this->nullable((string)($value['region'] ?? ''));
-        $endpoint = $this->url((string)($value['endpoint'] ?? ''));
-        $domain = $this->url((string)($value['access_domain'] ?? ''));
-        $local = $this->nullable((string)($value['local_path'] ?? ''));
+        $access = StorageAccess::assertType((string) ($value['access_type'] ?? ''));
+        $bucket = $this->nullable((string) ($value['bucket'] ?? ''));
+        $region = $this->nullable((string) ($value['region'] ?? ''));
+        $endpoint = $this->url((string) ($value['endpoint'] ?? ''));
+        $domain = $this->url((string) ($value['access_domain'] ?? ''));
+        $local = $this->nullable((string) ($value['local_path'] ?? ''));
         if ($driver === 'local') {
             if ($local !== ($access === StorageAccess::PUBLIC ? 'public/storage' : 'private/storage') || $bucket !== null) {
                 throw new \InvalidArgumentException('本地目录与公开属性不匹配');
@@ -188,11 +197,11 @@ final readonly class StorageConfigurationService implements StorageConfiguration
             throw new \InvalidArgumentException('云 Space 位置配置不完整');
         }
         return [
-            'account_id' => $accountId, 'space_key' => $this->key((string)($value['space_key'] ?? ''), 64),
-            'name' => $this->name((string)($value['name'] ?? '')), 'access_type' => $access,
+            'account_id' => $accountId, 'space_key' => $this->key((string) ($value['space_key'] ?? ''), 64),
+            'name' => $this->name((string) ($value['name'] ?? '')), 'access_type' => $access,
             'bucket' => $bucket, 'region' => $region, 'endpoint' => $endpoint,
             'access_domain' => $domain, 'local_path' => $local,
-            'status' => $this->status((string)($value['status'] ?? 'active'), ['active', 'read_only', 'disabled']),
+            'status' => $this->status((string) ($value['status'] ?? 'active'), ['active', 'read_only', 'disabled']),
         ];
     }
 
@@ -241,12 +250,16 @@ final readonly class StorageConfigurationService implements StorageConfiguration
     private function credential(string $driver, array $value, bool $required): ?array
     {
         if ($driver === 'local') {
-            if ((array)($value['credentials'] ?? []) !== []) throw new \InvalidArgumentException('本地存储不允许配置凭据');
+            if ((array) ($value['credentials'] ?? []) !== []) {
+                throw new \InvalidArgumentException('本地存储不允许配置凭据');
+            }
             return $required ? ['ciphertext' => null, 'key_version' => null, 'rotated_at' => null] : null;
         }
         $raw = $value['credentials'] ?? null;
         if ($raw === null || $raw === []) {
-            if ($required) throw new \InvalidArgumentException('存储凭据不完整');
+            if ($required) {
+                throw new \InvalidArgumentException('存储凭据不完整');
+            }
             return null;
         }
         if (!is_array($raw) || array_diff(array_keys($raw), ['access_key', 'secret_key']) !== []) {
@@ -267,24 +280,32 @@ final readonly class StorageConfigurationService implements StorageConfiguration
 
     private function assertKeys(array $value, array $allowed): void
     {
-        if (array_diff(array_keys($value), $allowed) !== []) throw new \InvalidArgumentException('请求字段无效');
+        if (array_diff(array_keys($value), $allowed) !== []) {
+            throw new \InvalidArgumentException('请求字段无效');
+        }
     }
 
     private function assertNoReference(array $value): void
     {
-        if (trim((string)($value['credential_ref'] ?? '')) !== '') throw new \InvalidArgumentException('存储凭据引用已不再支持');
+        if (trim((string) ($value['credential_ref'] ?? '')) !== '') {
+            throw new \InvalidArgumentException('存储凭据引用已不再支持');
+        }
     }
 
     private function driver(string $value): string
     {
-        if (!in_array($value, ['local', 'qiniu', 'aliyun', 'qcloud'], true)) throw new \InvalidArgumentException('存储驱动无效');
+        if (!in_array($value, ['local', 'qiniu', 'aliyun', 'qcloud'], true)) {
+            throw new \InvalidArgumentException('存储驱动无效');
+        }
         return $value;
     }
 
     private function id(mixed $value): int
     {
-        $id = (int)$value;
-        if ($id < 1) throw new \InvalidArgumentException('ID 无效');
+        $id = (int) $value;
+        if ($id < 1) {
+            throw new \InvalidArgumentException('ID 无效');
+        }
         return $id;
     }
 
@@ -300,7 +321,9 @@ final readonly class StorageConfigurationService implements StorageConfiguration
     private function name(string $value): string
     {
         $value = trim($value);
-        if ($value === '' || mb_strlen($value) > 128) throw new \InvalidArgumentException('名称无效');
+        if ($value === '' || mb_strlen($value) > 128) {
+            throw new \InvalidArgumentException('名称无效');
+        }
         return $value;
     }
 
@@ -313,9 +336,11 @@ final readonly class StorageConfigurationService implements StorageConfiguration
     private function url(string $value): ?string
     {
         $value = trim($value);
-        if ($value === '') return null;
+        if ($value === '') {
+            return null;
+        }
         if (filter_var($value, FILTER_VALIDATE_URL) === false
-            || !in_array(strtolower((string)parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+            || !in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true)) {
             throw new \InvalidArgumentException('访问地址无效');
         }
         return rtrim($value, '/');
@@ -323,7 +348,9 @@ final readonly class StorageConfigurationService implements StorageConfiguration
 
     private function status(string $value, array $allowed): string
     {
-        if (!in_array($value, $allowed, true)) throw new \InvalidArgumentException('状态无效');
+        if (!in_array($value, $allowed, true)) {
+            throw new \InvalidArgumentException('状态无效');
+        }
         return $value;
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\infrastructure\generator;
@@ -79,8 +80,8 @@ final class ThinkPhpGeneratorMetadata
             ->toArray();
         $definitions = [];
         foreach ($tables as $table) {
-            $definitions[(string)$table['table_name']] = [
-                'table_comment' => (string)$table['table_comment'],
+            $definitions[(string) $table['table_name']] = [
+                'table_comment' => (string) $table['table_comment'],
                 'columns' => [],
             ];
         }
@@ -96,7 +97,7 @@ final class ThinkPhpGeneratorMetadata
             ->select()
             ->toArray();
         foreach ($columns as $column) {
-            $definitions[(string)$column['table_name']]['columns'][] = $this->columnDefinition($column);
+            $definitions[(string) $column['table_name']]['columns'][] = $this->columnDefinition($column);
         }
         return $definitions;
     }
@@ -111,34 +112,34 @@ final class ThinkPhpGeneratorMetadata
     /** @return array<string,mixed> */
     private function columnDefinition(array $column): array
     {
-        $name = (string)$column['column_name'];
+        $name = (string) $column['column_name'];
         $audit = in_array($name, ['id', 'create_time', 'update_time', 'delete_time'], true);
-        $primary = (string)$column['column_key'] === 'PRI';
-        $auto = str_contains(strtolower((string)$column['extra']), 'auto_increment');
-        $phpType = self::phpType((string)$column['data_type']);
+        $primary = (string) $column['column_key'] === 'PRI';
+        $auto = str_contains(strtolower((string) $column['extra']), 'auto_increment');
+        $phpType = self::phpType((string) $column['data_type']);
         return [
             'column_name' => $name,
-            'column_comment' => (string)$column['column_comment'],
-            'column_type' => (string)$column['column_type'],
+            'column_comment' => (string) $column['column_comment'],
+            'column_type' => (string) $column['column_type'],
             'php_type' => $phpType,
-            'is_required' => (int)((string)$column['is_nullable'] === 'NO'
+            'is_required' => (int) ((string) $column['is_nullable'] === 'NO'
                 && $column['column_default'] === null && !$primary && !$auto),
-            'is_pk' => (int)$primary,
-            'is_insert' => (int)(!$audit && !$auto),
-            'is_update' => (int)(!$audit && !$auto),
-            'is_lists' => (int)(!$audit || $primary),
-            'is_query' => (int)(!$audit),
+            'is_pk' => (int) $primary,
+            'is_insert' => (int) (!$audit && !$auto),
+            'is_update' => (int) (!$audit && !$auto),
+            'is_lists' => (int) (!$audit || $primary),
+            'is_query' => (int) (!$audit),
             'query_type' => $phpType === 'string' ? 'like' : '=',
-            'view_type' => self::viewType($name, (string)$column['data_type']),
+            'view_type' => self::viewType($name, (string) $column['data_type']),
             'dict_type' => '',
-            'sort' => (int)$column['ordinal_position'],
+            'sort' => (int) $column['ordinal_position'],
         ];
     }
 
     private function schema(): string
     {
         $rows = Db::query('SELECT DATABASE() AS schema_name');
-        $schema = (string)($rows[0]['schema_name'] ?? '');
+        $schema = (string) ($rows[0]['schema_name'] ?? '');
         if ($schema === '') {
             throw new \RuntimeException('未选择数据库');
         }
@@ -147,17 +148,29 @@ final class ThinkPhpGeneratorMetadata
 
     private static function phpType(string $type): string
     {
-        if (preg_match('/int|bit|serial|bool/i', $type)) return 'int';
-        if (preg_match('/decimal|double|float|real|numeric/i', $type)) return 'float';
-        if (preg_match('/json/i', $type)) return 'array';
+        if (preg_match('/int|bit|serial|bool/i', $type)) {
+            return 'int';
+        }
+        if (preg_match('/decimal|double|float|real|numeric/i', $type)) {
+            return 'float';
+        }
+        if (preg_match('/json/i', $type)) {
+            return 'array';
+        }
         return 'string';
     }
 
     private static function viewType(string $name, string $type): string
     {
-        if (preg_match('/text|json/i', $type)) return 'textarea';
-        if (preg_match('/date|time/i', $type)) return 'datetime';
-        if (preg_match('/status|disable|show|enable/i', $name)) return 'switch';
+        if (preg_match('/text|json/i', $type)) {
+            return 'textarea';
+        }
+        if (preg_match('/date|time/i', $type)) {
+            return 'datetime';
+        }
+        if (preg_match('/status|disable|show|enable/i', $name)) {
+            return 'switch';
+        }
         return 'input';
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services;
@@ -23,8 +24,7 @@ final readonly class ProductAssetReferenceService
         string $value,
         ?string $applicationOrigin = null,
         AuthenticatedMemberContext|TenantContext|TenantSystemContext|null $context = null,
-    ): string
-    {
+    ): string {
         $value = trim($value);
         if ($value === '') {
             return '';
@@ -36,7 +36,7 @@ final readonly class ProductAssetReferenceService
 
         $origin = rtrim($applicationOrigin ?? $this->applicationOrigin, '/');
         if (self::isSameOriginStorageUrl($value, $origin)) {
-            $uri = ltrim((string)parse_url($value, PHP_URL_PATH), '/');
+            $uri = ltrim((string) parse_url($value, PHP_URL_PATH), '/');
             return $context === null ? $uri : $this->files->setTenantFileUrl($context, $uri);
         }
         if ($context !== null) {
@@ -61,13 +61,13 @@ final readonly class ProductAssetReferenceService
             return false;
         }
 
-        $valueScheme = strtolower((string)parse_url($value, PHP_URL_SCHEME));
-        $originScheme = strtolower((string)parse_url($origin, PHP_URL_SCHEME));
-        $valueHost = strtolower((string)parse_url($value, PHP_URL_HOST));
-        $originHost = strtolower((string)parse_url($origin, PHP_URL_HOST));
+        $valueScheme = strtolower((string) parse_url($value, PHP_URL_SCHEME));
+        $originScheme = strtolower((string) parse_url($origin, PHP_URL_SCHEME));
+        $valueHost = strtolower((string) parse_url($value, PHP_URL_HOST));
+        $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));
         $valuePort = parse_url($value, PHP_URL_PORT) ?? ($valueScheme === 'https' ? 443 : 80);
         $originPort = parse_url($origin, PHP_URL_PORT) ?? ($originScheme === 'https' ? 443 : 80);
-        $path = (string)parse_url($value, PHP_URL_PATH);
+        $path = (string) parse_url($value, PHP_URL_PATH);
 
         return $valueScheme === $originScheme
             && $valueHost !== ''
@@ -79,6 +79,6 @@ final readonly class ProductAssetReferenceService
     private static function isHttpUrl(string $value): bool
     {
         return filter_var($value, FILTER_VALIDATE_URL) !== false
-            && in_array(strtolower((string)parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true);
+            && in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true);
     }
 }

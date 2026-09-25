@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\platform\service\plugin\ModulePackagePreflight;
@@ -28,9 +29,9 @@ function allModulesPackagingRun(array $command, ?string $cwd = null): string
     fclose($pipes[2]);
     $code = proc_close($process);
     if ($code !== 0) {
-        throw new RuntimeException('packaging evidence identity command failed: ' . trim((string)$stderr));
+        throw new RuntimeException('packaging evidence identity command failed: ' . trim((string) $stderr));
     }
-    return trim((string)$stdout);
+    return trim((string) $stdout);
 }
 
 /** @return array{files:int,sha256:string} */
@@ -64,7 +65,7 @@ $resultsPath = $argv[1] ?? '/tmp/module-packages-test/packaging-results.json';
 $currentCandidate = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{commit}']);
 $currentTree = allModulesPackagingRun(['git', '-C', $projectRoot, 'rev-parse', 'HEAD^{tree}']);
 $pluginLock = json_decode(
-    (string)file_get_contents($projectRoot . '/plugins.lock'),
+    (string) file_get_contents($projectRoot . '/plugins.lock'),
     true,
     64,
     JSON_THROW_ON_ERROR,
@@ -90,7 +91,7 @@ sort($expectedModules, SORT_STRING);
 allModulesPackagingExpect($expectedModules !== [], 'Bundled official Module inventory is empty');
 
 allModulesPackagingExpect(is_file($resultsPath), "Packaging result evidence is missing: {$resultsPath}");
-$evidence = json_decode((string)file_get_contents($resultsPath), true, 64, JSON_THROW_ON_ERROR);
+$evidence = json_decode((string) file_get_contents($resultsPath), true, 64, JSON_THROW_ON_ERROR);
 allModulesPackagingExpect(is_array($evidence) && !array_is_list($evidence), 'Packaging result evidence root is invalid');
 allModulesPackagingExpect(
     is_string($evidence['candidate'] ?? null)
@@ -98,8 +99,8 @@ allModulesPackagingExpect(
     'Packaging candidate identity is invalid',
 );
 allModulesPackagingExpect(
-    hash_equals($currentCandidate, (string)$evidence['candidate'])
-        && hash_equals($currentTree, (string)($evidence['source_tree'] ?? '')),
+    hash_equals($currentCandidate, (string) $evidence['candidate'])
+        && hash_equals($currentTree, (string) ($evidence['source_tree'] ?? '')),
     'Packaging evidence does not describe the current source commit/tree',
 );
 
@@ -136,7 +137,7 @@ foreach ($expectedModules as $moduleKey) {
     allModulesPackagingExpect(
         is_string($expectedSha256)
             && preg_match('/^[a-f0-9]{64}$/D', $expectedSha256) === 1
-            && hash_equals($expectedSha256, (string)hash_file('sha256', $archivePath)),
+            && hash_equals($expectedSha256, (string) hash_file('sha256', $archivePath)),
         "Module package SHA-256 differs: {$moduleKey}",
     );
 
@@ -189,7 +190,7 @@ allModulesPackagingExpect(
 $distFacts = allModulesPackagingDistFacts($projectRoot . '/web/dist');
 allModulesPackagingExpect(
     $productionBuild['files'] === $distFacts['files']
-        && hash_equals((string)$productionBuild['tree_sha256'], $distFacts['sha256']),
+        && hash_equals((string) $productionBuild['tree_sha256'], $distFacts['sha256']),
     'Production Web build evidence does not match web/dist',
 );
 allModulesPackagingExpect(($productionBuild['filename_dev_tools_hits'] ?? null) === [], 'Production bundle contains a dev-tools filename');

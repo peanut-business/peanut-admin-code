@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\scaffold;
@@ -16,8 +17,7 @@ final readonly class EditionProfile
         public int $generatorVersion,
         public string $sourceSha256,
         public array $definition,
-    ) {
-    }
+    ) {}
 
     public static function load(string $path, string $edition): self
     {

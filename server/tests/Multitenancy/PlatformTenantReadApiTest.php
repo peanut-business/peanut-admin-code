@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -50,10 +51,10 @@ function platformTenantReadSessions(): PlatformOperatorSessionService
             new PasswordHasher(),
             new SystemClock(),
             new TokenIssuer(),
-            str_repeat('r', 32)
+            str_repeat('r', 32),
         ),
         new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()),
-        $repository
+        $repository,
     );
 }
 
@@ -61,7 +62,7 @@ function platformTenantReadCreateOperator(PDO $pdo, string $email, string $passw
 {
     $now = '2026-08-13 09:00:00.000';
     $pdo->exec("INSERT INTO pa_account (display_name,status,created_at,updated_at) VALUES ('No Access','active','{$now}','{$now}')");
-    $accountId = (int)$pdo->lastInsertId();
+    $accountId = (int) $pdo->lastInsertId();
     $statement = $pdo->prepare(<<<'SQL'
 INSERT INTO pa_credential (
   account_id,kind,identifier_type,identifier_normalized,secret_hash,status,
@@ -91,7 +92,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
 $database = 'pa_pm01_tenant_read_' . strtolower(bin2hex(random_bytes(6)));
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -105,7 +106,7 @@ try {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]
+        ],
     );
     foreach (KernelSchema::tableNames() as $table) {
         $pdo->exec(KernelSchema::createSql($table));
@@ -125,7 +126,7 @@ try {
         'reader@example.test',
         'ReaderPassword2026',
         'Platform Reader',
-        'pm01-tenant-read-bootstrap'
+        'pm01-tenant-read-bootstrap',
     );
     $now = '2026-08-13 09:00:00.000';
     $tenantInsert = $pdo->prepare(<<<'SQL'
@@ -156,16 +157,16 @@ SQL);
         'ReaderPassword2026',
         '127.0.0.1',
         'PM01 tenant read fixture',
-        'pm01-tenant-read-login'
+        'pm01-tenant-read-login',
     );
     $context = $sessions->context(
         $authentication->tokens->access->expose(),
-        'pm01-tenant-read-context'
+        'pm01-tenant-read-context',
     );
 
     $before = [];
     foreach (['pa_tenant', 'pa_tenant_member', 'pa_tenant_module', 'pa_platform_audit_event', 'pa_tenant_audit_event'] as $table) {
-        $before[$table] = (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
+        $before[$table] = (int) $pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
     }
 
     $firstPage = $queries->tenants($context, new PageRequest(1, 2));
@@ -173,11 +174,11 @@ SQL);
     platformTenantReadExpect(count($firstPage['items']) === 2, 'platform Tenant page size is incorrect');
     platformTenantReadExpect(
         array_column($firstPage['items'], 'status') === ['provisioning', 'suspended'],
-        'platform Tenant list lost governance-visible lifecycle states'
+        'platform Tenant list lost governance-visible lifecycle states',
     );
     $secondPage = $queries->tenants($context, new PageRequest(2, 2));
     platformTenantReadExpect(count($secondPage['items']) === 1, 'platform Tenant second page is incorrect');
-    $closedId = (int)$secondPage['items'][0]['id'];
+    $closedId = (int) $secondPage['items'][0]['id'];
     $closed = $queries->tenant($context, $closedId);
     platformTenantReadExpect($closed['status'] === 'closed', 'closed Tenant detail was not governance-visible');
     platformTenantReadExpect($closed['revision'] === '7', 'Tenant detail revision changed shape');
@@ -188,7 +189,7 @@ SQL);
     } catch (AdminAccessException $exception) {
         platformTenantReadExpect(
             $exception->errorCode === 'RESOURCE_NOT_FOUND' && $exception->httpStatus === 404,
-            'missing Tenant detail lost the stable not-found shape'
+            'missing Tenant detail lost the stable not-found shape',
         );
     }
     try {
@@ -204,11 +205,11 @@ SQL);
         'NoAccessPassword2026',
         '127.0.0.2',
         'PM01 tenant read fixture',
-        'pm01-tenant-read-no-access-login'
+        'pm01-tenant-read-no-access-login',
     );
     $noAccessContext = $sessions->context(
         $noAccess->tokens->access->expose(),
-        'pm01-tenant-read-no-access-context'
+        'pm01-tenant-read-no-access-context',
     );
     try {
         $queries->tenants($noAccessContext, new PageRequest());
@@ -216,7 +217,7 @@ SQL);
     } catch (Throwable $exception) {
         platformTenantReadExpect(
             str_contains($exception->getMessage(), 'AUTHZ_PERMISSION_DENIED'),
-            'permission denial changed shape'
+            'permission denial changed shape',
         );
     }
     foreach (['pa_tat_' . str_repeat('a', 43), 'admin-session-token'] as $wrongAudience) {
@@ -230,8 +231,8 @@ SQL);
 
     foreach ($before as $table => $count) {
         platformTenantReadExpect(
-            (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn() === $count,
-            "platform Tenant read changed {$table}"
+            (int) $pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn() === $count,
+            "platform Tenant read changed {$table}",
         );
     }
 
@@ -240,7 +241,7 @@ SQL);
         str_contains($route, "Route::get('tenants'")
             && str_contains($route, "Route::get('tenants/detail'")
             && substr_count($route, "PlatformPermissionMiddleware::class, 'platform.tenant.read'") >= 3,
-        'platform Tenant read routes are not guarded by the dedicated permission'
+        'platform Tenant read routes are not guarded by the dedicated permission',
     );
 
     echo "PM01-PLATFORM-TENANT-READ-001 passed\n";

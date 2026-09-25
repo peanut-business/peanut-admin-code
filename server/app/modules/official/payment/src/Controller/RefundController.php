@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Controller;
@@ -34,10 +35,10 @@ class RefundController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, RefundValidate::class . '.log');
-        $recordId = (int)$params['record_id'];
+        $recordId = (int) $params['record_id'];
         return $this->data($this->refunds->refundLog(
             $this->tenantAdminContext(),
-            $recordId
+            $recordId,
         ));
     }
 }

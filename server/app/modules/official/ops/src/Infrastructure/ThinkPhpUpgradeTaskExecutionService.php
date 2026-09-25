@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
@@ -52,8 +53,7 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
         private BackupRestoreProviderRegistry $backupProviders,
         private ApplicationRuntimeStatusProvider $runtimeStatus,
         private PlatformOperatorIdentityQuery $operators,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed>|null */
     public function claim(): ?array
@@ -78,16 +78,16 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
             if ($updated !== 1) {
                 throw new \RuntimeException('OPS_UPGRADE_CLAIM_CONFLICT');
             }
-            $revision = (int)$task['revision'] + 1;
-            $this->createExecution((string)$task['task_key'], $payload);
-            $this->startStep((string)$task['task_key'], 'preflight');
+            $revision = (int) $task['revision'] + 1;
+            $this->createExecution((string) $task['task_key'], $payload);
+            $this->startStep((string) $task['task_key'], 'preflight');
             $this->audit($task, 'platform.ops.upgrade.claimed', 'upgrade.claim', [
                 'task_key' => $task['task_key'],
                 'target_release_key' => $payload['target_release_key'],
                 'execution_revision' => $revision,
             ], AuditOutcome::Success, null);
             return [
-                'task_key' => (string)$task['task_key'],
+                'task_key' => (string) $task['task_key'],
                 'execution_revision' => $revision,
                 'current_step' => 'preflight',
                 'target_release_key' => $payload['target_release_key'],
@@ -103,18 +103,18 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
     {
         $task = $this->runningTask($taskKey, $revision);
         $execution = $this->execution($taskKey);
-        return match ((string)$execution['current_step']) {
+        return match ((string) $execution['current_step']) {
             'preflight' => $this->advancePreflight($task, $revision),
             'backup' => $this->advanceBackup($task, $revision),
             'restore_verification' => $this->advanceRestore($task, $revision),
             'maintenance' => $this->advanceMaintenance($task, $revision),
             'deployment' => [
                 'action' => 'deploy',
-                'target_release_key' => (string)$execution['target_release_key'],
-                'target_commit' => (string)$execution['target_commit'],
-                'target_tree' => (string)$execution['target_tree'],
-                'backup_reference_key' => (string)$execution['backup_reference_key'],
-                'backup_manifest_sha256' => $this->backupManifestSha256((string)$execution['backup_reference_key']),
+                'target_release_key' => (string) $execution['target_release_key'],
+                'target_commit' => (string) $execution['target_commit'],
+                'target_tree' => (string) $execution['target_tree'],
+                'backup_reference_key' => (string) $execution['backup_reference_key'],
+                'backup_manifest_sha256' => $this->backupManifestSha256((string) $execution['backup_reference_key']),
             ],
             default => throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID'),
         };
@@ -125,25 +125,25 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
     {
         $task = $this->runningTask($taskKey, $revision);
         $execution = $this->execution($taskKey);
-        if ((string)$execution['current_step'] !== 'deployment') {
+        if ((string) $execution['current_step'] !== 'deployment') {
             throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID');
         }
         $this->transaction(function () use ($task, $execution): void {
-            $this->lockedRunningTask((string)$task['task_key'], (int)$task['revision']);
-            $lockedExecution = $this->execution((string)$task['task_key'], true);
-            if ((string)$lockedExecution['current_step'] !== 'deployment') {
+            $this->lockedRunningTask((string) $task['task_key'], (int) $task['revision']);
+            $lockedExecution = $this->execution((string) $task['task_key'], true);
+            if ((string) $lockedExecution['current_step'] !== 'deployment') {
                 throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID');
             }
             $this->succeedStep(
-                (string)$task['task_key'],
+                (string) $task['task_key'],
                 'deployment',
                 $this->digest([
                     'release_key' => $execution['target_release_key'],
                     'commit' => $execution['target_commit'],
                     'tree' => $execution['target_tree'],
-                ])
+                ]),
             );
-            $this->startStep((string)$task['task_key'], 'smoke');
+            $this->startStep((string) $task['task_key'], 'smoke');
             $moved = Db::name('ops_upgrade_execution')->where('task_key', $task['task_key'])
                 ->where('current_step', 'deployment')->update([
                     'current_step' => 'smoke', 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
@@ -154,9 +154,9 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
         });
         $context = $this->context($task);
         $snapshot = $this->runtimeStatus->snapshot($context);
-        if (!hash_equals((string)$execution['target_commit'], $snapshot->commit)
-            || !hash_equals((string)$execution['target_tree'], $snapshot->tree)
-            || $snapshot->releaseKey !== (string)$execution['target_release_key']
+        if (!hash_equals((string) $execution['target_commit'], $snapshot->commit)
+            || !hash_equals((string) $execution['target_tree'], $snapshot->tree)
+            || $snapshot->releaseKey !== (string) $execution['target_release_key']
             || $snapshot->health === 'unhealthy'
             || $snapshot->pendingMigrations !== 0
             || $snapshot->migrationDrift
@@ -166,9 +166,9 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
         }
 
         $this->transaction(function () use ($task, $snapshot): void {
-            $locked = $this->lockedRunningTask((string)$task['task_key'], (int)$task['revision']);
-            $lockedExecution = $this->execution((string)$task['task_key'], true);
-            if ((string)$lockedExecution['current_step'] !== 'smoke') {
+            $locked = $this->lockedRunningTask((string) $task['task_key'], (int) $task['revision']);
+            $lockedExecution = $this->execution((string) $task['task_key'], true);
+            if ((string) $lockedExecution['current_step'] !== 'smoke') {
                 throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID');
             }
             $smokeOutput = $this->digest([
@@ -176,22 +176,22 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 'migration_digest' => $snapshot->migrationDigest,
                 'checks' => $snapshot->checks,
             ]);
-            $this->succeedStep((string)$task['task_key'], 'smoke', $smokeOutput);
-            $this->startStep((string)$task['task_key'], 'recovery_pointer');
+            $this->succeedStep((string) $task['task_key'], 'smoke', $smokeOutput);
+            $this->startStep((string) $task['task_key'], 'recovery_pointer');
 
             $moved = Db::name('ops_upgrade_execution')->where('task_key', $task['task_key'])
                 ->where('current_step', 'smoke')->update([
                     'current_step' => 'recovery_pointer', 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
                 ]);
-            if ($moved !== 1 || (string)$locked['task_key'] !== (string)$task['task_key']) {
+            if ($moved !== 1 || (string) $locked['task_key'] !== (string) $task['task_key']) {
                 throw new \RuntimeException('OPS_UPGRADE_STEP_CONFLICT');
             }
         });
 
         return $this->transaction(function () use ($task, $context): array {
-            $locked = $this->lockedRunningTask((string)$task['task_key'], (int)$task['revision']);
-            $lockedExecution = $this->execution((string)$task['task_key'], true);
-            if ((string)$lockedExecution['current_step'] !== 'recovery_pointer') {
+            $locked = $this->lockedRunningTask((string) $task['task_key'], (int) $task['revision']);
+            $lockedExecution = $this->execution((string) $task['task_key'], true);
+            if ((string) $lockedExecution['current_step'] !== 'recovery_pointer') {
                 throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID');
             }
 
@@ -203,22 +203,22 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 throw new \RuntimeException('OPS_UPGRADE_RECOVERY_POINTER_FAILED');
             }
             $pointer = [
-                'provider_key' => (string)$backup['provider_key'],
-                'backup_reference_key' => (string)$backup['backup_reference_key'],
-                'manifest_sha256' => (string)$backup['manifest_sha256'],
-                'restore_target_key' => (string)$restore['target_key'],
-                'restore_verification_sha256' => (string)$restore['evidence_sha256'],
-                'restore_verified_at' => $this->instant((string)$restore['verified_at']),
-                'source_commit' => (string)$lockedExecution['source_commit'],
-                'target_commit' => (string)$lockedExecution['target_commit'],
-                'target_release_key' => (string)$lockedExecution['target_release_key'],
+                'provider_key' => (string) $backup['provider_key'],
+                'backup_reference_key' => (string) $backup['backup_reference_key'],
+                'manifest_sha256' => (string) $backup['manifest_sha256'],
+                'restore_target_key' => (string) $restore['target_key'],
+                'restore_verification_sha256' => (string) $restore['evidence_sha256'],
+                'restore_verified_at' => $this->instant((string) $restore['verified_at']),
+                'source_commit' => (string) $lockedExecution['source_commit'],
+                'target_commit' => (string) $lockedExecution['target_commit'],
+                'target_release_key' => (string) $lockedExecution['target_release_key'],
             ];
             $pointerJson = $this->canonicalJson($pointer);
             $pointerSha = hash('sha256', $pointerJson);
 
-            $maintenanceKey = (string)$lockedExecution['maintenance_key'];
-            $maintenanceRevision = (int)$lockedExecution['maintenance_revision'];
-            $idempotencyDigest = hash('sha256', (string)$task['task_key'] . ':maintenance-close');
+            $maintenanceKey = (string) $lockedExecution['maintenance_key'];
+            $maintenanceRevision = (int) $lockedExecution['maintenance_revision'];
+            $idempotencyDigest = hash('sha256', (string) $task['task_key'] . ':maintenance-close');
             $requestDigest = hash('sha256', $maintenanceKey . ':' . $maintenanceRevision);
             $this->maintenance->close(
                 $context,
@@ -234,7 +234,7 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 ]),
             );
 
-            $this->succeedStep((string)$task['task_key'], 'recovery_pointer', $pointerSha);
+            $this->succeedStep((string) $task['task_key'], 'recovery_pointer', $pointerSha);
             $executionUpdated = Db::name('ops_upgrade_execution')->where('task_key', $task['task_key'])
                 ->where('current_step', 'recovery_pointer')->update([
                     'current_step' => 'completed', 'recovery_pointer_json' => $pointerJson,
@@ -255,9 +255,9 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 'recovery_pointer_sha256' => $pointerSha,
             ], AuditOutcome::Success, null);
             return [
-                'task_key' => (string)$task['task_key'],
+                'task_key' => (string) $task['task_key'],
                 'status' => 'succeeded',
-                'target_release_key' => (string)$lockedExecution['target_release_key'],
+                'target_release_key' => (string) $lockedExecution['target_release_key'],
                 'recovery_pointer_sha256' => $pointerSha,
             ];
         });
@@ -272,7 +272,7 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
         return $this->transaction(function () use ($taskKey, $revision, $errorCode): array {
             $task = $this->lockedRunningTask($taskKey, $revision);
             $execution = $this->execution($taskKey, true);
-            $step = (string)$execution['current_step'];
+            $step = (string) $execution['current_step'];
             if ($step === 'completed' || !in_array($step, self::STEPS, true)) {
                 throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID');
             }
@@ -315,20 +315,20 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
         $context = $this->context($task);
         $readiness = $this->runtimeStatus->upgradeReadiness($context);
         if (($readiness['preflight']['state'] ?? null) !== 'ready'
-            || !hash_equals($payload['source_commit'], (string)($readiness['source']['runtime']['commit'] ?? ''))
-            || !hash_equals($payload['source_tree'], (string)($readiness['source']['runtime']['tree'] ?? ''))
-            || !hash_equals($payload['target_commit'], (string)$target->release['commit'])
-            || !hash_equals($payload['target_tree'], (string)$target->release['tree'])
-            || !hash_equals($payload['target_release_key'], (string)$target->release['key'])
+            || !hash_equals($payload['source_commit'], (string) ($readiness['source']['runtime']['commit'] ?? ''))
+            || !hash_equals($payload['source_tree'], (string) ($readiness['source']['runtime']['tree'] ?? ''))
+            || !hash_equals($payload['target_commit'], (string) $target->release['commit'])
+            || !hash_equals($payload['target_tree'], (string) $target->release['tree'])
+            || !hash_equals($payload['target_release_key'], (string) $target->release['key'])
             || !hash_equals($payload['target_descriptor_sha256'], $target->descriptorSha256)
         ) {
             throw new \RuntimeException('OPS_UPGRADE_PREFLIGHT_FAILED');
         }
 
         return $this->transaction(function () use ($task, $revision, $context, $payload, $readiness): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
-            if ((string)$execution['current_step'] !== 'preflight') {
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
+            if ((string) $execution['current_step'] !== 'preflight') {
                 throw new \RuntimeException('OPS_UPGRADE_STEP_INVALID');
             }
             $provider = $this->backupProviders
@@ -339,17 +339,17 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 ['provider_key' => $provider->key],
                 Package::BACKUP_TASK_TYPE . '.' . $provider->key,
                 $provider->maximumAttempts,
-                (string)$task['task_key'] . ':backup',
+                (string) $task['task_key'] . ':backup',
                 'platform.ops.backup.submitted',
                 'backup.submit',
             );
             $child = $this->tasks->dispatch($context, $submission);
             $this->succeedStep(
-                (string)$task['task_key'],
+                (string) $task['task_key'],
                 'preflight',
-                $this->digest(['code' => $readiness['preflight']['code'], 'descriptor' => $payload['target_descriptor_sha256']])
+                $this->digest(['code' => $readiness['preflight']['code'], 'descriptor' => $payload['target_descriptor_sha256']]),
             );
-            $this->startStep((string)$task['task_key'], 'backup');
+            $this->startStep((string) $task['task_key'], 'backup');
             $updated = Db::name('ops_upgrade_execution')->where('task_key', $task['task_key'])
                 ->where('current_step', 'preflight')->update([
                     'current_step' => 'backup', 'backup_task_key' => $child->taskKey,
@@ -366,19 +366,19 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
     private function advanceBackup(array $task, int $revision): array
     {
         return $this->transaction(function () use ($task, $revision): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
             $child = Db::name('ops_task')->where('task_key', $execution['backup_task_key'])->lock(true)->find();
-            if ($child === null || (string)$child['status'] !== 'succeeded') {
-                if ($child !== null && in_array((string)$child['status'], ['queued', 'running'], true)) {
-                    return ['action' => 'wait_backup', 'child_task_key' => (string)$child['task_key']];
+            if ($child === null || (string) $child['status'] !== 'succeeded') {
+                if ($child !== null && in_array((string) $child['status'], ['queued', 'running'], true)) {
+                    return ['action' => 'wait_backup', 'child_task_key' => (string) $child['task_key']];
                 }
                 throw new \RuntimeException('OPS_UPGRADE_BACKUP_FAILED');
             }
             $evidence = Db::name('ops_backup_evidence')->where('task_key', $child['task_key'])->lock(true)->find();
             if ($evidence === null
-                || !hash_equals((string)$execution['source_commit'], (string)$evidence['source_commit'])
-                || !hash_equals((string)$execution['source_tree'], (string)$evidence['source_tree'])
+                || !hash_equals((string) $execution['source_commit'], (string) $evidence['source_commit'])
+                || !hash_equals((string) $execution['source_tree'], (string) $evidence['source_tree'])
             ) {
                 throw new \RuntimeException('OPS_UPGRADE_BACKUP_FAILED');
             }
@@ -387,7 +387,7 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 ->require(PairedBackupProvider::PROVIDER_KEY);
             $payload = [
                 'provider_key' => $provider->key,
-                'backup_reference_key' => (string)$evidence['backup_reference_key'],
+                'backup_reference_key' => (string) $evidence['backup_reference_key'],
                 'target_key' => PairedBackupProvider::RESTORE_TARGET_KEY,
             ];
             $submission = $this->childSubmission(
@@ -396,13 +396,13 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 $payload,
                 Package::RESTORE_TASK_TYPE . '.' . $provider->key,
                 $provider->maximumAttempts,
-                (string)$task['task_key'] . ':restore',
+                (string) $task['task_key'] . ':restore',
                 'platform.ops.restore.submitted',
                 'restore.submit',
             );
             $restore = $this->tasks->dispatch($context, $submission);
-            $this->succeedStep((string)$task['task_key'], 'backup', (string)$evidence['manifest_sha256']);
-            $this->startStep((string)$task['task_key'], 'restore_verification');
+            $this->succeedStep((string) $task['task_key'], 'backup', (string) $evidence['manifest_sha256']);
+            $this->startStep((string) $task['task_key'], 'restore_verification');
             $updated = Db::name('ops_upgrade_execution')->where('task_key', $task['task_key'])
                 ->where('current_step', 'backup')->update([
                     'current_step' => 'restore_verification', 'backup_reference_key' => $evidence['backup_reference_key'],
@@ -414,8 +414,8 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
             return [
                 'action' => 'run_restore',
                 'child_task_key' => $restore->taskKey,
-                'backup_reference_key' => (string)$evidence['backup_reference_key'],
-                'backup_manifest_sha256' => (string)$evidence['manifest_sha256'],
+                'backup_reference_key' => (string) $evidence['backup_reference_key'],
+                'backup_manifest_sha256' => (string) $evidence['manifest_sha256'],
             ];
         });
     }
@@ -424,25 +424,25 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
     private function advanceRestore(array $task, int $revision): array
     {
         $result = $this->transaction(function () use ($task, $revision): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
             $child = Db::name('ops_task')->where('task_key', $execution['restore_task_key'])->lock(true)->find();
-            if ($child === null || (string)$child['status'] !== 'succeeded') {
-                if ($child !== null && in_array((string)$child['status'], ['queued', 'running'], true)) {
-                    return ['action' => 'wait_restore', 'child_task_key' => (string)$child['task_key']];
+            if ($child === null || (string) $child['status'] !== 'succeeded') {
+                if ($child !== null && in_array((string) $child['status'], ['queued', 'running'], true)) {
+                    return ['action' => 'wait_restore', 'child_task_key' => (string) $child['task_key']];
                 }
                 throw new \RuntimeException('OPS_UPGRADE_RESTORE_FAILED');
             }
             $evidence = Db::name('ops_restore_evidence')->where('task_key', $child['task_key'])->lock(true)->find();
             if ($evidence === null
-                || !hash_equals((string)$execution['backup_reference_key'], (string)$evidence['backup_reference_key'])
-                || !hash_equals((string)$execution['source_commit'], (string)$evidence['source_commit'])
-                || !hash_equals((string)$execution['source_tree'], (string)$evidence['source_tree'])
+                || !hash_equals((string) $execution['backup_reference_key'], (string) $evidence['backup_reference_key'])
+                || !hash_equals((string) $execution['source_commit'], (string) $evidence['source_commit'])
+                || !hash_equals((string) $execution['source_tree'], (string) $evidence['source_tree'])
             ) {
                 throw new \RuntimeException('OPS_UPGRADE_RESTORE_FAILED');
             }
-            $this->succeedStep((string)$task['task_key'], 'restore_verification', (string)$evidence['evidence_sha256']);
-            $this->startStep((string)$task['task_key'], 'maintenance');
+            $this->succeedStep((string) $task['task_key'], 'restore_verification', (string) $evidence['evidence_sha256']);
+            $this->startStep((string) $task['task_key'], 'maintenance');
             $updated = Db::name('ops_upgrade_execution')->where('task_key', $task['task_key'])
                 ->where('current_step', 'restore_verification')->update([
                     'current_step' => 'maintenance', 'restore_evidence_sha256' => $evidence['evidence_sha256'],
@@ -463,9 +463,9 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
     private function advanceMaintenance(array $task, int $revision): array
     {
         return $this->transaction(function () use ($task, $revision): array {
-            $this->lockedRunningTask((string)$task['task_key'], $revision);
-            $execution = $this->execution((string)$task['task_key'], true);
-            if ((string)$execution['current_step'] !== 'maintenance'
+            $this->lockedRunningTask((string) $task['task_key'], $revision);
+            $execution = $this->execution((string) $task['task_key'], true);
+            if ((string) $execution['current_step'] !== 'maintenance'
                 || $execution['maintenance_key'] !== null
                 || $execution['maintenance_revision'] !== null
             ) {
@@ -482,7 +482,7 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
                 $now->modify('+23 hours')->format('Y-m-d\TH:i:s.v\Z'),
                 1,
             );
-            $idempotencyDigest = hash('sha256', (string)$task['task_key'] . ':maintenance-open');
+            $idempotencyDigest = hash('sha256', (string) $task['task_key'] . ':maintenance-open');
             $requestDigest = hash('sha256', $maintenanceKey . ':' . $window->startsAt . ':' . $window->endsAt);
             $created = $this->maintenance->schedule(
                 $context,
@@ -508,17 +508,17 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
 
             $readiness = $this->runtimeStatus->upgradeReadiness($context);
             if (($readiness['state'] ?? null) !== 'ready'
-                || !hash_equals((string)$execution['target_descriptor_sha256'], (string)($readiness['target']['descriptor_sha256'] ?? ''))
-                || !hash_equals((string)$execution['backup_reference_key'], (string)($readiness['recovery_pointer']['backup_reference_key'] ?? ''))
+                || !hash_equals((string) $execution['target_descriptor_sha256'], (string) ($readiness['target']['descriptor_sha256'] ?? ''))
+                || !hash_equals((string) $execution['backup_reference_key'], (string) ($readiness['recovery_pointer']['backup_reference_key'] ?? ''))
             ) {
                 throw new \RuntimeException('OPS_UPGRADE_MAINTENANCE_FAILED');
             }
             $this->succeedStep(
-                (string)$task['task_key'],
+                (string) $task['task_key'],
                 'maintenance',
-                $this->digest(['maintenance_key' => $created->maintenanceKey, 'revision' => $created->revision])
+                $this->digest(['maintenance_key' => $created->maintenanceKey, 'revision' => $created->revision]),
             );
-            $this->startStep((string)$task['task_key'], 'deployment');
+            $this->startStep((string) $task['task_key'], 'deployment');
             $moved = Db::name('ops_upgrade_execution')->where('task_key', $task['task_key'])
                 ->where('current_step', 'maintenance')->update([
                     'current_step' => 'deployment', 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
@@ -528,11 +528,11 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
             }
             return [
                 'action' => 'deploy',
-                'target_release_key' => (string)$execution['target_release_key'],
-                'target_commit' => (string)$execution['target_commit'],
-                'target_tree' => (string)$execution['target_tree'],
-                'backup_reference_key' => (string)$execution['backup_reference_key'],
-                'backup_manifest_sha256' => $this->backupManifestSha256((string)$execution['backup_reference_key']),
+                'target_release_key' => (string) $execution['target_release_key'],
+                'target_commit' => (string) $execution['target_commit'],
+                'target_tree' => (string) $execution['target_tree'],
+                'backup_reference_key' => (string) $execution['backup_reference_key'],
+                'backup_manifest_sha256' => $this->backupManifestSha256((string) $execution['backup_reference_key']),
             ];
         });
     }
@@ -608,7 +608,7 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
             ->where('task.updated_at', '<', Db::raw('UTC_TIMESTAMP(3)-INTERVAL 2 HOUR'))
             ->field('task.task_key,execution.current_step')->lock(true)->select()->toArray();
         foreach ($rows as $row) {
-            $this->failStep((string)$row['task_key'], (string)$row['current_step'], 'OPS_UPGRADE_WORKER_STALE');
+            $this->failStep((string) $row['task_key'], (string) $row['current_step'], 'OPS_UPGRADE_WORKER_STALE');
             Db::name('ops_task')->where('task_key', $row['task_key'])->where('status', 'running')->update([
                 'status' => 'dead', 'revision' => Db::raw('revision+1'), 'last_error_code' => 'OPS_UPGRADE_WORKER_STALE',
                 'completed_at' => Db::raw('UTC_TIMESTAMP(3)'), 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
@@ -652,7 +652,7 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
     private function payload(array $task): array
     {
         try {
-            $payload = json_decode((string)$task['payload_json'], true, 512, JSON_THROW_ON_ERROR);
+            $payload = json_decode((string) $task['payload_json'], true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw new \RuntimeException('OPS_UPGRADE_PAYLOAD_INVALID');
         }
@@ -692,13 +692,13 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
         return PlatformContext::fromValidatedSession(
             new ValidatedPlatformSession(
                 1,
-                'upgrade-worker-' . substr((string)$task['task_key'], 4, 16),
-                (int)$task['account_id'],
-                (int)$task['submitted_by_operator_id'],
+                'upgrade-worker-' . substr((string) $task['task_key'], 4, 16),
+                (int) $task['account_id'],
+                (int) $task['submitted_by_operator_id'],
                 'platform-web',
                 new DateTimeImmutable('now'),
             ),
-            'upgrade-' . substr((string)$task['task_key'], 4),
+            'upgrade-' . substr((string) $task['task_key'], 4),
         );
     }
 
@@ -741,13 +741,12 @@ final readonly class ThinkPhpUpgradeTaskExecutionService
         array $metadata,
         AuditOutcome $outcome,
         ?string $reasonCode,
-    ): void
-    {
+    ): void {
         $this->audit->recordPlatform(
             $eventType,
             $action,
-            'upgrade-' . substr((string)$task['task_key'], 4),
-            (int)$task['submitted_by_operator_id'],
+            'upgrade-' . substr((string) $task['task_key'], 4),
+            (int) $task['submitted_by_operator_id'],
             $this->operators->accountId((int) $task['submitted_by_operator_id']),
             $metadata,
             $outcome,

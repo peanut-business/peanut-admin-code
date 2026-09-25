@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 $root = realpath(dirname(__DIR__));
@@ -64,7 +65,7 @@ foreach ($shippedTemplates as $relative) {
 }
 
 $releasePath = $root . '/release-versions.json';
-$release = json_decode((string)file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR);
+$release = json_decode((string) file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR);
 $version = $release['source_product_version'] ?? null;
 if (!is_string($version) || !str_contains($documents['docs/public/release-channels.md'] ?? '', $version)) {
     $violations[] = 'release channel guide does not display the current source product version';

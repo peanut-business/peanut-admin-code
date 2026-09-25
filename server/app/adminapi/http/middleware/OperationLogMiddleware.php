@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\http\middleware;
@@ -48,7 +49,7 @@ class OperationLogMiddleware
         try {
             $response = $next($request);
             if (is_object($response) && method_exists($response, 'getCode')) {
-                $httpStatus = (int)$response->getCode();
+                $httpStatus = (int) $response->getCode();
                 if ($httpStatus >= 400) {
                     $outcome = in_array($httpStatus, [401, 403], true)
                         ? AuditOutcome::Denied
@@ -66,7 +67,7 @@ class OperationLogMiddleware
             $reasonCode = $problem?->errorCode ?? 'UNHANDLED_EXCEPTION';
             throw $exception;
         } finally {
-            if (in_array(strtoupper((string)$request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            if (in_array(strtoupper((string) $request->method()), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
                 $this->record($context, $request, $outcome, $reasonCode, $httpStatus);
             }
         }
@@ -78,8 +79,7 @@ class OperationLogMiddleware
         AuditOutcome $outcome,
         ?string $reasonCode,
         int $httpStatus,
-    ): void
-    {
+    ): void {
         $uri = strtolower(trim($request->pathinfo(), '/'));
         foreach ($this->except as $skip) {
             if (str_ends_with($uri, $skip)) {
@@ -92,11 +92,11 @@ class OperationLogMiddleware
         try {
             $this->operationLogs->record(
                 $context,
-                (int)($adminInfo['id'] ?? 0),
-                (string)($adminInfo['username'] ?? ''),
-                (string)$request->ip(),
+                (int) ($adminInfo['id'] ?? 0),
+                (string) ($adminInfo['username'] ?? ''),
+                (string) $request->ip(),
                 $uri,
-                (string)$request->method(),
+                (string) $request->method(),
                 $request->post(),
                 $outcome,
                 $reasonCode,

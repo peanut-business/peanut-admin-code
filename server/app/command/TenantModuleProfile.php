@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -39,25 +40,25 @@ final class TenantModuleProfile extends ModuleContextualCommand
                 new ThinkPhpModuleRuntimeRepository($governance->registry()->compiled(), true),
                 $governance,
                 app(AuditContractHost::class),
-            ))->apply(trim((string)$input->getArgument('profile')));
-            $output->writeln((string)json_encode(
+            ))->apply(trim((string) $input->getArgument('profile')));
+            $output->writeln((string) json_encode(
                 $result,
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 0;
         } catch (ModuleException $exception) {
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 ['error' => $exception->errorCode],
-                JSON_THROW_ON_ERROR
+                JSON_THROW_ON_ERROR,
             ));
             return 1;
         } catch (\Throwable $exception) {
             $message = $exception->getMessage();
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 ['error' => preg_match('/^[A-Z0-9_]+$/D', $message) === 1
                     ? $message
                     : 'TENANT_MODULE_PROFILE_FAILED'],
-                JSON_THROW_ON_ERROR
+                JSON_THROW_ON_ERROR,
             ));
             return 1;
         }

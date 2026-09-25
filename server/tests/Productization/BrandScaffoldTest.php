@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\service\config\BrandDefaults;
@@ -17,7 +18,7 @@ $website = BrandDefaults::website();
 $defaultImages = BrandDefaults::defaultImages();
 brandExpect(
     array_keys($website) === WebsiteConfigService::fields(),
-    'bootstrap manifest and website Runtime fields must match exactly'
+    'bootstrap manifest and website Runtime fields must match exactly',
 );
 brandExpect($website['name'] === 'Peanut Admin', 'default product name must be complete');
 brandExpect($website['shop_name'] === 'Peanut Admin', 'default consumer name must be complete');
@@ -25,7 +26,7 @@ brandExpect($website['pc_title'] === 'Peanut Admin', 'default PC title must be c
 brandExpect($website['official_url'] === '', 'environment-specific official URL must not be a template default');
 brandExpect(
     $website['github_url'] === 'https://github.com/peanut-business/peanut-admin',
-    'GitHub entry must point to the application source repository'
+    'GitHub entry must point to the application source repository',
 );
 
 $publicRoot = dirname(__DIR__, 2) . '/public/';
@@ -46,16 +47,16 @@ brandExpect(is_string($projectConfig), 'brand test must read project config');
 foreach (['admin_avatar', 'user_avatar', 'menu', 'project_docs', 'technical_support'] as $field) {
     brandExpect(
         str_contains($projectConfig, "\$defaultImage['{$field}']"),
-        "project config must read {$field} from the manifest"
+        "project config must read {$field} from the manifest",
     );
 }
 
 $migration = file_get_contents(
-    dirname(__DIR__, 2) . '/database/init.sql'
+    dirname(__DIR__, 2) . '/database/init.sql',
 );
 brandExpect(
     is_string($migration) && str_contains($migration, "'{$defaultImages['user_avatar']}'"),
-    'legacy user avatar migration must match the manifest'
+    'legacy user avatar migration must match the manifest',
 );
 
 echo "PB08A-BRAND-SCAFFOLD-001 bootstrap passed\n";

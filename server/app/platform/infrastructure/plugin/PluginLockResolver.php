@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -17,9 +18,8 @@ final class PluginLockResolver
 
     public function __construct(
         private readonly string $serverRoot,
-        private readonly string $lockPath
-    ) {
-    }
+        private readonly string $lockPath,
+    ) {}
 
     /** @return array<string,PluginDescriptor> */
     public function all(): array
@@ -51,7 +51,7 @@ final class PluginLockResolver
             $this->assertExactKeys(
                 $entry,
                 ['key', 'version', 'source', 'trust', 'manifest', 'manifest_sha256', 'composer', 'npm', 'frontend', 'modules'],
-                'PLUGIN_LOCK_INVALID'
+                'PLUGIN_LOCK_INVALID',
             );
             $key = $this->key($entry['key'] ?? null, 'PLUGIN_LOCK_INVALID');
             $version = $this->version($entry['version'] ?? null, 'PLUGIN_LOCK_INVALID');
@@ -70,7 +70,7 @@ final class PluginLockResolver
             $this->assertExactKeys(
                 $manifest,
                 ['schema_version', 'key', 'version', 'source', 'trust', 'composer', 'npm', 'frontend', 'modules'],
-                'PLUGIN_MANIFEST_INVALID'
+                'PLUGIN_MANIFEST_INVALID',
             );
             if (($manifest['schema_version'] ?? null) !== 1
                 || $manifest['key'] !== $key
@@ -88,7 +88,7 @@ final class PluginLockResolver
             $frontend = $this->identityList(
                 $entry['frontend'] ?? null,
                 ['client_key', 'package', 'version', 'entry', 'sha256'],
-                'frontend'
+                'frontend',
             );
             $projectRoot = dirname($this->serverRoot);
             $moduleRoots = $this->resolveModuleRoots($entry['modules'] ?? null, $projectRoot);
@@ -99,11 +99,11 @@ final class PluginLockResolver
                 $frontend,
                 $moduleRoots,
                 $frontendRoots,
-                $projectRoot
+                $projectRoot,
             );
             $this->verifySource(
                 $source,
-                [...array_values($moduleRoots), ...array_values($frontendRoots)]
+                [...array_values($moduleRoots), ...array_values($frontendRoots)],
             );
             $plugins[$key] = new PluginDescriptor(
                 $key,
@@ -115,7 +115,7 @@ final class PluginLockResolver
                 $npm,
                 $frontend,
                 $moduleRoots,
-                $trust
+                $trust,
             );
         }
         if (file_exists($journal) || is_link($journal) || hash_file('sha256', $lockPath) !== $lockDigest) {
@@ -172,7 +172,7 @@ final class PluginLockResolver
         $this->assertExactKeys(
             $trust,
             ['channel', 'origin', 'archive', 'signature', 'sbom', 'license', 'qualification', 'compatibility'],
-            'PLUGIN_TRUST_INVALID'
+            'PLUGIN_TRUST_INVALID',
         );
         if (($trust['channel'] ?? null) !== 'bundled'
             || !is_array($trust['qualification'] ?? null)
@@ -228,7 +228,7 @@ final class PluginLockResolver
         $files = [];
         foreach ($moduleRoots as $directory) {
             $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)
+                new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
             );
             foreach ($iterator as $file) {
                 if ($file->isFile() && !$file->isLink()) {
@@ -236,7 +236,7 @@ final class PluginLockResolver
                     $relative = str_replace(
                         '\\',
                         '/',
-                        substr($path, strlen($projectRoot) + 1)
+                        substr($path, strlen($projectRoot) + 1),
                     );
                     $digest = hash_file('sha256', $file->getPathname());
                     if (!is_string($digest) || isset($files[$relative])) {
@@ -269,17 +269,17 @@ final class PluginLockResolver
         array $frontend,
         array $moduleRoots,
         array $frontendRoots,
-        string $projectRoot
+        string $projectRoot,
     ): void {
         $composerFiles = $this->packageFiles($moduleRoots, 'composer.json');
         foreach ($composer as $identity) {
             $path = $this->matchingPackageFile(
                 $composerFiles,
-                (string)$identity['name'],
-                (string)$identity['version'],
-                'composer'
+                (string) $identity['name'],
+                (string) $identity['version'],
+                'composer',
             );
-            $this->assertFileDigest($path, (string)$identity['sha256'], 'composer');
+            $this->assertFileDigest($path, (string) $identity['sha256'], 'composer');
         }
         if (count($composer) !== count($composerFiles)) {
             throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', 'Composer identity coverage is incomplete.');
@@ -289,13 +289,13 @@ final class PluginLockResolver
         foreach ($npm as $identity) {
             $path = $this->matchingPackageFile(
                 $npmFiles,
-                (string)$identity['name'],
-                (string)$identity['version'],
-                'npm'
+                (string) $identity['name'],
+                (string) $identity['version'],
+                'npm',
             );
             $digest = hash_file('sha256', $path, true);
             $integrity = is_string($digest) ? 'sha256-' . base64_encode($digest) : '';
-            if (!hash_equals((string)$identity['integrity'], $integrity)) {
+            if (!hash_equals((string) $identity['integrity'], $integrity)) {
                 throw new PluginLifecycleException('PLUGIN_ARTIFACT_MISMATCH', 'npm package identity digest differs.');
             }
         }
@@ -305,18 +305,18 @@ final class PluginLockResolver
 
         foreach ($frontend as $identity) {
             $path = $this->absolutePathWithin(
-                (string)$identity['entry'],
+                (string) $identity['entry'],
                 $projectRoot,
                 $projectRoot,
-                'PLUGIN_IDENTITY_INVALID'
+                'PLUGIN_IDENTITY_INVALID',
             );
             if (!$this->belongsToModuleRoot($path, $frontendRoots)) {
                 throw new PluginLifecycleException(
                     'PLUGIN_IDENTITY_INVALID',
-                    'Frontend contribution is outside the Plugin Module roots.'
+                    'Frontend contribution is outside the Plugin Module roots.',
                 );
             }
-            $this->assertFileDigest($path, (string)$identity['sha256'], 'frontend');
+            $this->assertFileDigest($path, (string) $identity['sha256'], 'frontend');
             $packageMatched = false;
             foreach ($npm as $npmIdentity) {
                 if ($npmIdentity['name'] === $identity['package']
@@ -328,7 +328,7 @@ final class PluginLockResolver
             if (!$packageMatched) {
                 throw new PluginLifecycleException(
                     'PLUGIN_IDENTITY_INVALID',
-                    'Frontend contribution has no matching npm package identity.'
+                    'Frontend contribution has no matching npm package identity.',
                 );
             }
         }
@@ -339,13 +339,13 @@ final class PluginLockResolver
     {
         $roots = [];
         foreach ($frontend as $identity) {
-            $clientKey = (string)$identity['client_key'];
+            $clientKey = (string) $identity['client_key'];
             try {
                 $clientRoot = ModuleFrontendLayout::clientRoot($clientKey);
             } catch (\InvalidArgumentException $exception) {
                 throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', $exception->getMessage(), 0, $exception);
             }
-            $relativeRoot = dirname((string)$identity['entry']);
+            $relativeRoot = dirname((string) $identity['entry']);
             $matchedModule = null;
             foreach (array_keys($moduleRoots) as $moduleKey) {
                 $expected = $clientRoot . '/' . str_replace('.', '-', $moduleKey);
@@ -361,7 +361,7 @@ final class PluginLockResolver
                 $relativeRoot,
                 $projectRoot,
                 $projectRoot . '/' . $clientRoot,
-                'PLUGIN_PATH_UNAVAILABLE'
+                'PLUGIN_PATH_UNAVAILABLE',
             );
         }
         ksort($roots, SORT_STRING);
@@ -386,7 +386,7 @@ final class PluginLockResolver
         array $paths,
         string $name,
         string $version,
-        string $kind
+        string $kind,
     ): string {
         $matches = [];
         foreach ($paths as $path) {
@@ -398,7 +398,7 @@ final class PluginLockResolver
         if (count($matches) !== 1) {
             throw new PluginLifecycleException(
                 'PLUGIN_IDENTITY_INVALID',
-                "Plugin {$kind} identity does not resolve to exactly one Module package."
+                "Plugin {$kind} identity does not resolve to exactly one Module package.",
             );
         }
         return $matches[0];
@@ -410,7 +410,7 @@ final class PluginLockResolver
         if (!is_string($actual) || !hash_equals($expected, $actual)) {
             throw new PluginLifecycleException(
                 'PLUGIN_ARTIFACT_MISMATCH',
-                "Plugin {$kind} identity digest differs."
+                "Plugin {$kind} identity digest differs.",
             );
         }
     }
@@ -444,7 +444,7 @@ final class PluginLockResolver
             if (isset($identity['sha256'])) {
                 $this->sha256($identity['sha256'], 'PLUGIN_IDENTITY_INVALID');
             }
-            $unique = (string)($identity['entry'] ?? $identity['name'] ?? $identity['package'] ?? $identity['client_key'] ?? '');
+            $unique = (string) ($identity['entry'] ?? $identity['name'] ?? $identity['package'] ?? $identity['client_key'] ?? '');
             if (isset($seen[$unique])) {
                 throw new PluginLifecycleException('PLUGIN_IDENTITY_INVALID', "Duplicate {$kind} identity: {$unique}");
             }
@@ -478,7 +478,7 @@ final class PluginLockResolver
                 $root,
                 $base,
                 $base,
-                'PLUGIN_PATH_UNAVAILABLE'
+                'PLUGIN_PATH_UNAVAILABLE',
             );
             if (!is_dir($roots[$key]) || !is_file($roots[$key] . '/module.json')) {
                 throw new PluginLifecycleException('PLUGIN_MANIFEST_INVALID', "Module root is unavailable: {$key}");
@@ -505,7 +505,7 @@ final class PluginLockResolver
             throw new PluginLifecycleException($error, "JSON file is unavailable: {$path}");
         }
         try {
-            $decoded = json_decode((string)file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+            $decoded = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new PluginLifecycleException($error, $exception->getMessage());
         }
@@ -601,12 +601,12 @@ final class PluginLockResolver
             }
             if ($isList) {
                 usort($item, static fn(mixed $left, mixed $right): int => strcmp(
-                    (string)json_encode($left, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-                    (string)json_encode($right, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)
+                    (string) json_encode($left, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+                    (string) json_encode($right, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
                 ));
             }
             return $item;
         };
-        return (string)json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        return (string) json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     }
 }

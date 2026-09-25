@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\module;
@@ -14,8 +15,7 @@ final readonly class DeploymentModuleInstaller
     public function __construct(
         private string $serverRoot,
         private ModuleCatalogApplier $catalogs,
-    ) {
-    }
+    ) {}
 
     /**
      * @param array<string,mixed> $deploymentConfig
@@ -53,7 +53,7 @@ final readonly class DeploymentModuleInstaller
             if ($current === null) {
                 throw new ModuleException(
                     'MODULE_INSTALLATION_FAILED',
-                    "Module installation record was not created: {$identity['key']}"
+                    "Module installation record was not created: {$identity['key']}",
                 );
             }
             $this->assertSameIdentity($identity, $current);
@@ -76,9 +76,9 @@ final readonly class DeploymentModuleInstaller
     private function identity(ManifestDocument $manifest): array
     {
         return [
-            'key' => (string)$manifest->data['key'],
-            'version' => (string)$manifest->data['version'],
-            'schema' => (int)$manifest->data['schema_version'],
+            'key' => (string) $manifest->data['key'],
+            'version' => (string) $manifest->data['version'],
+            'schema' => (int) $manifest->data['schema_version'],
             'digest' => $manifest->digest,
             'status' => 'active',
         ];
@@ -90,13 +90,13 @@ final readonly class DeploymentModuleInstaller
      */
     private function assertSameIdentity(array $identity, array $current): void
     {
-        if ((string)($current['installed_version'] ?? '') !== $identity['version']
-            || (int)($current['manifest_schema_version'] ?? 0) !== $identity['schema']
-            || !hash_equals($identity['digest'], (string)($current['manifest_digest'] ?? ''))
-            || (string)($current['status'] ?? '') !== $identity['status']) {
+        if ((string) ($current['installed_version'] ?? '') !== $identity['version']
+            || (int) ($current['manifest_schema_version'] ?? 0) !== $identity['schema']
+            || !hash_equals($identity['digest'], (string) ($current['manifest_digest'] ?? ''))
+            || (string) ($current['status'] ?? '') !== $identity['status']) {
             throw new ModuleException(
                 'MODULE_INSTALLATION_MISMATCH',
-                "Installed Module identity differs from the deployment registry: {$identity['key']}"
+                "Installed Module identity differs from the deployment registry: {$identity['key']}",
             );
         }
     }

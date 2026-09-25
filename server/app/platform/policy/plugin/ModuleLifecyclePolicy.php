@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\policy\plugin;
@@ -12,9 +13,7 @@ use think\facade\Db;
 /** Enforces manifest-owned core protection and explicit business dependencies. */
 final class ModuleLifecyclePolicy
 {
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function isProtected(ManifestDocument $manifest): bool
     {
@@ -59,7 +58,7 @@ final class ModuleLifecyclePolicy
                     continue;
                 }
                 $manifest = (new ManifestLoader())->load($root);
-                foreach ((array)($manifest->data['dependencies'] ?? []) as $dependency) {
+                foreach ((array) ($manifest->data['dependencies'] ?? []) as $dependency) {
                     $dependencyKey = is_array($dependency) ? ($dependency['module_key'] ?? null) : null;
                     if (!is_string($dependencyKey) || !isset($targets[$dependencyKey])) {
                         continue;

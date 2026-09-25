@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Controller;
@@ -20,7 +21,7 @@ class MemberController extends BaseAdminController
     public function detail()
     {
         $this->validate($this->request->get(), MemberValidate::class . '.detail');
-        return $this->data($this->members->memberDetail((int)$this->request->get('id')));
+        return $this->data($this->members->memberDetail((int) $this->request->get('id')));
     }
 
     public function add()
@@ -43,7 +44,7 @@ class MemberController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, MemberValidate::class . '.status');
-        $this->members->updateMemberStatus((int)$params['id'], (int)$params['status']);
+        $this->members->updateMemberStatus((int) $params['id'], (int) $params['status']);
         return $this->success('操作成功');
     }
 
@@ -57,7 +58,7 @@ class MemberController extends BaseAdminController
 
     private function idempotencyKey(): string
     {
-        $key = trim((string)$this->request->header('Idempotency-Key', ''));
+        $key = trim((string) $this->request->header('Idempotency-Key', ''));
         return $key;
     }
 

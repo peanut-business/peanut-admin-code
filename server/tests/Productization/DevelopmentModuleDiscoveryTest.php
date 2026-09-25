@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\platform\service\plugin\DevelopmentModuleDiscovery;
@@ -8,17 +9,23 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 function developmentDiscoveryExpect(bool $condition, string $message): void
 {
-    if (!$condition) throw new RuntimeException($message);
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
 }
 
 function developmentDiscoveryRemoveTree(string $path): void
 {
-    if (!is_dir($path)) return;
+    if (!is_dir($path)) {
+        return;
+    }
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST,
     );
-    foreach ($iterator as $entry) $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+    foreach ($iterator as $entry) {
+        $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+    }
     rmdir($path);
 }
 

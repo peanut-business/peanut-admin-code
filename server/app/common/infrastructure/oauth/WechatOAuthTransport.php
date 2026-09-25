@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\oauth;
@@ -11,17 +12,15 @@ use PeanutAdmin\IntegrationSecurity\OAuth\OAuthTransport;
 /** 微信小程序、公众号和开放平台 PC 的生产 OAuth 传输。 */
 final class WechatOAuthTransport implements OAuthTransport
 {
-    public function __construct(private readonly OutboundHttpTransport $transport)
-    {
-    }
+    public function __construct(private readonly OutboundHttpTransport $transport) {}
 
     public function authorizationUrl(
         string $scene,
         array $config,
         string $redirectUri,
-        string $state
+        string $state,
     ): string {
-        $appId = trim((string)($config['app_id'] ?? ''));
+        $appId = trim((string) ($config['app_id'] ?? ''));
         if ($appId === '' || $redirectUri === '' || $state === '') {
             throw new \RuntimeException('微信授权参数不完整');
         }
@@ -42,8 +41,8 @@ final class WechatOAuthTransport implements OAuthTransport
 
     public function exchange(string $scene, array $config, string $code): OAuthProfile
     {
-        $appId = trim((string)($config['app_id'] ?? ''));
-        $secret = trim((string)($config['app_secret'] ?? ''));
+        $appId = trim((string) ($config['app_id'] ?? ''));
+        $secret = trim((string) ($config['app_secret'] ?? ''));
         $code = trim($code);
         if ($appId === '' || $secret === '' || $code === '') {
             throw new \RuntimeException('微信授权配置或 code 缺失');
@@ -57,8 +56,8 @@ final class WechatOAuthTransport implements OAuthTransport
                 'grant_type' => 'authorization_code',
             ], '', '&', PHP_QUERY_RFC3986));
             return new OAuthProfile(
-                (string)($data['openid'] ?? ''),
-                (string)($data['unionid'] ?? '')
+                (string) ($data['openid'] ?? ''),
+                (string) ($data['unionid'] ?? ''),
             );
         }
         if (!in_array($scene, ['oa', 'open_pc'], true)) {
@@ -71,8 +70,8 @@ final class WechatOAuthTransport implements OAuthTransport
             'code' => $code,
             'grant_type' => 'authorization_code',
         ], '', '&', PHP_QUERY_RFC3986));
-        $accessToken = trim((string)($token['access_token'] ?? ''));
-        $openid = trim((string)($token['openid'] ?? ''));
+        $accessToken = trim((string) ($token['access_token'] ?? ''));
+        $openid = trim((string) ($token['openid'] ?? ''));
         if ($accessToken === '' || $openid === '') {
             throw new \RuntimeException('微信 code 换取身份失败');
         }
@@ -83,9 +82,9 @@ final class WechatOAuthTransport implements OAuthTransport
         ], '', '&', PHP_QUERY_RFC3986));
         return new OAuthProfile(
             $openid,
-            (string)($profile['unionid'] ?? $token['unionid'] ?? ''),
-            (string)($profile['nickname'] ?? ''),
-            (string)($profile['headimgurl'] ?? '')
+            (string) ($profile['unionid'] ?? $token['unionid'] ?? ''),
+            (string) ($profile['nickname'] ?? ''),
+            (string) ($profile['headimgurl'] ?? ''),
         );
     }
 
@@ -101,8 +100,8 @@ final class WechatOAuthTransport implements OAuthTransport
         if (!is_array($data)) {
             throw new \RuntimeException('微信授权响应格式异常');
         }
-        if (isset($data['errcode']) && (int)$data['errcode'] !== 0) {
-            throw new \RuntimeException('微信授权失败:' . (string)($data['errmsg'] ?? $data['errcode']));
+        if (isset($data['errcode']) && (int) $data['errcode'] !== 0) {
+            throw new \RuntimeException('微信授权失败:' . (string) ($data['errmsg'] ?? $data['errcode']));
         }
         return $data;
     }

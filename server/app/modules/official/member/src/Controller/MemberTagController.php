@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Controller;
@@ -35,7 +36,7 @@ class MemberTagController extends BaseAdminController
 
     public function delete()
     {
-        $this->members->deleteTag((int)$this->request->post('id'));
+        $this->members->deleteTag((int) $this->request->post('id'));
         return $this->success('操作成功');
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\dto\payment;
@@ -23,7 +24,7 @@ final class PaymentEvent
         string $currency,
         string $status,
         string $merchantIdentity,
-        string $appIdentity
+        string $appIdentity,
     ) {
         if (trim($orderSn) === '' || trim($transactionId) === '' || $amount <= 0) {
             throw new \RuntimeException('支付回调缺少可信交易标识或金额');
@@ -38,14 +39,38 @@ final class PaymentEvent
         $this->appIdentity = trim($appIdentity);
     }
 
-    public function channel(): string { return $this->channel; }
-    public function orderSn(): string { return $this->orderSn; }
-    public function transactionId(): string { return $this->transactionId; }
-    public function amount(): int { return $this->amount; }
-    public function currency(): string { return $this->currency; }
-    public function status(): string { return $this->status; }
-    public function merchantIdentity(): string { return $this->merchantIdentity; }
-    public function appIdentity(): string { return $this->appIdentity; }
+    public function channel(): string
+    {
+        return $this->channel;
+    }
+    public function orderSn(): string
+    {
+        return $this->orderSn;
+    }
+    public function transactionId(): string
+    {
+        return $this->transactionId;
+    }
+    public function amount(): int
+    {
+        return $this->amount;
+    }
+    public function currency(): string
+    {
+        return $this->currency;
+    }
+    public function status(): string
+    {
+        return $this->status;
+    }
+    public function merchantIdentity(): string
+    {
+        return $this->merchantIdentity;
+    }
+    public function appIdentity(): string
+    {
+        return $this->appIdentity;
+    }
 
     public function toArray(): array
     {

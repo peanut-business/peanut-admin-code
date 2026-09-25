@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Infrastructure;
@@ -16,6 +17,6 @@ final class ThinkPhpSystemDictionaryProvider implements SystemDictionaryProvider
         $rows = Db::name('system_dict_data')->alias('d')->join('system_dict_type t', 't.code = d.type_code')
             ->where('d.type_code', $type)->where('d.is_disable', 0)->where('t.is_disable', 0)
             ->field('d.id,d.name,d.value,d.sort')->order(['d.sort' => 'desc', 'd.id' => 'desc'])->select()->toArray();
-        return array_map(static fn (array $row): DictionaryEntry => DictionaryEntry::fromArray($row + ['source' => 'system'], 'system'), $rows);
+        return array_map(static fn(array $row): DictionaryEntry => DictionaryEntry::fromArray($row + ['source' => 'system'], 'system'), $rows);
     }
 }

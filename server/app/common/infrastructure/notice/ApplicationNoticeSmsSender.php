@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\notice;
@@ -24,7 +25,7 @@ final class ApplicationNoticeSmsSender implements NoticeSmsSender
         string $mobile,
         string $templateId,
         array $variables,
-        ?callable $beforeSend = null
+        ?callable $beforeSend = null,
     ): array {
         if ($this->developmentMode) {
             if ($beforeSend !== null) {

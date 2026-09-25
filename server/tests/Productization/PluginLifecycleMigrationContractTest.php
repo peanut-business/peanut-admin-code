@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
@@ -17,7 +18,7 @@ function pluginMigrationTableSql(string $sql, string $table): string
     $matched = preg_match(
         '/CREATE TABLE `' . preg_quote($table, '/') . '` \(.*?\n\) ENGINE=.*?;/s',
         $sql,
-        $matches
+        $matches,
     );
     pluginMigrationExpect($matched === 1, "missing lifecycle table: {$table}");
     return $matches[0];
@@ -25,11 +26,11 @@ function pluginMigrationTableSql(string $sql, string $table): string
 
 function pluginMigrationNormalize(string $sql): string
 {
-    return (string)preg_replace('/\s+/', ' ', trim(rtrim($sql, ';')));
+    return (string) preg_replace('/\s+/', ' ', trim(rtrim($sql, ';')));
 }
 
 $path = dirname(__DIR__, 2) . '/database/init.sql';
-$sql = (string)file_get_contents($path);
+$sql = (string) file_get_contents($path);
 pluginMigrationExpect($sql !== '', 'Plugin lifecycle migration is unavailable');
 
 $requiredTables = [
@@ -55,18 +56,18 @@ foreach ($requiredTables as $table) {
 
 pluginMigrationExpect(
     !str_contains($sql, 'CREATE TABLE `pa_permission`'),
-    'canonical application schema must leave pa_permission to Core KernelSchema'
+    'canonical application schema must leave pa_permission to Core KernelSchema',
 );
 foreach (['pa_resource_operation_target_type', 'pa_resource_operation_permission', 'pa_menu_definition'] as $table) {
     pluginMigrationExpect(
         str_contains(pluginMigrationTableSql($sql, $table), 'REFERENCES `pa_permission` (`id`)'),
-        "{$table} must reference native Core pa_permission"
+        "{$table} must reference native Core pa_permission",
     );
 }
 foreach (['deployment', 'tenant', 'target'] as $scope) {
     pluginMigrationExpect(
         str_contains($sql, "CONSTRAINT `chk_setting_{$scope}_storage`"),
-        "settings {$scope} storage constraint is missing"
+        "settings {$scope} storage constraint is missing",
     );
 }
 

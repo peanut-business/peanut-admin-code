@@ -41,9 +41,9 @@ final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRep
 
         if ($row !== null) {
             $manifest = $this->registry->requireManifest($moduleKey);
-            if ((string)$row['installed_version'] !== (string)($manifest->data['version'] ?? '')
-                || (int)$row['manifest_schema_version'] !== (int)($manifest->data['schema_version'] ?? 0)
-                || !hash_equals($manifest->digest, (string)$row['manifest_digest'])) {
+            if ((string) $row['installed_version'] !== (string) ($manifest->data['version'] ?? '')
+                || (int) $row['manifest_schema_version'] !== (int) ($manifest->data['schema_version'] ?? 0)
+                || !hash_equals($manifest->digest, (string) $row['manifest_digest'])) {
                 throw new ModuleException(
                     'MODULE_INSTALLATION_MISMATCH',
                     "Installed Module manifest does not match the compiled registry: {$moduleKey}",
@@ -80,7 +80,7 @@ final readonly class ThinkPhpModuleRuntimeRepository implements ModuleRuntimeRep
                 'enabled',
                 null,
                 null,
-                max(1, (int)$tenant['authorization_revision'] + $installation->revision),
+                max(1, (int) $tenant['authorization_revision'] + $installation->revision),
             );
         }
         $query = TenantModule::where('tenant_id', $tenantId)->where('module_key', $moduleKey);

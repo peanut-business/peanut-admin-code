@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\adminapi\http\middleware\OperationLogMiddleware;
@@ -26,7 +27,7 @@ function operationTenantContext(int $tenantId, int $memberId, string $requestId)
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT03AUDITLOG' . str_pad((string)$memberId, 11, '0', STR_PAD_LEFT),
+        '01JMT03AUDITLOG' . str_pad((string) $memberId, 11, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 10000,
         $memberId,
@@ -93,7 +94,7 @@ SQL);
 
 $serverRoot = dirname(__DIR__, 2);
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(5)));
@@ -103,7 +104,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
 );
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 
@@ -113,7 +114,7 @@ try {
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
     );
     createOperationTenantSchema($pdo);
     $pdo->exec("INSERT INTO pa_tenant (id, status) VALUES (101, 'active'), (202, 'active')");
@@ -134,16 +135,19 @@ try {
         TenantDiagnosticAttributes::fromTenantContext(null) === [
             'scope' => 'unavailable', 'tenant_id' => null, 'request_id' => '',
         ],
-        'unavailable diagnostics were attributed to a default Tenant'
+        'unavailable diagnostics were attributed to a default Tenant',
     );
     expectOperationTenant(
         TenantDiagnosticAttributes::fromTenantContext($alpha)['tenant_id'] === 101,
-        'trusted diagnostics lost Tenant attribution'
+        'trusted diagnostics lost Tenant attribution',
     );
 
     $handlerCalled = false;
     $missingRequest = new class {
-        public function method(): string { return 'POST'; }
+        public function method(): string
+        {
+            return 'POST';
+        }
     };
     try {
         $app->make(OperationLogMiddleware::class)->handle($missingRequest, function () use (&$handlerCalled): void {
@@ -153,8 +157,8 @@ try {
     } catch (Throwable $exception) {
         expectOperationTenant(!$handlerCalled, 'missing context reached the business handler');
         expectOperationTenant(
-            (int)$pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn() === 1,
-            'missing context produced an audit database side effect'
+            (int) $pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn() === 1,
+            'missing context produced an audit database side effect',
         );
     }
 
@@ -195,30 +199,30 @@ try {
         ),
     );
     expectOperationTenant(
-        (int)$pdo->query("SELECT tenant_id FROM pa_operation_log WHERE username = 'alpha'")->fetchColumn() === 101,
-        'payload forged Alpha audit ownership'
+        (int) $pdo->query("SELECT tenant_id FROM pa_operation_log WHERE username = 'alpha'")->fetchColumn() === 101,
+        'payload forged Alpha audit ownership',
     );
     expectOperationTenant(
-        (int)$pdo->query("SELECT tenant_id FROM pa_operation_log WHERE username = 'beta'")->fetchColumn() === 202,
-        'payload forged Beta audit ownership'
+        (int) $pdo->query("SELECT tenant_id FROM pa_operation_log WHERE username = 'beta'")->fetchColumn() === 202,
+        'payload forged Beta audit ownership',
     );
     $betaAudit = $pdo->query("SELECT tenant_id,request_id,outcome,reason_code,target_resource_id,metadata_json FROM pa_tenant_audit_event WHERE request_id='mt03-audit-beta-{$runId}'")->fetch(PDO::FETCH_ASSOC);
     expectOperationTenant(
         $betaAudit !== false
-            && (int)$betaAudit['tenant_id'] === 202
+            && (int) $betaAudit['tenant_id'] === 202
             && $betaAudit['outcome'] === 'denied'
             && $betaAudit['reason_code'] === 'HTTP_403'
             && $betaAudit['target_resource_id'] === 'same/write',
         'Operation Log projections lost Tenant, request, outcome, reason, or route correlation',
     );
     expectOperationTenant(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_operation_log WHERE request_id='mt03-audit-beta-{$runId}'")->fetchColumn() === 1
-            && (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE request_id='mt03-audit-beta-{$runId}'")->fetchColumn() === 1,
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_operation_log WHERE request_id='mt03-audit-beta-{$runId}'")->fetchColumn() === 1
+            && (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE request_id='mt03-audit-beta-{$runId}'")->fetchColumn() === 1,
         'one Operation Log fact was not projected exactly once to both stores',
     );
 
     $projectionFailure = operationTenantContext(101, 503, 'mt03-audit-rollback-' . $runId);
-    $operationCountBeforeFailure = (int)$pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn();
+    $operationCountBeforeFailure = (int) $pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn();
     $pdo->exec("CREATE TRIGGER reject_tenant_audit_projection BEFORE INSERT ON pa_tenant_audit_event FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected projection failure'");
     try {
         app(ExecutionContextStore::class)->run(
@@ -243,8 +247,8 @@ try {
         $pdo->exec('DROP TRIGGER reject_tenant_audit_projection');
     }
     expectOperationTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn() === $operationCountBeforeFailure
-            && (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE request_id='mt03-audit-rollback-{$runId}'")->fetchColumn() === 0,
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_operation_log')->fetchColumn() === $operationCountBeforeFailure
+            && (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE request_id='mt03-audit-rollback-{$runId}'")->fetchColumn() === 0,
         'projection failure left a half-persisted Operation Log fact',
     );
 
@@ -300,7 +304,7 @@ try {
         'Beta list leaked or lost audit rows',
     );
 
-    $betaId = (int)$pdo->query("SELECT id FROM pa_operation_log WHERE username = 'beta'")->fetchColumn();
+    $betaId = (int) $pdo->query("SELECT id FROM pa_operation_log WHERE username = 'beta'")->fetchColumn();
     foreach ([$betaId, 999999] as $target) {
         try {
             app(ExecutionContextStore::class)->run(
@@ -322,19 +326,19 @@ try {
             'file_name' => 'tenant-audit-' . $runId,
         ]),
     );
-    $exportUrl = (string)$export['url'];
+    $exportUrl = (string) $export['url'];
     $storageOffset = strpos($exportUrl, 'storage/exports/');
     expectOperationTenant($storageOffset !== false, 'Alpha export URL lost its storage path');
     $exportUri = substr($exportUrl, $storageOffset);
     expectOperationTenant(
         str_starts_with($exportUri, 'storage/exports/tenants/v1/101/operation-logs/'),
-        'Alpha export escaped its Tenant namespace'
+        'Alpha export escaped its Tenant namespace',
     );
     $exportedPath = $serverRoot . '/public/' . $exportUri;
     expectOperationTenant(is_file($exportedPath), 'Alpha export file was not created');
     $zip = new ZipArchive();
     expectOperationTenant($zip->open($exportedPath) === true, 'Alpha export is not a readable XLSX');
-    $sheet = (string)$zip->getFromName('xl/worksheets/sheet1.xml');
+    $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
     $zip->close();
     expectOperationTenant(str_contains($sheet, 'alpha-only-' . $runId), 'Alpha export lost its own audit row');
     expectOperationTenant(!str_contains($sheet, 'beta-only-' . $runId), 'Alpha export leaked Beta audit content');
@@ -345,18 +349,18 @@ try {
     );
     expectOperationTenant($cleared === 2, 'Alpha clear did not count only Alpha rows');
     expectOperationTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_operation_log WHERE tenant_id = 101')->fetchColumn() === 1,
-        'Alpha clear did not preserve its tenant-scoped tombstone'
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_operation_log WHERE tenant_id = 101')->fetchColumn() === 1,
+        'Alpha clear did not preserve its tenant-scoped tombstone',
     );
     expectOperationTenant(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_operation_log WHERE tenant_id = 202 AND username = 'beta'")->fetchColumn() === 1,
-        'Alpha clear touched Beta audit rows'
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_operation_log WHERE tenant_id = 202 AND username = 'beta'")->fetchColumn() === 1,
+        'Alpha clear touched Beta audit rows',
     );
 
     $recordSignature = new ReflectionMethod(OperationLogService::class, 'record');
     expectOperationTenant(
         $recordSignature->getParameters()[0]->getType()?->getName() === TenantContext::class,
-        'operation log write boundary does not require TenantContext'
+        'operation log write boundary does not require TenantContext',
     );
 
     echo "MT03-OPERATION-LOG-TENANT-001 passed\n";

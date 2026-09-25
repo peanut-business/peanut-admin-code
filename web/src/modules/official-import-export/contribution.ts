@@ -38,17 +38,19 @@ const contribution: PluginFrontendContribution = {
         tenantModuleKey: 'official.import-export',
         requiredPermissions: 'official.import-export.operations.read',
       },
-      children: [{
-        path: '',
-        name: 'OfficialImportExportOperations',
-        component: () => import('./OperationsPage.vue'),
-        meta: {
-          locale: 'Import/export operations',
-          requiresAuth: true,
-          tenantModuleKey: 'official.import-export',
-          requiredPermissions: 'official.import-export.operations.read',
+      children: [
+        {
+          path: '',
+          name: 'OfficialImportExportOperations',
+          component: () => import('./OperationsPage.vue'),
+          meta: {
+            locale: 'Import/export operations',
+            requiresAuth: true,
+            tenantModuleKey: 'official.import-export',
+            requiredPermissions: 'official.import-export.operations.read',
+          },
         },
-      }],
+      ],
     },
   ],
 };

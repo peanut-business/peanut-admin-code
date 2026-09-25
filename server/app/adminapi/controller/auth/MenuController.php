@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
@@ -15,23 +16,33 @@ class MenuController extends BaseAdminController
 {
     protected string $menusClass = MenuApplicationService::class;
 
-    public function route()  { return $this->data($this->menus->getMenuByAdminId($this->executionContext()->tenantAdmin(), $this->adminId)); }
+    public function route()
+    {
+        return $this->data($this->menus->getMenuByAdminId($this->executionContext()->tenantAdmin(), $this->adminId));
+    }
     public function lists()
     {
         return $this->instanceMenuDenial() ?? $this->data($this->menus->getAll());
     }
-    public function all()    { return $this->data($this->menus->getAllSimple($this->tenantAdminContext())); }
+    public function all()
+    {
+        return $this->data($this->menus->getAllSimple($this->tenantAdminContext()));
+    }
     public function detail()
     {
-        if ($denial = $this->instanceMenuDenial()) return $denial;
-        $params = ['id' => (int)$this->request->get('id')];
+        if ($denial = $this->instanceMenuDenial()) {
+            return $denial;
+        }
+        $params = ['id' => (int) $this->request->get('id')];
         $this->validate($params, MenuValidate::class . '.detail');
         return $this->data($this->menus->detail($params['id']));
     }
 
     public function add()
     {
-        if ($denial = $this->instanceMenuDenial()) return $denial;
+        if ($denial = $this->instanceMenuDenial()) {
+            return $denial;
+        }
         $this->validate($this->request->post(), MenuValidate::class . '.add');
         $this->menus->add($this->request->post());
         return $this->success('操作成功');
@@ -39,7 +50,9 @@ class MenuController extends BaseAdminController
 
     public function edit()
     {
-        if ($denial = $this->instanceMenuDenial()) return $denial;
+        if ($denial = $this->instanceMenuDenial()) {
+            return $denial;
+        }
         $this->validate($this->request->post(), MenuValidate::class . '.edit');
         $this->menus->edit($this->request->post());
         return $this->success('操作成功');
@@ -47,8 +60,10 @@ class MenuController extends BaseAdminController
 
     public function delete()
     {
-        if ($denial = $this->instanceMenuDenial()) return $denial;
-        $params = ['id' => (int)$this->request->post('id')];
+        if ($denial = $this->instanceMenuDenial()) {
+            return $denial;
+        }
+        $params = ['id' => (int) $this->request->post('id')];
         $this->validate($params, MenuValidate::class . '.delete');
         $this->menus->delete($params['id']);
         return $this->success('操作成功');
@@ -56,13 +71,15 @@ class MenuController extends BaseAdminController
 
     public function updateStatus()
     {
-        if ($denial = $this->instanceMenuDenial()) return $denial;
+        if ($denial = $this->instanceMenuDenial()) {
+            return $denial;
+        }
         $params = [
-            'id' => (int)$this->request->post('id'),
+            'id' => (int) $this->request->post('id'),
             'is_disable' => $this->request->post('is_disable'),
         ];
         $this->validate($params, MenuValidate::class . '.status');
-        $this->menus->updateStatus($params['id'], (int)$params['is_disable']);
+        $this->menus->updateStatus($params['id'], (int) $params['is_disable']);
         return $this->success('操作成功');
     }
 

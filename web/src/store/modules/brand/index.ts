@@ -25,7 +25,9 @@ IMAGE_FIELDS.forEach((field) => {
 });
 
 function applyDocumentBrand(website: WebsiteConfig, tenantName: string) {
-  document.title = tenantName ? `${tenantName} - ${website.name}` : website.name;
+  document.title = tenantName
+    ? `${tenantName} - ${website.name}`
+    : website.name;
   let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
   if (!favicon) {
     favicon = document.createElement('link');
@@ -49,10 +51,7 @@ const useBrandStore = defineStore('brand', {
       this.applyTitle();
     },
     applyTitle() {
-      applyDocumentBrand(
-        this.website,
-        this.tenantName || this.entryTenantName
-      );
+      applyDocumentBrand(this.website, this.tenantName || this.entryTenantName);
     },
     setEntryTenantName(tenantName?: string) {
       this.entryTenantName = tenantName?.trim() || '';

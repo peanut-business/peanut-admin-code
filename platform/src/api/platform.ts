@@ -134,11 +134,48 @@ export interface InvitationInspection {
   requires_password: boolean;
 }
 
-export interface StorageAccount { id:number; account_key:string; driver:'local'|'qiniu'|'aliyun'|'qcloud'; name:string; credentials:Record<string,string>; status:string }
-export interface StorageSpace { id:number; space_key:string; account_id:number; account_key:string; driver:string; name:string; access_type:'public'|'private'; bucket?:string; region?:string; endpoint?:string; access_domain?:string; local_path?:string; status:string }
-export interface StorageRoute { route_key:string; access_type:'public'|'private'; space_id:number; space_key:string; space_name:string; driver:string }
-export interface StorageSnapshot { accounts:StorageAccount[]; spaces:StorageSpace[]; routes:StorageRoute[]; purposes:string[] }
-export interface DiagnosticDownload { bytes:ArrayBuffer; filename:string; sha256:string }
+export interface StorageAccount {
+  id: number;
+  account_key: string;
+  driver: 'local' | 'qiniu' | 'aliyun' | 'qcloud';
+  name: string;
+  credentials: Record<string, string>;
+  status: string;
+}
+export interface StorageSpace {
+  id: number;
+  space_key: string;
+  account_id: number;
+  account_key: string;
+  driver: string;
+  name: string;
+  access_type: 'public' | 'private';
+  bucket?: string;
+  region?: string;
+  endpoint?: string;
+  access_domain?: string;
+  local_path?: string;
+  status: string;
+}
+export interface StorageRoute {
+  route_key: string;
+  access_type: 'public' | 'private';
+  space_id: number;
+  space_key: string;
+  space_name: string;
+  driver: string;
+}
+export interface StorageSnapshot {
+  accounts: StorageAccount[];
+  spaces: StorageSpace[];
+  routes: StorageRoute[];
+  purposes: string[];
+}
+export interface DiagnosticDownload {
+  bytes: ArrayBuffer;
+  filename: string;
+  sha256: string;
+}
 
 export interface OpsBackupProvider {
   key: 'peanut.paired-db-files';
@@ -232,7 +269,11 @@ export interface DeveloperModuleCatalog {
     manifest_sha256: string;
     backend_root: string;
     frontend_entry: string | null;
-    frontend_clients: Array<{ client_key: string; entry: string; root: string }>;
+    frontend_clients: Array<{
+      client_key: string;
+      entry: string;
+      root: string;
+    }>;
   };
   evidence: Record<string, DeveloperCatalogEvidence>;
   dependencies: Array<Record<string, unknown>>;
@@ -246,7 +287,10 @@ export interface DeveloperModuleCatalog {
   lifecycle: Record<string, unknown>;
   events: unknown[];
   tasks: { commands: string[]; public_contracts: string[] };
-  migrations: { declared_path: string | null; files: Array<Record<string, unknown>> };
+  migrations: {
+    declared_path: string | null;
+    files: Array<Record<string, unknown>>;
+  };
   documentation: { status: string; files: string[] };
   package_preview: Record<string, unknown> & {
     status: string;
@@ -273,7 +317,10 @@ export interface DeveloperCenterCatalogSnapshot {
   modules: DeveloperModuleCatalog[];
 }
 
-export type OpsUpgradeReadinessState = 'configuration_required' | 'blocked' | 'ready';
+export type OpsUpgradeReadinessState =
+  | 'configuration_required'
+  | 'blocked'
+  | 'ready';
 
 export interface OpsUpgradeReadinessCheck {
   key: string;
@@ -288,7 +335,12 @@ export interface OpsUpgradeReadinessSnapshot {
   preflight: { state: OpsUpgradeReadinessState; code: string };
   checks: OpsUpgradeReadinessCheck[];
   source: {
-    runtime: { commit: string; tree: string; release_key: string | null; repository_clean: boolean };
+    runtime: {
+      commit: string;
+      tree: string;
+      release_key: string | null;
+      repository_clean: boolean;
+    };
     application: null | {
       application_version: string;
       template_version: string;
@@ -303,21 +355,79 @@ export interface OpsUpgradeReadinessSnapshot {
     commit: string;
     tree: string;
     descriptor_sha256: string;
-    scaffold: { from_version: string; to_version: string; source_commit: string; source_tree: string; inventory_sha256: string; manifest_sha256: string };
+    scaffold: {
+      from_version: string;
+      to_version: string;
+      source_commit: string;
+      source_tree: string;
+      inventory_sha256: string;
+      manifest_sha256: string;
+    };
   };
   migrations: {
-    current: { applied: number; target: number; pending: number; inventory_sha256: string; drift: boolean };
-    release: null | { from_count: number; to_count: number; pending_count: number | null };
+    current: {
+      applied: number;
+      target: number;
+      pending: number;
+      inventory_sha256: string;
+      drift: boolean;
+    };
+    release: null | {
+      from_count: number;
+      to_count: number;
+      pending_count: number | null;
+    };
     blockers: string[];
   };
-  modules: { status: OpsUpgradeReadinessState; installed_count: number; compatible_count: number; target_count: number; lock_sha256: string | null; target_kernel_version: string | null; blockers: string[] };
-  scaffold: { status: OpsUpgradeReadinessState; code: string; candidate: string | null; automatic: number; preserved: number; conflicts: number; app_owned_count: number; conflict_reasons: Record<string, number> };
-  backup: { latest_verified: OpsLatestVerifiedBackup | null; latest_restore_verified: OpsLatestRestoreVerified | null };
-  maintenance: null | { maintenance_key: string; state: string; reason_key: string; starts_at: string; ends_at: string; revision: number };
-  recovery_pointer: null | { provider_key: string; backup_reference_key: string; manifest_sha256: string; restore_target_key: string; restore_verification_sha256: string; restore_verified_at: string };
+  modules: {
+    status: OpsUpgradeReadinessState;
+    installed_count: number;
+    compatible_count: number;
+    target_count: number;
+    lock_sha256: string | null;
+    target_kernel_version: string | null;
+    blockers: string[];
+  };
+  scaffold: {
+    status: OpsUpgradeReadinessState;
+    code: string;
+    candidate: string | null;
+    automatic: number;
+    preserved: number;
+    conflicts: number;
+    app_owned_count: number;
+    conflict_reasons: Record<string, number>;
+  };
+  backup: {
+    latest_verified: OpsLatestVerifiedBackup | null;
+    latest_restore_verified: OpsLatestRestoreVerified | null;
+  };
+  maintenance: null | {
+    maintenance_key: string;
+    state: string;
+    reason_key: string;
+    starts_at: string;
+    ends_at: string;
+    revision: number;
+  };
+  recovery_pointer: null | {
+    provider_key: string;
+    backup_reference_key: string;
+    manifest_sha256: string;
+    restore_target_key: string;
+    restore_verification_sha256: string;
+    restore_verified_at: string;
+  };
 }
 
-export type OpsUpgradeStepKey = 'preflight' | 'backup' | 'restore_verification' | 'maintenance' | 'deployment' | 'smoke' | 'recovery_pointer';
+export type OpsUpgradeStepKey =
+  | 'preflight'
+  | 'backup'
+  | 'restore_verification'
+  | 'maintenance'
+  | 'deployment'
+  | 'smoke'
+  | 'recovery_pointer';
 
 export interface OpsUpgradeStep {
   step_key: OpsUpgradeStepKey;
@@ -339,8 +449,18 @@ export interface OpsUpgradeTask {
   revision: number;
   last_error_code: string | null;
   current_step: OpsUpgradeStepKey | 'completed';
-  source: { commit: string; tree: string; release_key: string | null; application_manifest_sha256: string };
-  target: { release_key: string; commit: string; tree: string; descriptor_sha256: string };
+  source: {
+    commit: string;
+    tree: string;
+    release_key: string | null;
+    application_manifest_sha256: string;
+  };
+  target: {
+    release_key: string;
+    commit: string;
+    tree: string;
+    descriptor_sha256: string;
+  };
   backup_reference_key: string | null;
   restore_evidence_sha256: string | null;
   maintenance_key: string | null;
@@ -372,7 +492,9 @@ function setPlatformSessionToken(token: string | null): void {
 }
 
 /** Subscribes to same-tab session transitions emitted by the platform transport. */
-export function onPlatformSessionChange(listener: PlatformSessionListener): () => void {
+export function onPlatformSessionChange(
+  listener: PlatformSessionListener
+): () => void {
   platformSessionListeners.add(listener);
   return () => platformSessionListeners.delete(listener);
 }
@@ -428,17 +550,14 @@ const handleResponse = async (response: AxiosResponse<Envelope<unknown>>) => {
   return response;
 };
 
-client.interceptors.response.use(
-  handleResponse,
-  (error) => {
-    const response = axios.isAxiosError(error)
-      ? error.response as AxiosResponse<Envelope<unknown>> | undefined
-      : undefined;
-    return response?.data && typeof response.data.code === 'number'
-      ? handleResponse(response)
-      : Promise.reject(error);
-  }
-);
+client.interceptors.response.use(handleResponse, (error) => {
+  const response = axios.isAxiosError(error)
+    ? (error.response as AxiosResponse<Envelope<unknown>> | undefined)
+    : undefined;
+  return response?.data && typeof response.data.code === 'number'
+    ? handleResponse(response)
+    : Promise.reject(error);
+});
 
 async function unwrap<T>(request: Promise<{ data: Envelope<T> }>): Promise<T> {
   const result = await request;
@@ -490,7 +609,8 @@ export const api = {
       setPlatformSessionToken(null);
     }
   },
-  sessionInfo: () => unwrap<SessionInfo>(client.get('/platformapi/session/info')),
+  sessionInfo: () =>
+    unwrap<SessionInfo>(client.get('/platformapi/session/info')),
   tenants: (page = 1, pageSize = 100) =>
     unwrap<Page<Tenant>>(
       client.get('/platformapi/tenants', {
@@ -503,7 +623,9 @@ export const api = {
     ),
   tenantOwner: (tenantId: number) =>
     unwrap<TenantOwner>(
-      client.get('/platformapi/tenants/owner', { params: { tenant_id: tenantId } })
+      client.get('/platformapi/tenants/owner', {
+        params: { tenant_id: tenantId },
+      })
     ),
   provision: (payload: Record<string, string | number>) =>
     unwrap<Invitation>(client.post('/platformapi/tenants/provision', payload)),
@@ -526,7 +648,9 @@ export const api = {
       })
     ),
   inviteOwner: (payload: Record<string, string | number>) =>
-    unwrap<Invitation>(client.post('/platformapi/tenants/invitations', payload)),
+    unwrap<Invitation>(
+      client.post('/platformapi/tenants/invitations', payload)
+    ),
   resendInvitation: (invitationId: number) =>
     unwrap<Invitation>(
       client.post('/platformapi/tenants/invitations/resend', {
@@ -542,7 +666,9 @@ export const api = {
     ),
   inspectInvitation: (token: string) =>
     unwrap<InvitationInspection>(
-      client.get('/adminapi/tenant/owner-invitations/inspect', { params: { token } })
+      client.get('/adminapi/tenant/owner-invitations/inspect', {
+        params: { token },
+      })
     ),
   acceptInvitation: (token: string, newAccountPassword?: string) =>
     unwrap<Record<string, unknown>>(
@@ -599,7 +725,11 @@ export const api = {
     ),
   createOperator: (payload: Record<string, string>) =>
     unwrap(client.post('/platformapi/operators/create', payload)),
-  updateOperator: (operator: Operator, displayName: string, changeReason: string) =>
+  updateOperator: (
+    operator: Operator,
+    displayName: string,
+    changeReason: string
+  ) =>
     unwrap(
       client.post('/platformapi/operators/update', {
         operator_id: operator.id,
@@ -683,12 +813,22 @@ export const api = {
         change_reason: changeReason,
       })
     ),
-  storageSnapshot: () => unwrap<StorageSnapshot>(client.get('/platformapi/infrastructure/storage')),
-  createStorageAccount: (payload:Record<string,unknown>) => unwrap(client.post('/platformapi/infrastructure/storage/account',payload)),
-  updateStorageAccount: (payload:Record<string,unknown>) => unwrap(client.post('/platformapi/infrastructure/storage/account/update',payload)),
-  createStorageSpace: (payload:Record<string,unknown>) => unwrap(client.post('/platformapi/infrastructure/storage/space',payload)),
-  updateStorageSpace: (payload:Record<string,unknown>) => unwrap(client.post('/platformapi/infrastructure/storage/space/update',payload)),
-  setStorageRoute: (payload:Record<string,unknown>) => unwrap(client.post('/platformapi/infrastructure/storage/route',payload)),
+  storageSnapshot: () =>
+    unwrap<StorageSnapshot>(client.get('/platformapi/infrastructure/storage')),
+  createStorageAccount: (payload: Record<string, unknown>) =>
+    unwrap(client.post('/platformapi/infrastructure/storage/account', payload)),
+  updateStorageAccount: (payload: Record<string, unknown>) =>
+    unwrap(
+      client.post('/platformapi/infrastructure/storage/account/update', payload)
+    ),
+  createStorageSpace: (payload: Record<string, unknown>) =>
+    unwrap(client.post('/platformapi/infrastructure/storage/space', payload)),
+  updateStorageSpace: (payload: Record<string, unknown>) =>
+    unwrap(
+      client.post('/platformapi/infrastructure/storage/space/update', payload)
+    ),
+  setStorageRoute: (payload: Record<string, unknown>) =>
+    unwrap(client.post('/platformapi/infrastructure/storage/route', payload)),
   audit: () =>
     unwrap<Page<AuditEvent>>(
       client.get('/platformapi/audit', {
@@ -696,9 +836,7 @@ export const api = {
       })
     ),
   backupCenter: () =>
-    unwrap<OpsBackupCenterSnapshot>(
-      client.get('/platformapi/v1/ops/backups')
-    ),
+    unwrap<OpsBackupCenterSnapshot>(client.get('/platformapi/v1/ops/backups')),
   upgradeReadiness: () =>
     unwrap<OpsUpgradeReadinessSnapshot>(
       client.get('/platformapi/v1/ops/upgrade-readiness')
@@ -709,9 +847,15 @@ export const api = {
     ),
   submitUpgrade: () =>
     unwrap<OpsUpgradeTask>(
-      client.post('/platformapi/v1/ops/tasks/upgrade', {}, {
-        headers: { 'Idempotency-Key': `platform-upgrade-${crypto.randomUUID()}` },
-      })
+      client.post(
+        '/platformapi/v1/ops/tasks/upgrade',
+        {},
+        {
+          headers: {
+            'Idempotency-Key': `platform-upgrade-${crypto.randomUUID()}`,
+          },
+        }
+      )
     ),
   providerQualifications: () =>
     unwrap<ProviderQualificationSnapshot>(
@@ -723,16 +867,23 @@ export const api = {
         params: moduleKey ? { module_key: moduleKey } : {},
       })
     ),
-  async downloadDiagnostics(windowMinutes: 60 | 360 | 1440 = 60): Promise<DiagnosticDownload> {
-    const result = await client.get<ArrayBuffer>('/platformapi/v1/ops/diagnostics', {
-      params: { window_minutes: windowMinutes },
-      responseType: 'arraybuffer',
-    });
+  async downloadDiagnostics(
+    windowMinutes: 60 | 360 | 1440 = 60
+  ): Promise<DiagnosticDownload> {
+    const result = await client.get<ArrayBuffer>(
+      '/platformapi/v1/ops/diagnostics',
+      {
+        params: { window_minutes: windowMinutes },
+        responseType: 'arraybuffer',
+      }
+    );
     const sha256 = String(result.headers['x-diagnostic-sha256'] || '');
     if (!/^[0-9a-f]{64}$/.test(sha256)) {
       let message = '诊断包生成失败';
       try {
-        const envelope = JSON.parse(new TextDecoder().decode(result.data)) as Envelope<unknown>;
+        const envelope = JSON.parse(
+          new TextDecoder().decode(result.data)
+        ) as Envelope<unknown>;
         message = envelope.msg || message;
       } catch {
         // A response without the checksum header is never accepted as an artifact.
@@ -745,10 +896,14 @@ export const api = {
     ).join('');
     if (actual !== sha256) throw new Error('诊断包完整性校验失败');
     const disposition = String(result.headers['content-disposition'] || '');
-    const candidate = disposition.match(/filename="([A-Za-z0-9._-]+)"/)?.[1] || '';
-    const filename = /^peanut-admin-diagnostics-[0-9]{8}-[0-9]{6}-[0-9a-f]{12}\.json$/.test(candidate)
-      ? candidate
-      : `peanut-admin-diagnostics-${sha256.slice(0, 12)}.json`;
+    const candidate =
+      disposition.match(/filename="([A-Za-z0-9._-]+)"/)?.[1] || '';
+    const filename =
+      /^peanut-admin-diagnostics-[0-9]{8}-[0-9]{6}-[0-9a-f]{12}\.json$/.test(
+        candidate
+      )
+        ? candidate
+        : `peanut-admin-diagnostics-${sha256.slice(0, 12)}.json`;
     return { bytes: result.data, filename, sha256 };
   },
 };
@@ -890,7 +1045,9 @@ async function opsCloseMaintenance(
   signal: AbortSignal
 ): Promise<OpsTransportResult> {
   const result = await client.post<Envelope<unknown>>(
-    `/platformapi/v1/ops/maintenance/${encodeURIComponent(maintenanceKey)}/close`,
+    `/platformapi/v1/ops/maintenance/${encodeURIComponent(
+      maintenanceKey
+    )}/close`,
     {},
     {
       headers: {
@@ -903,7 +1060,11 @@ async function opsCloseMaintenance(
   return opsMutationResult(result);
 }
 
-function opsMutationResult(result: { status: number; data: Envelope<unknown>; headers: Record<string, unknown> }): OpsTransportResult {
+function opsMutationResult(result: {
+  status: number;
+  data: Envelope<unknown>;
+  headers: Record<string, unknown>;
+}): OpsTransportResult {
   const requestId = opsRequestId(result.headers);
   if (result.data.code === 20000) {
     return {
@@ -936,8 +1097,7 @@ function unavailable(code: string): Promise<OpsTransportResult> {
 export function createPlatformOpsTransport(): OpsConsoleTransport {
   return {
     overview: (signal) => opsRead('/platformapi/v1/ops/status', signal),
-    maintenance: (signal) =>
-      opsRead('/platformapi/v1/ops/maintenance', signal),
+    maintenance: (signal) => opsRead('/platformapi/v1/ops/maintenance', signal),
     submitBackup: (providerKey, idempotencyKey, signal) =>
       opsSubmitBackup(providerKey, idempotencyKey, signal),
     submitRestore: (
@@ -955,7 +1115,10 @@ export function createPlatformOpsTransport(): OpsConsoleTransport {
         signal
       ),
     task: (taskKey, signal) =>
-      opsRead(`/platformapi/v1/ops/tasks/${encodeURIComponent(taskKey)}`, signal),
+      opsRead(
+        `/platformapi/v1/ops/tasks/${encodeURIComponent(taskKey)}`,
+        signal
+      ),
     scheduleMaintenance: opsScheduleMaintenance,
     closeMaintenance: opsCloseMaintenance,
     logs: () => unavailable('OPS_LOGS_UNAVAILABLE'),

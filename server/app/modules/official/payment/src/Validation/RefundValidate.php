@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Validation;
@@ -50,7 +51,7 @@ class RefundValidate extends Validate
             return true;
         }
 
-        return strtotime((string)$value) > strtotime((string)$data['start_time'])
+        return strtotime((string) $value) > strtotime((string) $data['start_time'])
             ? true
             : '搜索的时间范围不正确';
     }

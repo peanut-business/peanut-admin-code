@@ -43,23 +43,27 @@ export default {
 
   'channel.tab.wechatOaMenu': 'Official Account Menu',
   'channel.tab.wechatOaReply': 'Official Account Auto Reply',
-  'channel.officialAccount.permissionDenied': 'You do not have permission to view this configuration',
+  'channel.officialAccount.permissionDenied':
+    'You do not have permission to view this configuration',
   'channel.officialAccount.name': 'Official Account Name',
   'channel.officialAccount.namePlaceholder': 'Enter the official account name',
   'channel.officialAccount.originalId': 'Original ID',
   'channel.officialAccount.originalIdPlaceholder': 'Enter the original ID',
   'channel.officialAccount.qrCode': 'Official Account QR Code',
   'channel.officialAccount.selectQrCode': 'Choose from Materials',
-  'channel.officialAccount.secretMaskedPlaceholder': 'AppSecret is configured; keep the mask unchanged',
+  'channel.officialAccount.secretMaskedPlaceholder':
+    'AppSecret is configured; keep the mask unchanged',
   'channel.officialAccount.token': 'Token',
   'channel.officialAccount.callback': 'Callback and Domains',
-  'channel.officialAccount.plaintextNotice': 'The server callback supports plaintext mode only. Keep the WeChat platform configured for plaintext callbacks.',
+  'channel.officialAccount.plaintextNotice':
+    'The server callback supports plaintext mode only. Keep the WeChat platform configured for plaintext callbacks.',
   'channel.officialAccount.callbackUrl': 'Server Callback URL',
   'channel.officialAccount.businessDomain': 'Business Domain',
   'channel.officialAccount.jsSecureDomain': 'JS Secure Domain',
   'channel.officialAccount.webAuthDomain': 'Web Authorization Domain',
 
-  'channel.menu.ruleNotice': 'Official Account menus support two levels: up to 3 top-level items and 5 child items per group. Leaf items support click, view, and miniprogram.',
+  'channel.menu.ruleNotice':
+    'Official Account menus support two levels: up to 3 top-level items and 5 child items per group. Leaf items support click, view, and miniprogram.',
   'channel.menu.save': 'Save Menu',
   'channel.menu.publish': 'Publish to WeChat',
   'channel.menu.addTop': 'Add Top-level Menu',
@@ -79,10 +83,13 @@ export default {
   'channel.menu.invalidType': 'Invalid menu type',
   'channel.menu.clickKeyRequired': 'A click menu requires a key',
   'channel.menu.viewUrlRequired': 'A view menu requires a valid HTTP/HTTPS URL',
-  'channel.menu.miniprogramRequired': 'A miniprogram menu requires fallback URL, AppID, and page path',
+  'channel.menu.miniprogramRequired':
+    'A miniprogram menu requires fallback URL, AppID, and page path',
   'channel.menu.depthInvalid': 'Menus support at most two levels',
-  'channel.menu.topNameInvalid': 'Top-level name is required and must be at most 4 characters',
-  'channel.menu.childNameInvalid': 'Child name is required and must be at most 8 characters',
+  'channel.menu.topNameInvalid':
+    'Top-level name is required and must be at most 4 characters',
+  'channel.menu.childNameInvalid':
+    'Child name is required and must be at most 8 characters',
   'channel.menu.topTitle': 'Top-level Menu',
   'channel.menu.childTitle': 'Child Menu',
   'channel.menu.type': 'Menu Type',
@@ -96,7 +103,8 @@ export default {
   'channel.menu.pagePath': 'Mini Program Page Path',
   'channel.menu.publishSuccess': 'Menu published successfully',
 
-  'channel.openPlatform.notice': 'The open platform powers PC QR-code login. Submit the AppSecret mask unchanged when it is returned masked.',
+  'channel.openPlatform.notice':
+    'The open platform powers PC QR-code login. Submit the AppSecret mask unchanged when it is returned masked.',
   'channel.reply.filterType': 'Filter by reply category',
   'channel.reply.allTypes': 'All Categories',
   'channel.reply.subscribe': 'Subscribe Reply',

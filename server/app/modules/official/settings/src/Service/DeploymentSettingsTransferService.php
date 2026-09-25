@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Service;
@@ -24,7 +25,9 @@ final readonly class DeploymentSettingsTransferService implements DeploymentSett
         $this->assertContext($context);
         $items = [];
         foreach ($this->definitions->all() as $definition) {
-            if ($definition->allows('deployment')) $items[] = $this->state($definition);
+            if ($definition->allows('deployment')) {
+                $items[] = $this->state($definition);
+            }
         }
         return $items;
     }
@@ -41,7 +44,9 @@ final readonly class DeploymentSettingsTransferService implements DeploymentSett
         $definition = $this->definition($key);
         $current = $this->state($definition);
         if ($unset || $value === null) {
-            if (!$current['exists'] || !is_int($revision)) return;
+            if (!$current['exists'] || !is_int($revision)) {
+                return;
+            }
             try {
                 $this->settings->unsetDeployment($definition, $context->operatorId, $this->now(), self::etag($revision));
             } catch (SettingException $exception) {
@@ -52,7 +57,11 @@ final readonly class DeploymentSettingsTransferService implements DeploymentSett
         try {
             $definition->assertValue($value);
             $this->settings->replaceDeployment(
-                $definition, $value, $context->operatorId, $this->now(), null,
+                $definition,
+                $value,
+                $context->operatorId,
+                $this->now(),
+                null,
                 $current['exists'] && is_int($revision) ? self::etag($revision) : null,
                 $current['exists'] ? null : '*',
             );
@@ -67,10 +76,10 @@ final readonly class DeploymentSettingsTransferService implements DeploymentSett
         $record = SettingDefinitionRecord::where('module_key', $definition->moduleKey)
             ->where('setting_key', $definition->key)->where('status', 'active')->find();
         if (!$record instanceof SettingDefinitionRecord
-            || !hash_equals((string)$record->getAttr('definition_digest'), $definition->digest)) {
+            || !hash_equals((string) $record->getAttr('definition_digest'), $definition->digest)) {
             throw new \RuntimeException('TRANSFER_CORE_SETTING_NOT_FOUND');
         }
-        $row = DeploymentSettingValue::where('definition_id', (int)$record->getAttr('id'))->find()?->getData();
+        $row = DeploymentSettingValue::where('definition_id', (int) $record->getAttr('id'))->find()?->getData();
         $exists = is_array($row);
         $configured = $exists && ($row['value_state'] ?? null) === 'set';
         if ($exists && !in_array($row['value_state'] ?? null, ['set', 'unset'], true)) {
@@ -82,16 +91,20 @@ final readonly class DeploymentSettingsTransferService implements DeploymentSett
             'secret' => $definition->secret,
             'configured' => $configured,
             'value' => !$definition->secret && $configured ? $this->decode($row['value_json'] ?? null) : null,
-            'revision' => $exists ? (int)($row['revision'] ?? 0) : null,
+            'revision' => $exists ? (int) ($row['revision'] ?? 0) : null,
         ];
     }
 
     private function definition(string $key): SettingDefinition
     {
         $parts = explode(':', $key, 2);
-        if (count($parts) !== 2) throw new \RuntimeException('TRANSFER_CORE_SETTING_INVALID');
+        if (count($parts) !== 2) {
+            throw new \RuntimeException('TRANSFER_CORE_SETTING_INVALID');
+        }
         $definition = $this->definitions->require($parts[0], $parts[1]);
-        if (!$definition->allows('deployment')) throw new \RuntimeException('TRANSFER_CORE_SETTING_SCOPE_INVALID');
+        if (!$definition->allows('deployment')) {
+            throw new \RuntimeException('TRANSFER_CORE_SETTING_SCOPE_INVALID');
+        }
         return $definition;
     }
 
@@ -105,18 +118,24 @@ final readonly class DeploymentSettingsTransferService implements DeploymentSett
 
     private function decode(mixed $value): mixed
     {
-        try { return json_decode((string)$value, true, 512, JSON_THROW_ON_ERROR); }
-        catch (\JsonException) { throw new \RuntimeException('TRANSFER_CORE_SETTING_INVALID'); }
+        try {
+            return json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new \RuntimeException('TRANSFER_CORE_SETTING_INVALID');
+        }
     }
 
     private function now(): DateTimeImmutable
     {
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $microseconds = (int)$now->format('u');
+        $microseconds = (int) $now->format('u');
         return $microseconds % 1000 === 0 ? $now : $now->modify('-' . ($microseconds % 1000) . ' microseconds');
     }
 
-    private static function etag(int $revision): string { return '"rev-' . $revision . '"'; }
+    private static function etag(int $revision): string
+    {
+        return '"rev-' . $revision . '"';
+    }
 
     private static function transferException(SettingException $exception): DeploymentSettingsTransferException
     {

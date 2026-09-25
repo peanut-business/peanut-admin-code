@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Controller;
@@ -35,7 +36,7 @@ class FileController extends BaseAdminController
 
     public function move()
     {
-        $ids = (array)$this->request->post('ids', []);
+        $ids = (array) $this->request->post('ids', []);
         $this->files->move(
             array_map('intval', $ids),
             $this->integerValue($this->request->post('cid', 0), '目标分类无效'),
@@ -45,7 +46,7 @@ class FileController extends BaseAdminController
 
     public function rename()
     {
-        $name = trim((string)$this->request->post('name', ''));
+        $name = trim((string) $this->request->post('name', ''));
         if ($name === '') {
             throw BusinessException::invalid('FILE_NAME_REQUIRED', '名称不能为空');
         }
@@ -61,7 +62,7 @@ class FileController extends BaseAdminController
 
     public function delete()
     {
-        $ids = (array)$this->request->post('ids', []);
+        $ids = (array) $this->request->post('ids', []);
         $result = $this->files->delete(array_map('intval', $ids));
         return $this->success('操作成功', $result);
     }
@@ -101,6 +102,6 @@ class FileController extends BaseAdminController
         if (!is_int($value) && !(is_string($value) && preg_match('/^-?\d+$/D', $value) === 1)) {
             throw new \InvalidArgumentException($message);
         }
-        return (int)$value;
+        return (int) $value;
     }
 }

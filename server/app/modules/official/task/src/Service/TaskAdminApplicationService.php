@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task\Service;
@@ -154,9 +155,9 @@ final readonly class TaskAdminApplicationService
             $operation,
             [],
             hash('sha256', implode("\0", [
-                (string)$tenant->tenantId,
-                (string)$tenant->memberId,
-                (string)$tenant->authorizationRevision,
+                (string) $tenant->tenantId,
+                (string) $tenant->memberId,
+                (string) $tenant->authorizationRevision,
                 $tenant->requestId,
                 $permission,
                 $operation,

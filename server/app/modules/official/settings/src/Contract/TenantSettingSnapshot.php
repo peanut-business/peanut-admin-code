@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Contract;
@@ -13,6 +14,5 @@ final readonly class TenantSettingSnapshot
         public int $revision,
         public int $createTime,
         public int $updateTime,
-    ) {
-    }
+    ) {}
 }

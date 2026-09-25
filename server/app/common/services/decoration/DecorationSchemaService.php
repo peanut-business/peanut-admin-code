@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\decoration;
@@ -39,8 +40,7 @@ class DecorationSchemaService
         mixed $data,
         mixed $meta,
         ArticleQueries $articles,
-    ): void
-    {
+    ): void {
         if (!in_array($type, DecorationEnum::ALL_TYPES, true)) {
             throw new \RuntimeException('装修页面类型无效');
         }
@@ -63,10 +63,9 @@ class DecorationSchemaService
         array $style,
         array $items,
         ArticleQueries $articles,
-    ): void
-    {
-        self::color((string)($style['default_color'] ?? ''), 'Tabbar 默认颜色');
-        self::color((string)($style['selected_color'] ?? ''), 'Tabbar 选中颜色');
+    ): void {
+        self::color((string) ($style['default_color'] ?? ''), 'Tabbar 默认颜色');
+        self::color((string) ($style['selected_color'] ?? ''), 'Tabbar 选中颜色');
         if (count($items) < 2 || count($items) > 5) {
             throw new \RuntimeException('Tabbar 总项数必须为 2～5 项');
         }
@@ -75,11 +74,11 @@ class DecorationSchemaService
             if (!is_array($item)) {
                 throw new \RuntimeException('Tabbar 项格式无效');
             }
-            $name = trim((string)($item['name'] ?? ''));
+            $name = trim((string) ($item['name'] ?? ''));
             if ($name === '' || mb_strlen($name) > 20) {
                 throw new \RuntimeException('Tabbar 名称不能为空且最多 20 个字');
             }
-            $isShow = (int)($item['is_show'] ?? -1);
+            $isShow = (int) ($item['is_show'] ?? -1);
             if (!in_array($isShow, [0, 1], true)) {
                 throw new \RuntimeException('Tabbar 显示状态无效');
             }
@@ -104,9 +103,8 @@ class DecorationSchemaService
 
     public function resourcesForStorage(
         mixed $value,
-        ?object $context = null
-    ): mixed
-    {
+        ?object $context = null,
+    ): mixed {
         return $this->transformResources($value, false, null, $context);
     }
 
@@ -120,17 +118,16 @@ class DecorationSchemaService
         mixed $link,
         bool $pcTarget,
         ArticleQueries $articles,
-    ): void
-    {
+    ): void {
         if (!is_array($link)) {
             throw new \RuntimeException('装修链接格式无效');
         }
-        $type = (string)($link['target_type'] ?? '');
+        $type = (string) ($link['target_type'] ?? '');
         $target = $link['target'] ?? null;
         if (!in_array($type, ['shop', 'article', 'custom', 'mini_program'], true)) {
             throw new \RuntimeException('装修链接类型无效');
         }
-        if ($type === 'shop' && !in_array((string)$target, self::SHOP_TARGETS, true)) {
+        if ($type === 'shop' && !in_array((string) $target, self::SHOP_TARGETS, true)) {
             throw new \RuntimeException('站内链接目标无效');
         }
         if ($type === 'article') {
@@ -141,17 +138,17 @@ class DecorationSchemaService
                 throw new \RuntimeException('文章链接必须指向存在且可见的文章');
             }
         }
-        if ($type === 'custom' && !self::absoluteHttpUrl((string)$target)) {
+        if ($type === 'custom' && !self::absoluteHttpUrl((string) $target)) {
             throw new \RuntimeException('自定义链接必须为 http/https 绝对地址');
         }
         if ($type === 'mini_program') {
             $query = $link['query'] ?? null;
             if (!is_string($target) || trim($target) === '' || !is_array($query)
-                || trim((string)($query['app_id'] ?? '')) === ''
-                || !in_array((string)($query['env_version'] ?? ''), ['develop', 'trial', 'release'], true)) {
+                || trim((string) ($query['app_id'] ?? '')) === ''
+                || !in_array((string) ($query['env_version'] ?? ''), ['develop', 'trial', 'release'], true)) {
                 throw new \RuntimeException('小程序链接必须包含页面、AppID 和环境版本');
             }
-            if ($pcTarget && !self::absoluteHttpUrl((string)($query['web_url'] ?? ''))) {
+            if ($pcTarget && !self::absoluteHttpUrl((string) ($query['web_url'] ?? ''))) {
                 throw new \RuntimeException('PC 小程序链接必须提供 http/https 回退网址');
             }
         }
@@ -165,10 +162,9 @@ class DecorationSchemaService
         int $type,
         array $components,
         ArticleQueries $articles,
-    ): void
-    {
+    ): void {
         $expected = self::COMPONENTS[$type];
-        $names = array_map(static fn($item) => is_array($item) ? (string)($item['name'] ?? '') : '', $components);
+        $names = array_map(static fn($item) => is_array($item) ? (string) ($item['name'] ?? '') : '', $components);
         $sortedNames = $names;
         $sortedExpected = $expected;
         sort($sortedNames);
@@ -178,8 +174,8 @@ class DecorationSchemaService
         }
         foreach ($components as $component) {
             self::validateEnvelope($component);
-            $name = (string)$component['name'];
-            if (in_array($name, self::FIXED_COMPONENTS, true) && (int)($component['disabled'] ?? 0) !== 1) {
+            $name = (string) $component['name'];
+            if (in_array($name, self::FIXED_COMPONENTS, true) && (int) ($component['disabled'] ?? 0) !== 1) {
                 throw new \RuntimeException($name . ' 为固定组件，必须保持锁定');
             }
             self::validateComponent($context, $name, $component['content'], $articles);
@@ -191,13 +187,13 @@ class DecorationSchemaService
 
     private static function validateEnvelope(array $component): void
     {
-        if (trim((string)($component['title'] ?? '')) === ''
-            || trim((string)($component['name'] ?? '')) === ''
+        if (trim((string) ($component['title'] ?? '')) === ''
+            || trim((string) ($component['name'] ?? '')) === ''
             || !is_array($component['content'] ?? null)
             || !is_array($component['styles'] ?? null)) {
             throw new \RuntimeException('装修组件信封格式无效');
         }
-        if (isset($component['disabled']) && !in_array((int)$component['disabled'], [0, 1], true)) {
+        if (isset($component['disabled']) && !in_array((int) $component['disabled'], [0, 1], true)) {
             throw new \RuntimeException('组件锁定状态无效');
         }
     }
@@ -207,8 +203,7 @@ class DecorationSchemaService
         string $name,
         array $content,
         ArticleQueries $articles,
-    ): void
-    {
+    ): void {
         if (in_array($name, self::FIXED_COMPONENTS, true)) {
             if ($content !== []) {
                 throw new \RuntimeException($name . ' 固定组件内容必须为空');
@@ -238,7 +233,7 @@ class DecorationSchemaService
         if ($name === 'my-service') {
             self::binary($content['enabled'] ?? null, '服务启用状态');
             self::oneOfInt($content['style'] ?? null, [1, 2], '服务样式');
-            if (mb_strlen(trim((string)($content['title'] ?? ''))) > 20) {
+            if (mb_strlen(trim((string) ($content['title'] ?? ''))) > 20) {
                 throw new \RuntimeException('服务标题最多 20 个字');
             }
             self::validateItems($context, $content['data'] ?? null, 1, 100, true, false, $articles);
@@ -246,7 +241,7 @@ class DecorationSchemaService
         }
         if ($name === 'customer-service') {
             foreach (['title', 'time', 'mobile'] as $field) {
-                if (mb_strlen(trim((string)($content[$field] ?? ''))) > 20) {
+                if (mb_strlen(trim((string) ($content[$field] ?? ''))) > 20) {
                     throw new \RuntimeException('客服标题、时间和电话最多 20 个字');
                 }
             }
@@ -273,8 +268,7 @@ class DecorationSchemaService
         bool $showAllowed,
         bool $pcTarget,
         ArticleQueries $articles,
-    ): void
-    {
+    ): void {
         if (!is_array($items) || count($items) < $min || count($items) > $max) {
             throw new \RuntimeException("装修组件条目必须为 {$min}～{$max} 项");
         }
@@ -296,16 +290,16 @@ class DecorationSchemaService
             || array_diff($allowed, array_keys($styles)) !== []) {
             throw new \RuntimeException('PC Banner 样式字段无效');
         }
-        if (!in_array((string)$styles['position'], ['absolute', 'relative'], true)) {
+        if (!in_array((string) $styles['position'], ['absolute', 'relative'], true)) {
             throw new \RuntimeException('PC Banner 定位方式无效');
         }
         foreach (['left', 'top'] as $field) {
-            if (!preg_match('/^-?\d+(?:\.\d+)?(?:px|%)$/', (string)$styles[$field])) {
+            if (!preg_match('/^-?\d+(?:\.\d+)?(?:px|%)$/', (string) $styles[$field])) {
                 throw new \RuntimeException('PC Banner 偏移必须使用 px 或 %');
             }
         }
         foreach (['width', 'height'] as $field) {
-            if (!preg_match('/^\d+(?:\.\d+)?(?:px|%)$/', (string)$styles[$field])) {
+            if (!preg_match('/^\d+(?:\.\d+)?(?:px|%)$/', (string) $styles[$field])) {
                 throw new \RuntimeException('PC Banner 尺寸必须使用 px 或 %');
             }
         }
@@ -319,13 +313,13 @@ class DecorationSchemaService
             }
             self::validateEnvelope($meta[0]);
             $content = $meta[0]['content'];
-            if (mb_strlen(trim((string)($content['title'] ?? ''))) > 8) {
+            if (mb_strlen(trim((string) ($content['title'] ?? ''))) > 8) {
                 throw new \RuntimeException('页面标题最多 8 个字');
             }
             foreach (['title_type', 'bg_type', 'text_color'] as $field) {
                 self::oneOfInt($content[$field] ?? null, [1, 2], '页面样式');
             }
-            self::color((string)($content['bg_color'] ?? ''), '页面背景色');
+            self::color((string) ($content['bg_color'] ?? ''), '页面背景色');
             foreach (['bg_image', 'title_img'] as $field) {
                 if (!is_string($content[$field] ?? null)) {
                     throw new \RuntimeException('页面图片格式无效');
@@ -343,21 +337,21 @@ class DecorationSchemaService
         if (!is_array($theme) || array_is_list($theme)) {
             throw new \RuntimeException('系统风格格式无效');
         }
-        $id = (int)($theme['themeColorId'] ?? 0);
+        $id = (int) ($theme['themeColorId'] ?? 0);
         self::rangeInt($id, 1, 7, '主题编号');
         foreach (['themeColor1', 'themeColor2', 'navigationBarColor'] as $field) {
-            self::color((string)($theme[$field] ?? ''), '主题颜色');
+            self::color((string) ($theme[$field] ?? ''), '主题颜色');
         }
         foreach (['topTextColor', 'buttonColor'] as $field) {
-            if (!in_array((string)($theme[$field] ?? ''), ['white', 'black'], true)) {
+            if (!in_array((string) ($theme[$field] ?? ''), ['white', 'black'], true)) {
                 throw new \RuntimeException('主题文字颜色无效');
             }
         }
         if ($id !== 7) {
             [$color1, $color2, $button] = self::THEMES[$id];
-            if (strtoupper((string)$theme['themeColor1']) !== strtoupper($color1)
-                || strtoupper((string)$theme['themeColor2']) !== strtoupper($color2)
-                || (string)$theme['buttonColor'] !== $button) {
+            if (strtoupper((string) $theme['themeColor1']) !== strtoupper($color1)
+                || strtoupper((string) $theme['themeColor2']) !== strtoupper($color2)
+                || (string) $theme['buttonColor'] !== $button) {
                 throw new \RuntimeException('预设主题颜色不可自定义；请选择自定义主题');
             }
         }
@@ -368,20 +362,19 @@ class DecorationSchemaService
         bool $absolute,
         ?string $key = null,
         ?object $context = null,
-    ): mixed
-    {
+    ): mixed {
         if (is_array($value)) {
             foreach ($value as $childKey => $child) {
                 $value[$childKey] = $this->transformResources(
                     $child,
                     $absolute,
-                    (string)$childKey,
+                    (string) $childKey,
                     $context,
                 );
             }
             return $value;
         }
-        if (!is_string($value) || $value === '' || !in_array((string)$key, self::IMAGE_KEYS, true)) {
+        if (!is_string($value) || $value === '' || !in_array((string) $key, self::IMAGE_KEYS, true)) {
             return $value;
         }
         if ($absolute) {
@@ -397,14 +390,14 @@ class DecorationSchemaService
 
     private static function oneOfInt(mixed $value, array $allowed, string $label): void
     {
-        if (filter_var($value, FILTER_VALIDATE_INT) === false || !in_array((int)$value, $allowed, true)) {
+        if (filter_var($value, FILTER_VALIDATE_INT) === false || !in_array((int) $value, $allowed, true)) {
             throw new \RuntimeException($label . '无效');
         }
     }
 
     private static function rangeInt(mixed $value, int $min, int $max, string $label): void
     {
-        if (filter_var($value, FILTER_VALIDATE_INT) === false || (int)$value < $min || (int)$value > $max) {
+        if (filter_var($value, FILTER_VALIDATE_INT) === false || (int) $value < $min || (int) $value > $max) {
             throw new \RuntimeException($label . "必须为 {$min}～{$max}");
         }
     }
@@ -419,6 +412,6 @@ class DecorationSchemaService
     private static function absoluteHttpUrl(string $value): bool
     {
         return filter_var($value, FILTER_VALIDATE_URL) !== false
-            && in_array(strtolower((string)parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true);
+            && in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true);
     }
 }

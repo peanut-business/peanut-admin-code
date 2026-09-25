@@ -1,10 +1,10 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
 
 use think\App;
-
 use app\api\services\LoginApplicationService;
 use app\api\services\VerificationAttemptRateLimiter;
 use app\common\exception\BusinessException;
@@ -15,8 +15,7 @@ class LoginController extends BaseApiController
         App $app,
         private readonly LoginApplicationService $login,
         private readonly VerificationAttemptRateLimiter $verificationAttempts,
-    )
-    {
+    ) {
         parent::__construct($app);
     }
 
@@ -111,7 +110,7 @@ class LoginController extends BaseApiController
     /** 退出登录 */
     public function logout()
     {
-        $authorization = (string)$this->request->header('Authorization', '');
+        $authorization = (string) $this->request->header('Authorization', '');
         $token = preg_match(
             '/^Bearer +([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/iD',
             $authorization,

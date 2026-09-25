@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Service;
@@ -26,8 +27,7 @@ final readonly class PlatformOpsApplicationService
         private PlatformUpgradeExecutionService $upgrades,
         private PlatformModuleOperationExecutionService $moduleOperations,
         private PlatformBackupCenterService $backups,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function status(PlatformContext $context): array

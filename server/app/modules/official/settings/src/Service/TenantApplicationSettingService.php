@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Service;
@@ -19,9 +20,7 @@ final class TenantApplicationSettingService implements TenantApplicationSettings
     private const WEB_PAGE = 'web-page';
     private const HOT_SEARCH = 'hot-search';
 
-    public function __construct(private readonly TenantSettingService $settings)
-    {
-    }
+    public function __construct(private readonly TenantSettingService $settings) {}
 
     public function agreement(AuthenticatedMemberContext|TenantContext|TenantSystemContext $context): array
     {

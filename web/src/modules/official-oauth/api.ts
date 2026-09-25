@@ -31,7 +31,9 @@ export interface MiniProgramConfig {
 }
 
 export function getMiniProgramConfig() {
-  return axios.get<MiniProgramConfig>('/adminapi/official.oauth.mini-program.config');
+  return axios.get<MiniProgramConfig>(
+    '/adminapi/official.oauth.mini-program.config'
+  );
 }
 
 export function saveMiniProgramConfig(
@@ -63,12 +65,7 @@ export interface OfficialAccountConfig {
 
 export type OfficialAccountConfigForm = Pick<
   OfficialAccountConfig,
-  | 'name'
-  | 'original_id'
-  | 'qr_code'
-  | 'app_id'
-  | 'app_secret'
-  | 'token'
+  'name' | 'original_id' | 'qr_code' | 'app_id' | 'app_secret' | 'token'
 >;
 
 export function getOfficialAccountConfig() {
@@ -104,7 +101,9 @@ export function getOfficialAccountMenu() {
 }
 
 export function saveOfficialAccountMenu(menu: OfficialAccountMenuItem[]) {
-  return axios.post('/adminapi/official.oauth.official-account.menu.save', { menu });
+  return axios.post('/adminapi/official.oauth.official-account.menu.save', {
+    menu,
+  });
 }
 
 export function publishOfficialAccountMenu(menu: OfficialAccountMenuItem[]) {
@@ -136,7 +135,8 @@ export interface OfficialAccountReplyListParams {
   page_size?: number;
 }
 
-export type OfficialAccountReplyListResponse = PageData<OfficialAccountReplyRecord>;
+export type OfficialAccountReplyListResponse =
+  PageData<OfficialAccountReplyRecord>;
 
 export type OfficialAccountReplyForm = Pick<
   OfficialAccountReplyRecord,
@@ -167,11 +167,17 @@ export function getOfficialAccountReplyDetail(id: number) {
 }
 
 export function addOfficialAccountReply(data: OfficialAccountReplyForm) {
-  return axios.post('/adminapi/official.oauth.official-account.reply.add', data);
+  return axios.post(
+    '/adminapi/official.oauth.official-account.reply.add',
+    data
+  );
 }
 
 export function editOfficialAccountReply(data: OfficialAccountReplyForm) {
-  return axios.post('/adminapi/official.oauth.official-account.reply.edit', data);
+  return axios.post(
+    '/adminapi/official.oauth.official-account.reply.edit',
+    data
+  );
 }
 
 export function deleteOfficialAccountReply(id: number) {
@@ -181,10 +187,13 @@ export function deleteOfficialAccountReply(id: number) {
 }
 
 export function updateOfficialAccountReplyStatus(id: number, status: 0 | 1) {
-  return axios.post('/adminapi/official.oauth.official-account.reply.update-status', {
-    id,
-    status,
-  });
+  return axios.post(
+    '/adminapi/official.oauth.official-account.reply.update-status',
+    {
+      id,
+      status,
+    }
+  );
 }
 
 export interface OpenPlatformConfig {

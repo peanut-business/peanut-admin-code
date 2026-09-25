@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -28,33 +29,33 @@ final class OpsRestoreTask extends ContextualCommand
     {
         try {
             $service = app(ThinkPhpRestoreTaskExecutionService::class);
-            $action = trim((string)$input->getArgument('action'));
+            $action = trim((string) $input->getArgument('action'));
             $result = match ($action) {
                 'claim' => $service->claim(),
                 'verify-manifest' => $service->verifyManifest(
-                    trim((string)$input->getOption('task-key')),
+                    trim((string) $input->getOption('task-key')),
                     $this->executionRevision($input),
-                    $this->stdin('OPS_RESTORE_ARTIFACT_INVALID')
+                    $this->stdin('OPS_RESTORE_ARTIFACT_INVALID'),
                 ),
                 'heartbeat' => $service->heartbeat(
-                    trim((string)$input->getOption('task-key')),
-                    $this->executionRevision($input)
+                    trim((string) $input->getOption('task-key')),
+                    $this->executionRevision($input),
                 ),
                 'succeed' => $service->succeed(
-                    trim((string)$input->getOption('task-key')),
+                    trim((string) $input->getOption('task-key')),
                     $this->executionRevision($input),
-                    $this->stdin('OPS_RESTORE_EVIDENCE_INVALID')
+                    $this->stdin('OPS_RESTORE_EVIDENCE_INVALID'),
                 ),
                 'fail' => $service->fail(
-                    trim((string)$input->getOption('task-key')),
+                    trim((string) $input->getOption('task-key')),
                     $this->executionRevision($input),
-                    trim((string)$input->getOption('error-code'))
+                    trim((string) $input->getOption('error-code')),
                 ),
                 default => throw new \InvalidArgumentException('OPS_RESTORE_ACTION_INVALID'),
             };
             $output->writeln(json_encode(
                 ['ok' => true, 'result' => $result],
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 0;
         } catch (Throwable $exception) {
@@ -77,10 +78,10 @@ final class OpsRestoreTask extends ContextualCommand
 
     private function executionRevision(Input $input): int
     {
-        $revision = trim((string)$input->getOption('revision'));
+        $revision = trim((string) $input->getOption('revision'));
         if (preg_match('/^[1-9][0-9]*$/D', $revision) !== 1) {
             throw new \InvalidArgumentException('OPS_RESTORE_EXECUTION_REVISION_INVALID');
         }
-        return (int)$revision;
+        return (int) $revision;
     }
 }

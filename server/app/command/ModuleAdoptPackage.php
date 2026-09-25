@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -30,17 +31,22 @@ final class ModuleAdoptPackage extends ContextualCommand
     {
         try {
             $trusted = [];
-            foreach ((array)Config::get('module_packages.trusted_ed25519_keys', []) as $key => $encoded) {
+            foreach ((array) Config::get('module_packages.trusted_ed25519_keys', []) as $key => $encoded) {
                 $bytes = is_string($encoded) ? base64_decode($encoded, true) : false;
-                if (is_string($key) && is_string($bytes) && strlen($bytes) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) $trusted[$key] = $bytes;
+                if (is_string($key) && is_string($bytes) && strlen($bytes) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
+                    $trusted[$key] = $bytes;
+                }
             }
             $service = new PluginPackageAdoptionService(
                 dirname(__DIR__, 2),
                 $trusted,
-                (string)Config::get('peanut.environment', ''),
+                (string) Config::get('peanut.environment', ''),
             );
             $result = $input->getOption('recover') ? $service->recover() : $service->adopt(
-                (string)$input->getArgument('package'), $input->getOption('sha256'), $input->getOption('signature-key-id'));
+                (string) $input->getArgument('package'),
+                $input->getOption('sha256'),
+                $input->getOption('signature-key-id'),
+            );
             $output->writeln(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;
         } catch (PluginPackageException|PluginLifecycleException $exception) {

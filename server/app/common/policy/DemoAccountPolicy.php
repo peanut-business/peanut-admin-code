@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\policy;
@@ -49,7 +50,7 @@ final class DemoAccountPolicy
             ->where('kind', 'email_password')->where('identifier_type', 'email')->where('status', 'active')
             ->order('id')->limit(2)->column('identifier_normalized');
         foreach ($emails as $email) {
-            if ($this->isDemoEmail((string)$email)) {
+            if ($this->isDemoEmail((string) $email)) {
                 throw new \DomainException('演示账号密码已锁定，不能在页面中修改');
             }
         }
@@ -57,7 +58,7 @@ final class DemoAccountPolicy
 
     public function mutationLocked(array $adminInfo, string $path): bool
     {
-        if (!$this->isDemoEmail((string)($adminInfo['username'] ?? ''))) {
+        if (!$this->isDemoEmail((string) ($adminInfo['username'] ?? ''))) {
             return false;
         }
         $path = strtolower(trim($path, '/'));
@@ -66,7 +67,9 @@ final class DemoAccountPolicy
             'dept/', 'jobs/', 'config/', 'setting/', 'storage/setup', 'storage/change',
             'decoration/',
         ] as $prefix) {
-            if (str_starts_with($path, $prefix)) return true;
+            if (str_starts_with($path, $prefix)) {
+                return true;
+            }
         }
         return false;
     }
@@ -80,7 +83,7 @@ final class DemoAccountPolicy
             ->where('kind', 'email_password')->where('identifier_type', 'email')->where('status', 'active')
             ->order('id')->limit(2)->column('identifier_normalized');
         foreach ($emails as $email) {
-            if ($this->isDemoEmail((string)$email)) {
+            if ($this->isDemoEmail((string) $email)) {
                 return true;
             }
         }

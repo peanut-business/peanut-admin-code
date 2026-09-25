@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\plugin;
@@ -6,13 +7,12 @@ namespace app\platform\services\plugin;
 use app\platform\exception\plugin\PluginPackageException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\PluginPackageSourcePromoter;
+
 /** Adopts a signed private package into development source for the next complete Application Release. */
 final readonly class PluginPackageAdoptionService
 {
     /** @param array<string,string> $trustedPublicKeys raw Ed25519 keys from the application's trust configuration */
-    public function __construct(private string $serverRoot, private array $trustedPublicKeys, private string $environment)
-    {
-    }
+    public function __construct(private string $serverRoot, private array $trustedPublicKeys, private string $environment) {}
 
     /** Recover a journal without trusting another archive and without touching Tenant/RBAC or migrations. */
     public function recover(): array
@@ -37,7 +37,9 @@ final readonly class PluginPackageAdoptionService
             $current = is_file($lockPath) ? (new PluginLockResolver($this->serverRoot, $lockPath))->all() : [];
             $versions = [];
             foreach ($current as $descriptor) {
-                foreach ($descriptor->trust['compatibility']['modules'] as $module) $versions[$module['key']] = $module['version'];
+                foreach ($descriptor->trust['compatibility']['modules'] as $module) {
+                    $versions[$module['key']] = $module['version'];
+                }
             }
             $archive = new PluginPackageArchiveService($this->serverRoot);
             $package = $archive->verify($archivePath, $expectedSha256, $this->trustedPublicKeys, $signatureKeyId, $versions);
@@ -56,31 +58,39 @@ final readonly class PluginPackageAdoptionService
                 if ($previous !== null) {
                     $before = array_keys($previous->moduleRoots);
                     $after = array_keys($package->modules);
-                    sort($before); sort($after);
-                    if ($before !== $after) throw new PluginPackageException('PLUGIN_UPDATE_SCOPE_CHANGED', 'Adoption cannot change Bundle membership.');
+                    sort($before);
+                    sort($after);
+                    if ($before !== $after) {
+                        throw new PluginPackageException('PLUGIN_UPDATE_SCOPE_CHANGED', 'Adoption cannot change Bundle membership.');
+                    }
                     $comparison = version_compare($package->packageVersion, $previous->version);
-                    if ($comparison < 0) throw new PluginPackageException('PLUGIN_DOWNGRADE_REJECTED', 'Adoption cannot downgrade a package.');
+                    if ($comparison < 0) {
+                        throw new PluginPackageException('PLUGIN_DOWNGRADE_REJECTED', 'Adoption cannot downgrade a package.');
+                    }
                     if ($comparison === 0 && !hash_equals($previous->manifestDigest, $package->descriptor->manifestDigest)) {
                         throw new PluginPackageException('PACKAGE_VERSION_IDENTITY_CONFLICT', 'Same-version package identity changed.');
                     }
                 }
-                $routes = []; $dependencies = [];
+                $routes = [];
+                $dependencies = [];
                 foreach ($package->modules as $module) {
                     $data = $module['manifest']->data;
                     $relative = $module['backend_relative'] . '/route/app.php';
-                    if (isset($package->inventory[$relative])) $routes[] = $relative;
-                    $composer = json_decode((string)file_get_contents($package->stageRoot . '/' . $module['backend_relative'] . '/composer.json'), true, 64, JSON_THROW_ON_ERROR);
+                    if (isset($package->inventory[$relative])) {
+                        $routes[] = $relative;
+                    }
+                    $composer = json_decode((string) file_get_contents($package->stageRoot . '/' . $module['backend_relative'] . '/composer.json'), true, 64, JSON_THROW_ON_ERROR);
                     $npmDependencies = [];
                     $npmPeerDependencies = [];
                     foreach ($module['frontend_contributions'] as $contribution) {
                         $npm = json_decode(
-                            (string)file_get_contents($package->stageRoot . '/' . $contribution['root'] . '/package.json'),
+                            (string) file_get_contents($package->stageRoot . '/' . $contribution['root'] . '/package.json'),
                             true,
                             64,
                             JSON_THROW_ON_ERROR,
                         );
                         foreach (['dependencies' => &$npmDependencies, 'peerDependencies' => &$npmPeerDependencies] as $field => &$target) {
-                            foreach ((array)($npm[$field] ?? []) as $name => $constraint) {
+                            foreach ((array) ($npm[$field] ?? []) as $name => $constraint) {
                                 if (isset($target[$name]) && $target[$name] !== $constraint) {
                                     throw new PluginPackageException('MODULE_PACKAGE_DEPENDENCY_INCOMPATIBLE', 'Frontend clients declare incompatible npm dependencies.');
                                 }
@@ -95,17 +105,21 @@ final readonly class PluginPackageAdoptionService
                         'composer' => $composer['require'] ?? [], 'npm' => $npmDependencies, 'npm_peer' => $npmPeerDependencies];
                 }
                 sort($routes, SORT_STRING);
-                $next = is_file($lockPath) ? json_decode((string)file_get_contents($lockPath), true, 512, JSON_THROW_ON_ERROR) : ['schema_version' => 1, 'plugins' => []];
-                $manifest = json_decode((string)file_get_contents($package->stageRoot . '/' . $package->manifestRelative), true, 512, JSON_THROW_ON_ERROR);
+                $next = is_file($lockPath) ? json_decode((string) file_get_contents($lockPath), true, 512, JSON_THROW_ON_ERROR) : ['schema_version' => 1, 'plugins' => []];
+                $manifest = json_decode((string) file_get_contents($package->stageRoot . '/' . $package->manifestRelative), true, 512, JSON_THROW_ON_ERROR);
                 unset($manifest['schema_version']);
                 $incoming = $manifest + ['manifest' => $package->manifestRelative, 'manifest_sha256' => $package->descriptor->manifestDigest];
                 $entries = [];
-                foreach ($next['plugins'] as $entry) $entries[$entry['key']] = $entry;
+                foreach ($next['plugins'] as $entry) {
+                    $entries[$entry['key']] = $entry;
+                }
                 $entries[$package->packageKey] = $incoming;
                 ksort($entries, SORT_STRING);
                 $next['plugins'] = array_values($entries);
                 $unchanged = $previous !== null && $previous->version === $package->packageVersion;
-                if (!$unchanged) $promoter->promote($package, json_encode($next, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n", $previous !== null);
+                if (!$unchanged) {
+                    $promoter->promote($package, json_encode($next, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n", $previous !== null);
+                }
                 return ['status' => 'development-adopted', 'operation' => $unchanged ? 'unchanged' : 'adopted',
                     'package_key' => $package->packageKey, 'version' => $package->packageVersion,
                     'archive_sha256' => $package->archiveSha256, 'signature_key_id' => $signatureKeyId,
@@ -121,6 +135,8 @@ final readonly class PluginPackageAdoptionService
     /** The service boundary rejects source mutation from every non-development caller. */
     private function development(): void
     {
-        if ($this->environment !== 'development') throw new PluginPackageException('MODULE_SOURCE_ADOPTION_DISABLED', 'Source adoption requires development mode.');
+        if ($this->environment !== 'development') {
+            throw new PluginPackageException('MODULE_SOURCE_ADOPTION_DISABLED', 'Source adoption requires development mode.');
+        }
     }
 }

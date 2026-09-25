@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\Payment\Controller\PayConfigController;
@@ -15,21 +16,21 @@ use app\common\infrastructure\module\OfficialModuleMiddleware;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) === 'adminapi') {
-Route::group(function (): void {
-    Route::get('official.payment.settings.detail', [PayConfigController::class, 'getConfig']);
-    Route::post('official.payment.settings.save', [PayConfigController::class, 'setConfig']);
-    Route::get('official.payment.recharge-settings.detail', [RechargeSettingController::class, 'config']);
-    Route::post('official.payment.recharge-settings.save', [RechargeSettingController::class, 'save']);
-    Route::get('official.payment.recharge.list', [RechargeController::class, 'lists']);
-    Route::post('official.payment.recharge.refund', [RechargeController::class, 'refund']);
-    Route::post('official.payment.refund.retry', [RechargeController::class, 'refundAgain']);
-    Route::get('official.payment.refund.stat', [RefundController::class, 'stat']);
-    Route::get('official.payment.refund.list', [RefundController::class, 'record']);
-    Route::get('official.payment.refund.log', [RefundController::class, 'log']);
-})->middleware(LoginMiddleware::class)
-    ->middleware(OfficialModuleMiddleware::class, 'official.payment', 'http.admin')
-    ->middleware(AuthMiddleware::class)
-    ->middleware(OperationLogMiddleware::class);
+    Route::group(function (): void {
+        Route::get('official.payment.settings.detail', [PayConfigController::class, 'getConfig']);
+        Route::post('official.payment.settings.save', [PayConfigController::class, 'setConfig']);
+        Route::get('official.payment.recharge-settings.detail', [RechargeSettingController::class, 'config']);
+        Route::post('official.payment.recharge-settings.save', [RechargeSettingController::class, 'save']);
+        Route::get('official.payment.recharge.list', [RechargeController::class, 'lists']);
+        Route::post('official.payment.recharge.refund', [RechargeController::class, 'refund']);
+        Route::post('official.payment.refund.retry', [RechargeController::class, 'refundAgain']);
+        Route::get('official.payment.refund.stat', [RefundController::class, 'stat']);
+        Route::get('official.payment.refund.list', [RefundController::class, 'record']);
+        Route::get('official.payment.refund.log', [RefundController::class, 'log']);
+    })->middleware(LoginMiddleware::class)
+        ->middleware(OfficialModuleMiddleware::class, 'official.payment', 'http.admin')
+        ->middleware(AuthMiddleware::class)
+        ->middleware(OperationLogMiddleware::class);
 }
 
 if (($peanutRouteApplication ?? null) !== 'api') {

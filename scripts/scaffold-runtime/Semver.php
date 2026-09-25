@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
@@ -15,7 +16,9 @@ final class Semver
         $b = self::parse($right);
         foreach ([0, 1, 2] as $index) {
             $comparison = self::compareNumeric($a[$index], $b[$index]);
-            if ($comparison !== 0) return $comparison;
+            if ($comparison !== 0) {
+                return $comparison;
+            }
         }
         $leftPre = $a[3];
         $rightPre = $b[3];
@@ -24,8 +27,12 @@ final class Semver
         }
         $length = max(count($leftPre), count($rightPre));
         for ($index = 0; $index < $length; $index++) {
-            if (!array_key_exists($index, $leftPre)) return -1;
-            if (!array_key_exists($index, $rightPre)) return 1;
+            if (!array_key_exists($index, $leftPre)) {
+                return -1;
+            }
+            if (!array_key_exists($index, $rightPre)) {
+                return 1;
+            }
             $leftNumeric = ctype_digit($leftPre[$index]);
             $rightNumeric = ctype_digit($rightPre[$index]);
             if ($leftNumeric && $rightNumeric) {
@@ -35,7 +42,9 @@ final class Semver
             } else {
                 $comparison = strcmp($leftPre[$index], $rightPre[$index]);
             }
-            if ($comparison !== 0) return $comparison;
+            if ($comparison !== 0) {
+                return $comparison;
+            }
         }
         return 0;
     }

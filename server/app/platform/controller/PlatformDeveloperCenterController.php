@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -11,9 +12,9 @@ final class PlatformDeveloperCenterController extends BasePlatformController
     {
         $service = new DeveloperCenterCatalogService(
             dirname(__DIR__, 3),
-            (array)$this->app->config->get('modules', []),
+            (array) $this->app->config->get('modules', []),
         );
-        $moduleKey = trim((string)$this->request->get('module_key', ''));
+        $moduleKey = trim((string) $this->request->get('module_key', ''));
         return $this->data($service->snapshot($moduleKey === '' ? null : $moduleKey));
     }
 }

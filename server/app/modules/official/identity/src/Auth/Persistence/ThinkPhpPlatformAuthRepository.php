@@ -61,11 +61,17 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
         }
 
         return new PlatformAuthPrincipal(
-            (int) $row['credential_id'], (int) $row['account_id'], (string) $row['secret_hash'],
-            CredentialStatus::from((string) $row['credential_status']), (int) $row['failed_attempts'],
-            $this->nullableDate($row['locked_until']), $this->nullableDate($row['expires_at']),
-            AccountStatus::from((string) $row['account_status']), (int) $row['account_security_revision'],
-            (int) $row['operator_id'], PlatformOperatorStatus::from((string) $row['operator_status']),
+            (int) $row['credential_id'],
+            (int) $row['account_id'],
+            (string) $row['secret_hash'],
+            CredentialStatus::from((string) $row['credential_status']),
+            (int) $row['failed_attempts'],
+            $this->nullableDate($row['locked_until']),
+            $this->nullableDate($row['expires_at']),
+            AccountStatus::from((string) $row['account_status']),
+            (int) $row['account_security_revision'],
+            (int) $row['operator_id'],
+            PlatformOperatorStatus::from((string) $row['operator_status']),
             (int) $row['operator_security_revision'],
         );
     }
@@ -105,13 +111,31 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
             }
         }
         $this->recordEvent(
-            'login_failed', 'denied', 'invalid_credentials', $principal?->accountId,
-            $principal?->credentialId, null, $identifierHmac, $requestId, $ipAddress, $userAgentHash, $now,
+            'login_failed',
+            'denied',
+            'invalid_credentials',
+            $principal?->accountId,
+            $principal?->credentialId,
+            null,
+            $identifierHmac,
+            $requestId,
+            $ipAddress,
+            $userAgentHash,
+            $now,
         );
         if ($credentialLocked && $principal !== null) {
             $this->recordEvent(
-                'credential_locked', 'denied', 'failed_attempt_limit', $principal->accountId,
-                $principal->credentialId, null, $identifierHmac, $requestId, $ipAddress, $userAgentHash, $now,
+                'credential_locked',
+                'denied',
+                'failed_attempt_limit',
+                $principal->accountId,
+                $principal->credentialId,
+                null,
+                $identifierHmac,
+                $requestId,
+                $ipAddress,
+                $userAgentHash,
+                $now,
             );
         }
     }
@@ -164,7 +188,12 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
         $this->insertToken($sessionId, 'refresh', $tokens->refresh->hash(), $tokens->refreshExpiresAt, null, $now);
 
         return new ValidatedPlatformSession(
-            $sessionId, $sessionKey, $principal->accountId, $principal->operatorId, 'platform-web', $now,
+            $sessionId,
+            $sessionKey,
+            $principal->accountId,
+            $principal->operatorId,
+            'platform-web',
+            $now,
         );
     }
 
@@ -201,13 +230,22 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
         }
 
         return new PlatformSessionAuthenticationRecord(
-            (int) $row['token_id'], (string) $row['token_type'], (string) $row['token_status'],
-            $this->date((string) $row['token_expires_at']), (int) $row['session_id'],
-            (string) $row['session_key'], (string) $row['session_status'], (int) $row['account_id'],
-            (int) $row['platform_operator_id'], (string) $row['client_key'],
-            $this->date((string) $row['issued_at']), $this->date((string) $row['idle_expires_at']),
-            $this->date((string) $row['absolute_expires_at']), (int) $row['account_security_revision'],
-            (int) $row['operator_security_revision'], AccountStatus::from((string) $row['account_status']),
+            (int) $row['token_id'],
+            (string) $row['token_type'],
+            (string) $row['token_status'],
+            $this->date((string) $row['token_expires_at']),
+            (int) $row['session_id'],
+            (string) $row['session_key'],
+            (string) $row['session_status'],
+            (int) $row['account_id'],
+            (int) $row['platform_operator_id'],
+            (string) $row['client_key'],
+            $this->date((string) $row['issued_at']),
+            $this->date((string) $row['idle_expires_at']),
+            $this->date((string) $row['absolute_expires_at']),
+            (int) $row['account_security_revision'],
+            (int) $row['operator_security_revision'],
+            AccountStatus::from((string) $row['account_status']),
             (int) $row['current_account_security_revision'],
             PlatformOperatorStatus::from((string) $row['operator_status']),
             (int) $row['current_operator_security_revision'],
@@ -228,7 +266,12 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
             ]);
         $this->insertToken($refresh->sessionId, 'access', $tokens->access->hash(), $tokens->accessExpiresAt, null, $now);
         $newRefreshId = $this->insertToken(
-            $refresh->sessionId, 'refresh', $tokens->refresh->hash(), $tokens->refreshExpiresAt, $refresh->tokenId, $now,
+            $refresh->sessionId,
+            'refresh',
+            $tokens->refresh->hash(),
+            $tokens->refreshExpiresAt,
+            $refresh->tokenId,
+            $now,
         );
         PlatformSessionToken::where('id', $refresh->tokenId)->update([
             'replaced_by_token_id' => $newRefreshId,

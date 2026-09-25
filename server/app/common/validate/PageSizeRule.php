@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\validate;
@@ -12,11 +13,11 @@ trait PageSizeRule
 
     protected function pageSizeMax($value, $rule, array $data): bool|string
     {
-        $maximum = (int)($data['page_type'] ?? 1) === 0
+        $maximum = (int) ($data['page_type'] ?? 1) === 0
             ? ExportPageInfo::MAX_ROWS
             : self::PAGE_SIZE_MAX;
 
-        return (int)$value <= $maximum
+        return (int) $value <= $maximum
             ? true
             : sprintf('每页数量须在1-%d之间', $maximum);
     }

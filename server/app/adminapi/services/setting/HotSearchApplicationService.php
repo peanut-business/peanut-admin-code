@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\setting;
@@ -20,14 +21,13 @@ class HotSearchApplicationService
 
     public function __construct(
         private readonly TenantApplicationSettingService $applicationSettings,
-    ) {
-    }
+    ) {}
 
     /** 读取配置：开关 + 词条列表 */
     public function getConfig(TenantContext $context): array
     {
         return [
-            'status' => (int)$this->applicationSettings->hotSearch($context)['status'],
+            'status' => (int) $this->applicationSettings->hotSearch($context)['status'],
             'data'   => HotSearch::where([])
                 ->field(['id', 'name', 'sort'])
                 ->order(['sort' => 'desc', 'id' => 'desc'])
@@ -53,7 +53,7 @@ class HotSearchApplicationService
 
         return Db::transaction(function () use ($context, $params, $rows): bool {
             $this->applicationSettings->replaceHotSearch($context, [
-                'status' => (int)($params['status'] ?? 0),
+                'status' => (int) ($params['status'] ?? 0),
             ]);
             HotSearch::where([])->delete();
             if ($rows !== []) {

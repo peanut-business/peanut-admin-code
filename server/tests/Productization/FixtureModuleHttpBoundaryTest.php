@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Fixtures\DeliveryRecord\Contract\DeliveryRecordCommands;
@@ -26,7 +27,7 @@ function fixtureHttpRejects(Closure $operation, string $errorCode): void
     } catch (ModuleException $exception) {
         fixtureHttpExpect(
             $exception->errorCode === $errorCode,
-            "unexpected Module refusal: {$exception->errorCode}"
+            "unexpected Module refusal: {$exception->errorCode}",
         );
         return;
     }
@@ -41,7 +42,7 @@ $context = TenantContext::fromValidatedSession(new ValidatedTenantSession(
     31,
     'admin-web',
     new DateTimeImmutable('now', new DateTimeZone('UTC')),
-    1
+    1,
 ), 'fixture-http-boundary');
 $disabledCommands = new class implements DeliveryRecordCommands {
     public int $calls = 0;
@@ -65,7 +66,7 @@ fixtureHttpRejects(
         new \app\common\execution\AdminExecutionContext($context, 'test.fixture.delivery-record.list'),
         static fn() => $handler->lists(),
     ),
-    'MODULE_TENANT_DISABLED'
+    'MODULE_TENANT_DISABLED',
 );
 fixtureHttpExpect($disabledCommands->calls === 1, 'Tenant Admin request did not reach the guarded Module command exactly once');
 fixtureHttpExpect($contexts->isEmpty(), 'Tenant Admin failure leaked execution context');
@@ -76,26 +77,26 @@ fixtureHttpRejects(
         new \app\common\execution\SystemExecutionContext($systemContext),
         static fn() => $handler->lists(),
     ),
-    'CONTEXT_TENANT_REQUIRED'
+    'CONTEXT_TENANT_REQUIRED',
 );
 fixtureHttpExpect($disabledCommands->calls === 1, 'system actor reached the Module command');
 fixtureHttpExpect($contexts->isEmpty(), 'system actor refusal leaked execution context');
 
-$routeSource = (string)file_get_contents(dirname(__DIR__, 2)
+$routeSource = (string) file_get_contents(dirname(__DIR__, 2)
     . '/app/modules/fixture/delivery_record/route/app.php');
-$routeBootstrap = (string)file_get_contents(dirname(__DIR__, 2)
+$routeBootstrap = (string) file_get_contents(dirname(__DIR__, 2)
     . '/route/fixture_delivery_record.php');
 fixtureHttpExpect(
     substr_count($routeSource, 'LoginMiddleware::class') === 2,
-    'fixture HTTP routes lost the Tenant Admin session guard'
+    'fixture HTTP routes lost the Tenant Admin session guard',
 );
 fixtureHttpExpect(
     !str_contains($routeSource, 'AuthMiddleware::class'),
-    'fixture HTTP route reintroduced the generic root-bypass permission middleware'
+    'fixture HTTP route reintroduced the generic root-bypass permission middleware',
 );
 fixtureHttpExpect(
     str_contains($routeBootstrap, 'Http/routes.php'),
-    'ThinkPHP route bootstrap lost the Module-owned routes'
+    'ThinkPHP route bootstrap lost the Module-owned routes',
 );
 
 echo "FIXTURE-MODULE-HTTP-BOUNDARY-001 passed\n";

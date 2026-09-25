@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 $root = dirname(__DIR__, 3);
@@ -51,7 +52,7 @@ $expect(
         && !str_contains($bootstrap, 'INSERT INTO pa_notice_scene')
         && str_contains($notificationCommands, 'provisionTenantDefaults')
         && str_contains($notificationApplication, 'NoticeScene::provisionDefaults('),
-    'new Tenant notification defaults bypass the Notification owner command'
+    'new Tenant notification defaults bypass the Notification owner command',
 );
 $provisioner = $read($root . '/server/app/platform/service/CoreTenantOwnerAdminProvisioner.php');
 $expect(
@@ -60,7 +61,7 @@ $expect(
         && str_contains($provisioner, 'MembershipRepository')
         && str_contains($provisioner, '->provision(')
         && !str_contains($provisioner, 'SELECT '),
-    'Tenant owner provisioning must reuse Core identity/membership capabilities before application bootstrap'
+    'Tenant owner provisioning must reuse Core identity/membership capabilities before application bootstrap',
 );
 
 $seed = $read($root . '/server/database/seed-multi-tenant-demo.php');
@@ -81,7 +82,7 @@ foreach ([
 }
 $expect(
     str_contains($seed, "demoMultiBinding(\$pdo, (int)\$defaultTenant['id'], \$sharedAdminHost, ['member-api']);"),
-    'shared Admin demo Host must leave admin-web unbound so account-driven Tenant selection is exercised'
+    'shared Admin demo Host must leave admin-web unbound so account-driven Tenant selection is exercised',
 );
 $expect(
     str_contains($seed, '(new App($serverDir))->initialize()')
@@ -90,13 +91,13 @@ $expect(
         && str_contains($seed, 'new ThinkPhpTenantApplicationBootstrapPersistence()')
         && !str_contains($seed, 'PdoNotificationBootstrapService')
         && !str_contains($seed, 'PdoTaskBootstrapService'),
-    'demo seed must boot ThinkPHP before consuming native Model bootstrap services'
+    'demo seed must boot ThinkPHP before consuming native Model bootstrap services',
 );
 $expect(
     str_contains($seed, "'tenant-a'")
         && str_contains($seed, "'tenant-b'")
         && str_contains($seed, "['default', 'tenant-a', 'tenant-b']"),
-    'demo seed does not preserve the default Tenant plus independent A/B Tenant codes'
+    'demo seed does not preserve the default Tenant plus independent A/B Tenant codes',
 );
 
 $admin = $read($root . '/server/app/adminapi/application/auth/AdminApplicationService.php');
@@ -104,13 +105,13 @@ $tenantAdminRuntime = $read($root . '/server/app/common/service/org/TenantAdminR
 $expect(
     str_contains($admin, '$this->tenantAdmins->assertPasswordChangeAllowed')
         && str_contains($tenantAdminRuntime, '$this->demoAccounts->assertPasswordChangeAllowed'),
-    'demo password mutation is not rejected by the Server'
+    'demo password mutation is not rejected by the Server',
 );
 $workbench = $read($root . '/server/app/adminapi/application/WorkbenchApplicationService.php');
 $expect(
     str_contains($workbench, 'AdminAuthorizationService')
         && str_contains($workbench, "self::menuContainsPath(\$moduleMenus, '/system/file')"),
-    'workbench file shortcut is not derived from the effective Tenant Module menu'
+    'workbench file shortcut is not derived from the effective Tenant Module menu',
 );
 $overlayBuilder = $read($root . '/scripts/build-demo-site-patch');
 $overlayFiles = [
@@ -128,14 +129,14 @@ $overlayFiles = [
 ];
 $expect(
     preg_match('/files=\(\n(?<files>.*?)\n\)/s', $overlayBuilder, $fileMatch) === 1
-        && array_map('trim', preg_split('/\R/', trim((string)$fileMatch['files'])) ?: []) === $overlayFiles
+        && array_map('trim', preg_split('/\R/', trim((string) $fileMatch['files'])) ?: []) === $overlayFiles
         && str_contains($overlayBuilder, "git show \"\$BASE_TAG:release-versions.json\"")
         && str_contains($overlayBuilder, ".scaffold_template // empty"),
-    'demo overlay must contain only the framework-free seed and deployment identity boundary'
+    'demo overlay must contain only the framework-free seed and deployment identity boundary',
 );
 $expect(
     str_contains($overlayBuilder, 'COPYFILE_DISABLE=1 tar --no-xattrs'),
-    'demo overlay archive does not suppress macOS xattrs and AppleDouble files'
+    'demo overlay archive does not suppress macOS xattrs and AppleDouble files',
 );
 $temporaryRoot = sys_get_temp_dir() . '/peanut-demo-overlay-contract-' . bin2hex(random_bytes(6));
 $repository = $temporaryRoot . '/repository';
@@ -156,7 +157,7 @@ file_put_contents(
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
 );
 try {
-    $paths = preg_split('/\R/', trim((string)$fileMatch['files'])) ?: [];
+    $paths = preg_split('/\R/', trim((string) $fileMatch['files'])) ?: [];
     foreach ($paths as $path) {
         $path = trim($path);
         $expect(preg_match('#^[A-Za-z0-9._/-]+$#D', $path) === 1, 'invalid overlay fixture path: ' . $path);
@@ -175,7 +176,7 @@ try {
         $result = $run($command, $repository);
         $expect($result['exit_code'] === 0, 'cannot prepare overlay fixture repository: ' . $result['output']);
     }
-    $head = trim((string)$run(['git', 'rev-parse', 'HEAD'], $repository)['output']);
+    $head = trim((string) $run(['git', 'rev-parse', 'HEAD'], $repository)['output']);
     $build = $run([$repository . '/scripts/build-demo-site-patch', 'v3.0.5', $archive], $repository);
     $expect($build['exit_code'] === 0, 'clean overlay fixture failed to build: ' . $build['output']);
     $metadataResult = $run(['tar', '-xOf', $archive, './DEMO_PATCH_METADATA.json'], $repository);
@@ -183,22 +184,22 @@ try {
     $metadata = json_decode($metadataResult['output'], true, 32, JSON_THROW_ON_ERROR);
     $expect(
         is_array($metadata) && ($metadata['overlay_commit'] ?? null) === $head,
-        'generated overlay metadata does not bind the exact clean HEAD commit'
+        'generated overlay metadata does not bind the exact clean HEAD commit',
     );
     $expect(
         ($metadata['base_tag'] ?? null) === 'v3.0.5'
             && ($metadata['migration_target_version'] ?? null) === '3.0.4',
-        'generated overlay metadata does not keep the scaffold migration identity'
+        'generated overlay metadata does not keep the scaffold migration identity',
     );
     $seedMetadata = array_values(array_filter(
         is_array($metadata['files'] ?? null) ? $metadata['files'] : [],
         static fn(mixed $file): bool => is_array($file)
-            && ($file['path'] ?? null) === 'server/database/seed-multi-tenant-demo.php'
+            && ($file['path'] ?? null) === 'server/database/seed-multi-tenant-demo.php',
     ));
     $expect(
         count($seedMetadata) === 1
-            && preg_match('/^[0-9a-f]{64}$/D', (string)($seedMetadata[0]['sha256'] ?? '')) === 1,
-        'generated overlay metadata does not bind the synthetic data seed'
+            && preg_match('/^[0-9a-f]{64}$/D', (string) ($seedMetadata[0]['sha256'] ?? '')) === 1,
+        'generated overlay metadata does not bind the synthetic data seed',
     );
 
     file_put_contents($repository . '/untracked.txt', "dirty\n");
@@ -206,7 +207,7 @@ try {
     $expect(
         $dirtyBuild['exit_code'] !== 0
             && str_contains($dirtyBuild['output'], 'source checkout has tracked or untracked changes'),
-        'demo overlay builder does not reject an untracked dirty file'
+        'demo overlay builder does not reject an untracked dirty file',
     );
 } finally {
     $removeTree($temporaryRoot);
@@ -218,20 +219,20 @@ $expect(
         && str_contains($profile, 'recordTenantSystem')
         && str_contains($profile, "'product_profile'")
         && !str_contains($profile, 'INSERT INTO pa_tenant_module'),
-    'product profile bypasses the canonical TenantModule runtime or audit boundary'
+    'product profile bypasses the canonical TenantModule runtime or audit boundary',
 );
 $expect(
     str_contains($profile, "'standalone'")
         && str_contains($profile, "'demo'")
         && substr_count($profile, "'official.") >= 11,
-    'standalone and demo product profiles are incomplete'
+    'standalone and demo product profiles are incomplete',
 );
 
 $invitation = $read($root . '/server/app/platform/invitation/TenantOwnerInvitationPublicService.php');
 $expect(
     str_contains($invitation, 'ApplicationTenantBootstrapService')
         && str_contains($invitation, "(string)\$invitation['tenant_code']"),
-    'public owner acceptance does not initialize application-owned Tenant defaults'
+    'public owner acceptance does not initialize application-owned Tenant defaults',
 );
 
 $deploy = $read($root . '/scripts/deploy-release');
@@ -271,18 +272,18 @@ foreach ([
 $expect(
     substr_count($deploy, 'git show "$release_ref:') >= 4
         && str_contains($deploy, '"$tag_tree" == "$EXPECTED_TREE"'),
-    'deployment does not read and archive the caller-bound immutable commit/tree'
+    'deployment does not read and archive the caller-bound immutable commit/tree',
 );
 $expect(
     !str_contains($deploy, 'Demo overlay deployment must consume the formal Multi-tenant Edition installer'),
-    'project-owned demo deployment still requires a consumer Edition registry that cannot name private production resources'
+    'project-owned demo deployment still requires a consumer Edition registry that cannot name private production resources',
 );
 $upgradeWorker = $read($root . '/scripts/ops-upgrade-worker');
 $expect(
     str_contains($upgradeWorker, '.result.target_commit == $commit')
         && str_contains($upgradeWorker, '.result.target_tree == $tree')
         && str_contains($upgradeWorker, '--expected-commit "$target_commit" --expected-tree "$target_tree"'),
-    'upgrade worker does not fence deployment with the task-bound commit/tree'
+    'upgrade worker does not fence deployment with the task-bound commit/tree',
 );
 $upgradeExecution = $read($root . '/server/app/platform/service/ops/ThinkPhpUpgradeTaskExecutionService.php');
 $claimStart = strpos($upgradeExecution, 'public function claim()');
@@ -293,14 +294,14 @@ $createExecutionStart = strpos($upgradeExecution, 'private function createExecut
 $expect(
     $claimStart !== false && $advanceStart !== false && $succeedStart !== false
         && $maintenanceStart !== false && $createExecutionStart !== false,
-    'upgrade execution response boundaries are unavailable'
+    'upgrade execution response boundaries are unavailable',
 );
-$claimResponse = substr($upgradeExecution, (int)$claimStart, (int)$advanceStart - (int)$claimStart);
-$reentryResponse = substr($upgradeExecution, (int)$advanceStart, (int)$succeedStart - (int)$advanceStart);
+$claimResponse = substr($upgradeExecution, (int) $claimStart, (int) $advanceStart - (int) $claimStart);
+$reentryResponse = substr($upgradeExecution, (int) $advanceStart, (int) $succeedStart - (int) $advanceStart);
 $maintenanceResponse = substr(
     $upgradeExecution,
-    (int)$maintenanceStart,
-    (int)$createExecutionStart - (int)$maintenanceStart,
+    (int) $maintenanceStart,
+    (int) $createExecutionStart - (int) $maintenanceStart,
 );
 $expect(
     str_contains($claimResponse, "'target_commit' => \$payload['target_commit']")
@@ -309,18 +310,18 @@ $expect(
         && str_contains($reentryResponse, "'target_tree' => (string)\$execution['target_tree']")
         && str_contains($maintenanceResponse, "'target_commit' => (string)\$execution['target_commit']")
         && str_contains($maintenanceResponse, "'target_tree' => (string)\$execution['target_tree']"),
-    'upgrade task responses do not retain the bound deployment commit/tree'
+    'upgrade task responses do not retain the bound deployment commit/tree',
 );
 $expect(
     str_contains($deploy, 'requires distinct default Admin, Platform, Tenant A and Tenant B emails'),
-    'fresh demo deployment does not reject identity collisions before database work'
+    'fresh demo deployment does not reject identity collisions before database work',
 );
 $metadataValidationPosition = strpos($deploy, "jq -e --arg tag \"\$tag\" --arg commit \"\$expected_commit\"");
 $buildPosition = strpos($deploy, '"${candidate_compose[@]}" build');
-$candidatePreflightPosition = strpos($deploy, 'server/database/install.php --preflight', (int)$buildPosition);
-$candidatePluginLockPosition = strpos($deploy, 'server/think plugin:lock --check', (int)$candidatePreflightPosition);
-$candidatePluginCompositionPosition = strpos($deploy, 'server/think plugin:release-composition', (int)$candidatePluginLockPosition);
-$rootCleanupPosition = strpos($deploy, 'sudo -n find "$root" -mindepth 1 -maxdepth 1', (int)$candidatePluginCompositionPosition);
+$candidatePreflightPosition = strpos($deploy, 'server/database/install.php --preflight', (int) $buildPosition);
+$candidatePluginLockPosition = strpos($deploy, 'server/think plugin:lock --check', (int) $candidatePreflightPosition);
+$candidatePluginCompositionPosition = strpos($deploy, 'server/think plugin:release-composition', (int) $candidatePluginLockPosition);
+$rootCleanupPosition = strpos($deploy, 'sudo -n find "$root" -mindepth 1 -maxdepth 1', (int) $candidatePluginCompositionPosition);
 $destroyPosition = strpos($deploy, '"${current_compose[@]}" down --volumes');
 $expect(
     $metadataValidationPosition !== false
@@ -335,40 +336,40 @@ $expect(
         && $candidatePreflightPosition < $candidatePluginLockPosition
         && $candidatePluginLockPosition < $candidatePluginCompositionPosition
         && $candidatePluginCompositionPosition < $rootCleanupPosition,
-    'fresh deployment does not validate the exact candidate image before destructive work'
+    'fresh deployment does not validate the exact candidate image before destructive work',
 );
 $freshMigration = 'server/database/install.php --migrate --target-version="$migration_target_version"';
 $updateMigration = 'server/database/install.php --migrate --target-version="$scaffold_migration_version"';
 $freshMigrationPosition = strpos($deploy, $freshMigration);
-$reconcilePosition = strpos($deploy, 'server/think plugin:reconcile --release-locked', (int)$freshMigrationPosition);
+$reconcilePosition = strpos($deploy, 'server/think plugin:reconcile --release-locked', (int) $freshMigrationPosition);
 $expect(
     substr_count($deploy, $freshMigration) === 1
         && substr_count($deploy, $updateMigration) === 1
         && $freshMigrationPosition !== false
         && $reconcilePosition !== false
         && $freshMigrationPosition < $reconcilePosition,
-    'deployment does not keep scaffold migration for update while applying the verified overlay target before reconcile'
+    'deployment does not keep scaffold migration for update while applying the verified overlay target before reconcile',
 );
 $expect(
     str_contains($deploy, 'computed_migration_target="$scaffold_migration_version"')
         && str_contains($deploy, '.files[].path | select(startswith("server/database/migrations/"))')
         && str_contains($deploy, '[[ "$migration_target_version" == "$computed_migration_target" ]]'),
-    'deployment does not recompute the overlay migration maximum from its declared migration files'
+    'deployment does not recompute the overlay migration maximum from its declared migration files',
 );
 $expect(
     substr_count($deploy, 'run -T --rm --no-deps') === 14,
-    'remote one-shot Compose commands must not consume the deployment heredoc'
+    'remote one-shot Compose commands must not consume the deployment heredoc',
 );
 $expect(
     substr_count($deploy, '</dev/null') === 14,
-    'remote one-shot Compose commands must close inherited standard input'
+    'remote one-shot Compose commands must close inherited standard input',
 );
 
 $index = $read($root . '/server/app/api/application/IndexApplicationService.php');
 $expect(
     str_contains($index, 'in_array($host, $sharedHosts, true)')
         && str_contains($index, "return ['enabled' => false, 'email' => '', 'password' => ''];"),
-    'demo public config does not fail closed for unknown Hosts'
+    'demo public config does not fail closed for unknown Hosts',
 );
 
 echo "DEMO-SITE-PATCH-CONTRACT-001 passed\n";

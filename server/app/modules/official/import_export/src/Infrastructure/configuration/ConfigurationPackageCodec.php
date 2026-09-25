@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\configuration;
@@ -33,8 +34,8 @@ final class ConfigurationPackageCodec
         $this->assertEntries($entries);
         $this->assertNoTenantId($entries);
         usort($entries, static fn(array $left, array $right): int => strcmp(
-            (string)($left['adapter'] ?? '') . "\0" . (string)($left['key'] ?? ''),
-            (string)($right['adapter'] ?? '') . "\0" . (string)($right['key'] ?? ''),
+            (string) ($left['adapter'] ?? '') . "\0" . (string) ($left['key'] ?? ''),
+            (string) ($right['adapter'] ?? '') . "\0" . (string) ($right['key'] ?? ''),
         ));
         $document = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -108,7 +109,7 @@ final class ConfigurationPackageCodec
     {
         $schemaPath = dirname(__DIR__, 3) . '/resources/configuration-package.schema.json';
         try {
-            $schema = json_decode((string)file_get_contents($schemaPath), false, 512, JSON_THROW_ON_ERROR);
+            $schema = json_decode((string) file_get_contents($schemaPath), false, 512, JSON_THROW_ON_ERROR);
             $value = json_decode(json_encode($document, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException|\Throwable) {
             throw new \runtimeException('TRANSFER_PACKAGE_INVALID');
@@ -157,11 +158,11 @@ final class ConfigurationPackageCodec
                     || !SecretReferenceCodec::isMetadata($secret)) {
                     throw new \runtimeException('TRANSFER_SECRET_METADATA_INVALID');
                 }
-                $reference = (string)$secret['reference'];
+                $reference = (string) $secret['reference'];
                 if (isset($metadata[$reference])) {
                     throw new \runtimeException('TRANSFER_SECRET_METADATA_DUPLICATE');
                 }
-                $metadata[$reference] = (string)$secret['state'];
+                $metadata[$reference] = (string) $secret['state'];
             }
             $actual = [];
             foreach ($references as $reference) {
@@ -199,7 +200,7 @@ final class ConfigurationPackageCodec
             return;
         }
         foreach ($value as $key => $child) {
-            $normalized = strtolower(str_replace(['-', '_'], '', (string)$key));
+            $normalized = strtolower(str_replace(['-', '_'], '', (string) $key));
             if ($normalized === 'tenantid') {
                 throw new \runtimeException('TRANSFER_PACKAGE_TENANT_ID_FORBIDDEN');
             }
@@ -214,7 +215,7 @@ final class ConfigurationPackageCodec
                 return;
             }
             foreach ($value as $childKey => $child) {
-                $name = strtolower((string)$childKey);
+                $name = strtolower((string) $childKey);
                 if ($name !== 'secrets' && preg_match('/(?:password|passwd|secret|token|private.?key|api.?key|credential)/i', $name) === 1) {
                     if (!SecretReferenceCodec::isMarker($child)) {
                         throw new \runtimeException('TRANSFER_SECRET_VALUE_FORBIDDEN');

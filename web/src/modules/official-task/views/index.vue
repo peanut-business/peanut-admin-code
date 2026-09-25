@@ -88,7 +88,7 @@
         />
         <el-table-column :label="$t('systemCrontab.columns.status')" width="90"
           ><template #default="{ row }"
-            ><el-tag :type="statusColor(row.status) as any">{{
+            ><el-tag :type="statusColor(row.status)">{{
               row.status_desc
             }}</el-tag></template
           ></el-table-column
@@ -259,7 +259,7 @@
   import { computed, reactive, ref } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
-  import type { FormInstance } from 'element-plus';
+  import type { FormInstance, TagProps } from 'element-plus';
   import { Plus, Refresh, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import {
@@ -299,8 +299,13 @@
     { label: t('systemCrontab.status.error'), value: 3 },
   ]);
 
-  const statusColor = (status: CrontabStatus) =>
-    ({ 1: 'success', 2: 'info', 3: 'danger' }[status] || 'info');
+  const statusColors: Record<CrontabStatus, TagProps['type']> = {
+    1: 'success',
+    2: 'info',
+    3: 'danger',
+  };
+  const statusColor = (status: CrontabStatus): TagProps['type'] =>
+    statusColors[status] || 'info';
 
   const fetchData = async (page = 1) => {
     setLoading(true);

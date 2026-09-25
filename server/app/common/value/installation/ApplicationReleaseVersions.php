@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\installation;
@@ -6,7 +7,6 @@ namespace app\common\value\installation;
 require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
 
 use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
-
 use JsonException;
 use RuntimeException;
 
@@ -40,9 +40,7 @@ final readonly class ApplicationReleaseVersions
         '@peanut-admin/nuxt', '@peanut-admin/uniapp', '@peanut-admin/testing',
     ];
 
-    private function __construct(private array $values)
-    {
-    }
+    private function __construct(private array $values) {}
 
     /** Load exactly the supported fields while accepting harmless JSON key-order differences. */
     public static function load(string $path): self
@@ -51,7 +49,7 @@ final readonly class ApplicationReleaseVersions
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_INVALID');
         }
         try {
-            $document = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            $document = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             throw new RuntimeException('APPLICATION_RELEASE_VERSIONS_INVALID', 0, $exception);
         }
@@ -140,7 +138,10 @@ final readonly class ApplicationReleaseVersions
     private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
     {
         ReleaseDependencyIdentity::validate(
-            $php, $web, 'APPLICATION_RELEASE_VERSIONS_CORE_PHP_INVALID', 'APPLICATION_RELEASE_VERSIONS_CORE_WEB_INVALID',
+            $php,
+            $web,
+            'APPLICATION_RELEASE_VERSIONS_CORE_PHP_INVALID',
+            'APPLICATION_RELEASE_VERSIONS_CORE_WEB_INVALID',
         );
         ReleaseDependencyIdentity::verifyArchives($root, $web, 'APPLICATION_RELEASE_VERSIONS_CORE_WEB_ARCHIVE_INVALID');
     }

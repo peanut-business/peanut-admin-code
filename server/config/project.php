@@ -1,11 +1,11 @@
 <?php
 
-$brandManifest = json_decode((string)file_get_contents(__DIR__ . '/brand.json'), true);
+$brandManifest = json_decode((string) file_get_contents(__DIR__ . '/brand.json'), true);
 $defaultImage = is_array($brandManifest['default_image'] ?? null)
     ? $brandManifest['default_image']
     : throw new RuntimeException('品牌默认图片配置格式错误');
 $releaseVersions = json_decode(
-    (string)file_get_contents(dirname(__DIR__, 2) . '/release-versions.json'),
+    (string) file_get_contents(dirname(__DIR__, 2) . '/release-versions.json'),
     true,
 );
 $declaredReleaseVersion = $releaseVersions['instance_version']

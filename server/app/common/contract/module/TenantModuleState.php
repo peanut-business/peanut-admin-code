@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\contract\module;
@@ -19,19 +20,18 @@ final readonly class TenantModuleState
         public ?string $disabledReason,
         public ?string $createdAt,
         public ?string $updatedAt,
-    ) {
-    }
+    ) {}
 
     /** @param array<string,mixed> $row */
     public static function fromRow(array $row): self
     {
         return new self(
-            (int)($row['id'] ?? 0),
-            (int)($row['tenant_id'] ?? 0),
-            (string)($row['module_key'] ?? ''),
-            (string)($row['status'] ?? ''),
-            (string)($row['source'] ?? ''),
-            (int)($row['config_revision'] ?? 0),
+            (int) ($row['id'] ?? 0),
+            (int) ($row['tenant_id'] ?? 0),
+            (string) ($row['module_key'] ?? ''),
+            (string) ($row['status'] ?? ''),
+            (string) ($row['source'] ?? ''),
+            (int) ($row['config_revision'] ?? 0),
             self::nullable($row['effective_at'] ?? null),
             self::nullable($row['expires_at'] ?? null),
             self::nullable($row['enabled_at'] ?? null),
@@ -64,6 +64,6 @@ final readonly class TenantModuleState
 
     private static function nullable(mixed $value): ?string
     {
-        return $value === null || $value === '' ? null : (string)$value;
+        return $value === null || $value === '' ? null : (string) $value;
     }
 }

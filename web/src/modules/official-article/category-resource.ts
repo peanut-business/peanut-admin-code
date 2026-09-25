@@ -45,8 +45,7 @@ export const articleCategoryResource = {
     addArticleCate(record, signal),
   update: (record: Partial<ArticleCateRecord>, signal: AbortSignal) =>
     editArticleCate(record, signal),
-  remove: (id: number, signal: AbortSignal) =>
-    deleteArticleCate(id, signal),
+  remove: (id: number, signal: AbortSignal) => deleteArticleCate(id, signal),
   updateStatus: (id: number, isShow: number, signal: AbortSignal) =>
     updateArticleCateStatus(id, isShow, signal),
 };

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Fixtures\DeliveryRecord\Controller;
@@ -17,6 +18,6 @@ final class DeliveryRecordController extends BaseAdminController
 
     public function record()
     {
-        return $this->handler->record((string)$this->request->post('reference', ''));
+        return $this->handler->record((string) $this->request->post('reference', ''));
     }
 }

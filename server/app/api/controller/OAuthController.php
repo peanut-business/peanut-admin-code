@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
@@ -20,7 +21,7 @@ class OAuthController extends BaseApiController
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.begin');
-        return $this->data($this->application->begin($params, (string)$this->request->domain(), $this->operationId()));
+        return $this->data($this->application->begin($params, (string) $this->request->domain(), $this->operationId()));
     }
 
     public function redirectPc()
@@ -58,7 +59,7 @@ class OAuthController extends BaseApiController
     {
         $params = $this->request->post();
         $this->validate($params, OAuthValidate::class . '.bind');
-        $this->application->bind($this->memberContext(), (string)$params['scene'], (string)$params['code']);
+        $this->application->bind($this->memberContext(), (string) $params['scene'], (string) $params['code']);
         return $this->success('绑定成功');
     }
 

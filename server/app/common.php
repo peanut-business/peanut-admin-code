@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 if (!function_exists('linear_to_tree')) {
@@ -6,7 +7,7 @@ if (!function_exists('linear_to_tree')) {
     {
         $map = [];
         foreach ($data as $item) {
-            $item = is_array($item) ? $item : (method_exists($item, 'toArray') ? $item->toArray() : (array)$item);
+            $item = is_array($item) ? $item : (method_exists($item, 'toArray') ? $item->toArray() : (array) $item);
             $map[$item[$idKey]] = $item;
             $map[$item[$idKey]][$childrenKey] = [];
         }
@@ -70,4 +71,3 @@ if (!function_exists('del_target_dir')) {
         return true;
     }
 }
-

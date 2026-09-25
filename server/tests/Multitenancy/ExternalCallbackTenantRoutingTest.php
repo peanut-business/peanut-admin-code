@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -20,9 +21,7 @@ function externalExpect(bool $condition, string $message): void
 final class ExternalFixtureRepository implements ExternalTenantBindingRepository
 {
     /** @param list<ExternalTenantBinding> $bindings */
-    public function __construct(private array $bindings)
-    {
-    }
+    public function __construct(private array $bindings) {}
 
     public function byCallbackKey(string $provider, string $callbackKey): array
     {
@@ -50,13 +49,13 @@ final class ExternalFixtureRepository implements ExternalTenantBindingRepository
     public function byOAuthState(string $provider, string $stateHash): array
     {
         return $this->matching($provider, static fn(ExternalTenantBinding $binding): bool =>
-            hash_equals((string)($binding->config['state_hash'] ?? ''), $stateHash));
+            hash_equals((string) ($binding->config['state_hash'] ?? ''), $stateHash));
     }
 
     public function byOAuthTicket(string $ticketHash): array
     {
         return array_values(array_filter($this->bindings, static fn(ExternalTenantBinding $binding): bool =>
-            hash_equals((string)($binding->config['ticket_hash'] ?? ''), $ticketHash)));
+            hash_equals((string) ($binding->config['ticket_hash'] ?? ''), $ticketHash)));
     }
 
     /** @return list<ExternalTenantBinding> */
@@ -165,23 +164,43 @@ $deny = static function (callable $action) use (&$denials): void {
     }
 };
 $deny(fn() => $resolver->verifiedCallback(
-    ExternalTenantResolver::WECHAT_PAYMENT, 'unknown', 'payment.settle', 'unknown', static fn(): bool => true,
+    ExternalTenantResolver::WECHAT_PAYMENT,
+    'unknown',
+    'payment.settle',
+    'unknown',
+    static fn(): bool => true,
 ));
 $duplicate = new ExternalTenantResolver(new ExternalFixtureRepository([
     externalBinding(10, 101, ExternalTenantResolver::WECHAT_PAYMENT, 'duplicate', 'one'),
     externalBinding(11, 202, ExternalTenantResolver::WECHAT_PAYMENT, 'duplicate', 'two'),
 ]), $audit);
 $deny(fn() => $duplicate->verifiedCallback(
-    ExternalTenantResolver::WECHAT_PAYMENT, 'duplicate', 'payment.settle', 'duplicate', static fn(): bool => true,
+    ExternalTenantResolver::WECHAT_PAYMENT,
+    'duplicate',
+    'payment.settle',
+    'duplicate',
+    static fn(): bool => true,
 ));
 $deny(fn() => $resolver->verifiedCallback(
-    ExternalTenantResolver::ALIPAY_PAYMENT, 'ali-disabled', 'payment.settle', 'disabled', static fn(): bool => true,
+    ExternalTenantResolver::ALIPAY_PAYMENT,
+    'ali-disabled',
+    'payment.settle',
+    'disabled',
+    static fn(): bool => true,
 ));
 $deny(fn() => $resolver->verifiedCallback(
-    ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK, 'oa-suspended', 'wechat.official.callback', 'suspended', static fn(): bool => true,
+    ExternalTenantResolver::WECHAT_OFFICIAL_CALLBACK,
+    'oa-suspended',
+    'wechat.official.callback',
+    'suspended',
+    static fn(): bool => true,
 ));
 $deny(fn() => $resolver->verifiedCallback(
-    ExternalTenantResolver::WECHAT_PAYMENT, 'wx-beta-key', 'payment.settle', 'bad-signature', static fn(): bool => false,
+    ExternalTenantResolver::WECHAT_PAYMENT,
+    'wx-beta-key',
+    'payment.settle',
+    'bad-signature',
+    static fn(): bool => false,
 ));
 externalExpect(count(array_unique(array_map('serialize', $denials))) === 1, 'denial causes expose distinguishable shapes');
 externalExpect($orders[202]['ORDER-SAME']['status'] === 'unpaid', 'denied or wrong-Tenant callback changed Beta');
@@ -197,16 +216,16 @@ externalExpect(str_contains($auditText, 'identity'), 'resolver audit lacks ident
 externalExpect(!str_contains($auditText, 'secret-101') && !str_contains($auditText, $ticket), 'resolver audit leaked a secret or ticket');
 
 $root = dirname(__DIR__, 2);
-$paymentController = (string)file_get_contents($root . '/app/api/controller/PaymentNotifyController.php');
-$officialController = (string)file_get_contents($root . '/app/api/controller/OfficialAccountController.php');
-$oauthController = (string)file_get_contents($root . '/app/api/controller/OAuthController.php');
-$paymentApplication = (string)file_get_contents($root . '/app/api/services/PaymentCallbackApplicationService.php');
-$officialApplication = (string)file_get_contents($root . '/app/api/services/OfficialAccountApplicationService.php');
-$oauthApplication = (string)file_get_contents($root . '/app/api/services/OAuthApplicationService.php');
-$settlement = (string)file_get_contents($root . '/app/modules/official/payment/src/Service/RechargeApplicationService.php');
-$schema = (string)file_get_contents($root . '/database/init.sql');
-$bindingRepository = (string)file_get_contents($root . '/app/common/service/external/ThinkPhpExternalTenantBindingRepository.php');
-$bootstrapService = (string)file_get_contents($root . '/app/platform/service/ApplicationTenantBootstrapService.php');
+$paymentController = (string) file_get_contents($root . '/app/api/controller/PaymentNotifyController.php');
+$officialController = (string) file_get_contents($root . '/app/api/controller/OfficialAccountController.php');
+$oauthController = (string) file_get_contents($root . '/app/api/controller/OAuthController.php');
+$paymentApplication = (string) file_get_contents($root . '/app/api/services/PaymentCallbackApplicationService.php');
+$officialApplication = (string) file_get_contents($root . '/app/api/services/OfficialAccountApplicationService.php');
+$oauthApplication = (string) file_get_contents($root . '/app/api/services/OAuthApplicationService.php');
+$settlement = (string) file_get_contents($root . '/app/modules/official/payment/src/Service/RechargeApplicationService.php');
+$schema = (string) file_get_contents($root . '/database/init.sql');
+$bindingRepository = (string) file_get_contents($root . '/app/common/service/external/ThinkPhpExternalTenantBindingRepository.php');
+$bootstrapService = (string) file_get_contents($root . '/app/platform/service/ApplicationTenantBootstrapService.php');
 foreach ([$paymentController, $officialController, $oauthController, $paymentApplication, $officialApplication, $oauthApplication] as $source) {
     externalExpect(!str_contains($source, "['tenant_id']") && !str_contains($source, "get('tenant_id")
         && !str_contains($source, "header('tenant_id"), 'callback wiring trusts request tenant_id');
@@ -227,7 +246,7 @@ foreach (['uk_external_callback_key', 'uk_external_provider_identity', 'uk_exter
 externalExpect(
     str_contains($schema, 'SELECT @pa_default_tenant_id, providers.`provider`')
         && preg_match('/JSON_OBJECT\(\),\s*0,\s*0,\s*0\s+FROM/s', $schema) === 1,
-    'fresh schema does not seed explicit disabled provider placeholders'
+    'fresh schema does not seed explicit disabled provider placeholders',
 );
 foreach (['Db::transaction(', "->where('tenant_id', \$tenantId)", "->lock(true)",
     "'callback_key' => \$callbackKey", 'bin2hex(random_bytes(32))'] as $marker) {
@@ -236,7 +255,7 @@ foreach (['Db::transaction(', "->where('tenant_id', \$tenantId)", "->lock(true)"
 externalExpect(
     str_contains($bootstrapService, "'callback_key' => bin2hex(random_bytes(32))")
         && !str_contains($bootstrapService, 'hash(\'sha256\', "fresh:{$tenantCode}:{$provider}")'),
-    'Tenant bootstrap still derives callback keys from tenant identity'
+    'Tenant bootstrap still derives callback keys from tenant identity',
 );
 
 $keyTransition = new ReflectionMethod(ThinkPhpExternalTenantBindingRepository::class, 'callbackKeyForUpdate');
@@ -249,13 +268,13 @@ $activated = $keyTransition->invoke(null, $provider, $placeholder, true);
 externalExpect(
     is_string($missingA) && preg_match('/^[a-f0-9]{64}$/D', $missingA) === 1
         && is_string($missingB) && $missingA !== $missingB,
-    'new Tenant bindings do not receive unique opaque callback keys'
+    'new Tenant bindings do not receive unique opaque callback keys',
 );
 externalExpect(
     $keyTransition->invoke(null, $provider, $placeholder, false) === $placeholder
         && is_string($activated) && $activated !== $placeholder
         && $keyTransition->invoke(null, $provider, $activated, true) === $activated,
-    'callback key activation or stable-update lifecycle changed'
+    'callback key activation or stable-update lifecycle changed',
 );
 
 echo "EXTERNAL-CALLBACK-TENANT-ROUTING-001 passed\n";

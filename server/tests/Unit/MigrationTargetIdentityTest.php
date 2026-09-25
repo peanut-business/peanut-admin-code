@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -10,9 +11,10 @@ final class MigrationTargetIdentityTest extends TestCase
 {
     public function testDevelopmentTargetIsExactlyTheAdoptedScaffoldIdentity(): void
     {
-        $result = $this->installerCall(            '$versions = applicationReleaseVersions($server);'
+        $result = $this->installerCall(
+            '$versions = applicationReleaseVersions($server);'
             . '$target = applicationMigrationTargetVersion($server, $versions);'
-            . 'echo json_encode([$versions["scaffold_template"], validatedMigrationTargetVersion($server, $target, $versions)], JSON_THROW_ON_ERROR);'
+            . 'echo json_encode([$versions["scaffold_template"], validatedMigrationTargetVersion($server, $target, $versions)], JSON_THROW_ON_ERROR);',
         );
         self::assertSame('4.0.0-dev', $result[0]);
         self::assertSame($result[0], $result[1]);
@@ -20,13 +22,16 @@ final class MigrationTargetIdentityTest extends TestCase
 
     public function testForeignAndMalformedTargetsFailBeforeAnyDatabaseAccess(): void
     {
-        $result = $this->installerCall(            '$errors = []; foreach (["", "../schema", "latest", "4.0.0-dev; DROP TABLE x", "4.0.0-dev ", "3.1.0"] as $wrong) {'
+        $result = $this->installerCall(
+            '$errors = []; foreach (["", "../schema", "latest", "4.0.0-dev; DROP TABLE x", "4.0.0-dev ", "3.1.0"] as $wrong) {'
             . 'try { migrateDatabase($server, $wrong, true); $errors[] = "unexpected-success"; }'
             . 'catch (RuntimeException $exception) { $errors[] = $exception->getMessage(); }}'
-            . 'echo json_encode($errors, JSON_THROW_ON_ERROR);'
+            . 'echo json_encode($errors, JSON_THROW_ON_ERROR);',
         );
         self::assertCount(6, $result);
-        foreach ($result as $error) self::assertSame('MIGRATION_TARGET_CONTRACT_MISMATCH', $error);
+        foreach ($result as $error) {
+            self::assertSame('MIGRATION_TARGET_CONTRACT_MISMATCH', $error);
+        }
     }
 
     public function testPhpCandidateIdentityMatchesItsBranchAndExactComposerLock(): void
@@ -36,7 +41,7 @@ final class MigrationTargetIdentityTest extends TestCase
             . '$lock = json_decode(file_get_contents($server . "/composer.lock"), true, 512, JSON_THROW_ON_ERROR);'
             . '$manifest = json_decode(file_get_contents($server . "/composer.json"), true, 512, JSON_THROW_ON_ERROR);'
             . '$packages = array_values(array_filter($lock["packages"], static fn(array $package): bool => $package["name"] === "peanut-admin/core"));'
-            . 'echo json_encode([$versions["core_php"], $manifest["require"]["peanut-admin/core"], $packages], JSON_THROW_ON_ERROR);'
+            . 'echo json_encode([$versions["core_php"], $manifest["require"]["peanut-admin/core"], $packages], JSON_THROW_ON_ERROR);',
         );
         [$identity, $constraint, $packages] = $result;
         self::assertSame($constraint, $identity['constraint']);
@@ -92,7 +97,7 @@ PHP);
         $result = $this->installerCall(
             '$installer = file_get_contents($server . "/database/install.php");'
             . '$upgrade = file_get_contents(dirname($server) . "/scripts/upgrade");'
-            . 'echo json_encode([!str_contains($installer, "--migrate"), str_contains($upgrade, "product-upgrade-plan")], JSON_THROW_ON_ERROR);'
+            . 'echo json_encode([!str_contains($installer, "--migrate"), str_contains($upgrade, "product-upgrade-plan")], JSON_THROW_ON_ERROR);',
         );
         self::assertSame([true, true], $result);
     }
@@ -109,12 +114,13 @@ PHP);
         try {
             $source = '$server = ' . var_export($server, true) . '; require $server . "/vendor/autoload.php"; require $server . "/database/install.php"; ' . $body;
             $process = proc_open([PHP_BINARY, '-r', $source], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname($server), [
-                'PATH' => (string)getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $path,
+                'PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $path,
             ]);
             self::assertIsResource($process);
             $output = stream_get_contents($pipes[1]);
             $error = stream_get_contents($pipes[2]);
-            fclose($pipes[1]); fclose($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
             self::assertSame(0, proc_close($process), $error . $output);
             return json_decode($output, true, 512, JSON_THROW_ON_ERROR);
         } finally {

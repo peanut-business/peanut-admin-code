@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\plugin;
@@ -25,13 +26,12 @@ final readonly class PlatformModuleRuntimeService
         private PluginRuntimeGovernanceService $governance,
         private PluginCatalogSyncService $catalog,
         private ModuleCatalogApplier $catalogs,
-    ) {
-    }
+    ) {}
 
     /** @return array{items:list<array<string,mixed>>,total:int} */
     public function modules(int $page, int $pageSize, ?string $moduleKey): array
     {
-        $descriptors = (new PluginLockResolver($this->serverRoot, (string)($this->moduleConfig['plugin_lock'] ?? '../plugins.lock')))->all();
+        $descriptors = (new PluginLockResolver($this->serverRoot, (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock')))->all();
         $details = [];
         $dependents = [];
         foreach ($descriptors as $descriptor) {
@@ -41,15 +41,17 @@ final readonly class PlatformModuleRuntimeService
                 $manifest = (new ManifestLoader())->load($root);
                 $packageProtected = $packageProtected || ModuleLifecyclePolicy::isProtected($manifest);
                 $dependencies = [];
-                foreach ((array)($manifest->data['dependencies'] ?? []) as $dependency) {
-                    if (!is_array($dependency) || !is_string($dependency['module_key'] ?? null)) continue;
-                    $dependencies[] = ['module_key' => $dependency['module_key'], 'version' => (string)($dependency['version'] ?? '')];
+                foreach ((array) ($manifest->data['dependencies'] ?? []) as $dependency) {
+                    if (!is_array($dependency) || !is_string($dependency['module_key'] ?? null)) {
+                        continue;
+                    }
+                    $dependencies[] = ['module_key' => $dependency['module_key'], 'version' => (string) ($dependency['version'] ?? '')];
                     $dependents[$dependency['module_key']][] = $key;
                 }
                 $packageDetails[$key] = [
                     'module_key' => $key,
-                    'name' => (string)($manifest->data['name'] ?? $key),
-                    'version' => (string)($manifest->data['version'] ?? ''),
+                    'name' => (string) ($manifest->data['name'] ?? $key),
+                    'version' => (string) ($manifest->data['version'] ?? ''),
                     'manifest_digest' => $manifest->digest,
                     'package_key' => $descriptor->key,
                     'package_version' => $descriptor->version,
@@ -73,24 +75,24 @@ final readonly class PlatformModuleRuntimeService
         $enabledRows = Db::name('tenant_module')->where('status', 'enabled')
             ->field('module_key')->fieldRaw('COUNT(*) AS enabled_count')->group('module_key')->select()->toArray();
         foreach ($enabledRows as $enabledRow) {
-            $enabledCounts[(string)$enabledRow['module_key']] = (int)$enabledRow['enabled_count'];
+            $enabledCounts[(string) $enabledRow['module_key']] = (int) $enabledRow['enabled_count'];
         }
         foreach ($rows as $row) {
-            $key = (string)$row['module_key'];
+            $key = (string) $row['module_key'];
             $details[$key] ??= [
                 'module_key' => $key,
                 'name' => $key,
-                'version' => (string)$row['module_version'],
-                'manifest_digest' => (string)$row['manifest_digest'],
-                'package_key' => (string)$row['plugin_key'],
-                'package_version' => (string)$row['package_version'],
+                'version' => (string) $row['module_version'],
+                'manifest_digest' => (string) $row['manifest_digest'],
+                'package_key' => (string) $row['plugin_key'],
+                'package_version' => (string) $row['package_version'],
                 'dependencies' => [],
                 'package_modules' => [$key],
                 'lifecycle_protected' => false,
             ];
             $details[$key]['status'] = $row['module_status'] ?? ($row['package_status'] === 'uninstalled' ? 'clean' : $row['package_status']);
-            $details[$key]['tenant_enabled_count'] = (int)($enabledCounts[$key] ?? 0);
-            $details[$key]['blockers'] = $row['last_error_code'] === null ? [] : [(string)$row['last_error_code']];
+            $details[$key]['tenant_enabled_count'] = (int) ($enabledCounts[$key] ?? 0);
+            $details[$key]['blockers'] = $row['last_error_code'] === null ? [] : [(string) $row['last_error_code']];
         }
         foreach ($details as $key => &$detail) {
             $detail['status'] ??= 'locked';
@@ -101,7 +103,9 @@ final readonly class PlatformModuleRuntimeService
         }
         unset($detail);
         ksort($details, SORT_STRING);
-        if ($moduleKey !== null) $details = isset($details[$moduleKey]) ? [$moduleKey => $details[$moduleKey]] : [];
+        if ($moduleKey !== null) {
+            $details = isset($details[$moduleKey]) ? [$moduleKey => $details[$moduleKey]] : [];
+        }
         $total = count($details);
         return ['items' => array_slice(array_values($details), ($page - 1) * $pageSize, $pageSize), 'total' => $total];
     }
@@ -116,12 +120,14 @@ final readonly class PlatformModuleRuntimeService
             $this->catalogs,
         ))
             ->install($archivePath, $expectedSha256, $signatureKeyId);
-        $moduleKeys = array_values(array_map(static fn(array $module): string => (string)$module['module_key'], $result['modules'] ?? []));
+        $moduleKeys = array_values(array_map(static fn(array $module): string => (string) $module['module_key'], $result['modules'] ?? []));
         $catalog = $this->catalog();
         $operation = ($result['operation'] ?? null) === 'unchanged'
             ? 'unchanged'
             : (($result['operation'] ?? null) === 'installed' ? 'installed' : 'reactivated');
-        if ($operation !== 'unchanged') $catalog->invalidateTenantAuthorization($moduleKeys);
+        if ($operation !== 'unchanged') {
+            $catalog->invalidateTenantAuthorization($moduleKeys);
+        }
         $result['operation'] = $operation;
         $result['catalog_revision'] = $catalog->catalogRevision();
         return $result;
@@ -142,7 +148,7 @@ final readonly class PlatformModuleRuntimeService
         ))->update($archivePath, $expectedSha256, $signatureKeyId, $dryRun);
         if (!$dryRun && ($result['operation'] ?? null) !== 'unchanged') {
             $moduleKeys = array_values(array_map(
-                static fn(array $module): string => (string)$module['module_key'],
+                static fn(array $module): string => (string) $module['module_key'],
                 $result['modules'] ?? [],
             ));
             $catalog = $this->catalog();
@@ -153,9 +159,9 @@ final readonly class PlatformModuleRuntimeService
     }
 
     /** @return array<string,mixed> */
-    public function create(string $moduleKey, ?string $vendor = null): array
+    public function create(string $moduleKey, ?string $vendor = null, string $client = 'none'): array
     {
-        return (new ModuleScaffoldGenerator(dirname($this->serverRoot)))->create($moduleKey, $vendor);
+        return (new ModuleScaffoldGenerator(dirname($this->serverRoot)))->create($moduleKey, $vendor, $client);
     }
 
     /** @return array<string,mixed> */
@@ -168,7 +174,7 @@ final readonly class PlatformModuleRuntimeService
     public function uninstall(string $key, bool $purge, array $plan, string $digest): array
     {
         $result = $this->governance->uninstall($key, $purge, $plan, $digest);
-        $moduleKeys = array_values(array_map(static fn(array $module): string => (string)$module['module_key'], $result['affected_modules'] ?? []));
+        $moduleKeys = array_values(array_map(static fn(array $module): string => (string) $module['module_key'], $result['affected_modules'] ?? []));
         $catalog = $this->catalog();
         $catalog->invalidateTenantAuthorization($moduleKeys);
         return $result + ['catalog_revision' => $catalog->catalogRevision()];
@@ -208,7 +214,7 @@ final readonly class PlatformModuleRuntimeService
                 ModuleLifecyclePolicy::assertNoActiveBusinessDependents(
                     new PluginLockResolver(
                         $this->serverRoot,
-                        (string)($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
+                        (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
                     ),
                     $moduleKeys,
                 );
@@ -226,7 +232,9 @@ final readonly class PlatformModuleRuntimeService
         } catch (AdvisoryLockUnavailable) {
             throw new PluginLifecycleException('MODULE_LIFECYCLE_BUSY', 'Module lifecycle is busy.');
         }
-        if (is_array($unchanged)) return $unchanged;
+        if (is_array($unchanged)) {
+            return $unchanged;
+        }
         $catalog = $this->catalog();
         $catalog->invalidateTenantAuthorization($moduleKeys);
         return [
@@ -262,7 +270,7 @@ final readonly class PlatformModuleRuntimeService
         }
         $descriptor = (new PluginLockResolver(
             $this->serverRoot,
-            (string)($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
+            (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
         ))->require($packageKey);
         $manifests = [];
         foreach ($descriptor->moduleRoots as $key => $root) {

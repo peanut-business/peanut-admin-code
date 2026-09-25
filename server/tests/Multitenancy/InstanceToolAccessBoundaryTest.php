@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Multitenancy;
@@ -20,7 +21,7 @@ final class InstanceToolAccessBoundaryTest extends TestCase
         }
 
         $serverRoot = dirname(__DIR__, 2);
-        $middleware = (string)file_get_contents(
+        $middleware = (string) file_get_contents(
             $serverRoot . '/app/platform/http/middleware/PlatformInstanceToolMiddleware.php',
         );
         self::assertStringContainsString('InstanceToolAccessGuard::fromConfiguredValue', $middleware);
@@ -67,19 +68,39 @@ final class InstanceToolAccessBoundaryTest extends TestCase
 
         $store->run(new InstanceExecutionContext('console.module:install-package', 'cli-contract-invalid'), function () use ($guard, $current): void {
             self::assertFalse($guard->allowsCliDevelopmentMaintenance(
-                'production', true, $current, 'module:install-package', true,
+                'production',
+                true,
+                $current,
+                'module:install-package',
+                true,
             ));
             self::assertFalse($guard->allowsCliDevelopmentMaintenance(
-                'development', false, $current, 'module:install-package', true,
+                'development',
+                false,
+                $current,
+                'module:install-package',
+                true,
             ));
             self::assertFalse($guard->allowsCliDevelopmentMaintenance(
-                'development', true, $current, 'module:update-package', true,
+                'development',
+                true,
+                $current,
+                'module:update-package',
+                true,
             ));
             self::assertFalse(InstanceToolAccessGuard::fromConfiguredValue('unknown')->allowsCliDevelopmentMaintenance(
-                'development', true, $current, 'module:install-package', true,
+                'development',
+                true,
+                $current,
+                'module:install-package',
+                true,
             ));
             self::assertFalse($guard->allowsCliDevelopmentMaintenance(
-                'development', true, $current, 'module:install-package', false,
+                'development',
+                true,
+                $current,
+                'module:install-package',
+                false,
             ));
         });
         self::assertTrue($store->isEmpty());
@@ -90,10 +111,22 @@ final class InstanceToolAccessBoundaryTest extends TestCase
         $store = new ExecutionContextStore();
         $current = new CurrentExecutionContext($store);
         $person = new class implements ExecutionContext {
-            public function operation(): string { return 'console.module:install-package'; }
-            public function requestId(): string { return 'http-personnel-context'; }
-            public function tenantId(): int { return 101; }
-            public function actor(): array { return ['tenant_id' => 101, 'id' => 301]; }
+            public function operation(): string
+            {
+                return 'console.module:install-package';
+            }
+            public function requestId(): string
+            {
+                return 'http-personnel-context';
+            }
+            public function tenantId(): int
+            {
+                return 101;
+            }
+            public function actor(): array
+            {
+                return ['tenant_id' => 101, 'id' => 301];
+            }
         };
 
         $allowed = $store->run(

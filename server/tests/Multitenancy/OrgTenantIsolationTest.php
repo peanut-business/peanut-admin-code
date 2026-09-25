@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\adminapi\services\auth\AdminApplicationService;
@@ -101,7 +102,7 @@ SQL);
 
 $serverRoot = dirname(__DIR__, 2);
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = getenv('PEANUT_ORG_TEST_RUN_ID') ?: strtolower(bin2hex(random_bytes(6)));
@@ -112,7 +113,7 @@ $adminPdo = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
 );
 $database = 'peanut_admin_mt02_org_' . $runId;
 $databaseCreated = false;
@@ -155,23 +156,23 @@ try {
         );
     }
 
-    $alphaRole = (int)$pdo->query("SELECT id FROM pa_role WHERE tenant_id=101 AND name='Manager'")->fetchColumn();
-    $betaRole = (int)$pdo->query("SELECT id FROM pa_role WHERE tenant_id=202 AND name='Manager'")->fetchColumn();
-    $alphaDept = (int)$pdo->query("SELECT id FROM pa_department WHERE tenant_id=101 AND name='Operations'")->fetchColumn();
-    $betaDept = (int)$pdo->query("SELECT id FROM pa_department WHERE tenant_id=202 AND name='Operations'")->fetchColumn();
-    $alphaJobs = (int)$pdo->query("SELECT id FROM pa_jobs WHERE tenant_id=101 AND code='OPS'")->fetchColumn();
-    $betaJobs = (int)$pdo->query("SELECT id FROM pa_jobs WHERE tenant_id=202 AND code='OPS'")->fetchColumn();
+    $alphaRole = (int) $pdo->query("SELECT id FROM pa_role WHERE tenant_id=101 AND name='Manager'")->fetchColumn();
+    $betaRole = (int) $pdo->query("SELECT id FROM pa_role WHERE tenant_id=202 AND name='Manager'")->fetchColumn();
+    $alphaDept = (int) $pdo->query("SELECT id FROM pa_department WHERE tenant_id=101 AND name='Operations'")->fetchColumn();
+    $betaDept = (int) $pdo->query("SELECT id FROM pa_department WHERE tenant_id=202 AND name='Operations'")->fetchColumn();
+    $alphaJobs = (int) $pdo->query("SELECT id FROM pa_jobs WHERE tenant_id=101 AND code='OPS'")->fetchColumn();
+    $betaJobs = (int) $pdo->query("SELECT id FROM pa_jobs WHERE tenant_id=202 AND code='OPS'")->fetchColumn();
     expectOrgTenant($alphaRole > 0 && $betaRole > 0 && $alphaRole !== $betaRole, 'same role name was not Tenant-local');
     expectOrgTenant($alphaDept > 0 && $betaDept > 0 && $alphaDept !== $betaDept, 'same department name was not Tenant-local');
     expectOrgTenant($alphaJobs > 0 && $betaJobs > 0 && $alphaJobs !== $betaJobs, 'same job code was not Tenant-local');
     $crossRoleDetail = orgFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.role.detail.cross-tenant'),
-            fn() => app(RoleApplicationService::class)->detail($alpha, $betaRole),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.role.detail.cross-tenant'),
+        fn() => app(RoleApplicationService::class)->detail($alpha, $betaRole),
     ));
     expectOrgTenant($crossRoleDetail[1] !== '', 'cross-Tenant role detail denial lost shape');
     $crossDeptDetail = orgFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.department.detail.cross-tenant'),
-            fn() => app(DeptApplicationService::class)->detail($alpha, $betaDept),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.department.detail.cross-tenant'),
+        fn() => app(DeptApplicationService::class)->detail($alpha, $betaDept),
     ));
     expectOrgTenant($crossDeptDetail[1] !== '', 'cross-Tenant department detail denial lost shape');
     expectOrgTenant(
@@ -204,11 +205,11 @@ try {
     );
 
     $crossRoleAssignment = orgFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.admin.add.cross-tenant'),
-            fn() => app(AdminApplicationService::class)->add($alpha, [
-                'tenant_id' => 202, 'account' => 'blocked@example.test', 'name' => 'Blocked', 'password' => 'D03OriginalPassword2026',
-                'disable' => 0, 'multipoint_login' => 1, 'role_id' => [$betaRole], 'dept_id' => [$alphaDept], 'jobs_id' => [$alphaJobs],
-            ]),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.admin.add.cross-tenant'),
+        fn() => app(AdminApplicationService::class)->add($alpha, [
+            'tenant_id' => 202, 'account' => 'blocked@example.test', 'name' => 'Blocked', 'password' => 'D03OriginalPassword2026',
+            'disable' => 0, 'multipoint_login' => 1, 'role_id' => [$betaRole], 'dept_id' => [$alphaDept], 'jobs_id' => [$alphaJobs],
+        ]),
     ));
     expectOrgTenant($crossRoleAssignment[1] !== '', 'cross-Tenant role assignment denial lost shape');
     expectOrgTenant(
@@ -231,8 +232,8 @@ try {
         ),
         'Beta admin add failed',
     );
-    $alphaAdmin = (int)$pdo->query("SELECT tm.id FROM pa_tenant_member tm JOIN pa_credential c ON c.account_id=tm.account_id WHERE tm.tenant_id=101 AND c.identifier_normalized='shared-admin@example.test'")->fetchColumn();
-    $betaAdmin = (int)$pdo->query("SELECT tm.id FROM pa_tenant_member tm JOIN pa_credential c ON c.account_id=tm.account_id WHERE tm.tenant_id=202 AND c.identifier_normalized='shared-admin-beta@example.test'")->fetchColumn();
+    $alphaAdmin = (int) $pdo->query("SELECT tm.id FROM pa_tenant_member tm JOIN pa_credential c ON c.account_id=tm.account_id WHERE tm.tenant_id=101 AND c.identifier_normalized='shared-admin@example.test'")->fetchColumn();
+    $betaAdmin = (int) $pdo->query("SELECT tm.id FROM pa_tenant_member tm JOIN pa_credential c ON c.account_id=tm.account_id WHERE tm.tenant_id=202 AND c.identifier_normalized='shared-admin-beta@example.test'")->fetchColumn();
     expectOrgTenant(
         app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($alpha, 'test.admin.detail.cross-tenant'),
@@ -265,12 +266,12 @@ try {
         'forged member context reached self profile command',
     );
     $crossStatusDenied = orgFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.admin.status.cross-tenant'),
-            fn() => app(AdminApplicationService::class)->updateStatus($alpha, $betaAdmin, 1),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.admin.status.cross-tenant'),
+        fn() => app(AdminApplicationService::class)->updateStatus($alpha, $betaAdmin, 1),
     ));
     $crossDeleteDenied = orgFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.admin.delete.cross-tenant'),
-            fn() => app(AdminApplicationService::class)->delete($alpha, $betaAdmin),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.admin.delete.cross-tenant'),
+        fn() => app(AdminApplicationService::class)->delete($alpha, $betaAdmin),
     ));
     expectOrgTenant($crossStatusDenied === $crossDeleteDenied, 'cross-Tenant admin denial enumerated operation');
     expectOrgTenant($pdo->query("SELECT status FROM pa_tenant_member WHERE tenant_id=202 AND id={$betaAdmin}")->fetchColumn() === 'active', 'cross-Tenant status denial mutated target');
@@ -287,7 +288,7 @@ try {
         }
     }
 
-    expectOrgTenant((int)$pdo->query("SELECT COUNT(*) FROM pa_member_role WHERE tenant_id=101 AND tenant_member_id={$alphaAdmin} AND role_id={$alphaRole}")->fetchColumn() === 1, 'owned admin role relation missing');
+    expectOrgTenant((int) $pdo->query("SELECT COUNT(*) FROM pa_member_role WHERE tenant_id=101 AND tenant_member_id={$alphaAdmin} AND role_id={$alphaRole}")->fetchColumn() === 1, 'owned admin role relation missing');
     expectOrgTenant(
         app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($alpha, 'test.role.edit'),
@@ -321,14 +322,14 @@ try {
     $roleService = app(RoleApplicationService::class);
     $departmentService = app(DeptApplicationService::class);
     app(ExecutionContextStore::class)->run(new \app\common\execution\AdminExecutionContext($alpha, 'test.role.archive'), fn() => $roleService->add($alpha, ['name' => 'Disposable role', 'menu_id' => []]));
-    $disposableRole = (int)$pdo->query("SELECT id FROM pa_role WHERE tenant_id=101 AND name='Disposable role'")->fetchColumn();
+    $disposableRole = (int) $pdo->query("SELECT id FROM pa_role WHERE tenant_id=101 AND name='Disposable role'")->fetchColumn();
     expectOrgTenant(app(ExecutionContextStore::class)->run(new \app\common\execution\AdminExecutionContext($alpha, 'test.role.archive'), fn() => $roleService->delete($alpha, $disposableRole)), 'role archive failed');
     expectOrgTenant($pdo->query("SELECT status FROM pa_role WHERE id={$disposableRole}")->fetchColumn() === 'archived', 'role archive did not persist');
 
     app(ExecutionContextStore::class)->run(new \app\common\execution\AdminExecutionContext($alpha, 'test.department.parent'), fn() => $departmentService->add($alpha, ['pid' => 0, 'name' => 'Archive parent', 'status' => 1]));
-    $parentDept = (int)$pdo->query("SELECT id FROM pa_department WHERE tenant_id=101 AND name='Archive parent'")->fetchColumn();
+    $parentDept = (int) $pdo->query("SELECT id FROM pa_department WHERE tenant_id=101 AND name='Archive parent'")->fetchColumn();
     app(ExecutionContextStore::class)->run(new \app\common\execution\AdminExecutionContext($alpha, 'test.department.child'), fn() => $departmentService->add($alpha, ['pid' => $parentDept, 'name' => 'Archive child', 'status' => 1]));
-    $childDept = (int)$pdo->query("SELECT id FROM pa_department WHERE tenant_id=101 AND name='Archive child'")->fetchColumn();
+    $childDept = (int) $pdo->query("SELECT id FROM pa_department WHERE tenant_id=101 AND name='Archive child'")->fetchColumn();
     expectOrgTenant(app(ExecutionContextStore::class)->run(new \app\common\execution\AdminExecutionContext($alpha, 'test.department.move'), fn() => $departmentService->edit($alpha, ['id' => $childDept, 'pid' => 0, 'name' => 'Archive child', 'status' => 0])), 'department move/status failed');
     expectOrgTenant($pdo->query("SELECT status FROM pa_department WHERE id={$childDept}")->fetchColumn() === 'disabled', 'department status did not persist');
     expectOrgTenant(app(ExecutionContextStore::class)->run(new \app\common\execution\AdminExecutionContext($alpha, 'test.department.archive'), fn() => $departmentService->delete($alpha, $childDept)), 'department child archive failed');
@@ -336,14 +337,15 @@ try {
 
     // 使用实际 Core 持久层验证授权修订、权限替换和审计身份，不只断言 bool。
     $run = fn(string $operation, callable $call) => app(ExecutionContextStore::class)->run(
-        new \app\common\execution\AdminExecutionContext($alpha, $operation), $call,
+        new \app\common\execution\AdminExecutionContext($alpha, $operation),
+        $call,
     );
-    $tenantRevision = (int)$pdo->query('SELECT authorization_revision FROM pa_tenant WHERE id=101')->fetchColumn();
-    $roleRevision = (int)$pdo->query("SELECT authorization_revision FROM pa_role WHERE id={$alphaRole}")->fetchColumn();
+    $tenantRevision = (int) $pdo->query('SELECT authorization_revision FROM pa_tenant WHERE id=101')->fetchColumn();
+    $roleRevision = (int) $pdo->query("SELECT authorization_revision FROM pa_role WHERE id={$alphaRole}")->fetchColumn();
     expectOrgTenant($run('test.role.permissions.replace', fn() => $roleService->edit($alpha, ['id' => $alphaRole, 'name' => 'Manager Alpha', 'menu_id' => [2]])), 'role permission replacement failed');
     expectOrgTenant($pdo->query("SELECT p.`key` FROM pa_role_permission rp JOIN pa_permission p ON p.id=rp.permission_id WHERE rp.tenant_id=101 AND rp.role_id={$alphaRole}")->fetchAll(PDO::FETCH_COLUMN) === ['core.role.update'], 'role permissions were not replaced exactly');
-    expectOrgTenant((int)$pdo->query("SELECT authorization_revision FROM pa_role WHERE id={$alphaRole}")->fetchColumn() > $roleRevision, 'role revision was not advanced');
-    expectOrgTenant((int)$pdo->query('SELECT authorization_revision FROM pa_tenant WHERE id=101')->fetchColumn() > $tenantRevision, 'tenant authorization revision was not advanced');
+    expectOrgTenant((int) $pdo->query("SELECT authorization_revision FROM pa_role WHERE id={$alphaRole}")->fetchColumn() > $roleRevision, 'role revision was not advanced');
+    expectOrgTenant((int) $pdo->query('SELECT authorization_revision FROM pa_tenant WHERE id=101')->fetchColumn() > $tenantRevision, 'tenant authorization revision was not advanced');
     expectOrgTenant($pdo->query("SELECT parent_id FROM pa_department WHERE id={$childDept}")->fetchColumn() === null, 'department move did not persist');
     expectOrgTenant($pdo->query("SELECT status FROM pa_department WHERE id={$childDept}")->fetchColumn() === 'archived', 'department archive did not persist');
 
@@ -355,7 +357,7 @@ try {
         'id' => $alphaAdmin, 'name' => 'Edited Admin', 'role_id' => [$alphaRole], 'dept_id' => [$alphaDept], 'disable' => 0,
     ])), 'member edit failed');
     expectOrgTenant($pdo->query("SELECT display_name FROM pa_tenant_member WHERE id={$alphaAdmin}")->fetchColumn() === 'Edited Admin', 'member edit did not persist');
-    expectOrgTenant((int)$pdo->query("SELECT authorization_revision FROM pa_tenant_member WHERE id={$alphaAdmin}")->fetchColumn() > (int)$memberBefore['authorization_revision'], 'member authorization revision was not advanced');
+    expectOrgTenant((int) $pdo->query("SELECT authorization_revision FROM pa_tenant_member WHERE id={$alphaAdmin}")->fetchColumn() > (int) $memberBefore['authorization_revision'], 'member authorization revision was not advanced');
     $login = $auth->login('shared-admin@example.test', 'D03OriginalPassword2026', 'alpha', '127.0.0.1', 'D03 test', 'd03-member-login');
     $oldToken = $login->tokens->access->expose();
     expectOrgTenant($auth->context($oldToken, 'd03-session-before-suspend')->memberId === $alphaAdmin, 'real member session did not authenticate');
@@ -368,7 +370,7 @@ try {
     $login = $auth->login('shared-admin@example.test', 'D03OriginalPassword2026', 'alpha', '127.0.0.1', 'D03 test', 'd03-profile-login');
     $memberContext = $login->context;
     $profile = $self->profile($memberContext);
-    expectOrgTenant($profile['account_id'] === (string)$memberContext->accountId && !isset($profile['credential']['secret_hash']), 'self profile read leaked credential or selected wrong account');
+    expectOrgTenant($profile['account_id'] === (string) $memberContext->accountId && !isset($profile['credential']['secret_hash']), 'self profile read leaked credential or selected wrong account');
     expectOrgTenant($admins->editSelf($memberContext, $alphaAdmin, ['name' => 'Self Updated', 'password_old' => 'D03OriginalPassword2026', 'password' => 'D03ChangedPassword2026'], '127.0.0.1', 'D03 test'), 'self password change failed');
     expectOrgTenant($self->profile($memberContext)['display_name'] === 'Self Updated', 'self profile change was lost');
     expectOrgTenant(orgFailure(fn() => $auth->context($login->tokens->access->expose(), 'd03-password-session'))[1] !== '', 'password change retained previous session');
@@ -384,13 +386,15 @@ try {
     foreach (['tenant.role.created', 'tenant.role.updated', 'tenant.role.permissions-replaced', 'tenant.role.archived', 'tenant.department.created', 'tenant.department.updated', 'tenant.department.moved', 'tenant.department.archived', 'tenant.member.suspended', 'tenant.member.active', 'tenant.member.left'] as $event) {
         $stmt = $pdo->prepare('SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id=101 AND actor_tenant_member_id=501 AND actor_account_id=1501 AND request_id=? AND event_type=?');
         $stmt->execute([$alpha->requestId, $event]);
-        expectOrgTenant((int)$stmt->fetchColumn() > 0, 'trusted actor audit missing: ' . $event);
+        expectOrgTenant((int) $stmt->fetchColumn() > 0, 'trusted actor audit missing: ' . $event);
     }
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id=101 AND actor_tenant_member_id=? AND actor_account_id=? AND event_type='account.password.changed'");
     $stmt->execute([$alphaAdmin, $memberContext->accountId]);
-    expectOrgTenant((int)$stmt->fetchColumn() === 1, 'password audit did not preserve authenticated actor');
+    expectOrgTenant((int) $stmt->fetchColumn() === 1, 'password audit did not preserve authenticated actor');
 } finally {
-    if ($databaseCreated) $adminPdo->exec("DROP DATABASE `{$database}`");
+    if ($databaseCreated) {
+        $adminPdo->exec("DROP DATABASE `{$database}`");
+    }
 }
 
 echo 'MT02-ORG-TENANT-ISOLATION-001 passed; assertions=' . $GLOBALS['orgAssertions'] . "\n";

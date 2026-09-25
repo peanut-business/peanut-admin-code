@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\contract\module;
@@ -17,7 +18,7 @@ interface TenantModuleCommands
         ?DateTimeImmutable $effectiveAt,
         ?DateTimeImmutable $expiresAt,
         string $changeReason,
-        string $requestId
+        string $requestId,
     ): array;
 
     /** @return array<string,mixed> */
@@ -26,6 +27,6 @@ interface TenantModuleCommands
         int $tenantId,
         string $moduleKey,
         string $changeReason,
-        string $requestId
+        string $requestId,
     ): array;
 }

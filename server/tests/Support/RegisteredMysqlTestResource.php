@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -88,14 +89,14 @@ final class RegisteredMysqlTestResource
         $events = $pdo->prepare('SELECT EVENT_NAME FROM information_schema.EVENTS WHERE EVENT_SCHEMA = ?');
         $events->execute([$database]);
         foreach ($events->fetchAll(PDO::FETCH_COLUMN) as $name) {
-            self::assertFixtureObjectName((string)$name);
+            self::assertFixtureObjectName((string) $name);
             $pdo->exec('DROP EVENT `' . $database . '`.`' . $name . '`');
         }
         $routines = $pdo->prepare('SELECT ROUTINE_NAME, ROUTINE_TYPE FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = ?');
         $routines->execute([$database]);
         foreach ($routines->fetchAll(PDO::FETCH_ASSOC) as $routine) {
-            $name = (string)$routine['ROUTINE_NAME'];
-            $type = (string)$routine['ROUTINE_TYPE'];
+            $name = (string) $routine['ROUTINE_NAME'];
+            $type = (string) $routine['ROUTINE_TYPE'];
             self::assertFixtureObjectName($name);
             if (!in_array($type, ['PROCEDURE', 'FUNCTION'], true)) {
                 throw new RuntimeException('REGISTERED_MYSQL_FIXTURE_OBJECT_INVALID');
@@ -106,8 +107,8 @@ final class RegisteredMysqlTestResource
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
         try {
             foreach ($objects as $row) {
-                $name = (string)($row[0] ?? '');
-                $type = strtoupper((string)($row[1] ?? ''));
+                $name = (string) ($row[0] ?? '');
+                $type = strtoupper((string) ($row[1] ?? ''));
                 self::assertFixtureObjectName($name);
                 $pdo->exec(($type === 'VIEW' ? 'DROP VIEW `' : 'DROP TABLE `') . $name . '`');
             }
@@ -154,7 +155,7 @@ final class RegisteredMysqlTestResource
         }
         self::assertDatabaseNameSyntax($environment['DB_NAME']);
         if (preg_match('/^[1-9][0-9]{0,4}$/D', $environment['DB_PORT']) !== 1
-            || (int)$environment['DB_PORT'] > 65535) {
+            || (int) $environment['DB_PORT'] > 65535) {
             throw new RuntimeException('REGISTERED_MYSQL_ENVIRONMENT_MISMATCH');
         }
         if (($registry['schema_version'] ?? null) !== 1 || ($registry['project_id'] ?? null) !== 'peanut-admin') {
@@ -224,7 +225,7 @@ final class RegisteredMysqlTestResource
             throw new RuntimeException('REGISTERED_MYSQL_RESOURCE_MISMATCH');
         }
         if (($endpoint['host'] ?? null) !== $environment['DB_HOST']
-            || (int)($endpoint['port'] ?? 0) !== (int)$environment['DB_PORT']
+            || (int) ($endpoint['port'] ?? 0) !== (int) $environment['DB_PORT']
             || !in_array($consumer, $endpoint['consumers'] ?? [], true)) {
             throw new RuntimeException('REGISTERED_MYSQL_ENDPOINT_MISMATCH');
         }
@@ -235,16 +236,16 @@ final class RegisteredMysqlTestResource
             || ($metadata['gate'] ?? null) !== $gate
             || ($metadata['status'] ?? null) !== 'ACTIVE'
             || !isset($metadata['expires_at']) || !ctype_digit($metadata['expires_at'])
-            || (int)$metadata['expires_at'] <= $now
+            || (int) $metadata['expires_at'] <= $now
             || ($metadata['candidate'] ?? null) !== $candidate
-            || self::canonicalPath((string)($metadata['candidate_repository'] ?? '')) !== self::canonicalPath($root)
-            || self::canonicalPath((string)($metadata['worktree'] ?? '')) !== self::canonicalPath($root)) {
+            || self::canonicalPath((string) ($metadata['candidate_repository'] ?? '')) !== self::canonicalPath($root)
+            || self::canonicalPath((string) ($metadata['worktree'] ?? '')) !== self::canonicalPath($root)) {
             throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
         }
         foreach ([
             ['resource-id', $environment['PEANUT_DATABASE_RESOURCE_ID']],
             ['endpoint', $environment['PEANUT_DATABASE_ENDPOINT_ID']],
-            ['port', (string)(int)$environment['DB_PORT']],
+            ['port', (string) (int) $environment['DB_PORT']],
             ['mysql-db', $environment['DB_NAME']],
             ['database', $environment['DB_NAME']],
             [$scopeType, $environment['PEANUT_DATABASE_RESOURCE_SCOPE']],
@@ -258,7 +259,7 @@ final class RegisteredMysqlTestResource
 
         return [
             'host' => $environment['DB_HOST'],
-            'port' => (int)$environment['DB_PORT'],
+            'port' => (int) $environment['DB_PORT'],
             'database' => $environment['DB_NAME'],
             'version' => $version,
             'lease_id' => $environment['PEANUT_DATABASE_LEASE_ID'],
@@ -302,7 +303,7 @@ final class RegisteredMysqlTestResource
         [$registryPath, $registryTool, $registrySha256] = self::registrySource($root);
         try {
             $registry = json_decode(
-                (string)file_get_contents($registryPath),
+                (string) file_get_contents($registryPath),
                 true,
                 512,
                 JSON_THROW_ON_ERROR,
@@ -353,7 +354,7 @@ final class RegisteredMysqlTestResource
 
     private static function assertMysqlVersion(PDO $pdo, string $expected): void
     {
-        $actual = (string)$pdo->query('SELECT VERSION()')->fetchColumn();
+        $actual = (string) $pdo->query('SELECT VERSION()')->fetchColumn();
         if (preg_match('/^8\.4(?:\.[0-9]+)?(?:[-+].*)?$/D', $actual) !== 1
             || !str_starts_with($actual, $expected)) {
             throw new RuntimeException('REGISTERED_MYSQL_VERSION_MISMATCH');
@@ -369,7 +370,7 @@ final class RegisteredMysqlTestResource
         ] as $catalog => $schemaColumn) {
             $objects = $pdo->prepare('SELECT COUNT(*) FROM information_schema.' . $catalog . ' WHERE ' . $schemaColumn . ' = ?');
             $objects->execute([$database]);
-            self::assertEmptyTableCount((int)$objects->fetchColumn());
+            self::assertEmptyTableCount((int) $objects->fetchColumn());
         }
     }
 
@@ -413,8 +414,8 @@ final class RegisteredMysqlTestResource
             || $registryPath !== $expectedRegistry
             || !is_file($registryPath) || is_link($registryPath)
             || !is_file($toolPath) || is_link($toolPath) || !is_executable($toolPath)
-            || !hash_equals((string)hash_file('sha256', $canonicalTool), (string)hash_file('sha256', $toolPath))
-            || !hash_equals($configuredSha256, (string)hash_file('sha256', $registryPath))) {
+            || !hash_equals((string) hash_file('sha256', $canonicalTool), (string) hash_file('sha256', $toolPath))
+            || !hash_equals($configuredSha256, (string) hash_file('sha256', $registryPath))) {
             throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
         }
         return [$registryPath, $toolPath, $configuredSha256];
@@ -502,14 +503,14 @@ final class RegisteredMysqlTestResource
         $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
         fclose($pipes[2]);
-        return [proc_close($process), (string)$stdout, (string)$stderr];
+        return [proc_close($process), (string) $stdout, (string) $stderr];
     }
 
     /** @param list<array{0:string,1:string}> $resources */
     private static function hasResource(array $resources, string $type, string $value): bool
     {
         foreach ($resources as $resource) {
-            if (($resource[0] ?? null) === $type && hash_equals((string)($resource[1] ?? ''), $value)) {
+            if (($resource[0] ?? null) === $type && hash_equals((string) ($resource[1] ?? ''), $value)) {
                 return true;
             }
         }

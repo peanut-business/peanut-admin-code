@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Service;
@@ -69,7 +70,7 @@ final class ConfigurationTransferApplicationService implements ConfigurationTran
         }
 
         $package = $this->codec->create($scope, $entries);
-        $this->audit($context, $scope, 'export', (string)$package['checksum'], count($entries), 0, 0);
+        $this->audit($context, $scope, 'export', (string) $package['checksum'], count($entries), 0, 0);
 
         return $package;
     }
@@ -233,8 +234,8 @@ final class ConfigurationTransferApplicationService implements ConfigurationTran
         $conflicts = [];
         $blockingConflicts = [];
         foreach ($entries as $entry) {
-            $adapter = $scopeAdapters[(string)$entry['adapter']];
-            $key = (string)$entry['key'];
+            $adapter = $scopeAdapters[(string) $entry['adapter']];
+            $key = (string) $entry['key'];
             $current = $adapter->current($context, $key);
             if (!is_array($current) || !is_bool($current['exists'] ?? null)) {
                 throw new \runtimeException('TRANSFER_ADAPTER_STATE_INVALID');
@@ -296,7 +297,7 @@ final class ConfigurationTransferApplicationService implements ConfigurationTran
 
         return [
             'scope' => $scope,
-            'checksum' => (string)$document['checksum'],
+            'checksum' => (string) $document['checksum'],
             'conflict_policy' => $conflictPolicy,
             'items' => $items,
             'entry_count' => count($items),
@@ -319,7 +320,7 @@ final class ConfigurationTransferApplicationService implements ConfigurationTran
             'conflict' => 0,
         ];
         foreach ($items as $item) {
-            $action = (string)$item['action'];
+            $action = (string) $item['action'];
             if ($action === 'replace-secret') {
                 ++$counts['replace'];
             } elseif (isset($counts[$action])) {
@@ -389,7 +390,7 @@ final class ConfigurationTransferApplicationService implements ConfigurationTran
             return $revision >= 0 ? $revision : throw new \runtimeException('TRANSFER_ADAPTER_STATE_INVALID');
         }
         if (is_string($revision) && preg_match('/^[0-9]+$/D', $revision) === 1) {
-            return (int)$revision;
+            return (int) $revision;
         }
         throw new \runtimeException('TRANSFER_ADAPTER_STATE_INVALID');
     }

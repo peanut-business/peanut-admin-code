@@ -11,19 +11,22 @@
 </template>
 
 <script setup lang="ts">
-import sanitizeRichText from '~/utils/sanitize-rich-text'
+  import sanitizeRichText from '~/utils/sanitize-rich-text';
 
-definePageMeta({ layout: 'default' })
+  definePageMeta({ layout: 'default' });
 
-const route = useRoute()
-const type = route.params.type as string
-const apiBase = useRuntimeConfig().public.apiBase
+  const route = useRoute();
+  const type = route.params.type as string;
+  const apiBase = useRuntimeConfig().public.apiBase;
 
-const { data } = await useFetch<{ code: number; data: { title: string; content: string } }>(
-  `${apiBase}/api/index/policy?type=${type}`
-)
-const policy = computed(() => data.value?.data || null)
-const safePolicyContent = computed(() => sanitizeRichText(policy.value?.content))
+  const { data } = await useFetch<{
+    code: number;
+    data: { title: string; content: string };
+  }>(`${apiBase}/api/index/policy?type=${type}`);
+  const policy = computed(() => data.value?.data || null);
+  const safePolicyContent = computed(() =>
+    sanitizeRichText(policy.value?.content)
+  );
 
-useHead({ title: computed(() => policy.value?.title || '政策') })
+  useHead({ title: computed(() => policy.value?.title || '政策') });
 </script>

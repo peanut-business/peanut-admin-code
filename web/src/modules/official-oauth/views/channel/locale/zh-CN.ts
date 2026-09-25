@@ -50,16 +50,19 @@ export default {
   'channel.officialAccount.originalIdPlaceholder': '请输入原始 ID',
   'channel.officialAccount.qrCode': '公众号二维码',
   'channel.officialAccount.selectQrCode': '从素材库选择',
-  'channel.officialAccount.secretMaskedPlaceholder': '已配置 AppSecret，保持掩码即可',
+  'channel.officialAccount.secretMaskedPlaceholder':
+    '已配置 AppSecret，保持掩码即可',
   'channel.officialAccount.token': 'Token',
   'channel.officialAccount.callback': '回调与域名',
-  'channel.officialAccount.plaintextNotice': '当前服务器回调仅支持明文模式；请在微信平台保持明文配置。',
+  'channel.officialAccount.plaintextNotice':
+    '当前服务器回调仅支持明文模式；请在微信平台保持明文配置。',
   'channel.officialAccount.callbackUrl': '服务器回调 URL',
   'channel.officialAccount.businessDomain': '业务域名',
   'channel.officialAccount.jsSecureDomain': 'JS 安全域名',
   'channel.officialAccount.webAuthDomain': '网页授权域名',
 
-  'channel.menu.ruleNotice': '公众号菜单最多两级：一级 3 个、二级每组 5 个；叶子菜单支持 click、view、miniprogram。',
+  'channel.menu.ruleNotice':
+    '公众号菜单最多两级：一级 3 个、二级每组 5 个；叶子菜单支持 click、view、miniprogram。',
   'channel.menu.save': '保存菜单',
   'channel.menu.publish': '发布到微信',
   'channel.menu.addTop': '新增一级菜单',
@@ -79,7 +82,8 @@ export default {
   'channel.menu.invalidType': '菜单类型无效',
   'channel.menu.clickKeyRequired': '点击菜单必须填写 key',
   'channel.menu.viewUrlRequired': '网页菜单必须填写有效的 http/https 地址',
-  'channel.menu.miniprogramRequired': '小程序菜单必须填写备用 URL、AppID 和页面路径',
+  'channel.menu.miniprogramRequired':
+    '小程序菜单必须填写备用 URL、AppID 和页面路径',
   'channel.menu.depthInvalid': '公众号菜单最多两级',
   'channel.menu.topNameInvalid': '一级菜单名称不能为空且最多 4 个字',
   'channel.menu.childNameInvalid': '二级菜单名称不能为空且最多 8 个字',
@@ -96,7 +100,8 @@ export default {
   'channel.menu.pagePath': '小程序页面路径',
   'channel.menu.publishSuccess': '菜单发布成功',
 
-  'channel.openPlatform.notice': '开放平台用于 PC 扫码登录；AppSecret 回显为掩码时请原样提交。',
+  'channel.openPlatform.notice':
+    '开放平台用于 PC 扫码登录；AppSecret 回显为掩码时请原样提交。',
   'channel.reply.filterType': '按回复分类筛选',
   'channel.reply.allTypes': '全部分类',
   'channel.reply.subscribe': '关注回复',

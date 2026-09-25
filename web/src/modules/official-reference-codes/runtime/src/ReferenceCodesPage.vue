@@ -1,108 +1,122 @@
 <script setup lang="ts">
-import {
-  EmptyState,
-  ForbiddenState,
-  ModuleUnavailableState,
-  PageContent,
-  PageHeader,
-  PageToolbar,
-  SessionExpiredState,
-} from '@peanut-admin/ui-vue'
-import {
-  ElButton,
-  ElCheckbox,
-  ElDialog,
-  ElInput,
-  ElInputNumber,
-} from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+  import {
+    EmptyState,
+    ForbiddenState,
+    ModuleUnavailableState,
+    PageContent,
+    PageHeader,
+    PageToolbar,
+    SessionExpiredState,
+  } from '@peanut-admin/ui-vue';
+  import {
+    ElButton,
+    ElCheckbox,
+    ElDialog,
+    ElInput,
+    ElInputNumber,
+  } from 'element-plus';
+  import { computed, onMounted, ref } from 'vue';
 
-import type { ReferenceCodeEntry } from './contracts'
-import { useReferenceCodesRuntime } from './runtime'
+  import type { ReferenceCodeEntry } from './contracts';
+  import { useReferenceCodesRuntime } from './runtime';
 
-const runtime = useReferenceCodesRuntime()
-const state = runtime.state
-const asOfInput = ref('')
-const canManage = computed(() => runtime.canManage())
-const hasPendingMutation = computed(() => state.pendingResources.size > 0)
-const selectedSetValue = computed(() => state.selectedSet === null
-  ? ''
-  : `${state.selectedSet.moduleKey}\u001f${state.selectedSet.setKey}`)
-const pageCount = computed(() => Math.max(1, Math.ceil(state.total / state.pageSize)))
+  const runtime = useReferenceCodesRuntime();
+  const state = runtime.state;
+  const asOfInput = ref('');
+  const canManage = computed(() => runtime.canManage());
+  const hasPendingMutation = computed(() => state.pendingResources.size > 0);
+  const selectedSetValue = computed(() =>
+    state.selectedSet === null
+      ? ''
+      : `${state.selectedSet.moduleKey}\u001f${state.selectedSet.setKey}`
+  );
+  const pageCount = computed(() =>
+    Math.max(1, Math.ceil(state.total / state.pageSize))
+  );
 
-const run = async (operation: () => Promise<void>): Promise<void> => {
-  try {
-    await operation()
-  } catch {
-    return
-  }
-}
+  const run = async (operation: () => Promise<void>): Promise<void> => {
+    try {
+      await operation();
+    } catch {
+      return;
+    }
+  };
 
-const loadSets = async (): Promise<void> => {
-  await run(runtime.loadSets)
-  asOfInput.value = state.asOf
-}
+  const loadSets = async (): Promise<void> => {
+    await run(runtime.loadSets);
+    asOfInput.value = state.asOf;
+  };
 
-const selectSet = async (value: unknown): Promise<void> => {
-  if (typeof value !== 'string' || value === '') return
-  const [moduleKey, setKey] = value.split('\u001f')
-  if (moduleKey === undefined || setKey === undefined) return
-  await run(() => runtime.selectSet(moduleKey, setKey))
-}
+  const selectSet = async (value: unknown): Promise<void> => {
+    if (typeof value !== 'string' || value === '') return;
+    const [moduleKey, setKey] = value.split('\u001f');
+    if (moduleKey === undefined || setKey === undefined) return;
+    await run(() => runtime.selectSet(moduleKey, setKey));
+  };
 
-const selectValue = (event: Event): string | null => {
-  const target = event.currentTarget
-  return target instanceof HTMLSelectElement ? target.value : null
-}
+  const selectValue = (event: Event): string | null => {
+    const target = event.currentTarget;
+    return target instanceof HTMLSelectElement ? target.value : null;
+  };
 
-const selectSetFromEvent = async (event: Event): Promise<void> => {
-  const value = selectValue(event)
-  if (value !== null) await selectSet(value)
-}
+  const selectSetFromEvent = async (event: Event): Promise<void> => {
+    const value = selectValue(event);
+    if (value !== null) await selectSet(value);
+  };
 
-const applyAsOf = async (): Promise<void> => {
-  await run(async () => {
-    await runtime.setAsOf(asOfInput.value)
-    asOfInput.value = state.asOf
-  })
-}
+  const applyAsOf = async (): Promise<void> => {
+    await run(async () => {
+      await runtime.setAsOf(asOfInput.value);
+      asOfInput.value = state.asOf;
+    });
+  };
 
-const setEffectiveStatus = async (value: unknown): Promise<void> => {
-  if (value !== 'active' && value !== 'inactive' && value !== 'all') return
-  await run(() => runtime.setFilters(value, state.includeRetired))
-}
+  const setEffectiveStatus = async (value: unknown): Promise<void> => {
+    if (value !== 'active' && value !== 'inactive' && value !== 'all') return;
+    await run(() => runtime.setFilters(value, state.includeRetired));
+  };
 
-const setIncludeRetired = async (value: unknown): Promise<void> => {
-  await run(() => runtime.setFilters(state.effectiveStatus, value === true))
-}
+  const setIncludeRetired = async (value: unknown): Promise<void> => {
+    await run(() => runtime.setFilters(state.effectiveStatus, value === true));
+  };
 
-const setPage = async (page: number): Promise<void> => {
-  await run(() => runtime.setPage(page))
-}
+  const setPage = async (page: number): Promise<void> => {
+    await run(() => runtime.setPage(page));
+  };
 
-const dateLabel = (value: string | null): string => value ?? 'none'
-const effectiveLabel = (entry: ReferenceCodeEntry): string => entry.effective?.label ?? 'No effective version'
-const statusLabel = (entry: ReferenceCodeEntry): string => entry.effective?.status ?? 'none'
-const metadataLabel = (entry: ReferenceCodeEntry): string => JSON.stringify(entry.effective?.metadata ?? {})
-const canAppend = (entry: ReferenceCodeEntry): boolean => (
-  canManage.value && entry.lifecycle === 'active' && entry.effective !== null && !runtime.isPending(entry.code)
-)
+  const dateLabel = (value: string | null): string => value ?? 'none';
+  const effectiveLabel = (entry: ReferenceCodeEntry): string =>
+    entry.effective?.label ?? 'No effective version';
+  const statusLabel = (entry: ReferenceCodeEntry): string =>
+    entry.effective?.status ?? 'none';
+  const metadataLabel = (entry: ReferenceCodeEntry): string =>
+    JSON.stringify(entry.effective?.metadata ?? {});
+  const canAppend = (entry: ReferenceCodeEntry): boolean =>
+    canManage.value &&
+    entry.lifecycle === 'active' &&
+    entry.effective !== null &&
+    !runtime.isPending(entry.code);
 
-const updateCreateStatus = (value: unknown): void => {
-  if (value === 'active' || value === 'inactive') runtime.updateCreateDraft({ status: value })
-}
+  const updateCreateStatus = (value: unknown): void => {
+    if (value === 'active' || value === 'inactive')
+      runtime.updateCreateDraft({ status: value });
+  };
 
-const updateCreateStatusFromEvent = (event: Event): void => updateCreateStatus(selectValue(event))
+  const updateCreateStatusFromEvent = (event: Event): void =>
+    updateCreateStatus(selectValue(event));
 
-const updateAppendStatus = (value: unknown): void => {
-  if (value === 'active' || value === 'inactive') runtime.updateAppendDraft({ status: value })
-}
+  const updateAppendStatus = (value: unknown): void => {
+    if (value === 'active' || value === 'inactive')
+      runtime.updateAppendDraft({ status: value });
+  };
 
-const updateAppendStatusFromEvent = (event: Event): void => updateAppendStatus(selectValue(event))
+  const updateAppendStatusFromEvent = (event: Event): void =>
+    updateAppendStatus(selectValue(event));
 
-const normalizedNullable = (value: string): string | null => value === '' ? null : value
+  const normalizedNullable = (value: string): string | null =>
+    value === '' ? null : value;
 
-onMounted(loadSets)
+  onMounted(loadSets);
 </script>
 
 <template>
@@ -115,14 +129,18 @@ onMounted(loadSets)
           :aria-disabled="hasPendingMutation"
           :disabled="hasPendingMutation"
           :loading="state.loading"
-          @click="state.selectedSet === null ? loadSets() : run(runtime.loadEntries)"
+          @click="
+            state.selectedSet === null ? loadSets() : run(runtime.loadEntries)
+          "
         >
           Reload
         </ElButton>
         <ElButton
           aria-label="Create code"
           type="primary"
-          :disabled="!canManage || state.selectedSet === null || hasPendingMutation"
+          :disabled="
+            !canManage || state.selectedSet === null || hasPendingMutation
+          "
           @click="runtime.beginCreate"
         >
           Create code
@@ -130,10 +148,7 @@ onMounted(loadSets)
       </template>
     </PageHeader>
 
-    <PageToolbar
-      v-if="!state.errors.page"
-      label="Reference-code controls"
-    >
+    <PageToolbar v-if="!state.errors.page" label="Reference-code controls">
       <div class="reference-controls">
         <label for="reference-set">Owner and set</label>
         <select
@@ -141,12 +156,7 @@ onMounted(loadSets)
           :value="selectedSetValue"
           @change="selectSetFromEvent"
         >
-          <option
-            disabled
-            value=""
-          >
-            Select an owner and set
-          </option>
+          <option disabled value=""> Select an owner and set </option>
           <option
             v-for="set in state.sets"
             :key="`${set.moduleKey}/${set.setKey}`"
@@ -215,24 +225,40 @@ onMounted(loadSets)
 
     <SessionExpiredState
       v-if="state.errors.page?.status === 401"
-      v-bind="state.errors.page.requestId === null ? {} : { requestId: state.errors.page.requestId }"
+      v-bind="
+        state.errors.page.requestId === null
+          ? {}
+          : { requestId: state.errors.page.requestId }
+      "
       :message="state.errors.page.message"
     />
     <ForbiddenState
       v-else-if="state.errors.page?.status === 403"
-      v-bind="state.errors.page.requestId === null ? {} : { requestId: state.errors.page.requestId }"
+      v-bind="
+        state.errors.page.requestId === null
+          ? {}
+          : { requestId: state.errors.page.requestId }
+      "
       :message="state.errors.page.message"
     />
     <EmptyState
       v-else-if="state.errors.page?.status === 404"
       data-reference-codes-state="not-found"
       title="Reference-code set not available"
-      v-bind="state.errors.page.requestId === null ? {} : { requestId: state.errors.page.requestId }"
+      v-bind="
+        state.errors.page.requestId === null
+          ? {}
+          : { requestId: state.errors.page.requestId }
+      "
       :message="state.errors.page.message"
     />
     <ModuleUnavailableState
       v-else-if="state.errors.page?.status === 503"
-      v-bind="state.errors.page.requestId === null ? {} : { requestId: state.errors.page.requestId }"
+      v-bind="
+        state.errors.page.requestId === null
+          ? {}
+          : { requestId: state.errors.page.requestId }
+      "
       :message="state.errors.page.message"
       @action="loadSets"
     />
@@ -248,7 +274,11 @@ onMounted(loadSets)
       <p v-if="state.errors.page.requestId !== null">
         Request ID: {{ state.errors.page.requestId }}
       </p>
-      <ElButton @click="state.selectedSet === null ? loadSets() : run(runtime.loadEntries)">
+      <ElButton
+        @click="
+          state.selectedSet === null ? loadSets() : run(runtime.loadEntries)
+        "
+      >
         Retry
       </ElButton>
     </section>
@@ -295,33 +325,15 @@ onMounted(loadSets)
         <table class="reference-table">
           <thead>
             <tr>
-              <th scope="col">
-                Code
-              </th>
-              <th scope="col">
-                Label
-              </th>
-              <th scope="col">
-                Status
-              </th>
-              <th scope="col">
-                Sort
-              </th>
-              <th scope="col">
-                Effective interval
-              </th>
-              <th scope="col">
-                Revision
-              </th>
-              <th scope="col">
-                Lifecycle
-              </th>
-              <th scope="col">
-                Metadata
-              </th>
-              <th scope="col">
-                Actions
-              </th>
+              <th scope="col"> Code </th>
+              <th scope="col"> Label </th>
+              <th scope="col"> Status </th>
+              <th scope="col"> Sort </th>
+              <th scope="col"> Effective interval </th>
+              <th scope="col"> Revision </th>
+              <th scope="col"> Lifecycle </th>
+              <th scope="col"> Metadata </th>
+              <th scope="col"> Actions </th>
             </tr>
           </thead>
           <tbody>
@@ -343,8 +355,12 @@ onMounted(loadSets)
                 {{ entry.effective?.sortOrder ?? 'none' }}
               </td>
               <td data-label="Effective interval">
-                <span>{{ dateLabel(entry.effective?.effectiveAt ?? null) }}</span>
-                <span> to {{ dateLabel(entry.effective?.expiresAt ?? null) }}</span>
+                <span>{{
+                  dateLabel(entry.effective?.effectiveAt ?? null)
+                }}</span>
+                <span>
+                  to {{ dateLabel(entry.effective?.expiresAt ?? null) }}</span
+                >
               </td>
               <td data-label="Revision">
                 {{ entry.revision }}
@@ -366,7 +382,11 @@ onMounted(loadSets)
                   </ElButton>
                   <ElButton
                     aria-label="Retire"
-                    :disabled="!canManage || entry.lifecycle === 'retired' || runtime.isPending(entry.code)"
+                    :disabled="
+                      !canManage ||
+                      entry.lifecycle === 'retired' ||
+                      runtime.isPending(entry.code)
+                    "
                     @click="runtime.beginRetire(entry)"
                   >
                     Retire
@@ -398,10 +418,7 @@ onMounted(loadSets)
         </table>
       </div>
 
-      <nav
-        class="reference-pagination"
-        aria-label="Reference-code pages"
-      >
+      <nav class="reference-pagination" aria-label="Reference-code pages">
         <ElButton
           aria-label="Previous page"
           :disabled="state.page <= 1 || state.loading || hasPendingMutation"
@@ -412,7 +429,9 @@ onMounted(loadSets)
         <span>Page {{ state.page }} of {{ pageCount }}</span>
         <ElButton
           aria-label="Next page"
-          :disabled="state.page >= pageCount || state.loading || hasPendingMutation"
+          :disabled="
+            state.page >= pageCount || state.loading || hasPendingMutation
+          "
           @click="setPage(state.page + 1)"
         >
           Next
@@ -453,7 +472,9 @@ onMounted(loadSets)
           :model-value="state.createDraft.metadataText"
           :rows="4"
           type="textarea"
-          @update:model-value="runtime.updateCreateDraft({ metadataText: $event })"
+          @update:model-value="
+            runtime.updateCreateDraft({ metadataText: $event })
+          "
         />
         <label for="reference-create-status">Status</label>
         <select
@@ -461,12 +482,8 @@ onMounted(loadSets)
           :value="state.createDraft.status"
           @change="updateCreateStatusFromEvent"
         >
-          <option value="active">
-            active
-          </option>
-          <option value="inactive">
-            inactive
-          </option>
+          <option value="active"> active </option>
+          <option value="inactive"> inactive </option>
         </select>
         <label for="reference-create-sort">Sort order</label>
         <ElInputNumber
@@ -474,26 +491,29 @@ onMounted(loadSets)
           :max="1000000"
           :min="-1000000"
           :model-value="state.createDraft.sortOrder"
-          @update:model-value="$event !== undefined && runtime.updateCreateDraft({ sortOrder: $event })"
+          @update:model-value="
+            $event !== undefined &&
+              runtime.updateCreateDraft({ sortOrder: $event })
+          "
         />
         <label for="reference-create-effective">Effective at</label>
         <ElInput
           id="reference-create-effective"
           :model-value="state.createDraft.effectiveAt"
-          @update:model-value="runtime.updateCreateDraft({ effectiveAt: $event })"
+          @update:model-value="
+            runtime.updateCreateDraft({ effectiveAt: $event })
+          "
         />
         <label for="reference-create-expires">Expires at</label>
         <ElInput
           id="reference-create-expires"
           :model-value="state.createDraft.expiresAt ?? ''"
           placeholder="none"
-          @update:model-value="runtime.updateCreateDraft({ expiresAt: normalizedNullable($event) })"
+          @update:model-value="
+            runtime.updateCreateDraft({ expiresAt: normalizedNullable($event) })
+          "
         />
-        <p
-          v-if="state.errors.create"
-          class="reference-error"
-          role="alert"
-        >
+        <p v-if="state.errors.create" class="reference-error" role="alert">
           {{ state.errors.create.message }}
         </p>
         <div
@@ -511,9 +531,7 @@ onMounted(loadSets)
           </ElButton>
         </div>
         <div class="reference-form__actions">
-          <ElButton @click="runtime.cancelCreate">
-            Cancel
-          </ElButton>
+          <ElButton @click="runtime.cancelCreate"> Cancel </ElButton>
           <ElButton
             native-type="submit"
             type="primary"
@@ -557,7 +575,9 @@ onMounted(loadSets)
           :model-value="state.appendDraft.metadataText"
           :rows="4"
           type="textarea"
-          @update:model-value="runtime.updateAppendDraft({ metadataText: $event })"
+          @update:model-value="
+            runtime.updateAppendDraft({ metadataText: $event })
+          "
         />
         <label for="reference-append-status">Status</label>
         <select
@@ -565,12 +585,8 @@ onMounted(loadSets)
           :value="state.appendDraft.status"
           @change="updateAppendStatusFromEvent"
         >
-          <option value="active">
-            active
-          </option>
-          <option value="inactive">
-            inactive
-          </option>
+          <option value="active"> active </option>
+          <option value="inactive"> inactive </option>
         </select>
         <label for="reference-append-sort">Sort order</label>
         <ElInputNumber
@@ -578,20 +594,27 @@ onMounted(loadSets)
           :max="1000000"
           :min="-1000000"
           :model-value="state.appendDraft.sortOrder"
-          @update:model-value="$event !== undefined && runtime.updateAppendDraft({ sortOrder: $event })"
+          @update:model-value="
+            $event !== undefined &&
+              runtime.updateAppendDraft({ sortOrder: $event })
+          "
         />
         <label for="reference-append-effective">Effective at</label>
         <ElInput
           id="reference-append-effective"
           :model-value="state.appendDraft.effectiveAt"
-          @update:model-value="runtime.updateAppendDraft({ effectiveAt: $event })"
+          @update:model-value="
+            runtime.updateAppendDraft({ effectiveAt: $event })
+          "
         />
         <label for="reference-append-expires">Expires at</label>
         <ElInput
           id="reference-append-expires"
           :model-value="state.appendDraft.expiresAt ?? ''"
           placeholder="none"
-          @update:model-value="runtime.updateAppendDraft({ expiresAt: normalizedNullable($event) })"
+          @update:model-value="
+            runtime.updateAppendDraft({ expiresAt: normalizedNullable($event) })
+          "
         />
         <div
           v-if="state.stale[state.appendDraft.code]"
@@ -614,9 +637,7 @@ onMounted(loadSets)
           {{ state.errors[state.appendDraft.code]?.message }}
         </p>
         <div class="reference-form__actions">
-          <ElButton @click="runtime.cancelAppend">
-            Cancel
-          </ElButton>
+          <ElButton @click="runtime.cancelAppend"> Cancel </ElButton>
           <ElButton
             native-type="submit"
             type="primary"
@@ -637,12 +658,10 @@ onMounted(loadSets)
       :transition="{ css: false }"
       @close="runtime.cancelRetire"
     >
-      <div
-        v-if="state.retireCode !== null"
-        class="reference-retire"
-      >
+      <div v-if="state.retireCode !== null" class="reference-retire">
         <p>
-          Retiring <code>{{ state.retireCode }}</code> is permanent. This identity cannot be reused or reactivated.
+          Retiring <code>{{ state.retireCode }}</code> is permanent. This
+          identity cannot be reused or reactivated.
         </p>
         <p
           v-if="state.errors[state.retireCode]"
@@ -665,9 +684,7 @@ onMounted(loadSets)
           </ElButton>
         </div>
         <div class="reference-form__actions">
-          <ElButton @click="runtime.cancelRetire">
-            Cancel
-          </ElButton>
+          <ElButton @click="runtime.cancelRetire"> Cancel </ElButton>
           <ElButton
             type="danger"
             :loading="runtime.isPending(state.retireCode)"
@@ -682,261 +699,261 @@ onMounted(loadSets)
 </template>
 
 <style scoped>
-.retired-checkbox {
-  position: relative;
-}
-
-.retired-checkbox :deep(.el-checkbox__original) {
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  cursor: pointer;
-}
-
-.retired-checkbox.is-disabled :deep(.el-checkbox__original) {
-  cursor: not-allowed;
-}
-
-.reference-codes-page {
-  min-width: 0;
-}
-
-.reference-controls {
-  display: grid;
-  grid-template-columns: auto minmax(220px, 1fr) auto minmax(250px, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  width: 100%;
-}
-
-.reference-controls :deep(.el-select),
-.reference-controls :deep(.el-input),
-.reference-controls select {
-  min-width: 0;
-  width: 100%;
-}
-
-.reference-controls select,
-.reference-form select {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--el-border-color);
-  border-radius: 4px;
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-}
-
-.reference-segmented {
-  display: inline-flex;
-}
-
-.reference-segmented :deep(.el-button) {
-  margin-left: 0;
-  border-radius: 0;
-}
-
-.reference-segmented :deep(.el-button:first-child) {
-  border-radius: 4px 0 0 4px;
-}
-
-.reference-segmented :deep(.el-button:last-child) {
-  border-radius: 0 4px 4px 0;
-}
-
-.reference-state {
-  padding: 18px 0;
-}
-
-.reference-state h2,
-.reference-state p {
-  margin: 0 0 8px;
-  letter-spacing: 0;
-  overflow-wrap: anywhere;
-}
-
-.reference-results {
-  min-width: 0;
-}
-
-.reference-results__summary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px 16px;
-  margin: 16px 0 10px;
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.reference-table-wrap {
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-.reference-table {
-  width: 100%;
-  min-width: 1080px;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.reference-table th,
-.reference-table td {
-  padding: 12px 10px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  text-align: left;
-  vertical-align: top;
-  overflow-wrap: anywhere;
-}
-
-.reference-table th {
-  color: var(--el-text-color-secondary);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.reference-table code,
-.reference-retire code {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.reference-actions,
-.reference-form__actions,
-.reference-pagination {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.reference-stale,
-.reference-error {
-  margin: 8px 0 0;
-  color: var(--el-color-danger);
-}
-
-.reference-stale {
-  display: grid;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--el-color-danger-light-5);
-  border-radius: 6px;
-  background: var(--el-color-danger-light-9);
-}
-
-.reference-pagination {
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
-
-.reference-form {
-  display: grid;
-  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.reference-form :deep(.el-select),
-.reference-form :deep(.el-input),
-.reference-form :deep(.el-input-number),
-.reference-form select {
-  width: 100%;
-  max-width: 100%;
-}
-
-.reference-form .reference-error,
-.reference-form .reference-stale,
-.reference-form__actions {
-  grid-column: 1 / -1;
-}
-
-.reference-form__actions {
-  justify-content: flex-end;
-  margin-top: 4px;
-}
-
-.reference-retire p {
-  margin: 0 0 14px;
-  letter-spacing: 0;
-  overflow-wrap: anywhere;
-}
-
-:global(.reference-codes-dialog) {
-  display: flex;
-  max-height: calc(100dvh - 32px);
-  flex-direction: column;
-}
-
-:global(.reference-codes-dialog .el-dialog__body) {
-  min-height: 0;
-  overflow-y: auto;
-}
-
-@media (max-width: 860px) {
-  .reference-controls {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
+  .retired-checkbox {
+    position: relative;
   }
 
-  .reference-table {
+  .retired-checkbox :deep(.el-checkbox__original) {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    cursor: pointer;
+  }
+
+  .retired-checkbox.is-disabled :deep(.el-checkbox__original) {
+    cursor: not-allowed;
+  }
+
+  .reference-codes-page {
     min-width: 0;
   }
 
-  .reference-table thead {
-    display: none;
-  }
-
-  .reference-table,
-  .reference-table tbody,
-  .reference-table tr,
-  .reference-table td {
-    display: block;
+  .reference-controls {
+    display: grid;
+    grid-template-columns: auto minmax(220px, 1fr) auto minmax(250px, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
     width: 100%;
   }
 
-  .reference-table tr {
-    margin-bottom: 12px;
-    padding: 8px 12px;
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: 6px;
+  .reference-controls :deep(.el-select),
+  .reference-controls :deep(.el-input),
+  .reference-controls select {
+    min-width: 0;
+    width: 100%;
   }
 
+  .reference-controls select,
+  .reference-form select {
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--el-border-color);
+    border-radius: 4px;
+    background: var(--el-bg-color);
+    color: var(--el-text-color-primary);
+  }
+
+  .reference-segmented {
+    display: inline-flex;
+  }
+
+  .reference-segmented :deep(.el-button) {
+    margin-left: 0;
+    border-radius: 0;
+  }
+
+  .reference-segmented :deep(.el-button:first-child) {
+    border-radius: 4px 0 0 4px;
+  }
+
+  .reference-segmented :deep(.el-button:last-child) {
+    border-radius: 0 4px 4px 0;
+  }
+
+  .reference-state {
+    padding: 18px 0;
+  }
+
+  .reference-state h2,
+  .reference-state p {
+    margin: 0 0 8px;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .reference-results {
+    min-width: 0;
+  }
+
+  .reference-results__summary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin: 16px 0 10px;
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+  }
+
+  .reference-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .reference-table {
+    width: 100%;
+    min-width: 1080px;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  .reference-table th,
   .reference-table td {
-    display: grid;
-    grid-template-columns: minmax(100px, 35%) minmax(0, 1fr);
-    gap: 10px;
-    padding: 8px 0;
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
   }
 
-  .reference-table td::before {
-    content: attr(data-label);
+  .reference-table th {
     color: var(--el-text-color-secondary);
     font-size: 12px;
     font-weight: 600;
   }
 
-  .reference-pagination {
-    justify-content: space-between;
+  .reference-table code,
+  .reference-retire code {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
-}
 
-@media (max-width: 560px) {
+  .reference-actions,
+  .reference-form__actions,
+  .reference-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .reference-stale,
+  .reference-error {
+    margin: 8px 0 0;
+    color: var(--el-color-danger);
+  }
+
+  .reference-stale {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--el-color-danger-light-5);
+    border-radius: 6px;
+    background: var(--el-color-danger-light-9);
+  }
+
+  .reference-pagination {
+    align-items: center;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
   .reference-form {
-    grid-template-columns: minmax(0, 1fr);
+    display: grid;
+    grid-template-columns: minmax(110px, 150px) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .reference-form :deep(.el-select),
+  .reference-form :deep(.el-input),
+  .reference-form :deep(.el-input-number),
+  .reference-form select {
+    width: 100%;
+    max-width: 100%;
   }
 
   .reference-form .reference-error,
   .reference-form .reference-stale,
   .reference-form__actions {
-    grid-column: 1;
+    grid-column: 1 / -1;
   }
 
-  .reference-table td {
-    grid-template-columns: minmax(84px, 32%) minmax(0, 1fr);
+  .reference-form__actions {
+    justify-content: flex-end;
+    margin-top: 4px;
   }
-}
+
+  .reference-retire p {
+    margin: 0 0 14px;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.reference-codes-dialog) {
+    display: flex;
+    max-height: calc(100dvh - 32px);
+    flex-direction: column;
+  }
+
+  :global(.reference-codes-dialog .el-dialog__body) {
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  @media (max-width: 860px) {
+    .reference-controls {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .reference-table {
+      min-width: 0;
+    }
+
+    .reference-table thead {
+      display: none;
+    }
+
+    .reference-table,
+    .reference-table tbody,
+    .reference-table tr,
+    .reference-table td {
+      display: block;
+      width: 100%;
+    }
+
+    .reference-table tr {
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border: 1px solid var(--el-border-color-lighter);
+      border-radius: 6px;
+    }
+
+    .reference-table td {
+      display: grid;
+      grid-template-columns: minmax(100px, 35%) minmax(0, 1fr);
+      gap: 10px;
+      padding: 8px 0;
+    }
+
+    .reference-table td::before {
+      content: attr(data-label);
+      color: var(--el-text-color-secondary);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .reference-pagination {
+      justify-content: space-between;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .reference-form {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .reference-form .reference-error,
+    .reference-form .reference-stale,
+    .reference-form__actions {
+      grid-column: 1;
+    }
+
+    .reference-table td {
+      grid-template-columns: minmax(84px, 32%) minmax(0, 1fr);
+    }
+  }
 </style>

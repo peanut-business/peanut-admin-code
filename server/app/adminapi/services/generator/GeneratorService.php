@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\generator;
@@ -77,38 +78,40 @@ class GeneratorService
     public function sync(int $adminId, int $id): bool
     {
         Db::transaction(function () use ($adminId, $id): void {
-                $table = $this->ownedTableModel($adminId, $id, true);
-                $metadata = $this->metadata->columns((string) $table->table_name);
-                $existing = [];
-                foreach ($this->imports->columns($id)->select() as $row) {
-                    $existing[(string) $row->column_name] = $row;
+            $table = $this->ownedTableModel($adminId, $id, true);
+            $metadata = $this->metadata->columns((string) $table->table_name);
+            $existing = [];
+            foreach ($this->imports->columns($id)->select() as $row) {
+                $existing[(string) $row->column_name] = $row;
+            }
+            $seen = [];
+            $persist = [];
+            foreach ($metadata as $column) {
+                $name = (string) $column['column_name'];
+                $seen[] = $name;
+                if (isset($existing[$name])) {
+                    $row = $existing[$name];
+                    $persist[] = [
+                        'id' => (int) $row->id,
+                        'column_type' => $column['column_type'],
+                        'php_type' => $column['php_type'],
+                        'is_required' => $column['is_required'],
+                        'is_pk' => $column['is_pk'],
+                        'sort' => $column['sort'],
+                    ];
+                } else {
+                    $persist[] = ['table_id' => $id] + $column;
                 }
-                $seen = [];
-                $persist = [];
-                foreach ($metadata as $column) {
-                    $name = (string) $column['column_name'];
-                    $seen[] = $name;
-                    if (isset($existing[$name])) {
-                        $row = $existing[$name];
-                        $persist[] = [
-                            'id' => (int)$row->id,
-                            'column_type' => $column['column_type'],
-                            'php_type' => $column['php_type'],
-                            'is_required' => $column['is_required'],
-                            'is_pk' => $column['is_pk'],
-                            'sort' => $column['sort'],
-                        ];
-                    } else {
-                        $persist[] = ['table_id' => $id] + $column;
-                    }
-                }
-                if ($persist !== []) {
-                    $this->imports->saveColumns($persist);
-                }
-                $delete = $this->imports->columns($id);
-                if ($seen !== []) $delete->whereNotIn('column_name', $seen);
-                $delete->delete();
-                $table->save(['table_comment' => (string)$this->metadata->table((string)$table->table_name)['table_comment']]);
+            }
+            if ($persist !== []) {
+                $this->imports->saveColumns($persist);
+            }
+            $delete = $this->imports->columns($id);
+            if ($seen !== []) {
+                $delete->whereNotIn('column_name', $seen);
+            }
+            $delete->delete();
+            $table->save(['table_comment' => (string) $this->metadata->table((string) $table->table_name)['table_comment']]);
         });
         return true;
     }
@@ -116,73 +119,75 @@ class GeneratorService
     public function update(int $adminId, array $params): bool
     {
         Db::transaction(function () use ($adminId, $params): void {
-                $id = (int) $params['id'];
-                $table = $this->ownedTableModel($adminId, $id, true);
-                $module = trim((string) $params['module_name']);
-                $entity = trim((string) $params['entity_name']);
-                self::assertModule($module);
-                GeneratorRenderService::assertRegisteredModule($module);
-                self::assertEntity($entity);
+            $id = (int) $params['id'];
+            $table = $this->ownedTableModel($adminId, $id, true);
+            $module = trim((string) $params['module_name']);
+            $entity = trim((string) $params['entity_name']);
+            self::assertModule($module);
+            GeneratorRenderService::assertRegisteredModule($module);
+            self::assertEntity($entity);
 
-                $columns = [];
-                foreach ($this->imports->columns($id)->select() as $column) {
-                    $columns[(int) $column->id] = $column;
-                }
-                $columnNames = array_map('strval', array_column(array_map(
-                    static fn($column): array => $column->toArray(),
-                    array_values($columns)
-                ), 'column_name'));
-                $primaryNames = array_values(array_map(
-                    static fn($column): string => (string)$column->column_name,
-                    array_filter($columns, static fn($column): bool => (int)$column->is_pk === 1),
-                ));
-                $relations = $this->normalizeRelations(
-                    $adminId,
-                    $params['relations'] ?? [],
-                    $columnNames,
-                    $module,
-                    (string)$params['target_edition'],
-                );
-                $tree = self::normalizeTree($params['tree_config'] ?? [], $columnNames, (string) $params['template_type']);
-                $softDelete = self::normalizeSoftDelete($params['soft_delete'] ?? [], $columnNames, $primaryNames);
+            $columns = [];
+            foreach ($this->imports->columns($id)->select() as $column) {
+                $columns[(int) $column->id] = $column;
+            }
+            $columnNames = array_map('strval', array_column(array_map(
+                static fn($column): array => $column->toArray(),
+                array_values($columns),
+            ), 'column_name'));
+            $primaryNames = array_values(array_map(
+                static fn($column): string => (string) $column->column_name,
+                array_filter($columns, static fn($column): bool => (int) $column->is_pk === 1),
+            ));
+            $relations = $this->normalizeRelations(
+                $adminId,
+                $params['relations'] ?? [],
+                $columnNames,
+                $module,
+                (string) $params['target_edition'],
+            );
+            $tree = self::normalizeTree($params['tree_config'] ?? [], $columnNames, (string) $params['template_type']);
+            $softDelete = self::normalizeSoftDelete($params['soft_delete'] ?? [], $columnNames, $primaryNames);
 
-                $submittedIds = [];
-                $persist = [];
-                foreach ($params['columns'] as $column) {
-                    $columnId = (int) ($column['id'] ?? 0);
-                    if (!isset($columns[$columnId])) throw new \RuntimeException('字段不属于当前数据表');
-                    $submittedIds[] = $columnId;
-                    $persist[] = [
-                        'id' => $columnId,
-                        'column_comment' => trim((string) ($column['column_comment'] ?? '')),
-                        'is_required' => self::flag($column['is_required'] ?? 0),
-                        'is_insert' => self::flag($column['is_insert'] ?? 0),
-                        'is_update' => self::flag($column['is_update'] ?? 0),
-                        'is_lists' => self::flag($column['is_lists'] ?? 0),
-                        'is_query' => self::flag($column['is_query'] ?? 0),
-                        'query_type' => self::choice((string) ($column['query_type'] ?? '='), ['=', '<>', '>', '>=', '<', '<=', 'like', 'between']),
-                        'view_type' => self::choice((string) ($column['view_type'] ?? 'input'), ['input', 'textarea', 'select', 'radio', 'checkbox', 'switch', 'date', 'datetime', 'number']),
-                        'dict_type' => trim((string) ($column['dict_type'] ?? '')),
-                    ];
+            $submittedIds = [];
+            $persist = [];
+            foreach ($params['columns'] as $column) {
+                $columnId = (int) ($column['id'] ?? 0);
+                if (!isset($columns[$columnId])) {
+                    throw new \RuntimeException('字段不属于当前数据表');
                 }
-                if (count(array_unique($submittedIds)) !== count($columns)) {
-                    throw new \RuntimeException('必须提交当前数据表的全部字段配置');
-                }
-                if ($persist !== []) {
-                    $this->imports->saveColumns($persist);
-                }
+                $submittedIds[] = $columnId;
+                $persist[] = [
+                    'id' => $columnId,
+                    'column_comment' => trim((string) ($column['column_comment'] ?? '')),
+                    'is_required' => self::flag($column['is_required'] ?? 0),
+                    'is_insert' => self::flag($column['is_insert'] ?? 0),
+                    'is_update' => self::flag($column['is_update'] ?? 0),
+                    'is_lists' => self::flag($column['is_lists'] ?? 0),
+                    'is_query' => self::flag($column['is_query'] ?? 0),
+                    'query_type' => self::choice((string) ($column['query_type'] ?? '='), ['=', '<>', '>', '>=', '<', '<=', 'like', 'between']),
+                    'view_type' => self::choice((string) ($column['view_type'] ?? 'input'), ['input', 'textarea', 'select', 'radio', 'checkbox', 'switch', 'date', 'datetime', 'number']),
+                    'dict_type' => trim((string) ($column['dict_type'] ?? '')),
+                ];
+            }
+            if (count(array_unique($submittedIds)) !== count($columns)) {
+                throw new \RuntimeException('必须提交当前数据表的全部字段配置');
+            }
+            if ($persist !== []) {
+                $this->imports->saveColumns($persist);
+            }
 
-                $table->save([
-                    'table_comment' => trim((string) $params['table_comment']),
-                    'module_name' => $module,
-                    'entity_name' => $entity,
-                    'template_type' => (string) $params['template_type'],
-                    'data_owner' => (string) $params['data_owner'],
-                    'target_edition' => (string) $params['target_edition'],
-                    'author' => trim((string) ($params['author'] ?? '')),
-                    'tree_config' => $tree + ['soft_delete' => $softDelete],
-                    'relations' => $relations,
-                ]);
+            $table->save([
+                'table_comment' => trim((string) $params['table_comment']),
+                'module_name' => $module,
+                'entity_name' => $entity,
+                'template_type' => (string) $params['template_type'],
+                'data_owner' => (string) $params['data_owner'],
+                'target_edition' => (string) $params['target_edition'],
+                'author' => trim((string) ($params['author'] ?? '')),
+                'tree_config' => $tree + ['soft_delete' => $softDelete],
+                'relations' => $relations,
+            ]);
         });
         return true;
     }
@@ -191,17 +196,19 @@ class GeneratorService
     {
         $ids = array_values(array_unique(array_map('intval', $ids)));
         Db::transaction(function () use ($adminId, $ids): void {
-                foreach ($this->imports->tables($adminId)->whereNotIn('id', $ids)->select() as $table) {
-                    foreach ((array)$table->relations as $relation) {
-                        if (in_array((int)($relation['target_table_id'] ?? 0), $ids, true)) {
-                            throw new \RuntimeException('生成配置仍被其他关系引用，不能删除');
-                        }
+            foreach ($this->imports->tables($adminId)->whereNotIn('id', $ids)->select() as $table) {
+                foreach ((array) $table->relations as $relation) {
+                    if (in_array((int) ($relation['target_table_id'] ?? 0), $ids, true)) {
+                        throw new \RuntimeException('生成配置仍被其他关系引用，不能删除');
                     }
                 }
-                $owned = $this->imports->tables($adminId)->whereIn('id', $ids)->column('id');
-                if (count($owned) !== count($ids)) throw new \RuntimeException('生成配置不存在或无权访问');
-                $this->imports->deleteColumns($ids);
-                $this->imports->tables($adminId)->whereIn('id', $ids)->delete();
+            }
+            $owned = $this->imports->tables($adminId)->whereIn('id', $ids)->column('id');
+            if (count($owned) !== count($ids)) {
+                throw new \RuntimeException('生成配置不存在或无权访问');
+            }
+            $this->imports->deleteColumns($ids);
+            $this->imports->tables($adminId)->whereIn('id', $ids)->delete();
         });
         return true;
     }
@@ -227,7 +234,7 @@ class GeneratorService
         foreach ($tables as $table) {
             foreach (GeneratorRenderService::render($table) as $file) {
                 $path = (string) $file['path'];
-                $operation = (string)($file['operation'] ?? 'create');
+                $operation = (string) ($file['operation'] ?? 'create');
                 $archivePath = $operation === 'merge' ? 'merge-preview/' . $path : $path;
                 if (isset($files[$archivePath])) {
                     throw new \RuntimeException('同一批次不能向同一个目标文件生成多个合并预览，请分批生成：' . $path);
@@ -237,7 +244,7 @@ class GeneratorService
                 if ($operation === 'merge') {
                     $mergeGuide[] = '- target: `' . $path . '`';
                     $mergeGuide[] = '  preview: `' . $archivePath . '`';
-                    $mergeGuide[] = '  base_sha256: `' . (string)($file['base_sha256'] ?? '') . '`';
+                    $mergeGuide[] = '  base_sha256: `' . (string) ($file['base_sha256'] ?? '') . '`';
                 }
             }
         }
@@ -249,7 +256,7 @@ class GeneratorService
         $archive = GeneratorArchiveService::create(
             array_values($files),
             $adminId,
-            'peanut-code-' . date('YmdHis') . '.zip'
+            'peanut-code-' . date('YmdHis') . '.zip',
         );
         $token = bin2hex(random_bytes(32));
         try {
@@ -275,13 +282,15 @@ class GeneratorService
                 'token_hash' => hash('sha256', $token),
                 'used_time' => 0,
             ])->where('expire_time', '>', time())->lock(true)->findOrEmpty();
-            if ($row->isEmpty()) throw new \RuntimeException('下载令牌无效或已过期');
+            if ($row->isEmpty()) {
+                throw new \RuntimeException('下载令牌无效或已过期');
+            }
             $path = GeneratorArchiveService::resolve((string) $row->archive_path, $adminId);
             $row->save(['used_time' => time()]);
             return [
                 'path' => $path,
-                'file_name' => (string)$row->download_name,
-                'archive_path' => (string)$row->archive_path,
+                'file_name' => (string) $row->download_name,
+                'archive_path' => (string) $row->archive_path,
             ];
         });
     }
@@ -296,18 +305,26 @@ class GeneratorService
     private function ownedTable(int $adminId, int $id, bool $withColumns): array
     {
         $query = $this->imports->tables($adminId)->where('id', $id);
-        if ($withColumns) $query->with('columns');
+        if ($withColumns) {
+            $query->with('columns');
+        }
         $table = $query->findOrEmpty();
-        if ($table->isEmpty()) throw new \RuntimeException('生成配置不存在或无权访问');
+        if ($table->isEmpty()) {
+            throw new \RuntimeException('生成配置不存在或无权访问');
+        }
         return self::hydrateSoftDelete($this->hydrateRelations($adminId, $table->toArray()));
     }
 
     private function ownedTableModel(int $adminId, int $id, bool $lock = false): object
     {
         $query = $this->imports->tables($adminId)->where('id', $id);
-        if ($lock) $query->lock(true);
+        if ($lock) {
+            $query->lock(true);
+        }
         $table = $query->findOrEmpty();
-        if ($table->isEmpty()) throw new \RuntimeException('生成配置不存在或无权访问');
+        if ($table->isEmpty()) {
+            throw new \RuntimeException('生成配置不存在或无权访问');
+        }
         return $table;
     }
 
@@ -327,7 +344,9 @@ class GeneratorService
 
     private static function assertEntity(string $entity): void
     {
-        if (!preg_match('/^[A-Z][A-Za-z0-9]{0,63}$/D', $entity)) throw new \InvalidArgumentException('实体名称格式错误');
+        if (!preg_match('/^[A-Z][A-Za-z0-9]{0,63}$/D', $entity)) {
+            throw new \InvalidArgumentException('实体名称格式错误');
+        }
     }
 
     private function normalizeRelations(
@@ -336,15 +355,20 @@ class GeneratorService
         array $columnNames,
         string $module,
         string $edition,
-    ): array
-    {
-        if (!is_array($relations) || count($relations) > 20) throw new \InvalidArgumentException('关系配置格式错误');
+    ): array {
+        if (!is_array($relations) || count($relations) > 20) {
+            throw new \InvalidArgumentException('关系配置格式错误');
+        }
         $normalized = [];
         foreach ($relations as $relation) {
-            if (!is_array($relation)) throw new \InvalidArgumentException('关系配置格式错误');
+            if (!is_array($relation)) {
+                throw new \InvalidArgumentException('关系配置格式错误');
+            }
             $name = (string) ($relation['name'] ?? '');
-            $targetTableId = (int)($relation['target_table_id'] ?? 0);
-            if ($targetTableId <= 0) throw new \InvalidArgumentException('关系目标配置无效');
+            $targetTableId = (int) ($relation['target_table_id'] ?? 0);
+            if ($targetTableId <= 0) {
+                throw new \InvalidArgumentException('关系目标配置无效');
+            }
             $type = self::choice((string) ($relation['type'] ?? ''), ['belongsTo', 'hasOne', 'hasMany']);
             $this->metadata->assertIdentifier($name, '关系名称');
             $local = (string) ($relation['local_key'] ?? 'id');
@@ -381,7 +405,7 @@ class GeneratorService
             ->order('id', 'asc')->lock(true)->select();
         $targets = [];
         foreach ($targetRows as $target) {
-            $targets[(int)$target->id] = $target;
+            $targets[(int) $target->id] = $target;
         }
         if (count($targets) !== count($targetIds)) {
             throw new \RuntimeException('关系目标配置不存在或无权访问');
@@ -390,28 +414,28 @@ class GeneratorService
         $targetColumnTypes = [];
         foreach ($this->imports->columnsForTables($targetIds)
             ->order(['table_id' => 'asc', 'sort' => 'asc'])->select()->toArray() as $column) {
-            $targetColumns[(int)$column['table_id']][] = (string)$column['column_name'];
-            $targetColumnTypes[(int)$column['table_id']][(string)$column['column_name']]
-                = (string)$column['php_type'];
+            $targetColumns[(int) $column['table_id']][] = (string) $column['column_name'];
+            $targetColumnTypes[(int) $column['table_id']][(string) $column['column_name']]
+                = (string) $column['php_type'];
         }
         foreach ($normalized as &$relation) {
-            $target = $targets[(int)$relation['target_table_id']];
-            if ((string)$target->module_name !== $module) {
+            $target = $targets[(int) $relation['target_table_id']];
+            if ((string) $target->module_name !== $module) {
                 throw new \InvalidArgumentException('不允许跨模块 ORM 关联；请使用目标模块公开 query 合同');
             }
-            if ((string)$target->data_owner !== 'tenant-orm'
-                || (string)$target->target_edition !== $edition) {
+            if ((string) $target->data_owner !== 'tenant-orm'
+                || (string) $target->target_edition !== $edition) {
                 throw new \InvalidArgumentException('同模块 ORM 关联必须保持 tenant-orm 所有权且 Edition 一致');
             }
             if (!in_array(
                 $relation['foreign_key'],
-                $targetColumns[(int)$relation['target_table_id']] ?? [],
+                $targetColumns[(int) $relation['target_table_id']] ?? [],
                 true,
             )) {
                 throw new \InvalidArgumentException('关系目标字段不存在');
             }
             foreach ($relation['summary_fields'] as $summaryField) {
-                if (!in_array($summaryField, $targetColumns[(int)$relation['target_table_id']] ?? [], true)) {
+                if (!in_array($summaryField, $targetColumns[(int) $relation['target_table_id']] ?? [], true)) {
                     throw new \InvalidArgumentException('关系摘要字段不存在');
                 }
                 if (in_array($summaryField, ['tenant_id', 'delete_time'], true)
@@ -420,7 +444,7 @@ class GeneratorService
                 }
             }
             $relation['summary_types'] = array_intersect_key(
-                $targetColumnTypes[(int)$relation['target_table_id']] ?? [],
+                $targetColumnTypes[(int) $relation['target_table_id']] ?? [],
                 array_flip($relation['summary_fields']),
             );
         }
@@ -441,12 +465,12 @@ class GeneratorService
             $columnsByTable = [];
             foreach ($this->imports->columnsForTables($ids)
                 ->order(['table_id' => 'asc', 'sort' => 'asc'])->lock(true)->select()->toArray() as $column) {
-                $columnsByTable[(int)$column['table_id']][] = $column;
+                $columnsByTable[(int) $column['table_id']][] = $column;
             }
             $tables = [];
             foreach ($models as $model) {
                 $table = $model->toArray();
-                $table['columns'] = $columnsByTable[(int)$model->id] ?? [];
+                $table['columns'] = $columnsByTable[(int) $model->id] ?? [];
                 $tables[] = $table;
             }
             $targets = $this->relationTargets($adminId, $tables, true);
@@ -472,8 +496,8 @@ class GeneratorService
     {
         $targetIds = [];
         foreach ($tables as $table) {
-            foreach (array_values((array)($table['relations'] ?? [])) as $relation) {
-                $targetIds[] = (int)($relation['target_table_id'] ?? 0);
+            foreach (array_values((array) ($table['relations'] ?? [])) as $relation) {
+                $targetIds[] = (int) ($relation['target_table_id'] ?? 0);
             }
         }
         $targetIds = array_values(array_unique(array_filter($targetIds, static fn(int $id): bool => $id > 0)));
@@ -490,7 +514,7 @@ class GeneratorService
         }
         $targets = [];
         foreach ($query->select() as $target) {
-            $targets[(int)$target->id] = $target;
+            $targets[(int) $target->id] = $target;
         }
         if (count($targets) !== count($targetIds)) {
             throw new \RuntimeException('关系目标配置不存在或无权访问');
@@ -501,26 +525,26 @@ class GeneratorService
     /** @param array<int,object> $targets */
     private static function hydrateRelationsFromTargets(array $table, array $targets): array
     {
-        $relations = array_values((array)($table['relations'] ?? []));
+        $relations = array_values((array) ($table['relations'] ?? []));
         if ($relations === []) {
             $table['relations'] = [];
             return $table;
         }
         foreach ($relations as &$relation) {
-            $target = $targets[(int)$relation['target_table_id']] ?? null;
+            $target = $targets[(int) $relation['target_table_id']] ?? null;
             if (!is_object($target)) {
                 throw new \RuntimeException('关系目标配置不存在或无权访问');
             }
-            $relation['module'] = (string)$target->module_name;
-            $relation['model'] = (string)$target->entity_name;
-            $relation['data_owner'] = (string)$target->data_owner;
-            $relation['target_edition'] = (string)$target->target_edition;
+            $relation['module'] = (string) $target->module_name;
+            $relation['model'] = (string) $target->entity_name;
+            $relation['data_owner'] = (string) $target->data_owner;
+            $relation['target_edition'] = (string) $target->target_edition;
             $targetConfig = is_array($target->tree_config ?? null) ? $target->tree_config : [];
             $targetSoftDelete = is_array($targetConfig['soft_delete'] ?? null)
                 ? $targetConfig['soft_delete']
                 : [];
             $relation['soft_delete_enabled'] = ($targetSoftDelete['enabled'] ?? false) === true;
-            $relation['soft_delete_field'] = (string)($targetSoftDelete['field'] ?? '');
+            $relation['soft_delete_field'] = (string) ($targetSoftDelete['field'] ?? '');
         }
         unset($relation);
         $table['relations'] = $relations;
@@ -534,24 +558,32 @@ class GeneratorService
         $softDelete = is_array($config['soft_delete'] ?? null) ? $config['soft_delete'] : [];
         $table['soft_delete'] = [
             'enabled' => ($softDelete['enabled'] ?? false) === true,
-            'field' => (string)($softDelete['field'] ?? ''),
+            'field' => (string) ($softDelete['field'] ?? ''),
         ];
         return $table;
     }
 
     private static function normalizeTree($tree, array $columnNames, string $templateType): array
     {
-        if ($templateType === 'crud') return [];
-        if (!is_array($tree)) throw new \InvalidArgumentException('树配置格式错误');
+        if ($templateType === 'crud') {
+            return [];
+        }
+        if (!is_array($tree)) {
+            throw new \InvalidArgumentException('树配置格式错误');
+        }
         $result = [
             'id_field' => (string) ($tree['id_field'] ?? ''),
             'parent_field' => (string) ($tree['parent_field'] ?? ''),
             'name_field' => (string) ($tree['name_field'] ?? ''),
         ];
         foreach ($result as $field) {
-            if (!in_array($field, $columnNames, true)) throw new \InvalidArgumentException('树配置字段不存在');
+            if (!in_array($field, $columnNames, true)) {
+                throw new \InvalidArgumentException('树配置字段不存在');
+            }
         }
-        if ($result['id_field'] === $result['parent_field']) throw new \InvalidArgumentException('树主键和父级字段不能相同');
+        if ($result['id_field'] === $result['parent_field']) {
+            throw new \InvalidArgumentException('树主键和父级字段不能相同');
+        }
         return $result;
     }
 
@@ -568,7 +600,7 @@ class GeneratorService
         if (!is_bool($enabled)) {
             throw new \InvalidArgumentException('软删除 enabled 必须是布尔值');
         }
-        $field = trim((string)($softDelete['field'] ?? ''));
+        $field = trim((string) ($softDelete['field'] ?? ''));
         if (!$enabled) {
             return ['enabled' => false, 'field' => ''];
         }
@@ -583,13 +615,17 @@ class GeneratorService
 
     private static function flag($value): int
     {
-        if (!in_array($value, [0, 1, '0', '1'], true)) throw new \InvalidArgumentException('字段开关值错误');
+        if (!in_array($value, [0, 1, '0', '1'], true)) {
+            throw new \InvalidArgumentException('字段开关值错误');
+        }
         return (int) $value;
     }
 
     private static function choice(string $value, array $allowed): string
     {
-        if (!in_array($value, $allowed, true)) throw new \InvalidArgumentException('配置枚举值错误');
+        if (!in_array($value, $allowed, true)) {
+            throw new \InvalidArgumentException('配置枚举值错误');
+        }
         return $value;
     }
 }

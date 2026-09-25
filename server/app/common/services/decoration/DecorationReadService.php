@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\decoration;
@@ -17,9 +18,8 @@ final readonly class DecorationReadService
     public function pageByType(
         TenantContext|TenantSystemContext $context,
         int $type,
-        string $operation = ''
-    ): array
-    {
+        string $operation = '',
+    ): array {
         $page = DecoratePage::where([])
             ->where('type', $type)->findOrEmpty();
         if ($page->isEmpty()) {
@@ -31,17 +31,17 @@ final readonly class DecorationReadService
     public function tabbar(
         TenantContext|TenantSystemContext $context,
         bool $visibleOnly = false,
-        string $operation = ''
+        string $operation = '',
     ): array {
         $style = $this->tabbarStyle();
         $rows = DecorateTabbar::where([])
             ->order(['position' => 'asc', 'id' => 'asc'])->select()->toArray();
         $list = [];
         foreach ($rows as $item) {
-            if ($visibleOnly && (int)$item['is_show'] !== 1) {
+            if ($visibleOnly && (int) $item['is_show'] !== 1) {
                 continue;
             }
-            $item['link'] = json_decode((string)$item['link'], true) ?: [];
+            $item['link'] = json_decode((string) $item['link'], true) ?: [];
             $list[] = $this->schema->resourcesForRead($item);
         }
         return ['style' => $style, 'list' => $list];
@@ -49,9 +49,9 @@ final readonly class DecorationReadService
 
     public function formatPage(array $page): array
     {
-        $data = json_decode((string)$page['data'], true, 512, JSON_THROW_ON_ERROR);
-        $meta = trim((string)($page['meta'] ?? '')) === ''
-            ? [] : json_decode((string)$page['meta'], true, 512, JSON_THROW_ON_ERROR);
+        $data = json_decode((string) $page['data'], true, 512, JSON_THROW_ON_ERROR);
+        $meta = trim((string) ($page['meta'] ?? '')) === ''
+            ? [] : json_decode((string) $page['meta'], true, 512, JSON_THROW_ON_ERROR);
         $page['data'] = $this->schema->resourcesForRead($data);
         $page['meta'] = $this->schema->resourcesForRead($meta);
         return $page;
@@ -64,7 +64,7 @@ final readonly class DecorationReadService
         if ($raw === null) {
             return ['default_color' => '#666666', 'selected_color' => '#2F80ED'];
         }
-        $style = json_decode((string)$raw, true, 512, JSON_THROW_ON_ERROR);
+        $style = json_decode((string) $raw, true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($style) || array_is_list($style)) {
             throw new \RuntimeException('Tabbar 样式配置无效');
         }

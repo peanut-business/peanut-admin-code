@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Infrastructure;
@@ -69,7 +70,7 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
         $binding = $this->bindingForTenant(
             $provider,
             $tenantId,
-            (int)$row['external_binding_id'],
+            (int) $row['external_binding_id'],
             $lock,
         );
         if ($binding === null || !$binding->active || !$binding->tenantActive) {
@@ -89,8 +90,8 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
             return false;
         }
         return $payWay === PaymentScene::PAY_WAY_WECHAT
-            ? (int)($grant['config']['wx_pay_status'] ?? 0) === 1
-            : (int)($grant['config']['ali_pay_status'] ?? 0) === 1;
+            ? (int) ($grant['config']['wx_pay_status'] ?? 0) === 1
+            : (int) ($grant['config']['ali_pay_status'] ?? 0) === 1;
     }
 
     public function ensureSelfGrant(object $context, string $provider): void
@@ -105,7 +106,7 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
             $provider,
             $binding->id,
             $binding->identityHash,
-            ''
+            '',
         );
     }
 
@@ -114,13 +115,13 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
         string $provider,
         int $externalBindingId,
         string $merchantAccountRef = '',
-        string $merchantGroupRef = ''
+        string $merchantGroupRef = '',
     ): int {
         $provider = trim($provider);
         if ($tenantId < 1 || $provider === '' || $externalBindingId < 1) {
             throw new \runtimeException('支付渠道授权参数无效');
         }
-        return (int)Db::transaction(function () use (
+        return (int) Db::transaction(function () use (
             $tenantId,
             $provider,
             $externalBindingId,
@@ -163,13 +164,13 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
                 'update_time' => $now,
             ];
             if ($existing instanceof PaymentTenantChannelGrant) {
-                $existingId = (int)$existing['id'];
+                $existingId = (int) $existing['id'];
                 $this->grantQuery('grant.update')
                     ->where('id', $existingId)
                     ->update($data);
                 return $existingId;
             }
-            return (int)$this->grantQuery('grant.insert')->insertGetId([
+            return (int) $this->grantQuery('grant.insert')->insertGetId([
                 'tenant_id' => $tenantId,
                 'provider' => $provider,
                 'external_binding_id' => $externalBindingId,
@@ -209,8 +210,7 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
         int $tenantId,
         ?int $bindingId = null,
         bool $lock = false,
-    ): ?ExternalTenantBinding
-    {
+    ): ?ExternalTenantBinding {
         foreach ($this->bindings->byTenant($provider, $tenantId, $lock) as $binding) {
             if ($bindingId === null || $binding->id === $bindingId) {
                 return $binding;

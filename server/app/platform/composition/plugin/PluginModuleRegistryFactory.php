@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\composition\plugin;
@@ -12,7 +13,7 @@ final readonly class PluginModuleRegistryFactory
     private ModuleDefinitionRegistryFactory $definitions;
 
     public function __construct(
-        private string $serverRoot
+        private string $serverRoot,
     ) {
         $this->definitions = new ModuleDefinitionRegistryFactory($serverRoot);
     }

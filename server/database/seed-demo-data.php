@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 require __DIR__ . '/environment-guard.php';
@@ -119,7 +120,7 @@ try {
         throw new RuntimeException('PEANUT_DEMO_TENANT_ID must be a positive integer');
     }
     $docsUrl = trim(requiredEnvironment('PEANUT_DEMO_DOCS_URL'));
-    if (filter_var($docsUrl, FILTER_VALIDATE_URL) === false || !in_array(strtolower((string)parse_url($docsUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+    if (filter_var($docsUrl, FILTER_VALIDATE_URL) === false || !in_array(strtolower((string) parse_url($docsUrl, PHP_URL_SCHEME)), ['http', 'https'], true)) {
         throw new RuntimeException('PEANUT_DEMO_DOCS_URL must be an HTTP(S) URL');
     }
 
@@ -148,10 +149,10 @@ try {
                     'create_time' => $now,
                 ]);
             } else {
-                $categoryId = (int)$category['id'];
+                $categoryId = (int) $category['id'];
                 Db::name('article_cate')->where('tenant_id', $tenantId)->where('id', $categoryId)->update($values);
             }
-            $categoryIds[$name] = (int)$categoryId;
+            $categoryIds[$name] = (int) $categoryId;
         }
 
         foreach ($plan['articles'] as $article) {
@@ -178,7 +179,7 @@ try {
                     'create_time' => $now,
                 ]);
             } else {
-                Db::name('article')->where('tenant_id', $tenantId)->where('id', (int)$articleId)->update($values);
+                Db::name('article')->where('tenant_id', $tenantId)->where('id', (int) $articleId)->update($values);
             }
         }
 
@@ -198,9 +199,9 @@ try {
                     'create_time' => $now,
                 ]);
             } else {
-                Db::name('member_tag')->where('tenant_id', $tenantId)->where('id', (int)$tagId)->update($values);
+                Db::name('member_tag')->where('tenant_id', $tenantId)->where('id', (int) $tagId)->update($values);
             }
-            $tagIds[$name] = (int)$tagId;
+            $tagIds[$name] = (int) $tagId;
         }
 
         foreach ($plan['members'] as $index => $memberData) {
@@ -231,11 +232,11 @@ try {
                     'create_time' => $now,
                 ]);
             } else {
-                Db::name('member')->where('tenant_id', $tenantId)->where('id', (int)$memberId)->update($values);
+                Db::name('member')->where('tenant_id', $tenantId)->where('id', (int) $memberId)->update($values);
             }
             Db::name('member_tag_relation')->insertOrIgnore([
                 'tenant_id' => $tenantId,
-                'member_id' => (int)$memberId,
+                'member_id' => (int) $memberId,
                 'tag_id' => $tagIds[$index % 2 === 0 ? '演示用户' : '内容爱好者'],
             ]);
         }
@@ -251,7 +252,7 @@ try {
                 'update_time' => $now,
             ]);
         } else {
-            Db::name('config')->where('id', (int)$configId)->update([
+            Db::name('config')->where('id', (int) $configId)->update([
                 'value' => $docsUrl,
                 'update_time' => $now,
             ]);

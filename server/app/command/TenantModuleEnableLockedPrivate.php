@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -31,7 +32,9 @@ final class TenantModuleEnableLockedPrivate extends ModuleContextualCommand
     {
         try {
             $mode = DeploymentMode::fromConfiguredValue(Config::get('deployment.mode'));
-            if ($mode !== DeploymentMode::Standalone) throw new ModuleException('PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED', 'Private Module selection requires Standalone.');
+            if ($mode !== DeploymentMode::Standalone) {
+                throw new ModuleException('PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED', 'Private Module selection requires Standalone.');
+            }
             $config = Config::get('modules', []);
             if (!is_array($config) || !is_string($config['plugin_lock'] ?? null) || $config['plugin_lock'] === '') {
                 throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'Explicit Plugin lock configuration is required.');
@@ -41,7 +44,8 @@ final class TenantModuleEnableLockedPrivate extends ModuleContextualCommand
             $service = new ProductTenantModuleProfileService(
                 new ThinkPhpModuleRuntimeRepository($governance->registry()->compiled(), true),
                 $governance,
-                app(AuditContractHost::class));
+                app(AuditContractHost::class),
+            );
             $result = $service->applyAdditionalInstallationSelection($input->getOption('module'), $mode, new PluginLockResolver($root, $config['plugin_lock']));
             $output->writeln(json_encode($result + ['rbac_granted' => false], JSON_THROW_ON_ERROR));
             return 0;

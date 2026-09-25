@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\payment;
@@ -10,9 +11,7 @@ use app\common\dto\payment\TransportResponse;
 
 final class CurlPaymentTransport implements PaymentTransportInterface
 {
-    public function __construct(private readonly OutboundHttpTransport $transport)
-    {
-    }
+    public function __construct(private readonly OutboundHttpTransport $transport) {}
 
     public function request(string $method, string $url, array $headers, string $body = ''): TransportResponse
     {
@@ -21,7 +20,7 @@ final class CurlPaymentTransport implements PaymentTransportInterface
             if (is_int($name) && is_string($value) && str_contains($value, ':')) {
                 [$name, $value] = explode(':', $value, 2);
             }
-            $normalizedHeaders[trim((string)$name)] = trim((string)$value);
+            $normalizedHeaders[trim((string) $name)] = trim((string) $value);
         }
         $response = $this->transport->send(
             new OutboundHttpRequest(

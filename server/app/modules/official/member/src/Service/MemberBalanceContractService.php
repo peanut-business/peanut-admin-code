@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Service;
@@ -31,9 +32,9 @@ final class MemberBalanceContractService implements MemberBalanceCommands
         );
 
         return new MemberBalanceSnapshot(
-            (int)$member->id,
-            Money::toCents((string)$member->getData('user_money')),
-            Money::toCents((string)$member->getData('total_recharge_amount')),
+            (int) $member->id,
+            Money::toCents((string) $member->getData('user_money')),
+            Money::toCents((string) $member->getData('total_recharge_amount')),
         );
     }
 }

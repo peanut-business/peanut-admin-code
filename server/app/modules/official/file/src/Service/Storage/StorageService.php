@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Service\Storage;
@@ -66,7 +67,7 @@ final readonly class StorageService implements FileStorage
             $tenantId,
             $purpose,
             $fileKey,
-            (string)pathinfo($originalName, PATHINFO_EXTENSION),
+            (string) pathinfo($originalName, PATHINFO_EXTENSION),
         );
         $route = $this->route($purpose, $access);
         $driver = $this->drivers->make($route, $route);
@@ -79,7 +80,7 @@ final readonly class StorageService implements FileStorage
             'file_key' => $fileKey,
             'purpose' => $purpose,
             'access_type' => $access,
-            'storage_space_id' => (int)$route['space_id'],
+            'storage_space_id' => (int) $route['space_id'],
             'object_key' => $objectKey,
             'disposition' => StoragePurpose::disposition($purpose),
             'original_name' => $originalName,
@@ -155,17 +156,17 @@ final readonly class StorageService implements FileStorage
             return $internal;
         }
         $path = preg_match('#^https?://#i', $internal) === 1
-            ? ltrim((string)(parse_url($internal, PHP_URL_PATH) ?? ''), '/')
+            ? ltrim((string) (parse_url($internal, PHP_URL_PATH) ?? ''), '/')
             : ltrim($internal, '/');
         if (str_starts_with($path, 'storage/')) {
             $path = substr($path, 8);
         }
         $object = $this->publicObject($path);
         if ($object !== null) {
-            if ((int)$object['tenant_id'] !== $tenantId || $path !== (string)$object['object_key']) {
+            if ((int) $object['tenant_id'] !== $tenantId || $path !== (string) $object['object_key']) {
                 throw new \RuntimeException('素材对象不属于当前租户');
             }
-            return (string)$object['file_key'];
+            return (string) $object['file_key'];
         }
         if (preg_match('#^https?://#i', $reference) === 1) {
             return $reference;
@@ -183,7 +184,7 @@ final readonly class StorageService implements FileStorage
             throw new \RuntimeException('文件对象状态更新失败');
         }
         try {
-            $this->drivers->make($object, $object)->delete((string)$object['object_key']);
+            $this->drivers->make($object, $object)->delete((string) $object['object_key']);
         } catch (\Throwable $error) {
             $this->restore($tenantId, $fileKey);
             throw $error;
@@ -208,8 +209,8 @@ final readonly class StorageService implements FileStorage
         }
         return [
             ...$this->materialize($object),
-            'filename' => (string)$object['original_name'],
-            'media_type' => (string)$object['media_type'],
+            'filename' => (string) $object['original_name'],
+            'media_type' => (string) $object['media_type'],
         ];
     }
 
@@ -238,9 +239,9 @@ final readonly class StorageService implements FileStorage
         }
         return [
             ...$this->materialize($object),
-            'filename' => (string)$object['original_name'],
-            'media_type' => (string)$object['media_type'],
-            'disposition' => (string)$object['disposition'],
+            'filename' => (string) $object['original_name'],
+            'media_type' => (string) $object['media_type'],
+            'disposition' => (string) $object['disposition'],
         ];
     }
 
@@ -248,7 +249,7 @@ final readonly class StorageService implements FileStorage
     private function materialize(array $object): array
     {
         $driver = $this->drivers->make($object, $object);
-        $path = $driver->localPath((string)$object['object_key']);
+        $path = $driver->localPath((string) $object['object_key']);
         $temporary = false;
         if ($path === null) {
             $path = tempnam(sys_get_temp_dir(), 'peanut-storage-open-');
@@ -257,7 +258,7 @@ final readonly class StorageService implements FileStorage
             }
             $temporary = true;
             try {
-                $driver->downloadTo((string)$object['object_key'], $path);
+                $driver->downloadTo((string) $object['object_key'], $path);
             } catch (\Throwable $error) {
                 if (is_file($path)) {
                     unlink($path);
@@ -318,7 +319,7 @@ final readonly class StorageService implements FileStorage
             }
             $reference = StorageObjectKey::assert($reference);
             $field = 'f.object_key';
-            $referenceTenantId = (int)$matches[1];
+            $referenceTenantId = (int) $matches[1];
             if ($tenantId !== null && $referenceTenantId !== $tenantId) {
                 return null;
             }
@@ -336,7 +337,7 @@ final readonly class StorageService implements FileStorage
     private function reserveObject(int $tenantId, array $data): void
     {
         $tenantId = $this->logicalTenantId($tenantId);
-        if (!str_starts_with((string)($data['object_key'] ?? ''), $this->ownerPrefix($tenantId))) {
+        if (!str_starts_with((string) ($data['object_key'] ?? ''), $this->ownerPrefix($tenantId))) {
             throw new \DomainException('STORAGE_OBJECT_OWNER_MISMATCH');
         }
         FileObject::create([
@@ -487,8 +488,8 @@ final readonly class StorageService implements FileStorage
 
     private function url(array $object): string
     {
-        $tenantId = (int)$object['tenant_id'];
-        $fileKey = (string)$object['file_key'];
+        $tenantId = (int) $object['tenant_id'];
+        $fileKey = (string) $object['file_key'];
         $private = $object['access_type'] === 'private';
         $token = $this->deliveryTokens->issue(
             $tenantId,
@@ -510,9 +511,9 @@ final readonly class StorageService implements FileStorage
         if (preg_match('/^file_[0-9a-f]{32}$/D', $reference) === 1) {
             return $reference;
         }
-        $path = (string)(parse_url($reference, PHP_URL_PATH) ?? '');
+        $path = (string) (parse_url($reference, PHP_URL_PATH) ?? '');
         if ($path === '/api/storage/delivery') {
-            parse_str((string)(parse_url($reference, PHP_URL_QUERY) ?? ''), $query);
+            parse_str((string) (parse_url($reference, PHP_URL_QUERY) ?? ''), $query);
             $fileKey = $query['file_key'] ?? null;
             return is_string($fileKey) && preg_match('/^file_[0-9a-f]{32}$/D', $fileKey) === 1
                 ? $fileKey

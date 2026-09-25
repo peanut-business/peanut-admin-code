@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Service;
@@ -17,8 +18,7 @@ final readonly class MemberSessionService implements MemberSessions
     public function __construct(
         private MemberSubjectLookup $subjects,
         private MemberSessionStore $store,
-    ) {
-    }
+    ) {}
 
     public function issue(int $memberId, int $issuedAt, int $expiresAt): MemberSessionGrant
     {

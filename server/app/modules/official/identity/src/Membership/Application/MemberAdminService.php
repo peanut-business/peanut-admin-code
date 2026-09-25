@@ -49,7 +49,13 @@ final readonly class MemberAdminService
         $this->assertRoleIdsLimit($roleIds);
 
         return $this->transaction(function () use (
-            $actor, $email, $displayName, $initialPassword, $primaryDepartmentId, $roleIds, $enabled,
+            $actor,
+            $email,
+            $displayName,
+            $initialPassword,
+            $primaryDepartmentId,
+            $roleIds,
+            $enabled,
         ): array {
             $member = $this->createPendingInTransaction($actor, $email, $displayName, $initialPassword);
             if ($primaryDepartmentId !== null) {
@@ -81,7 +87,13 @@ final readonly class MemberAdminService
         $this->assertRoleIdsLimit($roleIds);
 
         return $this->transaction(function () use (
-            $actor, $memberId, $displayName, $primaryDepartmentId, $roleIds, $enabled, $expectedRevision,
+            $actor,
+            $memberId,
+            $displayName,
+            $primaryDepartmentId,
+            $roleIds,
+            $enabled,
+            $expectedRevision,
         ): array {
             $this->requireTenantStatus($actor->tenantId, 'active', true);
             $member = $this->requireMember($actor->tenantId, $memberId, true);

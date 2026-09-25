@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\http;
@@ -17,8 +18,7 @@ final class OutboundHttpAttemptObservation
         int $attempt,
         int $startedAt,
         int $status,
-    ): void
-    {
+    ): void {
         $category = match (true) {
             $status < 400 => 'success',
             $status < 500 => 'http_4xx',
@@ -34,10 +34,9 @@ final class OutboundHttpAttemptObservation
         int $attempt,
         int $startedAt,
         \Throwable $exception,
-    ): void
-    {
+    ): void {
         $category = $exception instanceof ConnectException
-            && ((int)($exception->getHandlerContext()['errno'] ?? 0) === 28
+            && ((int) ($exception->getHandlerContext()['errno'] ?? 0) === 28
                 || str_contains(strtolower($exception->getMessage()), 'timed out'))
             ? 'timeout'
             : 'transport';
@@ -56,7 +55,7 @@ final class OutboundHttpAttemptObservation
     ): void {
         $attributes = [
             'method' => strtoupper($method),
-            'host' => (string)(parse_url($url, PHP_URL_HOST) ?: 'unknown'),
+            'host' => (string) (parse_url($url, PHP_URL_HOST) ?: 'unknown'),
             'attempt' => $attempt,
             'duration_ms' => max(0, intdiv(hrtime(true) - $startedAt, 1_000_000)),
             'outcome' => $category === 'success' ? 'success' : 'failed',
@@ -71,7 +70,5 @@ final class OutboundHttpAttemptObservation
         OperationalLog::warning($executionContext, 'outbound_http_attempt', $attributes);
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

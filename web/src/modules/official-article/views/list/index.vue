@@ -393,7 +393,6 @@
   const renderData = ref<ArticleRecord[]>([]);
   const cateOptions = ref<Array<{ label: string; value: number }>>([]);
 
-
   const generateFormModel = () => ({
     title: '',
     cid: '' as number | string,
@@ -643,10 +642,7 @@
     urls.forEach((url) => insertContentMedia(url, type));
   };
 
-  const onContentMediaSuccess = (
-    file: FileRecord,
-    type: 'image' | 'video'
-  ) => {
+  const onContentMediaSuccess = (file: FileRecord, type: 'image' | 'video') => {
     insertContentMedia(file.url || file.uri, type);
     ElMessage.success(t('article.tip.uploadSuccess'));
   };

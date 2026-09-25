@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /* Contract source for Member routes. Admin and member projections retain the
@@ -32,12 +33,18 @@ $operation = static function (
         'responses' => ['200' => $ok($responseSchema, $summary . '成功')],
         'x-peanut-audience' => $audience,
     ];
-    if ($requestSchema !== null) $operation['requestBody'] = $body($requestSchema);
+    if ($requestSchema !== null) {
+        $operation['requestBody'] = $body($requestSchema);
+    }
     if ($audience !== 'public_tenant_module') {
         $operation['responses']['401'] = $response('ErrorResponse');
     }
-    foreach ($statuses as $status) $operation['responses'][(string)$status] = $response('ErrorResponse');
-    if ($errors !== []) $operation['x-peanut-errors'] = $errors;
+    foreach ($statuses as $status) {
+        $operation['responses'][(string) $status] = $response('ErrorResponse');
+    }
+    if ($errors !== []) {
+        $operation['x-peanut-errors'] = $errors;
+    }
     return $operation;
 };
 
@@ -53,7 +60,10 @@ $pageParameters = [
 return [
     'paths' => [
         '/adminapi/official.member.list' => ['get' => $operation(
-            'listAdminMembers', '查询会员列表或导出结果', 'MemberAdminListResponse', 'tenant_admin',
+            'listAdminMembers',
+            '查询会员列表或导出结果',
+            'MemberAdminListResponse',
+            'tenant_admin',
             [
                 ...$pageParameters,
                 ['in' => 'query', 'name' => 'page', 'schema' => ['type' => 'integer', 'minimum' => 1]],
@@ -73,26 +83,46 @@ return [
             statuses: [400, 403],
         )],
         '/adminapi/official.member.detail' => ['get' => $operation(
-            'getAdminMember', '查询会员详情', 'MemberAdminDetailResponse', 'tenant_admin',
-            [$idParameter], errors: ['MEMBER_NOT_FOUND'], statuses: [403, 404],
+            'getAdminMember',
+            '查询会员详情',
+            'MemberAdminDetailResponse',
+            'tenant_admin',
+            [$idParameter],
+            errors: ['MEMBER_NOT_FOUND'],
+            statuses: [403, 404],
         )],
         '/adminapi/official.member.add' => ['post' => $operation(
-            'createAdminMember', '创建会员', 'MemberMutationResponse', 'tenant_admin',
+            'createAdminMember',
+            '创建会员',
+            'MemberMutationResponse',
+            'tenant_admin',
             requestSchema: 'MemberAdminCreateRequest',
-            errors: ['MEMBER_TAG_SELECTION_INVALID'], statuses: [400, 403],
+            errors: ['MEMBER_TAG_SELECTION_INVALID'],
+            statuses: [400, 403],
         )],
         '/adminapi/official.member.edit' => ['post' => $operation(
-            'updateAdminMemberField', '更新会员字段', 'MemberMutationResponse', 'tenant_admin',
+            'updateAdminMemberField',
+            '更新会员字段',
+            'MemberMutationResponse',
+            'tenant_admin',
             requestSchema: 'MemberAdminFieldUpdateRequest',
-            errors: ['MEMBER_NOT_FOUND'], statuses: [400, 403, 404, 409],
+            errors: ['MEMBER_NOT_FOUND'],
+            statuses: [400, 403, 404, 409],
         )],
         '/adminapi/official.member.update-status' => ['post' => $operation(
-            'updateAdminMemberStatus', '更新会员状态', 'MemberMutationResponse', 'tenant_admin',
+            'updateAdminMemberStatus',
+            '更新会员状态',
+            'MemberMutationResponse',
+            'tenant_admin',
             requestSchema: 'MemberAdminStatusRequest',
-            errors: ['MEMBER_NOT_FOUND'], statuses: [400, 403, 404],
+            errors: ['MEMBER_NOT_FOUND'],
+            statuses: [400, 403, 404],
         )],
         '/adminapi/official.member.balance.adjust' => ['post' => $operation(
-            'adjustAdminMemberBalance', '调整会员余额', 'MemberMutationResponse', 'tenant_admin',
+            'adjustAdminMemberBalance',
+            '调整会员余额',
+            'MemberMutationResponse',
+            'tenant_admin',
             [[
                 'in' => 'header', 'name' => 'Idempotency-Key', 'required' => true,
                 'schema' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 200],
@@ -106,24 +136,44 @@ return [
             [400, 403, 404, 409],
         )],
         '/adminapi/official.member.tag.add' => ['post' => $operation(
-            'createMemberTag', '创建会员标签', 'MemberMutationResponse', 'tenant_admin',
-            requestSchema: 'MemberTagCreateRequest', errors: ['MEMBER_TAG_NAME_EXISTS'], statuses: [400, 403, 409],
+            'createMemberTag',
+            '创建会员标签',
+            'MemberMutationResponse',
+            'tenant_admin',
+            requestSchema: 'MemberTagCreateRequest',
+            errors: ['MEMBER_TAG_NAME_EXISTS'],
+            statuses: [400, 403, 409],
         )],
         '/adminapi/official.member.tag.list' => ['get' => $operation(
-            'listMemberTags', '查询会员标签', 'MemberTagListResponse', 'tenant_admin',
+            'listMemberTags',
+            '查询会员标签',
+            'MemberTagListResponse',
+            'tenant_admin',
             statuses: [403],
         )],
         '/adminapi/official.member.tag.edit' => ['post' => $operation(
-            'updateMemberTag', '更新会员标签', 'MemberMutationResponse', 'tenant_admin',
+            'updateMemberTag',
+            '更新会员标签',
+            'MemberMutationResponse',
+            'tenant_admin',
             requestSchema: 'MemberTagUpdateRequest',
-            errors: ['MEMBER_TAG_NAME_EXISTS', 'MEMBER_TAG_NOT_FOUND'], statuses: [400, 403, 404, 409],
+            errors: ['MEMBER_TAG_NAME_EXISTS', 'MEMBER_TAG_NOT_FOUND'],
+            statuses: [400, 403, 404, 409],
         )],
         '/adminapi/official.member.tag.delete' => ['post' => $operation(
-            'deleteMemberTag', '删除会员标签', 'MemberMutationResponse', 'tenant_admin',
-            requestSchema: 'MemberIdentifierRequest', errors: ['MEMBER_TAG_NOT_FOUND'], statuses: [400, 403, 404],
+            'deleteMemberTag',
+            '删除会员标签',
+            'MemberMutationResponse',
+            'tenant_admin',
+            requestSchema: 'MemberIdentifierRequest',
+            errors: ['MEMBER_TAG_NOT_FOUND'],
+            statuses: [400, 403, 404],
         )],
         '/adminapi/official.member.account-log.list' => ['get' => $operation(
-            'listAdminMemberBalanceLogs', '查询会员余额流水', 'MemberAdminBalanceLogPageResponse', 'tenant_admin',
+            'listAdminMemberBalanceLogs',
+            '查询会员余额流水',
+            'MemberAdminBalanceLogPageResponse',
+            'tenant_admin',
             [
                 ...$pageParameters,
                 ['in' => 'query', 'name' => 'page_type', 'schema' => ['type' => 'integer', 'enum' => [0, 1]]],
@@ -134,60 +184,101 @@ return [
                 ['in' => 'query', 'name' => 'end_time', 'schema' => ['type' => 'string']],
                 ['in' => 'query', 'name' => 'export', 'schema' => ['type' => 'integer', 'enum' => [1, 2]]],
             ],
-            errors: ['MEMBER_BALANCE_LOG_EXPORT_UNSUPPORTED'], statuses: [400, 403],
+            errors: ['MEMBER_BALANCE_LOG_EXPORT_UNSUPPORTED'],
+            statuses: [400, 403],
         )],
         '/adminapi/official.member.account-log.change-types' => ['get' => $operation(
-            'getMemberBalanceChangeTypes', '查询会员余额变动类型', 'MemberChangeTypesResponse', 'tenant_admin',
+            'getMemberBalanceChangeTypes',
+            '查询会员余额变动类型',
+            'MemberChangeTypesResponse',
+            'tenant_admin',
             statuses: [403],
         )],
         '/api/login/register' => ['post' => $operation(
-            'registerMember', '注册会员账号', 'MemberMutationResponse', 'public_tenant_module',
+            'registerMember',
+            '注册会员账号',
+            'MemberMutationResponse',
+            'public_tenant_module',
             requestSchema: 'MemberRegistrationRequest',
-            errors: ['MEMBER_CREDENTIALS_REQUIRED', 'MEMBER_LOGIN_WAY_DISABLED'], statuses: [400, 403],
+            errors: ['MEMBER_CREDENTIALS_REQUIRED', 'MEMBER_LOGIN_WAY_DISABLED'],
+            statuses: [400, 403],
         )],
         '/api/login/account' => ['post' => $operation(
-            'loginMemberWithAccount', '会员账号密码登录', 'MemberLoginResponse', 'public_tenant_module',
+            'loginMemberWithAccount',
+            '会员账号密码登录',
+            'MemberLoginResponse',
+            'public_tenant_module',
             requestSchema: 'MemberAccountLoginRequest',
-            errors: ['MEMBER_CREDENTIALS_REQUIRED', 'MEMBER_LOGIN_WAY_DISABLED'], statuses: [400, 401, 403],
+            errors: ['MEMBER_CREDENTIALS_REQUIRED', 'MEMBER_LOGIN_WAY_DISABLED'],
+            statuses: [400, 401, 403],
         )],
         '/api/login/mobile' => ['post' => $operation(
-            'loginMemberWithMobileCode', '会员手机验证码登录', 'MemberLoginResponse', 'public_tenant_module',
+            'loginMemberWithMobileCode',
+            '会员手机验证码登录',
+            'MemberLoginResponse',
+            'public_tenant_module',
             requestSchema: 'MemberMobileCodeRequest',
             errors: [
                 'MEMBER_MOBILE_LOGIN_INVALID', 'MEMBER_VERIFICATION_REJECTED',
                 'MEMBER_VERIFICATION_RATE_LIMITED', 'MEMBER_LOGIN_WAY_DISABLED',
-            ], statuses: [400, 403, 429],
+            ],
+            statuses: [400, 403, 429],
         )],
         '/api/login/resetPassword' => ['post' => $operation(
-            'resetMemberPassword', '通过手机验证码重置会员密码', 'MemberMutationResponse', 'public_tenant_module',
+            'resetMemberPassword',
+            '通过手机验证码重置会员密码',
+            'MemberMutationResponse',
+            'public_tenant_module',
             requestSchema: 'MemberPasswordResetRequest',
             errors: ['MEMBER_PASSWORD_RESET_INVALID', 'MEMBER_VERIFICATION_REJECTED', 'MEMBER_VERIFICATION_RATE_LIMITED'],
             statuses: [400, 403, 404, 429],
         )],
         '/api/user/center' => ['get' => $operation(
-            'getMemberCenter', '查询会员中心', 'MemberCenterResponse', 'member', statuses: [403, 404],
+            'getMemberCenter',
+            '查询会员中心',
+            'MemberCenterResponse',
+            'member',
+            statuses: [403, 404],
         )],
         '/api/user/info' => ['get' => $operation(
-            'getMemberProfile', '查询会员资料', 'MemberProfileResponse', 'member', statuses: [403, 404],
+            'getMemberProfile',
+            '查询会员资料',
+            'MemberProfileResponse',
+            'member',
+            statuses: [403, 404],
         )],
         '/api/user/setInfo' => ['post' => $operation(
-            'updateMemberProfileField', '更新会员本人资料字段', 'MemberMutationResponse', 'member',
+            'updateMemberProfileField',
+            '更新会员本人资料字段',
+            'MemberMutationResponse',
+            'member',
             requestSchema: 'MemberSelfFieldRequest',
             errors: ['MEMBER_PROFILE_FIELD_UNSUPPORTED', 'MEMBER_PROFILE_VALUE_INVALID', 'MEMBER_PROFILE_SELF_FORBIDDEN', 'MEMBER_NOT_FOUND'],
             statuses: [400, 403, 404],
         )],
         '/api/user/changePassword' => ['post' => $operation(
-            'changeMemberPassword', '修改会员密码', 'MemberMutationResponse', 'member',
-            requestSchema: 'MemberPasswordChangeRequest', errors: ['MEMBER_PASSWORD_CHANGE_INVALID'], statuses: [400, 403],
+            'changeMemberPassword',
+            '修改会员密码',
+            'MemberMutationResponse',
+            'member',
+            requestSchema: 'MemberPasswordChangeRequest',
+            errors: ['MEMBER_PASSWORD_CHANGE_INVALID'],
+            statuses: [400, 403],
         )],
         '/api/user/bindMobile' => ['post' => $operation(
-            'bindMemberMobile', '绑定或变更会员手机', 'MemberMutationResponse', 'member',
+            'bindMemberMobile',
+            '绑定或变更会员手机',
+            'MemberMutationResponse',
+            'member',
             requestSchema: 'MemberMobileCodeRequest',
             errors: ['MEMBER_MOBILE_INVALID', 'MEMBER_NOT_FOUND', 'MEMBER_VERIFICATION_REJECTED'],
             statuses: [400, 403, 404],
         )],
         '/api/account_log/lists' => ['get' => $operation(
-            'listCurrentMemberBalanceLogs', '查询当前会员余额流水', 'MemberSelfBalanceLogPageResponse', 'member',
+            'listCurrentMemberBalanceLogs',
+            '查询当前会员余额流水',
+            'MemberSelfBalanceLogPageResponse',
+            'member',
             $pageParameters,
             statuses: [403],
         )],

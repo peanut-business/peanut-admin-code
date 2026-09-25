@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Fixtures\DeliveryRecord\Infrastructure\Authorization;
@@ -13,9 +14,7 @@ final readonly class ThinkPhpDeliveryRecordAccess implements DeliveryRecordAcces
     public function __construct(
         private CurrentExecutionContext $executionContext,
         private TenantAuthorizationRepository $authorization,
-    )
-    {
-    }
+    ) {}
 
     public function requirePermission(string $permission): void
     {

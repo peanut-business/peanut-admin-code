@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\http;
@@ -15,10 +16,9 @@ final class RequestTrace
         CurrentExecutionContext $executionContext,
         object $request,
         string $prefix = 'http',
-    ): string
-    {
+    ): string {
         $candidate = method_exists($request, 'header')
-            ? trim((string)$request->header('X-Request-Id', ''))
+            ? trim((string) $request->header('X-Request-Id', ''))
             : '';
         if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/D', $candidate) === 1) {
             return self::remember($request, $candidate);
@@ -57,7 +57,5 @@ final class RequestTrace
         return $requestId;
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

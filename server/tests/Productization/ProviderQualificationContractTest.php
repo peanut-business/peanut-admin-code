@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -45,9 +46,7 @@ final class FakeProviderQualificationContributor implements ProviderQualificatio
     public int $calls = 0;
 
     /** @param list<ProviderQualificationSubject> $subjects */
-    public function __construct(private array $provided)
-    {
-    }
+    public function __construct(private array $provided) {}
 
     public function subjects(): array
     {
@@ -58,9 +57,7 @@ final class FakeProviderQualificationContributor implements ProviderQualificatio
 
 final readonly class FakeProviderQualificationPermission implements PlatformPermissionChecker
 {
-    public function __construct(private bool $allowed)
-    {
-    }
+    public function __construct(private bool $allowed) {}
 
     public function allows(PlatformContext $context, string $permissionKey): bool
     {
@@ -73,20 +70,44 @@ final readonly class FakeProviderQualificationPermission implements PlatformPerm
 $context = (new ReflectionClass(PlatformContext::class))->newInstanceWithoutConstructor();
 $now = new DateTimeImmutable('2026-08-28T12:00:00Z');
 $tenantA = new ProviderQualificationSubject(
-    'payment.wechat', 'payment', 'tenant', 11, 'payment.wechat', true, true, null, str_repeat('a', 64),
+    'payment.wechat',
+    'payment',
+    'tenant',
+    11,
+    'payment.wechat',
+    true,
+    true,
+    null,
+    str_repeat('a', 64),
 );
 $tenantB = new ProviderQualificationSubject(
-    'payment.wechat', 'payment', 'tenant', 22, 'payment.wechat', true, true, null, str_repeat('b', 64),
+    'payment.wechat',
+    'payment',
+    'tenant',
+    22,
+    'payment.wechat',
+    true,
+    true,
+    null,
+    str_repeat('b', 64),
 );
 $email = new ProviderQualificationSubject(
-    'notification.email', 'notification', 'tenant', 11, 'notification.email', false, false, null,
-    str_repeat('e', 64), false,
+    'notification.email',
+    'notification',
+    'tenant',
+    11,
+    'notification.email',
+    false,
+    false,
+    null,
+    str_repeat('e', 64),
+    false,
 );
 $contributor = new FakeProviderQualificationContributor([$tenantA, $tenantB, $email]);
 $repository = new FakeProviderQualificationRepository();
 foreach (['connectivity', 'callback', 'production'] as $offset => $type) {
     $repository->rows[] = [
-        'evidence_key' => 'pqe_' . str_repeat((string)($offset + 1), 32),
+        'evidence_key' => 'pqe_' . str_repeat((string) ($offset + 1), 32),
         'provider_key' => 'payment.wechat',
         'scope_type' => 'tenant',
         'tenant_id' => 11,
@@ -131,11 +152,21 @@ foreach (['"tenant_id"', '"config_digest"', str_repeat('a', 64), 'recipient', 'o
 }
 
 $changed = new ProviderQualificationSubject(
-    'payment.wechat', 'payment', 'tenant', 11, 'payment.wechat', true, true, null, str_repeat('c', 64),
+    'payment.wechat',
+    'payment',
+    'tenant',
+    11,
+    'payment.wechat',
+    true,
+    true,
+    null,
+    str_repeat('c', 64),
 );
 $staleService = new PlatformProviderQualificationService(
-    new FakeProviderQualificationPermission(true), $repository,
-    [new FakeProviderQualificationContributor([$changed])], str_repeat('s', 32),
+    new FakeProviderQualificationPermission(true),
+    $repository,
+    [new FakeProviderQualificationContributor([$changed])],
+    str_repeat('s', 32),
     static fn(): DateTimeImmutable => $now,
 );
 $stale = $staleService->snapshot($context)['providers'][0];
@@ -143,8 +174,10 @@ expectProviderQualification(!$stale['qualified'] && $stale['status_code'] === 'P
 
 $expiredNow = new DateTimeImmutable('2026-09-05T12:00:00Z');
 $expiredService = new PlatformProviderQualificationService(
-    new FakeProviderQualificationPermission(true), $repository,
-    [new FakeProviderQualificationContributor([$tenantA])], str_repeat('s', 32),
+    new FakeProviderQualificationPermission(true),
+    $repository,
+    [new FakeProviderQualificationContributor([$tenantA])],
+    str_repeat('s', 32),
     static fn(): DateTimeImmutable => $expiredNow,
 );
 $expired = $expiredService->snapshot($context)['providers'][0];
@@ -152,7 +185,10 @@ expectProviderQualification(!$expired['qualified'] && $expired['status_code'] ==
 
 $deniedContributor = new FakeProviderQualificationContributor([$tenantA]);
 $deniedService = new PlatformProviderQualificationService(
-    new FakeProviderQualificationPermission(false), $repository, [$deniedContributor], str_repeat('s', 32),
+    new FakeProviderQualificationPermission(false),
+    $repository,
+    [$deniedContributor],
+    str_repeat('s', 32),
 );
 try {
     $deniedService->snapshot($context);
@@ -171,7 +207,7 @@ foreach ([
     'PaymentQualificationContributor.php', 'NotificationQualificationContributor.php',
     'OauthQualificationContributor.php', 'StorageQualificationContributor.php',
 ] as $file) {
-    $source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/platform/service/provider/' . $file);
+    $source = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/service/provider/' . $file);
     foreach (['curl_', 'file_get_contents("http', 'file_get_contents(\'http', 'Prepay', 'sendSms('] as $forbiddenCall) {
         expectProviderQualification(!str_contains($source, $forbiddenCall), 'read contributor performs an external or financial action');
     }

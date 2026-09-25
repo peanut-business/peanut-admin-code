@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\policy\DemoAccountPolicy;
@@ -23,7 +24,7 @@ function demoMultiFail(string $message): never
 
 function demoMultiRequired(string $name): string
 {
-    $value = trim((string)(getenv($name) ?: ''));
+    $value = trim((string) (getenv($name) ?: ''));
     if ($value === '') {
         throw new RuntimeException("{$name} is required");
     }
@@ -41,11 +42,11 @@ function demoMultiBinding(int $tenantId, string $host, array $clientKeys = ['adm
             ->field('id,tenant_id,status')
             ->lock(true)
             ->find();
-        if (is_array($row) && (int)$row['tenant_id'] !== $tenantId) {
+        if (is_array($row) && (int) $row['tenant_id'] !== $tenantId) {
             throw new RuntimeException("demo Tenant host is already owned by another Tenant: {$host}");
         }
         if (is_array($row)) {
-            Db::name('tenant_entry_binding')->where('id', (int)$row['id'])->update([
+            Db::name('tenant_entry_binding')->where('id', (int) $row['id'])->update([
                 'status' => 'active',
                 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
             ]);
@@ -64,7 +65,7 @@ function demoMultiBinding(int $tenantId, string $host, array $clientKeys = ['adm
 function demoMultiHostList(string $name): array
 {
     $hosts = [];
-    foreach (explode(',', (string)(getenv($name) ?: '')) as $host) {
+    foreach (explode(',', (string) (getenv($name) ?: '')) as $host) {
         $host = trim($host);
         if ($host !== '') {
             $hosts[] = TenantEntryBindingResolver::normalizeHost($host);
@@ -107,7 +108,7 @@ function demoMultiTenant(
     DemoAccountPolicy $demoAccounts,
 ): array {
     $tenant = Db::name('tenant')->where('code', $code)->order('id')->field(
-        'id,name,display_name,status,revision'
+        'id,name,display_name,status,revision',
     )->find();
     if (!is_array($tenant)) {
         $bootstrapPassword = $demoAccounts->bootstrapPassword();
@@ -119,7 +120,7 @@ function demoMultiTenant(
             'zh-CN',
             'Asia/Shanghai',
         );
-        $tenantId = (int)$tenant['id'];
+        $tenantId = (int) $tenant['id'];
         $candidate = $owners->createCandidate(
             $actor,
             $tenantId,
@@ -130,31 +131,31 @@ function demoMultiTenant(
         $candidate = $owners->activateCandidate(
             $actor,
             $tenantId,
-            (int)$candidate['member']['id'],
-            (int)$candidate['member']['revision'],
+            (int) $candidate['member']['id'],
+            (int) $candidate['member']['revision'],
             "demo-{$code}-owner-activate",
             'Provision the public demo tenant owner.',
         );
         $adminProvisioner->provision(
             $tenantId,
-            (int)$candidate['member']['account_id'],
-            (int)$candidate['member']['id'],
-            (int)$candidate['member']['role_id'],
+            (int) $candidate['member']['account_id'],
+            (int) $candidate['member']['id'],
+            (int) $candidate['member']['role_id'],
             $code,
             "{$name} Owner",
         );
         $tenants->transitionTenant(
             $actor,
             $tenantId,
-            (int)$tenant['revision'],
+            (int) $tenant['revision'],
             TenantStatus::Active,
             'Activate the provisioned public demo tenant.',
         );
     } else {
-        $tenantId = (int)$tenant['id'];
+        $tenantId = (int) $tenant['id'];
         if ($tenant['status'] !== 'active'
-            || !hash_equals($name, (string)$tenant['name'])
-            || !hash_equals($name, (string)$tenant['display_name'])) {
+            || !hash_equals($name, (string) $tenant['name'])
+            || !hash_equals($name, (string) $tenant['display_name'])) {
             throw new RuntimeException("existing demo Tenant {$code} does not match the demo plan");
         }
     }
@@ -162,30 +163,30 @@ function demoMultiTenant(
     $demoAccounts->replaceCredentialHashes([$email]);
 
     $owner = demoMultiOwner($tenantId, $email);
-    if (!$passwords->verify($password, (string)$owner['secret_hash'])) {
+    if (!$passwords->verify($password, (string) $owner['secret_hash'])) {
         throw new RuntimeException("demo Tenant {$code} credential does not match the published password");
     }
     $adminProvisioner->provision(
         $tenantId,
-        (int)$owner['account_id'],
-        (int)$owner['member_id'],
-        (int)$owner['role_id'],
+        (int) $owner['account_id'],
+        (int) $owner['member_id'],
+        (int) $owner['role_id'],
         $code,
-        "{$name} Owner"
+        "{$name} Owner",
     );
     return [
         'tenant_id' => $tenantId,
-        'account_id' => (int)$owner['account_id'],
-        'member_id' => (int)$owner['member_id'],
-        'role_id' => (int)$owner['role_id'],
-        'email' => (string)$owner['email'],
+        'account_id' => (int) $owner['account_id'],
+        'member_id' => (int) $owner['member_id'],
+        'role_id' => (int) $owner['role_id'],
+        'email' => (string) $owner['email'],
     ];
 }
 
 function demoMultiEnsureSharedOwner(
     int $tenantId,
     int $accountId,
-    int $ownerRoleId
+    int $ownerRoleId,
 ): int {
     $member = Db::name('tenant_member')->where('tenant_id', $tenantId)
         ->where('account_id', $accountId)->lock(true)->field('id,status')->find();
@@ -201,7 +202,7 @@ function demoMultiEnsureSharedOwner(
         ]);
         $member = ['id' => $memberId, 'status' => 'pending'];
     }
-    $memberId = (int)$member['id'];
+    $memberId = (int) $member['id'];
     if ($member['status'] === 'pending') {
         Db::name('tenant_member')->where('tenant_id', $tenantId)->where('id', $memberId)->update([
             'status' => 'active',
@@ -249,10 +250,10 @@ function demoMultiAssertIdentityClosure(): void
     if ($identityAccountIds === []) {
         throw new RuntimeException('demo seed state has no installation identities');
     }
-    $accountCount = (int)Db::name('account')->count();
-    $activeAccountCount = (int)Db::name('account')->where('status', 'active')->count();
-    $credentialCount = (int)Db::name('credential')->count();
-    $activeCredentialCount = (int)Db::name('credential')->where('kind', 'email_password')
+    $accountCount = (int) Db::name('account')->count();
+    $activeAccountCount = (int) Db::name('account')->where('status', 'active')->count();
+    $credentialCount = (int) Db::name('credential')->count();
+    $activeCredentialCount = (int) Db::name('credential')->where('kind', 'email_password')
         ->where('identifier_type', 'email')->where('status', 'active')->count();
     if ($accountCount !== count($identityAccountIds)
         || $activeAccountCount !== $accountCount
@@ -278,10 +279,10 @@ function demoMultiAssertSeedState(): void
         return;
     }
 
-    $memberCount = (int)Db::name('tenant_member')->count();
-    $platformCount = (int)Db::name('platform_operator')->count();
-    $bindingCount = (int)Db::name('tenant_entry_binding')->count();
-    $defaultOwnerCount = (int)Db::name('tenant')->alias('tenant')
+    $memberCount = (int) Db::name('tenant_member')->count();
+    $platformCount = (int) Db::name('platform_operator')->count();
+    $bindingCount = (int) Db::name('tenant_entry_binding')->count();
+    $defaultOwnerCount = (int) Db::name('tenant')->alias('tenant')
         ->join('tenant_member member', "member.tenant_id=tenant.id AND member.status='active'")
         ->join('member_role membership', 'membership.tenant_id=member.tenant_id AND membership.tenant_member_id=member.id')
         ->join('role role', 'role.tenant_id=membership.tenant_id AND role.id=membership.role_id')
@@ -301,7 +302,7 @@ function demoMultiAssertFinalState(
     string $sharedPassword,
     string $tenantAHost,
     string $tenantBHost,
-    array $sharedAdminHosts
+    array $sharedAdminHosts,
 ): void {
     $tenants = Db::name('tenant')->field('code,name,display_name,status')->order('code')->select()->toArray();
     $expectedTenants = [
@@ -339,31 +340,31 @@ function demoMultiAssertFinalState(
     sort($expectedOwners, SORT_STRING);
     $actualOwners = array_map(
         static fn(array $row): string => $row['code'] . "\0" . $row['email'] . "\0" . $row['display_name'],
-        $owners
+        $owners,
     );
     if ($actualOwners !== $expectedOwners) {
         throw new RuntimeException('demo owner memberships do not provide the exact A/B selection model');
     }
-    $memberCount = (int)Db::name('tenant_member')->count();
-    $defaultOwnerCount = (int)Db::name('tenant')->alias('tenant')
+    $memberCount = (int) Db::name('tenant_member')->count();
+    $defaultOwnerCount = (int) Db::name('tenant')->alias('tenant')
         ->join('tenant_member member', "member.tenant_id=tenant.id AND member.status='active'")
         ->join('member_role membership', 'membership.tenant_id=member.tenant_id AND membership.tenant_member_id=member.id')
         ->join('role role', 'role.tenant_id=membership.tenant_id AND role.id=membership.role_id')
         ->where('tenant.code', 'default')->where('role.key', 'core.tenant-owner')
         ->where('role.is_builtin', 1)->where('role.status', 'active')->count();
-    $demoMemberCount = (int)Db::name('tenant_member')->alias('member')
+    $demoMemberCount = (int) Db::name('tenant_member')->alias('member')
         ->join('tenant tenant', 'tenant.id=member.tenant_id')
         ->whereIn('tenant.code', ['tenant-a', 'tenant-b'])->count();
     if ($memberCount !== 4 || $defaultOwnerCount !== 1 || $demoMemberCount !== 3) {
         throw new RuntimeException('demo Tenants contain unexpected membership rows');
     }
-    $platformCount = (int)Db::name('platform_operator')->count();
+    $platformCount = (int) Db::name('platform_operator')->count();
     if ($platformCount !== 1) {
         throw new RuntimeException('demo seed final state contains unexpected PlatformOperators');
     }
     demoMultiAssertIdentityClosure();
     foreach ($owners as $owner) {
-        if (!$passwords->verify($sharedPassword, (string)$owner['secret_hash'])) {
+        if (!$passwords->verify($sharedPassword, (string) $owner['secret_hash'])) {
             throw new RuntimeException('published demo password does not match an owner credential');
         }
     }
@@ -387,7 +388,7 @@ function demoMultiAssertFinalState(
         }
     }
     ksort($expectedBindings, SORT_STRING);
-    $bindingCount = (int)Db::name('tenant_entry_binding')->count();
+    $bindingCount = (int) Db::name('tenant_entry_binding')->count();
     if ($bindings !== $expectedBindings || $bindingCount !== count($expectedBindings)) {
         throw new RuntimeException('demo Tenant Host bindings do not match the final plan');
     }
@@ -430,10 +431,10 @@ function demoMultiMain(): int
     $serverDir = dirname(__DIR__);
     loadCoreRuntime($serverDir);
     $tenantAHost = TenantEntryBindingResolver::normalizeHost(
-        demoMultiRequired('PEANUT_DEMO_TENANT_A_HOST')
+        demoMultiRequired('PEANUT_DEMO_TENANT_A_HOST'),
     );
     $tenantBHost = TenantEntryBindingResolver::normalizeHost(
-        demoMultiRequired('PEANUT_DEMO_TENANT_B_HOST')
+        demoMultiRequired('PEANUT_DEMO_TENANT_B_HOST'),
     );
     $sharedAdminHosts = demoMultiHostList('TENANT_ADMIN_HOSTS');
     if ($sharedAdminHosts === []) {
@@ -441,7 +442,7 @@ function demoMultiMain(): int
     }
     $reservedHosts = array_merge(
         demoMultiHostList('PLATFORM_HOSTS'),
-        $sharedAdminHosts
+        $sharedAdminHosts,
     );
     if (hash_equals($tenantAHost, $tenantBHost)
         || in_array($tenantAHost, $reservedHosts, true)
@@ -477,8 +478,8 @@ function demoMultiMain(): int
             throw new RuntimeException('demo seed requires exactly one active PlatformOperator');
         }
         $actor = PlatformContext::fromTrustedAutomation(
-            (int)$platforms[0]['account_id'],
-            (int)$platforms[0]['id'],
+            (int) $platforms[0]['account_id'],
+            (int) $platforms[0]['id'],
             'demo-seed',
             'demo-multi-tenant-seed',
             new DateTimeImmutable('now', new DateTimeZone('UTC')),
@@ -510,7 +511,7 @@ function demoMultiMain(): int
         demoMultiEnsureSharedOwner(
             $tenantB['tenant_id'],
             $tenantA['account_id'],
-            $tenantB['role_id']
+            $tenantB['role_id'],
         );
         $defaultTenant = Db::name('tenant')->where('code', 'default')->where('status', 'active')
             ->field('id')->find();
@@ -518,7 +519,7 @@ function demoMultiMain(): int
             throw new RuntimeException('demo default Tenant is unavailable');
         }
         foreach ($sharedAdminHosts as $sharedAdminHost) {
-            demoMultiBinding((int)$defaultTenant['id'], $sharedAdminHost, ['member-api']);
+            demoMultiBinding((int) $defaultTenant['id'], $sharedAdminHost, ['member-api']);
         }
         demoMultiBinding($tenantA['tenant_id'], $tenantAHost);
         demoMultiBinding($tenantB['tenant_id'], $tenantBHost);
@@ -529,7 +530,7 @@ function demoMultiMain(): int
             $sharedPassword,
             $tenantAHost,
             $tenantBHost,
-            $sharedAdminHosts
+            $sharedAdminHosts,
         );
         return [$tenantA, $tenantB];
     });

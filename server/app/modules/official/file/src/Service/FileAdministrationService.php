@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Service;
@@ -63,7 +64,7 @@ final class FileAdministrationService implements FileAdministration
         $pageResult = $pagination->result($query->order(['id' => 'desc']));
         $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
             ? $item->toArray()
-            : (array)$item);
+            : (array) $item);
         $lists = $pageResult->items;
         foreach ($lists as &$item) {
             $item['url'] = $this->files->getFileUrl((string) ($item['file_key'] ?? ''));
@@ -78,7 +79,7 @@ final class FileAdministrationService implements FileAdministration
     {
         $page = $this->lists([...$params, 'type' => FileEnum::IMAGE]);
         $fileKeys = array_values(array_filter(array_map(
-            static fn(array $item): string => (string)($item['file_key'] ?? ''),
+            static fn(array $item): string => (string) ($item['file_key'] ?? ''),
             $page->items,
         )));
         if ($fileKeys === []) {
@@ -87,53 +88,53 @@ final class FileAdministrationService implements FileAdministration
 
         $objects = [];
         foreach (FileObject::where([])->whereIn('file_key', $fileKeys)->select()->toArray() as $object) {
-            $objects[(string)$object['file_key']] = $object;
+            $objects[(string) $object['file_key']] = $object;
         }
         $metadata = [];
         foreach (FileImageAsset::where([])->whereIn('file_key', $fileKeys)->select()->toArray() as $item) {
-            $metadata[(string)$item['file_key']] = $item;
+            $metadata[(string) $item['file_key']] = $item;
         }
         $derivatives = [];
         $derivativeKeys = [];
         foreach (FileDerivative::where([])->whereIn('source_file_key', $fileKeys)->order(['variant_key' => 'asc'])->select()->toArray() as $item) {
-            $derivatives[(string)$item['source_file_key']][] = $item;
-            $derivativeKeys[] = (string)$item['derivative_file_key'];
+            $derivatives[(string) $item['source_file_key']][] = $item;
+            $derivativeKeys[] = (string) $item['derivative_file_key'];
         }
         $derivativeObjects = [];
         if ($derivativeKeys !== []) {
             foreach (FileObject::where([])->whereIn('file_key', array_values(array_unique($derivativeKeys)))->select()->toArray() as $object) {
-                $derivativeObjects[(string)$object['file_key']] = $object;
+                $derivativeObjects[(string) $object['file_key']] = $object;
             }
         }
 
         return $page->map(function (array $item) use ($objects, $metadata, $derivatives, $derivativeObjects): array {
-            $fileKey = (string)$item['file_key'];
+            $fileKey = (string) $item['file_key'];
             $object = $objects[$fileKey] ?? [];
             $image = $metadata[$fileKey] ?? null;
             $variants = [];
             foreach ($derivatives[$fileKey] ?? [] as $derivative) {
-                $derivativeKey = (string)$derivative['derivative_file_key'];
+                $derivativeKey = (string) $derivative['derivative_file_key'];
                 $derivativeObject = $derivativeObjects[$derivativeKey] ?? null;
                 if (!is_array($derivativeObject) || ($derivativeObject['status'] ?? null) !== 'ready') {
                     continue;
                 }
                 $variants[] = [
-                    'variant_key' => (string)$derivative['variant_key'],
+                    'variant_key' => (string) $derivative['variant_key'],
                     'file_key' => $derivativeKey,
-                    'width' => (int)$derivative['width'],
-                    'height' => (int)$derivative['height'],
-                    'media_type' => (string)$derivative['media_type'],
+                    'width' => (int) $derivative['width'],
+                    'height' => (int) $derivative['height'],
+                    'media_type' => (string) $derivative['media_type'],
                     'delivery_uri' => $this->files->getFileUrl($derivativeKey),
                 ];
             }
             return [
-                'id' => (int)$item['id'],
+                'id' => (int) $item['id'],
                 'file_key' => $fileKey,
-                'original_name' => (string)($object['original_name'] ?? $item['name']),
-                'media_type' => (string)($object['media_type'] ?? 'application/octet-stream'),
-                'width' => is_array($image) ? (int)$image['width'] : null,
-                'height' => is_array($image) ? (int)$image['height'] : null,
-                'preview_uri' => (string)$item['url'],
+                'original_name' => (string) ($object['original_name'] ?? $item['name']),
+                'media_type' => (string) ($object['media_type'] ?? 'application/octet-stream'),
+                'width' => is_array($image) ? (int) $image['width'] : null,
+                'height' => is_array($image) ? (int) $image['height'] : null,
+                'preview_uri' => (string) $item['url'],
                 'variants' => $variants,
             ];
         });
@@ -276,7 +277,7 @@ final class FileAdministrationService implements FileAdministration
         if ($name === '') {
             throw new \InvalidArgumentException('分类名称不能为空');
         }
-        $category = FileCate::where('id', (int)($params['id'] ?? 0))->find();
+        $category = FileCate::where('id', (int) ($params['id'] ?? 0))->find();
         if (!$category) {
             throw new \InvalidArgumentException('分类不存在');
         }

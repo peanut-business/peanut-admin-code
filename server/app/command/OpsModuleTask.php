@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -37,7 +38,7 @@ final class OpsModuleTask extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            $action = trim((string)$input->getArgument('action'));
+            $action = trim((string) $input->getArgument('action'));
             $result = match ($action) {
                 'claim' => $this->service()->claim(),
                 'advance' => $this->service()->advance($this->taskKey($input), $this->revision($input)),
@@ -47,7 +48,7 @@ final class OpsModuleTask extends ContextualCommand
                 'fail' => $this->service()->fail(
                     $this->taskKey($input),
                     $this->revision($input),
-                    trim((string)$input->getOption('error-code')),
+                    trim((string) $input->getOption('error-code')),
                 ),
                 default => throw new \RuntimeException('OPS_MODULE_TASK_ACTION_INVALID'),
             };
@@ -69,15 +70,19 @@ final class OpsModuleTask extends ContextualCommand
 
     private function taskKey(Input $input): string
     {
-        $key = trim((string)$input->getOption('task-key'));
-        if (preg_match('/^job_[a-f0-9]{32}$/D', $key) !== 1) throw new \RuntimeException('OPS_MODULE_TASK_KEY_INVALID');
+        $key = trim((string) $input->getOption('task-key'));
+        if (preg_match('/^job_[a-f0-9]{32}$/D', $key) !== 1) {
+            throw new \RuntimeException('OPS_MODULE_TASK_KEY_INVALID');
+        }
         return $key;
     }
 
     private function revision(Input $input): int
     {
-        $revision = trim((string)$input->getOption('revision'));
-        if (preg_match('/^[1-9][0-9]*$/D', $revision) !== 1) throw new \RuntimeException('OPS_MODULE_EXECUTION_REVISION_INVALID');
-        return (int)$revision;
+        $revision = trim((string) $input->getOption('revision'));
+        if (preg_match('/^[1-9][0-9]*$/D', $revision) !== 1) {
+            throw new \RuntimeException('OPS_MODULE_EXECUTION_REVISION_INVALID');
+        }
+        return (int) $revision;
     }
 }

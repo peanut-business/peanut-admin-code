@@ -20,8 +20,7 @@ final readonly class ExportPageInfo
         public int $pageStart,
         public int $pageEnd,
         public string $fileName,
-    ) {
-    }
+    ) {}
 
     public static function from(
         int $count,
@@ -40,13 +39,13 @@ final readonly class ExportPageInfo
             throw new InvalidArgumentException('Export page end limit must be positive.');
         }
 
-        $sumPage = max(1, (int)ceil(max(0, $count) / $pageSize));
+        $sumPage = max(1, (int) ceil(max(0, $count) / $pageSize));
 
         return new self(
             count: $count,
             pageSize: $pageSize,
             sumPage: $sumPage,
-            maxPage: (int)floor($allMaxSize / $pageSize),
+            maxPage: (int) floor($allMaxSize / $pageSize),
             allMaxSize: $allMaxSize,
             pageStart: 1,
             pageEnd: min($sumPage, $pageEndLimit),

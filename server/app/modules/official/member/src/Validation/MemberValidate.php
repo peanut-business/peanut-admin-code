@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Validation;
@@ -54,7 +55,7 @@ class MemberValidate extends TenantContextValidate
 
     protected function checkMember($value): bool|string
     {
-        return Member::where([])->where('id', (int)$value)->findOrEmpty()->isEmpty()
+        return Member::where([])->where('id', (int) $value)->findOrEmpty()->isEmpty()
             ? '用户不存在！' : true;
     }
 
@@ -65,8 +66,8 @@ class MemberValidate extends TenantContextValidate
         }
 
         if ($value === 'account') {
-            $exists = Member::where([])->where('id', '<>', (int)($data['id'] ?? 0))
-                ->where('account', (string)($data['value'] ?? ''))
+            $exists = Member::where([])->where('id', '<>', (int) ($data['id'] ?? 0))
+                ->where('account', (string) ($data['value'] ?? ''))
                 ->findOrEmpty();
             if (!$exists->isEmpty()) {
                 return '账号已被使用';
@@ -74,11 +75,11 @@ class MemberValidate extends TenantContextValidate
         }
 
         if ($value === 'mobile') {
-            $mobile = (string)($data['value'] ?? '');
+            $mobile = (string) ($data['value'] ?? '');
             if (!preg_match('/^1[3-9]\d{9}$/', $mobile)) {
                 return '手机号码格式错误';
             }
-            $exists = Member::where([])->where('id', '<>', (int)($data['id'] ?? 0))
+            $exists = Member::where([])->where('id', '<>', (int) ($data['id'] ?? 0))
                 ->where('mobile', $mobile)
                 ->findOrEmpty();
             if (!$exists->isEmpty()) {
@@ -91,14 +92,14 @@ class MemberValidate extends TenantContextValidate
 
     protected function checkMoney($value, $rule, array $data): bool|string
     {
-        $member = Member::where([])->where('id', (int)($data['user_id'] ?? 0))->findOrEmpty();
+        $member = Member::where([])->where('id', (int) ($data['user_id'] ?? 0))->findOrEmpty();
         if ($member->isEmpty()) {
             return '用户不存在';
         }
-        if ((int)($data['action'] ?? 0) === AccountLogEnum::INC) {
+        if ((int) ($data['action'] ?? 0) === AccountLogEnum::INC) {
             return true;
         }
-        if ((float)$member->user_money - (float)$value < 0) {
+        if ((float) $member->user_money - (float) $value < 0) {
             return '用户可用余额仅剩' . $member->user_money;
         }
         return true;

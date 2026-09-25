@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -56,6 +57,6 @@ final class GeneratedPackageIdentityTest extends TestCase
 
     private function read(string $path): string
     {
-        return (string)file_get_contents(dirname(__DIR__, 3) . '/' . $path);
+        return (string) file_get_contents(dirname(__DIR__, 3) . '/' . $path);
     }
 }

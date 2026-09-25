@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\notice;
@@ -27,13 +28,12 @@ final class NoticeChannelService
         private readonly ExternalChannelBindings $bindings,
         private readonly ExternalTenantResolutionService $resolver,
         private readonly OutboundHttpTransport $transport,
-    ) {
-    }
+    ) {}
 
     public function detail(TenantContext $context): array
     {
         $stored = $this->bindingConfig($context);
-        $default = strtolower(trim((string)($stored['sms_default'] ?? '')));
+        $default = strtolower(trim((string) ($stored['sms_default'] ?? '')));
         $aliyun = self::providerConfig($stored, 'aliyun');
         $tencent = self::providerConfig($stored, 'tencent');
         $active = $default === 'aliyun' ? $aliyun : ($default === 'tencent' ? $tencent : []);
@@ -41,18 +41,18 @@ final class NoticeChannelService
         return [
             'sms_default' => $default,
             'sms_aliyun' => [
-                'access_key_id' => (string)($aliyun['access_key_id'] ?? ''),
+                'access_key_id' => (string) ($aliyun['access_key_id'] ?? ''),
                 'access_key_secret' => empty($aliyun['access_key_secret']) ? '' : '******',
-                'sign_name' => (string)($aliyun['sign_name'] ?? ''),
-                'status' => (int)($aliyun['status'] ?? 0),
+                'sign_name' => (string) ($aliyun['sign_name'] ?? ''),
+                'status' => (int) ($aliyun['status'] ?? 0),
             ],
             'sms_tencent' => [
-                'secret_id' => (string)($tencent['secret_id'] ?? ''),
+                'secret_id' => (string) ($tencent['secret_id'] ?? ''),
                 'secret_key' => empty($tencent['secret_key']) ? '' : '******',
-                'sdk_app_id' => (string)($tencent['sdk_app_id'] ?? ''),
-                'sign_name' => (string)($tencent['sign_name'] ?? ''),
-                'region' => (string)($tencent['region'] ?? 'ap-guangzhou'),
-                'status' => (int)($tencent['status'] ?? 0),
+                'sdk_app_id' => (string) ($tencent['sdk_app_id'] ?? ''),
+                'sign_name' => (string) ($tencent['sign_name'] ?? ''),
+                'region' => (string) ($tencent['region'] ?? 'ap-guangzhou'),
+                'status' => (int) ($tencent['status'] ?? 0),
             ],
             'status' => ['sms' => in_array($default, self::PROVIDERS, true)
                 && self::complete($default, $active)],
@@ -71,7 +71,7 @@ final class NoticeChannelService
                 return $stored;
             },
             static function (array $stored): bool {
-                $default = strtolower(trim((string)($stored['sms_default'] ?? '')));
+                $default = strtolower(trim((string) ($stored['sms_default'] ?? '')));
                 return in_array($default, self::PROVIDERS, true)
                     && self::complete($default, self::providerConfig($stored, $default));
             },
@@ -82,7 +82,7 @@ final class NoticeChannelService
     private static function saveLocked(string $section, array $input, array &$stored): void
     {
         if ($section === 'sms_default') {
-            $provider = strtolower(trim((string)($input['value'] ?? '')));
+            $provider = strtolower(trim((string) ($input['value'] ?? '')));
             if (!in_array($provider, self::PROVIDERS, true)
                 || !self::complete($provider, self::providerConfig($stored, $provider))) {
                 throw new \RuntimeException('只能选择已启用且配置完整的短信服务商');
@@ -107,11 +107,11 @@ final class NoticeChannelService
         $config = [];
         foreach ($allowed as $field) {
             if ($field === 'status') {
-                $config[$field] = (int)($input[$field] ?? $current[$field] ?? 0);
+                $config[$field] = (int) ($input[$field] ?? $current[$field] ?? 0);
                 continue;
             }
-            $value = trim((string)($input[$field] ?? $current[$field] ?? ''));
-            $config[$field] = $value === '******' ? (string)($current[$field] ?? '') : $value;
+            $value = trim((string) ($input[$field] ?? $current[$field] ?? ''));
+            $config[$field] = $value === '******' ? (string) ($current[$field] ?? '') : $value;
         }
         if (!in_array($config['status'], [0, 1], true)) {
             throw new \RuntimeException('短信服务状态无效');
@@ -127,7 +127,7 @@ final class NoticeChannelService
             $otherConfig['status'] = 0;
             $changes['sms_' . $other] = $otherConfig;
             $changes['sms_default'] = $provider;
-        } elseif ((string)($stored['sms_default'] ?? '') === $provider) {
+        } elseif ((string) ($stored['sms_default'] ?? '') === $provider) {
             $changes['sms_default'] = '';
         }
         $stored = array_replace($stored, $changes);
@@ -140,12 +140,11 @@ final class NoticeChannelService
         string $mobile,
         string $templateId,
         array $variables,
-        ?callable $beforeSend = null
-    ): array
-    {
+        ?callable $beforeSend = null,
+    ): array {
         NoticeTenantContext::verificationTenantId($executionContext, $context, 'notice.verification.send');
         $stored = $this->bindingConfig($context);
-        $provider = strtolower(trim((string)($stored['sms_default'] ?? '')));
+        $provider = strtolower(trim((string) ($stored['sms_default'] ?? '')));
         $config = in_array($provider, self::PROVIDERS, true)
             ? self::providerConfig($stored, $provider)
             : [];
@@ -169,7 +168,7 @@ final class NoticeChannelService
             return self::result(
                 SmsDriverResult::OUTCOME_UNKNOWN,
                 $provider,
-                self::sanitizeError('短信服务商调用结果未知', $mobile, $config)
+                self::sanitizeError('短信服务商调用结果未知', $mobile, $config),
             );
         }
     }
@@ -179,7 +178,7 @@ final class NoticeChannelService
         string $outcome,
         string $provider,
         string $error,
-        array $result = []
+        array $result = [],
     ): array {
         return [
             'success' => $outcome === SmsDriverResult::OUTCOME_SUCCEEDED,
@@ -212,13 +211,13 @@ final class NoticeChannelService
         if (is_array($value)) {
             return $value;
         }
-        $decoded = json_decode((string)$value, true);
+        $decoded = json_decode((string) $value, true);
         return is_array($decoded) ? $decoded : [];
     }
 
     private static function complete(string $provider, array $config): bool
     {
-        if ((int)($config['status'] ?? 0) !== 1) {
+        if ((int) ($config['status'] ?? 0) !== 1) {
             return false;
         }
         $required = $provider === 'aliyun'
@@ -229,7 +228,7 @@ final class NoticeChannelService
             return false;
         }
         foreach ($required as $field) {
-            if (trim((string)($config[$field] ?? '')) === '') {
+            if (trim((string) ($config[$field] ?? '')) === '') {
                 return false;
             }
         }
@@ -240,8 +239,7 @@ final class NoticeChannelService
         string $provider,
         array $config,
         OutboundHttpTransport $transport,
-    ): SmsDriver
-    {
+    ): SmsDriver {
         return match ($provider) {
             'aliyun' => new AliyunSms($config, $transport),
             'tencent' => new TencentSms($config, $transport),
@@ -253,8 +251,8 @@ final class NoticeChannelService
     {
         $secrets = [$mobile];
         foreach (['access_key_secret', 'secret_key'] as $field) {
-            if (trim((string)($config[$field] ?? '')) !== '') {
-                $secrets[] = (string)$config[$field];
+            if (trim((string) ($config[$field] ?? '')) !== '') {
+                $secrets[] = (string) $config[$field];
             }
         }
         return mb_substr(str_replace($secrets, '[redacted]', $error), 0, 500);
@@ -266,13 +264,13 @@ final class NoticeChannelService
             return array_intersect_key($result, array_flip(['Code', 'Message', 'RequestId', 'BizId']));
         }
         $response = is_array($result['Response'] ?? null) ? $result['Response'] : [];
-        $receipt = ['RequestId' => (string)($response['RequestId'] ?? '')];
+        $receipt = ['RequestId' => (string) ($response['RequestId'] ?? '')];
         $receipt['SendStatusSet'] = array_map(
             static fn(array $status): array => array_intersect_key(
                 $status,
-                array_flip(['Code', 'Message', 'SerialNo'])
+                array_flip(['Code', 'Message', 'SerialNo']),
             ),
-            is_array($response['SendStatusSet'] ?? null) ? $response['SendStatusSet'] : []
+            is_array($response['SendStatusSet'] ?? null) ? $response['SendStatusSet'] : [],
         );
         return $receipt;
     }

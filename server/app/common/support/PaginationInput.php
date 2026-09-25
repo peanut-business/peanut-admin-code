@@ -35,8 +35,8 @@ final readonly class PaginationInput
         int $defaultPage = 1,
         int $defaultPageSize = 15,
     ): self {
-        $page = (int)($params['page_no'] ?? $params['page'] ?? $defaultPage);
-        $pageSize = (int)($params['page_size'] ?? $params['limit'] ?? $defaultPageSize);
+        $page = (int) ($params['page_no'] ?? $params['page'] ?? $defaultPage);
+        $pageSize = (int) ($params['page_size'] ?? $params['limit'] ?? $defaultPageSize);
 
         // PageRequest is the single validation source for normal page bounds.
         return new self(new PageRequest($page, $pageSize));

@@ -48,9 +48,12 @@ export function getNoticeSceneList() {
 }
 
 export function getNoticeSceneDetail(id: number) {
-  return axios.get<NoticeSceneRecord>('/adminapi/official.notification.scene.detail', {
-    params: { id },
-  });
+  return axios.get<NoticeSceneRecord>(
+    '/adminapi/official.notification.scene.detail',
+    {
+      params: { id },
+    }
+  );
 }
 
 export function saveNoticeScene(
@@ -62,20 +65,22 @@ export function saveNoticeScene(
   return axios.post('/adminapi/official.notification.scene.save', data);
 }
 
-export type ChannelSection =
-  | 'sms_default'
-  | 'sms_aliyun'
-  | 'sms_tencent';
+export type ChannelSection = 'sms_default' | 'sms_aliyun' | 'sms_tencent';
 
 export function getNoticeChannelDetail() {
-  return axios.get<NoticeChannelDetail>('/adminapi/official.notification.channel.detail');
+  return axios.get<NoticeChannelDetail>(
+    '/adminapi/official.notification.channel.detail'
+  );
 }
 
 export function saveNoticeChannel(
   section: ChannelSection,
   data: Record<string, unknown>
 ) {
-  return axios.post('/adminapi/official.notification.channel.save', { section, ...data });
+  return axios.post('/adminapi/official.notification.channel.save', {
+    section,
+    ...data,
+  });
 }
 
 // ─── 发送日志 ─────────────────────────────────────────────────────────────────
@@ -112,13 +117,19 @@ export function getNoticeLogList(params?: {
   page_no?: number;
   page_size?: number;
 }) {
-  return axios.get<PageData<NoticeLogRecord>>('/adminapi/official.notification.log.list', {
-    params,
-  });
+  return axios.get<PageData<NoticeLogRecord>>(
+    '/adminapi/official.notification.log.list',
+    {
+      params,
+    }
+  );
 }
 
 export function getNoticeLogDetail(id: number) {
-  return axios.get<NoticeLogRecord>('/adminapi/official.notification.log.detail', {
-    params: { id },
-  });
+  return axios.get<NoticeLogRecord>(
+    '/adminapi/official.notification.log.detail',
+    {
+      params: { id },
+    }
+  );
 }

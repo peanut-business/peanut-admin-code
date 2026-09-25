@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -31,17 +32,17 @@ final readonly class ModuleCatalogMutationRepository
                 'target_types' => 'pa_target_type',
                 'data_conditions' => 'pa_data_condition_definition',
             ] as $manifestKey => $table) {
-                foreach ((array)($catalog[$manifestKey] ?? []) as $entry) {
+                foreach ((array) ($catalog[$manifestKey] ?? []) as $entry) {
                     if (is_array($entry) && is_string($entry['key'] ?? null)) {
                         $declared[$table][$moduleKey][] = $entry['key'];
                     }
                 }
             }
-            foreach ((array)($catalog['protected_resources'] ?? []) as $resource) {
+            foreach ((array) ($catalog['protected_resources'] ?? []) as $resource) {
                 if (!is_array($resource) || !is_string($resource['key'] ?? null)) {
                     continue;
                 }
-                foreach ((array)($resource['operations'] ?? []) as $operation) {
+                foreach ((array) ($resource['operations'] ?? []) as $operation) {
                     if (is_array($operation) && is_string($operation['key'] ?? null)) {
                         $operations[$resource['key'] . "\0" . $operation['key']] = true;
                     }
@@ -62,8 +63,8 @@ final readonly class ModuleCatalogMutationRepository
             ->field('operation.id,resource.key AS resource_key,operation.operation')->order('operation.id')->select()->toArray();
         $missingOperationIds = [];
         foreach ($rows as $row) {
-            if (!isset($operations[(string)$row['resource_key'] . "\0" . (string)$row['operation']])) {
-                $missingOperationIds[] = (string)$row['id'];
+            if (!isset($operations[(string) $row['resource_key'] . "\0" . (string) $row['operation']])) {
+                $missingOperationIds[] = (string) $row['id'];
             }
         }
         if ($missingOperationIds === []) {
@@ -82,7 +83,7 @@ final readonly class ModuleCatalogMutationRepository
         $keys = [];
         foreach (['pa_permission', 'pa_protected_resource', 'pa_target_type', 'pa_data_condition_definition', 'pa_menu_definition', 'pa_setting_definition'] as $table) {
             foreach (Db::table($table)->where('status', 'active')->distinct(true)->order('module_key')->column('module_key') as $key) {
-                $key = (string)$key;
+                $key = (string) $key;
                 if (!in_array($key, ['core', 'platform'], true)) {
                     $keys[$key] = true;
                 }
@@ -153,7 +154,7 @@ final readonly class ModuleCatalogMutationRepository
         }
         $this->sortEntries($removed);
         $this->sortEntries($preserved);
-        usort($blockers, static fn(array $a, array $b): int => strcmp((string)$a['code'], (string)$b['code']));
+        usort($blockers, static fn(array $a, array $b): int => strcmp((string) $a['code'], (string) $b['code']));
         return ['removed' => $removed, 'preserved' => $preserved, 'blockers' => $blockers];
     }
 

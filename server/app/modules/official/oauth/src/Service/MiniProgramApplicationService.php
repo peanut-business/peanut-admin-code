@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Service;
@@ -17,23 +18,22 @@ class MiniProgramApplicationService
     public function __construct(
         private readonly ExternalChannelBindings $bindings,
         private readonly FileReferences $files,
-    ) {
-    }
+    ) {}
 
     public function getConfig(TenantContext $context, string $domain): array
     {
         $stored = $this->bindings->config($context, ExternalProvider::WECHAT_MINI_PROGRAM);
-        $qrCode = (string)($stored['qr_code'] ?? '');
-        $secret = (string)($stored['app_secret'] ?? '');
+        $qrCode = (string) ($stored['qr_code'] ?? '');
+        $secret = (string) ($stored['app_secret'] ?? '');
         $domains = self::domainConfig($domain);
 
         return [
-            'name'                 => (string)($stored['name'] ?? ''),
-            'original_id'          => (string)($stored['original_id'] ?? ''),
+            'name'                 => (string) ($stored['name'] ?? ''),
+            'original_id'          => (string) ($stored['original_id'] ?? ''),
             'qr_code'              => $this->files->getFileUrl($qrCode),
-            'app_id'               => (string)($stored['app_id'] ?? ''),
+            'app_id'               => (string) ($stored['app_id'] ?? ''),
             'app_secret'           => $secret !== '' ? '******' : '',
-            'app_secret_configured'=> $secret !== '',
+            'app_secret_configured' => $secret !== '',
             'request_domain'       => $domains['https'],
             'socket_domain'        => $domains['wss'],
             'upload_file_domain'   => $domains['https'],
@@ -46,8 +46,8 @@ class MiniProgramApplicationService
     public function setConfig(TenantContext $context, array $params): bool
     {
         $current = $this->bindings->config($context, ExternalProvider::WECHAT_MINI_PROGRAM);
-        $currentSecret = (string)($current['app_secret'] ?? '');
-        $incomingSecret = trim((string)$params['app_secret']);
+        $currentSecret = (string) ($current['app_secret'] ?? '');
+        $incomingSecret = trim((string) $params['app_secret']);
         $secret = $incomingSecret === '******' ? $currentSecret : $incomingSecret;
         if ($secret === '') {
             throw BusinessException::invalid('OAUTH_APP_SECRET_REQUIRED', 'AppSecret 不能为空');

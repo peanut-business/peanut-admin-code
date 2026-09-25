@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Service;
@@ -34,8 +35,7 @@ final readonly class PlatformDiagnosticBundleService
         private TenantAuditDiagnosticQuery $tenantAuditDiagnostics,
         private string $deploymentMode,
         private bool $debugEnabled,
-    ) {
-    }
+    ) {}
 
     /** @return array{json:string,sha256:string,filename:string,bytes:int} */
     public function create(PlatformContext $context, int $windowMinutes): array
@@ -151,8 +151,8 @@ final readonly class PlatformDiagnosticBundleService
             ->field('task_type,status')->fieldRaw("COALESCE(last_error_code, 'TASK_ERROR_UNSPECIFIED') AS error_code,COUNT(*) AS occurrences,MAX(updated_at) AS last_seen_at")
             ->group('task_type,status,last_error_code')->order('last_seen_at', 'desc')->order('task_type')->limit(100)->select()->toArray();
         foreach ($rows as $row) {
-            $taskType = (string)($row['task_type'] ?? '');
-            $errorCode = (string)($row['error_code'] ?? '');
+            $taskType = (string) ($row['task_type'] ?? '');
+            $errorCode = (string) ($row['error_code'] ?? '');
             $groups[] = [
                 'task_type' => preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', $taskType) === 1
                     ? $taskType
@@ -161,9 +161,9 @@ final readonly class PlatformDiagnosticBundleService
                 'error_code' => preg_match('/^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/D', $errorCode) === 1
                     ? $errorCode
                     : 'TASK_ERROR_REDACTED',
-                'occurrences' => min(1000000, max(1, (int)($row['occurrences'] ?? 1))),
+                'occurrences' => min(1000000, max(1, (int) ($row['occurrences'] ?? 1))),
                 'last_seen_at' => $this->instant(new DateTimeImmutable(
-                    $this->databaseValue((string)($row['last_seen_at'] ?? '')),
+                    $this->databaseValue((string) ($row['last_seen_at'] ?? '')),
                     new DateTimeZone('UTC'),
                 )),
             ];

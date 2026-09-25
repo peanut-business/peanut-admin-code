@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\RichText\Controller;
@@ -31,7 +32,7 @@ final class RichTextDocumentController extends BaseAdminController
             'collaboration',
             $this->request->get(),
         );
-        return $this->data($this->documents->collaboration((int)$params['id']));
+        return $this->data($this->documents->collaboration((int) $params['id']));
     }
 
     protected function resolveCrudContext(): TenantContext
@@ -51,7 +52,7 @@ final class RichTextDocumentController extends BaseAdminController
 
     protected function performDetail(mixed $_context, array $params): array
     {
-        return $this->documents->detail((int)$params['id']);
+        return $this->documents->detail((int) $params['id']);
     }
 
     protected function performAdd(mixed $_context, array $params): bool
@@ -66,6 +67,6 @@ final class RichTextDocumentController extends BaseAdminController
 
     protected function performDelete(mixed $_context, array $params): bool
     {
-        return $this->documents->delete((int)$params['id']);
+        return $this->documents->delete((int) $params['id']);
     }
 }

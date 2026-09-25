@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\dto\payment;
@@ -16,9 +17,18 @@ final class PrepayResult
         $this->payload = $payload;
     }
 
-    public function channel(): string { return $this->channel; }
-    public function scene(): string { return $this->scene; }
-    public function payload(): array { return $this->payload; }
+    public function channel(): string
+    {
+        return $this->channel;
+    }
+    public function scene(): string
+    {
+        return $this->scene;
+    }
+    public function payload(): array
+    {
+        return $this->payload;
+    }
 
     public function toArray(): array
     {

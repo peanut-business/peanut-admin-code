@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Service;
@@ -10,9 +11,7 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 
 class DictDataApplicationService
 {
-    public function __construct(private readonly DictionaryRuntime $dictionaryRuntime)
-    {
-    }
+    public function __construct(private readonly DictionaryRuntime $dictionaryRuntime) {}
 
     /** 分页列表：按 type_id 过滤，支持 name(模糊) / is_disable */
     public function lists(TenantContext $context, array $params): PageResult
@@ -48,7 +47,7 @@ class DictDataApplicationService
     public function byType(TenantContext $context, string $typeValue): array
     {
         return array_map(
-            static fn ($entry): array => $entry->toArray(),
+            static fn($entry): array => $entry->toArray(),
             $this->dictionaryRuntime->enabledByType($context, $typeValue),
         );
     }
@@ -62,12 +61,12 @@ class DictDataApplicationService
     public function add(TenantContext $context, array $params): bool
     {
         $this->dictionaryRuntime->createEntry($context, [
-            'name'       => (string)$params['name'],
-            'value'      => (string)$params['value'],
-            'type_id'    => (int)$params['type_id'],
-            'sort'       => (int)($params['sort'] ?? 0),
-            'is_disable' => (int)($params['is_disable'] ?? 0),
-            'remark'     => (string)($params['remark'] ?? ''),
+            'name'       => (string) $params['name'],
+            'value'      => (string) $params['value'],
+            'type_id'    => (int) $params['type_id'],
+            'sort'       => (int) ($params['sort'] ?? 0),
+            'is_disable' => (int) ($params['is_disable'] ?? 0),
+            'remark'     => (string) ($params['remark'] ?? ''),
         ]);
         return true;
     }

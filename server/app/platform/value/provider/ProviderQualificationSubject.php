@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\value\provider;
@@ -35,7 +36,7 @@ final readonly class ProviderQualificationSubject
         return implode("\0", [
             $this->providerKey,
             $this->scopeType,
-            (string)($this->tenantId ?? 0),
+            (string) ($this->tenantId ?? 0),
             $this->scopeReference,
         ]);
     }

@@ -12,7 +12,5 @@ final class OwnedMigration
     public const OWNED_TABLES = ['pa_fixture_delivery_record'];
     public const REVERSIBLE = false;
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

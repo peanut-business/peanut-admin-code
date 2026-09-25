@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\persistence;
@@ -12,6 +13,6 @@ trait ConvertsModelPage
     {
         return $page->map(static fn(mixed $item): array => $item instanceof Model
             ? $item->toArray()
-            : (array)$item);
+            : (array) $item);
     }
 }

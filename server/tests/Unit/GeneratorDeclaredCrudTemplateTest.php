@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -199,13 +200,13 @@ final class GeneratorDeclaredCrudTemplateTest extends TestCase
     private static function constantBlock(string $source, string $constant): string
     {
         preg_match('/private const ' . preg_quote($constant, '/') . ' = (.*?);/s', $source, $matches);
-        return (string)($matches[1] ?? '');
+        return (string) ($matches[1] ?? '');
     }
 
     private static function interfaceBlock(string $source, string $interface): string
     {
         preg_match('/export interface ' . preg_quote($interface, '/') . ' \{(.*?)\}/s', $source, $matches);
-        return (string)($matches[1] ?? '');
+        return (string) ($matches[1] ?? '');
     }
 
     private static function evaluatePhp(string $source): array

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\value\plugin;
@@ -25,8 +26,7 @@ final readonly class PluginDescriptor
         public array $frontend,
         public array $moduleRoots,
         public array $trust = [],
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function publicIdentity(): array
@@ -54,7 +54,7 @@ final readonly class PluginDescriptor
 
         return [
             'status' => $bundled ? 'eligible' : 'blocked',
-            'channel' => (string)($this->trust['channel'] ?? 'unknown'),
+            'channel' => (string) ($this->trust['channel'] ?? 'unknown'),
             'marketplace' => [
                 'status' => 'blocked',
                 'blockers' => [

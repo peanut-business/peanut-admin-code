@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -10,9 +11,7 @@ use PeanutAdmin\Kernel\Context\TenantSystemContext;
 
 class SearchApplicationService
 {
-    public function __construct(private readonly TenantApplicationSettingService $applicationSettings)
-    {
-    }
+    public function __construct(private readonly TenantApplicationSettingService $applicationSettings) {}
 
     /** 热门搜索列表 */
     public function hotLists(TenantContext|TenantSystemContext $context): array
@@ -24,7 +23,7 @@ class SearchApplicationService
             ->toArray();
 
         return [
-            'status' => (int)$this->applicationSettings->hotSearch($context)['status'],
+            'status' => (int) $this->applicationSettings->hotSearch($context)['status'],
             'data'   => $data,
         ];
     }

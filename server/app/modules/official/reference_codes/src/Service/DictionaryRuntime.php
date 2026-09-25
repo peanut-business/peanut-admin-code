@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Service;
@@ -40,7 +41,7 @@ final class DictionaryRuntime implements DictionaryQuery, TenantDictionaryComman
 
     public function enabledTypes(TenantContext $context): array
     {
-        return array_map(fn (DictionaryType $type): DictionaryTypeDto => DictionaryTypeDto::fromCore($type), $this->core->enabledTypes($context));
+        return array_map(fn(DictionaryType $type): DictionaryTypeDto => DictionaryTypeDto::fromCore($type), $this->core->enabledTypes($context));
     }
 
     public function entry(TenantContext $context, int $id): ?DictionaryEntryDto
@@ -51,7 +52,7 @@ final class DictionaryRuntime implements DictionaryQuery, TenantDictionaryComman
     public function enabledByType(TenantContext $context, string $type): array
     {
         return array_map(
-            fn (array $entry): DictionaryEntryDto => DictionaryEntryDto::fromCore(DictionaryEntry::fromArray($entry, (string) ($entry['source'] ?? 'tenant'))),
+            fn(array $entry): DictionaryEntryDto => DictionaryEntryDto::fromCore(DictionaryEntry::fromArray($entry, (string) ($entry['source'] ?? 'tenant'))),
             $this->core->enabledByType($context, $type),
         );
     }
@@ -59,7 +60,7 @@ final class DictionaryRuntime implements DictionaryQuery, TenantDictionaryComman
     public function systemEntriesByType(string $type): array
     {
         return array_map(
-            fn (DictionaryEntry $entry): DictionaryEntryDto => DictionaryEntryDto::fromCore($entry),
+            fn(DictionaryEntry $entry): DictionaryEntryDto => DictionaryEntryDto::fromCore($entry),
             $this->systemProviderEntries($type),
         );
     }
@@ -107,7 +108,7 @@ final class DictionaryRuntime implements DictionaryQuery, TenantDictionaryComman
     private function toPage(DictionaryPage $page): DictionaryPageDto
     {
         $items = array_map(
-            static fn (DictionaryType|DictionaryEntry $item): DictionaryTypeDto|DictionaryEntryDto
+            static fn(DictionaryType|DictionaryEntry $item): DictionaryTypeDto|DictionaryEntryDto
                 => $item instanceof DictionaryType ? DictionaryTypeDto::fromCore($item) : DictionaryEntryDto::fromCore($item),
             $page->items,
         );

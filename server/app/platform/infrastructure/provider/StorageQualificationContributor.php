@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\provider;
@@ -25,15 +26,15 @@ final readonly class StorageQualificationContributor implements ProviderQualific
             ->group('a.id,a.account_key,a.driver,a.credential_ciphertext,a.credential_key_version,a.credential_rotated_at,a.status,a.updated_at')
             ->order('a.id')->select()->toArray();
         return array_map(function (array $row): ProviderQualificationSubject {
-            $driver = (string)$row['driver'];
-            $configured = (string)$row['status'] === 'active'
-                && (int)$row['active_space_count'] > 0
+            $driver = (string) $row['driver'];
+            $configured = (string) $row['status'] === 'active'
+                && (int) $row['active_space_count'] > 0
                 && ($driver === 'local' || (
-                    trim((string)$row['credential_ciphertext']) !== ''
-                    && trim((string)$row['credential_key_version']) !== ''
-                    && trim((string)$row['credential_rotated_at']) !== ''
+                    trim((string) $row['credential_ciphertext']) !== ''
+                    && trim((string) $row['credential_key_version']) !== ''
+                    && trim((string) $row['credential_rotated_at']) !== ''
                 ));
-            $payload = implode("\0", array_map(static fn(mixed $value): string => (string)$value, [
+            $payload = implode("\0", array_map(static fn(mixed $value): string => (string) $value, [
                 $row['id'], $row['account_key'], $driver, $row['credential_ciphertext'],
                 $row['credential_key_version'], $row['credential_rotated_at'], $row['status'],
                 $row['updated_at'], $row['active_space_count'], $row['space_updated_at'],
@@ -43,10 +44,10 @@ final readonly class StorageQualificationContributor implements ProviderQualific
                 'storage',
                 'instance',
                 null,
-                (string)$row['account_key'],
+                (string) $row['account_key'],
                 $configured,
                 false,
-                $driver === 'local' ? null : $this->iso((string)$row['credential_rotated_at']),
+                $driver === 'local' ? null : $this->iso((string) $row['credential_rotated_at']),
                 hash_hmac('sha256', $payload, $this->digestKey),
             );
         }, $rows);

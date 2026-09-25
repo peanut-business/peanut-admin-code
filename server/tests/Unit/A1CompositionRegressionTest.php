@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit\A1Composition;
@@ -41,10 +42,16 @@ final class A1CompositionRegressionTest extends TestCase
         $contexts = new ExecutionContextStore();
         $current = new CurrentExecutionContext($contexts);
         $runtime = new ThinkPhpTaskJobRuntime(
-            new TaskJobStore(), str_repeat('fixture-', 8), $contexts, $current,
+            new TaskJobStore(),
+            str_repeat('fixture-', 8),
+            $contexts,
+            $current,
             new AdminDirectoryQuery($current),
             new ModuleExecutionBoundary($current, $this->createStub(ModuleRuntimeRepository::class)),
-            new CrontabCommandService([], []), static fn(): int => 0, [], 1,
+            new CrontabCommandService([], []),
+            static fn(): int => 0,
+            [],
+            1,
         );
         self::assertInstanceOf(TrustedJobPublisher::class, $runtime->publisher());
         self::assertInstanceOf(TaskJobService::class, $runtime->jobs());
@@ -54,8 +61,20 @@ final class A1CompositionRegressionTest extends TestCase
     {
         $now = new DateTimeImmutable('2026-09-21T00:00:00Z');
         $body = '{"fixture":true}';
-        $delivery = new WebhookDelivery(1, 101, 'endpoint-fixture', 'delivery-fixture', 'fixture.created',
-            $body, hash('sha256', $body), 'https://fixture.example/path', 'fixture-ciphertext', 'fixture-key', 1, 'fixture-lease');
+        $delivery = new WebhookDelivery(
+            1,
+            101,
+            'endpoint-fixture',
+            'delivery-fixture',
+            'fixture.created',
+            $body,
+            hash('sha256', $body),
+            'https://fixture.example/path',
+            'fixture-ciphertext',
+            'fixture-key',
+            1,
+            'fixture-lease',
+        );
         $repository = $this->createMock(IntegrationSecurityRepository::class);
         $repository->expects(self::once())->method('claimDelivery')->with(101, self::isString(), 30, $now)->willReturn($delivery);
         $repository->expects(self::once())->method('completeDelivery')->with($delivery, 204, 1, $now);
@@ -87,15 +106,24 @@ final class A1CompositionRegressionTest extends TestCase
         $current = new CurrentExecutionContext($contexts);
         $app->instance(CurrentExecutionContext::class, $current);
         $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            301, 'fixture-session', 101, 201, 301, 'admin-web', new DateTimeImmutable('2031-01-01T00:00:00Z'), 1,
+            301,
+            'fixture-session',
+            101,
+            201,
+            301,
+            'admin-web',
+            new DateTimeImmutable('2031-01-01T00:00:00Z'),
+            1,
         ), 'fixture-export');
         $result = ['url' => '/fixture/download', 'file_name' => 'fixture.xlsx'];
         $service = $this->createMock(RechargeAdministrationService::class);
         $service->expects(self::once())->method('lists')->with($tenant, ['export' => 2])->willReturn($result);
         $app->instance(RechargeAdministrationService::class, $service);
         try {
-            $response = $contexts->run(new AdminExecutionContext($tenant, 'fixture.export', ['id' => 301]),
-                static fn() => (new RechargeController($app))->lists());
+            $response = $contexts->run(
+                new AdminExecutionContext($tenant, 'fixture.export', ['id' => 301]),
+                static fn() => (new RechargeController($app))->lists(),
+            );
             self::assertSame(200, $response->getCode());
             self::assertSame(['code' => 20000, 'msg' => '', 'data' => $result], $response->getData());
             self::assertTrue($contexts->isEmpty());

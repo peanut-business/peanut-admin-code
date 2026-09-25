@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\decoration;
@@ -17,7 +18,7 @@ class DecorationPageController extends BaseAdminController
     {
         return $this->data($this->decorationPages->lists(
             $this->tenantAdminContext(),
-            DecorationEnum::MOBILE_TYPES
+            DecorationEnum::MOBILE_TYPES,
         ));
     }
 
@@ -40,7 +41,7 @@ class DecorationPageController extends BaseAdminController
     {
         return $this->data($this->decorationPages->lists(
             $this->tenantAdminContext(),
-            [DecorationEnum::PC_HOME]
+            [DecorationEnum::PC_HOME],
         ));
     }
 
@@ -55,7 +56,7 @@ class DecorationPageController extends BaseAdminController
         $this->validate($params, DecorationPageValidate::class . '.article');
         return $this->data($this->decorationPages->articleOptions(
             $this->tenantAdminContext(),
-            (int)($params['limit'] ?? 20)
+            (int) ($params['limit'] ?? 20),
         ));
     }
 
@@ -65,8 +66,8 @@ class DecorationPageController extends BaseAdminController
         $this->validate($params, DecorationPageValidate::class . '.detail');
         return $this->data($this->decorationPages->detail(
             $this->tenantAdminContext(),
-            (int)$params['id'],
-            $allowedTypes
+            (int) $params['id'],
+            $allowedTypes,
         ));
     }
 
@@ -77,7 +78,7 @@ class DecorationPageController extends BaseAdminController
         $this->decorationPages->save(
             $this->tenantAdminContext(),
             $params,
-            $allowedTypes
+            $allowedTypes,
         );
         return $this->success('保存成功');
     }

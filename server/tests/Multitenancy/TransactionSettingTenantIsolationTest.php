@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\adminapi\application\setting\TransactionSettingsApplicationService;
@@ -32,7 +33,7 @@ function transactionTenantContext(int $tenantId, int $memberId, string $requestI
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT03TRANSACTION' . str_pad((string)$memberId, 10, '0', STR_PAD_LEFT),
+        '01JMT03TRANSACTION' . str_pad((string) $memberId, 10, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 10000,
         $memberId,
@@ -48,7 +49,7 @@ function transactionPdo(string $host, int $port, string $user, string $password,
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
     );
 }
 
@@ -71,21 +72,21 @@ INSERT INTO pa_tenant
 VALUES
   (101, 'default', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
+    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
     expectTransactionTenant($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
 }
 
 $serverRoot = dirname(__DIR__, 2);
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
 );
 $database = transactionDatabase($admin);
 
@@ -104,15 +105,15 @@ VALUES
 SQL);
 
     expectTransactionTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_transaction_setting')->fetchColumn() === 2,
-        'fresh Tenants did not receive explicit transaction policies'
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_transaction_setting')->fetchColumn() === 2,
+        'fresh Tenants did not receive explicit transaction policies',
     );
     foreach ([101, 202] as $tenantId) {
         $row = $pdo->query("SELECT * FROM pa_transaction_setting WHERE tenant_id = {$tenantId}")->fetch(PDO::FETCH_ASSOC);
-        expectTransactionTenant((int)$row['cancel_unpaid_orders'] === 1, "Tenant {$tenantId} lost the fresh cancel mode");
-        expectTransactionTenant((int)$row['cancel_unpaid_orders_times'] === 30, "Tenant {$tenantId} lost the fresh cancel threshold");
-        expectTransactionTenant((int)$row['verification_orders'] === 1, "Tenant {$tenantId} lost the fresh verification mode");
-        expectTransactionTenant((int)$row['verification_orders_times'] === 24, "Tenant {$tenantId} lost the fresh verification threshold");
+        expectTransactionTenant((int) $row['cancel_unpaid_orders'] === 1, "Tenant {$tenantId} lost the fresh cancel mode");
+        expectTransactionTenant((int) $row['cancel_unpaid_orders_times'] === 30, "Tenant {$tenantId} lost the fresh cancel threshold");
+        expectTransactionTenant((int) $row['verification_orders'] === 1, "Tenant {$tenantId} lost the fresh verification mode");
+        expectTransactionTenant((int) $row['verification_orders_times'] === 24, "Tenant {$tenantId} lost the fresh verification threshold");
     }
     try {
         $pdo->exec('INSERT INTO pa_transaction_setting (tenant_id, cancel_unpaid_orders_times, verification_orders_times) VALUES (202, 60, 48)');
@@ -158,14 +159,14 @@ SQL);
         'Beta transaction policy was not updated',
     );
     expectTransactionTenant(
-        (int)app(ExecutionContextStore::class)->run(
+        (int) app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($alpha, 'test.transaction-settings.query.alpha'),
             fn() => TransactionSetting::where([])->count(),
         ) === 1,
         'Alpha query crossed Tenant boundary',
     );
     expectTransactionTenant(
-        (int)app(ExecutionContextStore::class)->run(
+        (int) app(ExecutionContextStore::class)->run(
             new \app\common\execution\AdminExecutionContext($beta, 'test.transaction-settings.query.beta'),
             fn() => TransactionSetting::where([])->count(),
         ) === 1,
@@ -200,8 +201,8 @@ SQL);
         ]),
     );
     expectTransactionTenant(
-        (int)$pdo->query('SELECT tenant_id FROM pa_transaction_setting WHERE tenant_id = 303')->fetchColumn() === 303,
-        'payload forged new policy Tenant ownership'
+        (int) $pdo->query('SELECT tenant_id FROM pa_transaction_setting WHERE tenant_id = 303')->fetchColumn() === 303,
+        'payload forged new policy Tenant ownership',
     );
 
     try {

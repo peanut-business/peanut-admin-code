@@ -80,7 +80,11 @@
         <el-col :span="24">
           <el-card class="general-card">
             <template #header>{{ $t('workplace.shortcuts.title') }}</template>
-            <el-row v-if="workbench.menu.length > 0" :gutter="12" class="shortcut-grid">
+            <el-row
+              v-if="workbench.menu.length > 0"
+              :gutter="12"
+              class="shortcut-grid"
+            >
               <el-col
                 v-for="item in workbench.menu"
                 :key="item.url"
@@ -106,7 +110,11 @@
         <el-col :xs="24" :lg="16">
           <el-card class="general-card">
             <template #header>{{ $t('workplace.visitor.title') }}</template>
-            <Chart v-if="hasVisitorData" height="320px" :option="visitorOption" />
+            <Chart
+              v-if="hasVisitorData"
+              height="320px"
+              :option="visitorOption"
+            />
             <el-empty
               v-else
               class="workplace-empty workplace-empty--chart"
@@ -129,7 +137,11 @@
         <el-col :span="24">
           <el-card class="general-card">
             <template #header>{{ $t('workplace.support.title') }}</template>
-            <el-row v-if="supportItems.length > 0" :gutter="16" class="support-grid">
+            <el-row
+              v-if="supportItems.length > 0"
+              :gutter="16"
+              class="support-grid"
+            >
               <el-col
                 v-for="item in supportItems"
                 :key="item.title"

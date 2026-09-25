@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -28,13 +29,13 @@ final class BundlePack extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         return $this->runPackageCommand($output, function () use ($input): array {
-            $key = trim((string)$input->getArgument('bundle_key'));
-            $version = trim((string)$input->getArgument('version'));
+            $key = trim((string) $input->getArgument('bundle_key'));
+            $version = trim((string) $input->getArgument('version'));
             return (new PluginPackageArchiveService(dirname(__DIR__, 2)))->packBundle(
                 $key,
                 $version,
-                array_values((array)$input->getArgument('module_keys')),
-                $this->packageOutput($key, $version, trim((string)$input->getOption('output'))),
+                array_values((array) $input->getArgument('module_keys')),
+                $this->packageOutput($key, $version, trim((string) $input->getOption('output'))),
                 $this->packageSigner($input),
             );
         });

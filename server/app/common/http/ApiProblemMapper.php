@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\http;
@@ -42,7 +43,7 @@ final class ApiProblemMapper
                 $exception->getMessage(),
             ),
             $exception instanceof ValidateException => ApiProblem::fromEnvelope(
-                (string)$exception->getError(),
+                (string) $exception->getError(),
             ),
             $exception instanceof \InvalidArgumentException => new ApiProblem(
                 'INVALID_ARGUMENT',
@@ -113,8 +114,8 @@ final class ApiProblemMapper
         return match (true) {
             in_array($errorCode, ['MODULE_REGISTRY_UNAVAILABLE', 'PLUGIN_LOCK_INVALID', 'PLUGIN_ARTIFACT_MISMATCH'], true) => 503,
             str_contains($errorCode, 'PLAN_CHANGED'), str_contains($errorCode, 'CONFLICT'), str_contains($errorCode, 'DEPENDENT'),
-                str_contains($errorCode, 'TENANT_MODULE_ACTIVE'), str_contains($errorCode, 'STATE'), str_contains($errorCode, 'IN_PROGRESS'),
-                $errorCode === 'MODULE_UNINSTALL_BLOCKED', $errorCode === 'MODULE_CREATE_TARGET_EXISTS' => 409,
+            str_contains($errorCode, 'TENANT_MODULE_ACTIVE'), str_contains($errorCode, 'STATE'), str_contains($errorCode, 'IN_PROGRESS'),
+            $errorCode === 'MODULE_UNINSTALL_BLOCKED', $errorCode === 'MODULE_CREATE_TARGET_EXISTS' => 409,
             default => 422,
         };
     }

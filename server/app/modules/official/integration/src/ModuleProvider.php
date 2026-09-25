@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration;
@@ -60,7 +61,7 @@ final class ModuleProvider implements ModuleProviderContract
     private function machineScopes(App $app): array
     {
         $scopes = [];
-        foreach (explode(',', (string)$app->config->get('integration.machine_scopes', '')) as $scope) {
+        foreach (explode(',', (string) $app->config->get('integration.machine_scopes', '')) as $scope) {
             $scope = trim($scope);
             if ($scope !== '') {
                 $scopes[$scope] = true;
@@ -73,8 +74,8 @@ final class ModuleProvider implements ModuleProviderContract
 
     private function webhookSecrets(App $app): WebhookSecretProtector
     {
-        $keyId = trim((string)$app->config->get('integration.webhook_secret_key_id', ''));
-        $key = trim((string)$app->config->get('integration.webhook_secret_key', ''));
+        $keyId = trim((string) $app->config->get('integration.webhook_secret_key_id', ''));
+        $key = trim((string) $app->config->get('integration.webhook_secret_key', ''));
         if ($keyId === '' || $key === '') {
             return new UnavailableWebhookSecretProtector();
         }

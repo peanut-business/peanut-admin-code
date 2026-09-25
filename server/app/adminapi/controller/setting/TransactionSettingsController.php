@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\setting;
@@ -18,7 +19,7 @@ class TransactionSettingsController extends BaseAdminController
     public function getConfig()
     {
         return $this->data($this->transactionSettings->getConfig(
-            $this->tenantAdminContext()
+            $this->tenantAdminContext(),
         ));
     }
 
@@ -48,7 +49,7 @@ class TransactionSettingsController extends BaseAdminController
 
         $this->transactionSettings->setConfig(
             $this->tenantAdminContext(),
-            $post
+            $post,
         );
         return $this->success('操作成功');
     }

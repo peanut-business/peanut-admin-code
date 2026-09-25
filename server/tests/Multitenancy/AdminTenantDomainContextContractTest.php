@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -28,11 +29,11 @@ foreach ([
     );
 }
 
-$current = (string)file_get_contents($serverRoot . '/app/common/execution/CurrentExecutionContext.php');
-$store = (string)file_get_contents($serverRoot . '/app/common/execution/ExecutionContextStore.php');
-$base = (string)file_get_contents($serverRoot . '/app/BaseController.php');
-$adminBase = (string)file_get_contents($serverRoot . '/app/adminapi/controller/BaseAdminController.php');
-$publicMiddleware = (string)file_get_contents($serverRoot . '/app/api/middleware/PublicTenantModuleMiddleware.php');
+$current = (string) file_get_contents($serverRoot . '/app/common/execution/CurrentExecutionContext.php');
+$store = (string) file_get_contents($serverRoot . '/app/common/execution/ExecutionContextStore.php');
+$base = (string) file_get_contents($serverRoot . '/app/BaseController.php');
+$adminBase = (string) file_get_contents($serverRoot . '/app/adminapi/controller/BaseAdminController.php');
+$publicMiddleware = (string) file_get_contents($serverRoot . '/app/api/middleware/PublicTenantModuleMiddleware.php');
 expectAdminTenantDomainContext(
     str_contains($current, 'function tenantAdmin(): TenantContext')
         && str_contains($current, 'function member(): AuthenticatedMemberContext')

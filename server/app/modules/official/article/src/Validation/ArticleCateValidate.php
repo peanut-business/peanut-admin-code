@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Article\Validation;
@@ -99,7 +100,7 @@ class ArticleCateValidate extends TenantContextValidate
             return '操作对象数量须在1到100之间';
         }
         foreach ($value as $id) {
-            if ((!is_int($id) && !(is_string($id) && ctype_digit($id))) || (int)$id <= 0) {
+            if ((!is_int($id) && !(is_string($id) && ctype_digit($id))) || (int) $id <= 0) {
                 return '操作对象 ID 无效';
             }
         }

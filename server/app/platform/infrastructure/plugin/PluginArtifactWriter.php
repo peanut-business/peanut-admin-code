@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -16,9 +17,7 @@ final readonly class PluginArtifactWriter
     public function __construct(
         private string $serverRoot,
         private bool $validateJsonSchema = true,
-    )
-    {
-    }
+    ) {}
 
     /** @param list<string> $moduleSpecs @return array<string,mixed> */
     public function build(string $key, string $version, array $moduleSpecs): array
@@ -46,7 +45,7 @@ final readonly class PluginArtifactWriter
     public function make(string $key, string $version, array $moduleSpecs): array
     {
         $manifest = $this->build($key, $version, $moduleSpecs);
-        $key = (string)$manifest['key'];
+        $key = (string) $manifest['key'];
 
         $path = $this->projectRoot() . '/plugins/' . $key . '/plugin.json';
         $this->writeJson($path, $manifest);
@@ -70,12 +69,12 @@ final readonly class PluginArtifactWriter
             }
             $key = $this->key($manifest['key'] ?? '');
             $moduleRoots = [];
-            foreach ((array)($manifest['modules'] ?? []) as $module) {
+            foreach ((array) ($manifest['modules'] ?? []) as $module) {
                 if (!is_array($module)) {
                     throw new PluginArtifactToolException("Plugin manifest modules are invalid: {$key}");
                 }
                 $moduleKey = $this->key($module['key'] ?? '');
-                $moduleRoots[$moduleKey] = (string)($module['root'] ?? '');
+                $moduleRoots[$moduleKey] = (string) ($module['root'] ?? '');
             }
             $expectedManifest = $this->manifest(
                 $key,
@@ -120,7 +119,7 @@ final readonly class PluginArtifactWriter
     {
         $built = $this->lock();
         $path = $this->projectRoot() . '/plugins.lock';
-        if (!is_file($path) || !hash_equals($built['contents'], (string)file_get_contents($path))) {
+        if (!is_file($path) || !hash_equals($built['contents'], (string) file_get_contents($path))) {
             throw new PluginArtifactToolException('plugins.lock is not canonical; run plugin:lock --write.');
         }
         return ['path' => $this->relative($path), 'plugins' => count($built['plugins'])];
@@ -229,7 +228,7 @@ final readonly class PluginArtifactWriter
             $module = $this->readJson($absoluteRoot . '/module.json');
             $backend = is_array($module['backend'] ?? null) ? $module['backend'] : [];
             $dependencies = [];
-            foreach ((array)($module['dependencies'] ?? []) as $dependency) {
+            foreach ((array) ($module['dependencies'] ?? []) as $dependency) {
                 if (!is_array($dependency)) {
                     throw new PluginArtifactToolException("Module dependency is invalid: {$moduleKey}");
                 }
@@ -258,7 +257,7 @@ final readonly class PluginArtifactWriter
                     'files' => $this->migrationFingerprints($absoluteRoot, $moduleKey, $backend),
                 ],
             ];
-            $licenses[] = trim((string)($module['license'] ?? ''));
+            $licenses[] = trim((string) ($module['license'] ?? ''));
         }
         $this->sortIdentities($modules, 'key');
         $licenses = array_values(array_unique($licenses));
@@ -309,7 +308,9 @@ final readonly class PluginArtifactWriter
         foreach (array_values($resolvedDirectories) as $resolved) {
             foreach (glob($resolved . '/*.sql') ?: [] as $path) {
                 $key = $moduleKey . ':' . basename($path, '.sql');
-                if (isset($files[$key])) throw new PluginArtifactToolException("Duplicate Module migration: {$key}");
+                if (isset($files[$key])) {
+                    throw new PluginArtifactToolException("Duplicate Module migration: {$key}");
+                }
                 $files[$key] = ['key' => $key, 'sha256' => $this->digest($path)];
             }
         }
@@ -336,15 +337,21 @@ final readonly class PluginArtifactWriter
         foreach ($roots as $root) {
             $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
             foreach ($iterator as $file) {
-                if (!$file->isFile() || $file->isLink()) continue;
+                if (!$file->isFile() || $file->isLink()) {
+                    continue;
+                }
                 $relative = $this->relative($file->getPathname());
-                if (isset($files[$relative])) throw new PluginArtifactToolException('Duplicate canonical Plugin file.');
+                if (isset($files[$relative])) {
+                    throw new PluginArtifactToolException('Duplicate canonical Plugin file.');
+                }
                 $files[$relative] = $this->digest($file->getPathname());
             }
         }
         ksort($files, SORT_STRING);
         $canonical = '';
-        foreach ($files as $relative => $digest) $canonical .= $relative . "\0" . $digest . "\n";
+        foreach ($files as $relative => $digest) {
+            $canonical .= $relative . "\0" . $digest . "\n";
+        }
         return hash('sha256', $canonical);
     }
 
@@ -353,7 +360,7 @@ final readonly class PluginArtifactWriter
     {
         $schemaPath = $this->serverRoot . '/resources/schemas/plugin.schema.json';
         try {
-            $schema = json_decode((string)file_get_contents($schemaPath), false, 512, JSON_THROW_ON_ERROR);
+            $schema = json_decode((string) file_get_contents($schemaPath), false, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw new PluginArtifactToolException('Plugin schema is invalid.');
         }
@@ -365,13 +372,15 @@ final readonly class PluginArtifactWriter
                 json_encode($document, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
                 false,
                 512,
-                JSON_THROW_ON_ERROR
+                JSON_THROW_ON_ERROR,
             );
         } catch (\JsonException $exception) {
             throw new PluginArtifactToolException('Plugin manifest cannot be encoded for schema validation.', 0, $exception);
         }
         $result = (new Validator())->validate($documentObject, $schema);
-        if ($result->isValid()) return;
+        if ($result->isValid()) {
+            return;
+        }
         $details = $result->error() === null ? [] : (new ErrorFormatter())->formatKeyed($result->error());
         throw new PluginArtifactToolException('Plugin manifest schema validation failed: ' . json_encode($details, JSON_UNESCAPED_SLASHES));
     }
@@ -379,9 +388,14 @@ final readonly class PluginArtifactWriter
     /** @return array<string,mixed> */
     private function readJson(string $path): array
     {
-        try { $value = json_decode((string)file_get_contents($path), true, 128, JSON_THROW_ON_ERROR); }
-        catch (\JsonException) { throw new PluginArtifactToolException("JSON file is invalid: {$path}"); }
-        if (!is_array($value) || array_is_list($value)) throw new PluginArtifactToolException("JSON object is invalid: {$path}");
+        try {
+            $value = json_decode((string) file_get_contents($path), true, 128, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new PluginArtifactToolException("JSON file is invalid: {$path}");
+        }
+        if (!is_array($value) || array_is_list($value)) {
+            throw new PluginArtifactToolException("JSON object is invalid: {$path}");
+        }
         return $value;
     }
 
@@ -407,7 +421,7 @@ final readonly class PluginArtifactWriter
 
     private function key(mixed $value): string
     {
-        $value = trim((string)$value);
+        $value = trim((string) $value);
         if (preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', $value) !== 1 || strlen($value) > 96) {
             throw new PluginArtifactToolException('Plugin key is invalid.');
         }
@@ -416,7 +430,7 @@ final readonly class PluginArtifactWriter
 
     private function version(mixed $value): string
     {
-        $value = trim((string)$value);
+        $value = trim((string) $value);
         if (preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/D', $value) !== 1 || strlen($value) > 32) {
             throw new PluginArtifactToolException('Plugin version is invalid.');
         }
@@ -425,7 +439,7 @@ final readonly class PluginArtifactWriter
 
     private function versionConstraint(mixed $value): string
     {
-        $value = trim((string)$value);
+        $value = trim((string) $value);
         if ($value === '' || strlen($value) > 64) {
             throw new PluginArtifactToolException('Module version constraint is invalid.');
         }
@@ -434,34 +448,52 @@ final readonly class PluginArtifactWriter
 
     private function packageName(mixed $value, string $kind): string
     {
-        $value = trim((string)$value);
-        if ($value === '') throw new PluginArtifactToolException("{$kind} package name is invalid.");
+        $value = trim((string) $value);
+        if ($value === '') {
+            throw new PluginArtifactToolException("{$kind} package name is invalid.");
+        }
         return $value;
     }
 
     private function digest(string $path): string
     {
         $digest = hash_file('sha256', $path);
-        if (!is_string($digest)) throw new PluginArtifactToolException("Cannot digest Plugin file: {$path}");
+        if (!is_string($digest)) {
+            throw new PluginArtifactToolException("Cannot digest Plugin file: {$path}");
+        }
         return $digest;
     }
 
-    private function projectRoot(): string { return realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot); }
+    private function projectRoot(): string
+    {
+        return realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot);
+    }
     private function relative(string $path): string
     {
         $path = realpath($path) ?: $path;
         return ltrim(substr($path, strlen($this->projectRoot())), '/');
     }
     /** @param list<array<string,mixed>> $items */
-    private function sortIdentities(array &$items, string $field): void { usort($items, static fn(array $a, array $b): int => strcmp((string)$a[$field], (string)$b[$field])); }
+    private function sortIdentities(array &$items, string $field): void
+    {
+        usort($items, static fn(array $a, array $b): int => strcmp((string) $a[$field], (string) $b[$field]));
+    }
     /** @param array<string,mixed> $value */
-    private function encode(array $value): string { return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n"; }
+    private function encode(array $value): string
+    {
+        return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    }
     /** @param array<string,mixed> $value */
-    private function writeJson(string $path, array $value): void { $this->writeContents($path, $this->encode($value)); }
+    private function writeJson(string $path, array $value): void
+    {
+        $this->writeContents($path, $this->encode($value));
+    }
     private function writeContents(string $path, string $contents): void
     {
         $directory = dirname($path);
-        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) throw new PluginArtifactToolException("Cannot create Plugin directory: {$directory}");
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new PluginArtifactToolException("Cannot create Plugin directory: {$directory}");
+        }
         $temporary = $path . '.tmp-' . bin2hex(random_bytes(8));
         if (file_put_contents($temporary, $contents, LOCK_EX) === false) {
             throw new PluginArtifactToolException("Cannot write Plugin file: {$path}");

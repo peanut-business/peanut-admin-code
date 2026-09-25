@@ -201,7 +201,7 @@ try {
     $inboxJob = $dispatcher->dispatch($manage101, $inboxOutbox->outboxKey);
     $replayedInboxJob = $dispatcher->dispatch($manage101, $inboxOutbox->outboxKey);
     same($inboxJob->jobKey, $replayedInboxJob->jobKey, 'inbox dispatch idempotency');
-    same(1, (int)$pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn(), 'inbox dispatch creates one job');
+    same(1, (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn(), 'inbox dispatch creates one job');
     $revalidator = new class implements AsyncAuthorizationRevalidator {
         public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext
         {
@@ -249,7 +249,7 @@ try {
     same('delivered', $pdo->query(
         'SELECT status FROM pa_notification_outbox WHERE outbox_key=' . $pdo->quote($inboxOutbox->outboxKey),
     )->fetchColumn(), 'inbox outbox delivered after recovery');
-    same(1, (int)$pdo->query(
+    same(1, (int) $pdo->query(
         "SELECT COUNT(*) FROM pa_notification_event WHERE event_key='tenant.notification.delivered'",
     )->fetchColumn(), 'inbox delivery event is de-duplicated');
 

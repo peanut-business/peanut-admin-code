@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\http\middleware;
@@ -17,12 +18,11 @@ final class MaintenanceWriteGateMiddleware
     public function __construct(
         private readonly AuditContractHost $audit,
         private readonly CurrentExecutionContext $executionContext,
-    ) {
-    }
+    ) {}
 
     public function handle($request, \Closure $next)
     {
-        if (!in_array(strtoupper((string)$request->method()), self::WRITE_METHODS, true)
+        if (!in_array(strtoupper((string) $request->method()), self::WRITE_METHODS, true)
             || $this->isMaintenanceControlRequest($request)
         ) {
             return $next($request);
@@ -39,10 +39,10 @@ final class MaintenanceWriteGateMiddleware
                     null,
                     null,
                     [
-                        'maintenance_key' => (string)$window['maintenance_key'],
-                        'reason_key' => (string)$window['reason_key'],
-                        'request_method' => strtoupper((string)$request->method()),
-                        'request_path' => trim((string)$request->pathinfo(), '/'),
+                        'maintenance_key' => (string) $window['maintenance_key'],
+                        'reason_key' => (string) $window['reason_key'],
+                        'request_method' => strtoupper((string) $request->method()),
+                        'request_path' => trim((string) $request->pathinfo(), '/'),
                     ],
                     AuditOutcome::Denied,
                     'MAINTENANCE_WRITE_BLOCKED',
@@ -79,8 +79,8 @@ final class MaintenanceWriteGateMiddleware
 
     private function isMaintenanceControlRequest($request): bool
     {
-        $method = strtoupper((string)$request->method());
-        $path = trim((string)$request->pathinfo(), '/');
+        $method = strtoupper((string) $request->method());
+        $path = trim((string) $request->pathinfo(), '/');
         return ($method === 'PUT' && $path === 'v1/ops/maintenance')
             || ($method === 'POST'
                 && preg_match('#^v1/ops/maintenance/maintenance_[a-f0-9]{32}/close$#D', $path) === 1);

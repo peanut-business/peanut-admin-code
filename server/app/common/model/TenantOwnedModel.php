@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\model;
@@ -30,7 +31,7 @@ abstract class TenantOwnedModel extends BaseModel
         $this->dataScopePolicy = $policy;
         if (!$policy->usesTenantColumn()) {
             $this->setOption('disuse', array_values(array_unique([
-                ...(array)$this->getOption('disuse', []),
+                ...(array) $this->getOption('disuse', []),
                 'tenant_id',
             ])));
         }

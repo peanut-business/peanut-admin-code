@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\policy\permission;
@@ -15,7 +16,7 @@ final class RegisteredAdminPermissionPolicy implements AdminPermissionPolicy
         bool $isRoot,
         string $accessUri,
         iterable $registeredPermissions,
-        iterable $grantedPermissions
+        iterable $grantedPermissions,
     ): bool {
         return (new CoreRegisteredAdminPermissionPolicy())->canAccess($isRoot, $accessUri, $registeredPermissions, $grantedPermissions);
     }

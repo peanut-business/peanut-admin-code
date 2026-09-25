@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Definition;
@@ -14,7 +15,7 @@ final readonly class DeployedSettingDefinitionRegistry
         $registry = new SettingDefinitionRegistry();
         $loader = new SettingDefinitionLoader();
         foreach ($this->modules->compiled()->modules as $manifest) {
-            $key = (string)($manifest->data['key'] ?? '');
+            $key = (string) ($manifest->data['key'] ?? '');
             $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : [];
             $resource = $backend['setting_definitions'] ?? null;
             $registry->registerModule($key, is_string($resource)

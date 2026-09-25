@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\installation\controller;
@@ -31,7 +32,7 @@ final class InstallationController extends BaseController
                 40300,
             );
         }
-        $authorization = trim((string)$this->request->header('Authorization', ''));
+        $authorization = trim((string) $this->request->header('Authorization', ''));
         $token = str_starts_with($authorization, 'Bearer ')
             ? trim(substr($authorization, strlen('Bearer ')))
             : '';
@@ -40,16 +41,16 @@ final class InstallationController extends BaseController
 
     private function sameOriginRequest(): bool
     {
-        $fetchSite = strtolower(trim((string)$this->request->header('Sec-Fetch-Site', '')));
+        $fetchSite = strtolower(trim((string) $this->request->header('Sec-Fetch-Site', '')));
         if ($fetchSite === 'cross-site') {
             return false;
         }
-        $origin = trim((string)$this->request->header('Origin', ''));
+        $origin = trim((string) $this->request->header('Origin', ''));
         if ($origin === '') {
             return true;
         }
         $originHost = parse_url($origin, PHP_URL_HOST);
-        $requestHost = explode(':', strtolower((string)$this->request->host()))[0];
+        $requestHost = explode(':', strtolower((string) $this->request->host()))[0];
         return is_string($originHost) && hash_equals($requestHost, strtolower($originHost));
     }
 }

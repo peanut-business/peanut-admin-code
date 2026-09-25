@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\http;
@@ -10,6 +11,5 @@ final readonly class OutboundHttpResponse
         public int $status,
         public string $body,
         public array $headers = [],
-    ) {
-    }
+    ) {}
 }

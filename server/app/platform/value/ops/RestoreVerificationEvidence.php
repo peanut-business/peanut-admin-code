@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\value\ops;
@@ -20,9 +21,7 @@ final readonly class RestoreVerificationEvidence
     public const STORAGE_VOLUME = 'peanut-admin-restore-verify_php-storage';
 
     /** @param array<string,mixed> $data */
-    private function __construct(private array $data)
-    {
-    }
+    private function __construct(private array $data) {}
 
     public static function fromJson(string $json): self
     {
@@ -108,7 +107,7 @@ final readonly class RestoreVerificationEvidence
             || preg_match('/^[a-f0-9]{64}$/D', $isolation['protected_runtime_before_sha256']) !== 1
             || !hash_equals(
                 $isolation['protected_runtime_before_sha256'],
-                $isolation['protected_runtime_after_sha256']
+                $isolation['protected_runtime_after_sha256'],
             )
         ) {
             throw new RuntimeException('OPS_RESTORE_ISOLATION_VIOLATION');
@@ -137,7 +136,7 @@ final readonly class RestoreVerificationEvidence
         return DateTimeImmutable::createFromFormat(
             '!Y-m-d\TH:i:s.v\Z',
             $value,
-            new DateTimeZone('UTC')
+            new DateTimeZone('UTC'),
         ) !== false;
     }
 

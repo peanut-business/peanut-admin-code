@@ -1,10 +1,10 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\log;
 
 use think\App;
-
 use app\adminapi\controller\BaseAdminController;
 use app\common\http\PageResult;
 use app\adminapi\services\log\OperationLogApplicationService;
@@ -16,19 +16,18 @@ class OperationLogController extends BaseAdminController
         App $app,
         private readonly OperationLogApplicationService $operationLogs,
         private readonly ModuleExecutionBoundary $modules,
-    )
-    {
+    ) {
         parent::__construct($app);
     }
 
     public function lists()
     {
-        if ((int)$this->request->get('export', 0) > 0) {
+        if ((int) $this->request->get('export', 0) > 0) {
             $this->assertExportModule();
         }
         $res = $this->operationLogs->lists(
-                $this->tenantAdminContext(),
-                $this->request->get()
+            $this->tenantAdminContext(),
+            $this->request->get(),
         );
         if (!$res instanceof PageResult) {
             return $this->data($res);
@@ -41,8 +40,8 @@ class OperationLogController extends BaseAdminController
         $this->operationLogs->clear(
             $this->tenantAdminContext(),
             $this->adminId,
-            (string)($this->adminInfo['username'] ?? ''),
-            (string)$this->request->ip()
+            (string) ($this->adminInfo['username'] ?? ''),
+            (string) $this->request->ip(),
         );
         return $this->success('操作成功');
     }

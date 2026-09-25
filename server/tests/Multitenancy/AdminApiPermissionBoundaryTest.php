@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -53,7 +54,7 @@ $accessConfig = require dirname(__DIR__, 2) . '/config/admin_api_access.php';
 $middleware = new AuthMiddleware(
     new CurrentExecutionContext($executionContexts),
     (new ReflectionClass(AdminAuthorizationService::class))->newInstanceWithoutConstructor(),
-    new AdminApiAccessRegistry((int)$accessConfig['version'], $accessConfig),
+    new AdminApiAccessRegistry((int) $accessConfig['version'], $accessConfig),
     (new ReflectionClass(DemoAccountPolicy::class))->newInstanceWithoutConstructor(),
 );
 $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
@@ -80,8 +81,14 @@ $next = static function ($request) use (&$nextCalls): string {
 };
 
 $anonymous = new class {
-    public function pathinfo(): string { return 'admin/self'; }
-    public function method(): string { return 'GET'; }
+    public function pathinfo(): string
+    {
+        return 'admin/self';
+    }
+    public function method(): string
+    {
+        return 'GET';
+    }
 };
 $anonymousDenial = problemPayload(static fn() => $middleware->handle($anonymous, $next));
 expectAdminApiBoundary($anonymousDenial === ['code' => 40100, 'msg' => '请先登录', 'data' => null], 'anonymous denial shape changed');
@@ -89,9 +96,18 @@ expectAdminApiBoundary($anonymousDenial === ['code' => 40100, 'msg' => '请先�
 $authenticated = new class {
     public array $adminInfo = ['id' => 7, 'tenant_id' => 101, 'root' => 0];
     public object $tenantContext;
-    public function __construct() { $this->tenantContext = new stdClass(); }
-    public function pathinfo(): string { return 'admin/self'; }
-    public function method(): string { return 'GET'; }
+    public function __construct()
+    {
+        $this->tenantContext = new stdClass();
+    }
+    public function pathinfo(): string
+    {
+        return 'admin/self';
+    }
+    public function method(): string
+    {
+        return 'GET';
+    }
 };
 expectAdminApiBoundary(
     $executionContexts->run($execution, static fn() => $middleware->handle($authenticated, $next)) === 'allowed',
@@ -102,9 +118,18 @@ expectAdminApiBoundary($nextCalls === 1, 'authenticated-only route did not reach
 $authenticatedWrongMethod = new class {
     public array $adminInfo = ['id' => 7, 'tenant_id' => 101, 'root' => 0];
     public object $tenantContext;
-    public function __construct() { $this->tenantContext = new stdClass(); }
-    public function pathinfo(): string { return 'admin/self'; }
-    public function method(): string { return 'POST'; }
+    public function __construct()
+    {
+        $this->tenantContext = new stdClass();
+    }
+    public function pathinfo(): string
+    {
+        return 'admin/self';
+    }
+    public function method(): string
+    {
+        return 'POST';
+    }
 };
 $wrongMethodDenial = problemPayload(static fn() => $executionContexts->run(
     $execution,
@@ -117,19 +142,19 @@ expectAdminApiBoundary(str_contains($routeSource, "\$peanutRouteApplication = 'a
 expectAdminApiBoundary(str_contains($routeSource, 'LoginMiddleware::class, AuthMiddleware::class'), 'Tenant Admin guard chain is missing');
 expectAdminApiBoundary(!str_contains($routeSource, "Route::group('platformapi'"), 'Platform routes must remain individually guarded');
 
-$loginSource = (string)file_get_contents(dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php');
+$loginSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php');
 expectAdminApiBoundary(str_contains($loginSource, "str_starts_with(\$token, 'pa_tat_')"), 'Tenant Admin token audience gate is missing');
 expectAdminApiBoundary(!str_contains($loginSource, 'pa_pat_'), 'Platform credential prefix must not enter Tenant Admin login middleware');
 
-$platformLoginSource = (string)file_get_contents(dirname(__DIR__, 2) . '/app/platform/http/middleware/PlatformLoginMiddleware.php');
-$platformPermissionSource = (string)file_get_contents(dirname(__DIR__, 2) . '/app/platform/http/middleware/PlatformPermissionMiddleware.php');
+$platformLoginSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/http/middleware/PlatformLoginMiddleware.php');
+$platformPermissionSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/platform/http/middleware/PlatformPermissionMiddleware.php');
 expectAdminApiBoundary(str_contains($platformPermissionSource, "str_starts_with(\$permission, 'platform.')"), 'Platform permission catalog boundary is missing');
 expectAdminApiBoundary(!str_contains($platformLoginSource, 'AdminTokenService'), 'Platform login must not use Tenant Admin sessions');
 
-$schema = strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/database/init.sql'));
+$schema = strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/database/init.sql'));
 $officialPermissions = $schema
-    . strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/payment/resources/permissions.json'))
-    . strtolower((string)file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/import_export/resources/permissions.json'));
+    . strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/payment/resources/permissions.json'))
+    . strtolower((string) file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/import_export/resources/permissions.json'));
 foreach (['admin/status', 'official.payment.recharge.refund', 'official.payment.refund.stat', 'official.import-export.operation.status'] as $exactPermission) {
     expectAdminApiBoundary(str_contains($officialPermissions, $exactPermission), 'exact status permission is missing: ' . $exactPermission);
 }

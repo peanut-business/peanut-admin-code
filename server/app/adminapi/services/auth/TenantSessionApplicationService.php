@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\auth;
@@ -28,11 +29,11 @@ final readonly class TenantSessionApplicationService
             $tenantCode = $this->entryBindings->loginTenantCode(
                 $request,
                 TenantEntryBindingResolver::ADMIN_CLIENT,
-                isset($params['tenant_code']) ? (string)$params['tenant_code'] : null,
+                isset($params['tenant_code']) ? (string) $params['tenant_code'] : null,
             );
             return $this->tenantAuth->login(
-                trim((string)($params['email'] ?? '')),
-                (string)($params['password'] ?? ''),
+                trim((string) ($params['email'] ?? '')),
+                (string) ($params['password'] ?? ''),
                 $tenantCode,
                 $request->ip(),
                 $request->header('User-Agent'),
@@ -54,11 +55,11 @@ final readonly class TenantSessionApplicationService
             $this->entryBindings->assertTenantAccess(
                 $request,
                 TenantEntryBindingResolver::ADMIN_CLIENT,
-                (int)($params['tenant_id'] ?? 0),
+                (int) ($params['tenant_id'] ?? 0),
             );
             return $this->tenantAuth->selectTenant(
-                trim((string)($params['challenge_token'] ?? '')),
-                (int)($params['tenant_id'] ?? 0),
+                trim((string) ($params['challenge_token'] ?? '')),
+                (int) ($params['tenant_id'] ?? 0),
                 $request->ip(),
                 $request->header('User-Agent'),
                 PlatformRequest::requestId($this->executionContext, $request),
@@ -102,7 +103,7 @@ final readonly class TenantSessionApplicationService
         try {
             $this->hostPolicy->assertTenantAdmin($request);
             return $this->tenantAuth->refresh(
-                trim((string)$request->cookie($this->tenantAuth->refreshCookieName(), '')),
+                trim((string) $request->cookie($this->tenantAuth->refreshCookieName(), '')),
                 $this->isTrustedBrowserOrigin($request),
                 $request->ip(),
                 $request->header('User-Agent'),
@@ -136,16 +137,16 @@ final readonly class TenantSessionApplicationService
 
     private function isTrustedBrowserOrigin(object $request): bool
     {
-        if (strtolower(trim((string)$request->header('Sec-Fetch-Site', ''))) !== 'same-origin') {
+        if (strtolower(trim((string) $request->header('Sec-Fetch-Site', ''))) !== 'same-origin') {
             return false;
         }
-        $origin = trim((string)$request->header('Origin', ''));
+        $origin = trim((string) $request->header('Origin', ''));
         $originHost = parse_url($origin, PHP_URL_HOST);
         if (!is_string($originHost) || $originHost === '') {
             return false;
         }
         return hash_equals(
-            TenantEntryBindingResolver::normalizeHost((string)$request->host()),
+            TenantEntryBindingResolver::normalizeHost((string) $request->host()),
             TenantEntryBindingResolver::normalizeHost($originHost),
         );
     }

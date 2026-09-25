@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Infrastructure;
@@ -21,8 +22,7 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
     public function __construct(
         private PaymentServiceFactory $payments,
         private CurrentExecutionContext $executionContext,
-    ) {
-    }
+    ) {}
 
     public function reconcile(object $scope, array $diagnostics): array
     {
@@ -35,8 +35,8 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
         $recordIds = [];
         $orderIds = [];
         foreach ($records as $record) {
-            $recordIds[] = (int)$record->id;
-            $orderIds[] = (int)$record->order_id;
+            $recordIds[] = (int) $record->id;
+            $orderIds[] = (int) $record->order_id;
         }
         $logsByRecord = [];
         if ($recordIds !== []) {
@@ -46,24 +46,24 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
                 ->order(['record_id' => 'asc', 'id' => 'desc'])
                 ->select();
             foreach ($logs as $candidate) {
-                $recordId = (int)$candidate->record_id;
+                $recordId = (int) $candidate->record_id;
                 $logsByRecord[$recordId] ??= $candidate;
             }
         }
         $ordersById = [];
         if ($orderIds !== []) {
             foreach (RechargeOrder::where([])->whereIn('id', $orderIds)->select() as $candidate) {
-                $ordersById[(int)$candidate->id] = $candidate;
+                $ordersById[(int) $candidate->id] = $candidate;
             }
         }
 
         $checked = 0;
         $settled = 0;
         foreach ($records as $record) {
-            $log = $logsByRecord[(int)$record->id] ?? null;
-            $order = $ordersById[(int)$record->order_id] ?? null;
+            $log = $logsByRecord[(int) $record->id] ?? null;
+            $order = $ordersById[(int) $record->order_id] ?? null;
             if (!is_object($log) || !is_object($order)) {
-                $this->warning('refund_reconcile_related_data_missing', $diagnostics, (int)$record->id);
+                $this->warning('refund_reconcile_related_data_missing', $diagnostics, (int) $record->id);
                 continue;
             }
 
@@ -80,21 +80,21 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
     private function reconcileOne(object $scope, object $record, object $order, object $log, array $diagnostics): bool
     {
         try {
-            $channel = match ((int)$order->pay_way) {
+            $channel = match ((int) $order->pay_way) {
                 PaymentMethod::WECHAT => 'wechat',
                 PaymentMethod::ALIPAY => 'alipay',
                 default => throw new \runtimeException('支付方式异常'),
             };
             $result = $this->payments->forTenant($scope, $channel)->refund($channel)->query(
                 $order->getData(),
-                (string)$record->sn
+                (string) $record->sn,
             );
         } catch (\Throwable $e) {
-            $this->warning('refund_reconcile_gateway_query_failed', $diagnostics, (int)$record->id, $e);
+            $this->warning('refund_reconcile_gateway_query_failed', $diagnostics, (int) $record->id, $e);
             return false;
         }
 
-        $gatewayStatus = (string)($result['status'] ?? '');
+        $gatewayStatus = (string) ($result['status'] ?? '');
         if ($gatewayStatus === RefundGatewayInterface::STATUS_PENDING) {
             return false;
         }
@@ -102,7 +102,7 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
             RefundGatewayInterface::STATUS_SUCCESS,
             RefundGatewayInterface::STATUS_FAILED,
         ], true)) {
-            $this->warning('refund_reconcile_gateway_status_unknown', $diagnostics, (int)$record->id);
+            $this->warning('refund_reconcile_gateway_status_unknown', $diagnostics, (int) $record->id);
             return false;
         }
 
@@ -114,25 +114,25 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
                 $gatewayStatus,
                 $result,
             ): bool {
-                $lockedRecord = RefundRecord::where([])->where('id', (int)$record->id)
+                $lockedRecord = RefundRecord::where([])->where('id', (int) $record->id)
                     ->lock(true)
                     ->findOrEmpty();
-                $lockedLog = RefundLog::where([])->where('record_id', (int)$record->id)
+                $lockedLog = RefundLog::where([])->where('record_id', (int) $record->id)
                     ->order('id', 'desc')
                     ->lock(true)
                     ->findOrEmpty();
-                $lockedOrder = RechargeOrder::where([])->where('id', (int)$lockedRecord->order_id)
+                $lockedOrder = RechargeOrder::where([])->where('id', (int) $lockedRecord->order_id)
                     ->lock(true)
                     ->findOrEmpty();
 
                 $isCurrent = !$lockedRecord->isEmpty()
                     && !$lockedLog->isEmpty()
                     && !$lockedOrder->isEmpty()
-                    && (int)$lockedRecord->refund_status === RefundEnum::REFUND_ING
-                    && (string)$lockedRecord->order_type === RefundEnum::ORDER_TYPE_RECHARGE
-                    && (int)$lockedOrder->id === (int)$order->id
-                    && (int)$lockedLog->id === (int)$log->id
-                    && (int)$lockedLog->refund_status === RefundEnum::REFUND_ING;
+                    && (int) $lockedRecord->refund_status === RefundEnum::REFUND_ING
+                    && (string) $lockedRecord->order_type === RefundEnum::ORDER_TYPE_RECHARGE
+                    && (int) $lockedOrder->id === (int) $order->id
+                    && (int) $lockedLog->id === (int) $log->id
+                    && (int) $lockedLog->refund_status === RefundEnum::REFUND_ING;
                 if (!$isCurrent) {
                     return false;
                 }
@@ -147,7 +147,7 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
                 $lockedRecord->refund_msg = $message;
 
                 if ($finalStatus === RefundEnum::REFUND_SUCCESS) {
-                    $lockedOrder->refund_transaction_id = (string)($result['transaction_id'] ?? '');
+                    $lockedOrder->refund_transaction_id = (string) ($result['transaction_id'] ?? '');
                     $lockedOrder->save();
                 }
                 $lockedLog->save();
@@ -155,7 +155,7 @@ final readonly class ThinkPhpRefundReconciliationCommands implements RefundRecon
                 return true;
             });
         } catch (\Throwable $e) {
-            $this->warning('refund_reconcile_persist_failed', $diagnostics, (int)$record->id, $e);
+            $this->warning('refund_reconcile_persist_failed', $diagnostics, (int) $record->id, $e);
             return false;
         }
     }

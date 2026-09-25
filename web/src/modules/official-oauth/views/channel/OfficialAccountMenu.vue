@@ -83,7 +83,9 @@
                       "
                     />
                     <el-button
-                      v-permission="['official.oauth.official-account.menu.save']"
+                      v-permission="[
+                        'official.oauth.official-account.menu.save',
+                      ]"
                       type="danger"
                       link
                       @click="removeChild(item, childIndex)"

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
@@ -25,9 +26,9 @@ final class ApiMetadataCompletionTest extends TestCase
         $status = proc_close($process);
 
         try {
-            self::assertSame(0, $status, (string)$stderr);
-            self::assertStringContainsString('API-CONTRACT-CHECK-001 passed', (string)$stdout);
-            $document = json_decode((string)file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame(0, $status, (string) $stderr);
+            self::assertStringContainsString('API-CONTRACT-CHECK-001 passed', (string) $stdout);
+            $document = json_decode((string) file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR);
             $summary = $document['summary'];
             self::assertSame($summary['route_count'], $summary['generated_api_operations']);
             self::assertSame($summary['route_count'], $summary['complete_operations']);

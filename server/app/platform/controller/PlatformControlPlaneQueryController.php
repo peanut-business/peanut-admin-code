@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -45,7 +46,7 @@ final class PlatformControlPlaneQueryController extends BasePlatformController
         }
         return $this->data($this->queries->owner(
             $this->platformContext,
-            $this->positiveInteger($this->request->get('tenant_id'))
+            $this->positiveInteger($this->request->get('tenant_id')),
         ));
     }
 
@@ -69,11 +70,11 @@ final class PlatformControlPlaneQueryController extends BasePlatformController
 
     private function positiveInteger(mixed $value): int
     {
-        $candidate = is_int($value) ? (string)$value : trim((string)$value);
+        $candidate = is_int($value) ? (string) $value : trim((string) $value);
         if (preg_match('/^[1-9][0-9]*$/D', $candidate) !== 1 || filter_var($candidate, FILTER_VALIDATE_INT) === false) {
             throw AdminAccessException::invalid('ID_INVALID', 'A positive integer is required.');
         }
-        return (int)$candidate;
+        return (int) $candidate;
     }
 
 }

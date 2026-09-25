@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Service;
@@ -55,7 +56,7 @@ final class FileUploadService implements FileUploads
             if (!$category) {
                 throw new \InvalidArgumentException('目标分类不存在');
             }
-            if ((int)$category->type !== $type) {
+            if ((int) $category->type !== $type) {
                 throw new \InvalidArgumentException('上传类型与目标分类不一致');
             }
         }
@@ -65,12 +66,12 @@ final class FileUploadService implements FileUploads
             throw new \Exception('不允许上传 ' . ($ext ?: '未知') . ' 格式文件');
         }
         if ($uploaded->size > FileEnum::MAX_SIZE[$type]) {
-            $mb = (int)(FileEnum::MAX_SIZE[$type] / 1024 / 1024);
+            $mb = (int) (FileEnum::MAX_SIZE[$type] / 1024 / 1024);
             throw new \Exception('文件大小超过上限 ' . $mb . 'MB');
         }
 
         $originName = $uploaded->originalName;
-        $name = mb_substr((string)pathinfo($originName, PATHINFO_FILENAME), 0, 120) . '.' . $ext;
+        $name = mb_substr((string) pathinfo($originName, PATHINFO_FILENAME), 0, 120) . '.' . $ext;
         $imageMetadata = $type === FileEnum::IMAGE
             ? (new ImageMetadataInspector(FileEnum::MAX_SIZE[FileEnum::IMAGE]))->inspect($uploaded->path)
             : null;
@@ -85,7 +86,7 @@ final class FileUploadService implements FileUploads
         }
         $stored = $this->storage->storePath(
             $tenantId,
-            (int)$context->memberId,
+            (int) $context->memberId,
             $purpose,
             $uploaded->path,
             $name,
@@ -96,7 +97,14 @@ final class FileUploadService implements FileUploads
 
         try {
             $file = Db::transaction(function () use (
-                $cid, $sourceId, $source, $type, $name, $stored, $tenantId, $imageMetadata,
+                $cid,
+                $sourceId,
+                $source,
+                $type,
+                $name,
+                $stored,
+                $tenantId,
+                $imageMetadata,
             ): File {
                 $file = File::create([
                     'cid' => $cid,

@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
-const website = computed(() => useAppStore().website)
-useSeoMeta({ title: () => `关于我们 - ${website.value.pc_title}` })
+  definePageMeta({ layout: 'default' });
+  const website = computed(() => useAppStore().website);
+  useSeoMeta({ title: () => `关于我们 - ${website.value.pc_title}` });
 </script>

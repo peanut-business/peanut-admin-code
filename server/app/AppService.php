@@ -1,5 +1,6 @@
 <?php
-declare (strict_types = 1);
+
+declare (strict_types=1);
 
 namespace app;
 
@@ -207,16 +208,16 @@ class AppService extends Service
     private function registerAuthentication(): void
     {
         $this->app->bind(DemoAccountPolicy::class, fn(): DemoAccountPolicy => new DemoAccountPolicy(
-            (bool)Config::get('peanut.demo.enabled', false),
+            (bool) Config::get('peanut.demo.enabled', false),
             array_values(array_filter([
-                (string)Config::get('peanut.demo.admin_email', ''),
-                (string)Config::get('peanut.demo.platform_email', ''),
-                (string)Config::get('peanut.demo.tenant_a_email', ''),
-                (string)Config::get('peanut.demo.tenant_b_email', ''),
+                (string) Config::get('peanut.demo.admin_email', ''),
+                (string) Config::get('peanut.demo.platform_email', ''),
+                (string) Config::get('peanut.demo.tenant_a_email', ''),
+                (string) Config::get('peanut.demo.tenant_b_email', ''),
             ], static fn(string $email): bool => trim($email) !== '')),
         ));
         $this->app->bind(TenantAuthService::class, function (): TenantAuthService {
-            $key = trim((string)Config::get('tenant_auth.identifier_hmac_key', ''));
+            $key = trim((string) Config::get('tenant_auth.identifier_hmac_key', ''));
             if (strlen($key) < 32) {
                 throw new \DomainException('TENANT_AUTH_CONFIGURATION_UNAVAILABLE');
             }
@@ -232,12 +233,12 @@ class AppService extends Service
             $this->app->make(TenantAuthService::class),
         ));
         $this->app->bind(AdminLoginAttemptService::class, fn(): AdminLoginAttemptService => new AdminLoginAttemptService(
-            (int)Config::get('admin_auth.password_error_times', 5),
-            (int)Config::get('admin_auth.lock_minutes', 30),
+            (int) Config::get('admin_auth.password_error_times', 5),
+            (int) Config::get('admin_auth.lock_minutes', 30),
         ));
         $this->app->bind(UserTokenService::class, fn(): UserTokenService => new UserTokenService(
-            (string)Config::get('jwt.secret', ''),
-            (int)Config::get('jwt.expire', 0),
+            (string) Config::get('jwt.secret', ''),
+            (int) Config::get('jwt.expire', 0),
             $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberSessions::class),
         ));
     }
@@ -278,7 +279,7 @@ class AppService extends Service
         $this->app->bind(AdminApiAccessRegistry::class, function (): AdminApiAccessRegistry {
             $routes = Config::get('admin_api_access', []);
             return new AdminApiAccessRegistry(
-                (int)Config::get('admin_api_access.version', 0),
+                (int) Config::get('admin_api_access.version', 0),
                 is_array($routes) ? $routes : [],
             );
         });
@@ -300,16 +301,16 @@ class AppService extends Service
             $this->app->make(StorageDriverFactory::class),
             $this->app->make(DataScopePolicy::class),
             $this->app->make(DefaultTenantContextResolver::class),
-            (string)Config::get('jwt.secret', ''),
-            (string)$this->app->request->domain(),
+            (string) Config::get('jwt.secret', ''),
+            (string) $this->app->request->domain(),
         ));
         $this->app->bind(FileService::class, fn(): FileService => new FileService(
             $this->app->make(StorageService::class),
-            (string)$this->app->request->domain(),
+            (string) $this->app->request->domain(),
         ));
         $this->app->bind(ProductAssetReferenceService::class, fn(): ProductAssetReferenceService => new ProductAssetReferenceService(
             $this->app->make(FileService::class),
-            (string)$this->app->request->domain(),
+            (string) $this->app->request->domain(),
         ));
         $this->app->bind(StorageConfigurationService::class, fn(): StorageConfigurationService => new StorageConfigurationService(
             $this->app->make(AuditContractHost::class),
@@ -321,8 +322,8 @@ class AppService extends Service
         $this->app->bind(OwnerInvitationDeliveryPort::class, UnavailableOwnerInvitationDeliveryPort::class);
         $this->app->bind(OwnerInvitationRuntimePolicy::class, fn(): OwnerInvitationRuntimePolicy =>
             OwnerInvitationRuntimePolicy::fromEnvironment(
-                (string)Config::get('peanut.environment', ''),
-                (string)Config::get('platform_invitation.delivery_mode', 'auto'),
+                (string) Config::get('peanut.environment', ''),
+                (string) Config::get('platform_invitation.delivery_mode', 'auto'),
             ));
         $this->app->bind(TenantEntryBindingResolver::class, function (): TenantEntryBindingResolver {
             $mode = DeploymentMode::fromConfiguredValue(Config::get('deployment.mode'));
@@ -339,9 +340,9 @@ class AppService extends Service
             );
         });
         $this->app->bind(ApplicationHostPolicy::class, fn(): ApplicationHostPolicy => new ApplicationHostPolicy(
-            (string)Config::get('deployment.mode', ''),
-            self::hostList((string)Config::get('deployment.platform_hosts', '')),
-            self::hostList((string)Config::get('deployment.tenant_admin_hosts', '')),
+            (string) Config::get('deployment.mode', ''),
+            self::hostList((string) Config::get('deployment.platform_hosts', '')),
+            self::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
             $this->app->make(TenantEntryBindingResolver::class),
         ));
         $this->app->bind(DataScopePolicy::class, function (): DataScopePolicy {
@@ -484,8 +485,8 @@ class AppService extends Service
                 $this->app->make(ThinkPhpModuleGovernanceProvider::class),
                 $this->app->make(TaskDiagnosticQuery::class),
                 $this->app->make(TenantAuditDiagnosticQuery::class),
-                (string)Config::get('deployment.mode', ''),
-                (bool)Config::get('app.app_debug', false),
+                (string) Config::get('deployment.mode', ''),
+                (bool) Config::get('app.app_debug', false),
             );
         });
         $this->app->bind(PlatformUpgradeExecutionService::class, fn(): PlatformUpgradeExecutionService =>
@@ -523,8 +524,8 @@ class AppService extends Service
                 $this->app->make(PlatformOperatorIdentityQuery::class),
             ));
         $this->app->bind(CrontabCommandService::class, fn(): CrontabCommandService => new CrontabCommandService(
-            (array)Config::get('console.commands', []),
-            (array)Config::get('console.module_commands', []),
+            (array) Config::get('console.commands', []),
+            (array) Config::get('console.module_commands', []),
         ));
     }
 
@@ -534,16 +535,16 @@ class AppService extends Service
             $this->app->make(AdminAuthorizationService::class),
             $this->app->make(FileService::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
-            (string)Config::get('project.version', ''),
-            (string)Config::get('project.based', ''),
-            (array)Config::get('project.default_image', []),
+            (string) Config::get('project.version', ''),
+            (string) Config::get('project.based', ''),
+            (array) Config::get('project.default_image', []),
         ));
         $this->app->bind(ConfigApplicationService::class, fn(): ConfigApplicationService => new ConfigApplicationService(
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
             $this->app->make(FileService::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
-            (string)Config::get('project.default_image.user_avatar', ''),
+            (string) Config::get('project.default_image.user_avatar', ''),
         ));
         $this->app->bind(GeneratorService::class, fn(): GeneratorService => new GeneratorService(
             $this->app->make(GeneratorImportPersistence::class),
@@ -557,15 +558,15 @@ class AppService extends Service
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\app\common\services\decoration\DecorationReadService::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
-            (string)Config::get('project.version', ''),
+            (string) Config::get('project.version', ''),
             [
                 'enabled' => $this->app->make(DemoAccountPolicy::class)->enabled(),
-                'tenant_a_host' => (string)Config::get('peanut.demo.tenant_a_host', ''),
-                'tenant_b_host' => (string)Config::get('peanut.demo.tenant_b_host', ''),
-                'shared_hosts' => self::hostList((string)Config::get('deployment.tenant_admin_hosts', '')),
-                'tenant_a_email' => (string)Config::get('peanut.demo.tenant_a_email', ''),
-                'tenant_b_email' => (string)Config::get('peanut.demo.tenant_b_email', ''),
-                'password' => (string)Config::get('peanut.demo.shared_password', ''),
+                'tenant_a_host' => (string) Config::get('peanut.demo.tenant_a_host', ''),
+                'tenant_b_host' => (string) Config::get('peanut.demo.tenant_b_host', ''),
+                'shared_hosts' => self::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
+                'tenant_a_email' => (string) Config::get('peanut.demo.tenant_a_email', ''),
+                'tenant_b_email' => (string) Config::get('peanut.demo.tenant_b_email', ''),
+                'password' => (string) Config::get('peanut.demo.shared_password', ''),
             ],
         ));
         $this->app->bind(MemberLoginApplicationService::class, fn(): MemberLoginApplicationService => new MemberLoginApplicationService(
@@ -574,7 +575,7 @@ class AppService extends Service
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
             $this->app->make(FileService::class),
             $this->app->make(UserTokenService::class),
-            (string)Config::get('project.default_image.user_avatar', ''),
+            (string) Config::get('project.default_image.user_avatar', ''),
         ));
     }
 
@@ -593,8 +594,8 @@ class AppService extends Service
 
     private function databasePrefix(): string
     {
-        $connection = (string)Config::get('database.default', 'mysql');
-        return (string)Config::get('database.connections.' . $connection . '.prefix', '');
+        $connection = (string) Config::get('database.default', 'mysql');
+        return (string) Config::get('database.connections.' . $connection . '.prefix', '');
     }
 
     private function registerModules(): void
@@ -618,7 +619,7 @@ class AppService extends Service
             throw new \RuntimeException('MODULE_REGISTRY_UNAVAILABLE');
         }
         $serverRoot = dirname(__DIR__);
-        $lockPath = trim((string)($config['plugin_lock'] ?? ''));
+        $lockPath = trim((string) ($config['plugin_lock'] ?? ''));
         if ($lockPath === '') {
             throw new \RuntimeException('PLUGIN_LOCK_INVALID');
         }
@@ -645,7 +646,7 @@ class AppService extends Service
     private function trustedModuleKeys(): array
     {
         $trustedKeys = [];
-        foreach ((array)Config::get('module_packages.trusted_ed25519_keys', []) as $keyId => $encoded) {
+        foreach ((array) Config::get('module_packages.trusted_ed25519_keys', []) as $keyId => $encoded) {
             $decoded = is_string($encoded) ? base64_decode($encoded, true) : false;
             if (is_string($keyId) && is_string($decoded)
                 && strlen($decoded) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
@@ -657,7 +658,7 @@ class AppService extends Service
 
     private function platformIdentifierHmacKey(): string
     {
-        $key = trim((string)Config::get('platform_auth.identifier_hmac_key', ''));
+        $key = trim((string) Config::get('platform_auth.identifier_hmac_key', ''));
         // 平台认证标识依赖专用 HMAC 密钥；缺失或过短时必须在装配边界拒绝。
         if (strlen($key) < 32) {
             throw new \DomainException('PLATFORM_AUTH_CONFIGURATION_UNAVAILABLE');

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -207,8 +208,10 @@ final class GeneratorSoftDeleteContractTest extends TestCase
         self::assertTrue(mkdir($directory, 0775, true));
         try {
             foreach ($files as $file) {
-                if (($file['language'] ?? null) !== 'php') continue;
-                $path = $directory . '/' . str_replace('/', '-', (string)$file['path']);
+                if (($file['language'] ?? null) !== 'php') {
+                    continue;
+                }
+                $path = $directory . '/' . str_replace('/', '-', (string) $file['path']);
                 self::assertNotFalse(file_put_contents($path, $file['content']));
                 $process = proc_open(
                     [PHP_BINARY, '-l', $path],
@@ -222,7 +225,9 @@ final class GeneratorSoftDeleteContractTest extends TestCase
                 self::assertSame(0, proc_close($process), $file['path'] . "\n" . $output);
             }
         } finally {
-            foreach (glob($directory . '/*') ?: [] as $path) unlink($path);
+            foreach (glob($directory . '/*') ?: [] as $path) {
+                unlink($path);
+            }
             rmdir($directory);
         }
     }

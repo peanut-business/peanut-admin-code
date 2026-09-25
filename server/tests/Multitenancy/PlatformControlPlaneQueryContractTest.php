@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -12,9 +13,9 @@ function platformQueryExpect(bool $condition, string $message): void
 
 $serverRoot = dirname(__DIR__, 2);
 $queryPath = $serverRoot . '/app/platform/query/PlatformControlPlaneQueryService.php';
-$querySource = (string)file_get_contents($queryPath);
-$controllerSource = (string)file_get_contents(
-    $serverRoot . '/app/platform/controller/PlatformControlPlaneQueryController.php'
+$querySource = (string) file_get_contents($queryPath);
+$controllerSource = (string) file_get_contents(
+    $serverRoot . '/app/platform/controller/PlatformControlPlaneQueryController.php',
 );
 $routesSource = peanut_route_registry_source($serverRoot);
 
@@ -40,7 +41,7 @@ platformQueryExpect(
     str_contains($querySource, 'ModuleQualificationQuery')
         && str_contains($querySource, 'installedModules()')
         && str_contains($querySource, 'tenantModuleStates('),
-    'Platform Module catalog no longer consumes the Module Governance qualification contract'
+    'Platform Module catalog no longer consumes the Module Governance qualification contract',
 );
 
 $genericTenantList = strpos($routesSource, "tenants',");
@@ -56,17 +57,17 @@ foreach ([
     platformQueryExpect(
         str_contains($querySource, "function {$method}(")
             && str_contains($querySource, $permissionOrRole),
-        "Platform query contract missing: {$method}"
+        "Platform query contract missing: {$method}",
     );
     platformQueryExpect(
         str_contains($controllerSource, "function {$method}()"),
-        "Platform query controller method missing: {$method}"
+        "Platform query controller method missing: {$method}",
     );
 }
 foreach (['pa_member', 'pa_article', 'pa_recharge_order', 'pa_config', 'pa_file'] as $businessTable) {
     platformQueryExpect(
         !in_array($businessTable, $tables, true),
-        "Platform query crossed into a Tenant business table: {$businessTable}"
+        "Platform query crossed into a Tenant business table: {$businessTable}",
     );
 }
 foreach ([
@@ -78,7 +79,7 @@ foreach ([
     $specificPosition = strpos($routesSource, $specificRoute);
     platformQueryExpect(
         $specificPosition !== false && $specificPosition < $genericTenantList,
-        "generic Tenant list shadows specific route: {$specificRoute}"
+        "generic Tenant list shadows specific route: {$specificRoute}",
     );
 }
 

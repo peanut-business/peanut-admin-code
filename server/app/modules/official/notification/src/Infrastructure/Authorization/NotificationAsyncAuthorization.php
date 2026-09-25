@@ -63,9 +63,9 @@ final readonly class NotificationAsyncAuthorization
                 'manage',
                 [],
                 hash('sha256', implode("\0", [
-                    (string)$envelope->tenantId,
-                    (string)$envelope->memberId,
-                    (string)$principal->authorizationRevision,
+                    (string) $envelope->tenantId,
+                    (string) $envelope->memberId,
+                    (string) $principal->authorizationRevision,
                     Package::MANAGE_PERMISSION,
                     $envelope->operationId,
                 ])),

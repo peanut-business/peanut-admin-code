@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\plugin;
@@ -25,8 +26,7 @@ final class PluginRuntimeGovernanceService
         private readonly array $moduleConfig,
         private readonly ModuleCatalogApplier $catalogs,
         private readonly mixed $faultInjector = null,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function preview(string $moduleOrPackageKey, bool $purge): array
@@ -75,7 +75,7 @@ final class PluginRuntimeGovernanceService
             || !is_array($confirmPlan['blockers'] ?? null)) {
             throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed Module uninstall plan is invalid.');
         }
-        $packageKey = (string)$confirmPlan['package_key'];
+        $packageKey = (string) $confirmPlan['package_key'];
         if (!$this->inputBelongsToPackage($moduleOrPackageKey, $packageKey)) {
             throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed package key differs.');
         }
@@ -165,7 +165,9 @@ final class PluginRuntimeGovernanceService
         $blockers = [...$catalog['blockers'], ...$this->lifecycleBlockers($scope, $purge)];
         $ownedTables = [];
         foreach ($scope['affected_modules'] as $module) {
-            foreach ($module['owned_tables'] as $table) $ownedTables[] = $table;
+            foreach ($module['owned_tables'] as $table) {
+                $ownedTables[] = $table;
+            }
         }
         sort($ownedTables, SORT_STRING);
         if ($purge) {
@@ -177,7 +179,7 @@ final class PluginRuntimeGovernanceService
         }
         $this->sortPlanEntries($removed);
         $this->sortPlanEntries($preserved);
-        usort($blockers, static fn(array $a, array $b): int => strcmp((string)$a['code'], (string)$b['code']));
+        usort($blockers, static fn(array $a, array $b): int => strcmp((string) $a['code'], (string) $b['code']));
         return [
             'schema_version' => 1,
             'package_key' => $scope['package_key'],
@@ -208,12 +210,14 @@ final class PluginRuntimeGovernanceService
                 break;
             }
         }
-        if (!$descriptor instanceof PluginDescriptor) return null;
+        if (!$descriptor instanceof PluginDescriptor) {
+            return null;
+        }
         $affected = [];
         $seenTables = [];
         foreach ($descriptor->moduleRoots as $moduleKey => $root) {
             $manifest = (new ManifestLoader())->load($root);
-            $owned = array_values((array)($manifest->data['database']['owned_tables'] ?? []));
+            $owned = array_values((array) ($manifest->data['database']['owned_tables'] ?? []));
             sort($owned, SORT_STRING);
             foreach ($owned as $table) {
                 if (!is_string($table) || preg_match('/^pa_[a-z0-9_]+$/D', $table) !== 1 || isset($seenTables[$table])) {
@@ -243,21 +247,25 @@ final class PluginRuntimeGovernanceService
             ->where('plugin.status', 'uninstalled')->whereNull('plugin.last_error_code')
             ->distinct(true)->field('plugin.plugin_key,plugin.installed_version,plugin.artifact_sha256')
             ->order('plugin.plugin_key')->select()->toArray();
-        if ($installation === []) return null;
+        if ($installation === []) {
+            return null;
+        }
         if (count($installation) !== 1) {
             throw new PluginLifecycleException('MODULE_QUARANTINE_CONFLICT', 'Retired Module package identity is ambiguous.');
         }
 
-        $packageKey = (string)$installation[0]['plugin_key'];
+        $packageKey = (string) $installation[0]['plugin_key'];
         $quarantines = $this->quarantineDirectories($packageKey);
-        if ($quarantines === []) return null;
+        if ($quarantines === []) {
+            return null;
+        }
         if (count($quarantines) !== 1) {
             throw new PluginLifecycleException('MODULE_QUARANTINE_CONFLICT', 'Retired Module package has multiple quarantine identities.');
         }
         $quarantine = $quarantines[0];
         $pluginManifestPath = $quarantine . '/plugins/' . $packageKey . '/plugin.json';
         try {
-            $plugin = json_decode((string)file_get_contents($pluginManifestPath), true, 128, JSON_THROW_ON_ERROR);
+            $plugin = json_decode((string) file_get_contents($pluginManifestPath), true, 128, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw new PluginLifecycleException('MODULE_QUARANTINE_INVALID', 'Retired Module package manifest is invalid.');
         }
@@ -288,10 +296,10 @@ final class PluginRuntimeGovernanceService
             }
             $manifest = (new ManifestLoader())->load($root);
             if (!isset($ownedManifests[$key->value()])
-                || !hash_equals((string)$ownedManifests[$key->value()], $manifest->digest)) {
+                || !hash_equals((string) $ownedManifests[$key->value()], $manifest->digest)) {
                 throw new PluginLifecycleException('MODULE_QUARANTINE_INVALID', 'Retired Module manifest digest changed.');
             }
-            $owned = array_values((array)($manifest->data['database']['owned_tables'] ?? []));
+            $owned = array_values((array) ($manifest->data['database']['owned_tables'] ?? []));
             sort($owned, SORT_STRING);
             foreach ($owned as $table) {
                 if (!is_string($table) || preg_match('/^pa_[a-z0-9_]+$/D', $table) !== 1 || isset($seenTables[$table])) {
@@ -326,7 +334,7 @@ final class PluginRuntimeGovernanceService
         $protected = [];
         foreach ($scope['affected_modules'] as $module) {
             if (($module['lifecycle_protected'] ?? false) === true) {
-                $protected[] = (string)$module['module_key'];
+                $protected[] = (string) $module['module_key'];
             }
         }
         sort($protected, SORT_STRING);
@@ -339,23 +347,33 @@ final class PluginRuntimeGovernanceService
         }
         $enabled = array_map('strval', Db::name('tenant_module')->whereIn('module_key', $moduleKeys)
             ->where('status', 'enabled')->order('module_key')->column('module_key'));
-        if ($enabled !== []) $blockers[] = ['code' => 'PLUGIN_TENANT_MODULE_ACTIVE', 'kind' => 'tenant_enablement', 'identifiers' => $enabled];
+        if ($enabled !== []) {
+            $blockers[] = ['code' => 'PLUGIN_TENANT_MODULE_ACTIVE', 'kind' => 'tenant_enablement', 'identifiers' => $enabled];
+        }
 
         $dependents = ModuleLifecyclePolicy::activeBusinessDependents(
             new PluginLockResolver(
                 $this->serverRoot,
-                (string)($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
+                (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
             ),
             $moduleKeys,
         );
-        if ($dependents !== []) $blockers[] = ['code' => 'MODULE_DEPENDENT_INSTALLED', 'kind' => 'business_dependency', 'identifiers' => array_values(array_unique($dependents))];
+        if ($dependents !== []) {
+            $blockers[] = ['code' => 'MODULE_DEPENDENT_INSTALLED', 'kind' => 'business_dependency', 'identifiers' => array_values(array_unique($dependents))];
+        }
 
         if ($purge) {
             $owned = [];
-            foreach ($scope['affected_modules'] as $module) $owned = [...$owned, ...$module['owned_tables']];
+            foreach ($scope['affected_modules'] as $module) {
+                $owned = [...$owned, ...$module['owned_tables']];
+            }
             $external = $this->externalForeignKeys($owned);
-            if ($external !== []) $blockers[] = ['code' => 'MODULE_OWNED_TABLE_EXTERNAL_REFERENCE', 'kind' => 'data_integrity', 'identifiers' => $external];
-            if ($this->dropOrder($owned) === null) $blockers[] = ['code' => 'MODULE_OWNED_TABLE_FK_CYCLE', 'kind' => 'data_integrity', 'identifiers' => $owned];
+            if ($external !== []) {
+                $blockers[] = ['code' => 'MODULE_OWNED_TABLE_EXTERNAL_REFERENCE', 'kind' => 'data_integrity', 'identifiers' => $external];
+            }
+            if ($this->dropOrder($owned) === null) {
+                $blockers[] = ['code' => 'MODULE_OWNED_TABLE_FK_CYCLE', 'kind' => 'data_integrity', 'identifiers' => $owned];
+            }
         }
         return $blockers;
     }
@@ -363,7 +381,9 @@ final class PluginRuntimeGovernanceService
     /** @param list<string> $tables @return list<string> */
     private function externalForeignKeys(array $tables): array
     {
-        if ($tables === []) return [];
+        if ($tables === []) {
+            return [];
+        }
         $rows = Db::table('information_schema.KEY_COLUMN_USAGE')
             ->where('REFERENCED_TABLE_SCHEMA', Db::raw('DATABASE()'))
             ->whereIn('REFERENCED_TABLE_NAME', $tables)->whereNotIn('TABLE_NAME', $tables)
@@ -377,7 +397,9 @@ final class PluginRuntimeGovernanceService
     private function dropOrder(array $tables): ?array
     {
         $remaining = array_fill_keys($tables, true);
-        if ($tables === []) return [];
+        if ($tables === []) {
+            return [];
+        }
         $edgeRows = Db::table('information_schema.KEY_COLUMN_USAGE')
             ->where('TABLE_SCHEMA', Db::raw('DATABASE()'))->where('REFERENCED_TABLE_SCHEMA', Db::raw('DATABASE()'))
             ->whereIn('TABLE_NAME', $tables)->whereIn('REFERENCED_TABLE_NAME', $tables)
@@ -386,10 +408,21 @@ final class PluginRuntimeGovernanceService
         $ordered = [];
         while ($remaining !== []) {
             $parents = [];
-            foreach ($edges as [$child, $parent]) if (isset($remaining[$child], $remaining[$parent])) $parents[$parent] = true;
+            foreach ($edges as [$child, $parent]) {
+                if (isset($remaining[$child], $remaining[$parent])) {
+                    $parents[$parent] = true;
+                }
+            }
             $leaf = null;
-            foreach (array_keys($remaining) as $table) if (!isset($parents[$table])) { $leaf = $table; break; }
-            if ($leaf === null) return null;
+            foreach (array_keys($remaining) as $table) {
+                if (!isset($parents[$table])) {
+                    $leaf = $table;
+                    break;
+                }
+            }
+            if ($leaf === null) {
+                return null;
+            }
             $ordered[] = $leaf;
             unset($remaining[$leaf]);
         }
@@ -400,22 +433,33 @@ final class PluginRuntimeGovernanceService
     private function dropOwnedTables(array $tables, array $tablesByModule): void
     {
         $order = $this->dropOrder($tables);
-        if ($order === null) throw new PluginLifecycleException('MODULE_OWNED_TABLE_FK_CYCLE', 'Owned table foreign keys contain a cycle.');
+        if ($order === null) {
+            throw new PluginLifecycleException('MODULE_OWNED_TABLE_FK_CYCLE', 'Owned table foreign keys contain a cycle.');
+        }
         $first = true;
         $moduleBoundaryInjected = false;
         $remainingByModule = [];
         $moduleByTable = [];
         foreach ($tablesByModule as $moduleKey => $moduleTables) {
             $remainingByModule[$moduleKey] = array_fill_keys($moduleTables, true);
-            foreach ($moduleTables as $moduleTable) $moduleByTable[$moduleTable] = $moduleKey;
+            foreach ($moduleTables as $moduleTable) {
+                $moduleByTable[$moduleTable] = $moduleKey;
+            }
         }
         foreach ($order as $table) {
-            if (preg_match('/^pa_[a-z0-9_]+$/D', $table) !== 1) throw new PluginLifecycleException('MODULE_TABLE_OWNERSHIP_INVALID', 'Owned table name is invalid.');
+            if (preg_match('/^pa_[a-z0-9_]+$/D', $table) !== 1) {
+                throw new PluginLifecycleException('MODULE_TABLE_OWNERSHIP_INVALID', 'Owned table name is invalid.');
+            }
             // Framework query builders do not expose DDL; validated owned table names remain the driver-level boundary.
             Db::execute("DROP TABLE IF EXISTS `{$table}`");
-            if ($first) { $this->inject('after-first-drop-statement'); $first = false; }
+            if ($first) {
+                $this->inject('after-first-drop-statement');
+                $first = false;
+            }
             $moduleKey = $moduleByTable[$table] ?? null;
-            if (is_string($moduleKey)) unset($remainingByModule[$moduleKey][$table]);
+            if (is_string($moduleKey)) {
+                unset($remainingByModule[$moduleKey][$table]);
+            }
             if (is_string($moduleKey) && $remainingByModule[$moduleKey] === []) {
                 if (!$moduleBoundaryInjected && count($remainingByModule) > 1) {
                     $moduleBoundaryInjected = true;
@@ -429,13 +473,17 @@ final class PluginRuntimeGovernanceService
     /** @param list<string> $tables */
     private function assertOwnedTablesAbsent(array $tables): void
     {
-        if ($this->existingOwnedTables($tables) !== []) throw new PluginLifecycleException('MODULE_PURGE_INCOMPLETE', 'Owned tables remain after purge.');
+        if ($this->existingOwnedTables($tables) !== []) {
+            throw new PluginLifecycleException('MODULE_PURGE_INCOMPLETE', 'Owned tables remain after purge.');
+        }
     }
 
     /** @param list<string> $tables @return list<string> */
     private function existingOwnedTables(array $tables): array
     {
-        if ($tables === []) return [];
+        if ($tables === []) {
+            return [];
+        }
         return array_map('strval', Db::table('information_schema.TABLES')
             ->where('TABLE_SCHEMA', Db::raw('DATABASE()'))->whereIn('TABLE_NAME', $tables)
             ->order('TABLE_NAME')->column('TABLE_NAME'));
@@ -444,7 +492,9 @@ final class PluginRuntimeGovernanceService
     /** @param list<string> $moduleKeys @return list<string> */
     private function migrationIdentifiers(array $moduleKeys): array
     {
-        if ($moduleKeys === []) return [];
+        if ($moduleKeys === []) {
+            return [];
+        }
         $rows = Db::name('module_migration')->whereIn('module_key', $moduleKeys)
             ->field('module_key,migration_key')->order('module_key')->order('migration_key')->select()->toArray();
         return array_map(static fn(array $row): string => $row['module_key'] . '/' . $row['migration_key'], $rows);
@@ -492,16 +542,24 @@ final class PluginRuntimeGovernanceService
         $projectRoot = realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot);
         $lockPath = $projectRoot . '/plugins.lock';
         if (is_file($lockPath)) {
-            $lock = json_decode((string)file_get_contents($lockPath), true, 128, JSON_THROW_ON_ERROR);
-            if (!is_array($lock) || !is_array($lock['plugins'] ?? null)) throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock is invalid.');
+            $lock = json_decode((string) file_get_contents($lockPath), true, 128, JSON_THROW_ON_ERROR);
+            if (!is_array($lock) || !is_array($lock['plugins'] ?? null)) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock is invalid.');
+            }
             $lock['plugins'] = array_values(array_filter($lock['plugins'], static fn(mixed $entry): bool => !is_array($entry) || ($entry['key'] ?? null) !== $packageKey));
             $contents = json_encode($lock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
             $temporary = $lockPath . '.tmp-' . bin2hex(random_bytes(8));
             $stream = fopen($temporary, 'xb');
-            if (!is_resource($stream) || fwrite($stream, $contents) !== strlen($contents) || !fflush($stream)) throw new PluginLifecycleException('PLUGIN_LOCK_WRITE_FAILED', 'Plugin lock cannot be written.');
-            if (function_exists('fsync')) fsync($stream);
+            if (!is_resource($stream) || fwrite($stream, $contents) !== strlen($contents) || !fflush($stream)) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_WRITE_FAILED', 'Plugin lock cannot be written.');
+            }
+            if (function_exists('fsync')) {
+                fsync($stream);
+            }
             fclose($stream);
-            if (!rename($temporary, $lockPath)) throw new PluginLifecycleException('PLUGIN_LOCK_WRITE_FAILED', 'Plugin lock cannot be promoted.');
+            if (!rename($temporary, $lockPath)) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_WRITE_FAILED', 'Plugin lock cannot be promoted.');
+            }
         }
         $this->inject('after-lock');
 
@@ -518,10 +576,16 @@ final class PluginRuntimeGovernanceService
             $source = $projectRoot . '/' . $relative;
             $target = $quarantine . '/' . $relative;
             if (file_exists($source)) {
-                if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0700, true) && !is_dir(dirname($target))) throw new PluginLifecycleException('MODULE_QUARANTINE_FAILED', 'Module quarantine cannot be created.');
-                if (!rename($source, $target)) throw new PluginLifecycleException('MODULE_QUARANTINE_FAILED', 'Module path cannot enter quarantine.');
+                if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0700, true) && !is_dir(dirname($target))) {
+                    throw new PluginLifecycleException('MODULE_QUARANTINE_FAILED', 'Module quarantine cannot be created.');
+                }
+                if (!rename($source, $target)) {
+                    throw new PluginLifecycleException('MODULE_QUARANTINE_FAILED', 'Module path cannot enter quarantine.');
+                }
                 $moved++;
-                if ($moved === 1) $this->inject('after-first-quarantine');
+                if ($moved === 1) {
+                    $this->inject('after-first-quarantine');
+                }
             }
         }
         if ($purge) {
@@ -539,7 +603,9 @@ final class PluginRuntimeGovernanceService
         }
         $projectRoot = realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot);
         $root = $projectRoot . '/.local/module-quarantine';
-        if (!is_dir($root)) return [];
+        if (!is_dir($root)) {
+            return [];
+        }
         $resolvedRoot = realpath($root);
         if (!is_string($resolvedRoot)) {
             throw new PluginLifecycleException('MODULE_QUARANTINE_INVALID', 'Module quarantine root is invalid.');
@@ -564,32 +630,50 @@ final class PluginRuntimeGovernanceService
         $actual = Db::name('plugin_module')->where('plugin_key', $packageKey)
             ->order('module_key')->column('manifest_digest', 'module_key');
         foreach ($plan['affected_modules'] as $module) {
-            if (!is_array($module) || !isset($actual[$module['module_key']]) || !hash_equals((string)$actual[$module['module_key']], (string)$module['manifest_digest'])) {
+            if (!is_array($module) || !isset($actual[$module['module_key']]) || !hash_equals((string) $actual[$module['module_key']], (string) $module['manifest_digest'])) {
                 throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Module ownership changed during recovery.');
             }
         }
-        if (count($actual) !== count($modules)) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Package Module scope changed during recovery.');
+        if (count($actual) !== count($modules)) {
+            throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Package Module scope changed during recovery.');
+        }
     }
 
     /** @param list<array<string,mixed>> $current @param list<array<string,mixed>> $confirmed */
     private function assertCurrentRemovalSubset(array $current, array $confirmed): void
     {
         $allowed = [];
-        foreach ($confirmed as $entry) if (is_array($entry)) $allowed[(string)($entry['scope'] ?? '') . "\0" . (string)($entry['table'] ?? '') . "\0" . (string)($entry['action'] ?? '')] = array_fill_keys((array)($entry['identifiers'] ?? []), true);
+        foreach ($confirmed as $entry) {
+            if (is_array($entry)) {
+                $allowed[(string) ($entry['scope'] ?? '') . "\0" . (string) ($entry['table'] ?? '') . "\0" . (string) ($entry['action'] ?? '')] = array_fill_keys((array) ($entry['identifiers'] ?? []), true);
+            }
+        }
         foreach ($current as $entry) {
             $key = $entry['scope'] . "\0" . $entry['table'] . "\0" . $entry['action'];
-            if (!isset($allowed[$key])) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'New removal scope appeared during recovery.');
-            foreach ($entry['identifiers'] as $identifier) if (!isset($allowed[$key][$identifier])) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'New removal target appeared during recovery.');
+            if (!isset($allowed[$key])) {
+                throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'New removal scope appeared during recovery.');
+            }
+            foreach ($entry['identifiers'] as $identifier) {
+                if (!isset($allowed[$key][$identifier])) {
+                    throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'New removal target appeared during recovery.');
+                }
+            }
         }
     }
 
     /** @param array<string,mixed>|null $state @param array<string,mixed> $plan */
     private function isCleanState(?array $state, array $plan, bool $purge): bool
     {
-        if (!is_array($state) || $state['status'] !== 'uninstalled' || $state['last_error_code'] !== null) return false;
-        if (!$purge) return true;
+        if (!is_array($state) || $state['status'] !== 'uninstalled' || $state['last_error_code'] !== null) {
+            return false;
+        }
+        if (!$purge) {
+            return true;
+        }
         $modules = $this->confirmedModuleKeys($plan);
-        if ($modules === []) return true;
+        if ($modules === []) {
+            return true;
+        }
         return Db::name('module_installation')->whereIn('module_key', $modules)->count() === 0;
     }
 
@@ -603,7 +687,9 @@ final class PluginRuntimeGovernanceService
 
     private function inputBelongsToPackage(string $input, string $packageKey): bool
     {
-        if ($input === $packageKey) return true;
+        if ($input === $packageKey) {
+            return true;
+        }
         return Db::name('plugin_module')->where('plugin_key', $packageKey)->where('module_key', $input)->count() === 1;
     }
 
@@ -611,9 +697,11 @@ final class PluginRuntimeGovernanceService
     private function confirmedModuleKeys(array $plan): array
     {
         $keys = [];
-        foreach ((array)($plan['affected_modules'] ?? []) as $module) {
+        foreach ((array) ($plan['affected_modules'] ?? []) as $module) {
             $key = is_array($module) ? ($module['module_key'] ?? null) : null;
-            if (!is_string($key) || isset($keys[$key])) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed Module scope is invalid.');
+            if (!is_string($key) || isset($keys[$key])) {
+                throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed Module scope is invalid.');
+            }
             ModuleKey::fromString($key);
             $keys[$key] = true;
         }
@@ -627,13 +715,13 @@ final class PluginRuntimeGovernanceService
     {
         $modules = [];
         $seen = [];
-        foreach ((array)($plan['affected_modules'] ?? []) as $module) {
+        foreach ((array) ($plan['affected_modules'] ?? []) as $module) {
             $moduleKey = is_array($module) ? ($module['module_key'] ?? null) : null;
             if (!is_string($moduleKey) || isset($modules[$moduleKey])) {
                 throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed owned table scope is invalid.');
             }
             $tables = [];
-            foreach ((array)($module['owned_tables'] ?? []) as $table) {
+            foreach ((array) ($module['owned_tables'] ?? []) as $table) {
                 if (!is_string($table) || preg_match('/^pa_[a-z0-9_]+$/D', $table) !== 1
                     || isset($tables[$table]) || isset($seen[$table])) {
                     throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed owned table scope is invalid.');
@@ -652,7 +740,9 @@ final class PluginRuntimeGovernanceService
     private function confirmedOwnedTables(array $tablesByModule): array
     {
         $tables = [];
-        foreach ($tablesByModule as $moduleTables) $tables = [...$tables, ...$moduleTables];
+        foreach ($tablesByModule as $moduleTables) {
+            $tables = [...$tables, ...$moduleTables];
+        }
         sort($tables, SORT_STRING);
         return $tables;
     }
@@ -670,7 +760,9 @@ final class PluginRuntimeGovernanceService
     private function appendPlanEntry(array &$entries, string $scope, string $table, string $action, array $identifiers, bool $includeEmpty): void
     {
         sort($identifiers, SORT_STRING);
-        if ($identifiers === [] && !$includeEmpty) return;
+        if ($identifiers === [] && !$includeEmpty) {
+            return;
+        }
         $entries[] = ['scope' => $scope, 'table' => $table, 'action' => $action, 'count' => count($identifiers), 'identifiers' => $identifiers];
     }
 
@@ -682,14 +774,21 @@ final class PluginRuntimeGovernanceService
 
     private function inject(string $point): void
     {
-        if (is_callable($this->faultInjector)) ($this->faultInjector)($point);
+        if (is_callable($this->faultInjector)) {
+            ($this->faultInjector)($point);
+        }
     }
 
-    private function codec(): ModuleUninstallPlanCodec { return new ModuleUninstallPlanCodec(); }
+    private function codec(): ModuleUninstallPlanCodec
+    {
+        return new ModuleUninstallPlanCodec();
+    }
     private function removeTree(string $path): void
     {
         $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::CHILD_FIRST);
-        foreach ($iterator as $entry) $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+        foreach ($iterator as $entry) {
+            $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+        }
         rmdir($path);
     }
 }

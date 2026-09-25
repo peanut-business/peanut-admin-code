@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services;
@@ -17,16 +18,15 @@ final readonly class PlatformOperatorSessionService
     public function __construct(
         private PlatformAuthService $authentication,
         private PlatformAuthorizationEvaluator $authorization,
-        private PlatformAuthorizationRepository $permissions
-    ) {
-    }
+        private PlatformAuthorizationRepository $permissions,
+    ) {}
 
     public function login(
         string $email,
         string $password,
         string $ipAddress,
         ?string $userAgent,
-        string $requestId
+        string $requestId,
     ): PlatformAuthentication {
         try {
             return $this->authentication->login($email, $password, $ipAddress, $userAgent, $requestId);
@@ -43,7 +43,7 @@ final readonly class PlatformOperatorSessionService
         string $refreshToken,
         string $ipAddress,
         ?string $userAgent,
-        string $requestId
+        string $requestId,
     ): PlatformAuthentication {
         try {
             return $this->authentication->refresh($refreshToken, $ipAddress, $userAgent, $requestId);
@@ -55,7 +55,7 @@ final readonly class PlatformOperatorSessionService
     public function context(string $accessToken, string $requestId): PlatformOperatorContext
     {
         return PlatformOperatorContext::fromValidatedPlatformSession(
-            $this->authentication->context($accessToken, $requestId)
+            $this->authentication->context($accessToken, $requestId),
         );
     }
 

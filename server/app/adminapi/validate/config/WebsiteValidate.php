@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\validate\config;
@@ -43,10 +44,10 @@ class WebsiteValidate extends Validate
         }
         foreach ($value as $item) {
             if (!is_array($item)
-                || trim((string)($item['key'] ?? '')) === ''
-                || trim((string)($item['value'] ?? '')) === ''
-                || mb_strlen((string)$item['key']) > 60
-                || mb_strlen((string)$item['value']) > 500) {
+                || trim((string) ($item['key'] ?? '')) === ''
+                || trim((string) ($item['value'] ?? '')) === ''
+                || mb_strlen((string) $item['key']) > 60
+                || mb_strlen((string) $item['value']) > 500) {
                 return '备案配置项格式错误';
             }
         }
@@ -59,7 +60,7 @@ class WebsiteValidate extends Validate
             return '至少启用一种登录方式';
         }
         foreach ($value as $way) {
-            if (!in_array((int)$way, [1, 2], true)) {
+            if (!in_array((int) $way, [1, 2], true)) {
                 return '登录方式无效';
             }
         }
@@ -68,7 +69,7 @@ class WebsiteValidate extends Validate
 
     protected function checkClarityId(mixed $value): bool|string
     {
-        return preg_match('/^[A-Za-z0-9_-]*$/D', (string)$value) === 1
+        return preg_match('/^[A-Za-z0-9_-]*$/D', (string) $value) === 1
             ? true
             : '统计标识只能包含字母、数字、下划线和连字符';
     }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\auth;
@@ -65,14 +66,14 @@ final class AdminApplicationService
         try {
             $pageSize = max(1, min(
                 self::EXPORT_MAX_ROWS,
-                (int)($params['page_size'] ?? $params['limit'] ?? 15),
+                (int) ($params['page_size'] ?? $params['limit'] ?? 15),
             ));
             $rows = $this->rows($context, $params);
             $count = count($rows);
-            if ((int)($params['export'] ?? 0) === 1) {
+            if ((int) ($params['export'] ?? 0) === 1) {
                 return self::exportInfo($count, $pageSize);
             }
-            if ((int)($params['export'] ?? 0) === 2) {
+            if ((int) ($params['export'] ?? 0) === 2) {
                 return $this->export($context, $params, $rows);
             }
             $pagination = PaginationInput::from($params);
@@ -111,12 +112,12 @@ final class AdminApplicationService
             $service = $this->tenantAdmins->members();
             $service->createAdministrator(
                 $context,
-                (string)$params['account'],
-                (string)$params['name'],
-                (string)$params['password'],
+                (string) $params['account'],
+                (string) $params['name'],
+                (string) $params['password'],
                 $department,
                 $roles,
-                (int)$params['disable'] === 0,
+                (int) $params['disable'] === 0,
             );
             return true;
         } catch (\Throwable $e) {
@@ -137,15 +138,15 @@ final class AdminApplicationService
                 throw BusinessException::invalid('ADMIN_ROLE_REQUIRED', '请选择角色');
             }
             $service = $this->tenantAdmins->members();
-            $member = $service->get($context->tenantId, (int)$params['id']);
+            $member = $service->get($context->tenantId, (int) $params['id']);
             $service->updateAdministrator(
                 $context,
-                (int)$member['id'],
-                (string)$params['name'],
+                (int) $member['id'],
+                (string) $params['name'],
                 self::firstId($params['dept_id'] ?? []),
                 $roles,
-                (int)$params['disable'] === 0,
-                (int)$member['revision'],
+                (int) $params['disable'] === 0,
+                (int) $member['revision'],
             );
             return true;
         } catch (\Throwable $e) {
@@ -164,7 +165,7 @@ final class AdminApplicationService
             $service->leave(
                 $context,
                 $id,
-                (int)$member['revision'],
+                (int) $member['revision'],
             );
             return true;
         } catch (\Throwable $e) {
@@ -192,8 +193,7 @@ final class AdminApplicationService
         array $params,
         string $ip,
         string $userAgent,
-    ): bool
-    {
+    ): bool {
         try {
             if ($memberId !== $context->memberId) {
                 throw new \DomainException('TENANT_ADMIN_PRINCIPAL_INVALID');
@@ -202,15 +202,15 @@ final class AdminApplicationService
             $profile = $service->profile($context);
             $service->updateProfile(
                 $context,
-                (string)($params['name'] ?? $params['nickname'] ?? $profile['display_name']),
-                array_key_exists('avatar', $params) ? (string)$params['avatar'] : ($profile['avatar_uri'] ?? null),
+                (string) ($params['name'] ?? $params['nickname'] ?? $profile['display_name']),
+                array_key_exists('avatar', $params) ? (string) $params['avatar'] : ($profile['avatar_uri'] ?? null),
             );
             if (!empty($params['password'])) {
                 $this->tenantAdmins->assertPasswordChangeAllowed($context->accountId);
                 $service->changePassword(
                     $context,
-                    (string)($params['password_old'] ?? ''),
-                    (string)$params['password'],
+                    (string) ($params['password_old'] ?? ''),
+                    (string) $params['password'],
                     $ip,
                     $userAgent,
                 );
@@ -228,28 +228,28 @@ final class AdminApplicationService
         foreach ($this->directory->rows($params) as $row) {
             $roleIds = $row['role_ids'] === null || $row['role_ids'] === ''
                 ? []
-                : array_map('intval', explode(',', (string)$row['role_ids']));
+                : array_map('intval', explode(',', (string) $row['role_ids']));
             $rows[] = [
-                'id' => (int)$row['id'],
-                'account' => (string)$row['username'],
-                'username' => (string)$row['username'],
-                'name' => (string)($row['display_name'] ?: $row['username']),
-                'nickname' => (string)($row['display_name'] ?: $row['username']),
-                'avatar' => $this->files->getFileUrl((string)($row['avatar_uri'] ?? '')),
-                'root' => (int)$row['root'],
+                'id' => (int) $row['id'],
+                'account' => (string) $row['username'],
+                'username' => (string) $row['username'],
+                'name' => (string) ($row['display_name'] ?: $row['username']),
+                'nickname' => (string) ($row['display_name'] ?: $row['username']),
+                'avatar' => $this->files->getFileUrl((string) ($row['avatar_uri'] ?? '')),
+                'root' => (int) $row['root'],
                 'disable' => in_array($row['status'], ['active', 'pending'], true) ? 0 : 1,
                 'disable_desc' => in_array($row['status'], ['active', 'pending'], true) ? '正常' : '禁用',
                 'multipoint_login' => 1,
-                'login_time' => (string)($row['last_login_at'] ?? ''),
+                'login_time' => (string) ($row['last_login_at'] ?? ''),
                 'login_ip' => '',
-                'create_time' => (string)$row['created_at'],
-                'update_time' => (string)$row['updated_at'],
+                'create_time' => (string) $row['created_at'],
+                'update_time' => (string) $row['updated_at'],
                 'role_id' => $roleIds,
                 'role_ids' => $roleIds,
-                'dept_id' => $row['primary_department_id'] === null ? [] : [(int)$row['primary_department_id']],
+                'dept_id' => $row['primary_department_id'] === null ? [] : [(int) $row['primary_department_id']],
                 'jobs_id' => [],
-                'role_name' => (string)($row['role_name'] ?? ''),
-                'dept_name' => (string)($row['department_name'] ?? ''),
+                'role_name' => (string) ($row['role_name'] ?? ''),
+                'dept_name' => (string) ($row['department_name'] ?? ''),
                 'jobs_name' => '',
                 'roles' => [],
             ];
@@ -261,9 +261,9 @@ final class AdminApplicationService
     private static function transitionStatus(MemberAdminService $service, TenantContext $context, array $member, int $disable): void
     {
         if ($disable === 1 && $member['status'] === 'active') {
-            $service->suspend($context, (int)$member['id'], (int)$member['revision']);
+            $service->suspend($context, (int) $member['id'], (int) $member['revision']);
         } elseif ($disable === 0 && in_array($member['status'], ['pending', 'suspended'], true)) {
-            $service->activate($context, (int)$member['id'], (int)$member['revision']);
+            $service->activate($context, (int) $member['id'], (int) $member['revision']);
         }
     }
 
@@ -284,9 +284,11 @@ final class AdminApplicationService
             throw BusinessException::conflict('ADMIN_EXPORT_EMPTY', '没有数据，无法导出');
         }
         $rows = array_slice($rows, 0, self::EXPORT_MAX_ROWS);
-        $file = $this->xlsxExport->create((string)($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
+        $file = $this->xlsxExport->create(
+            (string) ($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
             ['账号', '名称', '角色', '部门', '创建时间', '最近登录时间', '最近登录IP', '状态'],
-            array_map(static fn(array $row): array => [$row['account'], $row['name'], $row['role_name'], $row['dept_name'], $row['create_time'], $row['login_time'], $row['login_ip'], $row['disable_desc']], $rows));
+            array_map(static fn(array $row): array => [$row['account'], $row['name'], $row['role_name'], $row['dept_name'], $row['create_time'], $row['login_time'], $row['login_ip'], $row['disable_desc']], $rows),
+        );
         return ['url' => $file['url'], 'file_name' => $file['original_name']];
     }
 

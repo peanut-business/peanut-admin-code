@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
@@ -56,14 +57,16 @@ function upgradeTrustedKeys(string $path): array
         throw new RuntimeException('EDITION_UPGRADE_ENV_FILE_SCHEMA_INVALID');
     }
     try {
-        $keys = json_decode((string)$values['PEANUT_UPGRADE_TRUSTED_KEYS_JSON'], true, 32, JSON_THROW_ON_ERROR);
+        $keys = json_decode((string) $values['PEANUT_UPGRADE_TRUSTED_KEYS_JSON'], true, 32, JSON_THROW_ON_ERROR);
     } catch (JsonException $exception) {
         throw new RuntimeException('EDITION_UPGRADE_ENV_FILE_SCHEMA_INVALID', 0, $exception);
     }
     if (!is_array($keys) || array_is_list($keys) || $keys === []
         || array_filter(array_keys($keys), static fn(mixed $key): bool => !is_string($key) || preg_match('/^[A-Za-z0-9._-]{1,96}$/D', $key) !== 1) !== []
         || array_filter($keys, static function (mixed $key): bool {
-            if (!is_string($key)) return true;
+            if (!is_string($key)) {
+                return true;
+            }
             $decoded = base64_decode($key, true);
             return !is_string($decoded) || strlen($decoded) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES;
         }) !== []) {
@@ -73,7 +76,9 @@ function upgradeTrustedKeys(string $path): array
 }
 
 $command = $argv[1] ?? null;
-if (!in_array($command, ['preflight', 'adoption-plan', 'adoption-apply', 'adoption-recover', 'apply', 'verify', 'recover', 'rollback'], true)) usage();
+if (!in_array($command, ['preflight', 'adoption-plan', 'adoption-apply', 'adoption-recover', 'apply', 'verify', 'recover', 'rollback'], true)) {
+    usage();
+}
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
     if (preg_match('/^--(project-root|from-manifest|to-manifest|package|signature-key-id|plan|confirm-plan-sha256|confirm-paths|env-file)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
@@ -97,7 +102,9 @@ $allowedOptions = $requiredOptions;
 sort($allowedOptions, SORT_STRING);
 $actualOptions = array_keys($options);
 sort($actualOptions, SORT_STRING);
-if ($actualOptions !== $allowedOptions) usage();
+if ($actualOptions !== $allowedOptions) {
+    usage();
+}
 
 try {
     $runner = new ScaffoldUpgradeRunner();

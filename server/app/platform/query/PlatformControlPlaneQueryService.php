@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\query;
@@ -33,8 +34,8 @@ final readonly class PlatformControlPlaneQueryService
             ->fieldRaw("COALESCE(GROUP_CONCAT(DISTINCT role.`key` ORDER BY role.`key` SEPARATOR ','),'') AS role_keys")
             ->group('operator.id,operator.account_id,operator.display_name,operator.status,operator.security_revision,account.display_name,account.status,credential.identifier_normalized,operator.created_at,operator.updated_at')
             ->order('operator.id', 'desc');
-        return $this->paginate($query, $page, (int)Db::name('platform_operator')->count(), static function (array $row): array {
-            $row['role_keys'] = $row['role_keys'] === '' ? [] : explode(',', (string)$row['role_keys']);
+        return $this->paginate($query, $page, (int) Db::name('platform_operator')->count(), static function (array $row): array {
+            $row['role_keys'] = $row['role_keys'] === '' ? [] : explode(',', (string) $row['role_keys']);
             return $row;
         });
     }
@@ -51,8 +52,8 @@ final readonly class PlatformControlPlaneQueryService
             ->fieldRaw("COALESCE(GROUP_CONCAT(DISTINCT permission.`key` ORDER BY permission.`key` SEPARATOR ','),'') AS permission_keys")
             ->group('role.id,role.key,role.name,role.description,role.is_builtin,role.status,role.revision,role.created_at,role.updated_at')
             ->order('role.id', 'desc');
-        return $this->paginate($query, $page, (int)Db::name('platform_role')->count(), static function (array $row): array {
-            $row['permission_keys'] = $row['permission_keys'] === '' ? [] : explode(',', (string)$row['permission_keys']);
+        return $this->paginate($query, $page, (int) Db::name('platform_role')->count(), static function (array $row): array {
+            $row['permission_keys'] = $row['permission_keys'] === '' ? [] : explode(',', (string) $row['permission_keys']);
             return $row;
         });
     }
@@ -64,7 +65,7 @@ final readonly class PlatformControlPlaneQueryService
         $query = Db::name('permission')->where('module_key', 'platform');
         return $this->paginate((clone $query)
             ->field('id,key,module_key,type,name,description,risk_level,status,manifest_version,created_at,updated_at,retired_at')
-            ->order('id'), $page, (int)$query->count());
+            ->order('id'), $page, (int) $query->count());
     }
 
     /** @return array{items:list<array<string,mixed>>,total:int} */
@@ -73,7 +74,7 @@ final readonly class PlatformControlPlaneQueryService
         $this->sessions->assertAllowed($context, 'platform.audit.read');
         $result = $this->paginate(Db::name('platform_audit_event')
             ->field('id,event_type,action,outcome,reason_code,operator_id,account_id,target_type,target_id,request_id,operation_id,ip_address,user_agent_hash,before_json,after_json,metadata_json,occurred_at')
-            ->order('id', 'desc'), $page, (int)Db::name('platform_audit_event')->count());
+            ->order('id', 'desc'), $page, (int) Db::name('platform_audit_event')->count());
         foreach ($result['items'] as &$item) {
             foreach (['before_json', 'after_json', 'metadata_json'] as $column) {
                 $item[$column] = $this->decodeJson($item[$column] ?? null);

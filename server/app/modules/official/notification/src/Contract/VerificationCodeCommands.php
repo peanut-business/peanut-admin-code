@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Contract;
@@ -12,13 +13,13 @@ interface VerificationCodeCommands
     public function sendCode(
         TenantContext|TenantSystemContext $context,
         string $sceneCode,
-        string $mobile
+        string $mobile,
     ): DeliveryResult;
 
     public function verifyCode(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         string $sceneCode,
         string $mobile,
-        string $code
+        string $code,
     ): VerificationResult;
 }

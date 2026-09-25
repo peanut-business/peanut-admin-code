@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\authorization;
@@ -30,8 +31,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         private readonly CoreTenantModuleAdminBridge $moduleAdmin,
         private readonly AdminPermissionPolicy $permissionPolicy,
         private readonly TenantMemberDirectory $members,
-    ) {
-    }
+    ) {}
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
     {
@@ -60,13 +60,13 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             id: $member->memberId,
             tenantId: $member->tenantId,
             accountId: $member->accountId,
-            tenantName: (string)$tenant->getAttr('name'),
-            username: (string)$credential->getAttr('identifier_normalized'),
+            tenantName: (string) $tenant->getAttr('name'),
+            username: (string) $credential->getAttr('identifier_normalized'),
             nickname: $member->displayName,
             name: $member->displayName,
-            avatar: (string)($account->getAttr('avatar_uri') ?? ''),
+            avatar: (string) ($account->getAttr('avatar_uri') ?? ''),
             root: $root,
-            switchableTenantCount: (int)$switchableTenantCount,
+            switchableTenantCount: (int) $switchableTenantCount,
             roles: $roles,
             roleName: implode('/', array_column($roles, 'name')),
             authorizationRevision: $member->authorizationRevision,
@@ -142,7 +142,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         ];
         $registered = array_values(array_diff(
             array_unique($registered),
-            InstanceControlPlanePolicy::tenantAdminPermissions()
+            InstanceControlPlanePolicy::tenantAdminPermissions(),
         ));
         $owned = $bridge->accessData($tenantContext)['permissions'];
         $allowed = $this->permissionPolicy->canAccess(
@@ -197,9 +197,9 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             $operation,
             $requestedTargets,
             hash('sha256', implode("\0", array_filter([
-                (string)$tenantContext->tenantId,
-                (string)$tenantContext->memberId,
-                (string)$tenantContext->authorizationRevision,
+                (string) $tenantContext->tenantId,
+                (string) $tenantContext->memberId,
+                (string) $tenantContext->authorizationRevision,
                 'official.import-export.operation-log.export',
                 $operationId,
             ], static fn(string $value): bool => $value !== ''))),
@@ -300,10 +300,10 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             ->order('role.key')->order('role.id')->select()->toArray();
 
         return array_map(static fn(array $row): array => [
-            'id' => (int)$row['id'],
-            'key' => (string)$row['key'],
-            'name' => (string)$row['name'],
-            'is_builtin' => (int)$row['is_builtin'] === 1,
+            'id' => (int) $row['id'],
+            'key' => (string) $row['key'],
+            'name' => (string) $row['name'],
+            'is_builtin' => (int) $row['is_builtin'] === 1,
         ], $rows);
     }
 }

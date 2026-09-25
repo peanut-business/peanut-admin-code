@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
 
 use app\platform\exception\plugin\PluginPackageException;
+
 /** Serializes development source adoption and durably rolls an interrupted source/lock pair forward. */
 final class PluginPackageSourcePromoter
 {
@@ -25,10 +27,14 @@ final class PluginPackageSourcePromoter
         foreach (['plugins', 'server/app/modules', 'web/src/modules', 'platform/src/modules', 'pc/modules', 'uniapp/src/modules'] as $relative) {
             $path = $this->root . '/' . $relative;
             $this->assertPath($path);
-            if (!is_dir($path)) continue;
+            if (!is_dir($path)) {
+                continue;
+            }
             $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
             foreach ($iterator as $entry) {
-                if ($entry->isLink()) throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Application package roots cannot contain symlinks.');
+                if ($entry->isLink()) {
+                    throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Application package roots cannot contain symlinks.');
+                }
             }
         }
     }
@@ -40,7 +46,9 @@ final class PluginPackageSourcePromoter
         $this->assertPath($this->state . '/writer.lock');
         $handle = fopen($this->state . '/writer.lock', 'c');
         if ($handle === false || !flock($handle, LOCK_EX | LOCK_NB)) {
-            if (is_resource($handle)) fclose($handle);
+            if (is_resource($handle)) {
+                fclose($handle);
+            }
             throw new PluginPackageException('MODULE_PACKAGE_SOURCE_BUSY', 'Application source writer is busy.');
         }
         try {
@@ -60,7 +68,9 @@ final class PluginPackageSourcePromoter
         $scopes = [dirname($package->manifestRelative)];
         foreach ($package->modules as $module) {
             $scopes[] = $module['backend_relative'];
-            foreach ($module['frontend_contributions'] as $contribution) $scopes[] = $contribution['root'];
+            foreach ($module['frontend_contributions'] as $contribution) {
+                $scopes[] = $contribution['root'];
+            }
         }
         $scopes = array_values(array_unique($scopes));
         sort($scopes, SORT_STRING);
@@ -75,13 +85,19 @@ final class PluginPackageSourcePromoter
                 throw new PluginPackageException('MODULE_PACKAGE_TARGET_CONFLICT', 'Unowned package target already exists.');
             }
             $after = $this->tree($package->stageRoot . '/' . $scope);
-            if ($after === null) throw new PluginPackageException('MODULE_PACKAGE_PROMOTION_FAILED', 'Verified source is missing.');
+            if ($after === null) {
+                throw new PluginPackageException('MODULE_PACKAGE_PROMOTION_FAILED', 'Verified source is missing.');
+            }
             $expected = [];
             foreach ($package->inventory as $path => $digest) {
-                if (str_starts_with($path, $scope . '/')) $expected[substr($path, strlen($scope) + 1)] = $digest;
+                if (str_starts_with($path, $scope . '/')) {
+                    $expected[substr($path, strlen($scope) + 1)] = $digest;
+                }
             }
             ksort($expected, SORT_STRING);
-            if ($after !== $expected) throw new PluginPackageException('MODULE_PACKAGE_FILE_DIGEST_MISMATCH', 'Verified source identity changed.');
+            if ($after !== $expected) {
+                throw new PluginPackageException('MODULE_PACKAGE_FILE_DIGEST_MISMATCH', 'Verified source identity changed.');
+            }
             $payload = $base . '/payload/' . $scope;
             $this->directory($payload);
             foreach ($after as $relative => $digest) {
@@ -110,10 +126,12 @@ final class PluginPackageSourcePromoter
     {
         $journalPath = $this->state . '/journal.json';
         $this->assertPath($journalPath);
-        if (!is_file($journalPath)) return ['status' => 'clean'];
-        $journal = json_decode((string)file_get_contents($journalPath), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_file($journalPath)) {
+            return ['status' => 'clean'];
+        }
+        $journal = json_decode((string) file_get_contents($journalPath), true, 512, JSON_THROW_ON_ERROR);
         if (($journal['schema_version'] ?? null) !== 1
-            || preg_match('/^[a-f0-9]{32}$/D', (string)($journal['transaction'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{32}$/D', (string) ($journal['transaction'] ?? '')) !== 1
             || !is_array($journal['entries'] ?? null) || $journal['entries'] === []) {
             throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Source adoption journal is invalid.');
         }
@@ -134,7 +152,9 @@ final class PluginPackageSourcePromoter
             $actual = $this->tree($target);
             $backup = $base . '/before/' . $entry['scope'];
             $saved = $this->tree($backup);
-            if ($actual === $entry['after']) continue;
+            if ($actual === $entry['after']) {
+                continue;
+            }
             if ($actual !== $entry['before'] && !($actual === null && $saved === $entry['before'])) {
                 throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Source changed outside the pending adoption.');
             }
@@ -144,7 +164,9 @@ final class PluginPackageSourcePromoter
         }
         foreach ($journal['entries'] as $entry) {
             $target = $this->target($entry['scope']);
-            if ($this->tree($target) === $entry['after']) continue;
+            if ($this->tree($target) === $entry['after']) {
+                continue;
+            }
             $backup = $base . '/before/' . $entry['scope'];
             if (is_dir($target)) {
                 $this->directory(dirname($backup));
@@ -158,7 +180,9 @@ final class PluginPackageSourcePromoter
             }
         }
         $this->write($this->root . '/plugins.lock', $next);
-        if (!unlink($journalPath)) throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Cannot finish source adoption.');
+        if (!unlink($journalPath)) {
+            throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Cannot finish source adoption.');
+        }
         // Preserve before/next.lock as owner-readable recovery evidence; no automatic destructive cleanup.
         return ['status' => 'recovered', 'package_key' => $journal['package_key'], 'transaction' => $journal['transaction']];
     }
@@ -168,7 +192,9 @@ final class PluginPackageSourcePromoter
     {
         $cursor = $path;
         while ($cursor !== '/' && $cursor !== '.') {
-            if (is_link($cursor)) throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package paths cannot contain symlinks.');
+            if (is_link($cursor)) {
+                throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package paths cannot contain symlinks.');
+            }
             $cursor = dirname($cursor);
         }
     }
@@ -188,15 +214,21 @@ final class PluginPackageSourcePromoter
     private function tree(string $root): ?array
     {
         $this->assertPath($root);
-        if (!file_exists($root)) return null;
-        if (!is_dir($root)) throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package root must be a directory.');
+        if (!file_exists($root)) {
+            return null;
+        }
+        if (!is_dir($root)) {
+            throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package root must be a directory.');
+        }
         $files = [];
         $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
         foreach ($iterator as $entry) {
             if ($entry->isLink() || (!$entry->isDir() && !$entry->isFile())) {
                 throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package source must contain regular files only.');
             }
-            if ($entry->isFile()) $files[substr($entry->getPathname(), strlen($root) + 1)] = hash_file('sha256', $entry->getPathname());
+            if ($entry->isFile()) {
+                $files[substr($entry->getPathname(), strlen($root) + 1)] = hash_file('sha256', $entry->getPathname());
+            }
         }
         ksort($files, SORT_STRING);
         return $files;
@@ -217,7 +249,9 @@ final class PluginPackageSourcePromoter
         $this->assertPath($path);
         $temporary = $path . '.tmp-' . bin2hex(random_bytes(8));
         $handle = fopen($temporary, 'xb');
-        if ($handle === false) throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Cannot write source transaction.');
+        if ($handle === false) {
+            throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Cannot write source transaction.');
+        }
         try {
             if (fwrite($handle, $bytes) !== strlen($bytes) || !fflush($handle) || !fsync($handle)) {
                 throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Cannot persist source transaction.');
@@ -225,6 +259,8 @@ final class PluginPackageSourcePromoter
         } finally {
             fclose($handle);
         }
-        if (!rename($temporary, $path)) throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Cannot publish source transaction.');
+        if (!rename($temporary, $path)) {
+            throw new PluginPackageException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Cannot publish source transaction.');
+        }
     }
 }

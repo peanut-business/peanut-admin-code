@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\http;
@@ -22,8 +23,7 @@ final readonly class GuzzleOutboundHttpTransport implements OutboundHttpTranspor
     public function __construct(
         private CurrentExecutionContext $executionContext,
         ?ClientInterface $client = null,
-    )
-    {
+    ) {
         $this->client = $client ?? new Client();
     }
 
@@ -51,7 +51,12 @@ final readonly class GuzzleOutboundHttpTransport implements OutboundHttpTranspor
                 );
                 $status = $response->getStatusCode();
                 OutboundHttpAttemptObservation::response(
-                    $this->executionContext, $request->method, $request->url, $attempt, $startedAt, $status,
+                    $this->executionContext,
+                    $request->method,
+                    $request->url,
+                    $attempt,
+                    $startedAt,
+                    $status,
                 );
                 if ($request->retrySafe && $attempt < $attempts && $status >= 500) {
                     continue;
@@ -62,13 +67,18 @@ final readonly class GuzzleOutboundHttpTransport implements OutboundHttpTranspor
                 }
                 return new OutboundHttpResponse(
                     $status,
-                    $request->sink === null ? (string)$response->getBody() : '',
+                    $request->sink === null ? (string) $response->getBody() : '',
                     $headers,
                 );
             } catch (GuzzleException $exception) {
                 $last = $exception;
                 OutboundHttpAttemptObservation::failure(
-                    $this->executionContext, $request->method, $request->url, $attempt, $startedAt, $exception,
+                    $this->executionContext,
+                    $request->method,
+                    $request->url,
+                    $attempt,
+                    $startedAt,
+                    $exception,
                 );
                 if ($attempt < $attempts) {
                     continue;
@@ -78,7 +88,7 @@ final readonly class GuzzleOutboundHttpTransport implements OutboundHttpTranspor
 
         OperationalLog::warning($this->executionContext, 'outbound_http_unavailable', [
             'method' => strtoupper($request->method),
-            'host' => (string)(parse_url($request->url, PHP_URL_HOST) ?: 'unknown'),
+            'host' => (string) (parse_url($request->url, PHP_URL_HOST) ?: 'unknown'),
             'exception' => $last === null ? 'unknown' : $last::class,
         ]);
         throw new OutboundHttpException($last);

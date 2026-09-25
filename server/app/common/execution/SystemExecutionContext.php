@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\execution;
@@ -16,8 +17,20 @@ final readonly class SystemExecutionContext implements ExecutionContext
         }
     }
 
-    public function operation(): string { return $this->system->operation; }
-    public function requestId(): string { return $this->system->operationId; }
-    public function tenantId(): int { return $this->system->tenantId; }
-    public function actor(): array { return ['tenant_id' => $this->system->tenantId, 'actor_key' => $this->system->actorKey]; }
+    public function operation(): string
+    {
+        return $this->system->operation;
+    }
+    public function requestId(): string
+    {
+        return $this->system->operationId;
+    }
+    public function tenantId(): int
+    {
+        return $this->system->tenantId;
+    }
+    public function actor(): array
+    {
+        return ['tenant_id' => $this->system->tenantId, 'actor_key' => $this->system->actorKey];
+    }
 }

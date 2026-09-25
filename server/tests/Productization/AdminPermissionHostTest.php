@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\contract\AdminPermissionPolicy;
@@ -25,14 +26,14 @@ expectPermission($policy->canAccess(false, 'health/read', $registered, []) === f
 expectPermission($policy->canAccess(false, 'official.article.list', $registered, []) === false, 'registered unowned URI must fail');
 expectPermission(
     $policy->canAccess(false, '/OFFICIAL.ARTICLE.LIST/', $registered, ['OFFICIAL.ARTICLE.LIST']) === true,
-    'registered owned URI must normalize and pass'
+    'registered owned URI must normalize and pass',
 );
 expectPermission($policy->canAccess(false, 'admin/status', ['admin/edit'], ['admin/edit']) === false, 'URI aliases must not enlarge authorization');
 
 $app = new think\App();
 $app->initialize();
 $configuredAccess = require dirname(__DIR__, 2) . '/config/admin_api_access.php';
-$access = new AdminApiAccessRegistry((int)$configuredAccess['version'], $configuredAccess);
+$access = new AdminApiAccessRegistry((int) $configuredAccess['version'], $configuredAccess);
 expectPermission($access->version() === 1, 'admin exception metadata version must be fixed');
 expectPermission($access->isAuthenticatedOnly('GET', 'adminapi/admin/self'), 'self endpoint must be authenticated-only');
 expectPermission(!$access->isAuthenticatedOnly('POST', 'adminapi/admin/self'), 'authenticated metadata must be method-specific');

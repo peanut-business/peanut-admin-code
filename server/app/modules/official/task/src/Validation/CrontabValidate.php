@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task\Validation;
@@ -59,7 +60,7 @@ class CrontabValidate extends Validate
     protected function checkCommand($value): bool|string
     {
         try {
-            $this->commands->assertAllowed(trim((string)$value));
+            $this->commands->assertAllowed(trim((string) $value));
             return true;
         } catch (\Throwable $e) {
             return $e->getMessage();

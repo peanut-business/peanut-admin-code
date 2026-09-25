@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\authorization;
@@ -47,8 +48,7 @@ final readonly class CoreTenantModuleAdminBridge
         private ThinkPhpModuleGovernanceProvider $moduleGovernance,
         private TenantAuthorizationRepository $authorization,
         private MenuCatalogRepository $menuCatalog,
-    ) {
-    }
+    ) {}
 
     /** @return array{menu:list<array<string,mixed>>,permissions:list<string>} */
     public function accessData(mixed $tenantContext): array
@@ -62,7 +62,7 @@ final readonly class CoreTenantModuleAdminBridge
         $permissions = array_values(array_unique([
             ...$this->authorization->permissions(
                 $tenantContext->tenantId,
-                $tenantContext->memberId
+                $tenantContext->memberId,
             )->keys(),
             ...$this->applicationPermissions($tenantContext),
         ]));
@@ -76,14 +76,14 @@ final readonly class CoreTenantModuleAdminBridge
         $qualification = $this->moduleGovernance->qualification();
         $deploymentModules = array_map(
             static fn($module): string => $module->moduleKey,
-            $qualification->installedModules()
+            $qualification->installedModules(),
         );
         $tenantModules = $qualification->activeTenantModuleKeys($tenantContext->tenantId);
         $visible = (new MenuRegistry($definitions))->visible(
             'admin-web',
             static fn(string $moduleKey): bool => in_array($moduleKey, $deploymentModules, true),
             static fn(string $moduleKey): bool => in_array($moduleKey, $tenantModules, true),
-            static fn(string $permission): bool => in_array($permission, $permissions, true)
+            static fn(string $permission): bool => in_array($permission, $permissions, true),
         );
 
         return [
@@ -101,14 +101,14 @@ final readonly class CoreTenantModuleAdminBridge
         $qualification = $this->moduleGovernance->qualification();
         $deploymentModules = array_map(
             static fn($module): string => $module->moduleKey,
-            $qualification->installedModules()
+            $qualification->installedModules(),
         );
         $tenantModules = $qualification->activeTenantModuleKeys($tenantId);
         $visible = (new MenuRegistry($this->menuCatalog->activeDefinitions('tenant')))->visible(
             'admin-web',
             static fn(string $moduleKey): bool => in_array($moduleKey, $deploymentModules, true),
             static fn(string $moduleKey): bool => in_array($moduleKey, $tenantModules, true),
-            static fn(string $_permission): bool => true
+            static fn(string $_permission): bool => true,
         );
 
         return $this->serverMenuRecords($visible);
@@ -123,13 +123,13 @@ final readonly class CoreTenantModuleAdminBridge
         $qualification = $this->moduleGovernance->qualification();
         $installed = array_fill_keys(array_map(
             static fn($module): string => $module->moduleKey,
-            $qualification->installedModules()
+            $qualification->installedModules(),
         ), true);
         $active = array_values(array_unique([
             self::APPLICATION_PERMISSION_OWNER,
             ...array_filter(
                 $qualification->activeTenantModuleKeys($tenantId),
-                static fn(string $moduleKey): bool => isset($installed[$moduleKey])
+                static fn(string $moduleKey): bool => isset($installed[$moduleKey]),
             ),
         ]));
         return array_values(array_map('strval', Permission::where('status', 'active')
@@ -145,13 +145,13 @@ final readonly class CoreTenantModuleAdminBridge
         $qualification = $this->moduleGovernance->qualification();
         $installed = array_fill_keys(array_map(
             static fn($module): string => $module->moduleKey,
-            $qualification->installedModules()
+            $qualification->installedModules(),
         ), true);
         $active = array_fill_keys(array_values(array_unique([
             self::APPLICATION_PERMISSION_OWNER,
             ...array_filter(
                 $qualification->activeTenantModuleKeys($tenantId),
-                static fn(string $moduleKey): bool => isset($installed[$moduleKey])
+                static fn(string $moduleKey): bool => isset($installed[$moduleKey]),
             ),
         ])), true);
         $permissions = [];
@@ -168,7 +168,7 @@ final readonly class CoreTenantModuleAdminBridge
                     continue;
                 }
             }
-            $permissions[] = (string)$row['perms'];
+            $permissions[] = (string) $row['perms'];
         }
 
         return array_values(array_unique($permissions));
@@ -229,7 +229,7 @@ final readonly class CoreTenantModuleAdminBridge
 
     public static function virtualMenuId(string $menuKey): int
     {
-        return 2_000_000_000 + (int)sprintf('%u', crc32($menuKey)) % 100_000_000;
+        return 2_000_000_000 + (int) sprintf('%u', crc32($menuKey)) % 100_000_000;
     }
 
     private function isTenantOwner(TenantContext $context): bool

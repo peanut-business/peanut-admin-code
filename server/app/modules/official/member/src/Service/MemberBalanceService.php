@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Service;
@@ -26,7 +27,7 @@ final class MemberBalanceService
         array $extra = [],
         int $adminId = 0,
         int $rechargeDeltaCents = 0,
-        string $insufficientMessage = ''
+        string $insufficientMessage = '',
     ): object {
         if ($amountCents <= 0) {
             throw BusinessException::invalid('MEMBER_BALANCE_AMOUNT_INVALID', '调整金额必须大于零');
@@ -43,23 +44,23 @@ final class MemberBalanceService
             );
         }
 
-        $currentCents = Money::toCents((string)$member->getData('user_money'));
+        $currentCents = Money::toCents((string) $member->getData('user_money'));
         $afterCents = $currentCents + ($action === AccountLogEnum::INC ? $amountCents : -$amountCents);
         if ($afterCents < 0) {
             throw BusinessException::conflict(
                 'MEMBER_BALANCE_INSUFFICIENT',
                 $insufficientMessage !== ''
                     ? $insufficientMessage
-                    : '用户可用余额仅剩' . (float)$member->getData('user_money')
+                    : '用户可用余额仅剩' . (float) $member->getData('user_money'),
             );
         }
 
-        $rechargeCents = Money::toCents((string)$member->getData('total_recharge_amount'));
+        $rechargeCents = Money::toCents((string) $member->getData('total_recharge_amount'));
         $afterRechargeCents = $rechargeCents + $rechargeDeltaCents;
         if ($afterRechargeCents < 0) {
             throw BusinessException::conflict(
                 'MEMBER_RECHARGE_TOTAL_INSUFFICIENT',
-                $insufficientMessage !== '' ? $insufficientMessage : '累计充值金额不足'
+                $insufficientMessage !== '' ? $insufficientMessage : '累计充值金额不足',
             );
         }
 

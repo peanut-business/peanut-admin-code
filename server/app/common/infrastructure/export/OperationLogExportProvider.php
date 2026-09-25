@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\export;
@@ -55,7 +56,7 @@ final readonly class OperationLogExportProvider implements DataProvider
             if (preg_match('/^[1-9][0-9]*$/D', $cursor) !== 1) {
                 throw ImportExportException::invalid();
             }
-            $afterId = (int)$cursor;
+            $afterId = (int) $cursor;
         }
 
         $records = OperationLog::where([])
@@ -68,18 +69,18 @@ final readonly class OperationLogExportProvider implements DataProvider
         $lastId = null;
         foreach ($records as $record) {
             $row = $record->toArray();
-            $lastId = (int)$row['id'];
+            $lastId = (int) $row['id'];
             $rows[] = [
                 'id' => $lastId,
-                'username' => (string)$row['username'],
-                'ip' => (string)$row['ip'],
-                'uri' => (string)$row['uri'],
-                'method' => (string)$row['method'],
-                'params' => (string)$row['params'],
-                'create_time' => empty($row['create_time']) ? '' : date('Y-m-d H:i:s', (int)$row['create_time']),
+                'username' => (string) $row['username'],
+                'ip' => (string) $row['ip'],
+                'uri' => (string) $row['uri'],
+                'method' => (string) $row['method'],
+                'params' => (string) $row['params'],
+                'create_time' => empty($row['create_time']) ? '' : date('Y-m-d H:i:s', (int) $row['create_time']),
             ];
         }
 
-        return new ExportBatch($rows, count($rows) === $limit && $lastId !== null ? (string)$lastId : null);
+        return new ExportBatch($rows, count($rows) === $limit && $lastId !== null ? (string) $lastId : null);
     }
 }

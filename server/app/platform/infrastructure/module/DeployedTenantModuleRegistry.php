@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\module;
@@ -16,7 +17,7 @@ final readonly class DeployedTenantModuleRegistry
     private array $manifests;
 
     public function __construct(
-        private CompiledModuleRegistry $compiled
+        private CompiledModuleRegistry $compiled,
     ) {
         if ($compiled->modules === []) {
             throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'No deployed Module manifest is registered.');
@@ -34,7 +35,7 @@ final readonly class DeployedTenantModuleRegistry
                     && !$compiled->isRequiredTenantFoundation($key))) {
                 throw new ModuleException(
                     'MODULE_MANIFEST_INVALID',
-                    'The deployment registry contains an invalid Tenant Module manifest.'
+                    'The deployment registry contains an invalid Tenant Module manifest.',
                 );
             }
             $manifests[$key] = $manifest;
@@ -42,7 +43,7 @@ final readonly class DeployedTenantModuleRegistry
 
         $revision = hash('sha256', implode('|', array_map(
             static fn(ManifestDocument $manifest): string => $manifest->digest,
-            $compiled->modules
+            $compiled->modules,
         )));
         if (!hash_equals($revision, $compiled->revision)) {
             throw new ModuleException('MODULE_REGISTRY_INVALID', 'The deployment registry revision is invalid.');
@@ -94,12 +95,12 @@ final readonly class DeployedTenantModuleRegistry
         if (($installation['status'] ?? null) !== 'active') {
             throw new ModuleException('MODULE_INSTALLATION_FAILED', "Module {$moduleKey} is not active.");
         }
-        if ((string)($installation['installed_version'] ?? '') !== (string)($manifest->data['version'] ?? '')
-            || (int)($installation['manifest_schema_version'] ?? 0) !== (int)($manifest->data['schema_version'] ?? 0)
-            || !hash_equals($manifest->digest, (string)($installation['manifest_digest'] ?? ''))) {
+        if ((string) ($installation['installed_version'] ?? '') !== (string) ($manifest->data['version'] ?? '')
+            || (int) ($installation['manifest_schema_version'] ?? 0) !== (int) ($manifest->data['schema_version'] ?? 0)
+            || !hash_equals($manifest->digest, (string) ($installation['manifest_digest'] ?? ''))) {
             throw new ModuleException(
                 'MODULE_INSTALLATION_MISMATCH',
-                "Installed Module manifest does not match the deployment registry: {$moduleKey}"
+                "Installed Module manifest does not match the deployment registry: {$moduleKey}",
             );
         }
 

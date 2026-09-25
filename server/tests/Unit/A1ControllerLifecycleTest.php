@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit\A1Lifecycle;
@@ -72,8 +73,10 @@ final class A1ControllerLifecycleTest extends TestCase
             'route.before', 'controller.initialize', 'controller.before',
             'action.service', 'action', 'controller.after', 'route.after',
         ], LifecycleTrace::$events);
-        self::assertSame(BaseController::class,
-            (new \ReflectionClass(ActionInjectedController::class))->getConstructor()->getDeclaringClass()->getName());
+        self::assertSame(
+            BaseController::class,
+            (new \ReflectionClass(ActionInjectedController::class))->getConstructor()->getDeclaringClass()->getName(),
+        );
         self::assertTrue($this->contexts->isEmpty());
     }
 
@@ -238,8 +241,14 @@ final class AuthenticatedFixtureMiddleware
     {
         LifecycleTrace::$events[] = 'route.before';
         $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            301, 'fixture-session', 101, 201, 301, 'admin-web',
-            new DateTimeImmutable('2031-01-01T00:00:00Z'), 1,
+            301,
+            'fixture-session',
+            101,
+            201,
+            301,
+            'admin-web',
+            new DateTimeImmutable('2031-01-01T00:00:00Z'),
+            1,
         ), 'fixture-request');
         try {
             return $this->contexts->run(new AdminExecutionContext($tenant, 'fixture.read', [

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Infrastructure;
@@ -27,20 +28,22 @@ final class WechatOfficialAccountService
         }
         $tokenUrl = self::TOKEN_URL . '?' . http_build_query(['grant_type' => 'client_credential', 'appid' => $appId, 'secret' => $appSecret], '', '&', PHP_QUERY_RFC3986);
         $tokenResult = $this->requestJson('GET', $tokenUrl);
-        $accessToken = trim((string)($tokenResult['access_token'] ?? ''));
+        $accessToken = trim((string) ($tokenResult['access_token'] ?? ''));
         if ($accessToken === '') {
             throw new \RuntimeException('微信 access_token 获取失败：' . $this->wechatMessage($tokenResult));
         }
         $body = json_encode(['button' => $this->wechatButtons($menu)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         $result = $this->requestJson('POST', self::MENU_URL . '?access_token=' . rawurlencode($accessToken), $body);
-        if ((int)($result['errcode'] ?? -1) !== 0) {
+        if ((int) ($result['errcode'] ?? -1) !== 0) {
             throw new \RuntimeException('微信公众号菜单发布失败：' . $this->wechatMessage($result));
         }
     }
 
     public static function verifySignature(string $token, string $timestamp, string $nonce, string $signature): bool
     {
-        if ($token === '' || $timestamp === '' || $nonce === '' || $signature === '') return false;
+        if ($token === '' || $timestamp === '' || $nonce === '' || $signature === '') {
+            return false;
+        }
         $parts = [$token, $timestamp, $nonce];
         sort($parts, SORT_STRING);
         return hash_equals(sha1(implode('', $parts)), $signature);
@@ -49,13 +52,19 @@ final class WechatOfficialAccountService
     /** @return array<string,string> */
     public static function parsePlainMessage(string $xml): array
     {
-        if (trim($xml) === '') throw new \RuntimeException('微信消息为空');
+        if (trim($xml) === '') {
+            throw new \RuntimeException('微信消息为空');
+        }
         $previous = libxml_use_internal_errors(true);
         try {
             $message = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOCDATA | LIBXML_NONET);
-            if ($message === false) throw new \RuntimeException('微信消息格式无效');
+            if ($message === false) {
+                throw new \RuntimeException('微信消息格式无效');
+            }
             $result = [];
-            foreach ($message as $key => $value) $result[(string)$key] = trim((string)$value);
+            foreach ($message as $key => $value) {
+                $result[(string) $key] = trim((string) $value);
+            }
             return $result;
         } finally {
             libxml_clear_errors();
@@ -66,8 +75,8 @@ final class WechatOfficialAccountService
     /** @param array<string,string> $incoming */
     public static function textReplyXml(array $incoming, string $content): string
     {
-        $to = self::xmlEscape((string)($incoming['FromUserName'] ?? ''));
-        $from = self::xmlEscape((string)($incoming['ToUserName'] ?? ''));
+        $to = self::xmlEscape((string) ($incoming['FromUserName'] ?? ''));
+        $from = self::xmlEscape((string) ($incoming['ToUserName'] ?? ''));
         $safeContent = str_replace(']]>', ']]]]><![CDATA[>', $content);
         return '<xml><ToUserName><![CDATA[' . $to . ']]></ToUserName><FromUserName><![CDATA[' . $from . ']]></FromUserName><CreateTime>' . time() . '</CreateTime><MsgType><![CDATA[text]]></MsgType><Content><![CDATA[' . $safeContent . ']]></Content></xml>';
     }
@@ -77,32 +86,44 @@ final class WechatOfficialAccountService
     {
         [$status, $response] = $this->request($method, $url, $body);
         $decoded = json_decode($response, true);
-        if ($status < 200 || $status >= 300 || !is_array($decoded)) throw new \RuntimeException('微信接口响应无效（HTTP ' . $status . '）');
+        if ($status < 200 || $status >= 300 || !is_array($decoded)) {
+            throw new \RuntimeException('微信接口响应无效（HTTP ' . $status . '）');
+        }
         return $decoded;
     }
 
     /** @return array{0:int,1:string} */
     private function request(string $method, string $url, string $body): array
     {
-        if (!in_array($method, ['GET', 'POST'], true)) throw new \RuntimeException('微信公众号请求方法无效');
+        if (!in_array($method, ['GET', 'POST'], true)) {
+            throw new \RuntimeException('微信公众号请求方法无效');
+        }
         $headers = ['Accept: application/json', 'Content-Type: application/json', 'User-Agent: PeanutAdmin/1.0'];
         if ($this->transport !== null) {
             $result = ($this->transport)($method, $url, $headers, $body);
-            return [(int)$result[0], (string)$result[1]];
+            return [(int) $result[0], (string) $result[1]];
         }
-        if (!function_exists('curl_init')) throw new \RuntimeException('服务器未安装 cURL 扩展，无法调用微信接口');
+        if (!function_exists('curl_init')) {
+            throw new \RuntimeException('服务器未安装 cURL 扩展，无法调用微信接口');
+        }
         $curl = curl_init($url);
-        if ($curl === false) throw new \RuntimeException('微信接口请求初始化失败');
+        if ($curl === false) {
+            throw new \RuntimeException('微信接口请求初始化失败');
+        }
         $options = [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 10, CURLOPT_TIMEOUT => 30, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2];
-        if ($method === 'POST') $options[CURLOPT_POSTFIELDS] = $body;
+        if ($method === 'POST') {
+            $options[CURLOPT_POSTFIELDS] = $body;
+        }
         curl_setopt_array($curl, $options);
         $response = curl_exec($curl);
         if ($response === false) {
-            $error = curl_error($curl); curl_close($curl);
+            $error = curl_error($curl);
+            curl_close($curl);
             throw new \RuntimeException('微信接口网络异常：' . $error);
         }
-        $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE); curl_close($curl);
-        return [$status, (string)$response];
+        $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        return [$status, (string) $response];
     }
 
     /** @param array<int,array<string,mixed>> $menu @return array<int,array<string,mixed>> */
@@ -110,12 +131,14 @@ final class WechatOfficialAccountService
     {
         return array_map(function (array $item): array {
             $children = is_array($item['sub_button'] ?? null) ? $item['sub_button'] : [];
-            if ($children !== []) return ['name' => (string)$item['name'], 'sub_button' => $this->wechatButtons($children)];
-            $button = ['name' => (string)$item['name'], 'type' => (string)$item['type']];
+            if ($children !== []) {
+                return ['name' => (string) $item['name'], 'sub_button' => $this->wechatButtons($children)];
+            }
+            $button = ['name' => (string) $item['name'], 'type' => (string) $item['type']];
             return match ($button['type']) {
-                'click' => $button + ['key' => (string)$item['key']],
-                'view' => $button + ['url' => (string)$item['url']],
-                'miniprogram' => $button + ['url' => (string)$item['url'], 'appid' => (string)$item['appid'], 'pagepath' => (string)$item['pagepath']],
+                'click' => $button + ['key' => (string) $item['key']],
+                'view' => $button + ['url' => (string) $item['url']],
+                'miniprogram' => $button + ['url' => (string) $item['url'], 'appid' => (string) $item['appid'], 'pagepath' => (string) $item['pagepath']],
                 default => throw new \RuntimeException('公众号菜单类型无效'),
             };
         }, $menu);
@@ -124,8 +147,8 @@ final class WechatOfficialAccountService
     /** @param array<string,mixed> $result */
     private function wechatMessage(array $result): string
     {
-        $message = trim((string)($result['errmsg'] ?? $result['message'] ?? '未知错误'));
-        $code = (string)($result['errcode'] ?? '');
+        $message = trim((string) ($result['errmsg'] ?? $result['message'] ?? '未知错误'));
+        $code = (string) ($result['errcode'] ?? '');
         return $code === '' ? $message : $code . ' ' . $message;
     }
 

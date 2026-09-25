@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Service;
@@ -20,8 +21,7 @@ final readonly class TaskImportExportRuntime implements ImportExportWorkerRuntim
         private ImportExportQueries $queries,
         private TaskJobRuntime $tasks,
         private AppFileMediaGateway $files,
-    ) {
-    }
+    ) {}
 
     public function commands(): ImportExportCommands
     {

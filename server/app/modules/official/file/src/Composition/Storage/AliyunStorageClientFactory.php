@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Composition\Storage;
@@ -10,11 +11,11 @@ final class AliyunStorageClientFactory
 {
     public function make(array $account, array $space): OssClient
     {
-        $credentials = (array)($account['resolved_credentials'] ?? []);
+        $credentials = (array) ($account['resolved_credentials'] ?? []);
         $client = new OssClient(
-            (string)($credentials['access_key'] ?? ''),
-            (string)($credentials['secret_key'] ?? ''),
-            (string)($space['endpoint'] ?? ''),
+            (string) ($credentials['access_key'] ?? ''),
+            (string) ($credentials['secret_key'] ?? ''),
+            (string) ($space['endpoint'] ?? ''),
             true,
         );
         $client->setConnectTimeout(10);

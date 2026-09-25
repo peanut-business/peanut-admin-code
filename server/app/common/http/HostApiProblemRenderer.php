@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\http;
@@ -23,8 +24,7 @@ final readonly class HostApiProblemRenderer
         private App $app,
         private CurrentExecutionContext $executionContext,
         private ApiProblemMapper $problems,
-    ) {
-    }
+    ) {}
 
     public function render($request, \Throwable $exception): ?Response
     {

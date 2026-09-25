@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\module;
@@ -15,7 +16,6 @@ final class ModuleScaffoldGenerator
     private const BACKEND_FILES = [
         'module.json' => 'backend/module.json.stub',
         'src/ModuleProvider.php' => 'backend/ModuleProvider.php.stub',
-        'src/Contract/${MODULE}Commands.php' => 'backend/Contract/ModuleCommands.php.stub',
         'route/app.php' => 'backend/route/app.php.stub',
         'resources/permissions.json' => 'backend/empty-array.json.stub',
         'resources/menus.json' => 'backend/empty-array.json.stub',
@@ -26,14 +26,12 @@ final class ModuleScaffoldGenerator
 
     private const FRONTEND_FILES = [
         'contribution.ts' => 'frontend/contribution.ts.stub',
-        'views/.gitkeep' => null,
-        'api.ts' => 'frontend/api.ts.stub',
         'package.json' => 'frontend/package.json.stub',
     ];
 
     private const TEST_FILES = [
-        'TenantSecurityDriver.php' => 'tests/TenantSecurityDriver.php.stub',
-        'TenantSecurityTest.php' => 'tests/TenantSecurityTest.php.stub',
+        'ModuleStructureTest.php' => 'tests/ModuleStructureTest.php.stub',
+        'SECURITY.md' => 'tests/SECURITY.md.stub',
     ];
 
     private ModuleHostLayout $layout;
@@ -61,11 +59,15 @@ final class ModuleScaffoldGenerator
     /**
      * @return array{
      *   operation:string,module_key:string,vendor:string,backend_path:string,
-     *   frontend_path:string,test_path:string,frontend_entry:string,php_package:string,web_package:string
+     *   frontend_path:?string,test_path:string,frontend_entry:?string,php_package:string,web_package:?string
      * }
      */
-    public function create(string $moduleKey, ?string $vendor = null): array
+    public function create(string $moduleKey, ?string $vendor = null, string $client = 'none'): array
     {
+        if (!in_array($client, ['none', 'admin-web'], true)) {
+            throw new ModuleScaffoldException('MODULE_CREATE_CLIENT_INVALID', 'Select none or admin-web explicitly.');
+        }
+        $withFrontend = $client === 'admin-web';
         $moduleKey = trim($moduleKey);
         try {
             $key = ModuleKey::fromString($moduleKey);
@@ -79,7 +81,7 @@ final class ModuleScaffoldGenerator
             throw new ModuleScaffoldException('MODULE_CREATE_KEY_INVALID', 'Module key must contain vendor and name.');
         }
         $derivedVendor = $rawSegments[0];
-        $vendor = trim((string)$vendor);
+        $vendor = trim((string) $vendor);
         if ($vendor !== '' && preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D', $vendor) !== 1) {
             throw new ModuleScaffoldException('MODULE_CREATE_VENDOR_INVALID', 'Module vendor is invalid.');
         }
@@ -102,7 +104,9 @@ final class ModuleScaffoldGenerator
         $frontendBase = $this->projectRoot . '/web/src/modules';
         $testBase = $this->projectRoot . '/server/tests';
         $this->assertAvailableTarget($backendBase, $backendRoot);
-        $this->assertAvailableTarget($frontendBase, $frontendRoot);
+        if ($withFrontend) {
+            $this->assertAvailableTarget($frontendBase, $frontendRoot);
+        }
         $this->assertAvailableTarget($testBase, $testRoot);
 
         $vendorKey = $rawSegments[0];
@@ -137,9 +141,13 @@ final class ModuleScaffoldGenerator
             '${NAME_JSON}' => $this->jsonString($displayName),
             '${DESCRIPTION_JSON}' => $this->jsonString($description),
             '${PHP_PACKAGE_JSON}' => $this->jsonString($phpPackage),
+            '${WEB_PACKAGE_FIELD}' => $withFrontend ? '"web_package": ' . $this->jsonString($webPackage) . ',' : '',
             '${WEB_PACKAGE_JSON}' => $this->jsonString($webPackage),
+            '${FRONTEND_DECLARATION_JSON}' => $withFrontend ? json_encode(['entry' => $frontendEntry], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) : '{}',
+            '${BACKEND_RELATIVE_JSON}' => $this->jsonString($backendRelative),
+            '${PHP_PREFIX_JSON}' => $this->jsonString($namespace . '\\'),
+            '${FRONTEND_TEST_JSON}' => $withFrontend ? $this->jsonString($frontendEntry) : 'null',
             '${BACKEND_PROVIDER_JSON}' => $this->jsonString($namespace . '\\ModuleProvider'),
-            '${COMMANDS_CONTRACT_JSON}' => $this->jsonString($namespace . '\\Contract\\' . $pascalSegments[array_key_last($pascalSegments)] . 'Commands'),
             '${FRONTEND_ENTRY_JSON}' => $this->jsonString($frontendEntry),
             '${AUTOLOAD_NAMESPACE_JSON}' => $this->jsonString($namespace . '\\'),
             '${TABLE_NAME}' => $tableName,
@@ -153,27 +161,43 @@ final class ModuleScaffoldGenerator
                 throw new ModuleScaffoldException('MODULE_CREATE_WRITE_FAILED', 'Module backend root cannot be created.');
             }
             $backendCreated = true;
-            if (!mkdir($frontendRoot, 0755, true)) {
-                throw new ModuleScaffoldException('MODULE_CREATE_WRITE_FAILED', 'Module frontend root cannot be created.');
+            if ($withFrontend) {
+                if (!mkdir($frontendRoot, 0755, true)) {
+                    throw new ModuleScaffoldException('MODULE_CREATE_WRITE_FAILED', 'Module frontend root cannot be created.');
+                }
+                $frontendCreated = true;
             }
-            $frontendCreated = true;
             if (!mkdir($testRoot, 0755, true)) {
                 throw new ModuleScaffoldException('MODULE_CREATE_WRITE_FAILED', 'Module test root cannot be created.');
             }
             $testCreated = true;
             $this->writeFiles($backendRoot, self::BACKEND_FILES, $replacements);
-            $this->writeFiles($frontendRoot, self::FRONTEND_FILES, $replacements);
+            if ($withFrontend) {
+                $this->writeFiles($frontendRoot, self::FRONTEND_FILES, $replacements);
+            }
             $this->writeFiles($testRoot, self::TEST_FILES, $replacements);
-            $this->postflight($moduleKey, $backendRoot);
+            $this->postflight($moduleKey, $backendRoot, $withFrontend);
         } catch (ModuleScaffoldException $exception) {
-            if ($testCreated) $this->removeCreatedTree($testRoot, $testBase);
-            if ($frontendCreated) $this->removeCreatedTree($frontendRoot, $frontendBase);
-            if ($backendCreated) $this->removeCreatedTree($backendRoot, $backendBase);
+            if ($testCreated) {
+                $this->removeCreatedTree($testRoot, $testBase);
+            }
+            if ($frontendCreated) {
+                $this->removeCreatedTree($frontendRoot, $frontendBase);
+            }
+            if ($backendCreated) {
+                $this->removeCreatedTree($backendRoot, $backendBase);
+            }
             throw $exception;
         } catch (\Throwable $exception) {
-            if ($testCreated) $this->removeCreatedTree($testRoot, $testBase);
-            if ($frontendCreated) $this->removeCreatedTree($frontendRoot, $frontendBase);
-            if ($backendCreated) $this->removeCreatedTree($backendRoot, $backendBase);
+            if ($testCreated) {
+                $this->removeCreatedTree($testRoot, $testBase);
+            }
+            if ($frontendCreated) {
+                $this->removeCreatedTree($frontendRoot, $frontendBase);
+            }
+            if ($backendCreated) {
+                $this->removeCreatedTree($backendRoot, $backendBase);
+            }
             throw new ModuleScaffoldException('MODULE_CREATE_FAILED', 'Module scaffold generation failed.', 0, $exception);
         }
 
@@ -182,11 +206,11 @@ final class ModuleScaffoldGenerator
             'module_key' => $moduleKey,
             'vendor' => $vendor,
             'backend_path' => $backendRelative,
-            'frontend_path' => $frontendRelative,
+            'frontend_path' => $withFrontend ? $frontendRelative : null,
             'test_path' => $testRelative,
-            'frontend_entry' => $frontendEntry,
+            'frontend_entry' => $withFrontend ? $frontendEntry : null,
             'php_package' => $phpPackage,
-            'web_package' => $webPackage,
+            'web_package' => $withFrontend ? $webPackage : null,
         ];
     }
 
@@ -216,7 +240,7 @@ final class ModuleScaffoldGenerator
             try {
                 $moduleRoot = dirname($composerPath);
                 $manifest = json_decode(
-                    (string)file_get_contents($moduleRoot . '/module.json'),
+                    (string) file_get_contents($moduleRoot . '/module.json'),
                     true,
                     32,
                     JSON_THROW_ON_ERROR,
@@ -283,7 +307,7 @@ final class ModuleScaffoldGenerator
         }
     }
 
-    private function postflight(string $moduleKey, string $backendRoot): void
+    private function postflight(string $moduleKey, string $backendRoot, bool $withFrontend): void
     {
         $segments = ModuleKey::fromString($moduleKey)->pascalSegments();
         // 生成与验收使用同一份文件清单；没有消费者的类分层不预建空目录。
@@ -299,7 +323,7 @@ final class ModuleScaffoldGenerator
             throw new ModuleScaffoldException('MODULE_CREATE_POSTCHECK_FAILED', 'Generated Module manifest preflight failed.', 0, $exception);
         }
         if ($inspection['backend_relative'] !== rtrim($this->layout->backendRelativePath(ModuleKey::fromString($moduleKey)), '/')
-            || $inspection['frontend_relative'] !== rtrim($this->layout->frontendRelativePath(ModuleKey::fromString($moduleKey)), '/')) {
+            || $inspection['frontend_relative'] !== ($withFrontend ? rtrim($this->layout->frontendRelativePath(ModuleKey::fromString($moduleKey)), '/') : null)) {
             throw new ModuleScaffoldException('MODULE_CREATE_POSTCHECK_FAILED', 'Generated Module path differs from its key.');
         }
         $this->validateComposer($backendRoot);
@@ -327,7 +351,7 @@ final class ModuleScaffoldGenerator
         if (proc_close($process) !== 0) {
             throw new ModuleScaffoldException(
                 'MODULE_CREATE_COMPOSER_INVALID',
-                'Generated Composer manifest is invalid: ' . trim((string)$stdout . "\n" . (string)$stderr),
+                'Generated Composer manifest is invalid: ' . trim((string) $stdout . "\n" . (string) $stderr),
             );
         }
     }
@@ -353,7 +377,9 @@ final class ModuleScaffoldGenerator
         }
         $cursor = dirname($path);
         while ($cursor !== $base && str_starts_with($cursor, $base . '/')) {
-            if (!is_dir($cursor) || is_link($cursor) || (scandir($cursor) ?: []) !== ['.', '..']) break;
+            if (!is_dir($cursor) || is_link($cursor) || (scandir($cursor) ?: []) !== ['.', '..']) {
+                break;
+            }
             rmdir($cursor);
             $cursor = dirname($cursor);
         }

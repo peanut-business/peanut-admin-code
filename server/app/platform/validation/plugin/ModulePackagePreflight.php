@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\validation\plugin;
@@ -113,7 +114,9 @@ final readonly class ModulePackagePreflight
         }
         $frontendRelative = null;
         foreach ($frontendContributions as $contribution) {
-            if ($contribution['client_key'] === 'admin-web') $frontendRelative = $contribution['root'];
+            if ($contribution['client_key'] === 'admin-web') {
+                $frontendRelative = $contribution['root'];
+            }
         }
 
         $catalog = is_array($manifest->data['catalog'] ?? null) ? $manifest->data['catalog'] : [];
@@ -123,7 +126,7 @@ final readonly class ModulePackagePreflight
             if (!is_string($permissionKey) || !str_starts_with($permissionKey, $moduleKey . '.')) {
                 throw new PluginPackageException(
                     'MODULE_PACKAGE_PERMISSION_NOT_NAMESPACED',
-                    'Every Module permission key must use its Module key namespace.'
+                    'Every Module permission key must use its Module key namespace.',
                 );
             }
             $permissions[$permissionKey] = true;
@@ -133,7 +136,7 @@ final readonly class ModulePackagePreflight
             if ($required !== null && (!is_string($required) || !isset($permissions[$required]))) {
                 throw new PluginPackageException(
                     'MODULE_PACKAGE_PERMISSION_REFERENCE_INVALID',
-                    'Module menu permission must reference a declared namespaced permission.'
+                    'Module menu permission must reference a declared namespaced permission.',
                 );
             }
         }
@@ -152,13 +155,13 @@ final readonly class ModulePackagePreflight
 
         return [
             'key' => $moduleKey,
-            'version' => (string)$manifest->data['version'],
+            'version' => (string) $manifest->data['version'],
             'backend_relative' => $backendRelative,
             'frontend_relative' => $frontendRelative,
             'frontend_contributions' => $frontendContributions,
             'manifest' => $manifest,
             'dependencies' => $dependencies,
-            'owned_tables' => array_values((array)($manifest->data['database']['owned_tables'] ?? [])),
+            'owned_tables' => array_values((array) ($manifest->data['database']['owned_tables'] ?? [])),
         ];
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task\Service;
@@ -25,8 +26,7 @@ final class CrontabSchedulerService
         private readonly CrontabTenantLock $locks,
         private readonly AuditContractHost $audit,
         private readonly PlatformTenantDataGateway $tenantData,
-    ) {
-    }
+    ) {}
 
     /**
      * @param callable(TenantScope,array<string,mixed>):void $trigger
@@ -57,7 +57,7 @@ final class CrontabSchedulerService
     {
         $tenantId = self::positiveInt($item['tenant_id'] ?? null, 'Scheduled job Tenant owner is invalid');
         $jobId = self::positiveInt($item['id'] ?? null, 'Scheduled job ID is invalid');
-        $lastTime = (int)($item['last_time'] ?? 0);
+        $lastTime = (int) ($item['last_time'] ?? 0);
         $scope = TenantScope::fromTrustedContext(
             $tenantId,
             CrontabTaskDefinition::contextIdentity($tenantId, $jobId, max(0, $lastTime)),
@@ -86,7 +86,7 @@ final class CrontabSchedulerService
                     }
 
                     try {
-                        $nextTime = (new CronExpression((string)($item['expression'] ?? '')))
+                        $nextTime = (new CronExpression((string) ($item['expression'] ?? '')))
                             ->getNextRunDate(date('Y-m-d H:i:s', $lastTime))
                             ->getTimestamp();
                     } catch (\InvalidArgumentException $exception) {
@@ -132,7 +132,7 @@ final class CrontabSchedulerService
         if (!is_int($value) && !(is_string($value) && ctype_digit($value))) {
             throw new \InvalidArgumentException($message);
         }
-        $value = (int)$value;
+        $value = (int) $value;
         if ($value < 1) {
             throw new \InvalidArgumentException($message);
         }
@@ -161,7 +161,7 @@ final class CrontabSchedulerService
             ['job_id' => $jobId] + $metadata,
             $outcome,
             $reasonCode,
-            new AuditResource('crontab', (string)$jobId),
+            new AuditResource('crontab', (string) $jobId),
         );
     }
 }

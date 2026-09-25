@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\auth;
@@ -31,11 +32,11 @@ final class LoginApplicationService
             $tenantCode = $this->entryBindings->loginTenantCode(
                 $request,
                 TenantEntryBindingResolver::ADMIN_CLIENT,
-                isset($params['tenant_code']) ? (string)$params['tenant_code'] : null,
+                isset($params['tenant_code']) ? (string) $params['tenant_code'] : null,
             );
             $outcome = $this->tenantAuth->login(
-                trim((string)$params['account']),
-                (string)$params['password'],
+                trim((string) $params['account']),
+                (string) $params['password'],
                 $tenantCode,
                 $request->ip(),
                 $request->header('User-Agent'),
@@ -61,12 +62,12 @@ final class LoginApplicationService
                 'name' => $principal['name'],
                 'avatar' => $principal['avatar'],
                 'role_name' => $principal['role_name'],
-                'terminal' => (int)$params['terminal'],
+                'terminal' => (int) $params['terminal'],
                 'context' => [
                     'audience' => 'tenant',
-                    'account_id' => (string)$outcome->context->accountId,
-                    'tenant_id' => (string)$outcome->context->tenantId,
-                    'tenant_member_id' => (string)$outcome->context->memberId,
+                    'account_id' => (string) $outcome->context->accountId,
+                    'tenant_id' => (string) $outcome->context->tenantId,
+                    'tenant_member_id' => (string) $outcome->context->memberId,
                 ],
             ];
         } catch (AuthException|\DomainException|\InvalidArgumentException $exception) {

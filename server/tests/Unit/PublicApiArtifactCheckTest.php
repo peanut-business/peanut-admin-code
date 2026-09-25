@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
@@ -43,7 +44,7 @@ final class PublicApiArtifactCheckTest extends TestCase
         self::assertSame($before, $this->artifactContents());
 
         $openApi = json_decode(
-            (string)file_get_contents($this->applicationRoot . '/server/generated/openapi.json'),
+            (string) file_get_contents($this->applicationRoot . '/server/generated/openapi.json'),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -52,7 +53,7 @@ final class PublicApiArtifactCheckTest extends TestCase
         self::assertSame('2', $openApi['info']['x-peanut-contract-generator']['version']);
 
         $catalog = json_decode(
-            (string)file_get_contents($this->applicationRoot . '/server/generated/api-catalog.json'),
+            (string) file_get_contents($this->applicationRoot . '/server/generated/api-catalog.json'),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -64,7 +65,7 @@ final class PublicApiArtifactCheckTest extends TestCase
             ],
             array_column($catalog['endpoints'], 'source'),
         );
-        $moduleTypes = (string)file_get_contents(
+        $moduleTypes = (string) file_get_contents(
             $this->applicationRoot . '/web/src/modules/official-sample/generated/openapi.ts',
         );
         self::assertStringContainsString('export interface ModuleApiOperations {', $moduleTypes);
@@ -97,7 +98,7 @@ final class PublicApiArtifactCheckTest extends TestCase
     public function testChangedContractMustRefreshAndDeletedOperationLeavesNoGeneratedResidue(): void
     {
         $moduleMetadata = $this->applicationRoot . '/server/app/modules/official/sample/api/metadata/openapi.php';
-        $metadata = (string)file_get_contents($moduleMetadata);
+        $metadata = (string) file_get_contents($moduleMetadata);
         self::assertNotSame($metadata, $changed = str_replace(
             "'description' => 'sample'",
             "'description' => 'sample v2'",
@@ -117,7 +118,7 @@ final class PublicApiArtifactCheckTest extends TestCase
         self::assertSame(0, $this->runCheck()['status']);
 
         $registry = $this->applicationRoot . '/server/route/registry_source.php';
-        $registrySource = (string)file_get_contents($registry);
+        $registrySource = (string) file_get_contents($registry);
         $withoutSample = preg_replace(
             '/\n\s*\/\/ SAMPLE_ENDPOINT_START.*?\/\/ SAMPLE_ENDPOINT_END\n/s',
             "\n",
@@ -142,7 +143,7 @@ final class PublicApiArtifactCheckTest extends TestCase
         self::assertSame(0, $this->runCheck()['status']);
 
         $openApi = json_decode(
-            (string)file_get_contents($this->applicationRoot . '/server/generated/openapi.json'),
+            (string) file_get_contents($this->applicationRoot . '/server/generated/openapi.json'),
             true,
             512,
             JSON_THROW_ON_ERROR,
@@ -152,7 +153,7 @@ final class PublicApiArtifactCheckTest extends TestCase
         self::assertFileDoesNotExist(
             $this->applicationRoot . '/web/src/modules/official-sample/generated/openapi.ts',
         );
-        $types = (string)file_get_contents($this->applicationRoot . '/web/src/generated/openapi.d.ts');
+        $types = (string) file_get_contents($this->applicationRoot . '/web/src/generated/openapi.d.ts');
         self::assertStringNotContainsString('/api/sample', $types);
         self::assertStringNotContainsString('SamplePayload', $types);
     }
@@ -226,11 +227,11 @@ final class PublicApiArtifactCheckTest extends TestCase
     {
         self::writeFile(
             $this->applicationRoot . '/scripts/generate-api-contracts.php',
-            (string)file_get_contents($this->sourceRoot . '/scripts/generate-api-contracts.php'),
+            (string) file_get_contents($this->sourceRoot . '/scripts/generate-api-contracts.php'),
         );
         self::writeFile(
             $this->applicationRoot . '/scripts/check-openapi',
-            (string)file_get_contents($this->sourceRoot . '/scripts/check-openapi'),
+            (string) file_get_contents($this->sourceRoot . '/scripts/check-openapi'),
         );
         self::writeFile($this->applicationRoot . '/release-versions.json', <<<'JSON'
 {
@@ -412,8 +413,8 @@ PHP);
         fclose($pipes[2]);
         return [
             'status' => proc_close($process),
-            'stdout' => (string)$stdout,
-            'stderr' => (string)$stderr,
+            'stdout' => (string) $stdout,
+            'stderr' => (string) $stderr,
         ];
     }
 
@@ -429,7 +430,7 @@ PHP);
         $contents = [];
         foreach ($paths as $path) {
             if (is_file($path)) {
-                $contents[$path] = (string)file_get_contents($path);
+                $contents[$path] = (string) file_get_contents($path);
             }
         }
         return $contents;

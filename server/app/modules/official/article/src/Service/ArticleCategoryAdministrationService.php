@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Article\Service;
@@ -64,7 +65,7 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
     {
         $this->assertPermission($context, 'official.article.category.edit');
         return Db::transaction(function () use ($params): bool {
-            $category = ArticleCate::where([])->where('id', (int)$params['id'])->lock(true)->findOrEmpty();
+            $category = ArticleCate::where([])->where('id', (int) $params['id'])->lock(true)->findOrEmpty();
             if ($category->isEmpty()) {
                 throw BusinessException::notFound('ARTICLE_CATEGORY_NOT_FOUND', '资讯分类不存在');
             }
@@ -105,7 +106,7 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
             if ($category->isEmpty()) {
                 throw BusinessException::notFound('ARTICLE_CATEGORY_NOT_FOUND', '资讯分类不存在');
             }
-            if ((int)$category->is_show !== $isShow) {
+            if ((int) $category->is_show !== $isShow) {
                 $category->save(['is_show' => $isShow]);
             }
             return true;
@@ -180,17 +181,17 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         $query = $onlyTrashed ? ArticleCate::onlyTrashed() : ArticleCate::where([]);
         $query->field(self::fields());
         if (isset($params['name']) && $params['name'] !== '') {
-            $query->whereLike('name', '%' . trim((string)$params['name']) . '%');
+            $query->whereLike('name', '%' . trim((string) $params['name']) . '%');
         }
         if (isset($params['is_show']) && $params['is_show'] !== '') {
-            $query->where('is_show', (int)$params['is_show']);
+            $query->where('is_show', (int) $params['is_show']);
         }
         foreach (['start_time' => '>=', 'end_time' => '<=', 'start' => '>=', 'end' => '<='] as $field => $operator) {
             if (!isset($params[$field]) || $params[$field] === '') {
                 continue;
             }
             $value = in_array($field, ['start_time', 'end_time'], true)
-                ? strtotime((string)$params[$field])
+                ? strtotime((string) $params[$field])
                 : filter_var($params[$field], FILTER_VALIDATE_INT);
             if ($value === false) {
                 throw BusinessException::invalid('ARTICLE_LIST_TIME_INVALID', '查询时间无效');
@@ -202,10 +203,10 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
         if (!in_array($exportMode, [0, 1, 2, '1', '2'], true)) {
             throw BusinessException::invalid('ARTICLE_EXPORT_RANGE_INVALID', '导出模式无效');
         }
-        $exportMode = (int)$exportMode;
+        $exportMode = (int) $exportMode;
         if ($exportMode > 0) {
             try {
-                $pageSize = (int)($params['page_type'] ?? 1) === 0
+                $pageSize = (int) ($params['page_type'] ?? 1) === 0
                     ? self::PAGE_SIZE_MAX
                     : PaginationInput::from($params, 1, self::PAGE_SIZE_DEFAULT)->pageSize;
             } catch (\InvalidArgumentException $exception) {
@@ -224,9 +225,9 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
             }
             try {
                 [$offset, $limit] = $info->rowRange(
-                    (int)($params['page_type'] ?? 0),
-                    (int)($params['page_start'] ?? 1),
-                    isset($params['page_end']) ? (int)$params['page_end'] : null,
+                    (int) ($params['page_type'] ?? 0),
+                    (int) ($params['page_start'] ?? 1),
+                    isset($params['page_end']) ? (int) $params['page_end'] : null,
                 );
             } catch (\InvalidArgumentException $exception) {
                 throw BusinessException::invalid('ARTICLE_EXPORT_RANGE_INVALID', $exception->getMessage());
@@ -236,11 +237,11 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
             $page = $this->paginate($query, $params);
         }
         $rows = array_map(static fn(mixed $item): array => self::formatRow(
-            $item instanceof \think\Model ? $item->toArray() : (array)$item,
+            $item instanceof \think\Model ? $item->toArray() : (array) $item,
         ), $page->items);
         $counts = $this->articleCounts(array_column($rows, 'id'), $onlyTrashed);
         foreach ($rows as &$row) {
-            $row['article_count'] = $counts[(int)$row['id']] ?? 0;
+            $row['article_count'] = $counts[(int) $row['id']] ?? 0;
         }
         unset($row);
         if ($exportMode === 2) {
@@ -248,7 +249,7 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
             $this->assertPermission($context, $permission);
             $fields = [...self::fields(), 'article_count'];
             $file = $this->xlsxExport->create(
-                (string)($params['file_name'] ?? '资讯分类'),
+                (string) ($params['file_name'] ?? '资讯分类'),
                 $fields,
                 array_map(static fn(array $row): array => array_map(static fn(string $field): mixed => $row[$field], $fields), $rows),
             );
@@ -275,15 +276,15 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
     private static function writeData(array $params): array
     {
         return [
-            'name' => trim((string)$params['name']),
-            'sort' => (int)($params['sort'] ?? 0),
-            'is_show' => (int)($params['is_show'] ?? 1),
+            'name' => trim((string) $params['name']),
+            'sort' => (int) ($params['sort'] ?? 0),
+            'is_show' => (int) ($params['is_show'] ?? 1),
         ];
     }
 
     private function paginate(BaseQuery $query, array $params): PageResult
     {
-        if ((int)($params['page_type'] ?? 1) === 0) {
+        if ((int) ($params['page_type'] ?? 1) === 0) {
             return PageResult::fromPaginator($query->paginate([
                 'list_rows' => self::PAGE_SIZE_MAX,
                 'page' => 1,
@@ -295,8 +296,8 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
 
     private function applyOrder(BaseQuery $query, array $params): void
     {
-        $field = (string)($params['field'] ?? '');
-        $orderBy = strtolower((string)($params['order_by'] ?? ''));
+        $field = (string) ($params['field'] ?? '');
+        $orderBy = strtolower((string) ($params['order_by'] ?? ''));
         if (in_array($field, ['create_time', 'id'], true)
             && in_array($orderBy, ['asc', 'desc'], true)) {
             $query->order($field, $orderBy);
@@ -320,7 +321,7 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
             ->group('cid')->select()->toArray();
         $counts = [];
         foreach ($rows as $row) {
-            $counts[(int)$row['cid']] = (int)$row['article_count'];
+            $counts[(int) $row['cid']] = (int) $row['article_count'];
         }
         return $counts;
     }
@@ -328,14 +329,14 @@ final class ArticleCategoryAdministrationService implements ArticleCategoryAdmin
     /** @param array<string,mixed> $row */
     private static function formatRow(array $row): array
     {
-        $row['id'] = (int)$row['id'];
-        $row['sort'] = (int)$row['sort'];
-        $row['is_show'] = (int)$row['is_show'];
+        $row['id'] = (int) $row['id'];
+        $row['sort'] = (int) $row['sort'];
+        $row['is_show'] = (int) $row['is_show'];
         foreach (['create_time', 'update_time', 'delete_time'] as $field) {
             $value = $row[$field] ?? 0;
             $row[$field] = empty($value) ? '' : (is_numeric($value)
-                ? date('Y-m-d H:i:s', (int)$value)
-                : (string)$value);
+                ? date('Y-m-d H:i:s', (int) $value)
+                : (string) $value);
         }
         return $row;
     }

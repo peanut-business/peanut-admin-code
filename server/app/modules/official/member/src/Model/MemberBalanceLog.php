@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Model;
@@ -19,7 +20,7 @@ class MemberBalanceLog extends TenantOwnedModel
     public static function generateSn(TenantContext|TenantSystemContext $context): string
     {
         do {
-            $sn = date('YmdHis') . str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $sn = date('YmdHis') . str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         } while (MemberBalanceLog::where([])->withTrashed()->where('sn', $sn)->count() > 0);
 
         return $sn;

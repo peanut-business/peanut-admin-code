@@ -47,11 +47,19 @@ module.exports = {
     'vue/padding-line-between-blocks': 1,
     'vue/require-direct-export': 1,
     'vue/multi-word-component-names': 0,
-    // Allow @ts-ignore comment
-    '@typescript-eslint/ban-ts-comment': 0,
+    '@typescript-eslint/ban-ts-comment': [
+      2,
+      {
+        'ts-ignore': true,
+        'ts-nocheck': true,
+        'ts-check': false,
+        'ts-expect-error': 'allow-with-description',
+        'minimumDescriptionLength': 12,
+      },
+    ],
     '@typescript-eslint/no-unused-vars': 1,
     '@typescript-eslint/no-empty-function': 1,
-    '@typescript-eslint/no-explicit-any': 0,
+    '@typescript-eslint/no-explicit-any': 2,
     'import/extensions': [
       2,
       'ignorePackages',

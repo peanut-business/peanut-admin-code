@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Service;
@@ -18,8 +19,7 @@ final class ExternalChannelBindingService implements ExternalChannelBindings
         private readonly ExternalTenantBindingRepository $repository,
         private readonly ExternalTenantResolver $resolver,
         private readonly ExternalChannelBindingStore $store,
-    ) {
-    }
+    ) {}
 
     public function config(TenantContext $context, string $provider): array
     {
@@ -68,7 +68,7 @@ final class ExternalChannelBindingService implements ExternalChannelBindings
                 }
                 $enabled = $enabledResolver === null
                     ? self::enabled($provider, $config)
-                    : (bool)$enabledResolver($config);
+                    : (bool) $enabledResolver($config);
                 self::assertValidInput($provider, $identity, $enabled);
                 return ['config' => $config, 'enabled' => $enabled];
             },
@@ -100,11 +100,11 @@ final class ExternalChannelBindingService implements ExternalChannelBindings
     private static function enabled(string $provider, array $config): bool
     {
         return match ($provider) {
-            ExternalProvider::WECHAT_PAYMENT => (int)($config['wx_pay_status'] ?? 0) === 1,
-            ExternalProvider::ALIPAY_PAYMENT => (int)($config['ali_pay_status'] ?? 0) === 1,
-            ExternalProvider::WECHAT_OFFICIAL_CALLBACK => trim((string)($config['token'] ?? '')) !== '',
-            default => trim((string)($config['app_id'] ?? '')) !== ''
-                && trim((string)($config['app_secret'] ?? '')) !== '',
+            ExternalProvider::WECHAT_PAYMENT => (int) ($config['wx_pay_status'] ?? 0) === 1,
+            ExternalProvider::ALIPAY_PAYMENT => (int) ($config['ali_pay_status'] ?? 0) === 1,
+            ExternalProvider::WECHAT_OFFICIAL_CALLBACK => trim((string) ($config['token'] ?? '')) !== '',
+            default => trim((string) ($config['app_id'] ?? '')) !== ''
+                && trim((string) ($config['app_secret'] ?? '')) !== '',
         };
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -23,8 +24,8 @@ final class VerificationAttemptRateLimiter
     {
         $state = Cache::get($this->cacheKey($context, $scene, $mobile, $source));
         if (is_array($state)
-            && (int)($state['expires_at'] ?? 0) > time()
-            && (int)($state['count'] ?? 0) >= $this->maxFailures()) {
+            && (int) ($state['expires_at'] ?? 0) > time()
+            && (int) ($state['count'] ?? 0) >= $this->maxFailures()) {
             throw new BusinessException('MEMBER_VERIFICATION_RATE_LIMITED', 429, '验证码尝试过于频繁，请稍后重试');
         }
     }
@@ -34,18 +35,18 @@ final class VerificationAttemptRateLimiter
         $key = $this->cacheKey($context, $scene, $mobile, $source);
         $now = time();
         $state = Cache::get($key);
-        if (!is_array($state) || (int)($state['expires_at'] ?? 0) <= $now) {
+        if (!is_array($state) || (int) ($state['expires_at'] ?? 0) <= $now) {
             $state = ['count' => 0, 'expires_at' => $now + $this->windowSeconds()];
         }
-        $state['count'] = (int)$state['count'] + 1;
-        Cache::set($key, $state, max(1, (int)$state['expires_at'] - $now));
-        return (int)$state['count'];
+        $state['count'] = (int) $state['count'] + 1;
+        Cache::set($key, $state, max(1, (int) $state['expires_at'] - $now));
+        return (int) $state['count'];
     }
 
     private function cacheKey(TenantSystemContext $context, string $scene, string $mobile, string $source): string
     {
         return 'application:v1:verification-entry:' . hash('sha256', implode("\0", [
-            (string)$context->tenantId,
+            (string) $context->tenantId,
             $scene,
             $mobile,
             $source,
@@ -54,11 +55,11 @@ final class VerificationAttemptRateLimiter
 
     private function maxFailures(): int
     {
-        return max(1, (int)Config::get('notification.verification.entry_max_failed_attempts', self::DEFAULT_MAX_FAILURES));
+        return max(1, (int) Config::get('notification.verification.entry_max_failed_attempts', self::DEFAULT_MAX_FAILURES));
     }
 
     private function windowSeconds(): int
     {
-        return max(60, (int)Config::get('notification.verification.entry_window_seconds', self::DEFAULT_WINDOW_SECONDS));
+        return max(60, (int) Config::get('notification.verification.entry_window_seconds', self::DEFAULT_WINDOW_SECONDS));
     }
 }

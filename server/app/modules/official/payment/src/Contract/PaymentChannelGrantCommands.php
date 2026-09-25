@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Contract;
@@ -21,7 +22,7 @@ interface PaymentChannelGrantCommands
         string $provider,
         int $externalBindingId,
         string $merchantAccountRef = '',
-        string $merchantGroupRef = ''
+        string $merchantGroupRef = '',
     ): int;
 
     public function revokeTenantChannel(int $tenantId, string $provider, int $externalBindingId): void;

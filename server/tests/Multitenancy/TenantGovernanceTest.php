@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
@@ -44,7 +45,7 @@ function pm01Rejected(Closure $operation, string $expectedMessage): void
     } catch (Throwable $exception) {
         pm01Expect(
             str_contains($exception->getMessage(), $expectedMessage),
-            "unexpected rejection: {$exception->getMessage()}"
+            "unexpected rejection: {$exception->getMessage()}",
         );
         return;
     }
@@ -53,9 +54,7 @@ function pm01Rejected(Closure $operation, string $expectedMessage): void
 
 final readonly class Pm01FixtureIdentity implements PlatformOperatorIdentityPort
 {
-    public function __construct(private PlatformOperatorIdentity $identity)
-    {
-    }
+    public function __construct(private PlatformOperatorIdentity $identity) {}
 
     public function requireActive(string $credential, string $requestId): PlatformOperatorContext
     {
@@ -99,7 +98,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
 $database = 'pa_pm01_' . strtolower(bin2hex(random_bytes(6)));
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -113,7 +112,7 @@ try {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]
+        ],
     );
     foreach (KernelSchema::tableNames() as $table) {
         $pdo->exec(KernelSchema::createSql($table));
@@ -129,7 +128,7 @@ try {
         'operator@example.test',
         'OperatorPassword2026',
         'Fixture Operator',
-        'pm01-platform-bootstrap'
+        'pm01-platform-bootstrap',
     );
     $manifest = ManifestDocument::fromArray('/fixture/pm01', [
         'key' => 'peanut.fixture-governance',
@@ -148,7 +147,7 @@ try {
             int $memberId,
             int $coreRoleId,
             string $tenantCode,
-            string $displayName
+            string $displayName,
         ): int {
             return 1;
         }
@@ -158,22 +157,28 @@ try {
         new Pm01FixtureIdentity($identity),
         $administration,
         $owners,
-        $ownerAdmins
+        $ownerAdmins,
     );
 
     $failClosed = new TenantGovernanceService(
         new UnavailablePlatformOperatorIdentityPort(),
         $administration,
         $owners,
-        $ownerAdmins
+        $ownerAdmins,
     );
     pm01Rejected(
         static fn() => $failClosed->provision(
-            '', 'forged', 'Forged', 'forged@example.test', 'ForgedPassword2026', 'Forged', 'pm01-forged'
+            '',
+            'forged',
+            'Forged',
+            'forged@example.test',
+            'ForgedPassword2026',
+            'Forged',
+            'pm01-forged',
         ),
-        'PLATFORM_OPERATOR_AUTHENTICATION_UNAVAILABLE'
+        'PLATFORM_OPERATOR_AUTHENTICATION_UNAVAILABLE',
     );
-    pm01Expect((int)$pdo->query('SELECT COUNT(*) FROM pa_tenant')->fetchColumn() === 0, 'fail-closed identity wrote a tenant');
+    pm01Expect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant')->fetchColumn() === 0, 'fail-closed identity wrote a tenant');
 
     $candidate = $governance->provision(
         'fixture-platform-credential',
@@ -182,21 +187,26 @@ try {
         'owner@example.test',
         'OwnerPassword2026',
         'Alpha Owner',
-        'pm01-provision'
+        'pm01-provision',
     );
     $tenantId = $candidate['tenant_id'];
     pm01Expect($candidate['status'] === 'pending', 'provision must return the Core owner candidate state');
     pm01Expect(
         $pdo->query("SELECT status FROM pa_tenant WHERE id={$tenantId}")->fetchColumn() === 'provisioning',
-        'tenant must remain provisioning until an explicit lifecycle transition'
+        'tenant must remain provisioning until an explicit lifecycle transition',
     );
     pm01Expect(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_member WHERE tenant_id={$tenantId} AND status='active'")->fetchColumn() === 1,
-        'first owner must be active before tenant activation'
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_member WHERE tenant_id={$tenantId} AND status='active'")->fetchColumn() === 1,
+        'first owner must be active before tenant activation',
     );
 
     $active = $governance->transition(
-        'fixture-platform-credential', $tenantId, 1, TenantStatus::Active, 'provisioning complete', 'pm01-active'
+        'fixture-platform-credential',
+        $tenantId,
+        1,
+        TenantStatus::Active,
+        'provisioning complete',
+        'pm01-active',
     );
     pm01Expect($active['status'] === 'active', 'provisioning tenant did not activate');
 
@@ -209,51 +219,89 @@ SQL)->execute(['peanut.fixture-governance', $manifest->digest]);
 
     pm01Rejected(
         static fn() => $governance->enableModule(
-            'fixture-platform-credential', $tenantId, 'peanut.fixture-governance', [], 'manual', null, null,
-            'invalid config fixture', 'pm01-module-invalid'
+            'fixture-platform-credential',
+            $tenantId,
+            'peanut.fixture-governance',
+            [],
+            'manual',
+            null,
+            null,
+            'invalid config fixture',
+            'pm01-module-invalid',
         ),
-        'region is required'
+        'region is required',
     );
-    pm01Expect((int)$pdo->query('SELECT COUNT(*) FROM pa_tenant_module')->fetchColumn() === 0, 'invalid module config was persisted');
+    pm01Expect((int) $pdo->query('SELECT COUNT(*) FROM pa_tenant_module')->fetchColumn() === 0, 'invalid module config was persisted');
 
     $enabled = $governance->enableModule(
-        'fixture-platform-credential', $tenantId, 'peanut.fixture-governance', ['region' => 'cn-east'],
-        'manual', null, null, 'enable fixture module', 'pm01-module-enable'
+        'fixture-platform-credential',
+        $tenantId,
+        'peanut.fixture-governance',
+        ['region' => 'cn-east'],
+        'manual',
+        null,
+        null,
+        'enable fixture module',
+        'pm01-module-enable',
     );
     pm01Expect($enabled['status'] === 'enabled', 'valid module configuration was not enabled');
 
-    $revision = (int)$pdo->query("SELECT revision FROM pa_tenant WHERE id={$tenantId}")->fetchColumn();
+    $revision = (int) $pdo->query("SELECT revision FROM pa_tenant WHERE id={$tenantId}")->fetchColumn();
     $suspended = $governance->transition(
-        'fixture-platform-credential', $tenantId, $revision, TenantStatus::Suspended, 'support hold', 'pm01-suspend'
+        'fixture-platform-credential',
+        $tenantId,
+        $revision,
+        TenantStatus::Suspended,
+        'support hold',
+        'pm01-suspend',
     );
     pm01Expect($suspended['status'] === 'suspended', 'active tenant did not suspend');
     pm01Rejected(
         static fn() => $governance->enableModule(
-            'fixture-platform-credential', $tenantId, 'peanut.fixture-governance', ['region' => 'cn-west'],
-            'manual', null, null, 'suspended write', 'pm01-module-suspended'
+            'fixture-platform-credential',
+            $tenantId,
+            'peanut.fixture-governance',
+            ['region' => 'cn-west'],
+            'manual',
+            null,
+            null,
+            'suspended write',
+            'pm01-module-suspended',
         ),
-        'Only an active tenant'
+        'Only an active tenant',
     );
 
     $reactivated = $governance->transition(
-        'fixture-platform-credential', $tenantId, (int)$suspended['revision'], TenantStatus::Active,
-        'hold cleared', 'pm01-reactivate'
+        'fixture-platform-credential',
+        $tenantId,
+        (int) $suspended['revision'],
+        TenantStatus::Active,
+        'hold cleared',
+        'pm01-reactivate',
     );
     $closed = $governance->transition(
-        'fixture-platform-credential', $tenantId, (int)$reactivated['revision'], TenantStatus::Closed,
-        'customer closure', 'pm01-close'
+        'fixture-platform-credential',
+        $tenantId,
+        (int) $reactivated['revision'],
+        TenantStatus::Closed,
+        'customer closure',
+        'pm01-close',
     );
     pm01Expect($closed['status'] === 'closed', 'tenant did not close');
     pm01Rejected(
         static fn() => $governance->transition(
-            'fixture-platform-credential', $tenantId, (int)$closed['revision'], TenantStatus::Active,
-            'forbidden reopen', 'pm01-reopen'
+            'fixture-platform-credential',
+            $tenantId,
+            (int) $closed['revision'],
+            TenantStatus::Active,
+            'forbidden reopen',
+            'pm01-reopen',
         ),
-        'Tenant cannot transition from closed to active'
+        'Tenant cannot transition from closed to active',
     );
     pm01Expect(
-        (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId}")->fetchColumn() >= 5,
-        'Core tenant governance audit evidence is incomplete'
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId}")->fetchColumn() >= 5,
+        'Core tenant governance audit evidence is incomplete',
     );
 
     echo "PM01-TENANT-GOVERNANCE-001 passed\n";

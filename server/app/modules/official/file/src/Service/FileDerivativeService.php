@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Service;
@@ -42,7 +43,7 @@ final readonly class FileDerivativeService implements FileDerivatives
         }
         $byKey = [];
         foreach ($objects as $object) {
-            $byKey[(string)$object['file_key']] = $object;
+            $byKey[(string) $object['file_key']] = $object;
         }
         if (($byKey[$derivativeFileKey]['media_type'] ?? null) !== $mediaType) {
             throw new \InvalidArgumentException('衍生图媒体类型不一致');

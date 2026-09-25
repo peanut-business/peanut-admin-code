@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Service;
@@ -7,7 +8,6 @@ use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\dto\authorization\AdminPrincipal;
 use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
-
 use app\common\contract\idempotency\IdempotencyCommand;
 use app\common\contract\idempotency\IdempotencyReceipt;
 use app\common\contract\idempotency\IdempotentCommandExecutor;
@@ -59,10 +59,10 @@ final readonly class ReferenceCodesHttpApplicationService
             $this->definition($context, $moduleKey, $setKey),
             $context,
             self::instant($query['as_of'] ?? null),
-            (string)($query['effective_status'] ?? 'all'),
+            (string) ($query['effective_status'] ?? 'all'),
             filter_var($query['include_retired'] ?? false, FILTER_VALIDATE_BOOL),
-            (int)($query['page'] ?? 1),
-            (int)($query['page_size'] ?? 50),
+            (int) ($query['page'] ?? 1),
+            (int) ($query['page_size'] ?? 50),
         );
         $result['items'] = array_map(static fn(EffectiveReferenceCode $entry): array => $entry->toArray(), $result['items']);
         return $result;
@@ -85,11 +85,15 @@ final readonly class ReferenceCodesHttpApplicationService
     {
         return $this->command($context, 'reference-codes.create', $key, [$moduleKey, $setKey, $input, $ifNoneMatch], fn(): array =>
             $this->admin->create(
-                $this->definition($context, $moduleKey, $setKey), $context,
-                (string)($input['code'] ?? ''), (string)($input['label'] ?? ''),
+                $this->definition($context, $moduleKey, $setKey),
+                $context,
+                (string) ($input['code'] ?? ''),
+                (string) ($input['label'] ?? ''),
                 is_array($input['metadata'] ?? null) ? $input['metadata'] : [],
-                (string)($input['status'] ?? ''), (int)($input['sort_order'] ?? 0),
-                self::requiredInstant($input['effective_at'] ?? null), self::instant($input['expires_at'] ?? null),
+                (string) ($input['status'] ?? ''),
+                (int) ($input['sort_order'] ?? 0),
+                self::requiredInstant($input['effective_at'] ?? null),
+                self::instant($input['expires_at'] ?? null),
                 $ifNoneMatch,
             )->toArray());
     }
@@ -99,10 +103,15 @@ final readonly class ReferenceCodesHttpApplicationService
     {
         return $this->command($context, 'reference-codes.replace', $key, [$moduleKey, $setKey, $code, $input, $ifMatch], fn(): array =>
             $this->admin->replace(
-                $this->definition($context, $moduleKey, $setKey), $context, $code,
-                (string)($input['label'] ?? ''), is_array($input['metadata'] ?? null) ? $input['metadata'] : [],
-                (string)($input['status'] ?? ''), (int)($input['sort_order'] ?? 0),
-                self::requiredInstant($input['effective_at'] ?? null), self::instant($input['expires_at'] ?? null),
+                $this->definition($context, $moduleKey, $setKey),
+                $context,
+                $code,
+                (string) ($input['label'] ?? ''),
+                is_array($input['metadata'] ?? null) ? $input['metadata'] : [],
+                (string) ($input['status'] ?? ''),
+                (int) ($input['sort_order'] ?? 0),
+                self::requiredInstant($input['effective_at'] ?? null),
+                self::instant($input['expires_at'] ?? null),
                 $ifMatch,
             )->toArray());
     }
@@ -121,11 +130,15 @@ final readonly class ReferenceCodesHttpApplicationService
         $this->assertPermission($context, 'official.reference-codes.manage');
         return Db::transaction(function () use ($context, $operationKey, $key, $request, $operation): array {
             $lease = $this->idempotency->begin(IdempotencyCommand::tenant(
-                $context, $operationKey, $key,
+                $context,
+                $operationKey,
+                $key,
                 hash('sha256', json_encode($request, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
                 new DateTimeImmutable('+24 hours'),
             ));
-            if ($lease->isReplayable()) return $lease->responseBody();
+            if ($lease->isReplayable()) {
+                return $lease->responseBody();
+            }
             if (!$lease->isExecutionOwner()) {
                 throw ReferenceCodeException::inProgress();
             }
@@ -174,8 +187,12 @@ final readonly class ReferenceCodesHttpApplicationService
 
     private static function instant(mixed $value): ?DateTimeImmutable
     {
-        if ($value === null || $value === '') return null;
-        if (!is_string($value)) throw ReferenceCodeException::invalid('REFERENCE_CODE_REQUEST_INVALID', 'The instant is invalid.');
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (!is_string($value)) {
+            throw ReferenceCodeException::invalid('REFERENCE_CODE_REQUEST_INVALID', 'The instant is invalid.');
+        }
         try {
             return new DateTimeImmutable($value);
         } catch (\Throwable) {

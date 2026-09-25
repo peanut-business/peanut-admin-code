@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
@@ -22,12 +23,15 @@ class AdminController extends BaseAdminController
 
     public function detail()
     {
-        $params = ['id' => (int)$this->request->get('id')];
+        $params = ['id' => (int) $this->request->get('id')];
         $this->validate($params, ['id' => 'require|integer|gt:0']);
         return $this->data($this->admins->detail($this->tenantAdminContext(), $params['id']));
     }
 
-    public function self()   { return $this->data($this->admins->detail($this->tenantAdminContext(), $this->adminId)); }
+    public function self()
+    {
+        return $this->data($this->admins->detail($this->tenantAdminContext(), $this->adminId));
+    }
     public function editSelf()
     {
         $params = $this->request->post();
@@ -60,7 +64,7 @@ class AdminController extends BaseAdminController
 
     public function delete()
     {
-        $params = ['id' => (int)$this->request->post('id')];
+        $params = ['id' => (int) $this->request->post('id')];
         $this->validate($params, ['id' => 'require|integer|gt:0']);
         $this->admins->delete($this->tenantAdminContext(), $params['id'], $this->adminId);
         return $this->success('操作成功');
@@ -69,11 +73,11 @@ class AdminController extends BaseAdminController
     public function updateStatus()
     {
         $params = [
-            'id' => (int)$this->request->post('id'),
+            'id' => (int) $this->request->post('id'),
             'disable' => $this->request->post('disable'),
         ];
         $this->validate($params, ['id' => 'require|integer|gt:0', 'disable' => 'require|in:0,1']);
-        $this->admins->updateStatus($this->tenantAdminContext(), $params['id'], (int)$params['disable'], $this->adminId);
+        $this->admins->updateStatus($this->tenantAdminContext(), $params['id'], (int) $params['disable'], $this->adminId);
         return $this->success('操作成功');
     }
 }

@@ -112,7 +112,9 @@ export function saveDecorationTabbar(data: DecorationTabbar) {
 }
 
 export function getPcDecorationLists() {
-  return axios.get<DecorationPageSummary[]>('/adminapi/decoration/pc/page/lists');
+  return axios.get<DecorationPageSummary[]>(
+    '/adminapi/decoration/pc/page/lists'
+  );
 }
 
 export function getPcDecorationDetail(id: number) {

@@ -17,8 +17,7 @@ final readonly class JobAuthorizationFence
     public function __construct(
         private JobHandlerAdapter $authorization,
         private JobClaim $claim,
-    ) {
-    }
+    ) {}
 
     /**
      * @template T

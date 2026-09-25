@@ -179,9 +179,7 @@ export function getGeneratorModels() {
 export async function downloadGenerator(token: string): Promise<Blob> {
   const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
   const response = await fetch(
-    `${baseUrl}/adminapi/generator/download?token=${encodeURIComponent(
-      token
-    )}`,
+    `${baseUrl}/adminapi/generator/download?token=${encodeURIComponent(token)}`,
     { headers: { Authorization: `Bearer ${getToken() || ''}` } }
   );
   const contentType = response.headers.get('content-type') || '';

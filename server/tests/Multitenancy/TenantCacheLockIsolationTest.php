@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Tenancy\TenantCache;
@@ -70,7 +71,7 @@ expectTenantCacheLock($keyA !== $keyB, 'same logical cache key must differ acros
 expectTenantCacheLock($keyA === TenantNamespace::cacheKey($tenantA, $logicalKey), 'cache key must be stable');
 expectTenantCacheLock(
     TenantNamespace::cacheTag($tenantA, $logicalTag) !== TenantNamespace::cacheTag($tenantB, $logicalTag),
-    'same logical cache tag must differ across tenants'
+    'same logical cache tag must differ across tenants',
 );
 
 $lockA = (new TenantLockNamespace($tenantA))->name($lockSeed);
@@ -107,24 +108,24 @@ foreach ([
 }
 expectTenantCacheLock(
     $store->calls() === $callsBeforeRejectedInput,
-    'invalid or forged scope/input reached the cache store'
+    'invalid or forged scope/input reached the cache store',
 );
 
 $scopeMethods = array_map(
     static fn(ReflectionMethod $method): string => $method->getName(),
-    (new ReflectionClass(TenantScope::class))->getMethods(ReflectionMethod::IS_PUBLIC)
+    (new ReflectionClass(TenantScope::class))->getMethods(ReflectionMethod::IS_PUBLIC),
 );
 expectTenantCacheLock(
     !array_intersect(['fromRequest', 'fromPayload', 'fromArray'], $scopeMethods),
-    'TenantScope must not accept request or payload data'
+    'TenantScope must not accept request or payload data',
 );
 $cacheMethods = array_map(
     static fn(ReflectionMethod $method): string => $method->getName(),
-    (new ReflectionClass(TenantCache::class))->getMethods(ReflectionMethod::IS_PUBLIC)
+    (new ReflectionClass(TenantCache::class))->getMethods(ReflectionMethod::IS_PUBLIC),
 );
 expectTenantCacheLock(
     !array_intersect(['clear', 'flush', 'raw', 'store', 'keys'], $cacheMethods),
-    'TenantCache exposed a global or raw store operation'
+    'TenantCache exposed a global or raw store operation',
 );
 
 echo "MT03-CACHE-LOCK-001 passed\n";

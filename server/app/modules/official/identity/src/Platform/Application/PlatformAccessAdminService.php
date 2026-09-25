@@ -74,7 +74,8 @@ final readonly class PlatformAccessAdminService
             } else {
                 if ($initialPassword !== null) {
                     throw AdminAccessException::invalid(
-                        'INITIAL_PASSWORD_NOT_ALLOWED', 'An existing account credential cannot be overwritten.',
+                        'INITIAL_PASSWORD_NOT_ALLOWED',
+                        'An existing account credential cannot be overwritten.',
                     );
                 }
                 if ($credential['credential_status'] !== 'active' || $credential['account_status'] !== 'active') {
@@ -92,8 +93,14 @@ final readonly class PlatformAccessAdminService
             ]);
             $operator = $this->operator($operatorId);
             $this->recordAudit(
-                $actor, 'platform-operator.created', 'platform.operator.create', 'platform-operator',
-                $operatorId, null, $this->operatorAuditSnapshot($operator), [],
+                $actor,
+                'platform-operator.created',
+                'platform.operator.create',
+                'platform-operator',
+                $operatorId,
+                null,
+                $this->operatorAuditSnapshot($operator),
+                [],
             );
 
             return $operator;
@@ -127,8 +134,13 @@ final readonly class PlatformAccessAdminService
             }
             $after = $this->operator($operatorId);
             $this->recordAudit(
-                $actor, 'platform-operator.updated', 'platform.operator.update', 'platform-operator', $operatorId,
-                $this->operatorAuditSnapshot($before), $this->operatorAuditSnapshot($after),
+                $actor,
+                'platform-operator.updated',
+                'platform.operator.update',
+                'platform-operator',
+                $operatorId,
+                $this->operatorAuditSnapshot($before),
+                $this->operatorAuditSnapshot($after),
                 ['change_reason' => $changeReason],
             );
 
@@ -185,9 +197,14 @@ final readonly class PlatformAccessAdminService
             $this->assertControlAdminExists();
             $after = $this->operator($operatorId);
             $this->recordAudit(
-                $actor, 'platform-operator.roles-replaced', 'platform.operator.role.assign',
-                'platform-operator', $operatorId, $this->operatorAuditSnapshot($before),
-                $this->operatorAuditSnapshot($after), ['change_reason' => $changeReason],
+                $actor,
+                'platform-operator.roles-replaced',
+                'platform.operator.role.assign',
+                'platform-operator',
+                $operatorId,
+                $this->operatorAuditSnapshot($before),
+                $this->operatorAuditSnapshot($after),
+                ['change_reason' => $changeReason],
             );
 
             return $after;
@@ -241,8 +258,13 @@ final readonly class PlatformAccessAdminService
                 PlatformOperatorStatus::Closed => 'closed',
             };
             $this->recordAudit(
-                $actor, $eventType, 'platform.operator.lifecycle', 'platform-operator', $operatorId,
-                $this->operatorAuditSnapshot($before), $this->operatorAuditSnapshot($after),
+                $actor,
+                $eventType,
+                'platform.operator.lifecycle',
+                'platform-operator',
+                $operatorId,
+                $this->operatorAuditSnapshot($before),
+                $this->operatorAuditSnapshot($after),
                 ['change_reason' => $changeReason],
             );
 
@@ -273,7 +295,14 @@ final readonly class PlatformAccessAdminService
             ]);
             $role = $this->role($roleId);
             $this->recordAudit(
-                $actor, 'platform-role.created', 'platform.role.create', 'platform-role', $roleId, null, $role, [],
+                $actor,
+                'platform-role.created',
+                'platform.role.create',
+                'platform-role',
+                $roleId,
+                null,
+                $role,
+                [],
             );
 
             return $role;
@@ -308,8 +337,14 @@ final readonly class PlatformAccessAdminService
             }
             $after = $this->role($roleId);
             $this->recordAudit(
-                $actor, 'platform-role.updated', 'platform.role.update', 'platform-role', $roleId,
-                $before, $after, ['change_reason' => $changeReason],
+                $actor,
+                'platform-role.updated',
+                'platform.role.update',
+                'platform-role',
+                $roleId,
+                $before,
+                $after,
+                ['change_reason' => $changeReason],
             );
 
             return $after;
@@ -347,8 +382,14 @@ final readonly class PlatformAccessAdminService
             $this->assertControlAdminExists();
             $after = $this->role($roleId);
             $this->recordAudit(
-                $actor, 'platform-role.archived', 'platform.role.archive', 'platform-role', $roleId,
-                $before, $after, ['change_reason' => $changeReason],
+                $actor,
+                'platform-role.archived',
+                'platform.role.archive',
+                'platform-role',
+                $roleId,
+                $before,
+                $after,
+                ['change_reason' => $changeReason],
             );
 
             return $after;
@@ -382,7 +423,8 @@ final readonly class PlatformAccessAdminService
             $permissions = $this->platformPermissions($permissionKeys);
             if (count($permissions) !== count($permissionKeys)) {
                 throw AdminAccessException::invalid(
-                    'PERMISSION_NOT_ASSIGNABLE', 'Only active platform control-plane permissions may be assigned.',
+                    'PERMISSION_NOT_ASSIGNABLE',
+                    'Only active platform control-plane permissions may be assigned.',
                 );
             }
             PlatformRolePermission::where('platform_role_id', $roleId)->delete();
@@ -406,8 +448,14 @@ final readonly class PlatformAccessAdminService
             $this->assertControlAdminExists();
             $after = $this->role($roleId);
             $this->recordAudit(
-                $actor, 'platform-role.permissions-replaced', 'platform.role.permission.assign',
-                'platform-role', $roleId, $before, $after, ['change_reason' => $changeReason],
+                $actor,
+                'platform-role.permissions-replaced',
+                'platform.role.permission.assign',
+                'platform-role',
+                $roleId,
+                $before,
+                $after,
+                ['change_reason' => $changeReason],
             );
 
             return $after;
@@ -469,7 +517,8 @@ final readonly class PlatformAccessAdminService
             }
         }
         throw AdminAccessException::conflict(
-            'PLATFORM_CONTROL_ADMIN_REQUIRED', 'At least one active platform control administrator must remain.',
+            'PLATFORM_CONTROL_ADMIN_REQUIRED',
+            'At least one active platform control administrator must remain.',
         );
     }
 
@@ -644,8 +693,16 @@ final readonly class PlatformAccessAdminService
     ): void {
         $metadata += [str_replace('-', '_', $targetType) . '_id' => (string) $targetId];
         $this->audit->platform(
-            $actor->operatorId, $actor->accountId, $actor->requestId, $eventType, $action,
-            $metadata, $targetType, (string) $targetId, $before, $after,
+            $actor->operatorId,
+            $actor->accountId,
+            $actor->requestId,
+            $eventType,
+            $action,
+            $metadata,
+            $targetType,
+            (string) $targetId,
+            $before,
+            $after,
         );
     }
 

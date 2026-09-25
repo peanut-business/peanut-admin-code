@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -45,18 +46,18 @@ function platformAccessHttpSessions(): PlatformOperatorSessionService
             new PasswordHasher(),
             new SystemClock(),
             new TokenIssuer(),
-            str_repeat('a', 32)
+            str_repeat('a', 32),
         ),
         new PlatformAuthorizationEvaluator($permissions, new RevisionPermissionCache()),
-        $permissions
+        $permissions,
     );
 }
 
 $serverRoot = dirname(__DIR__, 2);
 $routes = peanut_route_registry_source($serverRoot);
-$composition = (string)file_get_contents($serverRoot . '/app/AppService.php');
-$controller = (string)file_get_contents($serverRoot . '/app/platform/controller/PlatformAccessController.php');
-$problemMapper = (string)file_get_contents($serverRoot . '/app/common/http/ApiProblemMapper.php');
+$composition = (string) file_get_contents($serverRoot . '/app/AppService.php');
+$controller = (string) file_get_contents($serverRoot . '/app/platform/controller/PlatformAccessController.php');
+$problemMapper = (string) file_get_contents($serverRoot . '/app/common/http/ApiProblemMapper.php');
 
 $expectedRoutes = [
     'operators/create' => ['createOperator', 'platform.operator.create'],
@@ -77,15 +78,15 @@ foreach ($expectedRoutes as $path => [$action, $permission]) {
         . "->middleware\\(PlatformPermissionMiddleware::class, '%s'\\);~",
         preg_quote($path, '~'),
         preg_quote($action, '~'),
-        preg_quote($permission, '~')
+        preg_quote($permission, '~'),
     );
     platformAccessHttpExpect(
         preg_match($pattern, $routes) === 1,
-        "{$path} lost its exact action or platform permission wiring"
+        "{$path} lost its exact action or platform permission wiring",
     );
     platformAccessHttpExpect(
         str_contains($controller, "public function {$action}()"),
-        "{$action} controller mutation is missing"
+        "{$action} controller mutation is missing",
     );
 }
 platformAccessHttpExpect(
@@ -95,7 +96,7 @@ platformAccessHttpExpect(
         && str_contains($composition, 'ThinkPhpPlatformAuthRepository')
         && str_contains($composition, 'bind(PasswordHasher::class')
         && str_contains($composition, 'ApplicationPasswordPolicy::hasher()'),
-    'PlatformAccessAdminService is not using native constructor injection'
+    'PlatformAccessAdminService is not using native constructor injection',
 );
 platformAccessHttpExpect(
     str_contains($controller, '$this->platformContext->core')
@@ -105,7 +106,7 @@ platformAccessHttpExpect(
         && !str_contains($controller, 'catch (')
         && str_contains($problemMapper, '$exception instanceof AdminAccessException')
         && str_contains($problemMapper, '$exception->httpStatus'),
-    'controller lost trusted actor context or stable AdminAccessException mapping'
+    'controller lost trusted actor context or stable AdminAccessException mapping',
 );
 
 $host = IsolatedBackendEnvironment::required('DB_HOST');
@@ -116,7 +117,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
 $database = 'pa_pm01_access_http_' . strtolower(bin2hex(random_bytes(6)));
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -130,7 +131,7 @@ try {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
-        ]
+        ],
     );
     foreach (KernelSchema::tableNames() as $table) {
         $pdo->exec(KernelSchema::createSql($table));
@@ -150,7 +151,7 @@ try {
         'access-owner@example.test',
         'AccessOwnerPassword2026',
         'Access Owner',
-        'pm01-access-http-bootstrap'
+        'pm01-access-http-bootstrap',
     );
     $created = (new PlatformAccessAdminService(new AuditService()))->createOperator(
         PlatformContext::fromValidatedSession(new ValidatedPlatformSession(
@@ -163,7 +164,7 @@ try {
         ), 'pm01-access-http-create'),
         'access-scoped@example.test',
         'Access Scoped',
-        'AccessScopedPassword2026'
+        'AccessScopedPassword2026',
     );
     platformAccessHttpExpect($created['status'] === 'active', 'real operator create did not produce an active operator');
 
@@ -173,7 +174,7 @@ try {
         'AccessScopedPassword2026',
         '127.0.0.2',
         'PM01 access HTTP fixture',
-        'pm01-access-http-login'
+        'pm01-access-http-login',
     );
     $context = $sessions->context($login->tokens->access->expose(), 'pm01-access-http-context');
     try {
@@ -182,7 +183,7 @@ try {
     } catch (Throwable $exception) {
         platformAccessHttpExpect(
             str_contains($exception->getMessage(), 'AUTHZ_PERMISSION_DENIED'),
-            'permission denial changed shape'
+            'permission denial changed shape',
         );
     }
 

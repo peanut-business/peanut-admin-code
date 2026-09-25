@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 $m = require __DIR__ . '/common.php';
@@ -658,19 +659,22 @@ $add($paths, 'GET', '/adminapi/workbench/index', $operation('getAdminWorkbench',
 
 $overrides = [
     '/adminapi/user/login' => ['post' => $operation(
-        'userLogin', 'AdminAuth',
+        'userLogin',
+        'AdminAuth',
         ['200' => $success($ref('AdminLoginData')), '401' => $error, '403' => $error, '422' => $error],
         requestBody: $jsonBody($ref('AdminLoginRequest')),
         errors: ['ADMIN_LOGIN_REJECTED'],
     )],
     '/adminapi/tenant/session/select' => ['post' => $operation(
-        'selectTenant', 'TenantSession',
+        'selectTenant',
+        'TenantSession',
         ['200' => $directJson($ref('TenantAuthHttpResponse')), '403' => $error, '422' => $error],
         requestBody: $jsonBody($ref('TenantSessionSelectRequest')),
         errors: ['TENANT_SELECTION_REJECTED'],
     )],
     '/adminapi/readiness/checklist' => ['get' => $operation(
-        'getFirstRunReadinessChecklist', 'Readiness',
+        'getFirstRunReadinessChecklist',
+        'Readiness',
         ['200' => $success($ref('ReadinessChecklist')), '401' => $error, '403' => $error],
         description: '只读返回当前 Tenant 的首次运行清单；配置值不等同外部连通或生产资格。',
     )],

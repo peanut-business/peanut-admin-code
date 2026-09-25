@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -23,18 +24,18 @@ final class DeveloperCenterCatalog extends Command
     protected function execute(Input $input, Output $output): int
     {
         try {
-            $module = trim((string)$input->getOption('module'));
+            $module = trim((string) $input->getOption('module'));
             $snapshot = (new DeveloperCenterCatalogService(
                 dirname(__DIR__, 2),
-                (array)Config::get('modules', []),
+                (array) Config::get('modules', []),
             ))->snapshot($module === '' ? null : $module);
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 $snapshot,
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
             ));
             return 0;
         } catch (\Throwable $exception) {
-            $output->writeln((string)json_encode([
+            $output->writeln((string) json_encode([
                 'status' => 'blocked',
                 'code' => 'DEVELOPER_CENTER_CATALOG_FAILED',
                 'reason' => $exception->getMessage(),

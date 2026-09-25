@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\invitation;
@@ -8,7 +9,7 @@ final class TenantOwnerInvitationException extends \DomainException
     private function __construct(
         public readonly string $errorCode,
         public readonly int $httpStatus,
-        string $message
+        string $message,
     ) {
         parent::__construct($message);
     }

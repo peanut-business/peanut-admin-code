@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -14,8 +15,7 @@ final readonly class ScopedMenuCatalogRepository implements MenuCatalogRepositor
     public function __construct(
         private MenuCatalogRepository $inner,
         private array $moduleKeys,
-    ) {
-    }
+    ) {}
 
     public function synchronize(MenuDefinition $definition, string $manifestDigest): void
     {

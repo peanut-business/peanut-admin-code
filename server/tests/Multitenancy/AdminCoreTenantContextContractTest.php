@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /** D03：后台写命令必须把认证 TenantContext 原样交给实际加载的 Core。 */

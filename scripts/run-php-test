@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 /** Executes PHPUnit classes through PHPUnit, and executable contract scripts as scripts. */

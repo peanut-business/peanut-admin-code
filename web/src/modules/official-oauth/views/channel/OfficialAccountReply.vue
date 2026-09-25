@@ -66,7 +66,9 @@
           ><template #default="{ row }">
             <el-switch
               :model-value="row.status === 1"
-              v-permission="['official.oauth.official-account.reply.update-status']"
+              v-permission="[
+                'official.oauth.official-account.reply.update-status',
+              ]"
               @change="(value: boolean) => handleStatus(row, value)"
             />
             <span v-if="!hasStatusPermission">{{
@@ -102,7 +104,9 @@
               >
                 <template #reference
                   ><el-button
-                    v-permission="['official.oauth.official-account.reply.delete']"
+                    v-permission="[
+                      'official.oauth.official-account.reply.delete',
+                    ]"
                     link
                     type="danger"
                     size="small"

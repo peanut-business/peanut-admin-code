@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task\Service;
@@ -45,8 +46,7 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
         private readonly CurrentExecutionContext $currentExecution,
         private readonly CrontabCommandService $commands,
         private readonly Closure $dispatch,
-    ) {
-    }
+    ) {}
 
     public function submissionContext(TenantScope $scope, string $traceId): AuthorizedOperationContext
     {
@@ -79,7 +79,7 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
     public function build(AuthorizedOperationContext $context, array $input): TaskSubmission
     {
         $scheduleId = self::positiveInt($input['schedule_id'] ?? null, 'CRONTAB_TASK_INVALID');
-        $contextIdentity = trim((string)($input['context_identity'] ?? ''));
+        $contextIdentity = trim((string) ($input['context_identity'] ?? ''));
         self::assertContextIdentity($contextIdentity, $context->tenantContext->tenantId, $scheduleId);
 
         return new TaskSubmission(self::HANDLER_KEY, [
@@ -124,19 +124,19 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
     {
         $execution->checkpoint();
         $scheduleId = self::positiveInt($execution->payload['schedule_id'] ?? null, 'CRONTAB_TASK_INVALID');
-        $contextIdentity = trim((string)($execution->payload['context_identity'] ?? ''));
+        $contextIdentity = trim((string) ($execution->payload['context_identity'] ?? ''));
         self::assertContextIdentity($contextIdentity, $context->tenantContext->tenantId, $scheduleId);
         $scope = TenantScope::fromTrustedContext($context->tenantContext->tenantId, $contextIdentity);
         $item = Crontab::find($scheduleId);
-        if ($item === null || (int)$item->status !== CrontabEnum::START) {
+        if ($item === null || (int) $item->status !== CrontabEnum::START) {
             return;
         }
 
-        $command = trim((string)$item->command);
+        $command = trim((string) $item->command);
         $this->commands->assertTenantAware($command);
         $moduleKey = $this->commands->moduleKey($command)
             ?? throw new \runtimeException('CRONTAB_MODULE_UNAVAILABLE');
-        $params = ((string)$item->params !== '') ? explode(' ', (string)$item->params) : [];
+        $params = ((string) $item->params !== '') ? explode(' ', (string) $item->params) : [];
         $system = new TenantSystemContext(
             $scope->tenantId(),
             'scheduler',
@@ -181,14 +181,14 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
             throw new \runtimeException('CRONTAB_TENANT_OWNER_UNAVAILABLE');
         }
         $tenant = TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            (int)$owner['id'],
+            (int) $owner['id'],
             'crontab-' . hash('sha256', $traceId),
             $tenantId,
-            (int)$owner['account_id'],
-            (int)$owner['id'],
+            (int) $owner['account_id'],
+            (int) $owner['id'],
             'task-worker',
             new DateTimeImmutable('now', new DateTimeZone('UTC')),
-            (int)$owner['authorization_revision'],
+            (int) $owner['authorization_revision'],
         ), $traceId);
 
         return AuthorizedOperationContext::fromDecision(AuthorizationDecision::allow(
@@ -197,9 +197,9 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
             self::OPERATION,
             [],
             hash('sha256', implode("\0", [
-                (string)$tenantId,
-                (string)$tenant->memberId,
-                (string)$tenant->authorizationRevision,
+                (string) $tenantId,
+                (string) $tenant->memberId,
+                (string) $tenant->authorizationRevision,
                 self::RESOURCE_KEY,
                 self::OPERATION,
             ])),
@@ -211,7 +211,7 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
         if (!is_int($value) && !(is_string($value) && ctype_digit($value))) {
             throw new \InvalidArgumentException($message);
         }
-        $value = (int)$value;
+        $value = (int) $value;
         if ($value < 1) {
             throw new \InvalidArgumentException($message);
         }
@@ -221,8 +221,8 @@ final class CrontabTaskDefinition implements TaskSubmissionProvider, TaskWorkerD
     private static function assertContextIdentity(string $identity, int $tenantId, int $scheduleId): void
     {
         if (preg_match('/^crontab:v1:tenant=([1-9][0-9]*):job=([1-9][0-9]*):window=[0-9]+$/D', $identity, $matches) !== 1
-            || (int)$matches[1] !== $tenantId
-            || (int)$matches[2] !== $scheduleId
+            || (int) $matches[1] !== $tenantId
+            || (int) $matches[2] !== $scheduleId
         ) {
             throw new \InvalidArgumentException('CRONTAB_TASK_CONTEXT_INVALID');
         }

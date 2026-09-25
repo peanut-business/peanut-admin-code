@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\upgrade;
@@ -31,8 +32,8 @@ final class ApplicationMigrationRunner
     public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false): array
     {
         $pdo = $this->connection();
-        $exists = (int)$pdo->query(
-            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pa_schema_migration'"
+        $exists = (int) $pdo->query(
+            "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pa_schema_migration'",
         )->fetchColumn();
         if ($exists !== 1) {
             throw new RuntimeException('MIGRATION_LEDGER_MISSING: 目标数据库不是 3.0+ 基线，请使用 fresh 重建');
@@ -41,7 +42,7 @@ final class ApplicationMigrationRunner
         $lockName = 'peanut_migrate_' . substr(hash('sha256', $this->database['database']), 0, 48);
         $lock = $pdo->prepare('SELECT GET_LOCK(?, 10)');
         $lock->execute([$lockName]);
-        if ((int)$lock->fetchColumn() !== 1) {
+        if ((int) $lock->fetchColumn() !== 1) {
             throw new RuntimeException('无法获取迁移锁，请稍后重试');
         }
 
@@ -61,17 +62,17 @@ final class ApplicationMigrationRunner
                 $now = gmdate('Y-m-d H:i:s');
                 $pdo->prepare(
                     'INSERT INTO pa_schema_migration (migration_id,release_version,checksum,status,started_at,finished_at,error_code) VALUES (?,?,?,?,?,NULL,NULL) '
-                    . "ON DUPLICATE KEY UPDATE release_version=VALUES(release_version),checksum=VALUES(checksum),status='applying',started_at=VALUES(started_at),finished_at=NULL,error_code=NULL"
+                    . "ON DUPLICATE KEY UPDATE release_version=VALUES(release_version),checksum=VALUES(checksum),status='applying',started_at=VALUES(started_at),finished_at=NULL,error_code=NULL",
                 )->execute([$migration['id'], $migration['release_version'], $migration['checksum'], 'applying', $now]);
                 try {
                     $pdo->exec($migration['sql']);
                     $pdo->prepare(
-                        "UPDATE pa_schema_migration SET status='applied',finished_at=?,error_code=NULL WHERE migration_id=?"
+                        "UPDATE pa_schema_migration SET status='applied',finished_at=?,error_code=NULL WHERE migration_id=?",
                     )->execute([gmdate('Y-m-d H:i:s'), $migration['id']]);
                     $applied[] = $migration['id'];
                 } catch (Throwable $exception) {
                     $pdo->prepare(
-                        "UPDATE pa_schema_migration SET status='failed',finished_at=?,error_code=? WHERE migration_id=?"
+                        "UPDATE pa_schema_migration SET status='failed',finished_at=?,error_code=? WHERE migration_id=?",
                     )->execute([gmdate('Y-m-d H:i:s'), substr($exception->getMessage(), 0, 255), $migration['id']]);
                     throw new RuntimeException('MIGRATION_FAILED: ' . $migration['id'], 0, $exception);
                 }
@@ -105,12 +106,12 @@ final class ApplicationMigrationRunner
         $pdo = $this->connection();
         $placeholders = implode(',', array_fill(0, count($migrationIds), '?'));
         $statement = $pdo->prepare(
-            "SELECT migration_id,status FROM pa_schema_migration WHERE migration_id IN ({$placeholders})"
+            "SELECT migration_id,status FROM pa_schema_migration WHERE migration_id IN ({$placeholders})",
         );
         $statement->execute($migrationIds);
         $statuses = [];
         foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $statuses[(string)$row['migration_id']] = (string)$row['status'];
+            $statuses[(string) $row['migration_id']] = (string) $row['status'];
         }
         ksort($statuses, SORT_STRING);
         return $statuses;
@@ -171,7 +172,7 @@ final class ApplicationMigrationRunner
             $statement->execute([$id]);
             $row = $statement->fetch(PDO::FETCH_ASSOC);
             if (is_array($row)) {
-                if (!hash_equals((string)$row['checksum'], $checksum)) {
+                if (!hash_equals((string) $row['checksum'], $checksum)) {
                     throw new RuntimeException('MIGRATION_CHECKSUM_CHANGED: ' . $id);
                 }
                 if ($row['status'] === 'applied') {
@@ -190,7 +191,7 @@ final class ApplicationMigrationRunner
                 'sql' => $sql,
                 'checksum' => $checksum,
                 'release_version' => $identity['release_version'],
-                'status' => is_array($row) ? (string)$row['status'] : null,
+                'status' => is_array($row) ? (string) $row['status'] : null,
             ];
         }
         return $pending;

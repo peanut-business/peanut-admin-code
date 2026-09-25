@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /*
@@ -56,7 +57,7 @@ $operation = static function (
         $value['requestBody'] = $jsonBody($requestSchema);
     }
     foreach ($errorStatuses as $status) {
-        $value['responses'][(string)$status] = $responseRef('ArticleErrorResponse');
+        $value['responses'][(string) $status] = $responseRef('ArticleErrorResponse');
     }
     if ($businessErrors !== []) {
         $value['x-peanut-errors'] = $businessErrors;

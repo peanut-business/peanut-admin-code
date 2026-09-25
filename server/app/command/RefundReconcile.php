@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -37,7 +38,7 @@ class RefundReconcile extends ContextualCommand
         $output->writeln(sprintf(
             '[refund:reconcile] checked=%d settled=%d',
             $result['checked'],
-            $result['settled']
+            $result['settled'],
         ));
         return 0;
     }

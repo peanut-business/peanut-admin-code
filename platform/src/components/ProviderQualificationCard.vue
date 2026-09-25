@@ -6,7 +6,11 @@
       type="info"
       :closable="false"
     />
-    <el-table v-if="snapshot" :data="snapshot.providers" empty-text="暂无 Provider">
+    <el-table
+      v-if="snapshot"
+      :data="snapshot.providers"
+      empty-text="暂无 Provider"
+    >
       <el-table-column prop="provider_key" label="Provider" min-width="190" />
       <el-table-column prop="category" label="类别" width="110" />
       <el-table-column label="范围" min-width="150">
@@ -15,13 +19,19 @@
         </template>
       </el-table-column>
       <el-table-column label="配置" width="80">
-        <template #default="{ row }">{{ row.configured ? '是' : '否' }}</template>
+        <template #default="{ row }">{{
+          row.configured ? '是' : '否'
+        }}</template>
       </el-table-column>
       <el-table-column label="连通" width="80">
-        <template #default="{ row }">{{ row.connected ? '是' : '否' }}</template>
+        <template #default="{ row }">{{
+          row.connected ? '是' : '否'
+        }}</template>
       </el-table-column>
       <el-table-column label="回调" width="80">
-        <template #default="{ row }">{{ row.callback_verified ? '是' : '否' }}</template>
+        <template #default="{ row }">{{
+          row.callback_verified ? '是' : '否'
+        }}</template>
       </el-table-column>
       <el-table-column label="生产资格" width="100">
         <template #default="{ row }">
@@ -32,17 +42,23 @@
       </el-table-column>
       <el-table-column prop="status_code" label="稳定原因码" min-width="230" />
       <el-table-column label="凭据轮换" min-width="170">
-        <template #default="{ row }">{{ row.credential_rotated_at || '未记录' }}</template>
+        <template #default="{ row }">{{
+          row.credential_rotated_at || '未记录'
+        }}</template>
       </el-table-column>
       <el-table-column label="最近失败" min-width="220">
         <template #default="{ row }">
-          {{ row.recent_failure
-            ? `${row.recent_failure.code} · ${row.recent_failure.observed_at}`
-            : '—' }}
+          {{
+            row.recent_failure
+              ? `${row.recent_failure.code} · ${row.recent_failure.observed_at}`
+              : '—'
+          }}
         </template>
       </el-table-column>
       <el-table-column label="证据有效期" min-width="170">
-        <template #default="{ row }">{{ row.expires_at || '无有效证据' }}</template>
+        <template #default="{ row }">{{
+          row.expires_at || '无有效证据'
+        }}</template>
       </el-table-column>
     </el-table>
     <el-empty v-else description="Provider 资格投影尚未加载" />
@@ -50,10 +66,10 @@
 </template>
 
 <script setup lang="ts">
-import type { ProviderQualificationSnapshot } from '../api/platform';
+  import type { ProviderQualificationSnapshot } from '../api/platform';
 
-defineProps<{
-  loading: boolean;
-  snapshot: ProviderQualificationSnapshot | null;
-}>();
+  defineProps<{
+    loading: boolean;
+    snapshot: ProviderQualificationSnapshot | null;
+  }>();
 </script>

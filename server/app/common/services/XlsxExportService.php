@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services;
@@ -21,25 +22,29 @@ class XlsxExportService
         string $name,
         array $headings,
         array $rows,
-    ): array
-    {
+    ): array {
         $tenantId = $this->trustedTenantId();
         $memberId = $this->executionContext->tenantAdmin()->memberId;
-        [$path,$filename] = self::createArtifact($name,$headings,$rows);
+        [$path,$filename] = self::createArtifact($name, $headings, $rows);
         try {
             return $this->storage->storePath(
-                $tenantId,(int)$memberId,'export.xlsx',$path,$filename,
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                $tenantId,
+                (int) $memberId,
+                'export.xlsx',
+                $path,
+                $filename,
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             );
-        } finally { @unlink($path); }
+        } finally {
+            @unlink($path);
+        }
     }
 
     private static function createArtifact(
         string $name,
         array $headings,
         array $rows,
-    ): array
-    {
+    ): array {
         if (!class_exists(ZipArchive::class)) {
             throw new \RuntimeException('服务器未安装 ZipArchive 扩展，无法导出 XLSX');
         }
@@ -47,8 +52,11 @@ class XlsxExportService
         $name = preg_replace('/\.xlsx$/i', '', $name) ?: '导出数据';
         $fileName = $name . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3)) . '.xlsx';
         $temporary = tempnam(sys_get_temp_dir(), 'pa-xlsx-');
-        if ($temporary === false) throw new \RuntimeException('导出临时文件创建失败');
-        @unlink($temporary); $path = $temporary . '.xlsx';
+        if ($temporary === false) {
+            throw new \RuntimeException('导出临时文件创建失败');
+        }
+        @unlink($temporary);
+        $path = $temporary . '.xlsx';
         $zip = new ZipArchive();
         if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw new \RuntimeException('导出文件创建失败');
@@ -101,15 +109,15 @@ class XlsxExportService
         foreach (array_values($rows) as $rowIndex => $row) {
             $rowNumber = $rowIndex + 1;
             $xml .= '<row r="' . $rowNumber . '">';
-            foreach (array_values((array)$row) as $columnIndex => $value) {
+            foreach (array_values((array) $row) as $columnIndex => $value) {
                 $cell = self::columnName($columnIndex + 1) . $rowNumber;
                 if (is_int($value) || is_float($value)) {
-                    $numeric = rtrim(rtrim(number_format((float)$value, 10, '.', ''), '0'), '.');
+                    $numeric = rtrim(rtrim(number_format((float) $value, 10, '.', ''), '0'), '.');
                     $xml .= '<c r="' . $cell . '"><v>' . $numeric . '</v></c>';
                     continue;
                 }
                 $xml .= '<c r="' . $cell . '" t="inlineStr"><is><t xml:space="preserve">'
-                    . self::xml((string)$value) . '</t></is></c>';
+                    . self::xml((string) $value) . '</t></is></c>';
             }
             $xml .= '</row>';
         }

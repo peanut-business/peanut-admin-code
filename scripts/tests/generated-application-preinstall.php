@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -24,12 +25,14 @@ if (count($options) !== 2 || !isset($options['application-root'], $options['sour
 $checks = 0;
 $expect = static function (bool $condition, string $code) use (&$checks): void {
     ++$checks;
-    if (!$condition) throw new RuntimeException($code);
+    if (!$condition) {
+        throw new RuntimeException($code);
+    }
 };
 try {
     $root = realpath($options['application-root']);
     $expect(is_string($root) && $root === $options['application-root'] && is_dir($root), 'PREINSTALL_APPLICATION_ROOT_INVALID');
-    $document = json_decode((string)file_get_contents($root . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+    $document = json_decode((string) file_get_contents($root . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
     $expect(($document['template']['source_commit'] ?? null) === $options['source-commit']
         && ($document['generation_source']['commit'] ?? null) === $options['source-commit'], 'PREINSTALL_SOURCE_IDENTITY_MISMATCH');
     $lockBefore = hash_file('sha256', $root . '/server/composer.lock');
@@ -39,12 +42,14 @@ try {
     $config = guardedDatabaseConfig();
     $expect($config['deployment_target'] === 'development-test' && $config['consumer'] === 'host', 'PREINSTALL_EPHEMERAL_RESOURCE_REQUIRED');
     $resource = registeredDatabase(projectResourceRegistry(), $config['resource_id']);
-    $expect(($resource['lifecycle'] ?? null) === 'ephemeral' && ($resource['application_runtime'] ?? null) === false,
-        'PREINSTALL_EPHEMERAL_RESOURCE_REQUIRED');
+    $expect(
+        ($resource['lifecycle'] ?? null) === 'ephemeral' && ($resource['application_runtime'] ?? null) === false,
+        'PREINSTALL_EPHEMERAL_RESOURCE_REQUIRED',
+    );
     // 租约/环境校验先于首次数据库连接；非空库在框架启动前直接拒绝。
     $pdo = guardedConnection($config);
     $identity = $pdo->query('SELECT VERSION() AS version, DATABASE() AS database_name, @@server_uuid AS server_uuid')->fetch();
-    $before = (int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn();
+    $before = (int) $pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn();
     $expect($before === 0, 'PREINSTALL_EMPTY_DATABASE_REQUIRED');
     $app = (new think\App($root . '/server/'))->initialize();
     $status = $app->make(app\common\services\installation\InstallationExecutionHost::class)->status();
@@ -61,7 +66,7 @@ try {
         $actual = is_string($file) ? realpath($file) : false;
         $expect(is_string($actual) && str_starts_with($actual, $root . '/server/'), 'PREINSTALL_EXTERNAL_CLASS_SOURCE');
     }
-    $after = (int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn();
+    $after = (int) $pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn();
     $expect($after === $before, 'PREINSTALL_UNEXPECTED_SCHEMA_WRITE');
     $expect($lockBefore === hash_file('sha256', $root . '/server/composer.lock'), 'PREINSTALL_NATIVE_LOCK_CHANGED');
     echo json_encode([

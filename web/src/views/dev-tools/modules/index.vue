@@ -115,7 +115,10 @@
               <el-button link :disabled="busy" @click="syncOne(row.module_key)"
                 >同步</el-button
               >
-              <el-button link :disabled="busy || row.lifecycle_protected" @click="disable(row)"
+              <el-button
+                link
+                :disabled="busy || row.lifecycle_protected"
+                @click="disable(row)"
                 >停用</el-button
               >
               <el-button
@@ -371,7 +374,9 @@
       const packageModules = row.package_modules;
       const scopeNotice =
         packageModules.length > 1
-          ? `${moduleKey} 属于 Bundle ${row.package_key}；停用会同时处理整个 Bundle：${packageModules.join('、')}。\n`
+          ? `${moduleKey} 属于 Bundle ${
+              row.package_key
+            }；停用会同时处理整个 Bundle：${packageModules.join('、')}。\n`
           : '';
       const { value } = await ElMessageBox.prompt(
         `${scopeNotice}请输入停用原因（至少 3 个字符）`,
@@ -410,9 +415,9 @@
         .map((entry) => `${entry.table}: ${entry.action} ${entry.count}`)
         .join('\n');
       const { value } = await ElMessageBox.prompt(
-        `${bundleNotice}\n受影响模块（${affectedModules.length}）：${affectedModules.join(
-          '、'
-        )}\n${
+        `${bundleNotice}\n受影响模块（${
+          affectedModules.length
+        }）：${affectedModules.join('、')}\n${
           purge
             ? 'Purge 将物理删除数据与显式 RBAC 绑定。'
             : '默认退役保留数据与绑定。'

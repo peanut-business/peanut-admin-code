@@ -62,7 +62,9 @@ export default function usePermission() {
           } else {
             const roles = route.meta?.roles;
             const roleAllowed =
-              !roles || roles.includes('*') || roles.includes(role as never);
+              !roles ||
+              roles.includes('*') ||
+              roles.some((candidate) => candidate === role);
             if ((appStore.menuFromServer || roleAllowed) && route.name) {
               return { name: route.name };
             }

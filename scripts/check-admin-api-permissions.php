@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 $repositoryRoot = dirname(__DIR__);
@@ -21,7 +22,7 @@ function adminApiMatrix(string $repositoryRoot, array $inventory, array $accessC
         glob($repositoryRoot . '/server/app/modules/*/database/migrations/*.sql') ?: [],
     );
     foreach ($sqlFiles as $sqlFile) {
-        $sql = (string)file_get_contents($sqlFile);
+        $sql = (string) file_get_contents($sqlFile);
         preg_match_all("/['\"]([a-z0-9_.-]+(?:\\/[a-z0-9_.-]+)+)['\"]/i", $sql, $permissions);
         foreach ($permissions[1] as $permission) {
             $permissionKeys[strtolower($permission)] = true;
@@ -35,8 +36,8 @@ function adminApiMatrix(string $repositoryRoot, array $inventory, array $accessC
             || !hasMiddleware($endpoint, app\adminapi\http\middleware\AuthMiddleware::class)) {
             continue;
         }
-        $method = strtoupper((string)$endpoint['method']);
-        $path = strtolower(trim((string)$endpoint['path'], '/'));
+        $method = strtoupper((string) $endpoint['method']);
+        $path = strtolower(trim((string) $endpoint['path'], '/'));
         $permission = substr($path, strlen('adminapi/'));
         $routeKey = $method . ' ' . $path;
         $access = isset($authenticated[$routeKey])
@@ -65,8 +66,8 @@ function normalizedExceptionRoutes(mixed $routes): array
     }
     $normalized = [];
     foreach ($routes as $route) {
-        if (preg_match('/^([A-Z]+)\s+(.+)$/i', trim((string)$route), $match) !== 1) {
-            throw new RuntimeException('invalid admin API exception route: ' . (string)$route);
+        if (preg_match('/^([A-Z]+)\s+(.+)$/i', trim((string) $route), $match) !== 1) {
+            throw new RuntimeException('invalid admin API exception route: ' . (string) $route);
         }
         $normalized[] = strtoupper($match[1]) . ' ' . strtolower(trim($match[2], '/'));
     }
@@ -108,8 +109,8 @@ try {
         if (($platformRoute['application'] ?? null) !== 'platform') {
             continue;
         }
-        $method = strtoupper((string)$platformRoute['method']);
-        $path = strtolower(trim((string)$platformRoute['path'], '/'));
+        $method = strtoupper((string) $platformRoute['method']);
+        $path = strtolower(trim((string) $platformRoute['path'], '/'));
         $routeKey = $method . ' ' . $path;
         if (isset($platformExceptions[$routeKey])) {
             continue;
@@ -123,7 +124,7 @@ try {
     $matrix = adminApiMatrix($repositoryRoot, $inventory, $accessConfig);
     $known = [];
     foreach ($inventory['endpoints'] as $endpoint) {
-        $known[strtoupper((string)$endpoint['method']) . ' ' . strtolower(trim((string)$endpoint['path'], '/'))] = true;
+        $known[strtoupper((string) $endpoint['method']) . ' ' . strtolower(trim((string) $endpoint['path'], '/'))] = true;
     }
     foreach (array_merge($public, $authenticated, $platformPublic, $platformAuthenticated) as $exception) {
         if (!isset($known[$exception])) {

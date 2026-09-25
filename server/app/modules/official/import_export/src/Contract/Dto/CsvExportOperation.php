@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Contract\Dto;
@@ -10,8 +11,7 @@ final readonly class CsvExportOperation
     private function __construct(
         public string $providerKey,
         public string $idempotencyKey,
-    ) {
-    }
+    ) {}
 
     public static function operationLog(string $idempotencyKey): self
     {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\http\middleware;
@@ -59,8 +60,8 @@ final class LoginMiddleware
 
         $operation = sprintf(
             'http.admin.%s.%s',
-            strtolower((string)$request->method()),
-            trim((string)$request->pathinfo(), '/'),
+            strtolower((string) $request->method()),
+            trim((string) $request->pathinfo(), '/'),
         );
         return $this->executionContexts->run(
             new \app\common\execution\AdminExecutionContext($context, $operation, $principal, $entryBound),

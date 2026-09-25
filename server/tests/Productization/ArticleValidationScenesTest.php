@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /** 验证原生 Validate 场景的可选筛选；不连接数据库，不以服务替身代替 HTTP 验收。 */

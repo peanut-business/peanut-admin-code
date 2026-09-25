@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Service;
@@ -18,30 +19,28 @@ use think\facade\Db;
 
 final class MemberProfileContractService implements MemberProfileCommands
 {
-    public function __construct(private readonly ?MemberSessions $sessions = null)
-    {
-    }
+    public function __construct(private readonly ?MemberSessions $sessions = null) {}
 
     public function createAdminMember(TenantContext $context, array $profile, array $tagIds): void
     {
         $member = Member::create([
             'sn' => Member::generateSn($context),
-            'nickname' => (string)$profile['nickname'],
-            'avatar' => (string)($profile['avatar'] ?? ''),
-            'mobile' => (string)($profile['mobile'] ?? ''),
-            'email' => (string)($profile['email'] ?? ''),
-            'sex' => (int)($profile['sex'] ?? 0),
+            'nickname' => (string) $profile['nickname'],
+            'avatar' => (string) ($profile['avatar'] ?? ''),
+            'mobile' => (string) ($profile['mobile'] ?? ''),
+            'email' => (string) ($profile['email'] ?? ''),
+            'sex' => (int) ($profile['sex'] ?? 0),
             'birthday' => $profile['birthday'] ?? null,
-            'status' => (int)($profile['status'] ?? 1),
+            'status' => (int) ($profile['status'] ?? 1),
         ]);
-        $this->replaceTags($context, (int)$member->id, $tagIds);
+        $this->replaceTags($context, (int) $member->id, $tagIds);
     }
 
     public function updateAdminMember(TenantContext $context, int $memberId, array $profile, ?array $tagIds): void
     {
         // 管理端整档更新也必须使停用／修订／会话撤销原子完成，不能依赖外层碰巧有事务。
         Db::transaction(function () use ($context, $memberId, $profile, $tagIds): void {
-            $disabled = array_key_exists('status', $profile) && (int)$profile['status'] === 0;
+            $disabled = array_key_exists('status', $profile) && (int) $profile['status'] === 0;
             $sessions = $disabled ? $this->sessions() : null;
             $member = $this->member($context, $memberId, $disabled);
             $data = [];
@@ -52,11 +51,11 @@ final class MemberProfileContractService implements MemberProfileCommands
             }
             foreach (['sex', 'status'] as $field) {
                 if (array_key_exists($field, $profile)) {
-                    $data[$field] = (int)$profile[$field];
+                    $data[$field] = (int) $profile[$field];
                 }
             }
             if ($disabled) {
-                $data['session_revision'] = (int)$member->getData('session_revision') + 1;
+                $data['session_revision'] = (int) $member->getData('session_revision') + 1;
             }
             if ($data !== []) {
                 $member->save($data);
@@ -72,7 +71,7 @@ final class MemberProfileContractService implements MemberProfileCommands
 
     public function updateAdminField(TenantContext $context, int $memberId, string $field, mixed $value): void
     {
-        if ($field === 'status' && (int)$value === 0) {
+        if ($field === 'status' && (int) $value === 0) {
             $this->disableMember($context, $memberId);
             return;
         }
@@ -127,10 +126,10 @@ final class MemberProfileContractService implements MemberProfileCommands
     {
         $member = $this->member($context, $memberId);
         $data = [];
-        if ($nickname !== '' && trim((string)$member->nickname) === '') {
+        if ($nickname !== '' && trim((string) $member->nickname) === '') {
             $data['nickname'] = mb_substr($nickname, 0, 50);
         }
-        if ($avatar !== '' && trim((string)$member->avatar) === '') {
+        if ($avatar !== '' && trim((string) $member->avatar) === '') {
             $data['avatar'] = $avatar;
         }
         if ($data !== []) {
@@ -148,7 +147,7 @@ final class MemberProfileContractService implements MemberProfileCommands
         MemberTagRelation::where([])->where('member_id', $memberId)->delete();
         if ($tagIds !== []) {
             (new MemberTagRelation())->saveAll(array_map(
-                static fn(int $tagId): array => ['member_id' => (int)$member->id, 'tag_id' => $tagId],
+                static fn(int $tagId): array => ['member_id' => (int) $member->id, 'tag_id' => $tagId],
                 $tagIds,
             ));
         }
@@ -158,8 +157,7 @@ final class MemberProfileContractService implements MemberProfileCommands
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         int $memberId,
         bool $forUpdate = false,
-    ): object
-    {
+    ): object {
         $query = Member::where([])->where('id', $memberId);
         if ($forUpdate) {
             $query->lock(true);
@@ -177,7 +175,7 @@ final class MemberProfileContractService implements MemberProfileCommands
         Db::transaction(function () use ($context, $memberId, $sessions): void {
             $member = $this->member($context, $memberId, true);
             $member->status = 0;
-            $member->session_revision = (int)$member->getData('session_revision') + 1;
+            $member->session_revision = (int) $member->getData('session_revision') + 1;
             $member->save();
             $sessions->revokeAll($context->tenantId, $memberId, 'member_disabled', time());
         });

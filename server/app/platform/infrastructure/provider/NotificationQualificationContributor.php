@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\provider;
 
 use app\platform\value\provider\ProviderQualificationSubject;
+
 final class NotificationQualificationContributor extends AbstractTenantBindingQualificationContributor
 {
     protected function definitions(): array
@@ -29,7 +31,7 @@ final class NotificationQualificationContributor extends AbstractTenantBindingQu
                 $providerKey,
                 'notification',
                 'tenant',
-                (int)$tenantId,
+                (int) $tenantId,
                 $providerKey,
                 false,
                 false,
@@ -51,7 +53,7 @@ final class NotificationQualificationContributor extends AbstractTenantBindingQu
         if (is_string($provider)) {
             $provider = json_decode($provider, true);
         }
-        if (!is_array($provider) || (int)($provider['status'] ?? 0) !== 1) {
+        if (!is_array($provider) || (int) ($provider['status'] ?? 0) !== 1) {
             return false;
         }
         return $providerKey === 'notification.sms.aliyun'

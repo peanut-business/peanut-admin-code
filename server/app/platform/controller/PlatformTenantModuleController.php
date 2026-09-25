@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -23,14 +24,14 @@ final class PlatformTenantModuleController extends BasePlatformController
         $this->validate($params, PlatformTenantModuleValidate::class . '.enable');
         return $this->data($this->tenantModules->enable(
             PlatformRequest::bearerToken($this->request),
-            (int)$params['tenant_id'],
-            trim((string)$params['module_key']),
+            (int) $params['tenant_id'],
+            trim((string) $params['module_key']),
             is_array($params['config'] ?? null) ? $params['config'] : [],
             'manual',
             $this->optionalDate($params['effective_at'] ?? null),
             $this->optionalDate($params['expires_at'] ?? null),
-            trim((string)$params['change_reason']),
-            $this->platformContext->core->requestId
+            trim((string) $params['change_reason']),
+            $this->platformContext->core->requestId,
         ));
     }
 
@@ -44,16 +45,16 @@ final class PlatformTenantModuleController extends BasePlatformController
         $this->validate($params, PlatformTenantModuleValidate::class . '.disable');
         return $this->data($this->tenantModules->disable(
             PlatformRequest::bearerToken($this->request),
-            (int)$params['tenant_id'],
-            trim((string)$params['module_key']),
-            trim((string)$params['change_reason']),
-            $this->platformContext->core->requestId
+            (int) $params['tenant_id'],
+            trim((string) $params['module_key']),
+            trim((string) $params['change_reason']),
+            $this->platformContext->core->requestId,
         ));
     }
 
     private function optionalDate(mixed $value): ?DateTimeImmutable
     {
-        $candidate = trim((string)$value);
+        $candidate = trim((string) $value);
         if ($candidate === '') {
             return null;
         }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Infrastructure\Storage;
@@ -10,9 +11,7 @@ use PeanutAdmin\FileMedia\Storage\StorageHttpTransport;
 /** 将 Core 七牛窄传输合同映射到应用统一出站 HTTP 观测与重试通道。 */
 final readonly class QiniuStorageHttpTransport implements StorageHttpTransport
 {
-    public function __construct(private OutboundHttpTransport $transport)
-    {
-    }
+    public function __construct(private OutboundHttpTransport $transport) {}
 
     /**
      * 保留 Core 请求中的超时、幂等重试、sink、multipart 与 headers 语义；异常仍由应用传输层归一化。

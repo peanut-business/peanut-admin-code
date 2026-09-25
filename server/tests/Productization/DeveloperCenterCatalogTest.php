@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\platform\services\developer\DeveloperCenterCatalogService;
@@ -7,7 +8,9 @@ require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 function developerCenterExpect(bool $condition, string $message): void
 {
-    if (!$condition) throw new RuntimeException($message);
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
 }
 
 $serverRoot = dirname(__DIR__, 2);
@@ -42,7 +45,7 @@ developerCenterExpect(
     'package preview is not deterministic',
 );
 foreach ($module['package_preview']['files'] as $file) {
-    $path = strtolower((string)$file['path']);
+    $path = strtolower((string) $file['path']);
     developerCenterExpect(!str_contains($path, '/vendor/'), 'package preview included vendor');
     developerCenterExpect(!str_contains($path, '/node_modules/'), 'package preview included node_modules');
     developerCenterExpect(!str_contains(basename($path), '.env'), 'package preview included an environment file');
@@ -57,7 +60,7 @@ foreach (['official.identity', 'peanut.artifact-revision', 'peanut.entitlement-q
     );
     $frontendFiles = array_filter(
         $backendOnly['package_preview']['files'] ?? [],
-        static fn(array $file): bool => str_starts_with((string)($file['path'] ?? ''), 'frontend/'),
+        static fn(array $file): bool => str_starts_with((string) ($file['path'] ?? ''), 'frontend/'),
     );
     developerCenterExpect($frontendFiles === [], 'backend-only preview invented frontend files: ' . $backendOnlyKey);
 }
@@ -78,8 +81,8 @@ developerCenterExpect(
     'official.ops package preview omitted the platform contribution',
 );
 
-$routes = (string)file_get_contents($serverRoot . '/route/platform.php');
-$command = (string)file_get_contents($serverRoot . '/app/command/DeveloperCenterCatalog.php');
+$routes = (string) file_get_contents($serverRoot . '/route/platform.php');
+$command = (string) file_get_contents($serverRoot . '/app/command/DeveloperCenterCatalog.php');
 developerCenterExpect(
     str_contains($routes, "Route::get('developer-center/catalog'")
         && str_contains($routes, "PlatformPermissionMiddleware::class, 'platform.module.read'")

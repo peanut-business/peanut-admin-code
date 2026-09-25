@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Controller;
@@ -27,7 +28,7 @@ class NoticeSceneController extends BaseAdminController
         return $this->data($this->notifications->scene(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
-            (int)$params['id'],
+            (int) $params['id'],
         ));
     }
 

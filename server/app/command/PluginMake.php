@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -27,14 +28,14 @@ final class PluginMake extends ContextualCommand
         try {
             $this->assertSourceAuthoringAccess();
             $result = (new PluginArtifactWriter(dirname(__DIR__, 2)))->make(
-                (string)$input->getArgument('plugin_key'),
-                (string)$input->getArgument('version'),
-                array_values((array)$input->getOption('module')),
+                (string) $input->getArgument('plugin_key'),
+                (string) $input->getArgument('version'),
+                array_values((array) $input->getOption('module')),
             );
-            $output->writeln((string)json_encode(['path' => $result['path'], 'key' => $result['manifest']['key']], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+            $output->writeln((string) json_encode(['path' => $result['path'], 'key' => $result['manifest']['key']], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             return 0;
         } catch (PluginArtifactToolException $exception) {
-            $output->writeln((string)json_encode(['error' => $exception->getMessage()], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+            $output->writeln((string) json_encode(['error' => $exception->getMessage()], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             return 1;
         }
     }

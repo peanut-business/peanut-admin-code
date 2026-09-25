@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\invitation;
@@ -27,8 +28,7 @@ final class TenantOwnerInvitationAdminService
         private readonly OwnerInvitationDeliveryPort $delivery,
         private readonly OwnerInvitationRuntimePolicy $runtimePolicy,
         private readonly AuditContractHost $audit,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function provision(
@@ -37,7 +37,7 @@ final class TenantOwnerInvitationAdminService
         string $tenantName,
         string $ownerEmail,
         string $ownerDisplayName,
-        int $expiresInHours
+        int $expiresInHours,
     ): array {
         $this->sessions->assertAllowed($context, self::CREATE_PERMISSION);
         $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
@@ -56,16 +56,21 @@ final class TenantOwnerInvitationAdminService
             $expiresAt
         ): array {
             $tenant = $this->tenants->createTenant(
-                $context->core, $tenantCode, $tenantName, $tenantName, 'zh-CN', 'Asia/Shanghai',
+                $context->core,
+                $tenantCode,
+                $tenantName,
+                $tenantName,
+                'zh-CN',
+                'Asia/Shanghai',
             );
-            $tenantId = (int)$tenant['id'];
+            $tenantId = (int) $tenant['id'];
             $invitation = $this->insertInvitation(
                 $tenantId,
                 $email,
                 $ownerDisplayName,
                 $token,
                 $expiresAt,
-                $context->core->operatorId
+                $context->core->operatorId,
             );
             $this->audit->recordPlatform(
                 'tenant.owner-invitation.created',
@@ -94,7 +99,7 @@ final class TenantOwnerInvitationAdminService
         int $tenantId,
         string $ownerEmail,
         string $ownerDisplayName,
-        int $expiresInHours
+        int $expiresInHours,
     ): array {
         $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
         $this->runtimePolicy->assertIssuanceAllowed($this->delivery);
@@ -112,11 +117,11 @@ final class TenantOwnerInvitationAdminService
         ): array {
             $tenant = $this->lockInvitableTenant($tenantId);
             $this->expireStalePending($tenantId);
-            $this->assertOwnerBaseline($tenantId, (string)$tenant['status']);
+            $this->assertOwnerBaseline($tenantId, (string) $tenant['status']);
             if ($this->pendingInvitationExists($tenantId)) {
                 throw TenantOwnerInvitationException::conflict(
                     'TENANT_OWNER_INVITATION_PENDING',
-                    'Tenant already has a pending owner invitation.'
+                    'Tenant already has a pending owner invitation.',
                 );
             }
             if (Db::name('role')->where('tenant_id', $tenantId)->where('key', self::OWNER_ROLE)->lock(true)->value('id') === null) {
@@ -133,7 +138,7 @@ final class TenantOwnerInvitationAdminService
                 $ownerDisplayName,
                 $token,
                 $expiresAt,
-                $context->core->operatorId
+                $context->core->operatorId,
             );
             $this->audit->recordPlatform(
                 'tenant.owner-invitation.created',
@@ -160,7 +165,7 @@ final class TenantOwnerInvitationAdminService
     public function invitations(
         PlatformOperatorContext $context,
         int $tenantId,
-        PageRequest $page
+        PageRequest $page,
     ): array {
         $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
         $query = Db::name('tenant_owner_invitation')->where('tenant_id', $tenantId);
@@ -171,7 +176,7 @@ final class TenantOwnerInvitationAdminService
 
         return [
             'items' => $items,
-            'total' => (int)$query->count(),
+            'total' => (int) $query->count(),
         ];
     }
 
@@ -179,7 +184,7 @@ final class TenantOwnerInvitationAdminService
     public function resend(
         PlatformOperatorContext $context,
         int $invitationId,
-        int $expiresInHours
+        int $expiresInHours,
     ): array {
         $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
         $this->runtimePolicy->assertIssuanceAllowed($this->delivery);
@@ -192,15 +197,15 @@ final class TenantOwnerInvitationAdminService
             $token
         ): array {
             $invitation = $this->lockInvitationById($invitationId);
-            $tenantId = (int)$invitation['tenant_id'];
+            $tenantId = (int) $invitation['tenant_id'];
             $tenant = $this->lockInvitableTenant($tenantId);
             if ($invitation['status'] !== 'pending') {
                 throw TenantOwnerInvitationException::conflict(
                     'INVITATION_NOT_PENDING',
-                    'Only a pending invitation can be resent.'
+                    'Only a pending invitation can be resent.',
                 );
             }
-            $this->assertOwnerBaseline($tenantId, (string)$tenant['status']);
+            $this->assertOwnerBaseline($tenantId, (string) $tenant['status']);
             $now = $this->now();
             Db::name('tenant_owner_invitation')->where('id', $invitationId)->where('status', 'pending')->update([
                 'token_hash' => $token->hash(),
@@ -220,7 +225,7 @@ final class TenantOwnerInvitationAdminService
                 $context->core->requestId,
                 $context->core->operatorId,
                 $context->core->accountId,
-                ['tenant_id' => (int)$invitation['tenant_id'], 'invitation_id' => $invitationId],
+                ['tenant_id' => (int) $invitation['tenant_id'], 'invitation_id' => $invitationId],
                 AuditOutcome::Success,
                 null,
             );
@@ -234,7 +239,7 @@ final class TenantOwnerInvitationAdminService
                 'display_name' => $invitation['display_name'],
                 'status' => 'pending',
                 'delivery_status' => 'pending_delivery',
-                'generation' => (int)$invitation['generation'] + 1,
+                'generation' => (int) $invitation['generation'] + 1,
                 'expires_at' => $this->format($expiresAt),
             ];
         });
@@ -249,11 +254,11 @@ final class TenantOwnerInvitationAdminService
 
         return Db::transaction(function () use ($context, $invitationId): array {
             $invitation = $this->lockInvitationById($invitationId);
-            $this->lockInvitableTenant((int)$invitation['tenant_id']);
+            $this->lockInvitableTenant((int) $invitation['tenant_id']);
             if ($invitation['status'] !== 'pending') {
                 throw TenantOwnerInvitationException::conflict(
                     'INVITATION_NOT_PENDING',
-                    'Only a pending invitation can be revoked.'
+                    'Only a pending invitation can be revoked.',
                 );
             }
             $now = $this->format($this->now());
@@ -269,14 +274,14 @@ final class TenantOwnerInvitationAdminService
                 $context->core->requestId,
                 $context->core->operatorId,
                 $context->core->accountId,
-                ['tenant_id' => (int)$invitation['tenant_id'], 'invitation_id' => $invitationId],
+                ['tenant_id' => (int) $invitation['tenant_id'], 'invitation_id' => $invitationId],
                 AuditOutcome::Success,
                 null,
             );
 
             return [
                 'id' => $invitationId,
-                'tenant_id' => (int)$invitation['tenant_id'],
+                'tenant_id' => (int) $invitation['tenant_id'],
                 'status' => 'revoked',
             ];
         });
@@ -289,7 +294,7 @@ final class TenantOwnerInvitationAdminService
         string $displayName,
         OneTimeInvitationToken $token,
         DateTimeImmutable $expiresAt,
-        int $operatorId
+        int $operatorId,
     ): array {
         $now = $this->format($this->now());
         $id = Db::name('tenant_owner_invitation')->insertGetId([
@@ -320,13 +325,13 @@ final class TenantOwnerInvitationAdminService
     {
         try {
             $result = $this->delivery->deliver(new OwnerInvitationDelivery(
-                (int)$issued['id'],
-                (int)$issued['generation'],
-                (string)$issued['tenant_name'],
-                (string)$issued['email'],
-                (string)$issued['display_name'],
-                new DateTimeImmutable((string)$issued['expires_at'], new DateTimeZone('UTC')),
-                $token
+                (int) $issued['id'],
+                (int) $issued['generation'],
+                (string) $issued['tenant_name'],
+                (string) $issued['email'],
+                (string) $issued['display_name'],
+                new DateTimeImmutable((string) $issued['expires_at'], new DateTimeZone('UTC')),
+                $token,
             ));
         } catch (\Throwable) {
             $result = OwnerInvitationDeliveryResult::failed('delivery-port', 'DELIVERY_PROVIDER_ERROR');
@@ -344,7 +349,7 @@ final class TenantOwnerInvitationAdminService
         if ($attempted === 1) {
             $changes['last_delivery_at'] = $now;
         }
-        Db::name('tenant_owner_invitation')->where('id', (int)$issued['id'])
+        Db::name('tenant_owner_invitation')->where('id', (int) $issued['id'])
             ->where('token_hash', $token->hash())->where('status', 'pending')->update($changes);
 
         $response = array_replace($issued, ['delivery_status' => $result->status]);
@@ -377,7 +382,7 @@ final class TenantOwnerInvitationAdminService
         if (!in_array($row['status'], [TenantStatus::Provisioning->value, TenantStatus::Active->value], true)) {
             throw TenantOwnerInvitationException::conflict(
                 'TENANT_OWNER_INVITATION_NOT_ALLOWED',
-                'Owner invitations require a provisioning or active Tenant.'
+                'Owner invitations require a provisioning or active Tenant.',
             );
         }
 
@@ -390,7 +395,7 @@ final class TenantOwnerInvitationAdminService
             if ($this->ownerMemberExists($tenantId, ['pending', 'active'])) {
                 throw TenantOwnerInvitationException::conflict(
                     'TENANT_OWNER_ALREADY_ASSIGNED',
-                    'Tenant already has an owner candidate.'
+                    'Tenant already has an owner candidate.',
                 );
             }
             return;
@@ -399,7 +404,7 @@ final class TenantOwnerInvitationAdminService
         if (!$this->ownerMemberExists($tenantId, ['active'])) {
             throw TenantOwnerInvitationException::conflict(
                 'TENANT_ACTIVE_OWNER_REQUIRED',
-                'An active Tenant must retain an active owner before another owner is invited.'
+                'An active Tenant must retain an active owner before another owner is invited.',
             );
         }
     }

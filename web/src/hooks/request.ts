@@ -1,26 +1,37 @@
-import { ref, UnwrapRef } from 'vue';
-import { AxiosResponse } from 'axios';
-import { HttpResponse } from '@/api/interceptor';
-import useLoading from './loading';
+import { getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue';
 
-// use to fetch list
-// Don't use async function. It doesn't work in async function.
-// Use the bind function to add parameters
-// example: useRequest(api.bind(null, {}))
-
+/** A typed business envelope; stale responses cannot replace the current request result. */
 export default function useRequest<T>(
-  api: () => Promise<AxiosResponse<HttpResponse>>,
-  defaultValue = [] as unknown as T,
+  api: () => Promise<{ data: T }>,
+  defaultValue?: T,
   isLoading = true
 ) {
-  const { loading, setLoading } = useLoading(isLoading);
-  const response = ref<T>(defaultValue);
-  api()
-    .then((res) => {
-      response.value = res.data as unknown as UnwrapRef<T>;
-    })
-    .finally(() => {
-      setLoading(false);
-    });
-  return { loading, response };
+  const loading = ref(isLoading);
+  const response = shallowRef<T | undefined>(defaultValue);
+  const error = shallowRef<Error | null>(null);
+  let revision = 0;
+
+  const cancel = () => {
+    revision += 1;
+    loading.value = false;
+  };
+  const reload = async (showLoading = true): Promise<void> => {
+    const current = ++revision;
+    loading.value = showLoading;
+    error.value = null;
+    try {
+      const result = await api();
+      if (current === revision) response.value = result.data;
+    } catch (reason: unknown) {
+      if (current === revision) {
+        error.value =
+          reason instanceof Error ? reason : new Error('REQUEST_FAILED');
+      }
+    } finally {
+      if (current === revision) loading.value = false;
+    }
+  };
+  if (getCurrentScope()) onScopeDispose(cancel);
+  void reload(isLoading);
+  return { loading, response, error, reload, cancel };
 }

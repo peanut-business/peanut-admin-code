@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
@@ -30,13 +31,13 @@ class UploadController extends BaseApiController
         $result = $this->uploads->image(
             $this->memberContext(),
             new UploadFile(
-                (string)$uploaded->getPathname(),
-                (string)$uploaded->getOriginalName(),
-                (int)$uploaded->getSize(),
-                (string)($uploaded->getMime() ?: 'application/octet-stream'),
-                (string)$uploaded->getOriginalExtension(),
+                (string) $uploaded->getPathname(),
+                (string) $uploaded->getOriginalName(),
+                (int) $uploaded->getSize(),
+                (string) ($uploaded->getMime() ?: 'application/octet-stream'),
+                (string) $uploaded->getOriginalExtension(),
             ),
-            (int)$cidValue,
+            (int) $cidValue,
             $this->memberId,
             FileEnum::SOURCE_USER,
         );

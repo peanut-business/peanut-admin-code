@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
@@ -42,8 +43,7 @@ final class ApplicationCreator
         private readonly ?array $sourceIdentity = null,
         private readonly ?string $adoptionManifestPath = null,
         private readonly bool $projectEdition = true,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function create(
@@ -53,9 +53,8 @@ final class ApplicationCreator
         string $target,
         string $edition,
         ?string $applicationVersion = null,
-        string $profile = 'standard'
-    ): array
-    {
+        string $profile = 'standard',
+    ): array {
         $journal = $this->sourceRoot . '/.local/module-source-adoption/journal.json';
         if (file_exists($journal) || is_link($journal)) {
             throw new RuntimeException('MODULE_PACKAGE_RECOVERY_REQUIRED');
@@ -72,7 +71,7 @@ final class ApplicationCreator
             $productName,
             $slug,
             $packageIdentity,
-            $applicationVersion ?? (string)$inventory['application']['version']
+            $applicationVersion ?? (string) $inventory['application']['version'],
         );
         $generationIdentity = $this->validateSourceIdentity($this->sourceIdentity ?? $this->gitIdentity());
         $inventoryDigest = hash_file('sha256', $this->inventoryPath);
@@ -97,9 +96,9 @@ final class ApplicationCreator
                 if ($entry['classification'] === 'excluded' || !in_array($profile, $entry['profiles'], true)) {
                     continue;
                 }
-                $source = $this->sourcePath((string)$entry['path']);
-                $actualSourceDigest = self::sourceDigest($source, (string)$entry['path'], (string)$entry['transform']);
-                if (!is_string($actualSourceDigest) || !hash_equals((string)$entry['source_sha256'], $actualSourceDigest)) {
+                $source = $this->sourcePath((string) $entry['path']);
+                $actualSourceDigest = self::sourceDigest($source, (string) $entry['path'], (string) $entry['transform']);
+                if (!is_string($actualSourceDigest) || !hash_equals((string) $entry['source_sha256'], $actualSourceDigest)) {
                     throw new RuntimeException('CREATE_APP_SOURCE_DIGEST_MISMATCH: ' . $entry['path']);
                 }
                 $content = file_get_contents($source);
@@ -107,8 +106,8 @@ final class ApplicationCreator
                     throw new RuntimeException('CREATE_APP_SOURCE_READ_FAILED: ' . $entry['path']);
                 }
                 $content = $this->transform($content, $entry, $parameters, $stage);
-                $destination = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$entry['target']);
-                $this->writeFile($destination, $content, (int)$entry['mode']);
+                $destination = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $entry['target']);
+                $this->writeFile($destination, $content, (int) $entry['mode']);
                 $files[] = [
                     'path' => $entry['target'],
                     'sha256' => hash('sha256', $content),
@@ -119,7 +118,7 @@ final class ApplicationCreator
                 ];
             }
             $this->prepareWritableDirectories($stage);
-            usort($files, static fn(array $a, array $b): int => strcmp((string)$a['path'], (string)$b['path']));
+            usort($files, static fn(array $a, array $b): int => strcmp((string) $a['path'], (string) $b['path']));
             $this->assertNoUnresolvedVariables($stage);
             // 中性模板在投影前核验；明确 Edition 的发布包必须与投影后的实际文件核验。
             if ($adoption !== null && !$adoptsEdition) {
@@ -183,12 +182,12 @@ final class ApplicationCreator
         $entries = [];
         foreach ($inventory['files'] as $entry) {
             if (is_array($entry) && isset($entry['target'])) {
-                $entries[(string)$entry['target']] = $entry;
+                $entries[(string) $entry['target']] = $entry;
             }
         }
         $fileIndexes = [];
         foreach ($files as $index => $file) {
-            $fileIndexes[(string)$file['path']] = $index;
+            $fileIndexes[(string) $file['path']] = $index;
         }
 
         $projector = new EditionProjector();
@@ -208,7 +207,7 @@ final class ApplicationCreator
                 $profile,
             );
         }
-        usort($files, static fn(array $a, array $b): int => strcmp((string)$a['path'], (string)$b['path']));
+        usort($files, static fn(array $a, array $b): int => strcmp((string) $a['path'], (string) $b['path']));
         return $files;
     }
 
@@ -216,8 +215,8 @@ final class ApplicationCreator
     private function validateSourceIdentity(array $identity): array
     {
         if (array_keys($identity) !== ['commit', 'tree']
-            || preg_match('/^[a-f0-9]{40}$/D', (string)$identity['commit']) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string)$identity['tree']) !== 1) {
+            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['commit']) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['tree']) !== 1) {
             throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
         }
         return $identity;
@@ -253,7 +252,7 @@ final class ApplicationCreator
         string $stage,
         ScaffoldManifest $adoption,
         array $parameters,
-        array $files
+        array $files,
     ): void {
         $release = $adoption->release();
         $tokens = $release['tokens'] ?? null;
@@ -283,7 +282,7 @@ final class ApplicationCreator
         $current = [];
         foreach ($files as $file) {
             if (in_array($file['classification'], ['managed', 'generated-managed'], true)) {
-                $current[(string)$file['path']] = $file;
+                $current[(string) $file['path']] = $file;
             }
         }
         ksort($current, SORT_STRING);
@@ -304,12 +303,12 @@ final class ApplicationCreator
             $generatedPath = ScaffoldPathGuard::existingFileWithin(
                 $stage,
                 $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path),
-                'CREATE_APP_ADOPTION_GENERATED_PATH_INVALID'
+                'CREATE_APP_ADOPTION_GENERATED_PATH_INVALID',
             );
             $generatedContent = file_get_contents($generatedPath);
             $generatedDigest = is_string($generatedContent) ? hash('sha256', $generatedContent) : null;
             if (!is_string($generatedContent) || !is_string($generatedDigest)
-                || !hash_equals((string)$generated['sha256'], $generatedDigest)
+                || !hash_equals((string) $generated['sha256'], $generatedDigest)
                 || ((fileperms($generatedPath) & 0777) !== $generated['mode'])) {
                 throw new RuntimeException('CREATE_APP_ADOPTION_GENERATED_FILE_MISMATCH: ' . $path);
             }
@@ -320,7 +319,7 @@ final class ApplicationCreator
             }
             $artifactContent = file_get_contents($artifactPath);
             if (!is_string($artifactContent)
-                || !hash_equals((string)$artifact['template_sha256'], hash('sha256', $artifactContent))) {
+                || !hash_equals((string) $artifact['template_sha256'], hash('sha256', $artifactContent))) {
                 throw new RuntimeException('CREATE_APP_ADOPTION_ARTIFACT_DIGEST_MISMATCH: ' . $path);
             }
             $rendered = $this->renderAdoptionArtifact($adoption, $artifact, $tokens, $renderParameters);
@@ -373,7 +372,7 @@ final class ApplicationCreator
         }
         $composerContent = file_get_contents($adoption->artifactPath($composer));
         if (!is_string($composerContent)
-            || !hash_equals((string)($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
+            || !hash_equals((string) ($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
             throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_INVALID');
         }
         return ScaffoldManifest::renderComposerLock(
@@ -387,9 +386,8 @@ final class ApplicationCreator
         string $productName,
         string $slug,
         string $packageIdentity,
-        string $applicationVersion
-    ): array
-    {
+        string $applicationVersion,
+    ): array {
         $productName = trim($productName);
         if ($productName === '' || strlen($productName) > 80 || preg_match('/[\x00-\x1F\x7F{}]/', $productName) === 1) {
             throw new RuntimeException('CREATE_APP_PRODUCT_NAME_INVALID');
@@ -429,8 +427,8 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_INVENTORY_SCHEMA_INVALID');
         }
         $versions = $this->versionContract();
-        $versions->assertSame((string)$inventory['template_version'], $versions->scaffoldTemplate(), 'CREATE_APP_INVENTORY_TEMPLATE_VERSION_MISMATCH');
-        $versions->assertSame((string)$inventory['application']['version'], $versions->generatedInstanceDefault(), 'CREATE_APP_INVENTORY_APPLICATION_VERSION_MISMATCH');
+        $versions->assertSame((string) $inventory['template_version'], $versions->scaffoldTemplate(), 'CREATE_APP_INVENTORY_TEMPLATE_VERSION_MISMATCH');
+        $versions->assertSame((string) $inventory['application']['version'], $versions->generatedInstanceDefault(), 'CREATE_APP_INVENTORY_APPLICATION_VERSION_MISMATCH');
         $variables = $inventory['variables'];
         sort($variables, SORT_STRING);
         if ($variables !== self::VARIABLES) {
@@ -442,10 +440,10 @@ final class ApplicationCreator
             if (!is_array($entry)) {
                 throw new RuntimeException('CREATE_APP_INVENTORY_ENTRY_INVALID: ' . $index);
             }
-            $path = ScaffoldManifest::path((string)($entry['path'] ?? ''));
-            $target = ScaffoldManifest::path((string)($entry['target'] ?? $path));
-            $classification = (string)($entry['classification'] ?? '');
-            $transform = (string)($entry['transform'] ?? 'copy');
+            $path = ScaffoldManifest::path((string) ($entry['path'] ?? ''));
+            $target = ScaffoldManifest::path((string) ($entry['target'] ?? $path));
+            $classification = (string) ($entry['classification'] ?? '');
+            $transform = (string) ($entry['transform'] ?? 'copy');
             if (str_starts_with($path, 'server/resources/scaffold-application/')) {
                 $expectedTarget = substr($path, strlen('server/resources/scaffold-application/'), -5);
                 $expectedClassification = $target === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
@@ -513,7 +511,7 @@ final class ApplicationCreator
         fclose($pipes[1]);
         fclose($pipes[2]);
         if (proc_close($process) !== 0 || !is_string($stdout)) {
-            throw new RuntimeException('CREATE_APP_GIT_FAILED: ' . trim((string)$stderr));
+            throw new RuntimeException('CREATE_APP_GIT_FAILED: ' . trim((string) $stderr));
         }
         return trim($stdout);
     }
@@ -572,9 +570,9 @@ final class ApplicationCreator
     {
         return match ($entry['transform']) {
             'copy' => $content,
-            'text' => $this->textTransform($content, $parameters, (string)$entry['path']),
+            'text' => $this->textTransform($content, $parameters, (string) $entry['path']),
             'brand' => $this->brandManifest($parameters),
-            'brand-asset' => $this->brandAsset((string)$entry['path'], $parameters),
+            'brand-asset' => $this->brandAsset((string) $entry['path'], $parameters),
             'changelog' => $this->render($this->changelog($parameters['APPLICATION_VERSION']), $parameters),
             'ci' => $this->ciTransform($content),
             'docs-page' => $this->render($content, $parameters),
@@ -584,7 +582,7 @@ final class ApplicationCreator
             'readme' => $this->render($this->readme(), $parameters),
             'license' => $this->render($this->license(), $parameters),
             'modules-config' => $this->modulesConfig($content),
-            'package' => $this->packageTransform($content, $parameters, (string)$entry['path']),
+            'package' => $this->packageTransform($content, $parameters, (string) $entry['path']),
             'plugins-lock' => $this->pluginsLock($content),
             'sbom' => $this->sbom($content, $parameters),
             'third-party-notices' => $this->thirdPartyNotices($content, $parameters),
@@ -613,13 +611,13 @@ final class ApplicationCreator
         $content = str_replace(
             ['Peanut Admin', 'peanut-business/peanut-admin-code', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
             [$parameters['PRODUCT_NAME'], $parameters['PACKAGE_IDENTITY'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
-            $content
+            $content,
         );
         if ($path === 'server/database/init.sql') {
             $content = str_replace(
                 ["-- 超级管理员（密码：admin123456）", "MD5(CONCAT(MD5('admin123456'),'abcd1234'))", '系统预置角色（仅菜单管理权限，演示用）'],
                 ['-- 超级管理员（密码必须由安装器注入）', "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))", '系统预置最小权限角色'],
-                $content
+                $content,
             );
         }
         if ($path === 'server/database/install.php') {
@@ -629,7 +627,7 @@ final class ApplicationCreator
             $content = str_replace(
                 ["MD5(CONCAT(MD5('admin123456')", '密码：admin123456', 'known password expression must not reach the database', 'installer must only replace the executable seed'],
                 ["MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__')", '密码必须由安装器注入', 'placeholder password expression must not reach the database', 'installer must preserve the neutral seed comment'],
-                $content
+                $content,
             );
         }
         if ($path === 'scripts/check-local-runtime-contract') {
@@ -655,7 +653,7 @@ final class ApplicationCreator
                     'DB_NAME=' . $contractIdentity,
                     'DB_USER=' . $contractIdentity,
                 ],
-                $content
+                $content,
             );
         }
         if ($path === 'server/app/adminapi/application/WorkbenchApplicationService.php') {
@@ -722,7 +720,7 @@ final class ApplicationCreator
         }
         return json_encode(
             $document,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         ) . "\n";
     }
 
@@ -740,7 +738,7 @@ final class ApplicationCreator
                 $pattern,
                 static fn(array $matches): string => preg_replace("/'[^']+'(?=\))|'[^']+'$/", "'{$version}'", $matches[0], 1) ?? $matches[0],
                 $content,
-                1
+                1,
             ) ?? $content;
         }
         return $content;
@@ -777,7 +775,7 @@ final class ApplicationCreator
                 . '<path d="M16 32 32 16l16 16-16 16Z" fill="#fff"/>'
                 . '<circle cx="47.5" cy="47.5" r="5.5" fill="#34D399"/></svg>' . "\n";
         }
-        return $this->textTransform((string)file_get_contents($this->sourcePath($path)), $parameters, $path);
+        return $this->textTransform((string) file_get_contents($this->sourcePath($path)), $parameters, $path);
     }
 
     private function ciTransform(string $content): string
@@ -1159,7 +1157,7 @@ PHP;
         }
         return json_encode(
             ['schema_version' => 1, 'plugins' => $bundled],
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
         ) . "\n";
     }
 
@@ -1168,7 +1166,7 @@ PHP;
     {
         $manifestPaths = [];
         foreach ($files as $file) {
-            $path = (string)($file['path'] ?? '');
+            $path = (string) ($file['path'] ?? '');
             if (preg_match('#^plugins/([a-z][a-z0-9.-]+)/plugin\.json$#D', $path, $matches) !== 1) {
                 continue;
             }
@@ -1187,7 +1185,7 @@ PHP;
         foreach ($manifestPaths as $directoryKey => $path) {
             $absolute = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
             try {
-                $manifest = json_decode((string)file_get_contents($absolute), true, 128, JSON_THROW_ON_ERROR);
+                $manifest = json_decode((string) file_get_contents($absolute), true, 128, JSON_THROW_ON_ERROR);
             } catch (\JsonException $exception) {
                 throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_INVALID: ' . $path, 0, $exception);
             }
@@ -1224,7 +1222,7 @@ PHP;
         }
 
         foreach ($files as &$file) {
-            $path = (string)($file['path'] ?? '');
+            $path = (string) ($file['path'] ?? '');
             if (!isset($rewritten[$path])) {
                 continue;
             }
@@ -1283,7 +1281,7 @@ PHP;
     {
         $rendered = strtr($value, array_combine(
             array_map(static fn(string $key): string => '{{' . $key . '}}', array_keys($parameters)),
-            array_values($parameters)
+            array_values($parameters),
         ) ?: []);
         if (preg_match('/{{[A-Z][A-Z0-9_]*}}/', $rendered) === 1) {
             throw new RuntimeException('CREATE_APP_UNKNOWN_TEMPLATE_VARIABLE');
@@ -1312,7 +1310,7 @@ PHP;
             if (!in_array($file['classification'], ['managed', 'generated-managed'], true)) {
                 continue;
             }
-            $source = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$file['path']);
+            $source = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $file['path']);
             $baseline = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $baselineRoot . '/' . $file['path']);
             $content = file_get_contents($source);
             if (!is_string($content)) {

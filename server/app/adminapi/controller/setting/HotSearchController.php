@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\setting;
@@ -20,7 +21,7 @@ class HotSearchController extends BaseAdminController
     {
         $this->hotSearch->setConfig(
             $this->tenantAdminContext(),
-            $this->request->post()
+            $this->request->post(),
         );
         return $this->success('操作成功');
     }

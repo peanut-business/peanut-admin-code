@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
@@ -99,8 +100,7 @@ final class EditionUpgradePackage
         string $signatureKeyId,
         array $trustedKeys,
         bool $requireSourceCompatibility,
-    ): array
-    {
+    ): array {
         $project = ScaffoldPathGuard::projectRoot($projectRoot);
         $package = realpath($packageRoot);
         if (!is_string($package) || !is_dir($package) || is_link($package)) {
@@ -114,7 +114,7 @@ final class EditionUpgradePackage
         if (!is_file($inventoryPath) || is_link($inventoryPath)) {
             throw new RuntimeException('EDITION_UPGRADE_INVENTORY_MISSING');
         }
-        $inventory = (string)file_get_contents($inventoryPath);
+        $inventory = (string) file_get_contents($inventoryPath);
         $files = $this->verifyInventory($package, $inventory);
         $this->verifySignature($package, $inventory, $signatureKeyId, $trustedKeys);
 
@@ -123,7 +123,7 @@ final class EditionUpgradePackage
             throw new RuntimeException('EDITION_UPGRADE_MANIFEST_MISSING');
         }
         try {
-            $manifest = json_decode((string)file_get_contents($manifestPath), true, 128, JSON_THROW_ON_ERROR);
+            $manifest = json_decode((string) file_get_contents($manifestPath), true, 128, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new RuntimeException('EDITION_UPGRADE_MANIFEST_INVALID', 0, $exception);
         }
@@ -164,10 +164,10 @@ final class EditionUpgradePackage
             throw new RuntimeException('EDITION_UPGRADE_AUTHORITY_MISMATCH');
         }
 
-        $current = (string)($application['template']['version'] ?? '');
-        $minimum = (string)($manifest['compatibility']['source']['minimum_inclusive'] ?? '');
-        $maximum = (string)($manifest['compatibility']['source']['maximum_exclusive'] ?? '');
-        $target = (string)($manifest['target']['version'] ?? '');
+        $current = (string) ($application['template']['version'] ?? '');
+        $minimum = (string) ($manifest['compatibility']['source']['minimum_inclusive'] ?? '');
+        $maximum = (string) ($manifest['compatibility']['source']['maximum_exclusive'] ?? '');
+        $target = (string) ($manifest['target']['version'] ?? '');
         if (preg_match(self::VERSION, $current) !== 1
             || preg_match(self::VERSION, $minimum) !== 1
             || preg_match(self::VERSION, $maximum) !== 1
@@ -183,7 +183,7 @@ final class EditionUpgradePackage
             throw new RuntimeException('EDITION_UPGRADE_RELEASE_CHAIN_INVALID');
         }
 
-        $targetRelative = (string)($manifest['target']['scaffold_manifest'] ?? '');
+        $targetRelative = (string) ($manifest['target']['scaffold_manifest'] ?? '');
         ScaffoldManifest::path($targetRelative);
         if (!isset($files[$targetRelative])) {
             throw new RuntimeException('EDITION_UPGRADE_TARGET_MANIFEST_MISSING');
@@ -195,7 +195,7 @@ final class EditionUpgradePackage
         $targetEdition = $targetManifest->data['edition'] ?? null;
         if (!is_array($targetEdition)
             || !is_string($targetDigest)
-            || !hash_equals((string)($manifest['target']['scaffold_manifest_sha256'] ?? ''), $targetDigest)
+            || !hash_equals((string) ($manifest['target']['scaffold_manifest_sha256'] ?? ''), $targetDigest)
             || $targetManifest->version() !== $target
             || ($targetEdition['name'] ?? null) !== $packageEdition['name']
             || ($targetEdition['deployment_mode'] ?? null) !== $packageEdition['deployment_mode']
@@ -248,7 +248,7 @@ final class EditionUpgradePackage
             ]
             || !in_array($edition['name'] ?? null, ['standalone', 'multi-tenant'], true)
             || ($edition['deployment_mode'] ?? null) !== $edition['name']
-            || preg_match('/^[a-f0-9]{64}$/D', (string)($edition['profile_sha256'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($edition['profile_sha256'] ?? '')) !== 1
             || !is_int($edition['generator_version'] ?? null)
             || ($edition['module_profile'] ?? null) !== 'official-default'
             || ($edition['tenant_bootstrap'] ?? null) !== $expectedBootstrap
@@ -268,7 +268,9 @@ final class EditionUpgradePackage
         ScaffoldManifest $target,
     ): ?array {
         $adoption = $manifest['ownership']['adoption'] ?? null;
-        if ($adoption === null) return null;
+        if ($adoption === null) {
+            return null;
+        }
         $source = $adoption['source'] ?? null;
         $entries = $adoption['files'] ?? null;
         if (!is_array($source) || !is_array($entries)
@@ -281,11 +283,11 @@ final class EditionUpgradePackage
         $targetFiles = $target->files();
         $actualPaths = [];
         foreach ($entries as $entry) {
-            $path = is_array($entry) ? (string)($entry['path'] ?? '') : '';
+            $path = is_array($entry) ? (string) ($entry['path'] ?? '') : '';
             ScaffoldManifest::path($path);
-            $relative = is_array($entry) ? (string)($entry['source'] ?? '') : '';
+            $relative = is_array($entry) ? (string) ($entry['source'] ?? '') : '';
             ScaffoldManifest::path($relative);
-            $digest = is_array($entry) ? (string)($entry['sha256'] ?? '') : '';
+            $digest = is_array($entry) ? (string) ($entry['sha256'] ?? '') : '';
             if (isset($actualPaths[$path]) || !isset($inventory[$relative])
                 || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1
                 || !hash_equals($digest, $inventory[$relative])
@@ -303,7 +305,9 @@ final class EditionUpgradePackage
         sort($expected, SORT_STRING);
         $paths = array_keys($actualPaths);
         sort($paths, SORT_STRING);
-        if ($paths !== $expected) throw new RuntimeException('EDITION_UPGRADE_ADOPTION_SCOPE_INVALID');
+        if ($paths !== $expected) {
+            throw new RuntimeException('EDITION_UPGRADE_ADOPTION_SCOPE_INVALID');
+        }
         ksort($actualPaths, SORT_STRING);
         return ['source' => $source, 'files' => $actualPaths];
     }
@@ -332,7 +336,7 @@ final class EditionUpgradePackage
             }
             $absolute = $root . '/' . $path;
             if (!is_file($absolute) || is_link($absolute)
-                || !hash_equals($digest, (string)hash_file('sha256', $absolute))) {
+                || !hash_equals($digest, (string) hash_file('sha256', $absolute))) {
                 throw new RuntimeException('EDITION_UPGRADE_FILE_DIGEST_MISMATCH: ' . $path);
             }
             $inventory[$path] = $digest;
@@ -361,22 +365,22 @@ final class EditionUpgradePackage
     /** @param array<string,string> $trustedKeys */
     private function verifySignature(string $root, string $inventory, string $keyId, array $trustedKeys): void
     {
-        $public = base64_decode((string)($trustedKeys[$keyId] ?? ''), true);
+        $public = base64_decode((string) ($trustedKeys[$keyId] ?? ''), true);
         $path = $root . '/META-INF/signatures/' . $keyId . '.json';
         try {
             $signature = is_file($path) && !is_link($path)
-                ? json_decode((string)file_get_contents($path), true, 32, JSON_THROW_ON_ERROR)
+                ? json_decode((string) file_get_contents($path), true, 32, JSON_THROW_ON_ERROR)
                 : null;
         } catch (\JsonException $exception) {
             throw new RuntimeException('EDITION_UPGRADE_SIGNATURE_INVALID', 0, $exception);
         }
-        $bytes = is_array($signature) ? base64_decode((string)($signature['signature_base64'] ?? ''), true) : false;
+        $bytes = is_array($signature) ? base64_decode((string) ($signature['signature_base64'] ?? ''), true) : false;
         if (!is_string($public) || strlen($public) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES
             || !is_array($signature)
             || ($signature['schema_version'] ?? null) !== 1
             || ($signature['algorithm'] ?? null) !== 'ed25519'
             || ($signature['key_id'] ?? null) !== $keyId
-            || !hash_equals(hash('sha256', $inventory), (string)($signature['inventory_sha256'] ?? ''))
+            || !hash_equals(hash('sha256', $inventory), (string) ($signature['inventory_sha256'] ?? ''))
             || !is_string($bytes) || strlen($bytes) !== SODIUM_CRYPTO_SIGN_BYTES
             || !sodium_crypto_sign_verify_detached($bytes, hash('sha256', $inventory, true), $public)) {
             throw new RuntimeException('EDITION_UPGRADE_SOURCE_UNTRUSTED');
@@ -389,7 +393,7 @@ final class EditionUpgradePackage
         $path = ScaffoldPathGuard::projectPath($root, '.peanut/application-manifest.json');
         try {
             $manifest = is_file($path) && !is_link($path)
-                ? json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR)
+                ? json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR)
                 : null;
         } catch (\JsonException $exception) {
             throw new RuntimeException('EDITION_UPGRADE_APPLICATION_MANIFEST_INVALID', 0, $exception);
@@ -445,14 +449,14 @@ final class EditionUpgradePackage
     /** @param array<string,mixed> $application */
     private function writeBaselineManifest(string $root, array $application): string
     {
-        $version = (string)$application['template']['version'];
+        $version = (string) $application['template']['version'];
         $baselineRoot = '.peanut/scaffold-baseline/' . $version;
         $files = [];
         foreach ($application['files'] as $file) {
             if (!is_array($file) || !in_array($file['classification'] ?? null, ['managed', 'generated-managed'], true)) {
                 continue;
             }
-            $path = (string)($file['path'] ?? '');
+            $path = (string) ($file['path'] ?? '');
             ScaffoldManifest::path($path);
             $expectedBaseline = $baselineRoot . '/files/' . $path;
             if (($file['baseline_path'] ?? null) !== $expectedBaseline) {
@@ -460,7 +464,7 @@ final class EditionUpgradePackage
             }
             $absolute = ScaffoldPathGuard::projectPath($root, $expectedBaseline);
             $digest = hash_file('sha256', $absolute);
-            $expectedDigest = (string)($file['baseline_sha256'] ?? $file['sha256'] ?? '');
+            $expectedDigest = (string) ($file['baseline_sha256'] ?? $file['sha256'] ?? '');
             if (!is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $expectedDigest) !== 1
                 || !hash_equals($expectedDigest, $digest)) {
                 throw new RuntimeException('EDITION_UPGRADE_BASELINE_DRIFT: ' . $path);
@@ -480,7 +484,7 @@ final class EditionUpgradePackage
         $manifest = [
             'schema_version' => 3,
             'protocol' => 'peanut.scaffold-release.v3',
-            'application' => ['version' => (string)$application['application']['version']],
+            'application' => ['version' => (string) $application['application']['version']],
             'edition' => $application['edition'],
             'release' => [
                 'version' => $version,
@@ -502,7 +506,7 @@ final class EditionUpgradePackage
         $path = ScaffoldPathGuard::projectPath($root, $baselineRoot . '/edition-scaffold-manifest.json');
         $json = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
         if (is_file($path)) {
-            if (!hash_equals($json, (string)file_get_contents($path))) {
+            if (!hash_equals($json, (string) file_get_contents($path))) {
                 throw new RuntimeException('EDITION_UPGRADE_BASELINE_MANIFEST_DRIFT');
             }
             return $path;
@@ -518,10 +522,14 @@ final class EditionUpgradePackage
 
     private function owner(string $path): string
     {
-        if (str_starts_with($path, 'server/')) return 'backend';
+        if (str_starts_with($path, 'server/')) {
+            return 'backend';
+        }
         if (str_starts_with($path, 'web/') || str_starts_with($path, 'platform/')
             || str_starts_with($path, 'pc/') || str_starts_with($path, 'uniapp/')
-            || str_starts_with($path, 'docs-site/')) return 'frontend';
+            || str_starts_with($path, 'docs-site/')) {
+            return 'frontend';
+        }
         return 'host';
     }
 }

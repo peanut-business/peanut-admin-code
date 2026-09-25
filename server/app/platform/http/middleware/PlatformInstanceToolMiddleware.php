@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\http\middleware;
@@ -12,7 +13,7 @@ final class PlatformInstanceToolMiddleware
 {
     public function handle($request, \Closure $next)
     {
-        if (strtolower(trim((string)Config::get('peanut.environment', ''))) !== 'development'
+        if (strtolower(trim((string) Config::get('peanut.environment', ''))) !== 'development'
             || !app()->isDebug()
             || !InstanceToolAccessGuard::fromConfiguredValue(Config::get('deployment.mode'))->allows()) {
             throw \app\common\http\ApiProblem::fromEnvelope(

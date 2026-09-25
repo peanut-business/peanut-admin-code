@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -15,9 +16,7 @@ use PeanutAdmin\Kernel\Module\ModuleProvider;
 /** Discovers the development source tree without consulting plugins.lock. */
 final readonly class DevelopmentModuleDiscovery
 {
-    public function __construct(private string $projectRoot)
-    {
-    }
+    public function __construct(private string $projectRoot) {}
 
     /** @return array<string,string> Module key => absolute backend root */
     public function moduleRoots(): array
@@ -35,9 +34,11 @@ final readonly class DevelopmentModuleDiscovery
             if ($entry->isLink()) {
                 throw new PluginLifecycleException('MODULE_PATH_INVALID', 'Development Module source cannot contain symbolic links.');
             }
-            if (!$entry->isFile() || $entry->getFilename() !== 'module.json') continue;
+            if (!$entry->isFile() || $entry->getFilename() !== 'module.json') {
+                continue;
+            }
             try {
-                $document = json_decode((string)file_get_contents($entry->getPathname()), true, 64, JSON_THROW_ON_ERROR);
+                $document = json_decode((string) file_get_contents($entry->getPathname()), true, 64, JSON_THROW_ON_ERROR);
             } catch (\JsonException) {
                 throw new PluginLifecycleException('MODULE_MANIFEST_INVALID', 'Development Module manifest is invalid.');
             }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Service;
@@ -22,16 +23,15 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
         private readonly ExternalChannelBindings $bindings,
         private readonly FileReferences $files,
         private readonly OfficialAccountReplyApplicationService $replies,
-    ) {
-    }
+    ) {}
 
     public function verify(array $params, array $config): bool
     {
         return WechatOfficialAccountService::verifySignature(
-            (string)($config['token'] ?? ''),
-            (string)($params['timestamp'] ?? ''),
-            (string)($params['nonce'] ?? ''),
-            (string)($params['signature'] ?? ''),
+            (string) ($config['token'] ?? ''),
+            (string) ($params['timestamp'] ?? ''),
+            (string) ($params['nonce'] ?? ''),
+            (string) ($params['signature'] ?? ''),
         );
     }
 
@@ -43,26 +43,26 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
             throw BusinessException::forbidden('OFFICIAL_ACCOUNT_MESSAGE_INVALID', 'callback rejected');
         }
         $reply = $this->replies->resolve($context, $message);
-        if ($reply === null || trim((string)($reply['content'] ?? '')) === '') {
+        if ($reply === null || trim((string) ($reply['content'] ?? '')) === '') {
             return 'success';
         }
-        return WechatOfficialAccountService::textReplyXml($message, (string)$reply['content']);
+        return WechatOfficialAccountService::textReplyXml($message, (string) $reply['content']);
     }
 
     public function getConfig(TenantContext $context, string $domain): array
     {
         $stored = $this->bindings->config($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK);
-        $qrCode = (string)($stored['qr_code'] ?? '');
-        $secret = (string)($stored['app_secret'] ?? '');
-        $token = (string)($stored['token'] ?? '');
+        $qrCode = (string) ($stored['qr_code'] ?? '');
+        $secret = (string) ($stored['app_secret'] ?? '');
+        $token = (string) ($stored['token'] ?? '');
         $domain = rtrim($domain, '/');
         $authority = self::authority($domain);
 
         return [
-            'name' => (string)($stored['name'] ?? ''),
-            'original_id' => (string)($stored['original_id'] ?? ''),
+            'name' => (string) ($stored['name'] ?? ''),
+            'original_id' => (string) ($stored['original_id'] ?? ''),
             'qr_code' => $this->files->getFileUrl($qrCode),
-            'app_id' => (string)($stored['app_id'] ?? ''),
+            'app_id' => (string) ($stored['app_id'] ?? ''),
             'app_secret' => self::maskedSecret($secret),
             'app_secret_configured' => $secret !== '',
             'url' => $domain . '/api/wechat/official-account/callback/'
@@ -79,20 +79,20 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
     public function setConfig(TenantContext $context, array $params): bool
     {
         $current = $this->bindings->config($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK);
-        $currentSecret = (string)($current['app_secret'] ?? '');
-        $incomingSecret = trim((string)$params['app_secret']);
+        $currentSecret = (string) ($current['app_secret'] ?? '');
+        $incomingSecret = trim((string) $params['app_secret']);
         $secret = self::retainedSecret($incomingSecret, $currentSecret);
         if ($secret === '') {
             throw BusinessException::invalid('OAUTH_APP_SECRET_REQUIRED', 'AppSecret 不能为空');
         }
-        $currentToken = (string)($current['token'] ?? '');
-        $incomingToken = trim((string)($params['token'] ?? ''));
+        $currentToken = (string) ($current['token'] ?? '');
+        $incomingToken = trim((string) ($params['token'] ?? ''));
         $token = self::retainedSecret($incomingToken, $currentToken);
         $data = [
-            'name' => trim((string)($params['name'] ?? '')),
-            'original_id' => trim((string)($params['original_id'] ?? '')),
-            'qr_code' => $this->relativeFile($context, (string)($params['qr_code'] ?? '')),
-            'app_id' => trim((string)$params['app_id']),
+            'name' => trim((string) ($params['name'] ?? '')),
+            'original_id' => trim((string) ($params['original_id'] ?? '')),
+            'qr_code' => $this->relativeFile($context, (string) ($params['qr_code'] ?? '')),
+            'app_id' => trim((string) $params['app_id']),
             'app_secret' => $secret,
             'token' => $token,
         ];
@@ -131,7 +131,7 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
         }
         $uri = $this->files->setTenantFileUrl($context, $value);
         if (preg_match('#^https?://#i', $uri)) {
-            $uri = (string)parse_url($uri, PHP_URL_PATH);
+            $uri = (string) parse_url($uri, PHP_URL_PATH);
         }
         return ltrim($uri, '/');
     }
@@ -140,12 +140,12 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
     {
         $parts = parse_url($domain);
         if (!is_array($parts) || empty($parts['host'])) {
-            return trim((string)preg_replace('#^[a-z][a-z0-9+.-]*://#i', '', $domain), '/');
+            return trim((string) preg_replace('#^[a-z][a-z0-9+.-]*://#i', '', $domain), '/');
         }
-        $host = (string)$parts['host'];
+        $host = (string) $parts['host'];
         if (str_contains($host, ':') && !str_starts_with($host, '[')) {
             $host = '[' . $host . ']';
         }
-        return $host . (isset($parts['port']) ? ':' . (int)$parts['port'] : '');
+        return $host . (isset($parts['port']) ? ':' . (int) $parts['port'] : '');
     }
 }

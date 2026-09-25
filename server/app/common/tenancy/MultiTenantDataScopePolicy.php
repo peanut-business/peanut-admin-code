@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\tenancy;
@@ -9,9 +10,7 @@ use think\db\BaseQuery;
 
 final readonly class MultiTenantDataScopePolicy implements DataScopePolicy
 {
-    public function __construct(private CurrentExecutionContext $executionContext)
-    {
-    }
+    public function __construct(private CurrentExecutionContext $executionContext) {}
 
     public function applyTo(BaseQuery $query): void
     {
@@ -28,7 +27,7 @@ final readonly class MultiTenantDataScopePolicy implements DataScopePolicy
         $data = $model->getData();
         if (array_key_exists('tenant_id', $data)
             && $data['tenant_id'] !== null
-            && (int)$data['tenant_id'] !== $tenantId) {
+            && (int) $data['tenant_id'] !== $tenantId) {
             throw new \DomainException('TENANT_WRITE_OWNERSHIP_MISMATCH');
         }
         $model->setAttr('tenant_id', $tenantId);

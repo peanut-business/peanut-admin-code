@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\Article\Contract\ArticleAdministration;
@@ -46,7 +47,7 @@ function tenantContext(int $tenantId, int $accountId, int $memberId, string $req
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT02ARTICLE' . str_pad((string)$memberId, 13, '0', STR_PAD_LEFT),
+        '01JMT02ARTICLE' . str_pad((string) $memberId, 13, '0', STR_PAD_LEFT),
         $tenantId,
         $accountId,
         $memberId,
@@ -168,23 +169,23 @@ function runArticleCollectMemberFkGate(): void
     try {
         createArticleCollectMemberFkSchema($pdo);
         $pdo->exec(
-            'INSERT INTO pa_article_collect (tenant_id, member_id, article_id) VALUES (101, 501, 21)'
+            'INSERT INTO pa_article_collect (tenant_id, member_id, article_id) VALUES (101, 501, 21)',
         );
         expectArticleCollectConstraintFailure(
             $pdo,
             'INSERT INTO pa_article_collect (tenant_id, member_id, article_id) VALUES (101, 502, 21)',
-            'cross-Tenant member collection was not rejected'
+            'cross-Tenant member collection was not rejected',
         );
         expectArticleCollectConstraintFailure(
             $pdo,
             'INSERT INTO pa_article_collect (tenant_id, member_id, article_id) VALUES (101, 501, 22)',
-            'cross-Tenant Article collection was not rejected'
+            'cross-Tenant Article collection was not rejected',
         );
         expectArticleTenant(
-            (int)$pdo->query(
-                'SELECT COUNT(*) FROM pa_article_collect WHERE tenant_id=101 AND member_id=501 AND article_id=21'
+            (int) $pdo->query(
+                'SELECT COUNT(*) FROM pa_article_collect WHERE tenant_id=101 AND member_id=501 AND article_id=21',
             )->fetchColumn() === 1,
-            'existing valid Article collection changed after migration'
+            'existing valid Article collection changed after migration',
         );
 
         echo "MT02-ARTICLE-COLLECT-MEMBER-TENANT-FK-001 passed\n";
@@ -236,7 +237,7 @@ foreach ([
 }
 
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $database = articleTestDatabase();
@@ -354,14 +355,14 @@ SQL);
         ),
         'Alpha category was not created',
     );
-    $alphaCategoryId = (int)app(ExecutionContextStore::class)->run(
+    $alphaCategoryId = (int) app(ExecutionContextStore::class)->run(
         articleAdminExecution($alpha, 'test.article.category.query'),
         fn() => ArticleCate::where([])->where('name', 'Alpha category')->value('id'),
     );
     expectArticleTenant($alphaCategoryId > 0, 'Alpha category was not created');
     expectArticleTenant(
-        (int)$pdo->query("SELECT tenant_id FROM pa_article_cate WHERE id = {$alphaCategoryId}")->fetchColumn() === 101,
-        'payload tenant_id overrode trusted context'
+        (int) $pdo->query("SELECT tenant_id FROM pa_article_cate WHERE id = {$alphaCategoryId}")->fetchColumn() === 101,
+        'payload tenant_id overrode trusted context',
     );
     expectArticleTenant(
         app(ExecutionContextStore::class)->run(
@@ -373,7 +374,7 @@ SQL);
         ),
         'Alpha article was not created',
     );
-    $alphaArticleId = (int)app(ExecutionContextStore::class)->run(
+    $alphaArticleId = (int) app(ExecutionContextStore::class)->run(
         articleAdminExecution($alpha, 'test.article.query'),
         fn() => Article::where([])->where('title', 'Alpha visible')->value('id'),
     );
@@ -495,7 +496,7 @@ SQL);
     );
 
     $beforeBeta = $pdo->query('SELECT title, click_actual FROM pa_article WHERE id = 22')->fetch(PDO::FETCH_ASSOC);
-    $beforeCollects = (int)$pdo->query('SELECT COUNT(*) FROM pa_article_collect WHERE tenant_id = 202')->fetchColumn();
+    $beforeCollects = (int) $pdo->query('SELECT COUNT(*) FROM pa_article_collect WHERE tenant_id = 202')->fetchColumn();
     expectArticleTenant(
         app(ExecutionContextStore::class)->run(
             articleAdminExecution($alpha, 'test.article.public-detail.cross-tenant'),
@@ -529,12 +530,12 @@ SQL);
     }
 
     $crossCollectError = deniedShape(fn() => app(ExecutionContextStore::class)->run(
-            \app\common\execution\ConsumerExecutionContext::member($alphaMember, 'test.article.collect.cross-tenant'),
-            fn() => app(PublicArticleQueries::class)->add(22, 501),
+        \app\common\execution\ConsumerExecutionContext::member($alphaMember, 'test.article.collect.cross-tenant'),
+        fn() => app(PublicArticleQueries::class)->add(22, 501),
     ));
     $missingCollectError = deniedShape(fn() => app(ExecutionContextStore::class)->run(
-            \app\common\execution\ConsumerExecutionContext::member($alphaMember, 'test.article.collect.missing'),
-            fn() => app(PublicArticleQueries::class)->add(999999, 501),
+        \app\common\execution\ConsumerExecutionContext::member($alphaMember, 'test.article.collect.missing'),
+        fn() => app(PublicArticleQueries::class)->add(999999, 501),
     ));
     expectArticleTenant($missingCollectError === $crossCollectError, 'cross-tenant collection enumerated the target');
     expectArticleTenant($crossCollectError[0] === 'ARTICLE_NOT_FOUND', 'collection denial code changed');
@@ -601,11 +602,11 @@ SQL);
 
     expectArticleTenant(
         $pdo->query('SELECT title, click_actual FROM pa_article WHERE id = 22')->fetch(PDO::FETCH_ASSOC) === $beforeBeta,
-        'cross-tenant denial changed Beta Article'
+        'cross-tenant denial changed Beta Article',
     );
     expectArticleTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_article_collect WHERE tenant_id = 202')->fetchColumn() === $beforeCollects,
-        'cross-tenant denial changed Beta collections'
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_article_collect WHERE tenant_id = 202')->fetchColumn() === $beforeCollects,
+        'cross-tenant denial changed Beta collections',
     );
 
     echo json_encode([

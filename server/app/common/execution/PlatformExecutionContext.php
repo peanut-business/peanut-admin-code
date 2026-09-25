@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\execution;
@@ -14,9 +15,18 @@ final readonly class PlatformExecutionContext implements ExecutionContext
         }
     }
 
-    public function operation(): string { return trim($this->operation); }
-    public function requestId(): string { return $this->platform->core->requestId; }
-    public function tenantId(): ?int { return null; }
+    public function operation(): string
+    {
+        return trim($this->operation);
+    }
+    public function requestId(): string
+    {
+        return $this->platform->core->requestId;
+    }
+    public function tenantId(): ?int
+    {
+        return null;
+    }
 
     public function actor(): array
     {

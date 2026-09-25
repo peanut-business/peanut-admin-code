@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Service;
@@ -16,7 +17,5 @@ final class NotificationBootstrapDefaults
         ];
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

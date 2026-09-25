@@ -1,10 +1,10 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
 
 use think\App;
-
 use app\api\services\IndexApplicationService;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
@@ -35,8 +35,8 @@ class IndexController extends BaseApiController
         );
         $result = $this->index->getConfigData(
             $this->publicTenantContext('decoration.config'),
-            (string)$this->request->domain(),
-            (string)$this->request->host(),
+            (string) $this->request->domain(),
+            (string) $this->request->host(),
             $entryTenantId,
         );
         return $this->data($result);

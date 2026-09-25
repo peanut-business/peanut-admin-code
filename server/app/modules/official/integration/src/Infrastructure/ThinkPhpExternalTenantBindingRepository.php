@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Infrastructure;
@@ -19,7 +20,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
                 ->join('tenant t', 't.id = b.tenant_id')
                 ->where('b.provider', $provider)
                 ->where('b.callback_key', $callbackKey)
-                ->limit(2)->select()->toArray()
+                ->limit(2)->select()->toArray(),
         );
     }
 
@@ -31,7 +32,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
                 ->join('tenant t', 't.id = b.tenant_id')
                 ->where('b.provider', $provider)
                 ->where('b.identity_hash', $identityHash)
-                ->limit(2)->select()->toArray()
+                ->limit(2)->select()->toArray(),
         );
     }
 
@@ -42,7 +43,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
                 ->field($this->bindingFields())
                 ->join('tenant t', 't.id = b.tenant_id')
                 ->where('b.provider', $provider)
-                ->limit(2)->select()->toArray()
+                ->limit(2)->select()->toArray(),
         );
     }
 
@@ -58,7 +59,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
             $query->lock(true);
         }
         return $this->bindings(
-            $query->select()->toArray()
+            $query->select()->toArray(),
         );
     }
 
@@ -84,7 +85,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
 
     public function tenantIsActive(int $tenantId): bool
     {
-        return (string)Db::name('tenant')->where('id', $tenantId)->value('status') === 'active';
+        return (string) Db::name('tenant')->where('id', $tenantId)->value('status') === 'active';
     }
 
     public function updateBinding(
@@ -113,7 +114,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
             $binding = $this->lockedBinding($tenantId, $provider);
             $current = [];
             if (is_array($binding)) {
-                $decoded = json_decode((string)($binding['config_json'] ?? ''), true);
+                $decoded = json_decode((string) ($binding['config_json'] ?? ''), true);
                 $current = is_array($decoded) ? $decoded : [];
             }
             $change = $mutation($current);
@@ -133,20 +134,20 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
     private function bindings(array $rows): array
     {
         return array_map(static function (array $row): ExternalTenantBinding {
-            $config = json_decode((string)($row['config_json'] ?? ''), true);
+            $config = json_decode((string) ($row['config_json'] ?? ''), true);
             if (!is_array($config)) {
                 throw new \RuntimeException('外部渠道配置无效');
             }
             return new ExternalTenantBinding(
-                (int)($row['id'] ?? 0),
-                (int)($row['tenant_id'] ?? 0),
-                (string)($row['provider'] ?? ''),
-                (string)($row['callback_key'] ?? ''),
-                (string)($row['identity_hash'] ?? ''),
-                (string)($row['identity_hint'] ?? ''),
+                (int) ($row['id'] ?? 0),
+                (int) ($row['tenant_id'] ?? 0),
+                (string) ($row['provider'] ?? ''),
+                (string) ($row['callback_key'] ?? ''),
+                (string) ($row['identity_hash'] ?? ''),
+                (string) ($row['identity_hint'] ?? ''),
                 $config,
-                (int)($row['status'] ?? 0) === 1,
-                (string)($row['tenant_status'] ?? '') === 'active',
+                (int) ($row['status'] ?? 0) === 1,
+                (string) ($row['tenant_status'] ?? '') === 'active',
             );
         }, $rows);
     }
@@ -174,7 +175,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
         if ($lock) {
             $query->lock(true);
         }
-        if ((string)$query->value('status') !== 'active') {
+        if ((string) $query->value('status') !== 'active') {
             throw new ExternalTenantResolutionException();
         }
     }
@@ -190,7 +191,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
         ?string $identityHint = null,
     ): void {
         $encoded = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $currentKey = is_array($binding) ? (string)($binding['callback_key'] ?? '') : '';
+        $currentKey = is_array($binding) ? (string) ($binding['callback_key'] ?? '') : '';
         $callbackKey = self::callbackKeyForUpdate($provider, $currentKey, $enabled);
         $now = time();
 
@@ -222,7 +223,7 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
             $update['identity_hint'] = $identityHint ?? substr($identity, -8);
         }
         Db::name('external_channel_binding')
-            ->where('id', (int)$binding['id'])
+            ->where('id', (int) $binding['id'])
             ->where('tenant_id', $tenantId)
             ->update($update);
     }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Dto;
@@ -53,7 +54,9 @@ final readonly class DictionaryEntryDto
                 'remark' => $this->remark,
                 'source' => $this->source,
             ] as $key => $value) {
-                if (array_key_exists($key, $values)) $values[$key] = $value;
+                if (array_key_exists($key, $values)) {
+                    $values[$key] = $value;
+                }
             }
             return $values;
         }
@@ -68,7 +71,9 @@ final readonly class DictionaryEntryDto
             'is_disable' => $this->disabled ? 1 : 0,
             'remark' => $this->remark,
         ];
-        if ($this->source !== 'tenant') $values['source'] = $this->source;
+        if ($this->source !== 'tenant') {
+            $values['source'] = $this->source;
+        }
         return $values;
     }
 }

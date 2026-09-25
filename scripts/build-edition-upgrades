@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\DeterministicEditionArchive;
@@ -19,12 +20,15 @@ function editionUpgradeRun(array $command, ?string $cwd = null): string
 {
     $pipes = [];
     $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $cwd);
-    if (!is_resource($process)) throw new RuntimeException('EDITION_UPGRADE_PROCESS_FAILED');
+    if (!is_resource($process)) {
+        throw new RuntimeException('EDITION_UPGRADE_PROCESS_FAILED');
+    }
     $stdout = stream_get_contents($pipes[1]);
     $stderr = stream_get_contents($pipes[2]);
-    fclose($pipes[1]); fclose($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('EDITION_UPGRADE_COMMAND_FAILED: ' . trim((string)$stderr));
+        throw new RuntimeException('EDITION_UPGRADE_COMMAND_FAILED: ' . trim((string) $stderr));
     }
     return $stdout;
 }
@@ -32,11 +36,15 @@ function editionUpgradeRun(array $command, ?string $cwd = null): string
 function editionUpgradeDelete(string $path): void
 {
     if (is_dir($path) && !is_link($path)) {
-        foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $entry) editionUpgradeDelete($path . '/' . $entry);
+        foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $entry) {
+            editionUpgradeDelete($path . '/' . $entry);
+        }
         rmdir($path);
         return;
     }
-    if (file_exists($path) || is_link($path)) unlink($path);
+    if (file_exists($path) || is_link($path)) {
+        unlink($path);
+    }
 }
 
 function editionUpgradeWrite(string $path, string $content, int $mode = 0644): void
@@ -53,11 +61,17 @@ function editionUpgradeInventory(string $root): array
     $files = [];
     $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
     foreach ($iterator as $file) {
-        if ($file->isLink() || !$file->isFile()) throw new RuntimeException('EDITION_UPGRADE_MEMBER_INVALID');
+        if ($file->isLink() || !$file->isFile()) {
+            throw new RuntimeException('EDITION_UPGRADE_MEMBER_INVALID');
+        }
         $path = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
-        if (str_starts_with($path, 'META-INF/')) continue;
+        if (str_starts_with($path, 'META-INF/')) {
+            continue;
+        }
         $digest = hash_file('sha256', $file->getPathname());
-        if (!is_string($digest)) throw new RuntimeException('EDITION_UPGRADE_DIGEST_FAILED: ' . $path);
+        if (!is_string($digest)) {
+            throw new RuntimeException('EDITION_UPGRADE_DIGEST_FAILED: ' . $path);
+        }
         $files[$path] = $digest;
     }
     ksort($files, SORT_STRING);
@@ -73,26 +87,39 @@ require_once $root . '/server/app/common/infrastructure/scaffold/DeterministicEd
 $options = [];
 $check = false;
 foreach (array_slice($argv, 1) as $argument) {
-    if ($argument === '--check') { $check = true; continue; }
+    if ($argument === '--check') {
+        $check = true;
+        continue;
+    }
     if (preg_match('/^--(version|minimum-source-version|source-commit|output|signing-key-id|signing-secret-key-file|adoption-source-version|adoption-source-commit)=(.+)$/D', $argument, $matches) !== 1
-        || isset($options[$matches[1]])) editionUpgradeUsage();
+        || isset($options[$matches[1]])) {
+        editionUpgradeUsage();
+    }
     $options[$matches[1]] = $matches[2];
 }
 foreach (['version', 'minimum-source-version', 'source-commit', 'output', 'signing-key-id', 'signing-secret-key-file'] as $required) {
-    if (!isset($options[$required])) editionUpgradeUsage();
+    if (!isset($options[$required])) {
+        editionUpgradeUsage();
+    }
 }
 foreach (['version', 'minimum-source-version'] as $versionOption) {
-    if (preg_match(EDITION_UPGRADE_STRICT_SEMVER, $options[$versionOption]) !== 1) editionUpgradeUsage();
+    if (preg_match(EDITION_UPGRADE_STRICT_SEMVER, $options[$versionOption]) !== 1) {
+        editionUpgradeUsage();
+    }
 }
 if (Semver::greaterThanOrEqualTo($options['minimum-source-version'], $options['version'])
     || explode('.', $options['minimum-source-version'], 2)[0] !== explode('.', $options['version'], 2)[0]
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
     || preg_match('/^[A-Za-z0-9._-]{1,96}$/D', $options['signing-key-id']) !== 1
-    || !str_starts_with($options['output'], '/')) editionUpgradeUsage();
+    || !str_starts_with($options['output'], '/')) {
+    editionUpgradeUsage();
+}
 $hasAdoptionVersion = isset($options['adoption-source-version']);
 $hasAdoptionCommit = isset($options['adoption-source-commit']);
 if ($hasAdoptionVersion) {
-    if (preg_match(EDITION_UPGRADE_STRICT_SEMVER, $options['adoption-source-version']) !== 1) editionUpgradeUsage();
+    if (preg_match(EDITION_UPGRADE_STRICT_SEMVER, $options['adoption-source-version']) !== 1) {
+        editionUpgradeUsage();
+    }
 }
 if ($hasAdoptionVersion !== $hasAdoptionCommit
     || ($hasAdoptionVersion && (preg_match('/^[a-f0-9]{40}$/D', $options['adoption-source-commit']) !== 1
@@ -104,12 +131,14 @@ if ($hasAdoptionVersion !== $hasAdoptionCommit
 if (!is_file($options['signing-secret-key-file']) || is_link($options['signing-secret-key-file'])) {
     throw new RuntimeException('EDITION_UPGRADE_SIGNING_KEY_INVALID');
 }
-$secret = base64_decode(trim((string)file_get_contents($options['signing-secret-key-file'])), true);
+$secret = base64_decode(trim((string) file_get_contents($options['signing-secret-key-file'])), true);
 if (!is_string($secret) || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
     throw new RuntimeException('EDITION_UPGRADE_SIGNING_KEY_INVALID');
 }
 $commit = trim(editionUpgradeRun(['git', '-C', $root, 'rev-parse', $options['source-commit'] . '^{commit}']));
-if (!hash_equals($options['source-commit'], $commit)) throw new RuntimeException('EDITION_UPGRADE_SOURCE_NOT_COMMIT');
+if (!hash_equals($options['source-commit'], $commit)) {
+    throw new RuntimeException('EDITION_UPGRADE_SOURCE_NOT_COMMIT');
+}
 $tree = trim(editionUpgradeRun(['git', '-C', $root, 'rev-parse', $commit . '^{tree}']));
 $adoptionCommit = $hasAdoptionCommit
     ? trim(editionUpgradeRun(['git', '-C', $root, 'rev-parse', $options['adoption-source-commit'] . '^{commit}']))
@@ -121,9 +150,13 @@ $adoptionTree = $adoptionCommit === null
     ? null
     : trim(editionUpgradeRun(['git', '-C', $root, 'rev-parse', $adoptionCommit . '^{tree}']));
 $temporaryRoot = realpath(sys_get_temp_dir());
-if (!is_string($temporaryRoot)) throw new RuntimeException('EDITION_UPGRADE_TEMP_ROOT_INVALID');
+if (!is_string($temporaryRoot)) {
+    throw new RuntimeException('EDITION_UPGRADE_TEMP_ROOT_INVALID');
+}
 $temporary = $temporaryRoot . '/peanut-edition-upgrades-' . bin2hex(random_bytes(8));
-if (!mkdir($temporary, 0700, true)) throw new RuntimeException('EDITION_UPGRADE_TEMP_FAILED');
+if (!mkdir($temporary, 0700, true)) {
+    throw new RuntimeException('EDITION_UPGRADE_TEMP_FAILED');
+}
 
 try {
     $artifacts = [];
@@ -137,7 +170,7 @@ try {
             '--edition=' . $edition,
         ]);
         $targetManifestPath = $target . '/scaffold-manifest.json';
-        $targetManifest = json_decode((string)file_get_contents($targetManifestPath), true, 512, JSON_THROW_ON_ERROR);
+        $targetManifest = json_decode((string) file_get_contents($targetManifestPath), true, 512, JSON_THROW_ON_ERROR);
         if (($targetManifest['edition']['name'] ?? null) !== $edition
             || ($targetManifest['release']['source_commit'] ?? null) !== $commit
             || ($targetManifest['release']['source_tree'] ?? null) !== $tree) {
@@ -145,7 +178,9 @@ try {
         }
         $files = [];
         foreach ($targetManifest['files'] ?? [] as $file) {
-            if (is_array($file) && is_string($file['path'] ?? null)) $files[$file['path']] = $file;
+            if (is_array($file) && is_string($file['path'] ?? null)) {
+                $files[$file['path']] = $file;
+            }
         }
         $migrations = [];
         foreach ($files as $path => $file) {
@@ -264,7 +299,9 @@ try {
         );
         $inventory = editionUpgradeInventory($package);
         $inventoryBytes = '';
-        foreach ($inventory as $path => $digest) $inventoryBytes .= $path . "\0" . $digest . "\n";
+        foreach ($inventory as $path => $digest) {
+            $inventoryBytes .= $path . "\0" . $digest . "\n";
+        }
         editionUpgradeWrite($package . '/META-INF/files.sha256', $inventoryBytes);
         $signature = [
             'schema_version' => 1,
@@ -315,11 +352,11 @@ try {
         $built = $temporary . '/' . $filename;
         $destination = rtrim($options['output'], '/') . '/' . $filename;
         if ($check) {
-            if (!is_file($destination) || !hash_equals((string)hash_file('sha256', $built), (string)hash_file('sha256', $destination))) {
+            if (!is_file($destination) || !hash_equals((string) hash_file('sha256', $built), (string) hash_file('sha256', $destination))) {
                 throw new RuntimeException('EDITION_UPGRADE_ARTIFACT_STALE: ' . $filename);
             }
         } else {
-            editionUpgradeWrite($destination, (string)file_get_contents($built));
+            editionUpgradeWrite($destination, (string) file_get_contents($built));
         }
     }
     echo json_encode([

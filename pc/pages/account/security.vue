@@ -5,18 +5,40 @@
     <!-- Change password -->
     <div class="mb-8">
       <h3 class="text-base font-semibold text-gray-700 mb-4">修改密码</h3>
-      <el-form :model="pwdForm" label-width="100px" size="large" @submit.prevent="handleChangePwd">
+      <el-form
+        :model="pwdForm"
+        label-width="100px"
+        size="large"
+        @submit.prevent="handleChangePwd"
+      >
         <el-form-item label="原密码">
-          <el-input v-model="pwdForm.old_password" type="password" show-password placeholder="请输入原密码" />
+          <el-input
+            v-model="pwdForm.old_password"
+            type="password"
+            show-password
+            placeholder="请输入原密码"
+          />
         </el-form-item>
         <el-form-item label="新密码">
-          <el-input v-model="pwdForm.new_password" type="password" show-password placeholder="请设置新密码" />
+          <el-input
+            v-model="pwdForm.new_password"
+            type="password"
+            show-password
+            placeholder="请设置新密码"
+          />
         </el-form-item>
         <el-form-item label="确认密码">
-          <el-input v-model="pwdForm.new_password_confirm" type="password" show-password placeholder="再次输入新密码" />
+          <el-input
+            v-model="pwdForm.new_password_confirm"
+            type="password"
+            show-password
+            placeholder="再次输入新密码"
+          />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" native-type="submit" :loading="pwdLoading">确认修改</el-button>
+          <el-button type="primary" native-type="submit" :loading="pwdLoading"
+            >确认修改</el-button
+          >
         </el-form-item>
       </el-form>
     </div>
@@ -26,12 +48,27 @@
     <!-- Bind mobile -->
     <div>
       <h3 class="text-base font-semibold text-gray-700 mb-4">绑定手机号</h3>
-      <el-form :model="mobileForm" label-width="100px" size="large" @submit.prevent="handleBindMobile">
+      <el-form
+        :model="mobileForm"
+        label-width="100px"
+        size="large"
+        @submit.prevent="handleBindMobile"
+      >
         <el-form-item label="手机号">
-          <el-input v-model="mobileForm.mobile" type="tel" placeholder="请输入手机号" maxlength="11" />
+          <el-input
+            v-model="mobileForm.mobile"
+            type="tel"
+            placeholder="请输入手机号"
+            maxlength="11"
+          />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" native-type="submit" :loading="mobileLoading">立即绑定</el-button>
+          <el-button
+            type="primary"
+            native-type="submit"
+            :loading="mobileLoading"
+            >立即绑定</el-button
+          >
         </el-form-item>
       </el-form>
     </div>
@@ -39,41 +76,51 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'user', middleware: 'auth' })
+  definePageMeta({ layout: 'user', middleware: 'auth' });
 
-const request = useRequest()
-const pwdLoading = ref(false)
-const mobileLoading = ref(false)
+  const request = useRequest();
+  const pwdLoading = ref(false);
+  const mobileLoading = ref(false);
 
-const pwdForm = ref({ old_password: '', new_password: '', new_password_confirm: '' })
-const mobileForm = ref({ mobile: '' })
+  const pwdForm = ref({
+    old_password: '',
+    new_password: '',
+    new_password_confirm: '',
+  });
+  const mobileForm = ref({ mobile: '' });
 
-async function handleChangePwd() {
-  if (!pwdForm.value.old_password || !pwdForm.value.new_password)
-    return ElMessage.warning('请填写完整密码信息')
-  if (pwdForm.value.new_password !== pwdForm.value.new_password_confirm)
-    return ElMessage.warning('两次密码不一致')
-  pwdLoading.value = true
-  try {
-    await request.post('api/user/changePassword', pwdForm.value)
-    ElMessage.success('密码修改成功')
-    pwdForm.value = { old_password: '', new_password: '', new_password_confirm: '' }
-  } catch {
-    // useRequest already reports the server message.
+  async function handleChangePwd() {
+    if (!pwdForm.value.old_password || !pwdForm.value.new_password)
+      return ElMessage.warning('请填写完整密码信息');
+    if (pwdForm.value.new_password !== pwdForm.value.new_password_confirm)
+      return ElMessage.warning('两次密码不一致');
+    pwdLoading.value = true;
+    try {
+      await request.post('api/user/changePassword', pwdForm.value);
+      ElMessage.success('密码修改成功');
+      pwdForm.value = {
+        old_password: '',
+        new_password: '',
+        new_password_confirm: '',
+      };
+    } catch {
+      // useRequest already reports the server message.
+    } finally {
+      pwdLoading.value = false;
+    }
   }
-  finally { pwdLoading.value = false }
-}
 
-async function handleBindMobile() {
-  if (!/^1\d{10}$/.test(mobileForm.value.mobile))
-    return ElMessage.warning('请输入正确的手机号')
-  mobileLoading.value = true
-  try {
-    await request.post('api/user/bindMobile', mobileForm.value)
-    ElMessage.success('绑定成功')
-  } catch {
-    // useRequest already reports the server message.
+  async function handleBindMobile() {
+    if (!/^1\d{10}$/.test(mobileForm.value.mobile))
+      return ElMessage.warning('请输入正确的手机号');
+    mobileLoading.value = true;
+    try {
+      await request.post('api/user/bindMobile', mobileForm.value);
+      ElMessage.success('绑定成功');
+    } catch {
+      // useRequest already reports the server message.
+    } finally {
+      mobileLoading.value = false;
+    }
   }
-  finally { mobileLoading.value = false }
-}
 </script>

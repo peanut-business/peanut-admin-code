@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\invitation;
@@ -12,9 +13,8 @@ final readonly class OwnerInvitationDelivery
         public string $email,
         public string $displayName,
         public \DateTimeImmutable $expiresAt,
-        private OneTimeInvitationToken $token
-    ) {
-    }
+        private OneTimeInvitationToken $token,
+    ) {}
 
     public function token(): string
     {

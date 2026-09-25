@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
@@ -20,7 +21,7 @@ function inventoryGitFiles(string $root): array
     fclose($pipes[1]);
     fclose($pipes[2]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('git ls-files failed: ' . trim((string)$stderr));
+        throw new RuntimeException('git ls-files failed: ' . trim((string) $stderr));
     }
     $files = array_values(array_filter(explode("\n", trim($stdout)), 'strlen'));
     $files = array_values(array_filter($files, static fn(string $path): bool => $path !== 'scaffold/application-template-inventory.json'
@@ -74,6 +75,8 @@ function excluded(string $path): bool
             'docs/peanut-admin-release-deployment.md',
             'docs/peanut-admin-user-manual.md',
             'docs/plugin-module-development.md',
+            'docs/module-layout.md',
+            'docs/development/standard.md',
             'docs/public/README.md',
             'docs/public/release-channels.md',
             'docs/public/api-and-sdk.md',
@@ -238,30 +241,66 @@ function transform(string $path, string $classification): string
     if ($classification === 'excluded') {
         return 'copy';
     }
-    if ($path === 'README.md') return 'readme';
-    if ($path === 'LICENSE' || $path === 'NOTICE') return 'license';
-    if ($path === 'CHANGELOG.md') return 'changelog';
-    if ($path === 'THIRD_PARTY_NOTICES.md') return 'third-party-notices';
-    if ($path === 'RELEASE_SBOM.spdx.json') return 'sbom';
-    if ($path === 'RELEASE_METADATA.json') return 'release-metadata';
-    if ($path === 'resources/project-resources.json') return 'resources';
-    if ($path === 'plugins.lock') return 'plugins-lock';
-    if ($path === 'server/composer.lock') return 'composer-lock';
-    if ($path === 'release-versions.json') return 'version-contract';
-    if ($path === 'server/config/modules.php') return 'modules-config';
-    if ($path === '.github/workflows/ci.yml') return 'ci';
-    if ($path === 'server/database/environment-guard.php') return 'environment-guard';
+    if ($path === 'README.md') {
+        return 'readme';
+    }
+    if ($path === 'LICENSE' || $path === 'NOTICE') {
+        return 'license';
+    }
+    if ($path === 'CHANGELOG.md') {
+        return 'changelog';
+    }
+    if ($path === 'THIRD_PARTY_NOTICES.md') {
+        return 'third-party-notices';
+    }
+    if ($path === 'RELEASE_SBOM.spdx.json') {
+        return 'sbom';
+    }
+    if ($path === 'RELEASE_METADATA.json') {
+        return 'release-metadata';
+    }
+    if ($path === 'resources/project-resources.json') {
+        return 'resources';
+    }
+    if ($path === 'plugins.lock') {
+        return 'plugins-lock';
+    }
+    if ($path === 'server/composer.lock') {
+        return 'composer-lock';
+    }
+    if ($path === 'release-versions.json') {
+        return 'version-contract';
+    }
+    if ($path === 'server/config/modules.php') {
+        return 'modules-config';
+    }
+    if ($path === '.github/workflows/ci.yml') {
+        return 'ci';
+    }
+    if ($path === 'server/database/environment-guard.php') {
+        return 'environment-guard';
+    }
     if ((str_starts_with($path, 'server/app/modules/') && basename($path) === 'composer.json')
         || (str_starts_with($path, 'web/src/modules/') && basename($path) === 'package.json')) {
         return 'text';
     }
     // Public guides are real source inputs, so their bytes (not a constant
     // semantic placeholder digest) participate in the release baseline.
-    if (str_starts_with($path, 'docs/public/')) return 'text';
-    if ($path === 'SECURITY.md' || ((str_starts_with($path, 'docs-site/') || str_starts_with($path, 'docs/')) && str_ends_with($path, '.md'))) return 'docs-page';
-    if (preg_match('#(^|/)(config/brand|generated/brand)\.json$#', $path) === 1) return 'brand';
-    if (preg_match('#/brand/(logo|favicon)\.svg$#', $path) === 1) return 'brand-asset';
-    if (preg_match('#(^|/)(composer\.json|package\.json|package-lock\.json|pnpm-lock\.yaml)$#', $path) === 1) return 'package';
+    if (str_starts_with($path, 'docs/public/')) {
+        return 'text';
+    }
+    if ($path === 'SECURITY.md' || ((str_starts_with($path, 'docs-site/') || str_starts_with($path, 'docs/')) && str_ends_with($path, '.md'))) {
+        return 'docs-page';
+    }
+    if (preg_match('#(^|/)(config/brand|generated/brand)\.json$#', $path) === 1) {
+        return 'brand';
+    }
+    if (preg_match('#/brand/(logo|favicon)\.svg$#', $path) === 1) {
+        return 'brand-asset';
+    }
+    if (preg_match('#(^|/)(composer\.json|package\.json|package-lock\.json|pnpm-lock\.yaml)$#', $path) === 1) {
+        return 'package';
+    }
     $basename = basename($path);
     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
     $textExtensions = ['php', 'json', 'md', 'sql', 'stub', 'ts', 'tsx', 'js', 'mjs', 'cjs', 'sh', 'lock', 'vue', 'css', 'less', 'scss', 'html', 'xml', 'yaml', 'yml', 'toml', 'txt', 'svg', 'conf', 'ini', 'env', 'example', 'dockerfile'];

@@ -38,7 +38,15 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
         ?DateTimeImmutable $expiresAt,
     ): MachineIdentity {
         return Db::transaction(function () use (
-            $context, $identityKey, $familyKey, $name, $scopes, $tokenPrefix, $tokenDigest, $tokenLastFour, $expiresAt,
+            $context,
+            $identityKey,
+            $familyKey,
+            $name,
+            $scopes,
+            $tokenPrefix,
+            $tokenDigest,
+            $tokenLastFour,
+            $expiresAt,
         ): MachineIdentity {
             $now = new DateTimeImmutable('now');
             IntegrationMachineIdentityRecord::insert([
@@ -98,8 +106,16 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
         ?DateTimeImmutable $expiresAt,
     ): MachineIdentity {
         return Db::transaction(function () use (
-            $context, $identityKey, $expectedRevision, $successorKey, $name, $scopes,
-            $tokenPrefix, $tokenDigest, $tokenLastFour, $expiresAt,
+            $context,
+            $identityKey,
+            $expectedRevision,
+            $successorKey,
+            $name,
+            $scopes,
+            $tokenPrefix,
+            $tokenDigest,
+            $tokenLastFour,
+            $expiresAt,
         ): MachineIdentity {
             $current = $this->machineByKey($context->tenantId, $identityKey, true);
             if ($current === null) {
@@ -170,7 +186,13 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
         string $secretKeyId,
     ): WebhookEndpoint {
         return Db::transaction(function () use (
-            $context, $endpointKey, $name, $url, $events, $secretCiphertext, $secretKeyId,
+            $context,
+            $endpointKey,
+            $name,
+            $url,
+            $events,
+            $secretCiphertext,
+            $secretKeyId,
         ): WebhookEndpoint {
             $now = new DateTimeImmutable('now');
             IntegrationWebhookEndpointRecord::insert([
@@ -203,7 +225,11 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
         string $secretKeyId,
     ): WebhookEndpoint {
         return Db::transaction(function () use (
-            $context, $endpointKey, $expectedRevision, $secretCiphertext, $secretKeyId,
+            $context,
+            $endpointKey,
+            $expectedRevision,
+            $secretCiphertext,
+            $secretKeyId,
         ): WebhookEndpoint {
             $row = $this->endpointByKey($context->tenantId, $endpointKey, true);
             if ($row === null) {
@@ -354,10 +380,18 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
             }
 
             return new WebhookDelivery(
-                (int) $row['id'], $tenantId, (string) $row['endpoint_key'], (string) $row['delivery_key'],
-                (string) $row['event_type'], $this->jsonText($row['payload_json']), (string) $row['payload_sha256'],
-                (string) $row['url'], (string) $row['secret_ciphertext'], (string) $row['secret_key_id'],
-                $attempt, $leaseDigest,
+                (int) $row['id'],
+                $tenantId,
+                (string) $row['endpoint_key'],
+                (string) $row['delivery_key'],
+                (string) $row['event_type'],
+                $this->jsonText($row['payload_json']),
+                (string) $row['payload_sha256'],
+                (string) $row['url'],
+                (string) $row['secret_ciphertext'],
+                (string) $row['secret_key_id'],
+                $attempt,
+                $leaseDigest,
             );
         });
     }
@@ -451,11 +485,15 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
                 'delivery.created_at', 'delivery.updated_at', 'delivery.delivered_at',
             ])->select()->toArray();
         $items = array_values(array_map(fn(array $row): WebhookDeliveryRecord => new WebhookDeliveryRecord(
-            (string) $row['delivery_key'], (string) $row['endpoint_key'], (string) $row['event_type'],
-            (string) $row['status'], (int) $row['attempt_count'],
+            (string) $row['delivery_key'],
+            (string) $row['endpoint_key'],
+            (string) $row['event_type'],
+            (string) $row['status'],
+            (int) $row['attempt_count'],
             $row['last_status_code'] === null ? null : (int) $row['last_status_code'],
             $row['last_error_code'] === null ? null : (string) $row['last_error_code'],
-            $this->instant((string) $row['created_at']), $this->instant((string) $row['updated_at']),
+            $this->instant((string) $row['created_at']),
+            $this->instant((string) $row['updated_at']),
             $row['delivered_at'] === null ? null : $this->instant((string) $row['delivered_at']),
         ), $rows));
 
@@ -478,10 +516,12 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
         $rows = $query->order('attempt_number', 'desc')->page($page, $pageSize)
             ->field('attempt_number,outcome,response_status,error_code,duration_ms,attempted_at')->select()->toArray();
         $items = array_values(array_map(fn(array $row): WebhookAttemptRecord => new WebhookAttemptRecord(
-            (int) $row['attempt_number'], (string) $row['outcome'],
+            (int) $row['attempt_number'],
+            (string) $row['outcome'],
             $row['response_status'] === null ? null : (int) $row['response_status'],
             $row['error_code'] === null ? null : (string) $row['error_code'],
-            (int) $row['duration_ms'], $this->instant((string) $row['attempted_at']),
+            (int) $row['duration_ms'],
+            $this->instant((string) $row['attempted_at']),
         ), $rows));
 
         return new IntegrationSecurityPage($items, $page, $pageSize, $total);
@@ -513,11 +553,16 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
     private function machineRow(array $row): MachineIdentity
     {
         return new MachineIdentity(
-            (string) $row['identity_key'], (string) $row['name'], $this->stringList($row['scopes_json']),
-            (string) $row['status'], (string) $row['token_prefix'], (string) $row['token_last_four'],
+            (string) $row['identity_key'],
+            (string) $row['name'],
+            $this->stringList($row['scopes_json']),
+            (string) $row['status'],
+            (string) $row['token_prefix'],
+            (string) $row['token_last_four'],
             $row['expires_at'] === null ? null : $this->instant((string) $row['expires_at']),
             $row['last_used_at'] === null ? null : $this->instant((string) $row['last_used_at']),
-            (int) $row['revision'], $this->instant((string) $row['created_at']),
+            (int) $row['revision'],
+            $this->instant((string) $row['created_at']),
         );
     }
 
@@ -525,9 +570,13 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
     private function endpointRow(array $row): WebhookEndpoint
     {
         return new WebhookEndpoint(
-            (string) $row['endpoint_key'], (string) $row['name'], (string) $row['url'],
-            $this->stringList($row['events_json']), (string) $row['status'],
-            (int) $row['revision'], $this->instant((string) $row['created_at']),
+            (string) $row['endpoint_key'],
+            (string) $row['name'],
+            (string) $row['url'],
+            $this->stringList($row['events_json']),
+            (string) $row['status'],
+            (int) $row['revision'],
+            $this->instant((string) $row['created_at']),
         );
     }
 

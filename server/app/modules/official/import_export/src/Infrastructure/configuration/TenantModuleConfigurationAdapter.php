@@ -1,7 +1,9 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\configuration;
+
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Identity\Module\TenantModuleConfigurationService;
@@ -14,8 +16,7 @@ final readonly class TenantModuleConfigurationAdapter implements ConfigurationTr
 
     public function __construct(
         private TenantModuleConfigurationService $modules,
-    ) {
-    }
+    ) {}
 
     public function key(): string
     {
@@ -32,10 +33,14 @@ final readonly class TenantModuleConfigurationAdapter implements ConfigurationTr
         $tenantId = $this->tenantId($context);
         $entries = [];
         foreach (Db::name('tenant_module')->where('tenant_id', $tenantId)->where('status', 'enabled')
-            ->where(function ($query): void { $query->whereNull('effective_at')->whereOr('effective_at', '<=', Db::raw('CURRENT_TIMESTAMP(3)')); })
-            ->where(function ($query): void { $query->whereNull('expires_at')->whereOr('expires_at', '>', Db::raw('CURRENT_TIMESTAMP(3)')); })
+            ->where(function ($query): void {
+                $query->whereNull('effective_at')->whereOr('effective_at', '<=', Db::raw('CURRENT_TIMESTAMP(3)'));
+            })
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->whereOr('expires_at', '>', Db::raw('CURRENT_TIMESTAMP(3)'));
+            })
             ->field('module_key,config_json')->order('module_key')->select()->toArray() as $row) {
-            $moduleKey = (string)($row['module_key'] ?? '');
+            $moduleKey = (string) ($row['module_key'] ?? '');
             $this->assertModuleKey($moduleKey);
             $entries[] = ConfigurationTransferValue::entry(
                 $this->key(),
@@ -63,7 +68,7 @@ final readonly class TenantModuleConfigurationAdapter implements ConfigurationTr
                 $key,
                 $this->decodeConfig($row['config_json'] ?? null),
             )['value'],
-            'revision' => (int)($row['config_revision'] ?? 0),
+            'revision' => (int) ($row['config_revision'] ?? 0),
         ];
     }
 
@@ -115,7 +120,7 @@ final readonly class TenantModuleConfigurationAdapter implements ConfigurationTr
 
     private function effective(array $row): bool
     {
-        if ((string)($row['status'] ?? '') !== 'enabled') {
+        if ((string) ($row['status'] ?? '') !== 'enabled') {
             return false;
         }
         $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
@@ -125,7 +130,7 @@ final readonly class TenantModuleConfigurationAdapter implements ConfigurationTr
                 continue;
             }
             try {
-                $date = new \DateTimeImmutable((string)$value, new \DateTimeZone('UTC'));
+                $date = new \DateTimeImmutable((string) $value, new \DateTimeZone('UTC'));
             } catch (\Throwable) {
                 return false;
             }
@@ -143,7 +148,7 @@ final readonly class TenantModuleConfigurationAdapter implements ConfigurationTr
             return [];
         }
         try {
-            $config = json_decode((string)$encoded, true, 512, JSON_THROW_ON_ERROR);
+            $config = json_decode((string) $encoded, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw new \runtimeException('TRANSFER_TENANT_MODULE_INVALID');
         }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -28,28 +29,28 @@ final class OpsBackupTask extends ContextualCommand
     {
         try {
             $service = app(ThinkPhpBackupTaskExecutionService::class);
-            $action = trim((string)$input->getArgument('action'));
+            $action = trim((string) $input->getArgument('action'));
             $result = match ($action) {
                 'claim' => $service->claim(),
                 'heartbeat' => $service->heartbeat(
-                    trim((string)$input->getOption('task-key')),
-                    $this->executionRevision($input)
+                    trim((string) $input->getOption('task-key')),
+                    $this->executionRevision($input),
                 ),
                 'succeed' => $service->succeed(
-                    trim((string)$input->getOption('task-key')),
+                    trim((string) $input->getOption('task-key')),
                     $this->executionRevision($input),
-                    $this->manifestFromStdin()
+                    $this->manifestFromStdin(),
                 ),
                 'fail' => $service->fail(
-                    trim((string)$input->getOption('task-key')),
+                    trim((string) $input->getOption('task-key')),
                     $this->executionRevision($input),
-                    trim((string)$input->getOption('error-code'))
+                    trim((string) $input->getOption('error-code')),
                 ),
                 default => throw new \InvalidArgumentException('OPS_BACKUP_ACTION_INVALID'),
             };
             $output->writeln(json_encode(
                 ['ok' => true, 'result' => $result],
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 0;
         } catch (Throwable $exception) {
@@ -72,10 +73,10 @@ final class OpsBackupTask extends ContextualCommand
 
     private function executionRevision(Input $input): int
     {
-        $revision = trim((string)$input->getOption('revision'));
+        $revision = trim((string) $input->getOption('revision'));
         if (preg_match('/^[1-9][0-9]*$/D', $revision) !== 1) {
             throw new \InvalidArgumentException('OPS_BACKUP_EXECUTION_REVISION_INVALID');
         }
-        return (int)$revision;
+        return (int) $revision;
     }
 }

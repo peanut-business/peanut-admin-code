@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Controller;
@@ -24,14 +25,21 @@ final class ReferenceCodesController extends BaseAdminController
     public function index(string $moduleKey, string $setKey): Json
     {
         return $this->invoke(fn(): array => $this->referenceCodes->list(
-            $this->tenantAdminContext(), $moduleKey, $setKey, $this->request->get(),
+            $this->tenantAdminContext(),
+            $moduleKey,
+            $setKey,
+            $this->request->get(),
         ));
     }
 
     public function detail(string $moduleKey, string $setKey, string $code): Json
     {
         return $this->invoke(fn(): array => $this->referenceCodes->get(
-            $this->tenantAdminContext(), $moduleKey, $setKey, $code, $this->request->get('as_of'),
+            $this->tenantAdminContext(),
+            $moduleKey,
+            $setKey,
+            $code,
+            $this->request->get('as_of'),
         ), true);
     }
 
@@ -39,8 +47,12 @@ final class ReferenceCodesController extends BaseAdminController
     {
         $body = $this->jsonBody(['code', ...self::VERSION_FIELDS]);
         return $this->invoke(fn(): array => $this->referenceCodes->create(
-            $this->tenantAdminContext(), $moduleKey, $setKey, $body,
-            $this->requiredHeader('Idempotency-Key'), $this->header('If-None-Match'),
+            $this->tenantAdminContext(),
+            $moduleKey,
+            $setKey,
+            $body,
+            $this->requiredHeader('Idempotency-Key'),
+            $this->header('If-None-Match'),
         ), true);
     }
 
@@ -48,16 +60,25 @@ final class ReferenceCodesController extends BaseAdminController
     {
         $body = $this->jsonBody(self::VERSION_FIELDS);
         return $this->invoke(fn(): array => $this->referenceCodes->replace(
-            $this->tenantAdminContext(), $moduleKey, $setKey, $code, $body,
-            $this->requiredHeader('Idempotency-Key'), $this->header('If-Match'),
+            $this->tenantAdminContext(),
+            $moduleKey,
+            $setKey,
+            $code,
+            $body,
+            $this->requiredHeader('Idempotency-Key'),
+            $this->header('If-Match'),
         ), true);
     }
 
     public function retire(string $moduleKey, string $setKey, string $code): Json
     {
         return $this->invoke(fn(): array => $this->referenceCodes->retire(
-            $this->tenantAdminContext(), $moduleKey, $setKey, $code,
-            $this->requiredHeader('Idempotency-Key'), $this->header('If-Match'),
+            $this->tenantAdminContext(),
+            $moduleKey,
+            $setKey,
+            $code,
+            $this->requiredHeader('Idempotency-Key'),
+            $this->header('If-Match'),
         ), true);
     }
 
@@ -75,14 +96,16 @@ final class ReferenceCodesController extends BaseAdminController
     /** @param list<string> $keys @return array<string,mixed> */
     private function jsonBody(array $keys): array
     {
-        $body = json_decode((string)$this->request->getContent(), true);
+        $body = json_decode((string) $this->request->getContent(), true);
         if (!is_array($body) || array_is_list($body)) {
             throw new ApiProblem('REFERENCE_CODE_REQUEST_INVALID', 422, 'The reference-code request is invalid.');
         }
         $actual = array_keys($body);
         sort($actual);
         sort($keys);
-        if ($actual !== $keys) throw new ApiProblem('REFERENCE_CODE_REQUEST_INVALID', 422, 'The reference-code request is invalid.');
+        if ($actual !== $keys) {
+            throw new ApiProblem('REFERENCE_CODE_REQUEST_INVALID', 422, 'The reference-code request is invalid.');
+        }
         return $body;
     }
 
@@ -93,14 +116,16 @@ final class ReferenceCodesController extends BaseAdminController
 
     private function header(string $name): ?string
     {
-        $value = trim((string)$this->request->header($name, ''));
+        $value = trim((string) $this->request->header($name, ''));
         return $value === '' ? null : $value;
     }
 
     private function response(array $data, mixed $etag = null): Json
     {
         $response = json(['data' => $data, 'meta' => ['request_id' => $this->executionContext()->requestId()]]);
-        if (is_string($etag) && $etag !== '') $response->header(['ETag' => $etag]);
+        if (is_string($etag) && $etag !== '') {
+            $response->header(['ETag' => $etag]);
+        }
         return $response;
     }
 }

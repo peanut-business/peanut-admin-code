@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\installation;
@@ -25,8 +26,7 @@ final class InstallationExecutionHost
     public function __construct(
         private readonly string $serverRoot,
         private readonly ModuleCatalogApplier $catalogs,
-    )
-    {
+    ) {
         require_once $serverRoot . '/database/install.php';
     }
 
@@ -113,7 +113,7 @@ final class InstallationExecutionHost
                 403,
             );
         }
-        $expected = (string)Config::get('peanut.installation.setup_token', '');
+        $expected = (string) Config::get('peanut.installation.setup_token', '');
         if (preg_match('/^[A-Za-z0-9_-]{32,128}$/D', $expected) !== 1
             || $token === ''
             || !hash_equals($expected, $token)) {
@@ -154,7 +154,7 @@ final class InstallationExecutionHost
             }
             if ($status['state'] !== 'uninstalled') {
                 throw new InstallationExecutionException(
-                    (string)$status['code'],
+                    (string) $status['code'],
                     $status['retryable']
                         ? '安装前置条件暂未满足。'
                         : '目标包含未完成安装残留，必须由资源 owner 重建后再安装。',
@@ -275,10 +275,10 @@ final class InstallationExecutionHost
         $selected = array_fill_keys($modules, true);
         $definitions = [];
         foreach ($this->definitionRegistry()->modules as $manifest) {
-            $key = (string)$manifest->data['key'];
+            $key = (string) $manifest->data['key'];
             if (isset($selected[$key])) {
                 $definitions[$key] = [
-                    'version' => (string)$manifest->data['version'],
+                    'version' => (string) $manifest->data['version'],
                     'dependencies' => $manifest->data['dependencies'] ?? [],
                 ];
             }
@@ -308,8 +308,8 @@ final class InstallationExecutionHost
                 $required = $registry->isRequiredTenantFoundation($key);
                 $modules[] = [
                     'key' => $key,
-                    'label' => (string)($manifest->data['name'] ?? substr($key, strlen('official.'))),
-                    'description' => (string)($manifest->data['description'] ?? ''),
+                    'label' => (string) ($manifest->data['name'] ?? substr($key, strlen('official.'))),
+                    'description' => (string) ($manifest->data['description'] ?? ''),
                     'required' => $required,
                     'default' => true,
                 ];
@@ -337,7 +337,7 @@ final class InstallationExecutionHost
             $result = $lifecycle->reconcile($moduleKey);
             $operations[] = [
                 'key' => $moduleKey,
-                'operation' => (string)($result['operation'] ?? ''),
+                'operation' => (string) ($result['operation'] ?? ''),
             ];
         }
         $profile = (new ProductTenantModuleProfileService(
@@ -360,10 +360,10 @@ final class InstallationExecutionHost
         if ($moduleKeys !== []) {
             $placeholders = implode(',', array_fill(0, count($moduleKeys), '?'));
             $statement = $pdo->prepare(
-                "SELECT COUNT(*) FROM pa_module_installation WHERE status='active' AND module_key IN ({$placeholders})"
+                "SELECT COUNT(*) FROM pa_module_installation WHERE status='active' AND module_key IN ({$placeholders})",
             );
             $statement->execute($moduleKeys);
-            if ((int)$statement->fetchColumn() !== count($moduleKeys)) {
+            if ((int) $statement->fetchColumn() !== count($moduleKeys)) {
                 throw new RuntimeException('Official Module installation is incomplete.');
             }
             $definitions = $this->definitionRegistry();
@@ -375,10 +375,10 @@ final class InstallationExecutionHost
                 $tenantPlaceholders = implode(',', array_fill(0, count($tenantManaged), '?'));
                 $statement = $pdo->prepare(
                     "SELECT COUNT(*) FROM pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id "
-                    . "WHERE t.code=? AND tm.status='enabled' AND tm.module_key IN ({$tenantPlaceholders})"
+                    . "WHERE t.code=? AND tm.status='enabled' AND tm.module_key IN ({$tenantPlaceholders})",
                 );
                 $statement->execute([$tenantBootstrap['code'], ...$tenantManaged]);
-                if ((int)$statement->fetchColumn() !== count($tenantManaged)) {
+                if ((int) $statement->fetchColumn() !== count($tenantManaged)) {
                     throw new RuntimeException('Default Tenant Module selection is incomplete.');
                 }
             }
@@ -416,7 +416,7 @@ final class InstallationExecutionHost
     {
         return new PluginLockResolver(
             $this->serverRoot,
-            (string)Config::get('modules.plugin_lock', '../plugins.lock'),
+            (string) Config::get('modules.plugin_lock', '../plugins.lock'),
         );
     }
 
@@ -437,7 +437,7 @@ final class InstallationExecutionHost
 
     private function mode(): string
     {
-        $mode = trim((string)Config::get('peanut.installation.mode', 'automatic'));
+        $mode = trim((string) Config::get('peanut.installation.mode', 'automatic'));
         if (!in_array($mode, self::MODES, true)) {
             throw new RuntimeException('PEANUT_INSTALLATION_MODE must be guided or automatic.');
         }
@@ -446,7 +446,7 @@ final class InstallationExecutionHost
 
     private function deploymentMode(): string
     {
-        $mode = trim((string)Config::get('deployment.mode', ''));
+        $mode = trim((string) Config::get('deployment.mode', ''));
         if ($mode !== 'standalone' && $mode !== 'multi-tenant') {
             throw new RuntimeException('DEPLOYMENT_MODE must be standalone or multi-tenant.');
         }

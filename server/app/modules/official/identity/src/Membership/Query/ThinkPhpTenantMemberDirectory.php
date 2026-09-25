@@ -107,21 +107,21 @@ final readonly class ThinkPhpTenantMemberDirectory implements TenantMemberDirect
             return null;
         }
 
-        $displayName = trim((string)($row['display_name'] ?: $row['account_display_name']));
+        $displayName = trim((string) ($row['display_name'] ?: $row['account_display_name']));
         if ($displayName === '') {
             return null;
         }
 
         return new TenantMemberSummary(
-            (int)$row['tenant_id'],
-            (int)$row['id'],
-            (int)$row['account_id'],
+            (int) $row['tenant_id'],
+            (int) $row['id'],
+            (int) $row['account_id'],
             $displayName,
-            (int)$row['account_security_revision'],
-            (int)$row['tenant_security_revision'],
-            (int)$row['security_revision'],
-            (int)$row['authorization_revision'],
-            $row['primary_department_id'] === null ? null : (int)$row['primary_department_id'],
+            (int) $row['account_security_revision'],
+            (int) $row['tenant_security_revision'],
+            (int) $row['security_revision'],
+            (int) $row['authorization_revision'],
+            $row['primary_department_id'] === null ? null : (int) $row['primary_department_id'],
         );
     }
 }

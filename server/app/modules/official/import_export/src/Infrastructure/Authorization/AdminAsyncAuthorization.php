@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\Authorization;
@@ -17,9 +18,7 @@ use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 /** Revalidates queued Admin work through the native Tenant Admin authorization service. */
 final readonly class AdminAsyncAuthorization implements AsyncAuthorizationRevalidator
 {
-    public function __construct(private AdminAuthorizationService $authorization)
-    {
-    }
+    public function __construct(private AdminAuthorizationService $authorization) {}
 
     public function reauthorize(VerifiedJobEnvelope $envelope): AuthorizedOperationContext
     {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 function expectReferenceCodes(bool $condition, string $message): void
@@ -11,11 +12,11 @@ function expectReferenceCodes(bool $condition, string $message): void
 $serverRoot = dirname(__DIR__, 4);
 $repositoryRoot = dirname($serverRoot);
 
-$coreEvidence = json_decode((string)file_get_contents(
-    $repositoryRoot . '/output/playwright/t01/system-tools-core-summary.json'
+$coreEvidence = json_decode((string) file_get_contents(
+    $repositoryRoot . '/output/playwright/t01/system-tools-core-summary.json',
 ), true, 512, JSON_THROW_ON_ERROR);
-$frontendEvidence = json_decode((string)file_get_contents(
-    $repositoryRoot . '/output/playwright/t01/frontend-summary.json'
+$frontendEvidence = json_decode((string) file_get_contents(
+    $repositoryRoot . '/output/playwright/t01/frontend-summary.json',
 ), true, 512, JSON_THROW_ON_ERROR);
 
 expectReferenceCodes(($coreEvidence['status'] ?? null) === 'passed', 'sealed T01 core evidence must pass');
@@ -34,7 +35,7 @@ expectReferenceCodes(($frontendEvidence['peanut']['dict']['type_renamed'] ?? fal
 expectReferenceCodes(($frontendEvidence['peanut']['dict']['data_item_visible'] ?? false) === true, 'data visibility evidence missing');
 expectReferenceCodes(
     ($frontendEvidence['peanut']['dict']['occupied_delete_rejected_with_visible_message'] ?? false) === true,
-    'occupied delete UI evidence missing'
+    'occupied delete UI evidence missing',
 );
 expectReferenceCodes(($frontendEvidence['cleanup']['dict_types'] ?? -1) === 0, 'T01 type fixtures must be zero');
 expectReferenceCodes(($frontendEvidence['cleanup']['dict_data'] ?? -1) === 0, 'T01 data fixtures must be zero');
@@ -55,7 +56,7 @@ $sources = [];
 foreach ($ownedFiles as $relativePath) {
     $absolutePath = $serverRoot . '/' . $relativePath;
     expectReferenceCodes(is_file($absolutePath), 'missing application owner: ' . $relativePath);
-    $sources[$relativePath] = (string)file_get_contents($absolutePath);
+    $sources[$relativePath] = (string) file_get_contents($absolutePath);
 }
 
 $typeLogic = $sources['app/modules/official/reference_codes/src/Service/DictTypeApplicationService.php'];
@@ -66,34 +67,34 @@ expectReferenceCodes(str_contains($tenantProvider, '->lock(true)'), 'type mutati
 expectReferenceCodes(
     str_contains($tenantProvider, "->where('type_id'")
         && str_contains($tenantProvider, "'type_value' =>"),
-    'type rename must synchronize data.type_value'
+    'type rename must synchronize data.type_value',
 );
 expectReferenceCodes(
     str_contains($tenantProvider, '字典类型已被数据项使用，请先删除数据项'),
-    'occupied type deletion must fail closed'
+    'occupied type deletion must fail closed',
 );
 expectReferenceCodes(
     str_contains($tenantProvider, "->where('is_disable', 0)")
         && str_contains($dataLogic, 'enabledByType'),
-    'byType must expose enabled data only'
+    'byType must expose enabled data only',
 );
 
 foreach ($sources as $relativePath => $source) {
     expectReferenceCodes(
         !str_contains($source, 'PeanutAdmin\\ReferenceCodes'),
-        'application dict owner must not deep import core: ' . $relativePath
+        'application dict owner must not deep import core: ' . $relativePath,
     );
     expectReferenceCodes(
         !str_contains($source, 'reference_code_'),
-        'application dict owner must not bind core schema: ' . $relativePath
+        'application dict owner must not bind core schema: ' . $relativePath,
     );
 }
 
-$zhLocale = (string)file_get_contents(
-    $repositoryRoot . '/web/src/views/system/dict/locale/zh-CN.ts'
+$zhLocale = (string) file_get_contents(
+    $repositoryRoot . '/web/src/views/system/dict/locale/zh-CN.ts',
 );
-$enLocale = (string)file_get_contents(
-    $repositoryRoot . '/web/src/views/system/dict/locale/en-US.ts'
+$enLocale = (string) file_get_contents(
+    $repositoryRoot . '/web/src/views/system/dict/locale/en-US.ts',
 );
 expectReferenceCodes(str_contains($zhLocale, '存在字典数据时不能删除'), 'Chinese delete copy must describe rejection');
 expectReferenceCodes(str_contains($enLocale, 'cannot be deleted while it contains data'), 'English delete copy must describe rejection');

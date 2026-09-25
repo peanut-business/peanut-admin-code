@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\auth;
@@ -26,7 +27,7 @@ class RoleController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, ['id' => 'require|integer|gt:0']);
-        return $this->data($this->roles->detail($this->tenantAdminContext(), (int)$params['id']));
+        return $this->data($this->roles->detail($this->tenantAdminContext(), (int) $params['id']));
     }
 
     public function add()
@@ -49,7 +50,7 @@ class RoleController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, ['id' => 'require|integer|gt:0']);
-        $this->roles->delete($this->tenantAdminContext(), (int)$params['id']);
+        $this->roles->delete($this->tenantAdminContext(), (int) $params['id']);
         return $this->success('操作成功');
     }
 

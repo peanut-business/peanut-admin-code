@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 $common = require __DIR__ . '/common.php';

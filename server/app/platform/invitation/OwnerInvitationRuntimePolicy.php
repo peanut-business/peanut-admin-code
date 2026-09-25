@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\invitation;
@@ -33,7 +34,7 @@ final readonly class OwnerInvitationRuntimePolicy
             && !$delivery->isConfigured()) {
             throw TenantOwnerInvitationException::unavailable(
                 'OWNER_INVITATION_DELIVERY_UNAVAILABLE',
-                'Owner invitation delivery is not configured.'
+                'Owner invitation delivery is not configured.',
             );
         }
     }

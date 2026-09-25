@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\payment;
@@ -84,13 +85,13 @@ final class PaymentCrypto
             throw new \RuntimeException('支付回调金额无效');
         }
         [$yuan, $cent] = array_pad(explode('.', $amount, 2), 2, '');
-        return ((int)$yuan * 100) + (int)str_pad($cent, 2, '0');
+        return ((int) $yuan * 100) + (int) str_pad($cent, 2, '0');
     }
 
     public static function certificateSerial(string $certificate): string
     {
         $info = openssl_x509_parse(self::fileOrValue($certificate));
-        $serial = is_array($info) ? strtoupper((string)($info['serialNumberHex'] ?? '')) : '';
+        $serial = is_array($info) ? strtoupper((string) ($info['serialNumberHex'] ?? '')) : '';
         if ($serial === '') {
             throw new \RuntimeException('无法读取支付证书序列号');
         }
@@ -101,7 +102,7 @@ final class PaymentCrypto
     public static function verifyWechatResponse(
         TransportResponse $response,
         string $platformCertificate,
-        int $clockTolerance = 300
+        int $clockTolerance = 300,
     ): void {
         $timestamp = $response->header('Wechatpay-Timestamp');
         $nonce = $response->header('Wechatpay-Nonce');
@@ -111,7 +112,7 @@ final class PaymentCrypto
             || $signature === false) {
             throw new \RuntimeException('微信支付响应签名头不完整');
         }
-        if (abs(time() - (int)$timestamp) > $clockTolerance) {
+        if (abs(time() - (int) $timestamp) > $clockTolerance) {
             throw new \RuntimeException('微信支付响应时间戳已过期');
         }
         $certificate = self::fileOrValue($platformCertificate);
@@ -120,7 +121,7 @@ final class PaymentCrypto
                 $timestamp . "\n" . $nonce . "\n" . $response->body() . "\n",
                 $signature,
                 self::publicKey($certificate),
-                OPENSSL_ALGO_SHA256
+                OPENSSL_ALGO_SHA256,
             ) !== 1) {
             throw new \RuntimeException('微信支付响应验签失败');
         }
@@ -130,16 +131,16 @@ final class PaymentCrypto
         string $rawResponse,
         array $decoded,
         string $publicKey,
-        string $responseKey
+        string $responseKey,
     ): void {
-        $signature = base64_decode((string)($decoded['sign'] ?? ''), true);
+        $signature = base64_decode((string) ($decoded['sign'] ?? ''), true);
         $signedContent = self::extractJsonObject($rawResponse, $responseKey);
         if ($signature === false || $signedContent === ''
             || openssl_verify(
                 $signedContent,
                 $signature,
                 self::publicKey($publicKey),
-                OPENSSL_ALGO_SHA256
+                OPENSSL_ALGO_SHA256,
             ) !== 1) {
             throw new \RuntimeException('支付宝响应验签失败');
         }

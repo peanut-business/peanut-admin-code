@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\command\OpsModuleTask;
@@ -59,7 +60,7 @@ expectOpsModuleWiring(
     $trustedKeysProperty->getValue($requests) === ['c01-test' => $trustedKey],
     'AppService did not decode trusted Module keys for the request service',
 );
-$source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/command/OpsModuleTask.php');
+$source = (string) file_get_contents(dirname(__DIR__, 2) . '/app/command/OpsModuleTask.php');
 expectOpsModuleWiring(!str_contains($source, 'RuntimeFactory'), 'OpsModuleTask retained Runtime factory construction');
 expectOpsModuleWiring(!str_contains($source, 'trustedKeys('), 'OpsModuleTask retained duplicate trusted-key decoding');
 

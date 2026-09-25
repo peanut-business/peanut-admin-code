@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
@@ -19,8 +20,7 @@ final readonly class ThinkPhpOpsTaskDispatcher implements OpsTaskDispatcher
 {
     public function __construct(
         private AuditContractHost $audit,
-    ) {
-    }
+    ) {}
 
     public function dispatch(PlatformContext $context, OpsTaskSubmission $submission): OpsTask
     {
@@ -142,12 +142,23 @@ final readonly class ThinkPhpOpsTaskDispatcher implements OpsTaskDispatcher
         string $action,
         array $auditMetadata,
     ): array {
-        return Db::transaction(function () use ($context, $taskType, $handlerKey, $payload, $idempotencyDigest,
-            $requestDigest, $concurrencyKey, $maximumAttempts, $eventType, $action, $auditMetadata): array {
+        return Db::transaction(function () use (
+            $context,
+            $taskType,
+            $handlerKey,
+            $payload,
+            $idempotencyDigest,
+            $requestDigest,
+            $concurrencyKey,
+            $maximumAttempts,
+            $eventType,
+            $action,
+            $auditMetadata
+        ): array {
             $existing = Db::name('ops_task')->where('submitted_by_operator_id', $context->operatorId)
                 ->where('idempotency_digest', $idempotencyDigest)->lock(true)->find();
             if ($existing !== null) {
-                if (!hash_equals((string)$existing['request_digest'], $requestDigest)) {
+                if (!hash_equals((string) $existing['request_digest'], $requestDigest)) {
                     throw OpsConsoleException::idempotencyConflict();
                 }
                 return $existing;
@@ -166,7 +177,7 @@ final readonly class ThinkPhpOpsTaskDispatcher implements OpsTaskDispatcher
                 'handler_key' => $handlerKey,
                 'payload_json' => json_encode(
                     $payload,
-                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
                 ),
                 'status' => 'queued',
                 'attempt_count' => 0,
@@ -215,17 +226,17 @@ final readonly class ThinkPhpOpsTaskDispatcher implements OpsTaskDispatcher
     private function map(array $row): OpsTask
     {
         return new OpsTask(
-            (string)$row['task_key'],
-            (string)$row['task_type'],
-            (string)$row['status'],
-            (int)$row['attempt_count'],
-            (int)$row['max_attempts'],
-            (int)$row['revision'],
-            $row['last_error_code'] === null ? null : (string)$row['last_error_code'],
-            $this->instant((string)$row['available_at']),
-            $this->instant((string)$row['created_at']),
-            $this->instant((string)$row['updated_at']),
-            $row['completed_at'] === null ? null : $this->instant((string)$row['completed_at'])
+            (string) $row['task_key'],
+            (string) $row['task_type'],
+            (string) $row['status'],
+            (int) $row['attempt_count'],
+            (int) $row['max_attempts'],
+            (int) $row['revision'],
+            $row['last_error_code'] === null ? null : (string) $row['last_error_code'],
+            $this->instant((string) $row['available_at']),
+            $this->instant((string) $row['created_at']),
+            $this->instant((string) $row['updated_at']),
+            $row['completed_at'] === null ? null : $this->instant((string) $row['completed_at']),
         );
     }
 

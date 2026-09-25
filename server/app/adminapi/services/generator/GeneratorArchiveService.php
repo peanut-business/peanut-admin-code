@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\generator;
@@ -45,8 +46,8 @@ class GeneratorArchiveService
                 throw new RuntimeException('代码压缩包创建失败');
             }
             foreach ($files as $file) {
-                $entry = self::safeEntryPath((string)($file['path'] ?? ''));
-                if (!$zip->addFromString($entry, (string)($file['content'] ?? ''))) {
+                $entry = self::safeEntryPath((string) ($file['path'] ?? ''));
+                if (!$zip->addFromString($entry, (string) ($file['content'] ?? ''))) {
                     throw new RuntimeException('代码文件写入压缩包失败: ' . $entry);
                 }
             }
@@ -116,7 +117,7 @@ class GeneratorArchiveService
             throw new RuntimeException('管理员标识无效');
         }
         $relative = self::safeEntryPath($storedRelativePath);
-        $pattern = '#^generator/' . preg_quote((string)$adminId, '#')
+        $pattern = '#^generator/' . preg_quote((string) $adminId, '#')
             . '/[a-f0-9]{32}/[A-Za-z0-9._-]+\.zip$#';
         if (preg_match($pattern, $relative) !== 1) {
             throw new RuntimeException('代码压缩包路径无效');

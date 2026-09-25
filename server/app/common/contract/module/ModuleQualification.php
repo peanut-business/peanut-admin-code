@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\contract\module;
@@ -14,8 +15,7 @@ final readonly class ModuleQualification
         public string $manifestDigest,
         public array $dependencies,
         public string $status = 'active',
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function toArray(): array

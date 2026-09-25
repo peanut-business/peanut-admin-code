@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 function referenceChainContractExpect(bool $condition, string $message): void
@@ -97,16 +98,22 @@ referenceChainContractExpect(
 );
 
 // 真实 Python 资源选择器的正反例；静态源码检查不能代替资源边界行为。
-$resourceProcess = proc_open(['python3', $root . '/scripts/tests/consumer-module-resource-test.py'],
-    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $resourcePipes, $root);
+$resourceProcess = proc_open(
+    ['python3', $root . '/scripts/tests/consumer-module-resource-test.py'],
+    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+    $resourcePipes,
+    $root,
+);
 referenceChainContractExpect(is_resource($resourceProcess), 'resource contract runner is unavailable');
 $resourceOutput = stream_get_contents($resourcePipes[1]);
 $resourceError = stream_get_contents($resourcePipes[2]);
 fclose($resourcePipes[1]);
 fclose($resourcePipes[2]);
-referenceChainContractExpect(proc_close($resourceProcess) === 0
-    && str_contains((string)$resourceOutput, 'CONSUMER-RESOURCE-CONTRACT-001 passed (9 cases)'),
-    'reference-chain resource contract failed: ' . $resourceError);
+referenceChainContractExpect(
+    proc_close($resourceProcess) === 0
+    && str_contains((string) $resourceOutput, 'CONSUMER-RESOURCE-CONTRACT-001 passed (9 cases)'),
+    'reference-chain resource contract failed: ' . $resourceError,
+);
 echo $resourceOutput;
 
 echo "CONSUMER-MODULE-REFERENCE-CHAIN-CONTRACT-001 passed\n";

@@ -432,6 +432,9 @@ def author_module_v1(author: Path) -> tuple[Path, Path]:
     manifest = read_json(manifest_path)
     manifest["description"] = "CR21 independent consumer reference chain"
     manifest["database"]["owned_tables"] = ["pa_acme_reference_chain_record"]
+    manifest["contracts"]["exports"] = ["Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands"]
+    for directory in ["src/Contract", "src/Service"]:
+        (backend / directory).mkdir(parents=True, exist_ok=True)
     write_json(manifest_path, manifest)
     (backend / "src/Contract/ReferenceChainCommands.php").write_text(
         """<?php
@@ -990,7 +993,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         finally:
             author_install.unlink(missing_ok=True)
 
-        created = run_think(author, author_env, ["module:create", MODULE_KEY, "--vendor=acme"], logs / "author.log")
+        created = run_think(author, author_env, ["module:create", MODULE_KEY, "--vendor=acme", "--client=admin-web"], logs / "author.log")
         expect(created.get("module_key") == MODULE_KEY, "module:create returned another identity")
         backend, frontend = author_module_v1(author)
         check_v1 = run_think(author, author_env, ["module:check", MODULE_KEY], logs / "author.log")

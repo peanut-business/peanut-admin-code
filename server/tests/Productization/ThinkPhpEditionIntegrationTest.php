@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\Article\Model\Article;
@@ -27,7 +28,7 @@ function tpq52TenantContext(int $tenantId, int $accountId, int $memberId): Tenan
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JTPQ52EDITION' . str_pad((string)$memberId, 11, '0', STR_PAD_LEFT),
+        '01JTPQ52EDITION' . str_pad((string) $memberId, 11, '0', STR_PAD_LEFT),
         $tenantId,
         $accountId,
         $memberId,
@@ -41,8 +42,8 @@ function tpq52DatabaseName(string $edition, array $arguments): string
 {
     $prefix = '--database=';
     foreach ($arguments as $argument) {
-        if (str_starts_with((string)$argument, $prefix)) {
-            $database = substr((string)$argument, strlen($prefix));
+        if (str_starts_with((string) $argument, $prefix)) {
+            $database = substr((string) $argument, strlen($prefix));
             $pattern = '/^peanut_admin_development_p0e_[a-z0-9]{1,11}_'
                 . preg_quote($edition, '/') . '_fresh$/D';
             if (preg_match($pattern, $database) !== 1 || strlen($database) > 64) {
@@ -60,7 +61,7 @@ function tpq52AdminPdo(): PDO
         sprintf(
             'mysql:host=%s;port=%d;charset=utf8mb4',
             IsolatedBackendEnvironment::required('DB_HOST'),
-            (int)IsolatedBackendEnvironment::required('DB_PORT'),
+            (int) IsolatedBackendEnvironment::required('DB_PORT'),
         ),
         IsolatedBackendEnvironment::required('DB_USER'),
         IsolatedBackendEnvironment::required('DB_PASS'),
@@ -75,10 +76,10 @@ function tpq52AdminPdo(): PDO
 function tpq52DatabaseIsAbsent(PDO $admin, string $database): bool
 {
     $statement = $admin->prepare(
-        'SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = :database'
+        'SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = :database',
     );
     $statement->execute(['database' => $database]);
-    return (int)$statement->fetchColumn() === 0;
+    return (int) $statement->fetchColumn() === 0;
 }
 
 function tpq52Activate(string $database, string $edition): void
@@ -225,10 +226,10 @@ function tpq52RunMultiTenant(PDO $pdo, array &$sql): array
         'is_show' => 1,
     ]);
     expectTpq52($store->run($alpha, static fn() => $created->save()), 'Alpha create failed');
-    $createdId = (int)$created->getData('id');
+    $createdId = (int) $created->getData('id');
     expectTpq52($createdId > 0, 'Alpha create did not return an id');
     expectTpq52(
-        (int)$pdo->query("SELECT tenant_id FROM pa_article_cate WHERE id = {$createdId}")->fetchColumn() === 101,
+        (int) $pdo->query("SELECT tenant_id FROM pa_article_cate WHERE id = {$createdId}")->fetchColumn() === 101,
         'trusted Alpha Tenant was not injected on create',
     );
 
@@ -252,7 +253,7 @@ function tpq52RunMultiTenant(PDO $pdo, array &$sql): array
     );
     expectTpq52($store->run($alpha, static fn() => ArticleCate::destroy(12)), 'Alpha delete path failed');
     $betaDelete = $pdo->query(
-        'SELECT delete_time FROM pa_article_cate WHERE id = 12'
+        'SELECT delete_time FROM pa_article_cate WHERE id = 12',
     )->fetch(PDO::FETCH_ASSOC);
     expectTpq52(
         is_array($betaDelete) && $betaDelete['delete_time'] === null,
@@ -265,14 +266,14 @@ function tpq52RunMultiTenant(PDO $pdo, array &$sql): array
     );
     expectTpq52(count($articles) === 1, 'Alpha relation root crossed Tenant boundary');
     expectTpq52(
-        (string)$articles[0]->title === 'Alpha article'
-            && (string)$articles[0]->cate->name === 'Alpha',
+        (string) $articles[0]->title === 'Alpha article'
+            && (string) $articles[0]->cate->name === 'Alpha',
         'Alpha relation resolved a category from another Tenant',
     );
 
     try {
         $pdo->exec(
-            "INSERT INTO pa_article (tenant_id, cid, title, is_show) VALUES (101, 12, 'invalid relation', 1)"
+            "INSERT INTO pa_article (tenant_id, cid, title, is_show) VALUES (101, 12, 'invalid relation', 1)",
         );
         throw new RuntimeException('cross-Tenant relation unexpectedly satisfied the composite foreign key');
     } catch (PDOException $exception) {
@@ -331,7 +332,7 @@ function tpq52RunMultiTenant(PDO $pdo, array &$sql): array
         'Alpha soft-delete did not affect its own row',
     );
     expectTpq52(
-        (string)$pdo->query('SELECT name FROM pa_article_cate WHERE id = 12')->fetchColumn() === 'Beta',
+        (string) $pdo->query('SELECT name FROM pa_article_cate WHERE id = 12')->fetchColumn() === 'Beta',
         'Beta data changed during Alpha CRUD',
     );
 
@@ -381,7 +382,7 @@ try {
         sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
             IsolatedBackendEnvironment::required('DB_HOST'),
-            (int)IsolatedBackendEnvironment::required('DB_PORT'),
+            (int) IsolatedBackendEnvironment::required('DB_PORT'),
             $database,
         ),
         IsolatedBackendEnvironment::required('DB_USER'),

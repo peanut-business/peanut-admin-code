@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\plugin;
@@ -26,8 +27,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         private array $moduleConfig,
         private ModuleCatalogApplier $catalogs,
         private ModuleMigrationSqlExecutor $migrationSql,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function install(string $pluginKey, bool $acquireLock = true): array
@@ -49,11 +49,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             }
             if (is_array($current) && $current['status'] === 'maintenance'
                 && in_array($current['last_error_code'] ?? null, ['MODULE_PURGE_IN_PROGRESS', 'MODULE_RETIRE_IN_PROGRESS'], true)) {
-                throw new PluginLifecycleException((string)$current['last_error_code'], 'Module uninstall recovery must finish before install.');
+                throw new PluginLifecycleException((string) $current['last_error_code'], 'Module uninstall recovery must finish before install.');
             }
             if (is_array($current) && in_array($current['status'], ['failed', 'installing'], true)) {
                 $sameIdentity = $this->sameIdentity($plugin, $current);
-                $forwardRepair = version_compare($plugin->version, (string)$current['installed_version'], '>');
+                $forwardRepair = version_compare($plugin->version, (string) $current['installed_version'], '>');
                 if (!$sameIdentity && !$forwardRepair) {
                     throw new PluginLifecycleException(
                         'PLUGIN_INSTALL_RECOVERY_IDENTITY_MISMATCH',
@@ -87,10 +87,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             return $this->install($pluginKey);
         }
 
-        if ((string)$current['status'] !== 'active') {
+        if ((string) $current['status'] !== 'active') {
             throw new PluginLifecycleException(
                 'PLUGIN_STATE_INVALID',
-                'Plugin reconciliation only accepts an active installation.'
+                'Plugin reconciliation only accepts an active installation.',
             );
         }
 
@@ -117,7 +117,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if (!in_array($current['status'], ['active', 'failed'], true)) {
             throw new PluginLifecycleException('PLUGIN_STATE_INVALID', 'Plugin cannot be upgraded from its current state.');
         }
-        if (version_compare($plugin->version, (string)$current['installed_version'], '<')) {
+        if (version_compare($plugin->version, (string) $current['installed_version'], '<')) {
             throw new PluginLifecycleException('PLUGIN_DOWNGRADE_REJECTED', 'Upgrade cannot install an older Plugin version.');
         }
         $plan = $this->plan($plugin, $manifests, $current);
@@ -137,7 +137,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $moduleKeys = Db::name('plugin_module')->where('plugin_key', $pluginKey)->column('module_key');
         return [
             'plugin_key' => $pluginKey,
-            'installed_version' => (string)$current['installed_version'],
+            'installed_version' => (string) $current['installed_version'],
             'operation' => 'rollback-plan',
             'automatic' => false,
             'preserve_data' => true,
@@ -174,7 +174,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $now = $this->now();
         Db::transaction(function () use ($pluginKey, $modules, $now): void {
             $this->catalogs->retire(array_map(
-                static fn(array $row): string => (string)$row['module_key'],
+                static fn(array $row): string => (string) $row['module_key'],
                 $modules,
             ));
             foreach ($modules as $row) {
@@ -240,7 +240,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     ->update([...$values, 'revision' => Db::raw('revision+1')]);
             }
             foreach ($manifests as $manifest) {
-                $moduleKey = (string)$manifest->data['key'];
+                $moduleKey = (string) $manifest->data['key'];
                 $moduleValues = [
                     'installed_version' => $manifest->data['version'],
                     'manifest_schema_version' => $manifest->data['schema_version'],
@@ -266,7 +266,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private function assertPreflightOwnership(
         PluginDescriptor $plugin,
         array $manifests,
-        bool $upgrade
+        bool $upgrade,
     ): void {
         foreach ($manifests as $moduleKey => $_manifest) {
             $existing = Db::name('plugin_module')->where('module_key', $moduleKey)->value('plugin_key');
@@ -282,7 +282,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,ManifestDocument> $manifests */
     private function applyMigrations(PluginDescriptor $plugin, array $manifests): void
     {
-        $batch = (int)Db::name('module_migration')->max('batch_no') + 1;
+        $batch = (int) Db::name('module_migration')->max('batch_no') + 1;
         foreach ($manifests as $moduleKey => $manifest) {
             $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest);
             $repairs = $this->migrationRepairMap($moduleKey, $files);
@@ -294,10 +294,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $row = Db::name('module_migration')->where('module_key', $moduleKey)
                     ->where('migration_key', $migrationKey)->field('checksum,status')->find();
                 if ($row !== null) {
-                    if (!hash_equals((string)$row['checksum'], $checksum)) {
+                    if (!hash_equals((string) $row['checksum'], $checksum)) {
                         throw new PluginLifecycleException(
                             'MODULE_MIGRATION_CHECKSUM_MISMATCH',
-                            "Applied Module migration changed: {$migrationKey}"
+                            "Applied Module migration changed: {$migrationKey}",
                         );
                     }
                     if ($row['status'] === 'applied') {
@@ -324,7 +324,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     ]);
                 });
                 try {
-                    $sql = trim((string)file_get_contents($path));
+                    $sql = trim((string) file_get_contents($path));
                     if ($sql === '') {
                         throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', "Migration is empty: {$migrationKey}");
                     }
@@ -333,20 +333,20 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     Db::transaction(function () use ($moduleKey, $migrationKey): void {
                         Db::name('module_migration')->where('module_key', $moduleKey)
                             ->where('migration_key', $migrationKey)->update([
-                            'status' => 'applied',
-                            'finished_at' => $this->now(),
-                            'error_code' => null,
-                        ]);
+                                'status' => 'applied',
+                                'finished_at' => $this->now(),
+                                'error_code' => null,
+                            ]);
                     });
                 } catch (\Throwable $exception) {
                     Db::name('module_migration')->where('module_key', $moduleKey)
                         ->where('migration_key', $migrationKey)->where('status', 'applying')->update([
-                        'status' => 'failed',
-                        'finished_at' => $this->now(),
-                        'error_code' => $exception instanceof PluginLifecycleException
-                            ? $exception->errorCode
-                            : 'MODULE_MIGRATION_FAILED',
-                    ]);
+                            'status' => 'failed',
+                            'finished_at' => $this->now(),
+                            'error_code' => $exception instanceof PluginLifecycleException
+                                ? $exception->errorCode
+                                : 'MODULE_MIGRATION_FAILED',
+                        ]);
                     throw $exception;
                 }
             }
@@ -435,7 +435,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $registry = $this->registries->fromPluginLock($this->resolver, $this->moduleConfig);
         $manifests = [];
         foreach ($registry->compiled()->modules as $manifest) {
-            $key = (string)($manifest->data['key'] ?? '');
+            $key = (string) ($manifest->data['key'] ?? '');
             if (isset($plugin->moduleRoots[$key])) {
                 $manifests[$key] = $manifest;
             }
@@ -469,8 +469,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             foreach ($this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest) as $key => $path) {
                 $row = Db::name('module_migration')->where('module_key', $moduleKey)
                     ->where('migration_key', $key)->field('checksum,status')->find();
-                $checksum = (string)hash_file('sha256', $path);
-                if ($row !== null && !hash_equals((string)$row['checksum'], $checksum)) {
+                $checksum = (string) hash_file('sha256', $path);
+                if ($row !== null && !hash_equals((string) $row['checksum'], $checksum)) {
                     throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', "Migration changed: {$key}");
                 }
                 if ($row === null || $row['status'] !== 'applied') {
@@ -480,7 +480,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
         return [
             'plugin_key' => $plugin->key,
-            'from_version' => (string)$current['installed_version'],
+            'from_version' => (string) $current['installed_version'],
             'to_version' => $plugin->version,
             'identity_changed' => !$this->sameIdentity($plugin, $current),
             'pending_migrations' => $pending,
@@ -516,7 +516,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 continue;
             }
             foreach (glob($directory . '/*.sql') ?: [] as $path) {
-                $key = (string)$manifest->data['key'] . ':' . basename($path, '.sql');
+                $key = (string) $manifest->data['key'] . ':' . basename($path, '.sql');
                 if (isset($files[$key])) {
                     throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', "Duplicate migration key: {$key}");
                 }
@@ -557,10 +557,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if (!is_array($stat) || !isset($stat['dev'], $stat['ino'])) {
             throw new PluginLifecycleException(
                 'MODULE_MIGRATION_INVALID',
-                "Migration directory identity is unavailable: {$directory}"
+                "Migration directory identity is unavailable: {$directory}",
             );
         }
-        return (string)$stat['dev'] . ':' . (string)$stat['ino'];
+        return (string) $stat['dev'] . ':' . (string) $stat['ino'];
     }
 
     /** @return array<string,mixed>|false */
@@ -590,9 +590,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,mixed> $current */
     private function sameIdentity(PluginDescriptor $plugin, array $current): bool
     {
-        return (string)$current['installed_version'] === $plugin->version
-            && hash_equals((string)$current['artifact_sha256'], $plugin->source['sha256'])
-            && hash_equals((string)$current['lock_digest'], $plugin->lockDigest)
+        return (string) $current['installed_version'] === $plugin->version
+            && hash_equals((string) $current['artifact_sha256'], $plugin->source['sha256'])
+            && hash_equals((string) $current['lock_digest'], $plugin->lockDigest)
             && $this->jsonColumn($current['composer_identity_json']) === $this->json($plugin->composer)
             && $this->jsonColumn($current['npm_identity_json']) === $this->json($plugin->npm)
             && $this->jsonColumn($current['frontend_identity_json']) === $this->json($plugin->frontend);
@@ -615,9 +615,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private function json(mixed $value): string
     {
-        return (string)json_encode(
+        return (string) json_encode(
             $this->canonicalJsonValue($value),
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
         );
     }
 

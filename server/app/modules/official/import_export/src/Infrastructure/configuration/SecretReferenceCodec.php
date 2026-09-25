@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\configuration;
@@ -36,8 +37,8 @@ final class SecretReferenceCodec
             }
 
             foreach ($value as $key => $item) {
-                $path = $referenceRoot . '.' . (string)$key;
-                if (self::isSecretName((string)$key)) {
+                $path = $referenceRoot . '.' . (string) $key;
+                if (self::isSecretName((string) $key)) {
                     $value[$key] = self::marker($item, $path, $references);
                     continue;
                 }
@@ -186,7 +187,7 @@ final class SecretReferenceCodec
         if (is_array($value)) {
             return $value !== [];
         }
-        return $value !== null && trim((string)$value) !== '';
+        return $value !== null && trim((string) $value) !== '';
     }
 
     private static function validReplacement(mixed $value): bool
@@ -198,7 +199,7 @@ final class SecretReferenceCodec
                 return false;
             }
         }
-        return is_scalar($value) && strlen((string)$value) <= 4096;
+        return is_scalar($value) && strlen((string) $value) <= 4096;
     }
 
     /** @param list<array{reference:string,state:string}> $references */

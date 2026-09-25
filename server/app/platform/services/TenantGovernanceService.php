@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services;
@@ -24,9 +25,8 @@ final readonly class TenantGovernanceService
         private PlatformOperatorIdentityPort $identities,
         private PlatformTenantAdminService $administration,
         private TenantOwnerAdminService $owners,
-        private TenantOwnerAdminProvisioner $ownerAdmins
-    ) {
-    }
+        private TenantOwnerAdminProvisioner $ownerAdmins,
+    ) {}
 
     /** @return array{tenant_id:int,account_id:int,member_id:int,role_id:int,status:string} */
     public function provision(
@@ -36,7 +36,7 @@ final readonly class TenantGovernanceService
         string $ownerEmail,
         ?string $initialPassword,
         string $ownerDisplayName,
-        string $requestId
+        string $requestId,
     ): array {
         try {
             $operator = $this->identities->requireActive($operatorCredential, $requestId);
@@ -59,7 +59,7 @@ final readonly class TenantGovernanceService
                 );
                 $candidate = $this->owners->createCandidate(
                     $operator->core,
-                    (int)$tenant['id'],
+                    (int) $tenant['id'],
                     $ownerEmail,
                     $ownerDisplayName,
                     $initialPassword,
@@ -67,26 +67,26 @@ final readonly class TenantGovernanceService
                 $member = $candidate['member'];
                 $this->owners->activateCandidate(
                     $operator->core,
-                    (int)$candidate['tenant_id'],
-                    (int)$member['id'],
-                    (int)$member['revision'],
+                    (int) $candidate['tenant_id'],
+                    (int) $member['id'],
+                    (int) $member['revision'],
                     $requestId . ':owner-activation',
                     'Initial Tenant owner activation',
                 );
                 $this->ownerAdmins->provision(
-                    (int)$candidate['tenant_id'],
-                    (int)$member['account_id'],
-                    (int)$member['id'],
-                    (int)$member['role_id'],
+                    (int) $candidate['tenant_id'],
+                    (int) $member['account_id'],
+                    (int) $member['id'],
+                    (int) $member['role_id'],
                     $tenantCode,
-                    $ownerDisplayName
+                    $ownerDisplayName,
                 );
 
                 return [
-                    'tenant_id' => (int)$candidate['tenant_id'],
-                    'account_id' => (int)$member['account_id'],
-                    'member_id' => (int)$member['id'],
-                    'role_id' => (int)$member['role_id'],
+                    'tenant_id' => (int) $candidate['tenant_id'],
+                    'account_id' => (int) $member['account_id'],
+                    'member_id' => (int) $member['id'],
+                    'role_id' => (int) $member['role_id'],
                     'status' => 'pending',
                 ];
             });
@@ -105,7 +105,7 @@ final readonly class TenantGovernanceService
         int $expectedRevision,
         TenantStatus $next,
         string $changeReason,
-        string $requestId
+        string $requestId,
     ): array {
         try {
             $operator = $this->identities->requireActive($operatorCredential, $requestId);
@@ -137,7 +137,7 @@ final readonly class TenantGovernanceService
         ?DateTimeImmutable $effectiveAt,
         ?DateTimeImmutable $expiresAt,
         string $changeReason,
-        string $requestId
+        string $requestId,
     ): array {
         $operator = $this->identities->requireActive($operatorCredential, $requestId);
 
@@ -159,7 +159,7 @@ final readonly class TenantGovernanceService
         int $tenantId,
         string $moduleKey,
         string $changeReason,
-        string $requestId
+        string $requestId,
     ): array {
         $operator = $this->identities->requireActive($operatorCredential, $requestId);
 

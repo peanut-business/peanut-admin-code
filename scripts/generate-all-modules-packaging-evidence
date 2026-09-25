@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\platform\validation\plugin\ModulePackagePreflight;
@@ -25,7 +26,7 @@ function packagingEvidenceRun(array $command, ?string $cwd = null, array $enviro
         }
     }
     foreach ($environment as $key => $value) {
-        $childEnvironment[(string)$key] = (string)$value;
+        $childEnvironment[(string) $key] = (string) $value;
     }
     $process = proc_open(
         $command,
@@ -44,10 +45,10 @@ function packagingEvidenceRun(array $command, ?string $cwd = null, array $enviro
     $code = proc_close($process);
     if ($code !== 0) {
         packagingEvidenceFail(
-            'packaging evidence command failed(' . $code . '): ' . trim((string)$stderr)
+            'packaging evidence command failed(' . $code . '): ' . trim((string) $stderr),
         );
     }
-    return ['stdout' => (string)$stdout, 'stderr' => (string)$stderr];
+    return ['stdout' => (string) $stdout, 'stderr' => (string) $stderr];
 }
 
 function packagingEvidenceArgument(array $arguments, string $name, string $default): string
@@ -145,7 +146,7 @@ if (trim(packagingEvidenceRun(['git', '-C', $root, 'status', '--porcelain', '--u
     packagingEvidenceFail('source worktree must be clean before generating packaging evidence');
 }
 
-$pluginLock = json_decode((string)file_get_contents($root . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+$pluginLock = json_decode((string) file_get_contents($root . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
 if (!is_array($pluginLock['plugins'] ?? null) || !array_is_list($pluginLock['plugins'])) {
     packagingEvidenceFail('Bundled Plugin lock is invalid');
 }

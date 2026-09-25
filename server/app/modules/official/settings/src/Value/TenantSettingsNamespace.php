@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Value;
@@ -12,7 +13,5 @@ final class TenantSettingsNamespace
         }
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

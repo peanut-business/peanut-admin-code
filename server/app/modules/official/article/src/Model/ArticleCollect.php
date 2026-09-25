@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Article\Model;
@@ -16,7 +17,9 @@ class ArticleCollect extends TenantOwnedModel
     /** 判断某用户是否收藏了某篇文章 */
     public static function isCollected(int $memberId, int $articleId): bool
     {
-        if (!$memberId) return false;
+        if (!$memberId) {
+            return false;
+        }
         return self::where('member_id', $memberId)
             ->where('article_id', $articleId)
             ->where('status', 1)

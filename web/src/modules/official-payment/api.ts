@@ -37,7 +37,9 @@ export const getPayConfig = () =>
 export const savePayConfig = (data: PayConfig) =>
   axios.post('/adminapi/official.payment.settings.save', data);
 export const getRechargeSetting = () =>
-  axios.get<RechargeSetting>('/adminapi/official.payment.recharge-settings.detail');
+  axios.get<RechargeSetting>(
+    '/adminapi/official.payment.recharge-settings.detail'
+  );
 export const saveRechargeSetting = (data: RechargeSetting) =>
   axios.post('/adminapi/official.payment.recharge-settings.save', data);
 
@@ -97,15 +99,21 @@ export interface RechargeExportResult {
 }
 
 export function getRechargeList(params: RechargeParams) {
-  return axios.get<RechargeListRes>('/adminapi/official.payment.recharge.list', {
-    params,
-  });
+  return axios.get<RechargeListRes>(
+    '/adminapi/official.payment.recharge.list',
+    {
+      params,
+    }
+  );
 }
 
 export function getRechargeExportInfo(params: RechargeParams) {
-  return axios.get<RechargeExportInfo>('/adminapi/official.payment.recharge.list', {
-    params: { ...params, export: 1 },
-  });
+  return axios.get<RechargeExportInfo>(
+    '/adminapi/official.payment.recharge.list',
+    {
+      params: { ...params, export: 1 },
+    }
+  );
 }
 
 export function exportRecharge(params: RechargeParams) {
@@ -118,7 +126,7 @@ export function exportRecharge(params: RechargeParams) {
 export function refundRecharge(
   rechargeId: number,
   refundAmount?: number | string,
-  idempotencyKey = crypto.randomUUID(),
+  idempotencyKey = crypto.randomUUID()
 ) {
   return axios.post(
     '/adminapi/official.payment.recharge.refund',
@@ -126,7 +134,7 @@ export function refundRecharge(
       recharge_id: rechargeId,
       ...(refundAmount === undefined ? {} : { refund_amount: refundAmount }),
     },
-    { headers: { 'Idempotency-Key': idempotencyKey } },
+    { headers: { 'Idempotency-Key': idempotencyKey } }
   );
 }
 

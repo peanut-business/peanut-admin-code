@@ -1,6 +1,11 @@
 <template>
   <div class="content">
-    <el-result class="result" icon="warning" title="404" sub-title="not found" />
+    <el-result
+      class="result"
+      icon="warning"
+      title="404"
+      sub-title="not found"
+    />
     <div class="operation-row">
       <el-button key="back" type="primary" @click="back"> back </el-button>
     </div>

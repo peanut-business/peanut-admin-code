@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task\Controller;
@@ -32,7 +33,7 @@ class CrontabController extends BaseAdminController
         $result = $this->crontabs->crontab(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
-            (int)$params['id'],
+            (int) $params['id'],
         );
         return $this->data($result);
     }
@@ -66,7 +67,7 @@ class CrontabController extends BaseAdminController
         $this->crontabs->deleteCrontab(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
-            (int)$params['id'],
+            (int) $params['id'],
         );
         return $this->success('删除成功');
     }
@@ -75,8 +76,8 @@ class CrontabController extends BaseAdminController
     {
         $params = $this->request->post();
         $this->validate($params, CrontabValidate::class . '.operate');
-        $id      = (int)$params['id'];
-        $operate = (string)$params['operate'];
+        $id      = (int) $params['id'];
+        $operate = (string) $params['operate'];
         $this->crontabs->operateCrontab(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),
@@ -90,7 +91,7 @@ class CrontabController extends BaseAdminController
     {
         $params = $this->request->get();
         $this->validate($params, CrontabValidate::class . '.expression');
-        $expression = (string)$params['expression'];
+        $expression = (string) $params['expression'];
         return $this->data($this->crontabs->previewExpression(
             $this->tenantAdminContext(),
             $this->tenantAdminActor(),

@@ -7,7 +7,10 @@
       <span class="text-gray-700">{{ cateName }}</span>
     </div>
 
-    <div v-if="articles.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div
+      v-if="articles.length"
+      class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+    >
       <ArticleCard v-for="item in articles" :key="item.id" :article="item" />
     </div>
     <el-empty v-else description="该分类暂无资讯" />
@@ -25,36 +28,39 @@
 </template>
 
 <script setup lang="ts">
-import {
-  getArticleCategories,
-  getArticles,
-  type Article,
-} from '~/api/article'
+  import {
+    getArticleCategories,
+    getArticles,
+    type Article,
+  } from '~/api/article';
 
-definePageMeta({ layout: 'default' })
+  definePageMeta({ layout: 'default' });
 
-const route = useRoute()
-const cateId = Number(route.params.source)
-const request = useRequest()
+  const route = useRoute();
+  const cateId = Number(route.params.source);
+  const request = useRequest();
 
-const pageNo = ref(1)
-const pageSize = 12
-const articles = ref<Article[]>([])
-const total = ref(0)
+  const pageNo = ref(1);
+  const pageSize = 12;
+  const articles = ref<Article[]>([]);
+  const total = ref(0);
 
-// Get category name from cate list
-const categories = await getArticleCategories(request)
-const cateName = computed(() => categories.find((category) => category.id === cateId)?.name || '分类资讯')
+  // Get category name from cate list
+  const categories = await getArticleCategories(request);
+  const cateName = computed(
+    () =>
+      categories.find((category) => category.id === cateId)?.name || '分类资讯'
+  );
 
-await loadArticles()
+  await loadArticles();
 
-async function loadArticles() {
-  const data = await getArticles(request, {
-    cid: cateId,
-    pageNo: pageNo.value,
-    pageSize,
-  })
-  articles.value = data?.lists || []
-  total.value = data?.count || 0
-}
+  async function loadArticles() {
+    const data = await getArticles(request, {
+      cid: cateId,
+      pageNo: pageNo.value,
+      pageSize,
+    });
+    articles.value = data?.lists || [];
+    total.value = data?.count || 0;
+  }
 </script>

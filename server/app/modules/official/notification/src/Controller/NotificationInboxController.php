@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Controller;
@@ -18,7 +19,7 @@ final class NotificationInboxController extends BaseAdminController
     public function index(): Json
     {
         try {
-            $status = trim((string)$this->request->get('status', 'all'));
+            $status = trim((string) $this->request->get('status', 'all'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
             $result = $this->notifications->messages(
@@ -68,7 +69,7 @@ final class NotificationInboxController extends BaseAdminController
     {
         try {
             $keys = $this->request->post('message_keys', []);
-            $action = trim((string)$this->request->post('action', ''));
+            $action = trim((string) $this->request->post('action', ''));
             if (!is_array($keys) || !array_is_list($keys)) {
                 throw NotificationException::invalid();
             }
@@ -90,20 +91,20 @@ final class NotificationInboxController extends BaseAdminController
     private function positiveInteger(mixed $value): int
     {
         if ((!is_int($value) && !(is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1))
-            || (int)$value < 1
+            || (int) $value < 1
         ) {
             throw NotificationException::invalid();
         }
-        return (int)$value;
+        return (int) $value;
     }
 
     private function revisionHeader(): int
     {
-        $value = trim((string)$this->request->header('If-Match', ''));
+        $value = trim((string) $this->request->header('If-Match', ''));
         if (preg_match('/^"rev-([1-9][0-9]*)"$/D', $value, $matches) !== 1) {
             throw NotificationException::invalid();
         }
-        return (int)$matches[1];
+        return (int) $matches[1];
     }
 
     private function problem(NotificationException $exception): ApiProblem

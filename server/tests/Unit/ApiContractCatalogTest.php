@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
@@ -25,9 +26,9 @@ final class ApiContractCatalogTest extends TestCase
         $status = proc_close($process);
 
         try {
-            self::assertSame(0, $status, (string)$stderr);
-            self::assertStringContainsString('API-CONTRACT-CHECK-001 passed', (string)$stdout);
-            $document = json_decode((string)file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR);
+            self::assertSame(0, $status, (string) $stderr);
+            self::assertStringContainsString('API-CONTRACT-CHECK-001 passed', (string) $stdout);
+            $document = json_decode((string) file_get_contents($catalog), true, 512, JSON_THROW_ON_ERROR);
             $endpoints = $document['endpoints'];
             $summary = $document['summary'];
 
@@ -91,7 +92,9 @@ final class ApiContractCatalogTest extends TestCase
             self::assertSame('complete', $byRoute['POST /adminapi/tenant/session/logout']['contract_quality']);
             self::assertSame('complete', $byRoute['GET /adminapi/api/v1/files/{fileKey}/content']['contract_quality']);
         } finally {
-            if (is_file($catalog)) unlink($catalog);
+            if (is_file($catalog)) {
+                unlink($catalog);
+            }
         }
     }
 
@@ -222,7 +225,9 @@ final class ApiContractCatalogTest extends TestCase
         foreach (['paths', 'overrides'] as $section) {
             foreach ($fragment[$section] ?? [] as $pathItem) {
                 foreach (['get', 'post', 'put', 'delete', 'patch'] as $method) {
-                    if (isset($pathItem[$method])) $count++;
+                    if (isset($pathItem[$method])) {
+                        $count++;
+                    }
                 }
             }
         }

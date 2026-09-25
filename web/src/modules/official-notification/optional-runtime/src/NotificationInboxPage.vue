@@ -1,37 +1,46 @@
 <script setup lang="ts">
-import {
-  EmptyState,
-  ForbiddenState,
-  ModuleUnavailableState,
-  PageContent,
-  PageHeader,
-  PageToolbar,
-  SessionExpiredState,
-} from '@peanut-admin/ui-vue'
-import { ElButton, ElCheckbox, ElTag } from 'element-plus'
-import { computed, onMounted } from 'vue'
+  import {
+    EmptyState,
+    ForbiddenState,
+    ModuleUnavailableState,
+    PageContent,
+    PageHeader,
+    PageToolbar,
+    SessionExpiredState,
+  } from '@peanut-admin/ui-vue';
+  import { ElButton, ElCheckbox, ElTag } from 'element-plus';
+  import { computed, onMounted } from 'vue';
 
-import type { NotificationFilter, NotificationMessage } from './contracts'
-import { useNotificationRuntime } from './runtime'
+  import type { NotificationFilter, NotificationMessage } from './contracts';
+  import { useNotificationRuntime } from './runtime';
 
-const runtime = useNotificationRuntime()
-const state = runtime.state
-const canManage = computed(runtime.canManage)
-const filters: readonly { label: string; value: NotificationFilter }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Unread', value: 'unread' },
-  { label: 'Read', value: 'read' },
-  { label: 'Archived', value: 'archived' },
-]
+  const runtime = useNotificationRuntime();
+  const state = runtime.state;
+  const canManage = computed(runtime.canManage);
+  const filters: readonly { label: string; value: NotificationFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Unread', value: 'unread' },
+    { label: 'Read', value: 'read' },
+    { label: 'Archived', value: 'archived' },
+  ];
 
-const run = async (operation: () => Promise<void>): Promise<void> => {
-  try { await operation() } catch { return }
-}
-const statusType = (message: NotificationMessage): 'primary' | 'success' | 'info' => (
-  message.status === 'unread' ? 'primary' : message.status === 'read' ? 'success' : 'info'
-)
+  const run = async (operation: () => Promise<void>): Promise<void> => {
+    try {
+      await operation();
+    } catch {
+      return;
+    }
+  };
+  const statusType = (
+    message: NotificationMessage
+  ): 'primary' | 'success' | 'info' =>
+    message.status === 'unread'
+      ? 'primary'
+      : message.status === 'read'
+      ? 'success'
+      : 'info';
 
-onMounted(() => run(runtime.load))
+  onMounted(() => run(runtime.load));
 </script>
 
 <template>
@@ -50,10 +59,7 @@ onMounted(() => run(runtime.load))
       </template>
     </PageHeader>
 
-    <PageToolbar
-      v-if="!state.error"
-      label="Notification controls"
-    >
+    <PageToolbar v-if="!state.error" label="Notification controls">
       <div class="notification-toolbar">
         <div
           class="notification-filters"
@@ -74,13 +80,17 @@ onMounted(() => run(runtime.load))
         <div class="notification-actions">
           <span>{{ state.selected.size }} selected</span>
           <ElButton
-            :disabled="!canManage || state.selected.size === 0 || state.mutating"
+            :disabled="
+              !canManage || state.selected.size === 0 || state.mutating
+            "
             @click="run(() => runtime.bulk('read'))"
           >
             Mark read
           </ElButton>
           <ElButton
-            :disabled="!canManage || state.selected.size === 0 || state.mutating"
+            :disabled="
+              !canManage || state.selected.size === 0 || state.mutating
+            "
             @click="run(() => runtime.bulk('archive'))"
           >
             Archive
@@ -92,29 +102,35 @@ onMounted(() => run(runtime.load))
     <SessionExpiredState
       v-if="state.error?.status === 401"
       :message="state.error.message"
-      v-bind="state.error.requestId === null ? {} : { requestId: state.error.requestId }"
+      v-bind="
+        state.error.requestId === null
+          ? {}
+          : { requestId: state.error.requestId }
+      "
     />
     <ForbiddenState
       v-else-if="state.error?.status === 403"
       :message="state.error.message"
-      v-bind="state.error.requestId === null ? {} : { requestId: state.error.requestId }"
+      v-bind="
+        state.error.requestId === null
+          ? {}
+          : { requestId: state.error.requestId }
+      "
     />
     <ModuleUnavailableState
       v-else-if="state.error?.status === 503"
       :message="state.error.message"
-      v-bind="state.error.requestId === null ? {} : { requestId: state.error.requestId }"
+      v-bind="
+        state.error.requestId === null
+          ? {}
+          : { requestId: state.error.requestId }
+      "
       @action="run(runtime.load)"
     />
-    <section
-      v-else-if="state.error"
-      class="notification-state"
-      role="alert"
-    >
+    <section v-else-if="state.error" class="notification-state" role="alert">
       <h2>Unable to load notifications</h2>
       <p>{{ state.error.message }}</p>
-      <ElButton @click="run(runtime.load)">
-        Retry
-      </ElButton>
+      <ElButton @click="run(runtime.load)"> Retry </ElButton>
     </section>
     <div
       v-else-if="state.loading"
@@ -129,11 +145,7 @@ onMounted(() => run(runtime.load))
       title="No notifications"
       message="No messages match the selected inbox status."
     />
-    <section
-      v-else
-      class="notification-list"
-      aria-label="Notification inbox"
-    >
+    <section v-else class="notification-list" aria-label="Notification inbox">
       <article
         v-for="message in state.items"
         :key="message.messageKey"
@@ -184,84 +196,84 @@ onMounted(() => run(runtime.load))
 </template>
 
 <style scoped>
-.notification-toolbar,
-.notification-filters,
-.notification-actions,
-.notification-item__heading,
-.notification-item__footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.notification-toolbar,
-.notification-item__heading,
-.notification-item__footer {
-  justify-content: space-between;
-}
-
-.notification-toolbar {
-  flex-wrap: wrap;
-  width: 100%;
-}
-
-.notification-list {
-  border-top: 1px solid var(--el-border-color);
-}
-
-.notification-item {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
-  gap: 12px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--el-border-color);
-}
-
-.notification-item--unread {
-  border-left: 3px solid var(--el-color-primary);
-  padding-left: 12px;
-}
-
-.notification-item__content,
-.notification-item__heading h2 {
-  min-width: 0;
-}
-
-.notification-item__heading h2 {
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-size: 16px;
-  letter-spacing: 0;
-}
-
-.notification-item__content > p {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.notification-attachments {
-  margin: 8px 0;
-  padding-left: 20px;
-}
-
-.notification-item__footer {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.notification-state {
-  padding: 24px 0;
-}
-
-@media (max-width: 720px) {
   .notification-toolbar,
-  .notification-actions {
-    align-items: flex-start;
-    flex-direction: column;
+  .notification-filters,
+  .notification-actions,
+  .notification-item__heading,
+  .notification-item__footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
-  .notification-filters {
-    flex-wrap: wrap;
+  .notification-toolbar,
+  .notification-item__heading,
+  .notification-item__footer {
+    justify-content: space-between;
   }
-}
+
+  .notification-toolbar {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .notification-list {
+    border-top: 1px solid var(--el-border-color);
+  }
+
+  .notification-item {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--el-border-color);
+  }
+
+  .notification-item--unread {
+    border-left: 3px solid var(--el-color-primary);
+    padding-left: 12px;
+  }
+
+  .notification-item__content,
+  .notification-item__heading h2 {
+    min-width: 0;
+  }
+
+  .notification-item__heading h2 {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 16px;
+    letter-spacing: 0;
+  }
+
+  .notification-item__content > p {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .notification-attachments {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+
+  .notification-item__footer {
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+  }
+
+  .notification-state {
+    padding: 24px 0;
+  }
+
+  @media (max-width: 720px) {
+    .notification-toolbar,
+    .notification-actions {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .notification-filters {
+      flex-wrap: wrap;
+    }
+  }
 </style>

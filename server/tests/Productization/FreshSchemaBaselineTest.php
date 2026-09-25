@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 function freshSchemaExpect(bool $condition, string $message): void
@@ -9,16 +10,16 @@ function freshSchemaExpect(bool $condition, string $message): void
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$schema = (string)file_get_contents($serverRoot . '/database/init.sql');
-$installer = (string)file_get_contents($serverRoot . '/database/install.php');
-$installationHost = (string)file_get_contents(
-    $serverRoot . '/app/common/services/installation/InstallationExecutionHost.php'
+$schema = (string) file_get_contents($serverRoot . '/database/init.sql');
+$installer = (string) file_get_contents($serverRoot . '/database/install.php');
+$installationHost = (string) file_get_contents(
+    $serverRoot . '/app/common/services/installation/InstallationExecutionHost.php',
 );
-$migrationRunner = (string)file_get_contents(
-    $serverRoot . '/app/common/services/upgrade/ApplicationMigrationRunner.php'
+$migrationRunner = (string) file_get_contents(
+    $serverRoot . '/app/common/services/upgrade/ApplicationMigrationRunner.php',
 );
-$upgradeEntry = (string)file_get_contents(dirname($serverRoot) . '/scripts/upgrade');
-$guard = (string)file_get_contents($serverRoot . '/database/environment-guard.php');
+$upgradeEntry = (string) file_get_contents(dirname($serverRoot) . '/scripts/upgrade');
+$guard = (string) file_get_contents($serverRoot . '/database/environment-guard.php');
 preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $schema, $matches);
 $applicationTables = array_values(array_unique($matches[1] ?? []));
 
@@ -57,14 +58,14 @@ freshSchemaExpect(
         && str_contains($upgradeEntry, "\$state['activation_started'] = true")
         && str_contains($upgradeEntry, "'activate', 'completed', \$activation")
         && str_contains($upgradeEntry, "\$state['completed_at']"),
-    'standalone application upgrade entry or shared migration runner is unavailable'
+    'standalone application upgrade entry or shared migration runner is unavailable',
 );
 freshSchemaExpect(
     str_contains($installationHost, 'peanut.installation-baseline.v1')
         && str_contains($installationHost, "'kind' => 'product-source'")
         && str_contains($installationHost, "'kind' => 'generated-application'")
         && str_contains($installationHost, 'peanut.installation-receipt.v1'),
-    'fresh installation does not create a source-independent baseline manifest and receipt'
+    'fresh installation does not create a source-independent baseline manifest and receipt',
 );
 freshSchemaExpect(
     str_contains($installer, 'applicationReleaseVersions($serverDir)')
@@ -73,7 +74,7 @@ freshSchemaExpect(
         && str_contains($installer, "\$versions['release_sequence_version']")
         && str_contains($migrationRunner, "\$identity['peanut_release']")
         && str_contains($installationHost, '$this->migrationTargetVersion()'),
-    'fresh install and migration selection do not preserve source, instance and scaffold version axes'
+    'fresh install and migration selection do not preserve source, instance and scaffold version axes',
 );
 $migrations = glob($serverRoot . '/database/migrations/*.sql') ?: [];
 // These migrations reached the shared ledger before the release marker became mandatory.
@@ -85,25 +86,25 @@ $immutableMissingReleaseIdentity = [
 ];
 $observedImmutableMissingReleaseIdentity = [];
 foreach ($migrations as $migration) {
-    $migrationSql = (string)file_get_contents($migration);
+    $migrationSql = (string) file_get_contents($migration);
     $migrationName = basename($migration);
     $hasReleaseIdentity = preg_match('/^--\s+peanut-release:\s+\d+\.\d+\.\d+\s*$/m', $migrationSql) === 1;
     if (!$hasReleaseIdentity && isset($immutableMissingReleaseIdentity[$migrationName])) {
         freshSchemaExpect(
             hash_equals($immutableMissingReleaseIdentity[$migrationName], hash('sha256', $migrationSql)),
-            'immutable migration without release identity changed: ' . $migrationName
+            'immutable migration without release identity changed: ' . $migrationName,
         );
         $observedImmutableMissingReleaseIdentity[$migrationName] = true;
         continue;
     }
     freshSchemaExpect(
         $hasReleaseIdentity,
-        'post-baseline migration is missing a release identity: ' . $migrationName
+        'post-baseline migration is missing a release identity: ' . $migrationName,
     );
 }
 freshSchemaExpect(
     array_keys($observedImmutableMissingReleaseIdentity) === array_keys($immutableMissingReleaseIdentity),
-    'immutable migration release identity exceptions are stale'
+    'immutable migration release identity exceptions are stale',
 );
 
 foreach (['information_schema', 'ALTER TABLE', 'PREPARE ', 'EXECUTE ', 'DEALLOCATE PREPARE'] as $transitionSql) {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\value\ops;
@@ -21,9 +22,7 @@ final readonly class PairedBackupManifest
     private const CAPACITY_HEADROOM_BYTES = 1073741824;
 
     /** @param array<string, mixed> $manifest */
-    private function __construct(private array $manifest)
-    {
-    }
+    private function __construct(private array $manifest) {}
 
     public static function fromJson(string $json): self
     {
@@ -187,7 +186,7 @@ final readonly class PairedBackupManifest
     {
         return json_encode(
             $this->manifest,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         ) . "\n";
     }
 

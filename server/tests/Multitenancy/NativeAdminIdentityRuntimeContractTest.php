@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 $serverDir = dirname(__DIR__, 2);
@@ -26,7 +27,7 @@ foreach ($runtimeFiles as $relative) {
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
         foreach ($iterator as $file) {
             if ($file->isFile() && $file->getExtension() === 'php') {
-                $source .= (string)file_get_contents($file->getPathname());
+                $source .= (string) file_get_contents($file->getPathname());
             }
         }
         continue;
@@ -34,7 +35,7 @@ foreach ($runtimeFiles as $relative) {
     if (!is_file($path)) {
         throw new RuntimeException('Native identity source owner is missing: ' . $relative);
     }
-    $source .= (string)file_get_contents($path);
+    $source .= (string) file_get_contents($path);
 }
 
 foreach ($forbidden as $table) {
@@ -45,7 +46,7 @@ foreach ($forbidden as $table) {
 // The ORM applies the configured prefix. Check declared ownership AND each
 // actual model's unprefixed name, not obsolete raw SQL in the application layer.
 $identityRoot = $serverDir . '/app/modules/official/identity';
-$identity = json_decode((string)file_get_contents($identityRoot . '/module.json'), true, 128, JSON_THROW_ON_ERROR);
+$identity = json_decode((string) file_get_contents($identityRoot . '/module.json'), true, 128, JSON_THROW_ON_ERROR);
 $models = [
     'Account' => 'account', 'Credential' => 'credential',
     'TenantMember' => 'tenant_member', 'MemberRole' => 'member_role',
@@ -60,13 +61,13 @@ foreach ($models as $class => $name) {
     if (!is_file($modelFile)) {
         throw new RuntimeException('Native identity model is missing: ' . $class);
     }
-    $model = (string)file_get_contents($modelFile);
+    $model = (string) file_get_contents($modelFile);
     if (!preg_match('/protected\\s+\\$name\\s*=\\s*([\'"])' . preg_quote($name, '/') . '\\1\\s*;/', $model)) {
         throw new RuntimeException('Native identity model table differs: ' . $class);
     }
 }
 
-$admin = (string)file_get_contents($serverDir . '/app/adminapi/services/auth/AdminApplicationService.php');
+$admin = (string) file_get_contents($serverDir . '/app/adminapi/services/auth/AdminApplicationService.php');
 foreach (['add' => 'createAdministrator', 'edit' => 'updateAdministrator'] as $method => $command) {
     if (!preg_match('/public function ' . $method . '\\(.*?(?=\\n    (?:\/\*\*|public function))/s', $admin, $match)) {
         throw new RuntimeException("Administrator method is missing: {$method}");

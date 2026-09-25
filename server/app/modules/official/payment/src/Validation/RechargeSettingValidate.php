@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Validation;
@@ -33,7 +34,7 @@ class RechargeSettingValidate extends Validate
 
     protected function checkConfig(mixed $value, mixed $rule, array $data): bool|string
     {
-        if (!in_array((string)$value, ['0', '1'], true)) {
+        if (!in_array((string) $value, ['0', '1'], true)) {
             return '充值状态无效';
         }
         $expectedKeys = ['max_amount', 'min_amount', 'scenes', 'status'];
@@ -43,8 +44,8 @@ class RechargeSettingValidate extends Validate
             return '充值配置包含非 canonical 字段';
         }
 
-        $minAmount = (float)($data['min_amount'] ?? 0);
-        $maxAmount = (float)($data['max_amount'] ?? 0);
+        $minAmount = (float) ($data['min_amount'] ?? 0);
+        $maxAmount = (float) ($data['max_amount'] ?? 0);
         if (!is_finite($minAmount) || $minAmount < 0.01 || $minAmount > 99999999.99) {
             return '最低充值金额须在 0.01 至 99999999.99 之间';
         }
@@ -68,16 +69,16 @@ class RechargeSettingValidate extends Validate
                 return '支付场景包含非 canonical 字段';
             }
 
-            if (!preg_match('/^[1-6]$/D', (string)$scene['terminal'])
-                || !preg_match('/^[23]$/D', (string)$scene['pay_way'])
-                || !in_array((string)$scene['status'], ['0', '1'], true)
-                || !in_array((string)$scene['is_default'], ['0', '1'], true)) {
+            if (!preg_match('/^[1-6]$/D', (string) $scene['terminal'])
+                || !preg_match('/^[23]$/D', (string) $scene['pay_way'])
+                || !in_array((string) $scene['status'], ['0', '1'], true)
+                || !in_array((string) $scene['is_default'], ['0', '1'], true)) {
                 return '支付场景状态或标识无效';
             }
-            $terminal = (int)$scene['terminal'];
-            $payWay = (int)$scene['pay_way'];
-            $status = (int)$scene['status'];
-            $isDefault = (int)$scene['is_default'];
+            $terminal = (int) $scene['terminal'];
+            $payWay = (int) $scene['pay_way'];
+            $status = (int) $scene['status'];
+            $isDefault = (int) $scene['is_default'];
             if (!UserTerminalEnum::isValid($terminal) || !PaymentScene::supports($terminal, $payWay)) {
                 return '支付终端或渠道无效';
             }
@@ -107,8 +108,8 @@ class RechargeSettingValidate extends Validate
                 $enabled += $matrix[$key]['status'];
                 $defaults += $matrix[$key]['isDefault'];
             }
-            if ((int)$value === 1 && ($enabled < 1 || $defaults !== 1)) {
-                return UserTerminalEnum::getDesc((int)$terminal) . '必须启用至少一个渠道并设置唯一默认渠道';
+            if ((int) $value === 1 && ($enabled < 1 || $defaults !== 1)) {
+                return UserTerminalEnum::getDesc((int) $terminal) . '必须启用至少一个渠道并设置唯一默认渠道';
             }
         }
         return true;

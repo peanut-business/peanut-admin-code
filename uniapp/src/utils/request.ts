@@ -2,59 +2,59 @@ import {
   ClientRequestError,
   createClient,
   type ClientDecodeResult,
-} from '@peanut-admin/client'
-import { createUniAppClientTransport } from '@peanut-admin/uniapp'
-import { useUserStore } from '@/store/user'
+} from '@peanut-admin/client';
+import { createUniAppClientTransport } from '@peanut-admin/uniapp';
+import { useUserStore } from '@/store/user';
 
-const configuredBaseUrl = import.meta.env.VITE_APP_BASE_URL || ''
+const configuredBaseUrl = import.meta.env.VITE_APP_BASE_URL || '';
 
 interface RuntimeLocation {
-  origin?: unknown
+  origin?: unknown;
 }
 
 interface RuntimeGlobal {
-  location?: RuntimeLocation
+  location?: RuntimeLocation;
 }
 
 interface RequestOptions {
-  url: string
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  url: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: Record<string, any>
-  header?: Record<string, string>
+  data?: Record<string, any>;
+  header?: Record<string, string>;
   /** skip auth check — for login/register/public routes */
-  auth?: boolean
+  auth?: boolean;
 }
 
 interface ApiResponse<T = unknown> {
-  code: number
-  msg: string
-  data: T
+  code: number;
+  msg: string;
+  data: T;
 }
 
 function baseUrl(): string {
-  if (configuredBaseUrl) return configuredBaseUrl
-  const origin = (globalThis as unknown as RuntimeGlobal).location?.origin
-  return typeof origin === 'string' ? origin : ''
+  if (configuredBaseUrl) return configuredBaseUrl;
+  const origin = (globalThis as unknown as RuntimeGlobal).location?.origin;
+  return typeof origin === 'string' ? origin : '';
 }
 
 function decodeResponse<T>(response: unknown): ClientDecodeResult<T> {
-  const result = response as Partial<ApiResponse<T>>
+  const result = response as Partial<ApiResponse<T>>;
   if (result.code === 20000) {
-    return { kind: 'success', data: result.data as T }
+    return { kind: 'success', data: result.data as T };
   }
   if (result.code === 40100) {
     return {
       kind: 'unauthorized',
       code: 'AUTH_REQUIRED',
       message: result.msg || '请先登录',
-    }
+    };
   }
   return {
     kind: 'business',
     code: 'BUSINESS_REJECTED',
     message: result.msg || '请求失败',
-  }
+  };
 }
 
 const transport = createUniAppClientTransport({
@@ -67,9 +67,9 @@ const transport = createUniAppClientTransport({
       header: options.header,
       success: (response) => options.success?.({ data: response.data }),
       fail: options.fail,
-    })
+    });
   },
-})
+});
 
 const client = createClient({
   transport,
@@ -83,7 +83,7 @@ const client = createClient({
     businessError: (error) =>
       uni.showToast({ title: error.message || '请求失败', icon: 'none' }),
   },
-})
+});
 
 async function request<T = unknown>(options: RequestOptions): Promise<T> {
   try {
@@ -96,22 +96,22 @@ async function request<T = unknown>(options: RequestOptions): Promise<T> {
         ...options.header,
       },
       auth: options.auth,
-    })
+    });
   } catch (error) {
     if (error instanceof ClientRequestError && error.kind === 'transport') {
-      uni.showToast({ title: '网络错误，请稍后重试', icon: 'none' })
+      uni.showToast({ title: '网络错误，请稍后重试', icon: 'none' });
     }
-    throw error
+    throw error;
   }
 }
 
 export const http = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   get<T = unknown>(url: string, data?: Record<string, any>, auth = true) {
-    return request<T>({ url, method: 'GET', data, auth })
+    return request<T>({ url, method: 'GET', data, auth });
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   post<T = unknown>(url: string, data?: Record<string, any>, auth = true) {
-    return request<T>({ url, method: 'POST', data, auth })
+    return request<T>({ url, method: 'POST', data, auth });
   },
-}
+};

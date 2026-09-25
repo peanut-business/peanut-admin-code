@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Infrastructure;
@@ -12,14 +13,12 @@ use PeanutAdmin\Kernel\Audit\AuditOutcome;
 
 final class ThinkPhpExternalTenantAudit implements ExternalTenantAudit
 {
-    public function __construct(private readonly AuditContractHost $audit)
-    {
-    }
+    public function __construct(private readonly AuditContractHost $audit) {}
 
     public function record(string $outcome, array $attributes): void
     {
-        $operationId = trim((string)($attributes['operation_id'] ?? 'external-tenant-resolution'));
-        $tenantId = isset($attributes['tenant_id']) ? (int)$attributes['tenant_id'] : null;
+        $operationId = trim((string) ($attributes['operation_id'] ?? 'external-tenant-resolution'));
+        $tenantId = isset($attributes['tenant_id']) ? (int) $attributes['tenant_id'] : null;
         $accepted = $outcome === 'accepted';
         $event = $tenantId !== null && $tenantId > 0
             ? new AuditEvent(

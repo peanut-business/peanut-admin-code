@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -123,7 +124,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             foreach (array_keys($process) as $name) {
                 if (is_string($name) && preg_match(
                     '/^PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE$|PUBLIC_DEFAULT_TENANT_FALLBACK$|PLATFORM_|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_|ASYNC_|DEFAULT_LANG$|PROJECT_VERSION$)/D',
-                    $name
+                    $name,
                 ) === 1) {
                     throw new RuntimeException('BACKEND_ENVIRONMENT_LEGACY_PREFIX_FORBIDDEN:' . substr($name, 4));
                 }
@@ -132,7 +133,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
         $managed = array_fill_keys($keys, true);
         foreach ($values as $key => $value) {
             if (!is_string($key) || !isset($managed[$key])) {
-                throw new RuntimeException("{$scope}_ENVIRONMENT_UNKNOWN_KEY:" . (string)$key);
+                throw new RuntimeException("{$scope}_ENVIRONMENT_UNKNOWN_KEY:" . (string) $key);
             }
             if (!is_string($value) && !is_int($value) && !is_float($value) && !is_bool($value)) {
                 throw new RuntimeException("{$scope}_ENVIRONMENT_VALUE_INVALID:{$key}");
@@ -150,7 +151,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
         }
 
         foreach ($values as $key => $value) {
-            $value = is_bool($value) ? ($value ? 'true' : 'false') : (string)$value;
+            $value = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
             putenv($key . '=' . $value);
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
@@ -160,7 +161,9 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
     function peanutLoadBackendEnvironment(): void
     {
         static $loaded = false;
-        if ($loaded) return;
+        if ($loaded) {
+            return;
+        }
         $path = peanutBackendEnvironmentPath();
         if (!is_file($path)) {
             throw new RuntimeException('BACKEND_ENVIRONMENT_FILE_MISSING');

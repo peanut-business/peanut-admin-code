@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
@@ -31,8 +32,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService
     public function __construct(
         private AuditContractHost $audit,
         private PlatformOperatorIdentityQuery $operators,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed>|null */
     public function claim(): ?array
@@ -47,7 +47,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService
                 return null;
             }
 
-            $payload = json_decode((string)$row['payload_json'], true, 8, JSON_THROW_ON_ERROR);
+            $payload = json_decode((string) $row['payload_json'], true, 8, JSON_THROW_ON_ERROR);
             $payloadKeys = is_array($payload) ? array_keys($payload) : [];
             sort($payloadKeys, SORT_STRING);
             if (!is_array($payload)
@@ -56,7 +56,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService
                 || ($payload['target_key'] ?? null) !== PairedBackupProvider::RESTORE_TARGET_KEY
                 || !is_string($payload['backup_reference_key'] ?? null)
                 || preg_match('/^backup_[a-f0-9]{32}$/D', $payload['backup_reference_key']) !== 1
-                || (int)$row['attempt_count'] >= (int)$row['max_attempts']
+                || (int) $row['attempt_count'] >= (int) $row['max_attempts']
             ) {
                 throw new RuntimeException('OPS_RESTORE_TASK_INVALID');
             }
@@ -72,14 +72,14 @@ final readonly class ThinkPhpRestoreTaskExecutionService
             }
 
             return [
-                'task_key' => (string)$row['task_key'],
+                'task_key' => (string) $row['task_key'],
                 'backup_reference_key' => $payload['backup_reference_key'],
                 'provider_key' => PairedBackupProvider::PROVIDER_KEY,
                 'target_key' => PairedBackupProvider::RESTORE_TARGET_KEY,
-                'manifest_sha256' => (string)$backup['manifest_sha256'],
-                'source_commit' => (string)$backup['source_commit'],
-                'source_tree' => (string)$backup['source_tree'],
-                'execution_revision' => (int)$row['revision'] + 1,
+                'manifest_sha256' => (string) $backup['manifest_sha256'],
+                'source_commit' => (string) $backup['source_commit'],
+                'source_tree' => (string) $backup['source_tree'],
+                'execution_revision' => (int) $row['revision'] + 1,
             ];
         });
     }
@@ -92,7 +92,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService
         return $this->transaction(function () use ($taskKey, $executionRevision, $manifest): array {
             $task = $this->taskForUpdate($taskKey);
             $payload = $this->payload($task);
-            if ((string)$task['status'] !== 'running' || (int)$task['revision'] !== $executionRevision) {
+            if ((string) $task['status'] !== 'running' || (int) $task['revision'] !== $executionRevision) {
                 throw new RuntimeException('OPS_RESTORE_EXECUTION_FENCED');
             }
             if (!hash_equals($payload['backup_reference_key'], $manifest->backupReferenceKey())) {
@@ -100,14 +100,14 @@ final readonly class ThinkPhpRestoreTaskExecutionService
             }
             $backup = $this->backupEvidence($payload['backup_reference_key']);
             $manifestSha256 = hash('sha256', $manifest->canonicalJson());
-            if (!hash_equals((string)$backup['manifest_sha256'], $manifestSha256)) {
+            if (!hash_equals((string) $backup['manifest_sha256'], $manifestSha256)) {
                 throw new RuntimeException('OPS_RESTORE_ARTIFACT_INVALID');
             }
             return [
                 'backup_reference_key' => $payload['backup_reference_key'],
                 'manifest_sha256' => $manifestSha256,
-                'source_commit' => (string)$backup['source_commit'],
-                'source_tree' => (string)$backup['source_tree'],
+                'source_commit' => (string) $backup['source_commit'],
+                'source_tree' => (string) $backup['source_tree'],
                 'execution_revision' => $executionRevision,
             ];
         });
@@ -119,7 +119,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService
         $this->assertExecutionRevision($executionRevision);
         return $this->transaction(function () use ($taskKey, $executionRevision): array {
             $task = $this->taskForUpdate($taskKey);
-            if ((string)$task['status'] !== 'running' || (int)$task['revision'] !== $executionRevision) {
+            if ((string) $task['status'] !== 'running' || (int) $task['revision'] !== $executionRevision) {
                 throw new RuntimeException('OPS_RESTORE_EXECUTION_FENCED');
             }
             Db::name('ops_task')->where('task_key', $taskKey)->where('status', 'running')
@@ -142,19 +142,19 @@ final readonly class ThinkPhpRestoreTaskExecutionService
             $existing = $this->restoreEvidence($taskKey);
             $evidenceSha256 = hash('sha256', $canonical);
             if ($existing !== null) {
-                if (!hash_equals((string)$existing['evidence_sha256'], $evidenceSha256)) {
+                if (!hash_equals((string) $existing['evidence_sha256'], $evidenceSha256)) {
                     throw new RuntimeException('OPS_RESTORE_EVIDENCE_CONFLICT');
                 }
                 return ['task_key' => $taskKey, 'status' => 'succeeded', 'evidence_sha256' => $evidenceSha256];
             }
-            if ((string)$task['status'] !== 'running' || (int)$task['revision'] !== $executionRevision) {
+            if ((string) $task['status'] !== 'running' || (int) $task['revision'] !== $executionRevision) {
                 throw new RuntimeException('OPS_RESTORE_EXECUTION_FENCED');
             }
             $backup = $this->backupEvidence($payload['backup_reference_key']);
-            if (!hash_equals($payload['backup_reference_key'], (string)$data['backup_reference_key'])
-                || !hash_equals((string)$backup['manifest_sha256'], (string)$data['manifest_sha256'])
-                || !hash_equals((string)$backup['source_commit'], (string)$data['source']['commit'])
-                || !hash_equals((string)$backup['source_tree'], (string)$data['source']['tree'])
+            if (!hash_equals($payload['backup_reference_key'], (string) $data['backup_reference_key'])
+                || !hash_equals((string) $backup['manifest_sha256'], (string) $data['manifest_sha256'])
+                || !hash_equals((string) $backup['source_commit'], (string) $data['source']['commit'])
+                || !hash_equals((string) $backup['source_tree'], (string) $data['source']['tree'])
             ) {
                 throw new RuntimeException('OPS_RESTORE_EVIDENCE_INVALID');
             }
@@ -212,10 +212,10 @@ final readonly class ThinkPhpRestoreTaskExecutionService
         $this->assertExecutionRevision($executionRevision);
         return $this->transaction(function () use ($taskKey, $executionRevision, $errorCode): array {
             $task = $this->taskForUpdate($taskKey);
-            if ((string)$task['status'] === 'dead' && hash_equals((string)$task['last_error_code'], $errorCode)) {
+            if ((string) $task['status'] === 'dead' && hash_equals((string) $task['last_error_code'], $errorCode)) {
                 return ['task_key' => $taskKey, 'status' => 'dead', 'last_error_code' => $errorCode];
             }
-            if ((string)$task['status'] !== 'running' || (int)$task['revision'] !== $executionRevision) {
+            if ((string) $task['status'] !== 'running' || (int) $task['revision'] !== $executionRevision) {
                 throw new RuntimeException('OPS_RESTORE_EXECUTION_FENCED');
             }
             $updated = Db::name('ops_task')->where('task_key', $taskKey)->where('status', 'running')
@@ -249,7 +249,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService
             ]);
             if ($updated === 1) {
                 $this->audit($task, 'platform.ops.restore.failed', 'restore.fail', [
-                    'task_key' => (string)$task['task_key'],
+                    'task_key' => (string) $task['task_key'],
                     'provider_key' => PairedBackupProvider::PROVIDER_KEY,
                     'target_key' => PairedBackupProvider::RESTORE_TARGET_KEY,
                 ], AuditOutcome::Error, 'OPS_RESTORE_RUNTIME_FAILED');
@@ -273,7 +273,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService
     /** @param array<string,mixed> $task @return array{provider_key:string,backup_reference_key:string,target_key:string} */
     private function payload(array $task): array
     {
-        $payload = json_decode((string)$task['payload_json'], true, 8, JSON_THROW_ON_ERROR);
+        $payload = json_decode((string) $task['payload_json'], true, 8, JSON_THROW_ON_ERROR);
         $payloadKeys = is_array($payload) ? array_keys($payload) : [];
         sort($payloadKeys, SORT_STRING);
         if (!is_array($payload) || $payloadKeys !== ['backup_reference_key', 'provider_key', 'target_key']) {
@@ -290,8 +290,8 @@ final readonly class ThinkPhpRestoreTaskExecutionService
         if (!is_array($row)) {
             throw new RuntimeException('OPS_RESTORE_BACKUP_NOT_FOUND');
         }
-        $manifest = PairedBackupManifest::fromJson((string)$row['manifest_json']);
-        if (!hash_equals((string)$row['manifest_sha256'], hash('sha256', $manifest->canonicalJson()))
+        $manifest = PairedBackupManifest::fromJson((string) $row['manifest_json']);
+        if (!hash_equals((string) $row['manifest_sha256'], hash('sha256', $manifest->canonicalJson()))
             || !hash_equals($backupReferenceKey, $manifest->backupReferenceKey())
         ) {
             throw new RuntimeException('OPS_RESTORE_ARTIFACT_INVALID');
@@ -314,13 +314,12 @@ final readonly class ThinkPhpRestoreTaskExecutionService
         array $metadata,
         AuditOutcome $outcome,
         ?string $reasonCode,
-    ): void
-    {
+    ): void {
         $this->audit->recordPlatform(
             $eventType,
             $action,
             'ops-worker-' . bin2hex(random_bytes(16)),
-            (int)$task['submitted_by_operator_id'],
+            (int) $task['submitted_by_operator_id'],
             $this->operators->accountId((int) $task['submitted_by_operator_id']),
             $metadata,
             $outcome,

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\payment;
@@ -31,7 +32,7 @@ final class AlipayGateway implements PrepayGatewayInterface
             default => throw new \RuntimeException('支付宝支付终端无效'),
         };
         $params = [
-            'app_id' => trim((string)$this->config['ali_pay_app_id']),
+            'app_id' => trim((string) $this->config['ali_pay_app_id']),
             'method' => $method,
             'format' => 'JSON',
             'charset' => 'utf-8',
@@ -53,7 +54,7 @@ final class AlipayGateway implements PrepayGatewayInterface
         $signContent = $this->signContent($params);
         $params['sign'] = PaymentCrypto::sign(
             $signContent,
-            PaymentCrypto::privateKey((string)$this->config['ali_pay_private_key'])
+            PaymentCrypto::privateKey((string) $this->config['ali_pay_private_key']),
         );
         $query = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
         return new PrepayResult('alipay', $scene, $scene === 'APP'
@@ -63,11 +64,11 @@ final class AlipayGateway implements PrepayGatewayInterface
 
     private function assertConfig(): void
     {
-        if ((int)($this->config['ali_pay_status'] ?? 0) !== 1) {
+        if ((int) ($this->config['ali_pay_status'] ?? 0) !== 1) {
             throw new \RuntimeException('支付宝支付未开启');
         }
         foreach (['ali_pay_app_id', 'ali_pay_private_key', 'ali_pay_public_key'] as $key) {
-            if (trim((string)($this->config[$key] ?? '')) === '') {
+            if (trim((string) ($this->config[$key] ?? '')) === '') {
                 throw new \RuntimeException('支付宝支付配置不完整:' . $key);
             }
         }
@@ -77,7 +78,9 @@ final class AlipayGateway implements PrepayGatewayInterface
     {
         $pairs = [];
         foreach ($params as $key => $value) {
-            if ((string)$value !== '') { $pairs[] = $key . '=' . $value; }
+            if ((string) $value !== '') {
+                $pairs[] = $key . '=' . $value;
+            }
         }
         return implode('&', $pairs);
     }

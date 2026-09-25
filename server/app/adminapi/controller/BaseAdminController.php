@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller;
@@ -20,7 +21,7 @@ abstract class BaseAdminController extends BaseController
         $current = $this->executionContext();
         if ($current->current() instanceof AdminExecutionContext) {
             $this->adminInfo = $current->tenantAdminPrincipal();
-            $this->adminId = (int)($this->adminInfo['id'] ?? 0);
+            $this->adminId = (int) ($this->adminInfo['id'] ?? 0);
         }
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\tenancy;
@@ -11,9 +12,7 @@ use think\db\BaseQuery;
 /** The only application-owned path allowed to bypass Tenant model scope. */
 final class PlatformTenantDataGateway
 {
-    public function __construct(private readonly CurrentExecutionContext $executionContext)
-    {
-    }
+    public function __construct(private readonly CurrentExecutionContext $executionContext) {}
 
     /** @param class-string<TenantOwnedModel> $modelClass */
     public function query(string $modelClass, string $actor, string $operation): BaseQuery

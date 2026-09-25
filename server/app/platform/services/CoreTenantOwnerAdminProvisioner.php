@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services;
@@ -19,7 +20,7 @@ final readonly class CoreTenantOwnerAdminProvisioner implements TenantOwnerAdmin
         int $memberId,
         int $coreRoleId,
         string $tenantCode,
-        string $displayName
+        string $displayName,
     ): int {
         if (min($tenantId, $accountId, $memberId, $coreRoleId) < 1 || $tenantCode === '' || $displayName === '') {
             throw new \DomainException('TENANT_OWNER_ADMIN_PRINCIPAL_INVALID');
@@ -40,7 +41,7 @@ final readonly class CoreTenantOwnerAdminProvisioner implements TenantOwnerAdmin
             $tenantId,
             $memberId,
             $coreRoleId,
-            $tenantCode
+            $tenantCode,
         );
 
         return $memberId;

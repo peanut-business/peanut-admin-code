@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Identity\Contract;
@@ -11,8 +12,7 @@ final readonly class AdminDirectoryQuery
 {
     public function __construct(
         private CurrentExecutionContext $execution,
-    ) {
-    }
+    ) {}
 
     /** @return list<array<string,mixed>> */
     public function rows(array $filters): array
@@ -35,17 +35,17 @@ final readonly class AdminDirectoryQuery
             ->fieldRaw("GROUP_CONCAT(DISTINCT role.name ORDER BY role.`key` SEPARATOR '/') AS role_name")
             ->fieldRaw("MAX(CASE WHEN role.`key` = 'core.tenant-owner' AND role.is_builtin = 1 AND role.status = 'active' THEN 1 ELSE 0 END) AS root");
         if (!empty($filters['account'])) {
-            $query->whereLike('credential.identifier_normalized', '%' . trim((string)$filters['account']) . '%');
+            $query->whereLike('credential.identifier_normalized', '%' . trim((string) $filters['account']) . '%');
         }
         if (!empty($filters['name'])) {
-            $query->whereLike('member.display_name', '%' . trim((string)$filters['name']) . '%');
+            $query->whereLike('member.display_name', '%' . trim((string) $filters['name']) . '%');
         }
         if (!empty($filters['id'])) {
-            $query->where('member.id', (int)$filters['id']);
+            $query->where('member.id', (int) $filters['id']);
         }
         if (!empty($filters['role_id'])) {
             $query->join('member_role filter_membership', 'filter_membership.tenant_id = member.tenant_id AND filter_membership.tenant_member_id = member.id')
-                ->where('filter_membership.role_id', (int)$filters['role_id']);
+                ->where('filter_membership.role_id', (int) $filters['role_id']);
         }
         return $query->group('member.id,member.account_id,member.display_name,member.primary_department_id,member.status,member.created_at,member.updated_at,account.avatar_uri,account.last_login_at,credential.identifier_normalized,department.name')
             ->order('member.id', 'desc')->select()->toArray();
@@ -66,9 +66,9 @@ final readonly class AdminDirectoryQuery
         $owner = $query->order('member.id')->find();
 
         return is_array($owner) ? [
-            'id' => (int)$owner['id'],
-            'account_id' => (int)$owner['account_id'],
-            'authorization_revision' => (int)$owner['authorization_revision'],
+            'id' => (int) $owner['id'],
+            'account_id' => (int) $owner['account_id'],
+            'authorization_revision' => (int) $owner['authorization_revision'],
         ] : null;
     }
 }

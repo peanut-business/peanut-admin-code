@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -13,8 +14,7 @@ final readonly class RechargeApplicationService
     public function __construct(
         private RechargeCommands $commands,
         private RechargeQueries $queries,
-    ) {
-    }
+    ) {}
 
     public function config(object $context, int $memberId, int $terminal): array
     {
@@ -33,7 +33,7 @@ final readonly class RechargeApplicationService
         int $payWay,
         string $notifyUrl,
         string $clientIp = '',
-        string $openid = ''
+        string $openid = '',
     ): array {
         return $this->commands->prepay(
             $context,

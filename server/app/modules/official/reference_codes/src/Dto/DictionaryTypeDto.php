@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Dto;
@@ -34,7 +35,9 @@ final readonly class DictionaryTypeDto
                 'is_disable' => $this->disabled ? 1 : 0,
                 'remark' => $this->remark,
             ] as $key => $value) {
-                if (array_key_exists($key, $values)) $values[$key] = $value;
+                if (array_key_exists($key, $values)) {
+                    $values[$key] = $value;
+                }
             }
             return $values;
         }

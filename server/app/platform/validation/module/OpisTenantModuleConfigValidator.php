@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\validation\module;
@@ -20,7 +21,7 @@ final class OpisTenantModuleConfigValidator implements TenantModuleConfigValidat
             if ($config !== []) {
                 throw new ModuleException(
                     'MODULE_CONFIG_INVALID',
-                    'A Module without config_schema accepts only an empty configuration.'
+                    'A Module without config_schema accepts only an empty configuration.',
                 );
             }
             return;
@@ -37,17 +38,17 @@ final class OpisTenantModuleConfigValidator implements TenantModuleConfigValidat
         }
 
         try {
-            $schemaObject = json_decode((string)file_get_contents($path), false, 512, JSON_THROW_ON_ERROR);
+            $schemaObject = json_decode((string) file_get_contents($path), false, 512, JSON_THROW_ON_ERROR);
             $configObject = json_decode(
-                json_encode((object)$config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+                json_encode((object) $config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
                 false,
                 512,
-                JSON_THROW_ON_ERROR
+                JSON_THROW_ON_ERROR,
             );
         } catch (\JsonException) {
             throw new ModuleException(
                 'MODULE_CONFIG_INVALID',
-                'Module configuration schema or value is invalid JSON.'
+                'Module configuration schema or value is invalid JSON.',
             );
         }
 
@@ -61,7 +62,7 @@ final class OpisTenantModuleConfigValidator implements TenantModuleConfigValidat
         throw new ModuleException(
             'MODULE_CONFIG_INVALID',
             'Module configuration failed JSON Schema validation: '
-            . json_encode($details, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)
+            . json_encode($details, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
         );
     }
 }

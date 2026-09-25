@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -25,22 +26,26 @@ final class ModuleUninstallPackage extends ModuleContextualCommand
     {
         try {
             $this->assertDevelopmentInstanceMaintenanceAccess();
-            $key = trim((string)$input->getArgument('module_key'));
-            $purge = (bool)$input->getOption('purge');
-            $planFile = trim((string)$input->getOption('confirm-plan-file'));
-            $digest = trim((string)$input->getOption('confirm-plan-digest'));
+            $key = trim((string) $input->getArgument('module_key'));
+            $purge = (bool) $input->getOption('purge');
+            $planFile = trim((string) $input->getOption('confirm-plan-file'));
+            $digest = trim((string) $input->getOption('confirm-plan-digest'));
             if ($planFile === '' && $digest === '') {
                 $result = $this->moduleRuntime()->uninstallPreview($key, $purge);
             } else {
-                if ($planFile === '' || $digest === '' || !is_file($planFile)) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Both confirmation options are required.');
-                $plan = json_decode((string)file_get_contents($planFile), true, 128, JSON_THROW_ON_ERROR);
-                if (!is_array($plan) || array_is_list($plan)) throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed plan file is invalid.');
+                if ($planFile === '' || $digest === '' || !is_file($planFile)) {
+                    throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Both confirmation options are required.');
+                }
+                $plan = json_decode((string) file_get_contents($planFile), true, 128, JSON_THROW_ON_ERROR);
+                if (!is_array($plan) || array_is_list($plan)) {
+                    throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed plan file is invalid.');
+                }
                 $result = $this->moduleRuntime()->uninstall($key, $purge, $plan, $digest);
             }
-            $output->writeln((string)json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            $output->writeln((string) json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;
         } catch (PluginLifecycleException $exception) {
-            $output->writeln((string)json_encode(['error' => $exception->errorCode], JSON_THROW_ON_ERROR));
+            $output->writeln((string) json_encode(['error' => $exception->errorCode], JSON_THROW_ON_ERROR));
             return 1;
         } catch (\Throwable) {
             $output->writeln('{"error":"MODULE_UNINSTALL_FAILED"}');

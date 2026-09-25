@@ -7,10 +7,7 @@ import {
 } from '@/api/user';
 import { setToken, clearToken } from '@/utils/auth';
 import { selectTenant, tenantLogin, tenantLogout } from '@/api/tenant-session';
-import {
-  disposeTenantState,
-  isTenantAccessToken,
-} from '@peanut-admin/vue';
+import { disposeTenantState, isTenantAccessToken } from '@peanut-admin/vue';
 import isMultiTenantDeployment from '@/core/tenant-session';
 import { removeRouteListener } from '@/utils/route-listener';
 import { UserState } from './types';

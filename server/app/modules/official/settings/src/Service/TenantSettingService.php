@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Service;
@@ -14,14 +15,12 @@ use PeanutAdmin\Kernel\Context\TenantSystemContext;
 
 final readonly class TenantSettingService implements TenantSettingsQuery, TenantSettingsCommands
 {
-    public function __construct(private TenantSettingsProvider $provider)
-    {
-    }
+    public function __construct(private TenantSettingsProvider $provider) {}
 
     public function get(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         string $namespace,
-        array $default = []
+        array $default = [],
     ): TenantSettingSnapshot {
         $tenantId = $context->tenantId;
         TenantSettingsNamespace::assertValid($namespace);
@@ -35,7 +34,7 @@ final readonly class TenantSettingService implements TenantSettingsQuery, Tenant
     public function replace(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         string $namespace,
-        array $document
+        array $document,
     ): TenantSettingSnapshot {
         $tenantId = $context->tenantId;
         TenantSettingsNamespace::assertValid($namespace);

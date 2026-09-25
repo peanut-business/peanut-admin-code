@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Service;
@@ -10,9 +11,7 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 
 class DictTypeApplicationService
 {
-    public function __construct(private readonly DictionaryRuntime $dictionaryRuntime)
-    {
-    }
+    public function __construct(private readonly DictionaryRuntime $dictionaryRuntime) {}
 
     /** 分页列表：支持 name(模糊) / type(模糊) / is_disable 过滤 */
     public function lists(TenantContext $context, array $params): PageResult
@@ -61,10 +60,10 @@ class DictTypeApplicationService
     public function add(TenantContext $context, array $params): bool
     {
         $this->dictionaryRuntime->createType($context, [
-            'name'       => (string)$params['name'],
-            'type'       => (string)$params['type'],
-            'is_disable' => (int)($params['is_disable'] ?? 0),
-            'remark'     => (string)($params['remark'] ?? ''),
+            'name'       => (string) $params['name'],
+            'type'       => (string) $params['type'],
+            'is_disable' => (int) ($params['is_disable'] ?? 0),
+            'remark'     => (string) ($params['remark'] ?? ''),
         ]);
         return true;
     }

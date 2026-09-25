@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -29,8 +30,8 @@ final class PluginReconcile extends ModuleContextualCommand
     /** Resolves the fixed lock scope and applies each eligible lifecycle operation. */
     protected function handle(Input $input, Output $output): int
     {
-        $officialLocked = (bool)$input->getOption('official-locked');
-        $releaseLocked = (bool)$input->getOption('release-locked');
+        $officialLocked = (bool) $input->getOption('official-locked');
+        $releaseLocked = (bool) $input->getOption('release-locked');
         if (!$officialLocked && !$releaseLocked) {
             $output->writeln('{"error":"OFFICIAL_LOCKED_REQUIRED"}');
             return 1;
@@ -44,14 +45,14 @@ final class PluginReconcile extends ModuleContextualCommand
             $output,
             function ($service) use ($releaseLocked): array {
                 $config = Config::get('modules', []);
-                $lockPath = is_array($config) ? trim((string)($config['plugin_lock'] ?? '')) : '';
+                $lockPath = is_array($config) ? trim((string) ($config['plugin_lock'] ?? '')) : '';
                 if ($lockPath === '') {
                     throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
                 }
                 $resolver = new PluginLockResolver(dirname(__DIR__, 2), $lockPath);
                 $officialKeys = array_values(array_filter(
                     array_keys($resolver->all()),
-                    static fn(string $key): bool => str_starts_with($key, 'official.')
+                    static fn(string $key): bool => str_starts_with($key, 'official.'),
                 ));
                 $selection = $releaseLocked
                     ? $this->releasePluginSelection($resolver->all(), $officialKeys)
@@ -61,7 +62,7 @@ final class PluginReconcile extends ModuleContextualCommand
                 if ($keys === [] && !$releaseLocked) {
                     throw new PluginLifecycleException(
                         'OFFICIAL_PLUGIN_SET_EMPTY',
-                        'plugins.lock contains no Plugin selected for reconciliation.'
+                        'plugins.lock contains no Plugin selected for reconciliation.',
                     );
                 }
 
@@ -76,18 +77,18 @@ final class PluginReconcile extends ModuleContextualCommand
                 ];
                 foreach ($keys as $key) {
                     $result = $service->reconcile($key);
-                    $operation = (string)($result['operation'] ?? '');
+                    $operation = (string) ($result['operation'] ?? '');
                     if (!array_key_exists($operation, $results)) {
                         throw new PluginLifecycleException(
                             'PLUGIN_RECONCILE_RESULT_INVALID',
-                            "Plugin reconciliation returned an unsupported operation: {$operation}"
+                            "Plugin reconciliation returned an unsupported operation: {$operation}",
                         );
                     }
                     $results[$operation][] = $result;
                 }
 
                 return $results;
-            }
+            },
         );
     }
 
@@ -109,26 +110,26 @@ final class PluginReconcile extends ModuleContextualCommand
             ->fieldRaw("COUNT(pm.module_key) member_count,SUM(CASE WHEN mi.status='active' AND mi.last_error_code IS NULL THEN 1 ELSE 0 END) active_count,SUM(CASE WHEN mi.status='maintenance' AND mi.last_error_code IS NULL THEN 1 ELSE 0 END) disabled_count")
             ->group('pi.plugin_key,pi.status')->order('pi.plugin_key')->select()->toArray();
         foreach ($rows as $row) {
-            $key = (string)($row['plugin_key'] ?? '');
-            $members = (int)($row['member_count'] ?? 0);
-            if ((string)($row['status'] ?? '') !== 'active' || $members < 1 || !isset($locked[$key])) {
+            $key = (string) ($row['plugin_key'] ?? '');
+            $members = (int) ($row['member_count'] ?? 0);
+            if ((string) ($row['status'] ?? '') !== 'active' || $members < 1 || !isset($locked[$key])) {
                 throw new PluginLifecycleException(
                     'PLUGIN_STATE_INVALID',
-                    "Release reconciliation found an invalid or unlocked Plugin installation: {$key}"
+                    "Release reconciliation found an invalid or unlocked Plugin installation: {$key}",
                 );
             }
-            if ((int)($row['active_count'] ?? 0) === $members) {
+            if ((int) ($row['active_count'] ?? 0) === $members) {
                 $keys[$key] = true;
                 continue;
             }
-            if ((int)($row['disabled_count'] ?? 0) === $members) {
+            if ((int) ($row['disabled_count'] ?? 0) === $members) {
                 unset($keys[$key]);
                 $preserved[] = $key;
                 continue;
             }
             throw new PluginLifecycleException(
                 'PLUGIN_STATE_INVALID',
-                "Release reconciliation found mixed or transitional Module states: {$key}"
+                "Release reconciliation found mixed or transitional Module states: {$key}",
             );
         }
         sort($preserved, SORT_STRING);

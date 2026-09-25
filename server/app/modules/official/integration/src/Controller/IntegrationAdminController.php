@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Controller;
@@ -23,11 +24,11 @@ abstract class IntegrationAdminController extends BaseAdminController
     protected function positiveInteger(mixed $value): int
     {
         if ((!is_int($value) && !(is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1))
-            || (int)$value < 1
+            || (int) $value < 1
         ) {
             throw IntegrationSecurityException::invalid();
         }
-        return (int)$value;
+        return (int) $value;
     }
 
     protected function expiry(mixed $value): ?DateTimeImmutable

@@ -214,7 +214,7 @@ try {
     same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $sessionOwnSecond)->status, 'own session revoke idempotent');
     same('revoked', (string) $pdo->query("SELECT status FROM pa_tenant_session_token WHERE token_hash='" . hash('sha256', 'token-' . $sessionOwnSecond) . "'")->fetchColumn(), 'session tokens revoked');
     same('revoked', $sessions->revoke(operation('session-revoke', 101, 301, 501, $session1), $session1)->status, 'current session revoked');
-    same(2, (int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE event_type='tenant.identity.session_revoked'")->fetchColumn(), 'one Identity audit event per effective revoke');
+    same(2, (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE event_type='tenant.identity.session_revoked'")->fetchColumn(), 'one Identity audit event per effective revoke');
     $identityAudit = json_encode($pdo->query("SELECT target_resource_id,metadata_json,request_id FROM pa_tenant_audit_event WHERE event_type='tenant.identity.session_revoked'")->fetchAll(), JSON_THROW_ON_ERROR);
     truth(!str_contains($identityAudit, $session1) && !str_contains($identityAudit, $sessionOwnSecond)
         && str_contains($identityAudit, hash('sha256', $session1)) && str_contains($identityAudit, hash('sha256', $sessionOwnSecond)), 'Identity session audit targets redacted');

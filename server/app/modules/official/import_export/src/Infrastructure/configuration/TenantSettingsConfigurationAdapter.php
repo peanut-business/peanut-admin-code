@@ -1,7 +1,9 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Infrastructure\configuration;
+
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use think\facade\Db;
@@ -25,7 +27,7 @@ final class TenantSettingsConfigurationAdapter implements ConfigurationTransferA
         $entries = [];
         foreach (Db::name('tenant_setting')->where('tenant_id', $tenantId)
             ->field('namespace,config_json')->order('namespace')->select()->toArray() as $row) {
-            $namespace = (string)($row['namespace'] ?? '');
+            $namespace = (string) ($row['namespace'] ?? '');
             $document = $this->decodeDocument($row['config_json'] ?? null);
             $entries[] = ConfigurationTransferValue::entry($this->key(), $namespace, $document);
         }
@@ -45,7 +47,7 @@ final class TenantSettingsConfigurationAdapter implements ConfigurationTransferA
         return [
             'exists' => true,
             'value' => ConfigurationTransferValue::entry($this->key(), $key, $this->decodeDocument($row['config_json'] ?? null))['value'],
-            'revision' => (int)($row['revision'] ?? 0),
+            'revision' => (int) ($row['revision'] ?? 0),
         ];
     }
 
@@ -84,15 +86,15 @@ final class TenantSettingsConfigurationAdapter implements ConfigurationTransferA
                     'update_time' => $now,
                 ]);
             } else {
-                if ($revision === null || (int)$row['revision'] !== $revision) {
+                if ($revision === null || (int) $row['revision'] !== $revision) {
                     throw new \runtimeException('TRANSFER_CONFLICT');
                 }
-                $updated = Db::name('tenant_setting')->where('id', (int)$row['id'])
+                $updated = Db::name('tenant_setting')->where('id', (int) $row['id'])
                     ->where('tenant_id', $tenantId)->where('namespace', $key)->where('revision', $revision)->update([
-                    'config_json' => $encoded,
-                    'revision' => Db::raw('revision + 1'),
-                    'update_time' => $now,
-                ]);
+                        'config_json' => $encoded,
+                        'revision' => Db::raw('revision + 1'),
+                        'update_time' => $now,
+                    ]);
                 if ($updated !== 1) {
                     throw new \runtimeException('TRANSFER_CONFLICT');
                 }
@@ -119,7 +121,7 @@ final class TenantSettingsConfigurationAdapter implements ConfigurationTransferA
     private function decodeDocument(mixed $encoded): array
     {
         try {
-            $document = json_decode((string)$encoded, true, 512, JSON_THROW_ON_ERROR);
+            $document = json_decode((string) $encoded, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             throw new \runtimeException('TRANSFER_TENANT_SETTING_INVALID');
         }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Infrastructure;
@@ -14,8 +15,7 @@ final class TenantSettingWebsiteStore implements WebsiteConfigStore
     public function __construct(
         private AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         private readonly TenantSettingService $settings,
-    ) {
-    }
+    ) {}
 
     public function read(): array
     {

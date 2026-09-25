@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\EditionUpgradePackage;
@@ -59,7 +60,7 @@ function productUpgradeTrustedKeys(string $path): array
         throw new RuntimeException('PRODUCT_UPGRADE_ENV_FILE_SCHEMA_INVALID');
     }
     try {
-        $keys = json_decode((string)$values['PEANUT_UPGRADE_TRUSTED_KEYS_JSON'], true, 32, JSON_THROW_ON_ERROR);
+        $keys = json_decode((string) $values['PEANUT_UPGRADE_TRUSTED_KEYS_JSON'], true, 32, JSON_THROW_ON_ERROR);
     } catch (JsonException $exception) {
         throw new RuntimeException('PRODUCT_UPGRADE_ENV_FILE_SCHEMA_INVALID', 0, $exception);
     }
@@ -80,9 +81,15 @@ function productUpgradeTrustedKeys(string $path): array
 function productUpgradeCanonicalJson(array $value): string
 {
     $normalize = static function (mixed $item) use (&$normalize): mixed {
-        if (!is_array($item)) return $item;
-        if (!array_is_list($item)) ksort($item, SORT_STRING);
-        foreach ($item as $key => $child) $item[$key] = $normalize($child);
+        if (!is_array($item)) {
+            return $item;
+        }
+        if (!array_is_list($item)) {
+            ksort($item, SORT_STRING);
+        }
+        foreach ($item as $key => $child) {
+            $item[$key] = $normalize($child);
+        }
         return $item;
     };
     return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -115,7 +122,7 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_INVALID');
     }
     try {
-        $plan = json_decode((string)file_get_contents($resolved), true, 256, JSON_THROW_ON_ERROR);
+        $plan = json_decode((string) file_get_contents($resolved), true, 256, JSON_THROW_ON_ERROR);
     } catch (JsonException $exception) {
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_INVALID', 0, $exception);
     }
@@ -154,7 +161,7 @@ function productUpgradeMigrationEntries(string $packageRoot, array $package): ar
         }
         $path = $packageRoot . '/target/files/' . $relative;
         if (!is_file($path) || is_link($path)
-            || !hash_equals($digest, (string)hash_file('sha256', $path))) {
+            || !hash_equals($digest, (string) hash_file('sha256', $path))) {
             throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_CHAIN_INVALID');
         }
         $previous = $relative;
@@ -185,7 +192,9 @@ function productUpgradeAcquireLock(string $instanceRoot)
     }
     $handle = fopen($directory . '/product.lock', 'c+');
     if ($handle === false || !flock($handle, LOCK_EX | LOCK_NB)) {
-        if (is_resource($handle)) fclose($handle);
+        if (is_resource($handle)) {
+            fclose($handle);
+        }
         throw new RuntimeException('PRODUCT_UPGRADE_ALREADY_RUNNING');
     }
     return $handle;
@@ -217,7 +226,7 @@ function productUpgradeReadState(array $plan): array
         throw new RuntimeException('PRODUCT_UPGRADE_STATE_MISSING');
     }
     try {
-        $state = json_decode((string)file_get_contents($path), true, 256, JSON_THROW_ON_ERROR);
+        $state = json_decode((string) file_get_contents($path), true, 256, JSON_THROW_ON_ERROR);
     } catch (JsonException $exception) {
         throw new RuntimeException('PRODUCT_UPGRADE_STATE_INVALID', 0, $exception);
     }
@@ -288,12 +297,17 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
         $log = fopen($logPath, 'xb');
     }
     if ($log === false || !chmod($logPath, 0600)) {
-        if (is_resource($log)) fclose($log);
+        if (is_resource($log)) {
+            fclose($log);
+        }
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_LOG_INVALID');
     }
     $pipes = [];
     $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => $log], $pipes, $packageRoot);
-    if (!is_resource($process)) { fclose($log); throw new RuntimeException('PRODUCT_UPGRADE_HOST_DRIVER_FAILED'); }
+    if (!is_resource($process)) {
+        fclose($log);
+        throw new RuntimeException('PRODUCT_UPGRADE_HOST_DRIVER_FAILED');
+    }
     $stdout = stream_get_contents($pipes[1]);
     fclose($pipes[1]);
     $exitCode = proc_close($process);
@@ -340,44 +354,58 @@ function productUpgradeEnsureHostPhase(
     string $phase,
     string $completed,
 ): array {
-    if (isset($state['evidence'][$phase])) return $state;
+    if (isset($state['evidence'][$phase])) {
+        return $state;
+    }
     $state['phase_in_progress'] = $phase;
-    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
     $evidence = productUpgradeHostPhase($packageRoot, $phase, $plan, $state);
-    return productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], $phase, $completed, $evidence);
+    return productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], $phase, $completed, $evidence);
 }
 
 /** @param array<string,mixed> $plan @param array<string,mixed> $state @return array<string,mixed> */
 function productUpgradeRefreshHostPhase(string $packageRoot, array $plan, array $state, string $phase): array
 {
     $state['phase_in_progress'] = $phase;
-    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
     $evidence = productUpgradeHostPhase($packageRoot, $phase, $plan, $state);
     $state['phase_in_progress'] = null;
     $state['evidence'][$phase] = $evidence;
-    return productUpgradeWriteState((string)$state['absolute_path'], $state);
+    return productUpgradeWriteState((string) $state['absolute_path'], $state);
 }
 
 $command = $argv[1] ?? null;
-if (!in_array($command, ['plan', 'apply', 'verify', 'recover'], true)) productUpgradeUsage();
+if (!in_array($command, ['plan', 'apply', 'verify', 'recover'], true)) {
+    productUpgradeUsage();
+}
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
     if (preg_match('/^--(instance-root|package|signature-key-id|env-file|plan)=(.+)$/D', $argument, $matches) !== 1
-        || isset($options[$matches[1]])) productUpgradeUsage();
+        || isset($options[$matches[1]])) {
+        productUpgradeUsage();
+    }
     $options[$matches[1]] = $matches[2];
 }
 $required = ['instance-root', 'package', 'signature-key-id', 'env-file'];
-if ($command !== 'plan') $required[] = 'plan';
-$actual = array_keys($options); sort($actual, SORT_STRING);
-$expected = $required; sort($expected, SORT_STRING);
-if ($actual !== $expected) productUpgradeUsage();
+if ($command !== 'plan') {
+    $required[] = 'plan';
+}
+$actual = array_keys($options);
+sort($actual, SORT_STRING);
+$expected = $required;
+sort($expected, SORT_STRING);
+if ($actual !== $expected) {
+    productUpgradeUsage();
+}
 
 $lock = null;
 try {
     $instanceRoot = ScaffoldPathGuard::projectRoot($options['instance-root']);
     $lock = productUpgradeAcquireLock($instanceRoot);
     $packageRoot = realpath($options['package']);
-    if (!is_string($packageRoot)) throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_NOT_FOUND');
+    if (!is_string($packageRoot)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_NOT_FOUND');
+    }
     $trustedKeys = productUpgradeTrustedKeys($options['env-file']);
     $runner = new ScaffoldUpgradeRunner();
 
@@ -482,7 +510,7 @@ try {
             }
             if ($state['phase'] === 'completed') {
                 // 重复apply也必须验证原完成结果，不能仅凭Host健康回执忽略源码/定制漂移。
-                $runner->verify($instanceRoot, (string)$plan['scaffold_plan']);
+                $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'migration-verify');
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
                 $result = [
@@ -500,13 +528,13 @@ try {
 
                 if (!isset($state['evidence']['managed_files'])) {
                     $state['phase_in_progress'] = 'managed_files';
-                    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
-                    $code = $runner->apply($instanceRoot, (string)$plan['scaffold_plan']);
+                    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
+                    $code = $runner->apply($instanceRoot, (string) $plan['scaffold_plan']);
                     $codeEvidence = [
                         'protocol' => 'peanut.product-upgrade-internal-evidence.v1', 'phase' => 'managed_files',
                         'candidate' => $plan['candidate'], 'payload' => $code,
                     ];
-                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'managed_files', 'managed_files_applied', [
+                    $state = productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], 'managed_files', 'managed_files_applied', [
                         'sha256' => 'sha256:' . hash('sha256', productUpgradeCanonicalJson($codeEvidence)),
                         'payload' => $codeEvidence,
                     ]);
@@ -518,17 +546,17 @@ try {
                     $state['phase'] = 'migrations_started';
                     $state['phase_in_progress'] = 'migrate';
                     $state['database_recovery_required'] = true;
-                    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
                     $migrationEvidence = productUpgradeHostPhase($packageRoot, 'migrate', $plan, $state);
                     $state['migration_completed'] = true;
-                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'migrate', 'migrations_applied', $migrationEvidence);
+                    $state = productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], 'migrate', 'migrations_applied', $migrationEvidence);
                 }
 
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'switch', 'switched');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'reload-safe', 'reloaded_safe');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'migration-verify', 'migration_verified');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'health', 'healthy');
-                $code = $runner->verify($instanceRoot, (string)$plan['scaffold_plan']);
+                $code = $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
 
                 if (!isset($state['evidence']['activate'])) {
                     // Opening traffic is the irreversible recovery boundary. Persist it before
@@ -536,12 +564,12 @@ try {
                     $state['phase'] = 'activating';
                     $state['phase_in_progress'] = 'activate';
                     $state['activation_started'] = true;
-                    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
                     $activation = productUpgradeHostPhase($packageRoot, 'activate', $plan, $state);
-                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'activate', 'completed', $activation);
+                    $state = productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], 'activate', 'completed', $activation);
                 }
                 $state['completed_at'] ??= gmdate(DATE_ATOM);
-                $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
                 $result = [
                     'status' => 'completed', 'candidate' => $plan['candidate'], 'phase' => 'completed',
                     'plan_sha256' => $plan['plan_sha256'], 'idempotent' => false, 'code' => $code,
@@ -553,7 +581,10 @@ try {
             }
         } elseif ($command === 'verify') {
             $prepared = (new EditionUpgradePackage())->reauthenticate(
-                $instanceRoot, $packageRoot, $options['signature-key-id'], $trustedKeys,
+                $instanceRoot,
+                $packageRoot,
+                $options['signature-key-id'],
+                $trustedKeys,
             );
             if (productUpgradePackageIdentity($prepared, $packageRoot) !== $plan['package']) {
                 throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_REBIND_FAILED');
@@ -561,11 +592,11 @@ try {
             if ($state['phase'] !== 'completed') {
                 throw new RuntimeException('PRODUCT_UPGRADE_NOT_COMPLETED:' . $state['phase']);
             }
-            $code = $runner->verify($instanceRoot, (string)$plan['scaffold_plan']);
+            $code = $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
             $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'migration-verify');
             $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
             $state['verified_at'] = gmdate(DATE_ATOM);
-            $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+            $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
             $result = [
                 'status' => 'verified', 'candidate' => $plan['candidate'], 'code' => $code,
                 'health_evidence_sha256' => $state['evidence']['health']['sha256'],
@@ -574,7 +605,10 @@ try {
             ];
         } else {
             (new EditionUpgradePackage())->reauthenticate(
-                $instanceRoot, $packageRoot, $options['signature-key-id'], $trustedKeys,
+                $instanceRoot,
+                $packageRoot,
+                $options['signature-key-id'],
+                $trustedKeys,
             );
             if ($state['phase'] === 'completed') {
                 throw new RuntimeException('PRODUCT_UPGRADE_COMPLETED_RECOVERY_REQUIRES_NEW_CHANGE_PLAN');
@@ -589,7 +623,7 @@ try {
                     throw new RuntimeException('PRODUCT_UPGRADE_RECOVERY_STATE_INVALID');
                 }
                 $code = $context['managed_files_started']
-                    ? $runner->verifyRecovery($instanceRoot, (string)$plan['scaffold_plan'])
+                    ? $runner->verifyRecovery($instanceRoot, (string) $plan['scaffold_plan'])
                     : null;
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'recovery-verify');
                 $result = [
@@ -617,20 +651,20 @@ try {
                     $state['recovery_context'] = $context;
                     $state['phase'] = 'recovering';
                     $state['phase_in_progress'] = 'recover';
-                    $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
                 }
                 if (!isset($state['evidence']['recover'])) {
                     $recovery = productUpgradeHostPhase($packageRoot, 'recover', $plan, $state);
-                    $state = productUpgradeCompleteHostPhase($state, (string)$state['absolute_path'], 'recover', 'recovering', $recovery);
+                    $state = productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], 'recover', 'recovering', $recovery);
                 }
                 $code = $context['managed_files_started']
-                    ? $runner->recover($instanceRoot, (string)$plan['scaffold_plan'])
+                    ? $runner->recover($instanceRoot, (string) $plan['scaffold_plan'])
                     : null;
                 if (!isset($state['evidence']['resume-old'])) {
                     $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'resume-old', 'recovered');
                 }
                 $state['recovered_at'] ??= gmdate(DATE_ATOM);
-                $state = productUpgradeWriteState((string)$state['absolute_path'], $state);
+                $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
                 $result = [
                     'status' => 'recovered', 'candidate' => $plan['candidate'], 'code' => $code,
                     'database_recovery_required' => $state['database_recovery_required'],
@@ -647,7 +681,9 @@ try {
     fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
     exit(($result['status'] ?? null) === 'blocked' ? 2 : 0);
 } catch (Throwable $exception) {
-    if (is_resource($lock)) productUpgradeReleaseLock($lock);
+    if (is_resource($lock)) {
+        productUpgradeReleaseLock($lock);
+    }
     fwrite(STDERR, json_encode([
         'status' => 'error', 'error' => $exception->getMessage(),
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");

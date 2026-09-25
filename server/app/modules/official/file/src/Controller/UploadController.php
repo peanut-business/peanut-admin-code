@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Controller;
@@ -44,13 +45,13 @@ class UploadController extends BaseAdminController
         $result = $this->uploads->{$method}(
             $this->tenantAdminContext(),
             new UploadFile(
-                (string)$uploaded->getPathname(),
-                (string)$uploaded->getOriginalName(),
-                (int)$uploaded->getSize(),
-                (string)($uploaded->getMime() ?: 'application/octet-stream'),
-                (string)$uploaded->getOriginalExtension(),
+                (string) $uploaded->getPathname(),
+                (string) $uploaded->getOriginalName(),
+                (int) $uploaded->getSize(),
+                (string) ($uploaded->getMime() ?: 'application/octet-stream'),
+                (string) $uploaded->getOriginalExtension(),
             ),
-            (int)$cidValue,
+            (int) $cidValue,
             $this->adminId,
             FileEnum::SOURCE_ADMIN,
         );

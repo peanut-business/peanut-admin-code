@@ -493,14 +493,23 @@ final class NotificationStore implements NotificationRepository
         }
         $attachments = array_values(array_map(
             static fn(array $item): AttachmentReference => new AttachmentReference(
-                (string) $item['file_key'], (string) $item['original_name'], (string) $item['media_type'], (int) $item['size_bytes'], (string) $item['sha256'],
+                (string) $item['file_key'],
+                (string) $item['original_name'],
+                (string) $item['media_type'],
+                (int) $item['size_bytes'],
+                (string) $item['sha256'],
             ),
             NotificationAttachmentRecord::where('tenant_id', $tenantId)->where('message_id', $id)
                 ->field('file_key,original_name,media_type,size_bytes,sha256')->order('id')->select()->toArray(),
         ));
         return new NotificationMessage(
-            (string) $row['message_key'], (string) $row['template_key'], (int) $row['template_revision'],
-            (string) $row['subject'], (string) $row['body'], (string) $row['status'], (int) $row['revision'],
+            (string) $row['message_key'],
+            (string) $row['template_key'],
+            (int) $row['template_revision'],
+            (string) $row['subject'],
+            (string) $row['body'],
+            (string) $row['status'],
+            (int) $row['revision'],
             $this->instant((string) $row['created_at']),
             $row['read_at'] === null ? null : $this->instant((string) $row['read_at']),
             $row['archived_at'] === null ? null : $this->instant((string) $row['archived_at']),

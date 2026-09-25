@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -14,9 +15,7 @@ use PHPUnit\Framework\TestCase;
 final class OfficialAccountSecretRedactionBindings implements ExternalChannelBindings
 {
     /** @param array<string,mixed> $configuration */
-    public function __construct(private array $configuration)
-    {
-    }
+    public function __construct(private array $configuration) {}
 
     public function config(TenantContext $context, string $provider): array
     {
@@ -112,8 +111,8 @@ final class OfficialAccountSecretRedactionTest extends TestCase
         self::assertSame(['', '******'], $schema['properties']['token']['enum']);
         self::assertTrue($schema['properties']['token']['readOnly']);
 
-        $api = (string)file_get_contents($root . '/web/src/modules/official-oauth/api.ts');
-        $view = (string)file_get_contents(
+        $api = (string) file_get_contents($root . '/web/src/modules/official-oauth/api.ts');
+        $view = (string) file_get_contents(
             $root . '/web/src/modules/official-oauth/views/channel/OfficialAccountConfig.vue',
         );
         self::assertStringContainsString('token_configured: boolean', $api);

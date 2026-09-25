@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Infrastructure\Persistence;
@@ -13,9 +14,7 @@ final readonly class ThinkPhpMemberSessionStore implements MemberSessionStore
 {
     private const ACTOR = 'api.member-session';
 
-    public function __construct(private PlatformTenantDataGateway $tenantData)
-    {
-    }
+    public function __construct(private PlatformTenantDataGateway $tenantData) {}
 
     public function create(MemberSessionRecord $session): void
     {
@@ -47,13 +46,13 @@ final readonly class ThinkPhpMemberSessionStore implements MemberSessionStore
         }
         $data = $row->toArray();
         return new MemberSessionRecord(
-            (string)$data['session_hash'],
-            (int)$data['tenant_id'],
-            (int)$data['member_id'],
-            (int)$data['session_revision'],
-            (int)$data['issued_at'],
-            (int)$data['expires_at'],
-            $data['revoked_at'] === null ? null : (int)$data['revoked_at'],
+            (string) $data['session_hash'],
+            (int) $data['tenant_id'],
+            (int) $data['member_id'],
+            (int) $data['session_revision'],
+            (int) $data['issued_at'],
+            (int) $data['expires_at'],
+            $data['revoked_at'] === null ? null : (int) $data['revoked_at'],
         );
     }
 

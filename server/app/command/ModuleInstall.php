@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -32,23 +33,23 @@ final class ModuleInstall extends ModuleContextualCommand
                 dirname(__DIR__, 2),
                 $this->moduleCatalogs(),
             ))->install(
-                trim((string)$input->getArgument('module_key')),
-                $config
+                trim((string) $input->getArgument('module_key')),
+                $config,
             );
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 [
                     'key' => $identity['key'],
                     'version' => $identity['version'],
                     'digest' => $identity['digest'],
                     'status' => $identity['status'],
                 ],
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 0;
         } catch (ModuleException $exception) {
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 ['error' => $exception->errorCode],
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 1;
         } catch (\Throwable) {

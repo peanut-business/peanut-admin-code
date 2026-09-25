@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
@@ -18,7 +19,7 @@ class SmsController extends BaseApiController
         $this->validate($params, SmsValidate::class . '.send');
         $this->sms->sendCode(
             $this->publicTenantContext('notice.verification.send'),
-            $params
+            $params,
         );
         return $this->success('发送成功');
     }

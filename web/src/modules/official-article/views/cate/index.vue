@@ -151,7 +151,8 @@
             type="primary"
             :loading="formAction.loading.value"
             @click="onSubmit"
-          >确定</el-button>
+            >确定</el-button
+          >
         </template>
       </el-dialog>
     </el-card>
@@ -172,16 +173,11 @@
     articleCategoryResource,
     type ArticleCategoryFilters,
   } from '@/modules/official-article/category-resource';
-  import {
-    type ArticleCateRecord,
-  } from '@/modules/official-article/api';
+  import { type ArticleCateRecord } from '@/modules/official-article/api';
 
   const { t } = useI18n();
   const errorMessage = () => t('articleCate.error.request');
-  const categoryList = useAsyncList<
-    ArticleCateRecord,
-    ArticleCategoryFilters
-  >({
+  const categoryList = useAsyncList<ArticleCateRecord, ArticleCategoryFilters>({
     initialFilters: {},
     initialPageSize: 25,
     load: articleCategoryResource.list,

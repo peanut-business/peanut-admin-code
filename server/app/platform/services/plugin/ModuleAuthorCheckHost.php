@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\plugin;
@@ -25,8 +26,7 @@ final readonly class ModuleAuthorCheckHost
     public function __construct(
         private string $projectRoot,
         private string $kernelVersion = '1.0.0',
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{
@@ -82,7 +82,7 @@ final readonly class ModuleAuthorCheckHost
                     'Module version is not a supported exact SemVer.',
                 );
             }
-            $constraint = (string)($inspection['manifest']->data['kernel_constraint'] ?? '');
+            $constraint = (string) ($inspection['manifest']->data['kernel_constraint'] ?? '');
             if (!$matcher->matches($this->kernelVersion, $constraint)) {
                 throw new PluginPackageException(
                     'MODULE_CHECK_KERNEL_INCOMPATIBLE',
@@ -453,7 +453,7 @@ final readonly class ModuleAuthorCheckHost
 
     private function optional(?string $value): ?string
     {
-        $value = trim((string)$value);
+        $value = trim((string) $value);
         return $value === '' ? null : $value;
     }
 }

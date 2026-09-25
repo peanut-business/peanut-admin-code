@@ -14576,6 +14576,11 @@ export interface operations {
                 "application/json": {
                     module_key: string;
                     vendor?: string;
+                    /**
+                     * @default none
+                     * @enum {string}
+                     */
+                    client?: "none" | "admin-web";
                 };
             };
         };

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Service;
@@ -48,45 +49,45 @@ class RechargeAdministrationService
     public function lists(object $context, array $params): PageResult|array
     {
         $count = self::buildListQuery($context, $params)->count();
-            $pageSize = max(1, min(
-                self::EXPORT_MAX_ROWS,
-                (int)($params['page_size'] ?? $params['limit'] ?? 25)
-            ));
+        $pageSize = max(1, min(
+            self::EXPORT_MAX_ROWS,
+            (int) ($params['page_size'] ?? $params['limit'] ?? 25),
+        ));
 
-            if ((int)($params['export'] ?? 0) === 1) {
-                return self::exportInfo($count, $pageSize);
-            }
-            if ((int)($params['export'] ?? 0) === 2) {
-                return $this->export($context, $params, $count, $pageSize);
-            }
+        if ((int) ($params['export'] ?? 0) === 1) {
+            return self::exportInfo($count, $pageSize);
+        }
+        if ((int) ($params['export'] ?? 0) === 2) {
+            return $this->export($context, $params, $count, $pageSize);
+        }
 
-            $pageType = (int)($params['page_type'] ?? 1);
-            $pageNo = $pageType === 0
-                ? 1
-                : PaginationInput::from($params)->page;
-            if ($pageType === 0) {
-                $pageSize = self::EXPORT_MAX_ROWS;
-            }
+        $pageType = (int) ($params['page_type'] ?? 1);
+        $pageNo = $pageType === 0
+            ? 1
+            : PaginationInput::from($params)->page;
+        if ($pageType === 0) {
+            $pageSize = self::EXPORT_MAX_ROWS;
+        }
 
-            $query = self::buildListQuery($context, $params)->order('ro.id', 'desc');
-            $pageResult = $pageType === 0
-                ? PageResult::fromPaginator($query->paginate([
-                    'list_rows' => $pageSize,
-                    'page' => $pageNo,
-                    'var_page' => 'page_no',
-                ]), $pageNo)
-                : PaginationInput::from($params)->result($query);
-            $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
-                ? $item->toArray()
-                : (array)$item);
-            $rows = self::withRefundedAmounts($context, $pageResult->items);
+        $query = self::buildListQuery($context, $params)->order('ro.id', 'desc');
+        $pageResult = $pageType === 0
+            ? PageResult::fromPaginator($query->paginate([
+                'list_rows' => $pageSize,
+                'page' => $pageNo,
+                'var_page' => 'page_no',
+            ]), $pageNo)
+            : PaginationInput::from($params)->result($query);
+        $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
+            ? $item->toArray()
+            : (array) $item);
+        $rows = self::withRefundedAmounts($context, $pageResult->items);
 
         return new PageResult(
-                $this->formatRows($rows),
-                $pageResult->total,
-                $pageResult->page,
-                $pageResult->pageSize,
-                ['extend' => []],
+            $this->formatRows($rows),
+            $pageResult->total,
+            $pageResult->page,
+            $pageResult->pageSize,
+            ['extend' => []],
         );
     }
 
@@ -98,68 +99,67 @@ class RechargeAdministrationService
         array $params,
         int $adminId,
         string $idempotencyKey,
-    ): string
-    {
+    ): string {
         $prepared = Db::transaction(function () use ($context, $params, $adminId, $idempotencyKey): array {
-                $idempotency = $this->refundIdempotency;
-                $order = RechargeOrder::where([])->lock(true)->findOrEmpty((int)$params['recharge_id']);
-                self::assertRefundableOrder($order);
+            $idempotency = $this->refundIdempotency;
+            $order = RechargeOrder::where([])->lock(true)->findOrEmpty((int) $params['recharge_id']);
+            self::assertRefundableOrder($order);
 
-                $requestedAmount = $params['refund_amount'] ?? null;
-                $requestedCents = $requestedAmount === null || $requestedAmount === ''
-                    ? null
-                    : Money::toCents((string)$requestedAmount);
-                $lease = $idempotency->begin(IdempotencyCommand::tenant(
-                    $context,
-                    'recharge.refund.create',
-                    $idempotencyKey,
-                    self::refundRequestHash((int)$order->id, $requestedCents),
-                    new DateTimeImmutable('+24 hours'),
-                ));
-                if (!$lease->isExecutionOwner()) {
-                    return compact('idempotency', 'lease') + ['replay' => true];
-                }
+            $requestedAmount = $params['refund_amount'] ?? null;
+            $requestedCents = $requestedAmount === null || $requestedAmount === ''
+                ? null
+                : Money::toCents((string) $requestedAmount);
+            $lease = $idempotency->begin(IdempotencyCommand::tenant(
+                $context,
+                'recharge.refund.create',
+                $idempotencyKey,
+                self::refundRequestHash((int) $order->id, $requestedCents),
+                new DateTimeImmutable('+24 hours'),
+            ));
+            if (!$lease->isExecutionOwner()) {
+                return compact('idempotency', 'lease') + ['replay' => true];
+            }
 
-                $amountCents = self::requestedRefundAmountCents($context, $order, $requestedCents);
-                $amount = $amountCents / 100;
-                $refundSn = RefundRecord::generateSn();
+            $amountCents = self::requestedRefundAmountCents($context, $order, $requestedCents);
+            $amount = $amountCents / 100;
+            $refundSn = RefundRecord::generateSn();
 
-                $order->refund_status = RechargeOrder::REFUND_STATUS_STARTED;
-                $order->save();
+            $order->refund_status = RechargeOrder::REFUND_STATUS_STARTED;
+            $order->save();
 
-                $this->memberBalances->applyInTransaction(
-                    $context,
-                    new MemberBalanceMutation(
-                        (int)$order->user_id,
-                        AccountLogEnum::USER_MONEY_DEC_RECHARGE_REFUND,
-                        AccountLogEnum::DEC,
-                        $amountCents,
-                        $refundSn,
-                        '充值订单退款',
-                        [],
-                        $adminId,
-                        -$amountCents,
-                        '退款失败:用户余额已不足退款金额',
-                    ),
-                );
+            $this->memberBalances->applyInTransaction(
+                $context,
+                new MemberBalanceMutation(
+                    (int) $order->user_id,
+                    AccountLogEnum::USER_MONEY_DEC_RECHARGE_REFUND,
+                    AccountLogEnum::DEC,
+                    $amountCents,
+                    $refundSn,
+                    '充值订单退款',
+                    [],
+                    $adminId,
+                    -$amountCents,
+                    '退款失败:用户余额已不足退款金额',
+                ),
+            );
 
-                $record = RefundRecord::create([
-                    'sn' => $refundSn,
-                    'user_id' => (int)$order->user_id,
-                    'order_id' => (int)$order->id,
-                    'order_sn' => (string)$order->sn,
-                    'order_type' => RefundEnum::ORDER_TYPE_RECHARGE,
-                    'order_amount' => $amount,
-                    'refund_amount' => $amount,
-                    'transaction_id' => (string)($order->transaction_id ?? ''),
-                    'refund_way' => RefundEnum::getRefundWayByPayWay((int)$order->pay_way),
-                    'refund_type' => RefundEnum::TYPE_ADMIN,
-                    'refund_status' => RefundEnum::REFUND_ING,
-                    'refund_msg' => '',
-                ]);
-                $log = self::createRefundLog($context, $order, $record, $amount, $adminId);
+            $record = RefundRecord::create([
+                'sn' => $refundSn,
+                'user_id' => (int) $order->user_id,
+                'order_id' => (int) $order->id,
+                'order_sn' => (string) $order->sn,
+                'order_type' => RefundEnum::ORDER_TYPE_RECHARGE,
+                'order_amount' => $amount,
+                'refund_amount' => $amount,
+                'transaction_id' => (string) ($order->transaction_id ?? ''),
+                'refund_way' => RefundEnum::getRefundWayByPayWay((int) $order->pay_way),
+                'refund_type' => RefundEnum::TYPE_ADMIN,
+                'refund_status' => RefundEnum::REFUND_ING,
+                'refund_msg' => '',
+            ]);
+            $log = self::createRefundLog($context, $order, $record, $amount, $adminId);
 
-                return compact('idempotency', 'lease', 'order', 'record', 'log') + ['replay' => false];
+            return compact('idempotency', 'lease', 'order', 'record', 'log') + ['replay' => false];
         });
 
         if ($prepared['replay']) {
@@ -180,7 +180,7 @@ class RechargeAdministrationService
      */
     public function refundAgain(object $context, array $params, int $adminId): string
     {
-        $recordId = (int)$params['record_id'];
+        $recordId = (int) $params['record_id'];
         try {
             return $this->retryLocks->run($context, $recordId, function () use ($context, $recordId, $adminId): string {
                 [$order, $record, $log] = Db::transaction(function () use ($context, $recordId, $adminId): array {
@@ -188,14 +188,14 @@ class RechargeAdministrationService
                     if ($record->isEmpty()) {
                         throw BusinessException::notFound('REFUND_RECORD_NOT_FOUND', '退款记录不存在');
                     }
-                    if ((int)$record->refund_status === RefundEnum::REFUND_SUCCESS) {
+                    if ((int) $record->refund_status === RefundEnum::REFUND_SUCCESS) {
                         throw BusinessException::conflict('REFUND_ALREADY_SUCCEEDED', '该退款记录已退款成功');
                     }
-                    if ((int)$record->refund_status !== RefundEnum::REFUND_ERROR) {
+                    if ((int) $record->refund_status !== RefundEnum::REFUND_ERROR) {
                         throw BusinessException::conflict('REFUND_IN_PROGRESS', '退款正在处理中，请勿重复操作');
                     }
 
-                    $order = RechargeOrder::where([])->lock(true)->findOrEmpty((int)$record->order_id);
+                    $order = RechargeOrder::where([])->lock(true)->findOrEmpty((int) $record->order_id);
                     if ($order->isEmpty()) {
                         throw BusinessException::notFound('RECHARGE_ORDER_NOT_FOUND', '充值订单不存在');
                     }
@@ -208,8 +208,8 @@ class RechargeAdministrationService
                         $context,
                         $order,
                         $record,
-                        (float)$record->refund_amount,
-                        $adminId
+                        (float) $record->refund_amount,
+                        $adminId,
                     );
                     return [$order, $record, $log];
                 });
@@ -227,34 +227,34 @@ class RechargeAdministrationService
         if ($order->isEmpty()) {
             throw BusinessException::notFound('RECHARGE_ORDER_NOT_FOUND', '充值订单不存在');
         }
-        if ((int)$order->pay_status !== RechargeOrder::PAY_STATUS_PAID) {
+        if ((int) $order->pay_status !== RechargeOrder::PAY_STATUS_PAID) {
             throw BusinessException::conflict('RECHARGE_ORDER_NOT_REFUNDABLE', '当前订单不可退款');
         }
     }
 
     private static function requestedRefundAmountCents(object $context, object $order, mixed $requested): int
     {
-        $orderCents = Money::toCents((string)$order->order_amount);
-        $refundedCents = Money::toCents((string)(RefundRecord::where([])
+        $orderCents = Money::toCents((string) $order->order_amount);
+        $refundedCents = Money::toCents((string) (RefundRecord::where([])
             ->where('order_type', RefundEnum::ORDER_TYPE_RECHARGE)
-            ->where('order_id', (int)$order->id)
+            ->where('order_id', (int) $order->id)
             ->sum('refund_amount') ?? 0));
         $remainingCents = $orderCents - $refundedCents;
         if ($remainingCents <= 0) {
             throw BusinessException::conflict('REFUND_AMOUNT_EXHAUSTED', '充值订单可退款金额已用尽');
         }
 
-        $amountCents = $requested === null ? $remainingCents : (int)$requested;
+        $amountCents = $requested === null ? $remainingCents : (int) $requested;
         if ($amountCents <= 0 || $amountCents > $remainingCents) {
             throw BusinessException::invalid('REFUND_AMOUNT_INVALID', '退款金额超过当前可退款金额');
         }
 
         $member = RechargeOrder::alias('ro')->where([])
             ->join('member m', 'm.tenant_id = ro.tenant_id AND m.id = ro.user_id')
-            ->where('ro.id', (int)$order->id)
+            ->where('ro.id', (int) $order->id)
             ->field('m.user_money')
             ->findOrEmpty();
-        if ($member->isEmpty() || Money::toCents((string)$member->user_money) < $amountCents) {
+        if ($member->isEmpty() || Money::toCents((string) $member->user_money) < $amountCents) {
             throw BusinessException::conflict('REFUND_MEMBER_BALANCE_INSUFFICIENT', '退款失败:用户余额已不足退款金额');
         }
         return $amountCents;
@@ -273,9 +273,9 @@ class RechargeAdministrationService
         if ($idempotency->isReplayable()) {
             $body = $idempotency->responseBody();
             if (!($body['success'] ?? false)) {
-                throw BusinessException::conflict('REFUND_REPLAY_REJECTED', (string)($body['message'] ?? '退款请求已被拒绝'));
+                throw BusinessException::conflict('REFUND_REPLAY_REJECTED', (string) ($body['message'] ?? '退款请求已被拒绝'));
             }
-            return (string)($body['message'] ?? '操作成功');
+            return (string) ($body['message'] ?? '操作成功');
         }
         throw BusinessException::conflict('REFUND_IN_PROGRESS', '退款请求仍在处理中，请稍后查询退款记录');
     }
@@ -285,8 +285,7 @@ class RechargeAdministrationService
         ?IdempotencyResult $lease,
         bool $success,
         string $message,
-    ): void
-    {
+    ): void {
         if ($idempotency === null || $lease === null || !$lease->isExecutionOwner()) {
             return;
         }
@@ -303,14 +302,14 @@ class RechargeAdministrationService
         object $order,
         object $record,
         float $amount,
-        int $adminId
+        int $adminId,
     ): object {
         return RefundLog::create([
             'sn' => RefundLog::generateSn(),
-            'record_id' => (int)$record->id,
-            'user_id' => (int)$order->user_id,
+            'record_id' => (int) $record->id,
+            'user_id' => (int) $order->user_id,
             'handle_id' => $adminId,
-            'order_amount' => (float)$order->order_amount,
+            'order_amount' => (float) $order->order_amount,
             'refund_amount' => round($amount, 2),
             'refund_status' => RefundEnum::REFUND_ING,
             'refund_msg' => '',
@@ -329,19 +328,19 @@ class RechargeAdministrationService
         $gatewayError = null;
         $gatewayFailure = null;
         try {
-            $channel = match ((int)$order->pay_way) {
+            $channel = match ((int) $order->pay_way) {
                 RechargeOrder::PAY_WAY_WECHAT => 'wechat',
                 RechargeOrder::PAY_WAY_ALIPAY => 'alipay',
                 default => throw BusinessException::invalid('PAYMENT_CHANNEL_UNSUPPORTED', '支付方式异常'),
             };
             $result = $this->payments->forTenant($context, $channel)->refund($channel)->refund(
                 $order->getData(),
-                (string)$record->sn,
-                Money::toCents((string)$record->refund_amount)
+                (string) $record->sn,
+                Money::toCents((string) $record->refund_amount),
             );
         } catch (\Throwable $e) {
             $message = $e->getMessage() !== '' ? $e->getMessage() : '支付渠道退款失败';
-            if ((int)$e->getCode() === RefundGatewayInterface::ERROR_RESULT_UNKNOWN) {
+            if ((int) $e->getCode() === RefundGatewayInterface::ERROR_RESULT_UNKNOWN) {
                 // 请求可能已被渠道受理，保持退款中交由 refund:reconcile 查询收敛。
                 $result = [
                     'status' => RefundGatewayInterface::STATUS_PENDING,
@@ -359,42 +358,42 @@ class RechargeAdministrationService
 
         // 渠道请求完成后使用新的短事务锁定本次记录和日志，原子落下业务结果和幂等回执。
         Db::transaction(function () use (
-                $record,
-                $log,
-                $order,
-                $gatewayError,
-                $result,
-                $idempotency,
-                $lease,
-                $success,
-                $businessMessage,
-            ): void {
-                $lockedRecord = RefundRecord::where([])->lock(true)->findOrEmpty((int)$record->id);
-                $lockedLog = RefundLog::where([])->lock(true)->findOrEmpty((int)$log->id);
-                $lockedOrder = RechargeOrder::where([])->lock(true)->findOrEmpty((int)$order->id);
-                if ($lockedRecord->isEmpty() || $lockedLog->isEmpty() || $lockedOrder->isEmpty()) {
-                    throw BusinessException::conflict('REFUND_RESULT_STATE_INVALID', '退款结果关联数据不存在');
-                }
+            $record,
+            $log,
+            $order,
+            $gatewayError,
+            $result,
+            $idempotency,
+            $lease,
+            $success,
+            $businessMessage,
+        ): void {
+            $lockedRecord = RefundRecord::where([])->lock(true)->findOrEmpty((int) $record->id);
+            $lockedLog = RefundLog::where([])->lock(true)->findOrEmpty((int) $log->id);
+            $lockedOrder = RechargeOrder::where([])->lock(true)->findOrEmpty((int) $order->id);
+            if ($lockedRecord->isEmpty() || $lockedLog->isEmpty() || $lockedOrder->isEmpty()) {
+                throw BusinessException::conflict('REFUND_RESULT_STATE_INVALID', '退款结果关联数据不存在');
+            }
 
-                if ($gatewayError !== null) {
-                    $lockedLog->refund_status = RefundEnum::REFUND_ERROR;
-                    $lockedRecord->refund_status = RefundEnum::REFUND_ERROR;
-                    $message = $gatewayError;
-                } else {
-                    $message = self::encodeGatewayResult($result['receipt'] ?? []);
-                    if (($result['status'] ?? '') === RefundGatewayInterface::STATUS_SUCCESS) {
-                        $lockedLog->refund_status = RefundEnum::REFUND_SUCCESS;
-                        $lockedRecord->refund_status = RefundEnum::REFUND_SUCCESS;
-                        $lockedOrder->refund_transaction_id = (string)($result['transaction_id'] ?? '');
-                        $lockedOrder->save();
-                    }
+            if ($gatewayError !== null) {
+                $lockedLog->refund_status = RefundEnum::REFUND_ERROR;
+                $lockedRecord->refund_status = RefundEnum::REFUND_ERROR;
+                $message = $gatewayError;
+            } else {
+                $message = self::encodeGatewayResult($result['receipt'] ?? []);
+                if (($result['status'] ?? '') === RefundGatewayInterface::STATUS_SUCCESS) {
+                    $lockedLog->refund_status = RefundEnum::REFUND_SUCCESS;
+                    $lockedRecord->refund_status = RefundEnum::REFUND_SUCCESS;
+                    $lockedOrder->refund_transaction_id = (string) ($result['transaction_id'] ?? '');
+                    $lockedOrder->save();
                 }
+            }
 
-                $lockedLog->refund_msg = $message;
-                $lockedRecord->refund_msg = $message;
-                $lockedLog->save();
-                $lockedRecord->save();
-                self::finishRefundIdempotency($idempotency, $lease, $success, $businessMessage);
+            $lockedLog->refund_msg = $message;
+            $lockedRecord->refund_msg = $message;
+            $lockedLog->save();
+            $lockedRecord->save();
+            self::finishRefundIdempotency($idempotency, $lease, $success, $businessMessage);
         });
 
         if ($gatewayFailure instanceof \Throwable) {
@@ -418,31 +417,31 @@ class RechargeAdministrationService
             ->field(
                 'ro.id,ro.sn,ro.order_amount,ro.pay_way,ro.pay_time,'
                 . 'ro.pay_status,ro.create_time,ro.refund_status,'
-                . 'u.avatar,u.nickname,u.account'
+                . 'u.avatar,u.nickname,u.account',
             );
 
         if (!empty($params['sn'])) {
-            $query->where('ro.sn', trim((string)$params['sn']));
+            $query->where('ro.sn', trim((string) $params['sn']));
         }
-        $userInfo = trim((string)($params['user_info'] ?? $params['keyword'] ?? ''));
+        $userInfo = trim((string) ($params['user_info'] ?? $params['keyword'] ?? ''));
         if ($userInfo !== '') {
             $query->where(
                 'u.sn|u.nickname|u.mobile|u.account',
                 'like',
-                '%' . $userInfo . '%'
+                '%' . $userInfo . '%',
             );
         }
         if (isset($params['pay_way']) && $params['pay_way'] !== '') {
-            $query->where('ro.pay_way', (int)$params['pay_way']);
+            $query->where('ro.pay_way', (int) $params['pay_way']);
         }
         $payStatus = $params['pay_status'] ?? $params['status'] ?? '';
         if ($payStatus !== '') {
-            $query->where('ro.pay_status', (int)$payStatus);
+            $query->where('ro.pay_status', (int) $payStatus);
         }
         if (!empty($params['start_time']) && !empty($params['end_time'])) {
             $query->whereBetween('ro.create_time', [
-                strtotime((string)$params['start_time']),
-                strtotime((string)$params['end_time']),
+                strtotime((string) $params['start_time']),
+                strtotime((string) $params['end_time']),
             ]);
         }
 
@@ -458,7 +457,7 @@ class RechargeAdministrationService
             ->group('order_id')
             ->column('SUM(refund_amount)', 'order_id');
         foreach ($rows as &$row) {
-            $row['refunded_amount'] = $amounts[(int)$row['id']] ?? 0;
+            $row['refunded_amount'] = $amounts[(int) $row['id']] ?? 0;
         }
         unset($row);
         return $rows;
@@ -467,12 +466,12 @@ class RechargeAdministrationService
     private function formatRows(array $rows): array
     {
         foreach ($rows as &$row) {
-            $row['id'] = (int)$row['id'];
-            $row['pay_way'] = (int)$row['pay_way'];
-            $row['pay_status'] = (int)$row['pay_status'];
-            $row['refund_status'] = (int)$row['refund_status'];
-            $orderCents = Money::toCents((string)$row['order_amount']);
-            $refundedCents = Money::toCents((string)($row['refunded_amount'] ?? 0));
+            $row['id'] = (int) $row['id'];
+            $row['pay_way'] = (int) $row['pay_way'];
+            $row['pay_status'] = (int) $row['pay_status'];
+            $row['refund_status'] = (int) $row['refund_status'];
+            $orderCents = Money::toCents((string) $row['order_amount']);
+            $refundedCents = Money::toCents((string) ($row['refunded_amount'] ?? 0));
             $row['refunded_amount'] = Money::fromCents($refundedCents);
             $row['refundable_amount'] = Money::fromCents(max(0, $orderCents - $refundedCents));
             $row['pay_way_text'] = [
@@ -484,7 +483,7 @@ class RechargeAdministrationService
                 RechargeOrder::PAY_STATUS_UNPAID => '未支付',
                 RechargeOrder::PAY_STATUS_PAID => '已支付',
             ][$row['pay_status']] ?? '';
-            $row['avatar'] = $this->files->getFileUrl((string)($row['avatar'] ?? ''));
+            $row['avatar'] = $this->files->getFileUrl((string) ($row['avatar'] ?? ''));
             $row['pay_time'] = self::formatTime($row['pay_time'] ?? 0);
             $row['create_time'] = self::formatTime($row['create_time'] ?? 0);
         }
@@ -497,7 +496,7 @@ class RechargeAdministrationService
         if (empty($value)) {
             return '';
         }
-        return is_numeric($value) ? date('Y-m-d H:i:s', (int)$value) : (string)$value;
+        return is_numeric($value) ? date('Y-m-d H:i:s', (int) $value) : (string) $value;
     }
 
     private static function exportInfo(int $count, int $pageSize): array
@@ -516,20 +515,20 @@ class RechargeAdministrationService
             throw new \runtimeException('没有数据,无法导出');
         }
 
-        $pageType = (int)($params['page_type'] ?? 0);
+        $pageType = (int) ($params['page_type'] ?? 0);
         if ($pageType === 1) {
-            $pageStart = max(1, (int)($params['page_start'] ?? 1));
-            $pageEnd = max($pageStart, (int)($params['page_end'] ?? $pageStart));
+            $pageStart = max(1, (int) ($params['page_start'] ?? 1));
+            $pageEnd = max($pageStart, (int) ($params['page_end'] ?? $pageStart));
             $offset = ($pageStart - 1) * $pageSize;
             $limit = ($pageEnd - $pageStart + 1) * $pageSize;
             if ($limit > self::EXPORT_MAX_ROWS) {
                 throw new \runtimeException(
-                    '已超出系统限制数量，请分页查询或导出，当前最多记录数为：25000'
+                    '已超出系统限制数量，请分页查询或导出，当前最多记录数为：25000',
                 );
             }
             if ($offset >= $count) {
                 throw new \runtimeException(
-                    '第' . $pageStart . '页到第' . $pageEnd . '页没有数据，无法导出'
+                    '第' . $pageStart . '页到第' . $pageEnd . '页没有数据，无法导出',
                 );
             }
         } else {
@@ -543,17 +542,17 @@ class RechargeAdministrationService
             ->select()
             ->toArray());
         $file = $this->xlsxExport->create(
-            (string)($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
+            (string) ($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
             ['充值单号', '用户昵称', '充值金额', '支付方式', '支付状态', '支付时间', '下单时间'],
             array_map(static fn(array $row): array => [
                 $row['sn'],
                 $row['nickname'],
-                (float)$row['order_amount'],
+                (float) $row['order_amount'],
                 $row['pay_way_text'],
                 $row['pay_status_text'],
                 $row['pay_time'],
                 $row['create_time'],
-            ], $this->formatRows($rows))
+            ], $this->formatRows($rows)),
         );
 
         return [

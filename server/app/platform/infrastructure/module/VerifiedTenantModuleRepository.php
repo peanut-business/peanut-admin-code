@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\module;
@@ -13,9 +14,8 @@ final readonly class VerifiedTenantModuleRepository implements TenantModuleMutat
 {
     public function __construct(
         private TenantModuleMutationRepository $mutations,
-        private DeployedTenantModuleRegistry $registry
-    ) {
-    }
+        private DeployedTenantModuleRegistry $registry,
+    ) {}
 
     public function tenantIsActive(int $tenantId): bool
     {
@@ -45,7 +45,7 @@ final readonly class VerifiedTenantModuleRepository implements TenantModuleMutat
         DateTimeImmutable $now,
         string $source = 'manual',
         ?DateTimeImmutable $effectiveAt = null,
-        ?DateTimeImmutable $expiresAt = null
+        ?DateTimeImmutable $expiresAt = null,
     ): TenantModuleRecord {
         return $this->mutations->enable(
             $tenantId,
@@ -54,7 +54,7 @@ final readonly class VerifiedTenantModuleRepository implements TenantModuleMutat
             $now,
             $source,
             $effectiveAt,
-            $expiresAt
+            $expiresAt,
         );
     }
 

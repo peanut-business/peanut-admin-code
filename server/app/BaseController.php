@@ -1,5 +1,6 @@
 <?php
-declare (strict_types = 1);
+
+declare (strict_types=1);
 
 namespace app;
 
@@ -76,8 +77,7 @@ abstract class BaseController
     }
 
     // 初始化
-    protected function initialize()
-    {}
+    protected function initialize() {}
 
     /**
      * 始终从构造当前 Controller 的 App 读取已注册 reader；不创建空上下文。
@@ -137,7 +137,7 @@ abstract class BaseController
             }
 
             return is_callable($previousErrorHandler)
-                ? (bool)$previousErrorHandler($severity, $message, $file, $line)
+                ? (bool) $previousErrorHandler($severity, $message, $file, $line)
                 : false;
         });
         try {
@@ -192,8 +192,7 @@ abstract class BaseController
         string|array $validate,
         array $message = [],
         bool $batch = false,
-    ): ValidatedInput
-    {
+    ): ValidatedInput {
         return $this->app->make(InputValidator::class)->validate(
             $data,
             $validate,
@@ -314,7 +313,7 @@ abstract class BaseController
         }
 
         $selected = $declarations[0];
-        $dependencyClass = ltrim((string)($selected->getDeclaringClass()
+        $dependencyClass = ltrim((string) ($selected->getDeclaringClass()
             ->getDefaultProperties()[$declarationName] ?? ''), '\\');
         if (!class_exists($dependencyClass) && !interface_exists($dependencyClass)) {
             throw new LogicException(sprintf(

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\execution;
@@ -9,8 +10,7 @@ final readonly class SystemExecutionMetadata
         public ?string $jobKey = null,
         public ?int $attemptNumber = null,
         public ?string $handlerKey = null,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,int|string> */
     public function toArray(): array

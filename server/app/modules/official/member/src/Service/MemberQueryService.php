@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Service;
@@ -19,9 +20,7 @@ use app\common\support\PaginationInput;
 
 final class MemberQueryService implements MemberQueries
 {
-    public function __construct(private readonly CurrentExecutionContext $executionContext)
-    {
-    }
+    public function __construct(private readonly CurrentExecutionContext $executionContext) {}
 
     public function identity(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
@@ -49,7 +48,7 @@ final class MemberQueryService implements MemberQueries
         }
         $data = $member->toArray();
         if (in_array('password', $fields, true)) {
-            $data['password'] = (string)$member->getData('password');
+            $data['password'] = (string) $member->getData('password');
         }
         return $data;
     }
@@ -69,9 +68,9 @@ final class MemberQueryService implements MemberQueries
         }
 
         return new MemberBalanceSnapshot(
-            (int)$member->id,
-            Money::toCents((string)$member->getData('user_money')),
-            Money::toCents((string)$member->getData('total_recharge_amount')),
+            (int) $member->id,
+            Money::toCents((string) $member->getData('user_money')),
+            Money::toCents((string) $member->getData('total_recharge_amount')),
         );
     }
 
@@ -89,7 +88,7 @@ final class MemberQueryService implements MemberQueries
 
         return $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
             ? $item->toArray()
-            : (array)$item);
+            : (array) $item);
     }
 
     private function identitySnapshot(
@@ -108,12 +107,12 @@ final class MemberQueryService implements MemberQueries
     private static function snapshot(object $member): MemberIdentitySnapshot
     {
         return new MemberIdentitySnapshot(
-            (int)$member->id,
-            (string)$member->sn,
-            (string)$member->nickname,
-            (string)$member->avatar,
-            (string)$member->mobile,
-            (int)$member->status,
+            (int) $member->id,
+            (string) $member->sn,
+            (string) $member->nickname,
+            (string) $member->avatar,
+            (string) $member->mobile,
+            (int) $member->status,
         );
     }
 }

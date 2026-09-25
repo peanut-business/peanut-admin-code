@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 function expectDecorationAlignment(bool $condition, string $message): void
@@ -10,14 +11,14 @@ function expectDecorationAlignment(bool $condition, string $message): void
 
 $root = dirname(__DIR__, 3);
 $sources = [
-    'mobile-home' => (string)file_get_contents($root . '/uniapp/src/pages/index/index.vue'),
-    'mobile-profile' => (string)file_get_contents($root . '/uniapp/src/pages/user/user.vue'),
-    'mobile-runtime' => (string)file_get_contents($root . '/uniapp/src/utils/decoration.ts'),
-    'pc-runtime' => (string)file_get_contents($root . '/pc/pages/index.vue'),
-    'mobile-editor' => (string)file_get_contents($root . '/web/src/views/decoration/mobile/index.vue'),
-    'tabbar-editor' => (string)file_get_contents($root . '/web/src/views/decoration/tabbar/index.vue'),
-    'pc-editor' => (string)file_get_contents($root . '/web/src/views/decoration/pc/index.vue'),
-    'schema' => (string)file_get_contents($root . '/server/app/common/service/decoration/DecorationSchemaService.php'),
+    'mobile-home' => (string) file_get_contents($root . '/uniapp/src/pages/index/index.vue'),
+    'mobile-profile' => (string) file_get_contents($root . '/uniapp/src/pages/user/user.vue'),
+    'mobile-runtime' => (string) file_get_contents($root . '/uniapp/src/utils/decoration.ts'),
+    'pc-runtime' => (string) file_get_contents($root . '/pc/pages/index.vue'),
+    'mobile-editor' => (string) file_get_contents($root . '/web/src/views/decoration/mobile/index.vue'),
+    'tabbar-editor' => (string) file_get_contents($root . '/web/src/views/decoration/tabbar/index.vue'),
+    'pc-editor' => (string) file_get_contents($root . '/web/src/views/decoration/pc/index.vue'),
+    'schema' => (string) file_get_contents($root . '/server/app/common/service/decoration/DecorationSchemaService.php'),
 ];
 
 $matrix = [
@@ -51,11 +52,11 @@ foreach ($matrix as [$source, $needle, $message]) {
 
 expectDecorationAlignment(
     substr_count($sources['mobile-editor'], ':article-options="articleOptions"') === 2,
-    '移动编辑器的两个条目编辑面未同时接入文章选项'
+    '移动编辑器的两个条目编辑面未同时接入文章选项',
 );
 expectDecorationAlignment(
     str_contains($sources['schema'], "['position', 'left', 'top', 'width', 'height']"),
-    'PC 样式白名单字段不精确'
+    'PC 样式白名单字段不精确',
 );
 
 echo "DEEP-DECORATION-ALIGNMENT-001 passed\n";

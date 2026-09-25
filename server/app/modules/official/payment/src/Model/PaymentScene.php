@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Model;
@@ -54,8 +55,8 @@ class PaymentScene extends SharedModel
             ->toArray();
 
         return array_map(static fn(array $row): array => [
-            'pay_way' => (int)$row['pay_way'],
-            'is_default' => (int)$row['is_default'],
+            'pay_way' => (int) $row['pay_way'],
+            'is_default' => (int) $row['is_default'],
         ], $rows);
     }
 

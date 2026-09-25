@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\installation;
@@ -28,7 +29,7 @@ final class InstallationPreflightHost
         ?string $serverRoot = null,
         ?Closure $extensionProbe = null,
         ?Closure $resourceConfigLoader = null,
-        ?string $phpVersion = null
+        ?string $phpVersion = null,
     ) {
         $this->serverRoot = rtrim($serverRoot ?? dirname(__DIR__, 4), '/');
         $this->extensionProbe = $extensionProbe
@@ -63,7 +64,7 @@ final class InstallationPreflightHost
 
         $failed = array_values(array_filter(
             $checks,
-            static fn(array $check): bool => $check['status'] === 'failed'
+            static fn(array $check): bool => $check['status'] === 'failed',
         ));
         if ($failed !== []) {
             return [
@@ -93,7 +94,7 @@ final class InstallationPreflightHost
             return $this->passed(
                 'php-version',
                 'INSTALL_PHP_VERSION_READY',
-                'PHP 版本满足 8.3 或更高版本要求'
+                'PHP 版本满足 8.3 或更高版本要求',
             );
         }
 
@@ -101,7 +102,7 @@ final class InstallationPreflightHost
             'php-version',
             'INSTALL_PHP_VERSION_UNSUPPORTED',
             'PHP 版本低于 8.3',
-            '安装 PHP 8.3 或更高版本后重新运行预检'
+            '安装 PHP 8.3 或更高版本后重新运行预检',
         );
     }
 
@@ -110,7 +111,7 @@ final class InstallationPreflightHost
     {
         $missing = [];
         foreach (self::REQUIRED_EXTENSIONS as $extension) {
-            if (!(bool)($this->extensionProbe)($extension)) {
+            if (!(bool) ($this->extensionProbe)($extension)) {
                 $missing[] = $extension;
             }
         }
@@ -118,7 +119,7 @@ final class InstallationPreflightHost
             return $this->passed(
                 'php-extensions',
                 'INSTALL_PHP_EXTENSIONS_READY',
-                '安装所需 PHP 扩展均已加载'
+                '安装所需 PHP 扩展均已加载',
             );
         }
 
@@ -126,7 +127,7 @@ final class InstallationPreflightHost
             'php-extensions',
             'INSTALL_PHP_EXTENSIONS_MISSING',
             '缺少 PHP 扩展：' . implode(', ', $missing),
-            '安装并启用缺失扩展后重新运行预检'
+            '安装并启用缺失扩展后重新运行预检',
         );
     }
 
@@ -151,7 +152,7 @@ final class InstallationPreflightHost
             return $this->passed(
                 'installation-files',
                 'INSTALL_FILES_READY',
-                '安装器所需文件均存在且可读'
+                '安装器所需文件均存在且可读',
             );
         }
 
@@ -159,7 +160,7 @@ final class InstallationPreflightHost
             'installation-files',
             'INSTALL_FILES_MISSING',
             '缺少或无法读取：' . implode(', ', $missing),
-            '恢复完整发布制品并安装锁定的 Composer 依赖后重新运行预检'
+            '恢复完整发布制品并安装锁定的 Composer 依赖后重新运行预检',
         );
     }
 
@@ -171,7 +172,7 @@ final class InstallationPreflightHost
             return $this->passed(
                 'directory.' . $id,
                 'INSTALL_DIRECTORY_READY',
-                $relativePath . ' 目录存在且可读写'
+                $relativePath . ' 目录存在且可读写',
             );
         }
 
@@ -179,7 +180,7 @@ final class InstallationPreflightHost
             'directory.' . $id,
             'INSTALL_DIRECTORY_NOT_WRITABLE',
             $relativePath . ' 目录不存在或不可读写',
-            '由部署 owner 创建该目录并授予应用进程最小读写权限'
+            '由部署 owner 创建该目录并授予应用进程最小读写权限',
         );
     }
 
@@ -209,7 +210,7 @@ final class InstallationPreflightHost
                 $this->passed(
                     'database-resource',
                     'INSTALL_DATABASE_RESOURCE_READY',
-                    '数据库环境、资源、consumer 和 endpoint 身份与项目登记一致'
+                    '数据库环境、资源、consumer 和 endpoint 身份与项目登记一致',
                 ),
                 $identity,
             ];
@@ -219,7 +220,7 @@ final class InstallationPreflightHost
                     'database-resource',
                     'INSTALL_DATABASE_RESOURCE_INVALID',
                     '数据库资源身份未通过项目登记校验',
-                    '按 resources/project-resources.json 选择环境、资源 ID、consumer 和 endpoint，禁止猜测地址或凭据'
+                    '按 resources/project-resources.json 选择环境、资源 ID、consumer 和 endpoint，禁止猜测地址或凭据',
                 ),
                 null,
             ];
@@ -239,7 +240,7 @@ final class InstallationPreflightHost
         }
         $hostLeaseProof = getenv('P0E_HOST_LEASE_PROOF');
         return guardedDatabaseConfig(
-            $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof
+            $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof,
         );
     }
 

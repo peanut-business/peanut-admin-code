@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Service;
@@ -32,15 +33,13 @@ class VerificationCodeService
         private readonly CurrentExecutionContext $executionContext,
         private readonly bool $developmentMode,
         private readonly int $maxFailedAttempts = self::DEFAULT_MAX_FAILED_ATTEMPTS,
-    ) {
-    }
+    ) {}
 
     public function send(
         TenantContext|TenantSystemContext $context,
         string $sceneCode,
-        string $mobile
-    ): DeliveryResult
-    {
+        string $mobile,
+    ): DeliveryResult {
         $tenantId = NoticeTenantContext::verificationTenantId(
             $this->executionContext,
             $context,
@@ -70,14 +69,14 @@ class VerificationCodeService
             ? '1234'
             : (string) random_int(
                 10 ** (NoticeSceneEnum::CODE_LENGTH - 1),
-                (10 ** NoticeSceneEnum::CODE_LENGTH) - 1
+                (10 ** NoticeSceneEnum::CODE_LENGTH) - 1,
             );
         $content = $this->render($templateContent, ['code' => '****']);
         $reservation = $this->reserve(
             $context,
             $tenantId,
-            (int)$scene->id,
-            (string)$scene->name,
+            (int) $scene->id,
+            (string) $scene->name,
             $sceneCode,
             $mobile,
             $content,
@@ -88,7 +87,7 @@ class VerificationCodeService
             return $this->reservedDelivery($reservation['log'], $reservation['reason']);
         }
 
-        $reservationKey = (string)$reservation['log']->reservation_key;
+        $reservationKey = (string) $reservation['log']->reservation_key;
         $attemptStarted = false;
         try {
             $result = $this->sender->send(
@@ -109,8 +108,8 @@ class VerificationCodeService
         }
 
         $outcome = $this->normalizeOutcome($result);
-        $provider = trim((string)($result['provider'] ?? ''));
-        $error = trim((string)($result['error'] ?? ''));
+        $provider = trim((string) ($result['provider'] ?? ''));
+        $error = trim((string) ($result['error'] ?? ''));
         $receipt = is_array($result['result'] ?? null) ? $result['result'] : [];
         if ($outcome === SmsDriverResult::OUTCOME_UNKNOWN && $error === '') {
             $error = '短信服务商调用结果未知，请稍后重试';
@@ -141,9 +140,8 @@ class VerificationCodeService
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         string $sceneCode,
         string $mobile,
-        string $code
-    ): VerificationResult
-    {
+        string $code,
+    ): VerificationResult {
         NoticeTenantContext::verificationTenantId($this->executionContext, $context, 'notice.verification.verify');
         if (!$this->validMobile($mobile)) {
             return new VerificationResult(false, '手机号格式不正确');
@@ -170,21 +168,21 @@ class VerificationCodeService
                 ->lock(true)
                 ->findOrEmpty();
 
-            if ($log->isEmpty() || (int)$log->is_verified === NoticeLog::VERIFIED_YES) {
+            if ($log->isEmpty() || (int) $log->is_verified === NoticeLog::VERIFIED_YES) {
                 return new VerificationResult(false, '验证码不存在或已使用');
             }
 
             // 已耗尽的验证码不能再被正确核验；必须重新发送生成新记录。
-            if ((int)$log->check_count >= $this->maxFailedAttempts()) {
+            if ((int) $log->check_count >= $this->maxFailedAttempts()) {
                 return new VerificationResult(false, '验证码验证次数已达上限');
             }
             if ((int) $log->send_time < time() - self::VALID_PERIOD) {
                 return new VerificationResult(false, '验证码已过期');
             }
 
-            if (!VerificationCodeSecret::matches($code, (string)$log->verify_code_hash)) {
+            if (!VerificationCodeSecret::matches($code, (string) $log->verify_code_hash)) {
                 // 先提交失败计数，再由调用方抛出业务异常；调用方不得用可回滚外层事务包住核验。
-                $log->check_count = (int)$log->check_count + 1;
+                $log->check_count = (int) $log->check_count + 1;
                 $log->save();
                 return new VerificationResult(false, '验证码不正确');
             }
@@ -218,11 +216,10 @@ class VerificationCodeService
         string $content,
         string $templateId,
         string $code,
-    ): array
-    {
+    ): array {
         $idempotencyHash = hash('sha256', implode("\0", [
             'notice.verification.send',
-            (string)$tenantId,
+            (string) $tenantId,
             $this->executionContext->requestId(),
         ]));
         $requestDigest = hash('sha256', implode("\0", [$sceneCode, $mobile]));
@@ -243,7 +240,7 @@ class VerificationCodeService
                 ->lock(true)
                 ->findOrEmpty();
             if (!$existing->isEmpty()) {
-                $reason = hash_equals((string)$existing->request_digest, $requestDigest)
+                $reason = hash_equals((string) $existing->request_digest, $requestDigest)
                     ? 'replay'
                     : 'conflict';
                 return ['execute' => false, 'reason' => $reason, 'log' => $existing];
@@ -256,7 +253,7 @@ class VerificationCodeService
                 ->lock(true)
                 ->findOrEmpty();
             $reservationTime = time();
-            if (!$active->isEmpty() && (int)$active->reservation_until > $reservationTime) {
+            if (!$active->isEmpty() && (int) $active->reservation_until > $reservationTime) {
                 return ['execute' => false, 'reason' => 'active', 'log' => $active];
             }
             if (!$active->isEmpty()) {
@@ -306,7 +303,7 @@ class VerificationCodeService
                     ->lock(true)
                     ->findOrEmpty();
                 if (!$existing->isEmpty()) {
-                    $reason = hash_equals((string)$existing->request_digest, $requestDigest)
+                    $reason = hash_equals((string) $existing->request_digest, $requestDigest)
                         ? 'replay'
                         : 'conflict';
                     return ['execute' => false, 'reason' => $reason, 'log' => $existing];
@@ -333,7 +330,7 @@ class VerificationCodeService
     ): void {
         Db::transaction(function () use ($context, $reservationKey, $provider): void {
             $log = $this->lockedReservation($context, $reservationKey);
-            if ((int)$log->status !== NoticeLog::STATUS_PENDING) {
+            if ((int) $log->status !== NoticeLog::STATUS_PENDING) {
                 throw new \LogicException('SMS_RESERVATION_NOT_PENDING');
             }
             $log->provider = trim($provider);
@@ -363,7 +360,7 @@ class VerificationCodeService
             $receipt,
         ): void {
             $log = $this->lockedReservation($context, $reservationKey);
-            $currentStatus = (int)$log->status;
+            $currentStatus = (int) $log->status;
             if (!in_array($currentStatus, [
                 NoticeLog::STATUS_PENDING,
                 NoticeLog::STATUS_UNKNOWN,
@@ -375,7 +372,7 @@ class VerificationCodeService
                 throw new \LogicException('SMS_PROVIDER_ATTEMPT_NOT_RECORDED');
             }
 
-            $log->provider = trim($provider) !== '' ? trim($provider) : (string)$log->provider;
+            $log->provider = trim($provider) !== '' ? trim($provider) : (string) $log->provider;
             $log->status = match ($outcome) {
                 SmsDriverResult::OUTCOME_SUCCEEDED => NoticeLog::STATUS_SUCCESS,
                 SmsDriverResult::OUTCOME_FAILED => NoticeLog::STATUS_FAIL,
@@ -410,26 +407,26 @@ class VerificationCodeService
             return new DeliveryResult(false, '', '短信幂等请求内容冲突');
         }
         if ($reason === 'active') {
-            $error = (int)$log->status === NoticeLog::STATUS_UNKNOWN
+            $error = (int) $log->status === NoticeLog::STATUS_UNKNOWN
                 ? '上次短信发送结果未知，请稍后重试'
                 : '同一手机号1分钟只能发送1条短信';
-            return new DeliveryResult(false, (string)$log->provider, $error);
+            return new DeliveryResult(false, (string) $log->provider, $error);
         }
 
-        $status = (int)$log->status;
-        $receipt = $this->decodeReceipt((string)$log->extra);
+        $status = (int) $log->status;
+        $receipt = $this->decodeReceipt((string) $log->extra);
         return match ($status) {
-            NoticeLog::STATUS_SUCCESS => new DeliveryResult(true, (string)$log->provider, '', $receipt),
-            NoticeLog::STATUS_FAIL => new DeliveryResult(false, (string)$log->provider, (string)$log->error, $receipt),
-            NoticeLog::STATUS_UNKNOWN => new DeliveryResult(false, (string)$log->provider, '短信服务商调用结果未知，请稍后重试', $receipt),
-            default => new DeliveryResult(false, (string)$log->provider, '验证码发送正在处理中'),
+            NoticeLog::STATUS_SUCCESS => new DeliveryResult(true, (string) $log->provider, '', $receipt),
+            NoticeLog::STATUS_FAIL => new DeliveryResult(false, (string) $log->provider, (string) $log->error, $receipt),
+            NoticeLog::STATUS_UNKNOWN => new DeliveryResult(false, (string) $log->provider, '短信服务商调用结果未知，请稍后重试', $receipt),
+            default => new DeliveryResult(false, (string) $log->provider, '验证码发送正在处理中'),
         };
     }
 
     /** @param array<string,mixed> $result */
     private function normalizeOutcome(array $result): string
     {
-        $outcome = (string)($result['outcome'] ?? '');
+        $outcome = (string) ($result['outcome'] ?? '');
         if (!in_array($outcome, [
             SmsDriverResult::OUTCOME_SUCCEEDED,
             SmsDriverResult::OUTCOME_FAILED,
@@ -453,7 +450,7 @@ class VerificationCodeService
     private function isUniqueConflict(\Throwable $exception): bool
     {
         for ($current = $exception; $current !== null; $current = $current->getPrevious()) {
-            if ((string)$current->getCode() === '23000'
+            if ((string) $current->getCode() === '23000'
                 || str_contains(strtolower($current->getMessage()), 'duplicate entry')) {
                 return true;
             }

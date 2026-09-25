@@ -1,78 +1,82 @@
-import { http } from '@/utils/request'
-import type { DecorationPage, DecorationTabbar, DecorationTheme } from '@/utils/decoration'
+import { http } from '@/utils/request';
+import type {
+  DecorationPage,
+  DecorationTabbar,
+  DecorationTheme,
+} from '@/utils/decoration';
 
 export interface WebsiteConfig {
-  name: string
-  web_favicon: string
-  web_logo: string
-  login_image: string
-  shop_name: string
-  shop_logo: string
-  pc_logo: string
-  pc_title: string
-  pc_ico: string
-  pc_desc: string
-  pc_keywords: string
-  h5_favicon: string
-  slogan: string
-  copyright: string
-  official_url: string
-  github_url: string
+  name: string;
+  web_favicon: string;
+  web_logo: string;
+  login_image: string;
+  shop_name: string;
+  shop_logo: string;
+  pc_logo: string;
+  pc_title: string;
+  pc_ico: string;
+  pc_desc: string;
+  pc_keywords: string;
+  h5_favicon: string;
+  slogan: string;
+  copyright: string;
+  official_url: string;
+  github_url: string;
 }
 
 export interface ConfigData {
-  domain: string
-  website: WebsiteConfig
-  login: { login_way: number[] }
+  domain: string;
+  website: WebsiteConfig;
+  login: { login_way: number[] };
   web_page: {
-    status: 0 | 1
-    page_status: 0 | 1
-    page_url: string
-  }
-  tabbar: DecorationTabbar
-  theme: DecorationPage & { data: DecorationTheme }
-  version: string
+    status: 0 | 1;
+    page_status: 0 | 1;
+    page_url: string;
+  };
+  tabbar: DecorationTabbar;
+  theme: DecorationPage & { data: DecorationTheme };
+  version: string;
 }
 
 export interface PolicyData {
-  title: string
-  content: string
+  title: string;
+  content: string;
 }
 
 export interface Article {
-  id: number
-  cid: number
-  cate_name?: string
-  title: string
-  image: string
-  desc: string
-  author?: string
-  click: number
-  create_time: string
-  collect?: boolean
+  id: number;
+  cid: number;
+  cate_name?: string;
+  title: string;
+  image: string;
+  desc: string;
+  author?: string;
+  click: number;
+  create_time: string;
+  collect?: boolean;
 }
 
 export interface IndexData {
-  article: Article[]
-  decorate: DecorationPage
+  article: Article[];
+  decorate: DecorationPage;
 }
 
 /** GET api/index/config — app global config */
 export function getConfig() {
-  return http.get<ConfigData>('api/index/config', undefined, false)
+  return http.get<ConfigData>('api/index/config', undefined, false);
 }
 
 /** GET api/index/policy?type=privacy|service */
 export function getPolicy(type: 'privacy' | 'service') {
-  return http.get<PolicyData>('api/index/policy', { type }, false)
+  return http.get<PolicyData>('api/index/policy', { type }, false);
 }
 
 /** GET api/index/index — home page data */
 export function getIndexData() {
-  return http.get<IndexData>('api/index/index', undefined, false)
+  return http.get<IndexData>('api/index/index', undefined, false);
 }
 
 /** GET api/decoration/tabbar — public visible tabbar configuration */
 export function getDecorationTabbar() {
-  return http.get<DecorationTabbar>('api/decoration/tabbar', undefined, false)
+  return http.get<DecorationTabbar>('api/decoration/tabbar', undefined, false);
 }

@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
-import { useUserStore } from '@/store'
-import FileAssetSelector from './FileAssetSelector.vue'
-import { createFileAssetRuntime, FILE_ASSET_READ_PERMISSION } from './runtime'
+  import { onBeforeUnmount, onMounted } from 'vue';
+  import { useUserStore } from '@/store';
+  import FileAssetSelector from './FileAssetSelector.vue';
+  import {
+    createFileAssetRuntime,
+    FILE_ASSET_READ_PERMISSION,
+  } from './runtime';
 
-const user = useUserStore()
-const runtime = createFileAssetRuntime({
-  canRead: () => user.permissions.includes(FILE_ASSET_READ_PERMISSION),
-})
-const state = runtime.state
+  const user = useUserStore();
+  const runtime = createFileAssetRuntime({
+    canRead: () => user.permissions.includes(FILE_ASSET_READ_PERMISSION),
+  });
+  const state = runtime.state;
 
-onMounted(() => runtime.load())
-onBeforeUnmount(runtime.dispose)
+  onMounted(() => runtime.load());
+  onBeforeUnmount(runtime.dispose);
 </script>
 
 <template>
@@ -41,9 +44,21 @@ onBeforeUnmount(runtime.dispose)
 </template>
 
 <style scoped>
-.file-asset-page { padding: 20px; }
-.file-asset-page header { margin-bottom: 20px; }
-.file-asset-page h1 { margin: 0; }
-.file-asset-page p { color: var(--color-text-3); }
-.file-asset-page__pager { display: flex; justify-content: flex-end; margin-top: 20px; }
+  .file-asset-page {
+    padding: 20px;
+  }
+  .file-asset-page header {
+    margin-bottom: 20px;
+  }
+  .file-asset-page h1 {
+    margin: 0;
+  }
+  .file-asset-page p {
+    color: var(--color-text-3);
+  }
+  .file-asset-page__pager {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
 </style>

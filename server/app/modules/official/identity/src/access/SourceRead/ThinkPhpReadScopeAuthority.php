@@ -46,7 +46,7 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
             $definition->key, $definition->action, $definition->moduleKey, $definition->recipientModuleKey,
             json_encode($definition->fields, JSON_THROW_ON_ERROR),
             json_encode($requestedFields, JSON_THROW_ON_ERROR),
-            $definition->readPermissionKey, $authorizationRevision, (string)$actor->authorizationRevision,
+            $definition->readPermissionKey, $authorizationRevision, (string) $actor->authorizationRevision,
         ];
 
         foreach ($requested as $sourceTenantId) {
@@ -147,12 +147,12 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
         $globalDeny = false;
         $revisionParts = [];
         foreach ($rows as $row) {
-            $objectId = $row['object_id'] === null ? null : (int)$row['object_id'];
+            $objectId = $row['object_id'] === null ? null : (int) $row['object_id'];
             $fields = is_array($row['fields_json']) ? array_values(array_map('strval', $row['fields_json'])) : [];
             $revisionParts[] = implode(':', [
-                (string)$row['id'], (string)$row['effect'], (string)($objectId ?? 0),
-                (string)$row['revision'], hash('sha256', json_encode($fields, JSON_THROW_ON_ERROR)),
-                (string)($row['valid_until'] ?? ''),
+                (string) $row['id'], (string) $row['effect'], (string) ($objectId ?? 0),
+                (string) $row['revision'], hash('sha256', json_encode($fields, JSON_THROW_ON_ERROR)),
+                (string) ($row['valid_until'] ?? ''),
             ]);
             if ($row['effect'] === 'deny') {
                 if ($objectId === null) {
@@ -171,7 +171,10 @@ final readonly class ThinkPhpReadScopeAuthority implements ReadScopeAuthority
         $deniedIds = array_map('intval', array_keys($denied));
         sort($deniedIds, SORT_NUMERIC);
         [$objectIds, $fields] = SourceReadProjection::resolve(
-            $allows, $deniedIds, $definition->fields, $requestedFields,
+            $allows,
+            $deniedIds,
+            $definition->fields,
+            $requestedFields,
         );
         $sourceRevision = hash('sha256', json_encode($revisionParts, JSON_THROW_ON_ERROR));
 

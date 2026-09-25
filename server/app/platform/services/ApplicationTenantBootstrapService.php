@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services;
@@ -46,8 +47,7 @@ final readonly class ApplicationTenantBootstrapService
         private TenantSettingService $tenantSettings,
         private ExternalChannelBindingStore $externalBindings,
         private DbManager $database,
-    ) {
-    }
+    ) {}
 
     public function provision(int $tenantId, int $ownerMemberId, int $ownerRoleId, string $tenantCode): void
     {

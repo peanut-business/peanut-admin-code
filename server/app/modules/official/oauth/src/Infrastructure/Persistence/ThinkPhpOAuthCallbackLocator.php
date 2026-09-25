@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Infrastructure\Persistence;
@@ -33,7 +34,7 @@ final class ThinkPhpOAuthCallbackLocator implements OAuthCallbackLocator
                 ->where('o.scene', $scene)
                 ->whereNull('o.used_at')
                 ->where('o.expires_at', '>=', time())
-                ->limit(2)->select()->toArray()
+                ->limit(2)->select()->toArray(),
         );
     }
 
@@ -52,7 +53,7 @@ final class ThinkPhpOAuthCallbackLocator implements OAuthCallbackLocator
                     ExternalProvider::WECHAT_OFFICIAL_OAUTH,
                     ExternalProvider::WECHAT_OPEN_PLATFORM,
                 ])
-                ->limit(2)->select()->toArray()
+                ->limit(2)->select()->toArray(),
         );
     }
 
@@ -60,17 +61,17 @@ final class ThinkPhpOAuthCallbackLocator implements OAuthCallbackLocator
     private function bindings(array $rows): array
     {
         return array_map(static function (array $row): ExternalTenantBinding {
-            $config = json_decode((string)($row['config_json'] ?? ''), true);
+            $config = json_decode((string) ($row['config_json'] ?? ''), true);
             return new ExternalTenantBinding(
-                (int)($row['id'] ?? 0),
-                (int)($row['tenant_id'] ?? 0),
-                (string)($row['provider'] ?? ''),
-                (string)($row['callback_key'] ?? ''),
-                (string)($row['identity_hash'] ?? ''),
-                (string)($row['identity_hint'] ?? ''),
+                (int) ($row['id'] ?? 0),
+                (int) ($row['tenant_id'] ?? 0),
+                (string) ($row['provider'] ?? ''),
+                (string) ($row['callback_key'] ?? ''),
+                (string) ($row['identity_hash'] ?? ''),
+                (string) ($row['identity_hint'] ?? ''),
                 is_array($config) ? $config : [],
-                (int)($row['status'] ?? 0) === 1,
-                (string)($row['tenant_status'] ?? '') === 'active',
+                (int) ($row['status'] ?? 0) === 1,
+                (string) ($row['tenant_status'] ?? '') === 'active',
             );
         }, $rows);
     }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -25,23 +26,23 @@ final class ModuleCheck extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            $kernelVersion = trim((string)$input->getOption('kernel-version'));
+            $kernelVersion = trim((string) $input->getOption('kernel-version'));
             if ($kernelVersion === '') {
-                $configured = trim((string)Config::get('modules.kernel_version', '1.0.0'));
+                $configured = trim((string) Config::get('modules.kernel_version', '1.0.0'));
                 $kernelVersion = $configured === '' ? '1.0.0' : $configured;
             }
             $result = (new ModuleAuthorCheckHost(dirname(__DIR__, 3), $kernelVersion))->inspect(
-                (string)$input->getArgument('module_key'),
-                (string)$input->getOption('package'),
-                (string)$input->getOption('sha256'),
+                (string) $input->getArgument('module_key'),
+                (string) $input->getOption('package'),
+                (string) $input->getOption('sha256'),
             );
-            $output->writeln((string)json_encode(
+            $output->writeln((string) json_encode(
                 $result,
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
             ));
             return $result['status'] === 'ready' ? 0 : 1;
         } catch (\Throwable) {
-            $output->writeln((string)json_encode([
+            $output->writeln((string) json_encode([
                 'status' => 'blocked',
                 'code' => 'MODULE_CHECK_FAILED',
                 'reason' => 'Module 作者检查无法完成',

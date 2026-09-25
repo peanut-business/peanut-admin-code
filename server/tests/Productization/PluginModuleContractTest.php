@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\platform\validation\module\OpisManifestSchemaValidator;
@@ -49,7 +50,10 @@ final class PluginModuleAutowireService implements PluginModuleAutowireContract
 
 final class PluginModuleAutowireProvider implements \PeanutAdmin\Kernel\Module\ModuleProvider
 {
-    public function moduleKey(): string { return 'fixture.autowire'; }
+    public function moduleKey(): string
+    {
+        return 'fixture.autowire';
+    }
 
     public function bindings(): array
     {
@@ -62,7 +66,10 @@ final class PluginModuleAutowireProvider implements \PeanutAdmin\Kernel\Module\M
 
 final class PluginModuleCycleProvider implements \PeanutAdmin\Kernel\Module\ModuleProvider
 {
-    public function moduleKey(): string { return 'fixture.cycle'; }
+    public function moduleKey(): string
+    {
+        return 'fixture.cycle';
+    }
 
     public function bindings(): array
     {
@@ -72,7 +79,10 @@ final class PluginModuleCycleProvider implements \PeanutAdmin\Kernel\Module\Modu
 
 final class PluginModuleMultiCycleProvider implements \PeanutAdmin\Kernel\Module\ModuleProvider
 {
-    public function moduleKey(): string { return 'fixture.multi-cycle'; }
+    public function moduleKey(): string
+    {
+        return 'fixture.multi-cycle';
+    }
 
     public function bindings(): array
     {
@@ -147,18 +157,18 @@ sort($officialModuleRoots, SORT_STRING);
 $moduleRoots = [$moduleRoot, ...$officialModuleRoots];
 $moduleRootsByKey = [];
 foreach ($moduleRoots as $root) {
-    $document = json_decode((string)file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
-    $moduleRootsByKey[(string)$document['key']] = $root;
+    $document = json_decode((string) file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
+    $moduleRootsByKey[(string) $document['key']] = $root;
 }
 $layout = ModuleHostLayoutFactory::fromModuleRoots($moduleRootsByKey);
 $frontendComponents = [];
 foreach ($moduleRoots as $root) {
-    $document = json_decode((string)file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
+    $document = json_decode((string) file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
     $menus = $document['backend']['menus'] ?? null;
     if (!is_string($menus) || !is_file($root . '/' . $menus)) {
         continue;
     }
-    foreach (json_decode((string)file_get_contents($root . '/' . $menus), true, 32, JSON_THROW_ON_ERROR) as $menu) {
+    foreach (json_decode((string) file_get_contents($root . '/' . $menus), true, 32, JSON_THROW_ON_ERROR) as $menu) {
         if (($menu['type'] ?? null) === 'page' && is_string($menu['component_key'] ?? null)) {
             $frontendComponents[] = $menu['component_key'];
         }
@@ -169,7 +179,7 @@ sort($frontendComponents, SORT_STRING);
 $historicalTableOwners = [];
 foreach (['official.identity', 'official.ops'] as $protectedKey) {
     $protected = json_decode(
-        (string)file_get_contents($moduleRootsByKey[$protectedKey] . '/module.json'),
+        (string) file_get_contents($moduleRootsByKey[$protectedKey] . '/module.json'),
         true,
         32,
         JSON_THROW_ON_ERROR,
@@ -203,7 +213,7 @@ $manifests = array_map(static fn(string $root) => $loader->load($root), $moduleR
 $manifest = $manifests[0];
 $registry = $compiler->compile($manifests);
 $expectedKeys = array_map(
-    static fn(ManifestDocument $manifest): string => (string)$manifest->data['key'],
+    static fn(ManifestDocument $manifest): string => (string) $manifest->data['key'],
     $manifests,
 );
 $actualKeys = $registry->moduleKeys();
@@ -211,7 +221,7 @@ sort($expectedKeys, SORT_STRING);
 sort($actualKeys, SORT_STRING);
 pluginModuleContractExpect(
     $actualKeys === $expectedKeys,
-    'source official Modules did not compile together'
+    'source official Modules did not compile together',
 );
 (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();
 
@@ -369,7 +379,7 @@ try {
 } catch (ModuleException $exception) {
     pluginModuleContractExpect(
         $exception->errorCode === 'MODULE_DEPENDENCY_MISSING',
-        "missing dependency rejection changed: {$exception->errorCode}"
+        "missing dependency rejection changed: {$exception->errorCode}",
     );
 }
 

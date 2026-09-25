@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -320,24 +321,31 @@ $add = static function (array &$paths, string $method, string $pathName, array $
 
 // Platform 会话和只读控制面。
 $add($paths, 'POST', '/platformapi/session/login', $operation(
-    'platformSessionLogin', 'PlatformSession',
+    'platformSessionLogin',
+    'PlatformSession',
     ['200' => $success($ref('PlatformAuthentication')), '401' => $error, '403' => $error, '422' => $error],
-    requestBody: $jsonBody($ref('PlatformLoginRequest')), errors: ['PLATFORM_AUTHENTICATION_REJECTED'],
+    requestBody: $jsonBody($ref('PlatformLoginRequest')),
+    errors: ['PLATFORM_AUTHENTICATION_REJECTED'],
 ));
 $add($paths, 'POST', '/platformapi/session/refresh', $operation(
-    'platformSessionRefresh', 'PlatformSession',
+    'platformSessionRefresh',
+    'PlatformSession',
     ['200' => $success($ref('PlatformAuthentication')), '401' => $error, '403' => $error],
     errors: ['PLATFORM_REFRESH_CREDENTIAL_INVALID'],
 ));
 $add($paths, 'POST', '/platformapi/session/logout', $operation(
-    'platformSessionLogout', 'PlatformSession', ['200' => $emptySuccess, '401' => $error, '403' => $error],
+    'platformSessionLogout',
+    'PlatformSession',
+    ['200' => $emptySuccess, '401' => $error, '403' => $error],
 ));
 $add($paths, 'GET', '/platformapi/session/info', $operation('getPlatformSessionInfo', 'PlatformSession', $responses('PlatformSessionInfo')));
 $add($paths, 'GET', '/platformapi/tenants/capabilities', $operation('getPlatformTenantCapabilities', 'PlatformTenants', $responses('PlatformCapabilities')));
 
 $add($paths, 'GET', '/platformapi/tenants', $operation('listPlatformTenants', 'PlatformTenants', $pageResponses('PlatformTenant'), $pageParams));
 $add($paths, 'GET', '/platformapi/tenants/detail', $operation(
-    'getPlatformTenant', 'PlatformTenants', $responses('PlatformTenant'),
+    'getPlatformTenant',
+    'PlatformTenants',
+    $responses('PlatformTenant'),
     [$query('id', $positiveId, true)],
 ));
 $tenantTransitionBody = $jsonBody($ref('PlatformTenantTransitionRequest'));
@@ -347,7 +355,10 @@ foreach ([
     'close' => ['closePlatformTenant', 'TENANT_CLOSURE_REJECTED'],
 ] as $route => [$operationId, $errorCode]) {
     $add($paths, 'POST', '/platformapi/tenants/' . $route, $operation(
-        $operationId, 'PlatformTenants', $responses('PlatformTenant'), requestBody: $tenantTransitionBody,
+        $operationId,
+        'PlatformTenants',
+        $responses('PlatformTenant'),
+        requestBody: $tenantTransitionBody,
         errors: [$errorCode],
     ));
 }
@@ -357,11 +368,15 @@ $add($paths, 'GET', '/platformapi/roles', $operation('listPlatformRoles', 'Platf
 $add($paths, 'GET', '/platformapi/permissions', $operation('listPlatformPermissions', 'PlatformAccess', $pageResponses('PlatformPermission'), $pageParams));
 $add($paths, 'GET', '/platformapi/audit', $operation('listPlatformAuditEvents', 'PlatformAudit', $pageResponses('PlatformAuditEvent'), $pageParams));
 $add($paths, 'GET', '/platformapi/tenants/modules', $operation(
-    'listPlatformTenantModules', 'PlatformTenants', $pageResponses('PlatformTenantModuleState'),
+    'listPlatformTenantModules',
+    'PlatformTenants',
+    $pageResponses('PlatformTenantModuleState'),
     [...$pageParams, $query('tenant_id', $positiveId, true)],
 ));
 $add($paths, 'GET', '/platformapi/tenants/owner', $operation(
-    'getPlatformTenantOwner', 'PlatformTenants', $responses('PlatformTenantOwner'),
+    'getPlatformTenantOwner',
+    'PlatformTenants',
+    $responses('PlatformTenantOwner'),
     [$query('tenant_id', $positiveId, true)],
 ));
 
@@ -388,7 +403,10 @@ $operatorRequests = [
 ];
 foreach ($operatorRequests as $route => $definition) {
     $add($paths, 'POST', '/platformapi/operators/' . $route, $operation(
-        $definition['operationId'], 'PlatformAccess', $responses('PlatformOperator'), requestBody: $jsonBody($definition['schema']),
+        $definition['operationId'],
+        'PlatformAccess',
+        $responses('PlatformOperator'),
+        requestBody: $jsonBody($definition['schema']),
     ));
 }
 $operatorTransition = [
@@ -397,7 +415,10 @@ $operatorTransition = [
 ];
 foreach (['activate', 'suspend', 'close'] as $route) {
     $add($paths, 'POST', '/platformapi/operators/' . $route, $operation(
-        $route . 'PlatformOperator', 'PlatformAccess', $responses('PlatformOperator'), requestBody: $jsonBody($operatorTransition),
+        $route . 'PlatformOperator',
+        'PlatformAccess',
+        $responses('PlatformOperator'),
+        requestBody: $jsonBody($operatorTransition),
     ));
 }
 $roleRequests = [
@@ -428,7 +449,10 @@ $roleRequests = [
 ];
 foreach ($roleRequests as $route => $definition) {
     $add($paths, 'POST', '/platformapi/roles/' . $route, $operation(
-        $definition['operationId'], 'PlatformAccess', $responses('PlatformRole'), requestBody: $jsonBody($definition['schema']),
+        $definition['operationId'],
+        'PlatformAccess',
+        $responses('PlatformRole'),
+        requestBody: $jsonBody($definition['schema']),
     ));
 }
 
@@ -446,73 +470,102 @@ $add($paths, 'POST', '/platformapi/tenants/provision', $operation('provisionPlat
 $add($paths, 'POST', '/platformapi/tenants/invitations', $operation('invitePlatformTenantOwner', 'PlatformTenantInvitations', $responses('PlatformOwnerInvitation'), requestBody: $jsonBody($invitationIssue(true))));
 $add($paths, 'GET', '/platformapi/tenants/invitations', $operation('listPlatformTenantInvitations', 'PlatformTenantInvitations', $pageResponses('PlatformOwnerInvitation'), [...$pageParams, $query('tenant_id', $positiveId, true)]));
 $add($paths, 'POST', '/platformapi/tenants/invitations/resend', $operation(
-    'resendPlatformTenantInvitation', 'PlatformTenantInvitations', $responses('PlatformOwnerInvitation'),
+    'resendPlatformTenantInvitation',
+    'PlatformTenantInvitations',
+    $responses('PlatformOwnerInvitation'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['invitation_id'], 'properties' => ['invitation_id' => $positiveId, 'expires_in_hours' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 720, 'default' => 72]]]),
 ));
 $add($paths, 'POST', '/platformapi/tenants/invitations/revoke', $operation(
-    'revokePlatformTenantInvitation', 'PlatformTenantInvitations', $responses('PlatformInvitationRevoked'),
+    'revokePlatformTenantInvitation',
+    'PlatformTenantInvitations',
+    $responses('PlatformInvitationRevoked'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['invitation_id'], 'properties' => ['invitation_id' => $positiveId]]),
 ));
 
 $add($paths, 'GET', '/platformapi/tenant-entry-bindings', $operation(
-    'listPlatformTenantEntryBindings', 'PlatformTenantBindings',
+    'listPlatformTenantEntryBindings',
+    'PlatformTenantBindings',
     ['200' => $success(['type' => 'array', 'items' => $ref('PlatformEntryBinding')]), '401' => $error, '403' => $error, '422' => $error],
     [$query('tenant_id', $positiveId)],
 ));
 $add($paths, 'POST', '/platformapi/tenant-entry-bindings/enable', $operation(
-    'enablePlatformTenantEntryBinding', 'PlatformTenantBindings', $responses('PlatformEntryBinding'),
+    'enablePlatformTenantEntryBinding',
+    'PlatformTenantBindings',
+    $responses('PlatformEntryBinding'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['tenant_id', 'host', 'client_key', 'change_reason'], 'properties' => ['tenant_id' => $positiveId, 'host' => ['type' => 'string', 'maxLength' => 253], 'client_key' => ['type' => 'string', 'enum' => ['admin-web', 'member-api']], 'change_reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500]]]),
     errors: ['TENANT_ENTRY_CLIENT_INVALID', 'TENANT_ENTRY_INPUT_INVALID', 'TENANT_ENTRY_TENANT_UNAVAILABLE', 'TENANT_ENTRY_BINDING_CONFLICT'],
 ));
 $add($paths, 'POST', '/platformapi/tenant-entry-bindings/disable', $operation(
-    'disablePlatformTenantEntryBinding', 'PlatformTenantBindings', $responses('PlatformEntryBindingDisabled'),
+    'disablePlatformTenantEntryBinding',
+    'PlatformTenantBindings',
+    $responses('PlatformEntryBindingDisabled'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['binding_id', 'change_reason'], 'properties' => ['binding_id' => $positiveId, 'change_reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500]]]),
     errors: ['TENANT_ENTRY_INPUT_INVALID', 'TENANT_ENTRY_BINDING_NOT_FOUND'],
 ));
 
 $tenantModuleBase = ['tenant_id' => $positiveId, 'module_key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$', 'maxLength' => 96], 'change_reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 500]];
 $add($paths, 'POST', '/platformapi/tenants/modules/enable', $operation(
-    'enablePlatformTenantModule', 'PlatformTenantModules', $responses('PlatformTenantModuleRecord'),
+    'enablePlatformTenantModule',
+    'PlatformTenantModules',
+    $responses('PlatformTenantModuleRecord'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['tenant_id', 'module_key', 'change_reason'], 'properties' => $tenantModuleBase + ['config' => $dynamicMap, 'effective_at' => $dateTime, 'expires_at' => $dateTime]]),
 ));
 $add($paths, 'POST', '/platformapi/tenants/modules/disable', $operation(
-    'disablePlatformTenantModule', 'PlatformTenantModules', $responses('PlatformTenantModuleRecord'),
+    'disablePlatformTenantModule',
+    'PlatformTenantModules',
+    $responses('PlatformTenantModuleRecord'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['tenant_id', 'module_key', 'change_reason'], 'properties' => $tenantModuleBase]),
 ));
 
 // 实例级 Module 工具；安装是 multipart tar，不是 JSON。
 $add($paths, 'GET', '/platformapi/instance-tools/modules', $operation(
-    'listInstanceModules', 'PlatformModules', $pageResponses('PlatformModuleDescriptor'),
+    'listInstanceModules',
+    'PlatformModules',
+    $pageResponses('PlatformModuleDescriptor'),
     [...$pageParams, $query('module_key', ['type' => 'string', 'maxLength' => 96])],
 ));
 $add($paths, 'POST', '/platformapi/instance-tools/modules/install', $operation(
-    'installInstanceModule', 'PlatformModules', $responses('PlatformModuleLifecycleResult'),
+    'installInstanceModule',
+    'PlatformModules',
+    $responses('PlatformModuleLifecycleResult'),
     requestBody: $multipartBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['package', 'expected_sha256'], 'properties' => ['package' => ['type' => 'string', 'format' => 'binary'], 'expected_sha256' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'signature_key_id' => ['type' => 'string']]]),
     errors: ['MODULE_PACKAGE_REQUEST_INVALID'],
 ));
 $add($paths, 'POST', '/platformapi/instance-tools/modules/create', $operation(
-    'createInstanceModule', 'PlatformModules', $responses('PlatformModuleLifecycleResult'),
-    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key'], 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96], 'vendor' => ['type' => 'string']]]),
+    'createInstanceModule',
+    'PlatformModules',
+    $responses('PlatformModuleLifecycleResult'),
+    requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key'], 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96], 'vendor' => ['type' => 'string'], 'client' => ['type' => 'string', 'enum' => ['none', 'admin-web'], 'default' => 'none']]]),
+    errors: ['MODULE_CREATE_REQUEST_INVALID', 'MODULE_CREATE_CLIENT_INVALID'],
 ));
 $add($paths, 'POST', '/platformapi/instance-tools/modules/disable', $operation(
-    'disableInstanceModule', 'PlatformModules', $responses('PlatformModuleLifecycleResult'),
+    'disableInstanceModule',
+    'PlatformModules',
+    $responses('PlatformModuleLifecycleResult'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key', 'change_reason'], 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96], 'change_reason' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 500]]]),
 ));
 $add($paths, 'POST', '/platformapi/instance-tools/modules/sync', $operation(
-    'syncInstanceModuleCatalog', 'PlatformModules', $responses('PlatformModuleLifecycleResult'),
+    'syncInstanceModuleCatalog',
+    'PlatformModules',
+    $responses('PlatformModuleLifecycleResult'),
     requestBody: $jsonBody(['type' => 'object', 'additionalProperties' => false, 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96]]]),
 ));
 $add($paths, 'POST', '/platformapi/instance-tools/modules/uninstall', $operation(
-    'uninstallInstanceModule', 'PlatformModules', $responses('PlatformModuleLifecycleResult'),
+    'uninstallInstanceModule',
+    'PlatformModules',
+    $responses('PlatformModuleLifecycleResult'),
     requestBody: $jsonBody([
         'oneOf' => [
             ['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key', 'purge', 'preview'], 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96], 'purge' => ['type' => 'boolean'], 'preview' => ['type' => 'boolean', 'enum' => [true]]]],
             ['type' => 'object', 'additionalProperties' => false, 'required' => ['module_key', 'purge', 'preview', 'change_reason', 'confirm_plan', 'confirm_plan_digest', 'confirm_package_key'], 'properties' => ['module_key' => ['type' => 'string', 'maxLength' => 96], 'purge' => ['type' => 'boolean'], 'preview' => ['type' => 'boolean', 'enum' => [false]], 'change_reason' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 500], 'confirm_plan' => $dynamicMap, 'confirm_plan_digest' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'confirm_package_key' => ['type' => 'string']]],
         ],
-    ]), errors: ['MODULE_UNINSTALL_PLAN_CHANGED'],
+    ]),
+    errors: ['MODULE_UNINSTALL_PLAN_CHANGED'],
 ));
 $add($paths, 'GET', '/platformapi/developer-center/catalog', $operation(
-    'getPlatformDeveloperCatalog', 'DeveloperCenter', $responses('PlatformDeveloperCatalog'),
+    'getPlatformDeveloperCatalog',
+    'DeveloperCenter',
+    $responses('PlatformDeveloperCatalog'),
     [$query('module_key', ['type' => 'string', 'maxLength' => 96])],
 ));
 
@@ -524,7 +577,8 @@ $setOverride = static function (array &$overrides, string $method, string $pathN
 };
 $add($paths, 'GET', '/platformapi/v1/ops/status', $operation('getPlatformOpsStatus', 'PlatformOps', $opsOk('PlatformOpsStatus')));
 $add($paths, 'GET', '/platformapi/v1/ops/diagnostics', $operation(
-    'downloadPlatformDiagnostics', 'PlatformOps',
+    'downloadPlatformDiagnostics',
+    'PlatformOps',
     [
         '200' => [
             'description' => '有界诊断 JSON 附件',
@@ -552,16 +606,22 @@ foreach ([
     $setOverride($overrides, 'GET', $pathName, $operation($operationId, 'PlatformOps', $opsOk($schema)));
 }
 $setOverride($overrides, 'GET', '/platformapi/v1/ops/tasks/{task_key}', $operation(
-    'getPlatformOpsTask', 'PlatformOps', $opsOk('PlatformOpsTask'),
+    'getPlatformOpsTask',
+    'PlatformOps',
+    $opsOk('PlatformOpsTask'),
     [$path('task_key', ['type' => 'string', 'minLength' => 1])],
 ));
 $setOverride($overrides, 'PUT', '/platformapi/v1/ops/maintenance', $operation(
-    'schedulePlatformMaintenance', 'PlatformOps', $opsOk('PlatformOpsMaintenance'),
+    'schedulePlatformMaintenance',
+    'PlatformOps',
+    $opsOk('PlatformOpsMaintenance'),
     [$parameterRef('IfMatchRevision'), $parameterRef('IdempotencyKey')],
     $jsonBody(['type' => 'object', 'additionalProperties' => false, 'required' => ['reason_key', 'starts_at', 'ends_at'], 'properties' => ['reason_key' => ['type' => 'string'], 'starts_at' => $dateTime, 'ends_at' => $dateTime]]),
 ));
 $setOverride($overrides, 'POST', '/platformapi/v1/ops/maintenance/{maintenance_key}/close', $operation(
-    'closePlatformMaintenance', 'PlatformOps', $opsOk('PlatformOpsMaintenance'),
+    'closePlatformMaintenance',
+    'PlatformOps',
+    $opsOk('PlatformOpsMaintenance'),
     [$path('maintenance_key', ['type' => 'string', 'minLength' => 1]), $parameterRef('IfMatchRevision'), $parameterRef('IdempotencyKey')],
     $jsonBody(['type' => 'object', 'additionalProperties' => false, 'maxProperties' => 0]),
 ));
@@ -573,7 +633,11 @@ $opsTasks = [
 ];
 foreach ($opsTasks as $route => [$operationId, $schema]) {
     $setOverride($overrides, 'POST', '/platformapi/v1/ops/tasks/' . $route, $operation(
-        $operationId, 'PlatformOps', $opsOk('PlatformOpsTask'), [$parameterRef('IdempotencyKey')], $jsonBody($schema),
+        $operationId,
+        'PlatformOps',
+        $opsOk('PlatformOpsTask'),
+        [$parameterRef('IdempotencyKey')],
+        $jsonBody($schema),
     ));
 }
 

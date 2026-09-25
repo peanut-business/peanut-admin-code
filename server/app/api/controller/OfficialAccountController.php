@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
@@ -21,11 +22,11 @@ class OfficialAccountController extends BaseApiController
     {
         $params = $this->request->get();
         try {
-            $this->application->verify((string)$this->request->route('binding'), $params, $this->operationId());
+            $this->application->verify((string) $this->request->route('binding'), $params, $this->operationId());
         } catch (ExternalTenantResolutionException|ModuleException) {
             return response('callback rejected', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
-        return response((string)($params['echostr'] ?? ''), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return response((string) ($params['echostr'] ?? ''), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
     public function callback()
@@ -33,8 +34,10 @@ class OfficialAccountController extends BaseApiController
         $params = $this->request->get();
         try {
             $result = $this->application->callback(
-                (string)$this->request->route('binding'), $params,
-                (string)$this->request->getContent(), $this->operationId(),
+                (string) $this->request->route('binding'),
+                $params,
+                (string) $this->request->getContent(),
+                $this->operationId(),
             );
         } catch (ExternalTenantResolutionException|ModuleException|BusinessException) {
             return response('callback rejected', 403, ['Content-Type' => 'text/plain; charset=utf-8']);

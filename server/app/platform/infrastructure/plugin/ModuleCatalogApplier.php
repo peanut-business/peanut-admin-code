@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
@@ -33,7 +34,7 @@ final readonly class ModuleCatalogApplier
     {
         $manifests = [];
         foreach ($registry->modules as $manifest) {
-            $key = (string)($manifest->data['key'] ?? '');
+            $key = (string) ($manifest->data['key'] ?? '');
             $manifests[$key] = $manifest;
         }
         $fullRegistry = $moduleKeys === null;
@@ -102,7 +103,9 @@ final readonly class ModuleCatalogApplier
             $mutations->retireMissing($selected);
             if ($fullRegistry) {
                 $absent = array_values(array_diff($mutations->activeModuleKeys(), $selectedKeys));
-                if ($absent !== []) $mutations->retire($absent);
+                if ($absent !== []) {
+                    $mutations->retire($absent);
+                }
             }
         });
 
@@ -180,7 +183,7 @@ final readonly class ModuleCatalogApplier
         $keys = array_fill_keys(array_keys($manifests), true);
         $menus = array_filter(
             $registry->menus,
-            static fn(array $menu): bool => isset($keys[(string)($menu['module_key'] ?? '')]),
+            static fn(array $menu): bool => isset($keys[(string) ($menu['module_key'] ?? '')]),
         );
         return new CompiledModuleRegistry(
             array_values($manifests),
@@ -194,13 +197,15 @@ final readonly class ModuleCatalogApplier
     /** @param list<string> $moduleKeys @return array{menus:int,permissions:int,settings:int,reference_codes:int} */
     private function activeCounts(array $moduleKeys): array
     {
-        if ($moduleKeys === []) return ['menus' => 0, 'permissions' => 0, 'settings' => 0, 'reference_codes' => 0];
+        if ($moduleKeys === []) {
+            return ['menus' => 0, 'permissions' => 0, 'settings' => 0, 'reference_codes' => 0];
+        }
         $counts = [];
         foreach (['menus' => 'pa_menu_definition', 'permissions' => 'pa_permission', 'settings' => 'pa_setting_definition'] as $name => $table) {
-            $counts[$name] = (int)Db::table($table)->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
+            $counts[$name] = (int) Db::table($table)->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
         }
         $counts['reference_codes'] = self::referenceCodeTableExists()
-            ? (int)Db::table('pa_reference_code_set')
+            ? (int) Db::table('pa_reference_code_set')
                 ->whereIn('module_key', $moduleKeys)->where('lifecycle', 'active')->count()
             : 0;
         return $counts;

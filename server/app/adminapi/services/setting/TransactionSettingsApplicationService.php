@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services\setting;
@@ -32,10 +33,10 @@ class TransactionSettingsApplicationService
             return self::DEFAULTS;
         }
         return [
-            'cancel_unpaid_orders'       => (int)$setting->cancel_unpaid_orders,
-            'cancel_unpaid_orders_times' => (int)$setting->cancel_unpaid_orders_times,
-            'verification_orders'        => (int)$setting->verification_orders,
-            'verification_orders_times'  => (int)$setting->verification_orders_times,
+            'cancel_unpaid_orders'       => (int) $setting->cancel_unpaid_orders,
+            'cancel_unpaid_orders_times' => (int) $setting->cancel_unpaid_orders_times,
+            'verification_orders'        => (int) $setting->verification_orders,
+            'verification_orders_times'  => (int) $setting->verification_orders_times,
         ];
     }
 
@@ -44,13 +45,13 @@ class TransactionSettingsApplicationService
         unset($params['tenant_id']);
         $current = self::getConfig($context);
         $data = [
-            'cancel_unpaid_orders' => (int)$params['cancel_unpaid_orders'],
+            'cancel_unpaid_orders' => (int) $params['cancel_unpaid_orders'],
             'cancel_unpaid_orders_times' => isset($params['cancel_unpaid_orders_times'])
-                ? (int)$params['cancel_unpaid_orders_times']
+                ? (int) $params['cancel_unpaid_orders_times']
                 : $current['cancel_unpaid_orders_times'],
-            'verification_orders' => (int)$params['verification_orders'],
+            'verification_orders' => (int) $params['verification_orders'],
             'verification_orders_times' => isset($params['verification_orders_times'])
-                ? (int)$params['verification_orders_times']
+                ? (int) $params['verification_orders_times']
                 : $current['verification_orders_times'],
         ];
         Db::transaction(static function () use ($data): void {

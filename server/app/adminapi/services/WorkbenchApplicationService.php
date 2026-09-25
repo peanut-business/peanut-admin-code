@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\services;
@@ -17,9 +18,7 @@ class WorkbenchApplicationService
         private readonly string $projectVersion,
         private readonly string $projectBased,
         private readonly array $defaultImages,
-    )
-    {
-    }
+    ) {}
 
     public function index(TenantContext $context): array
     {
@@ -79,12 +78,12 @@ class WorkbenchApplicationService
         $items = array_values(array_filter(
             $items,
             static fn(array $item): bool => $item['url'] !== '/system/file'
-                || self::menuContainsPath($moduleMenus, '/system/file')
+                || self::menuContainsPath($moduleMenus, '/system/file'),
         ));
 
         return array_map(function (array $item): array {
             $item['image'] = $this->files->getFileUrl(
-                (string)($this->defaultImages[$item['image']] ?? '')
+                (string) ($this->defaultImages[$item['image']] ?? ''),
             );
             return $item;
         }, $items);
@@ -143,7 +142,7 @@ class WorkbenchApplicationService
         return [
             [
                 'image' => $this->files->getFileUrl(
-                    (string)($this->defaultImages['project_docs'] ?? '')
+                    (string) ($this->defaultImages['project_docs'] ?? ''),
                 ),
                 'title' => '项目文档',
                 'desc'  => '查看 Peanut Admin 使用与开发文档',
@@ -151,7 +150,7 @@ class WorkbenchApplicationService
             ],
             [
                 'image' => $this->files->getFileUrl(
-                    (string)($this->defaultImages['technical_support'] ?? '')
+                    (string) ($this->defaultImages['technical_support'] ?? ''),
                 ),
                 'title' => '技术支持',
                 'desc'  => '获取 Peanut Admin 技术支持',

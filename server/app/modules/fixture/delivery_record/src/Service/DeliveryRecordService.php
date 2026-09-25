@@ -34,10 +34,10 @@ final readonly class DeliveryRecordService implements DeliveryRecordCommands
         ]);
 
         return [
-            'id' => (int)$record->id,
-            'tenant_id' => (int)$record->tenant_id,
-            'reference' => (string)$record->reference,
-            'status' => (string)$record->status,
+            'id' => (int) $record->id,
+            'tenant_id' => (int) $record->tenant_id,
+            'reference' => (string) $record->reference,
+            'status' => (string) $record->status,
         ];
     }
 
@@ -47,10 +47,10 @@ final readonly class DeliveryRecordService implements DeliveryRecordCommands
         $this->access->requirePermission('fixture.delivery-record.read');
         return array_map(
             static fn(array $row): array => [
-                'id' => (int)$row['id'],
-                'tenant_id' => (int)$row['tenant_id'],
-                'reference' => (string)$row['reference'],
-                'status' => (string)$row['status'],
+                'id' => (int) $row['id'],
+                'tenant_id' => (int) $row['tenant_id'],
+                'reference' => (string) $row['reference'],
+                'status' => (string) $row['status'],
             ],
             DeliveryRecord::field('id,tenant_id,reference,status')->order('id')->select()->toArray(),
         );

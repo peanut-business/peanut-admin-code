@@ -1,12 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 final class PeanutRouteInventoryNode
 {
     /** @param list<int> $indices */
-    public function __construct(private readonly array $indices)
-    {
-    }
+    public function __construct(private readonly array $indices) {}
 
     public function middleware(mixed $middleware, mixed ...$arguments): self
     {
@@ -94,7 +93,7 @@ final class PeanutRouteInventoryRoute
         }
 
         $before = count(self::$endpoints);
-        self::$prefixes[] = trim((string)$prefix, '/');
+        self::$prefixes[] = trim((string) $prefix, '/');
         try {
             $callback();
         } finally {
@@ -167,11 +166,11 @@ final class PeanutRouteInventoryRoute
     private static function sourceLocation(): array
     {
         foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS) as $frame) {
-            $file = (string)($frame['file'] ?? '');
+            $file = (string) ($frame['file'] ?? '');
             if ($file === '' || $file === __FILE__ || !str_starts_with($file, self::$serverRoot . '/')) {
                 continue;
             }
-            return ['server/' . substr($file, strlen(self::$serverRoot) + 1), (int)($frame['line'] ?? 0)];
+            return ['server/' . substr($file, strlen(self::$serverRoot) + 1), (int) ($frame['line'] ?? 0)];
         }
         throw new RuntimeException('Route inventory source location is unavailable');
     }
@@ -239,7 +238,7 @@ function peanut_route_registry_source(string $serverRoot): string
         if (!is_file($path)) {
             throw new RuntimeException('Route registry file is missing: ' . $file);
         }
-        $source .= "\n/* {$file} */\n" . (string)file_get_contents($path);
+        $source .= "\n/* {$file} */\n" . (string) file_get_contents($path);
     }
     return $source;
 }
@@ -269,7 +268,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
     $moduleNamespaces = [];
     $moduleSources = [];
     foreach (glob($resolvedRoot . '/app/modules/*/*/module.json') ?: [] as $manifestPath) {
-        $manifest = json_decode((string)file_get_contents($manifestPath), true, 32, JSON_THROW_ON_ERROR);
+        $manifest = json_decode((string) file_get_contents($manifestPath), true, 32, JSON_THROW_ON_ERROR);
         $moduleKey = $manifest['key'] ?? null;
         $provider = $manifest['backend']['provider'] ?? null;
         if (!is_string($moduleKey) || $moduleKey === '' || !is_string($provider)
@@ -277,7 +276,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
             throw new RuntimeException('Route inventory Module manifest is invalid: ' . $manifestPath);
         }
         $composerPath = dirname($manifestPath) . '/composer.json';
-        $composer = json_decode((string)file_get_contents($composerPath), true, 32, JSON_THROW_ON_ERROR);
+        $composer = json_decode((string) file_get_contents($composerPath), true, 32, JSON_THROW_ON_ERROR);
         $psr4 = is_array($composer) && is_array($composer['autoload']['psr-4'] ?? null)
             ? $composer['autoload']['psr-4']
             : null;
@@ -305,10 +304,10 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
 
     $endpoints = PeanutRouteInventoryRoute::endpoints();
     foreach ($endpoints as &$endpoint) {
-        $controller = (string)$endpoint['controller'];
+        $controller = (string) $endpoint['controller'];
         $owner = null;
         foreach ($moduleSources as $sourcePrefix => $moduleKey) {
-            if (str_starts_with((string)$endpoint['source'], $sourcePrefix)) {
+            if (str_starts_with((string) $endpoint['source'], $sourcePrefix)) {
                 $owner = ['type' => 'module', 'key' => $moduleKey];
                 break;
             }
@@ -320,7 +319,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
             }
         }
         if ($owner === null) {
-            $owner = ['type' => 'application', 'key' => (string)$endpoint['application']];
+            $owner = ['type' => 'application', 'key' => (string) $endpoint['application']];
         }
         if ($owner === null) {
             throw new RuntimeException('Route inventory owner is unknown: ' . $controller);
@@ -345,7 +344,7 @@ function peanut_route_endpoint_inventory(string $serverRoot): array
         $methods[$endpoint['method']] = ($methods[$endpoint['method']] ?? 0) + 1;
         $owner = $endpoint['owner']['type'] . ':' . $endpoint['owner']['key'];
         $owners[$owner] = ($owners[$owner] ?? 0) + 1;
-        $application = (string)$endpoint['application'];
+        $application = (string) $endpoint['application'];
         $applications[$application] = ($applications[$application] ?? 0) + 1;
         $identity = $endpoint['method'] . ' ' . $endpoint['path'];
         $identities[$identity] = ($identities[$identity] ?? 0) + 1;

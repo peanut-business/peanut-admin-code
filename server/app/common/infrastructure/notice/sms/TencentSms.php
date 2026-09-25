@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\notice\sms;
@@ -83,17 +84,17 @@ final class TencentSms implements SmsDriver
                 'Host' => $host,
                 'Authorization' => $authorization,
                 'X-TC-Action' => $action,
-                'X-TC-Timestamp' => (string)$timestamp,
+                'X-TC-Timestamp' => (string) $timestamp,
                 'X-TC-Version' => $version,
                 'X-TC-Region' => $this->region,
             ],
-            (string)$payload,
+            (string) $payload,
             timeoutSeconds: 10,
         ));
         $resp = $response->body;
 
         $data = json_decode((string) $resp, true);
-        $receipt = is_array($data) ? $data : ['raw' => (string)$resp];
+        $receipt = is_array($data) ? $data : ['raw' => (string) $resp];
         if (!is_array($data) || !is_array($data['Response'] ?? null)) {
             return new SmsDriverResult(SmsDriverResult::OUTCOME_UNKNOWN, '短信服务商返回无法确认', $receipt);
         }
@@ -101,7 +102,7 @@ final class TencentSms implements SmsDriver
         if (isset($result['Error'])) {
             return new SmsDriverResult(
                 SmsDriverResult::OUTCOME_FAILED,
-                (string)($result['Error']['Code'] ?? '') . ': ' . (string)($result['Error']['Message'] ?? ''),
+                (string) ($result['Error']['Code'] ?? '') . ': ' . (string) ($result['Error']['Message'] ?? ''),
                 $receipt,
             );
         }
@@ -114,7 +115,7 @@ final class TencentSms implements SmsDriver
             if (($status['Code'] ?? '') !== 'Ok') {
                 return new SmsDriverResult(
                     SmsDriverResult::OUTCOME_FAILED,
-                    (string)($status['Message'] ?? '发送失败'),
+                    (string) ($status['Message'] ?? '发送失败'),
                     $receipt,
                 );
             }

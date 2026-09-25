@@ -12,9 +12,7 @@ use think\Model;
 
 final readonly class ModuleAvailabilityService implements \PeanutAdmin\Kernel\Module\ModuleAvailability
 {
-    public function __construct(private \PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry)
-    {
-    }
+    public function __construct(private \PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry) {}
 
     public function assertAvailable(
         TenantScope $scope,
@@ -36,9 +34,9 @@ final readonly class ModuleAvailabilityService implements \PeanutAdmin\Kernel\Mo
         if ($installation->getAttr('status') !== 'active') {
             throw new \PeanutAdmin\Kernel\Module\ModuleException('MODULE_INSTALLATION_FAILED', "Module {$moduleKey} is not active.");
         }
-        if ((string)$installation->getAttr('installed_version') !== (string)($manifest->data['version'] ?? '')
-            || (int)$installation->getAttr('manifest_schema_version') !== (int)($manifest->data['schema_version'] ?? 0)
-            || !hash_equals($manifest->digest, (string)$installation->getAttr('manifest_digest'))) {
+        if ((string) $installation->getAttr('installed_version') !== (string) ($manifest->data['version'] ?? '')
+            || (int) $installation->getAttr('manifest_schema_version') !== (int) ($manifest->data['schema_version'] ?? 0)
+            || !hash_equals($manifest->digest, (string) $installation->getAttr('manifest_digest'))) {
             throw new \PeanutAdmin\Kernel\Module\ModuleException(
                 'MODULE_INSTALLATION_MISMATCH',
                 "Installed Module manifest does not match the compiled registry: {$moduleKey}",

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\invitation;
@@ -9,7 +10,7 @@ final readonly class OwnerInvitationDeliveryResult
         public string $status,
         public ?string $provider,
         public ?string $messageId,
-        public ?string $errorCode
+        public ?string $errorCode,
     ) {
         if (!in_array($status, ['pending_delivery', 'sent', 'failed'], true)) {
             throw new \InvalidArgumentException('Invalid invitation delivery status.');

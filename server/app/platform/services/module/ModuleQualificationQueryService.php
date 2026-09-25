@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\module;
@@ -15,8 +16,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
 {
     public function __construct(
         private DeployedTenantModuleRegistry $registry,
-    ) {
-    }
+    ) {}
 
     public function installedModule(string $moduleKey): ModuleQualification
     {
@@ -37,8 +37,8 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
         return new ModuleQualification(
             $moduleKey,
             $pluginKey,
-            (string)$manifest->data['version'],
-            (int)$manifest->data['schema_version'],
+            (string) $manifest->data['version'],
+            (int) $manifest->data['schema_version'],
             $manifest->digest,
             array_values($dependencies),
         );
@@ -48,8 +48,8 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
     {
         $keys = Db::name('module_installation')->where('status', 'active')->order('module_key')->column('module_key');
         return array_map(
-            fn(mixed $moduleKey): ModuleQualification => $this->installedModule((string)$moduleKey),
-            $keys
+            fn(mixed $moduleKey): ModuleQualification => $this->installedModule((string) $moduleKey),
+            $keys,
         );
     }
 
@@ -65,11 +65,11 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
         $foundationKeys = array_fill_keys($this->foundationKeys(), true);
         $rows = array_values(array_filter(
             $rows,
-            static fn(array $row): bool => !isset($foundationKeys[(string)($row['module_key'] ?? '')]),
+            static fn(array $row): bool => !isset($foundationKeys[(string) ($row['module_key'] ?? '')]),
         ));
         $states = array_map(
             static fn(array $row): TenantModuleState => TenantModuleState::fromRow($row),
-            $rows
+            $rows,
         );
         foreach ($this->activeFoundations() as $moduleKey => $installation) {
             $activatedAt = self::nullableDate($installation['activated_at'] ?? null);
@@ -79,7 +79,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
                 $moduleKey,
                 'enabled',
                 'required_foundation',
-                (int)($installation['revision'] ?? 0),
+                (int) ($installation['revision'] ?? 0),
                 null,
                 null,
                 $activatedAt,
@@ -126,7 +126,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
             ->field('module_key,revision,activated_at,created_at,updated_at')->select()->toArray();
         $foundations = [];
         foreach ($rows as $row) {
-            $moduleKey = (string)($row['module_key'] ?? '');
+            $moduleKey = (string) ($row['module_key'] ?? '');
             if ($moduleKey === '' || !isset($compiledKeys[$moduleKey])
                 || !$this->registry->isRequiredTenantFoundation($moduleKey)) {
                 continue;
@@ -149,6 +149,6 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
 
     private static function nullableDate(mixed $value): ?string
     {
-        return $value === null || $value === '' ? null : (string)$value;
+        return $value === null || $value === '' ? null : (string) $value;
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\RichText\Validation;
@@ -41,7 +42,7 @@ final class RichTextDocumentValidate extends TenantContextValidate
     protected function checkExists(mixed $value): bool|string
     {
         $this->requireTenantContext();
-        return RichTextDocument::where('id', (int)$value)->findOrEmpty()->isEmpty()
+        return RichTextDocument::where('id', (int) $value)->findOrEmpty()->isEmpty()
             ? '文档不存在'
             : true;
     }

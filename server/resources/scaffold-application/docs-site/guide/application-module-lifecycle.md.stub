@@ -1,10 +1,12 @@
 # 应用与模块生命周期
 
-本文面向应用维护者和模块作者。先固定一个脚手架候选，再在独立应用中开发、签名、安装和升级模块；每一步都保留版本、lock、摘要和失败恢复证据。
+本文面向应用维护者和模块作者。完整产品包可直接按包内资料安装，不要求取得维护者的私有 Project 或先运行生成器。维护者制作应用、模块作者开发签名、消费者安装升级分别记录精确来源、原生锁、摘要及恢复证据。开发规范见包内 `docs/development/standard.md`。
 
-## 1. 固定候选并创建应用
+## 1. 取得产品或制作开发应用
 
-源提交必须已经包含匹配的模板 inventory。`4.0.0-dev` 之类的预发布版本只是候选身份，不是已发布 Release：
+使用者取得完整产品包后，先按锁安装 PHP 依赖，再依公开资源和环境合同配置实例，最后执行包内首次安装入口。不能复制维护者的 vendor，不能把示例配置当作已授权数据库。安装不会隐式授予后续模块业务权限。
+
+以下命令只用于有完整源码和制作工具的维护者准备开发应用，不是产品使用者的安装前置。源提交必须包含匹配 inventory；`4.0.0-dev` 是开发标识，不是正式发布：
 
 ```bash
 php scripts/build-scaffold-release --version=<scaffold-semver> --source-commit=<40-hex> --output=<absolute-candidate-directory>
@@ -17,8 +19,10 @@ php scripts/create-app --name=<name> --slug=<slug> --package=<vendor/name> --tar
 
 ```bash
 scripts/project-composer prepare
-scripts/project-composer install --working-dir=server --no-interaction
+scripts/project-composer install --working-dir=server --no-interaction --no-scripts
 ```
+
+完成实例资源登记、所需授权和环境配置后，由框架正式命令生成服务元数据，再使用包内安装入口；不手写 vendor/services.php。先在 server 目录执行 `php think service:discover`，随后从应用根执行 `php server/database/install.php`。以 `--status` 查看实际状态；普通重复安装应拒绝，`--skip-if-installed` 只安全跳过，不能清库或重置账号。实际入口参数与支持形态以取得的产品版本为准。
 
 ## 2. 创建并检查模块
 
@@ -26,10 +30,11 @@ scripts/project-composer install --working-dir=server --no-interaction
 
 ```bash
 php think module:create <vendor.module> --vendor=<vendor>
+# 需要管理端贡献时，创建阶段显式增加 --client=admin-web；默认仅后端。
 php think module:check <vendor.module>
 ```
 
-模块根必须有唯一 `module.json` 身份、Composer 声明、`src/`、迁移和资源。公开服务、稳定结果、依赖和数据所有者随版本登记；跨模块使用公开查询/业务操作，不直接导入私有 Model。软删除、回收、恢复和永久删除必须有独立授权；付款、撤单、库存变更使用业务服务。
+模块根必须有唯一 `module.json` 身份、Composer 声明、`src/`、迁移和资源。新骨架不发布空 Commands，也不凭生成目录宣称业务完成。实际公开服务、稳定结果、依赖和数据所有者随版本登记；跨模块使用明确导出的查询/业务操作，不导入其他模块 Model、Repository 或持久化实现。软删除、回收、恢复和永久删除必须有独立授权；付款、撤单、库存变更使用业务服务。
 
 ## 3. 签名打包
 
@@ -62,13 +67,15 @@ php think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<
 - `app-owned`：应用、自有扩展和客户模块，升级保留并在冲突时要求 adoption。
 - 实例状态：环境文件、凭据、上传、数据库行、备份和 recovery pointer，不能进入候选或包。
 
-升级前固定 source/target manifest，冲突先停在 preflight：
+产品升级从已安装且可信的 `scripts/upgrade` 入口进行。`PEANUT_SERVER_ENV_FILE` 指向实例自己的后端环境文件；下面 `--env-file` 则指向权限为 0600、仅含升级信任公钥配置的文件，两者不能混用，私钥不进入消费端。
 
 ```bash
-php scripts/scaffold-upgrade preflight --project-root=<application> --from-manifest=<from> --to-manifest=<to>
-php scripts/scaffold-upgrade apply --project-root=<application> --plan=<plan>
-php scripts/scaffold-upgrade verify --project-root=<application> --plan=<plan>
-php scripts/scaffold-upgrade recover --project-root=<application> --plan=<plan>
+php scripts/upgrade plan --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file>
+php scripts/upgrade apply --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file> --plan=<absolute-plan>
+php scripts/upgrade verify --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file> --plan=<absolute-plan>
+php scripts/upgrade recover --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file> --plan=<absolute-plan>
 ```
 
-旧应用必须校验原 baseline，并对历史 app-owned 的公共 Host 文件执行显式 adoption；升级器不会静默覆盖客户代码。已安装官方模块由 `plugins.lock` 和 plugin boundary 保持完整，不能通过删除包文件绕过边界。
+仅在计划指明可恢复且前置检查成立时执行 recover，不把四条命令当作无条件顺序脚本。先验签再使用目标包；冲突停在计划阶段。进入恢复后不能继续向前 apply；激活开始后禁止自动回灌旧备份。单纯受管文件差异工具不能代替产品依赖、数据库与文件卷的成对恢复。
+
+既有实例保留原 baseline 和自有修改；明确 breaking 代码迁移不等于对客户数据的破坏性授权。安装、升级、数据恢复分别取得真实证据，不能通过删包文件、锁或迁移账本绕过完整性检查。

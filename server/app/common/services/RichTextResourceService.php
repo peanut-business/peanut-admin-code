@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services;
@@ -16,9 +17,8 @@ final readonly class RichTextResourceService
 
     public function forStorage(
         string $html,
-        AuthenticatedMemberContext|TenantContext|TenantSystemContext|null $context = null
-    ): string
-    {
+        AuthenticatedMemberContext|TenantContext|TenantSystemContext|null $context = null,
+    ): string {
         return $this->transform(HtmlSanitizerService::sanitize($html), false, $context);
     }
 
@@ -30,9 +30,8 @@ final readonly class RichTextResourceService
     private function transform(
         string $html,
         bool $forRead,
-        AuthenticatedMemberContext|TenantContext|TenantSystemContext|null $context = null
-    ): string
-    {
+        AuthenticatedMemberContext|TenantContext|TenantSystemContext|null $context = null,
+    ): string {
         if ($html === '') {
             return '';
         }
@@ -53,7 +52,7 @@ final readonly class RichTextResourceService
         $html = preg_replace_callback(
             '~(\b(?:src|href|poster)\s*=\s*)(["\'])(.*?)\2~is',
             static fn(array $match): string => $match[1] . $match[2] . $convert($match[3]) . $match[2],
-            $html
+            $html,
         ) ?? $html;
         return $html;
     }

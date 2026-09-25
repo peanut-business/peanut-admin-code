@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -23,7 +24,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
         );
 
         self::assertSame($environment['DB_NAME'], $resolved['database']);
-        self::assertSame($environment['DB_PORT'], (string)$resolved['port']);
+        self::assertSame($environment['DB_PORT'], (string) $resolved['port']);
         self::assertSame($environment['PEANUT_DATABASE_LEASE_OWNER'], $resolved['lease_owner']);
     }
 
@@ -51,7 +52,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
     public function testExpiredLeaseIsRejected(): void
     {
         $fixture = $this->fixture();
-        $fixture[1]['metadata']['expires_at'] = (string)($fixture[5] - 1);
+        $fixture[1]['metadata']['expires_at'] = (string) ($fixture[5] - 1);
         $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $fixture);
     }
 
@@ -148,7 +149,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
                 'upstream_endpoint' => [
                     'endpoint_id' => $environment['PEANUT_DATABASE_ENDPOINT_ID'],
                     'host' => $environment['DB_HOST'],
-                    'port' => (int)$environment['DB_PORT'],
+                    'port' => (int) $environment['DB_PORT'],
                     'consumers' => [$environment['PEANUT_DATABASE_CONSUMER']],
                 ],
             ]]],
@@ -174,7 +175,7 @@ final class RegisteredMysqlTestResourceTest extends TestCase
             'candidate_repository' => $root,
             'gate' => 'real-mysql',
             'worktree' => $root,
-            'expires_at' => (string)($now + 600),
+            'expires_at' => (string) ($now + 600),
             'status' => 'ACTIVE',
         ], 'resources' => $resources];
 

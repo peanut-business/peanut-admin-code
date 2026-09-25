@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Validation;
@@ -35,7 +36,7 @@ class OfficialAccountMenuValidate extends Validate
         if (!is_array($item)) {
             return '菜单节点格式无效';
         }
-        $name = trim((string)($item['name'] ?? ''));
+        $name = trim((string) ($item['name'] ?? ''));
         $nameLimit = $topLevel ? 4 : 8;
         if ($name === '' || mb_strlen($name) > $nameLimit) {
             return ($topLevel ? '一级' : '二级') . '菜单名称不能为空且最多 ' . $nameLimit . ' 个字';
@@ -61,20 +62,20 @@ class OfficialAccountMenuValidate extends Validate
             return true;
         }
 
-        $type = (string)($item['type'] ?? '');
+        $type = (string) ($item['type'] ?? '');
         if (!in_array($type, ['click', 'view', 'miniprogram'], true)) {
             return '公众号菜单类型无效';
         }
-        if ($type === 'click' && trim((string)($item['key'] ?? '')) === '') {
+        if ($type === 'click' && trim((string) ($item['key'] ?? '')) === '') {
             return '点击菜单必须填写 key';
         }
-        if ($type === 'view' && !$this->absoluteHttpUrl((string)($item['url'] ?? ''))) {
+        if ($type === 'view' && !$this->absoluteHttpUrl((string) ($item['url'] ?? ''))) {
             return '网页菜单必须填写有效的 http/https 地址';
         }
         if ($type === 'miniprogram') {
-            if (!$this->absoluteHttpUrl((string)($item['url'] ?? ''))
-                || trim((string)($item['appid'] ?? '')) === ''
-                || trim((string)($item['pagepath'] ?? '')) === '') {
+            if (!$this->absoluteHttpUrl((string) ($item['url'] ?? ''))
+                || trim((string) ($item['appid'] ?? '')) === ''
+                || trim((string) ($item['pagepath'] ?? '')) === '') {
                 return '小程序菜单必须填写备用 URL、AppID 和页面路径';
             }
         }
@@ -87,6 +88,6 @@ class OfficialAccountMenuValidate extends Validate
         if (filter_var($value, FILTER_VALIDATE_URL) === false) {
             return false;
         }
-        return in_array(strtolower((string)parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true);
+        return in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true);
     }
 }

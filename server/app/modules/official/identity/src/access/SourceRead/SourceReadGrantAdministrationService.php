@@ -53,7 +53,14 @@ final readonly class SourceReadGrantAdministrationService
         }
 
         return Db::transaction(function () use (
-            $actor, $recipientTenantId, $definition, $effect, $objectId, $fields, $expectedRevision, $validUntil,
+            $actor,
+            $recipientTenantId,
+            $definition,
+            $effect,
+            $objectId,
+            $fields,
+            $expectedRevision,
+            $validUntil,
         ): array {
             $query = SourceReadGrantRecord::where('source_tenant_id', $actor->tenantId)
                 ->where('recipient_tenant_id', $recipientTenantId)
@@ -67,7 +74,7 @@ final readonly class SourceReadGrantAdministrationService
             $existing = $query->find();
             $now = gmdate('Y-m-d H:i:s.000');
             if ($existing instanceof SourceReadGrantRecord) {
-                $revision = (int)$existing->getAttr('revision');
+                $revision = (int) $existing->getAttr('revision');
                 if ($expectedRevision === null || $expectedRevision !== $revision) {
                     throw new DataAuthorizationException('AUTHZ_READ_GRANT_REVISION_MISMATCH', 'The source-read grant revision changed.');
                 }
@@ -83,7 +90,7 @@ final readonly class SourceReadGrantAdministrationService
                 if ($updated !== 1) {
                     throw new DataAuthorizationException('AUTHZ_READ_GRANT_REVISION_MISMATCH', 'The source-read grant revision changed.');
                 }
-                $id = (int)$existing->getAttr('id');
+                $id = (int) $existing->getAttr('id');
                 ++$revision;
             } else {
                 if ($expectedRevision !== null) {
@@ -105,7 +112,7 @@ final readonly class SourceReadGrantAdministrationService
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]);
-                $id = (int)$record->getAttr('id');
+                $id = (int) $record->getAttr('id');
                 $revision = 1;
             }
             $this->audit->tenantMember(
@@ -113,7 +120,7 @@ final readonly class SourceReadGrantAdministrationService
                 'tenant.source-read-grant.changed',
                 $definition->managePermissionKey,
                 'source-read-grant',
-                (string)$id,
+                (string) $id,
                 [
                     'recipient_tenant_id' => $recipientTenantId,
                     'capability' => $definition->key,
@@ -139,11 +146,11 @@ final readonly class SourceReadGrantAdministrationService
                 throw new DataAuthorizationException('AUTHZ_READ_GRANT_NOT_FOUND', 'The source-read grant was not found.');
             }
             $definition = $this->capabilities->require(
-                (string)$record->getAttr('capability'),
-                (string)$record->getAttr('action'),
+                (string) $record->getAttr('capability'),
+                (string) $record->getAttr('action'),
             );
             $this->permissions->assertAllowed($actor, $definition->managePermissionKey);
-            if ((int)$record->getAttr('revision') !== $expectedRevision
+            if ((int) $record->getAttr('revision') !== $expectedRevision
                 || SourceReadGrantRecord::where('source_tenant_id', $actor->tenantId)
                     ->where('id', $grantId)->where('revision', $expectedRevision)->where('status', 'active')->update([
                         'status' => 'revoked',
@@ -160,7 +167,7 @@ final readonly class SourceReadGrantAdministrationService
                 'tenant.source-read-grant.revoked',
                 $definition->managePermissionKey,
                 'source-read-grant',
-                (string)$grantId,
+                (string) $grantId,
                 ['revision' => $revision],
             );
 

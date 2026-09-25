@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Service;
@@ -7,7 +8,6 @@ use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\dto\authorization\AdminPrincipal;
 use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
-
 use app\common\contract\idempotency\IdempotencyCommand;
 use app\common\contract\idempotency\IdempotencyReceipt;
 use app\common\contract\idempotency\IdempotentCommandExecutor;
@@ -164,7 +164,7 @@ final readonly class SettingsHttpApplicationService
             'source_scope' => $setting->source,
             'effective_at' => $setting->effectiveAt,
             'expires_at' => $setting->expiresAt,
-            'revision' => (string)$setting->revision,
+            'revision' => (string) $setting->revision,
             'etag' => $setting->etag,
         ];
         if (!$definition->secret) {

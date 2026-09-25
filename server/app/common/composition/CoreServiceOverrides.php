@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\composition;
@@ -48,7 +49,7 @@ final class CoreServiceOverrides
                 $key,
                 AdminPermissionPolicy::class,
                 self::CONTRACT_VERSION,
-                $implementation
+                $implementation,
             );
         }
 
@@ -57,7 +58,7 @@ final class CoreServiceOverrides
                 self::ADMIN_PERMISSION_POLICY,
                 AdminPermissionPolicy::class,
                 self::CONTRACT_VERSION,
-                RegisteredAdminPermissionPolicy::class
+                RegisteredAdminPermissionPolicy::class,
             ),
         ], $overrides);
 

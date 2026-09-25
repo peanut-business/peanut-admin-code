@@ -61,7 +61,12 @@ final class ImportExportStore
                 throw $exception;
             }
             $existing = $this->byIdempotency(
-                $tenantId, $memberId, $direction, $providerKey, $idempotencyKeyHash, true,
+                $tenantId,
+                $memberId,
+                $direction,
+                $providerKey,
+                $idempotencyKeyHash,
+                true,
             );
             if ($existing === null || !hash_equals((string) $existing['request_hash'], $requestHash)) {
                 throw ImportExportException::conflict();
@@ -255,7 +260,7 @@ final class ImportExportStore
     private function isUniqueConflict(Throwable $exception): bool
     {
         for ($current = $exception; $current !== null; $current = $current->getPrevious()) {
-            if ((string)$current->getCode() === '23000'
+            if ((string) $current->getCode() === '23000'
                 || str_contains(strtolower($current->getMessage()), 'duplicate entry')
             ) {
                 return true;
@@ -397,16 +402,28 @@ final class ImportExportStore
         $mapping = $this->mapping($row['mapping_json'] ?? null);
 
         return new OperationRecord(
-            (int) $row['id'], (string) $row['operation_key'], $this->tenantScope->tenantId($row, $logicalTenantId),
-            (int) $row['created_by_member_id'], (string) $row['provider_key'], (string) $row['direction'],
-            (string) $row['status'], is_string($row['input_file_key']) ? $row['input_file_key'] : null,
+            (int) $row['id'],
+            (string) $row['operation_key'],
+            $this->tenantScope->tenantId($row, $logicalTenantId),
+            (int) $row['created_by_member_id'],
+            (string) $row['provider_key'],
+            (string) $row['direction'],
+            (string) $row['status'],
+            is_string($row['input_file_key']) ? $row['input_file_key'] : null,
             is_string($row['result_file_key']) ? $row['result_file_key'] : null,
             is_string($row['error_file_key']) ? $row['error_file_key'] : null,
-            is_string($row['task_job_key']) ? $row['task_job_key'] : null, (string) $row['schema_revision'],
-            $mapping, (int) $row['processed_rows'], (int) $row['accepted_rows'], (int) $row['rejected_rows'],
-            (int) $row['total_rows'], (int) $row['attempt_number'], (int) $row['revision'],
+            is_string($row['task_job_key']) ? $row['task_job_key'] : null,
+            (string) $row['schema_revision'],
+            $mapping,
+            (int) $row['processed_rows'],
+            (int) $row['accepted_rows'],
+            (int) $row['rejected_rows'],
+            (int) $row['total_rows'],
+            (int) $row['attempt_number'],
+            (int) $row['revision'],
             is_string($row['last_error_code']) ? $row['last_error_code'] : null,
-            $this->time((string) $row['retention_until']), $this->time((string) $row['created_at']),
+            $this->time((string) $row['retention_until']),
+            $this->time((string) $row['created_at']),
             $this->time((string) $row['updated_at']),
             is_string($row['completed_at']) ? $this->time($row['completed_at']) : null,
         );

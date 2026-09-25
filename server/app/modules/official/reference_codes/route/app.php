@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\adminapi\http\middleware\AuthMiddleware;
@@ -8,7 +9,9 @@ use app\common\infrastructure\module\OfficialModuleMiddleware;
 use PeanutAdmin\Modules\ReferenceCodes\Controller\ReferenceCodesController;
 use think\facade\Route;
 
-if (($peanutRouteApplication ?? null) !== 'adminapi') return;
+if (($peanutRouteApplication ?? null) !== 'adminapi') {
+    return;
+}
 
 Route::group(function (): void {
     Route::get('api/v1/reference-code-sets', [ReferenceCodesController::class, 'sets'])

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -90,7 +91,7 @@ final class PlatformOpsController extends BasePlatformController
         return response($artifact['json'], 200, [
             'Cache-Control' => 'no-store',
             'Content-Disposition' => 'attachment; filename="' . $artifact['filename'] . '"',
-            'Content-Length' => (string)$artifact['bytes'],
+            'Content-Length' => (string) $artifact['bytes'],
             'Content-Type' => 'application/json; charset=utf-8',
             'X-Content-Type-Options' => 'nosniff',
             'X-Diagnostic-SHA256' => $artifact['sha256'],
@@ -108,7 +109,7 @@ final class PlatformOpsController extends BasePlatformController
             return $this->operations->submitBackup(
                 $this->context(),
                 $params['provider_key'],
-                $this->idempotencyKey()
+                $this->idempotencyKey(),
             );
         });
     }
@@ -131,7 +132,7 @@ final class PlatformOpsController extends BasePlatformController
                 $params['provider_key'],
                 $params['backup_reference_key'],
                 $params['target_key'],
-                $this->idempotencyKey()
+                $this->idempotencyKey(),
             );
         });
     }
@@ -199,7 +200,7 @@ final class PlatformOpsController extends BasePlatformController
 
     private function windowMinutes(mixed $value): int
     {
-        $candidate = is_int($value) ? (string)$value : trim((string)$value);
+        $candidate = is_int($value) ? (string) $value : trim((string) $value);
         if (!in_array($candidate, ['60', '360', '1440'], true)) {
             throw \app\common\http\ApiProblem::fromEnvelope(
                 'Diagnostic window is invalid.',
@@ -207,12 +208,12 @@ final class PlatformOpsController extends BasePlatformController
                 42200,
             )->withHeaders(['Cache-Control' => 'no-store']);
         }
-        return (int)$candidate;
+        return (int) $candidate;
     }
 
     private function idempotencyKey(): string
     {
-        $value = trim((string)$this->request->header('Idempotency-Key', ''));
+        $value = trim((string) $this->request->header('Idempotency-Key', ''));
         if ($value === '') {
             throw OpsConsoleException::invalid();
         }
@@ -221,11 +222,11 @@ final class PlatformOpsController extends BasePlatformController
 
     private function ifMatchRevision(bool $allowZero): int
     {
-        $value = trim((string)$this->request->header('If-Match', ''));
+        $value = trim((string) $this->request->header('If-Match', ''));
         if (preg_match('/^"rev-([0-9]+)"$/D', $value, $matches) !== 1) {
             throw OpsConsoleException::invalid();
         }
-        $revision = (int)$matches[1];
+        $revision = (int) $matches[1];
         if (($allowZero && $revision < 0) || (!$allowZero && $revision < 1)) {
             throw OpsConsoleException::revisionConflict();
         }

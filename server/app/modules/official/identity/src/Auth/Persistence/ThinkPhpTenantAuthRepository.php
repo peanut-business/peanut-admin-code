@@ -102,9 +102,17 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
         $this->recordFailedLoginEvent($credential, $identifierHmac, $ipAddress, $userAgentHash, $requestId, $now);
         if ($credentialLocked && $credential !== null) {
             $this->recordSecurityEvent(
-                'credential_locked', 'denied', 'failed_attempt_limit',
-                $credential->accountId, $credential->credentialId, null,
-                $identifierHmac, $requestId, $ipAddress, $userAgentHash, $now,
+                'credential_locked',
+                'denied',
+                'failed_attempt_limit',
+                $credential->accountId,
+                $credential->credentialId,
+                null,
+                $identifierHmac,
+                $requestId,
+                $ipAddress,
+                $userAgentHash,
+                $now,
             );
         }
     }
@@ -268,8 +276,14 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
         $this->insertToken($sessionId, 'refresh', $tokens->refresh->hash(), $tokens->refreshExpiresAt, null, $now);
 
         return new ValidatedTenantSession(
-            $sessionId, $sessionKey, $choice->tenantId, (int) $principal['account_id'],
-            $choice->memberId, $clientKey, $now, (int) $principal['authorization_revision'],
+            $sessionId,
+            $sessionKey,
+            $choice->tenantId,
+            (int) $principal['account_id'],
+            $choice->memberId,
+            $clientKey,
+            $now,
+            (int) $principal['authorization_revision'],
         );
     }
 
@@ -321,7 +335,12 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
             ]);
         $this->insertToken($refresh->sessionId, 'access', $tokens->access->hash(), $tokens->accessExpiresAt, null, $now);
         $newRefreshId = $this->insertToken(
-            $refresh->sessionId, 'refresh', $tokens->refresh->hash(), $tokens->refreshExpiresAt, $refresh->tokenId, $now,
+            $refresh->sessionId,
+            'refresh',
+            $tokens->refresh->hash(),
+            $tokens->refreshExpiresAt,
+            $refresh->tokenId,
+            $now,
         );
         TenantSessionToken::where('id', $refresh->tokenId)->update([
             'replaced_by_token_id' => $newRefreshId,
@@ -389,8 +408,17 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
         DateTimeImmutable $now,
     ): void {
         $this->recordSecurityEvent(
-            'login_failed', 'denied', 'invalid_credentials', $credential?->accountId,
-            $credential?->credentialId, null, $identifierHmac, $requestId, $ipAddress, $userAgentHash, $now,
+            'login_failed',
+            'denied',
+            'invalid_credentials',
+            $credential?->accountId,
+            $credential?->credentialId,
+            null,
+            $identifierHmac,
+            $requestId,
+            $ipAddress,
+            $userAgentHash,
+            $now,
         );
     }
 
@@ -423,9 +451,13 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
     private function credentialRecord(array $row): AuthCredential
     {
         return new AuthCredential(
-            (int) $row['credential_id'], (int) $row['account_id'], (string) $row['secret_hash'],
-            CredentialStatus::from((string) $row['credential_status']), (int) $row['failed_attempts'],
-            $this->nullableDate($row['locked_until']), $this->nullableDate($row['expires_at']),
+            (int) $row['credential_id'],
+            (int) $row['account_id'],
+            (string) $row['secret_hash'],
+            CredentialStatus::from((string) $row['credential_status']),
+            (int) $row['failed_attempts'],
+            $this->nullableDate($row['locked_until']),
+            $this->nullableDate($row['expires_at']),
             AccountStatus::from((string) $row['account_status']),
         );
     }
@@ -434,16 +466,29 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
     private function sessionRecord(array $row): SessionAuthenticationRecord
     {
         return new SessionAuthenticationRecord(
-            (int) $row['token_id'], (string) $row['token_type'], (string) $row['token_status'],
-            $this->date((string) $row['token_expires_at']), (int) $row['session_id'],
-            (string) $row['session_key'], (string) $row['session_status'], (int) $row['tenant_id'],
-            (int) $row['account_id'], (int) $row['tenant_member_id'], (string) $row['client_key'],
-            $this->date((string) $row['issued_at']), $this->date((string) $row['idle_expires_at']),
-            $this->date((string) $row['absolute_expires_at']), (int) $row['account_security_revision'],
-            (int) $row['tenant_security_revision'], (int) $row['member_security_revision'],
-            AccountStatus::from((string) $row['account_status']), (int) $row['current_account_security_revision'],
-            TenantStatus::from((string) $row['tenant_status']), (int) $row['current_tenant_security_revision'],
-            TenantMemberStatus::from((string) $row['member_status']), (int) $row['current_member_security_revision'],
+            (int) $row['token_id'],
+            (string) $row['token_type'],
+            (string) $row['token_status'],
+            $this->date((string) $row['token_expires_at']),
+            (int) $row['session_id'],
+            (string) $row['session_key'],
+            (string) $row['session_status'],
+            (int) $row['tenant_id'],
+            (int) $row['account_id'],
+            (int) $row['tenant_member_id'],
+            (string) $row['client_key'],
+            $this->date((string) $row['issued_at']),
+            $this->date((string) $row['idle_expires_at']),
+            $this->date((string) $row['absolute_expires_at']),
+            (int) $row['account_security_revision'],
+            (int) $row['tenant_security_revision'],
+            (int) $row['member_security_revision'],
+            AccountStatus::from((string) $row['account_status']),
+            (int) $row['current_account_security_revision'],
+            TenantStatus::from((string) $row['tenant_status']),
+            (int) $row['current_tenant_security_revision'],
+            TenantMemberStatus::from((string) $row['member_status']),
+            (int) $row['current_member_security_revision'],
             (int) $row['authorization_revision'],
         );
     }

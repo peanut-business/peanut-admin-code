@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Productization;
@@ -128,10 +129,22 @@ final class ModuleCommandContractTest extends TestCase
         [$app, $store] = $this->application('multi-tenant', 'development', true);
         $command = $this->command($app, ModuleInstallPackage::class);
         $person = new class implements ExecutionContext {
-            public function operation(): string { return 'console.module:install-package'; }
-            public function requestId(): string { return 'http-personnel-command'; }
-            public function tenantId(): int { return 101; }
-            public function actor(): array { return ['tenant_id' => 101, 'id' => 301]; }
+            public function operation(): string
+            {
+                return 'console.module:install-package';
+            }
+            public function requestId(): string
+            {
+                return 'http-personnel-command';
+            }
+            public function tenantId(): int
+            {
+                return 101;
+            }
+            public function actor(): array
+            {
+                return ['tenant_id' => 101, 'id' => 301];
+            }
         };
 
         $output = new Output('buffer');
@@ -181,7 +194,7 @@ final class ModuleCommandContractTest extends TestCase
             'ModuleDisablePackage.php',
             'ModuleUninstallPackage.php',
         ] as $file) {
-            $source = (string)file_get_contents($serverRoot . '/app/command/' . $file);
+            $source = (string) file_get_contents($serverRoot . '/app/command/' . $file);
             self::assertStringContainsString('$this->assertDevelopmentInstanceMaintenanceAccess()', $source);
             self::assertStringContainsString('$this->moduleRuntime()->', $source);
             self::assertStringNotContainsString('app()->isDebug()', $source);
@@ -233,7 +246,9 @@ final class ModuleCommandContractTest extends TestCase
     private function removeTree(string $path): void
     {
         if (!is_dir($path)) {
-            if (is_file($path)) unlink($path);
+            if (is_file($path)) {
+                unlink($path);
+            }
             return;
         }
         $iterator = new \RecursiveIteratorIterator(

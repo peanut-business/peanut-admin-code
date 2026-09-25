@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\platform\service\ops\PlatformUpgradeReadinessService;
@@ -109,7 +110,7 @@ function upgradeTargetRun(array $command): string
     fclose($pipes[2]);
     $status = proc_close($process);
     if ($status !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('Git fixture command failed: ' . trim((string)$stderr));
+        throw new RuntimeException('Git fixture command failed: ' . trim((string) $stderr));
     }
     return trim($stdout);
 }
@@ -194,7 +195,7 @@ try {
     upgradeTargetExpect(!is_file($currentModule . '/Application/target-release-proof.txt'), 'target marker leaked into current source');
 
     $sourceLock = json_decode(
-        (string)file_get_contents($sourceRoot . '/plugins.lock'),
+        (string) file_get_contents($sourceRoot . '/plugins.lock'),
         true,
         64,
         JSON_THROW_ON_ERROR,
@@ -211,7 +212,7 @@ try {
     );
     $plugin['trust']['compatibility']['modules'][0]['kernel_constraint'] = '^2.0';
     $pluginManifestPath = $releaseRoot . '/plugins/fixture.delivery-record/plugin.json';
-    $pluginManifest = json_decode((string)file_get_contents($pluginManifestPath), true, 64, JSON_THROW_ON_ERROR);
+    $pluginManifest = json_decode((string) file_get_contents($pluginManifestPath), true, 64, JSON_THROW_ON_ERROR);
     $pluginManifest['source'] = $plugin['source'];
     $pluginManifest['trust'] = $plugin['trust'];
     upgradeTargetWriteJson($pluginManifestPath, $pluginManifest);

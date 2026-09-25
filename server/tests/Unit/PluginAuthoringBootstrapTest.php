@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -123,13 +124,13 @@ final class PluginAuthoringBootstrapTest extends TestCase
         );
 
         $lock = json_decode(
-            (string)file_get_contents($this->repositoryRoot . '/plugins.lock'),
+            (string) file_get_contents($this->repositoryRoot . '/plugins.lock'),
             true,
             64,
             JSON_THROW_ON_ERROR,
         );
         $entry = null;
-        foreach ((array)($lock['plugins'] ?? []) as $candidate) {
+        foreach ((array) ($lock['plugins'] ?? []) as $candidate) {
             if (is_array($candidate) && ($candidate['key'] ?? null) === 'fixture.delivery-record') {
                 $entry = $candidate;
                 break;
@@ -191,7 +192,7 @@ final class PluginAuthoringBootstrapTest extends TestCase
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $this->fixtureRoot . '/server',
-            ['PATH' => (string)getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $environment],
+            ['PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $environment],
         );
         self::assertIsResource($process);
         $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
@@ -227,7 +228,9 @@ final class PluginAuthoringBootstrapTest extends TestCase
 
     private function removeTree(string $path): void
     {
-        if (!is_dir($path)) return;
+        if (!is_dir($path)) {
+            return;
+        }
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::CHILD_FIRST,

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Service;
@@ -25,8 +26,7 @@ final readonly class PlatformBackupCenterService
         private BackupRestoreProviderRegistry $backupProviders,
         private OpsTaskService $tasks,
         private PlatformPermissionChecker $permissions,
-    ) {
-    }
+    ) {}
 
     /** @return array{provider:array<string,mixed>,latest_verified:?array<string,mixed>,latest_restore_verified:?array<string,mixed>,tasks:list<array<string,mixed>>} */
     public function snapshot(PlatformContext $context, string $runtimeCommit): array
@@ -60,7 +60,7 @@ final readonly class PlatformBackupCenterService
             ->order('id', 'desc')->limit(self::TASK_LIMIT)->column('task_key');
         foreach ($taskKeys as $taskKey) {
             $tasks[] = $this->tasks
-                ->task($context, (string)$taskKey)
+                ->task($context, (string) $taskKey)
                 ->toPublicArray();
         }
         return $tasks;
@@ -77,31 +77,31 @@ final readonly class PlatformBackupCenterService
         }
 
         try {
-            $manifestJson = (string)$row['manifest_json'];
+            $manifestJson = (string) $row['manifest_json'];
             $manifest = PairedBackupManifest::fromJson($manifestJson);
-            if (!hash_equals(hash('sha256', $manifest->canonicalJson()), (string)$row['manifest_sha256'])
-                || !hash_equals($manifest->backupReferenceKey(), (string)$row['backup_reference_key'])
+            if (!hash_equals(hash('sha256', $manifest->canonicalJson()), (string) $row['manifest_sha256'])
+                || !hash_equals($manifest->backupReferenceKey(), (string) $row['backup_reference_key'])
             ) {
                 throw new \RuntimeException('OPS_BACKUP_EVIDENCE_INVALID');
             }
-            $verifiedAt = $this->instant((string)$row['verified_at']);
+            $verifiedAt = $this->instant((string) $row['verified_at']);
             $ageSeconds = max(0, time() - (new DateTimeImmutable($verifiedAt))->getTimestamp());
 
             return [
-                'backup_reference_key' => (string)$row['backup_reference_key'],
-                'task_key' => (string)$row['task_key'],
-                'provider_key' => (string)$row['provider_key'],
-                'manifest_sha256' => (string)$row['manifest_sha256'],
-                'source_commit' => (string)$row['source_commit'],
-                'source_tree' => (string)$row['source_tree'],
+                'backup_reference_key' => (string) $row['backup_reference_key'],
+                'task_key' => (string) $row['task_key'],
+                'provider_key' => (string) $row['provider_key'],
+                'manifest_sha256' => (string) $row['manifest_sha256'],
+                'source_commit' => (string) $row['source_commit'],
+                'source_tree' => (string) $row['source_tree'],
                 'source_release_key' => $row['source_release_key'] === null
                     ? null
-                    : (string)$row['source_release_key'],
-                'consistency_started_at' => $this->instant((string)$row['consistency_started_at']),
-                'consistency_completed_at' => $this->instant((string)$row['consistency_completed_at']),
+                    : (string) $row['source_release_key'],
+                'consistency_started_at' => $this->instant((string) $row['consistency_started_at']),
+                'consistency_completed_at' => $this->instant((string) $row['consistency_completed_at']),
                 'verified_at' => $verifiedAt,
                 'age_seconds' => $ageSeconds,
-                'source_matches_runtime' => hash_equals((string)$row['source_commit'], $runtimeCommit),
+                'source_matches_runtime' => hash_equals((string) $row['source_commit'], $runtimeCommit),
             ];
         } catch (Throwable) {
             throw OpsConsoleException::taskUnavailable();
@@ -117,22 +117,22 @@ final readonly class PlatformBackupCenterService
         if (!is_array($row)) {
             return null;
         }
-        if ((string)$row['target_key'] !== PairedBackupProvider::RESTORE_TARGET_KEY
-            || preg_match('/^[a-f0-9]{64}$/D', (string)$row['evidence_sha256']) !== 1
+        if ((string) $row['target_key'] !== PairedBackupProvider::RESTORE_TARGET_KEY
+            || preg_match('/^[a-f0-9]{64}$/D', (string) $row['evidence_sha256']) !== 1
         ) {
             throw OpsConsoleException::taskUnavailable();
         }
         return [
-            'backup_reference_key' => (string)$row['backup_reference_key'],
-            'target_key' => (string)$row['target_key'],
-            'verified_at' => $this->instant((string)$row['verified_at']),
-            'verification_sha256' => (string)$row['evidence_sha256'],
-            'table_count' => (int)$row['table_count'],
-            'migration_count' => (int)$row['schema_migration_count'],
-            'tenant_count' => (int)$row['tenant_count'],
-            'account_count' => (int)$row['account_count'],
-            'tenant_member_count' => (int)$row['tenant_member_count'],
-            'file_count' => (int)$row['storage_file_count'],
+            'backup_reference_key' => (string) $row['backup_reference_key'],
+            'target_key' => (string) $row['target_key'],
+            'verified_at' => $this->instant((string) $row['verified_at']),
+            'verification_sha256' => (string) $row['evidence_sha256'],
+            'table_count' => (int) $row['table_count'],
+            'migration_count' => (int) $row['schema_migration_count'],
+            'tenant_count' => (int) $row['tenant_count'],
+            'account_count' => (int) $row['account_count'],
+            'tenant_member_count' => (int) $row['tenant_member_count'],
+            'file_count' => (int) $row['storage_file_count'],
         ];
     }
 

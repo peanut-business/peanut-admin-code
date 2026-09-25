@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\traits;
@@ -278,8 +279,7 @@ trait CrudTrait
         mixed $context,
         string $scene,
         array $params,
-    ): array
-    {
+    ): array {
         $validatorClass = $this->crudValidateClass();
         $accepted = $this->crudInputFields($scene);
         if ($accepted !== null) {
@@ -373,7 +373,7 @@ trait CrudTrait
 
     protected function crudPrimaryKey(): string
     {
-        $key = defined(static::class . '::CRUD_PRIMARY_KEY') ? (string)static::CRUD_PRIMARY_KEY : 'id';
+        $key = defined(static::class . '::CRUD_PRIMARY_KEY') ? (string) static::CRUD_PRIMARY_KEY : 'id';
         if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key) !== 1) {
             throw new LogicException(static::class . ' has an invalid CRUD_PRIMARY_KEY declaration.');
         }
@@ -383,7 +383,7 @@ trait CrudTrait
     protected function crudPrimaryKeyType(): string
     {
         $type = strtolower(defined(static::class . '::CRUD_PRIMARY_KEY_TYPE')
-            ? (string)static::CRUD_PRIMARY_KEY_TYPE
+            ? (string) static::CRUD_PRIMARY_KEY_TYPE
             : 'int');
         return match ($type) {
             'int', 'integer' => 'int',
@@ -396,7 +396,7 @@ trait CrudTrait
 
     protected function crudValidateLists(): bool
     {
-        return defined(static::class . '::CRUD_VALIDATE_LISTS') ? (bool)static::CRUD_VALIDATE_LISTS : false;
+        return defined(static::class . '::CRUD_VALIDATE_LISTS') ? (bool) static::CRUD_VALIDATE_LISTS : false;
     }
 
     /** @return array<int|string,mixed>|null */
@@ -459,7 +459,7 @@ trait CrudTrait
             if (!is_string($value) && !is_int($value)) {
                 throw BusinessException::invalid('CRUD_PRIMARY_KEY_INVALID', '主键格式错误');
             }
-            $key = trim((string)$value);
+            $key = trim((string) $value);
             if ($key === '') {
                 throw BusinessException::invalid('CRUD_PRIMARY_KEY_INVALID', '主键格式错误');
             }
@@ -469,7 +469,7 @@ trait CrudTrait
         if (filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
             throw BusinessException::invalid('CRUD_PRIMARY_KEY_INVALID', '主键格式错误');
         }
-        return (int)$value;
+        return (int) $value;
     }
 
     /** @return list<int|string> */

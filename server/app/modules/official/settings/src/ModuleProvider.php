@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings;
@@ -51,7 +52,8 @@ final class ModuleProvider implements ModuleProviderContract
             TenantSettingsQuery::class => TenantSettingService::class,
             TenantApplicationSettings::class => TenantApplicationSettingService::class,
             DeploymentSettingsTransfer::class => fn(App $app): DeploymentSettingsTransfer => new DeploymentSettingsTransferService(
-                $app->make(SettingDefinitionRegistry::class), $app->make(SettingAdminService::class),
+                $app->make(SettingDefinitionRegistry::class),
+                $app->make(SettingAdminService::class),
             ),
             SecretProtector::class => fn(App $app): SecretProtector => $this->secretProtector($app),
             SettingDefinitionRegistry::class => fn(App $app): SettingDefinitionRegistry =>
@@ -69,8 +71,10 @@ final class ModuleProvider implements ModuleProviderContract
             SettingResolver::class => function (App $app): SettingResolver {
                 $persistence = $app->make(TenantPersistenceConfiguration::class);
                 return new SettingResolver(
-                    $app->make(SecretProtector::class), new ArrayRevisionedSettingCache(),
-                    $persistence->mode, $persistence->instanceTenantId,
+                    $app->make(SecretProtector::class),
+                    new ArrayRevisionedSettingCache(),
+                    $persistence->mode,
+                    $persistence->instanceTenantId,
                 );
             },
             SettingsHttpApplicationService::class => fn(App $app): SettingsHttpApplicationService => new SettingsHttpApplicationService(
@@ -87,9 +91,11 @@ final class ModuleProvider implements ModuleProviderContract
 
     private function secretProtector(App $app): SecretProtector
     {
-        $encoded = trim((string)$app->config->get('peanut.settings_secrets.keys', ''));
-        $activeKeyId = trim((string)$app->config->get('peanut.settings_secrets.active_key_id', ''));
-        if ($encoded === '' || $activeKeyId === '') return new UnavailableSecretProtector();
+        $encoded = trim((string) $app->config->get('peanut.settings_secrets.keys', ''));
+        $activeKeyId = trim((string) $app->config->get('peanut.settings_secrets.active_key_id', ''));
+        if ($encoded === '' || $activeKeyId === '') {
+            return new UnavailableSecretProtector();
+        }
         try {
             return SodiumSecretProtector::fromJson($encoded, $activeKeyId);
         } catch (Throwable) {

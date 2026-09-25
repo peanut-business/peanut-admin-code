@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 const API_CONTRACT_GENERATOR_VERSION = '2';
@@ -123,7 +124,7 @@ try {
 function loadContract(string $repositoryRoot): array
 {
     $source = $repositoryRoot . '/server/app/api/metadata/contracts/openapi.json';
-    $contract = json_decode((string)file_get_contents($source), true, 512, JSON_THROW_ON_ERROR);
+    $contract = json_decode((string) file_get_contents($source), true, 512, JSON_THROW_ON_ERROR);
     if (!is_array($contract)) {
         throw new RuntimeException('Structured OpenAPI source must be an object');
     }
@@ -132,7 +133,7 @@ function loadContract(string $repositoryRoot): array
     if (!is_file($releaseSource) || is_link($releaseSource)) {
         throw new RuntimeException('Release version source must be a regular non-symlink file');
     }
-    $release = json_decode((string)file_get_contents($releaseSource), true, 512, JSON_THROW_ON_ERROR);
+    $release = json_decode((string) file_get_contents($releaseSource), true, 512, JSON_THROW_ON_ERROR);
     $productVersion = $release['source_product_version'] ?? null;
     if (!is_string($productVersion) || preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/D', $productVersion) !== 1) {
         throw new RuntimeException('release-versions.json source_product_version is invalid');
@@ -185,7 +186,7 @@ function mergeContractFragment(array $contract, string $fragmentPath, bool $allo
             throw new RuntimeException('OpenAPI fragment path is invalid: ' . $fragmentPath);
         }
         foreach ($pathItem as $method => $operation) {
-            $method = strtolower((string)$method);
+            $method = strtolower((string) $method);
             if (!is_array($operation) || isset($contract['paths'][$path][$method])) {
                 throw new RuntimeException("Duplicate or invalid OpenAPI operation: {$method} {$path}");
             }
@@ -197,7 +198,7 @@ function mergeContractFragment(array $contract, string $fragmentPath, bool $allo
             throw new RuntimeException('OpenAPI fragment override is not allowed or invalid: ' . $fragmentPath);
         }
         foreach ($pathItem as $method => $operation) {
-            $method = strtolower((string)$method);
+            $method = strtolower((string) $method);
             if (!is_array($operation) || !isset($contract['paths'][$path][$method])) {
                 throw new RuntimeException("OpenAPI override has no existing operation: {$method} {$path}");
             }
@@ -207,7 +208,7 @@ function mergeContractFragment(array $contract, string $fragmentPath, bool $allo
     foreach (['schemas', 'responses', 'parameters', 'requestBodies', 'securitySchemes'] as $componentType) {
         foreach (($fragment['components'][$componentType] ?? []) as $name => $component) {
             if (!is_string($name) || !is_array($component) || isset($contract['components'][$componentType][$name])) {
-                throw new RuntimeException('OpenAPI component is invalid or duplicated: ' . $fragmentPath . '#' . $componentType . '/' . (string)$name);
+                throw new RuntimeException('OpenAPI component is invalid or duplicated: ' . $fragmentPath . '#' . $componentType . '/' . (string) $name);
             }
             $contract['components'][$componentType][$name] = $component;
         }
@@ -220,7 +221,7 @@ function indexRoutes(array $endpoints): array
 {
     $routes = [];
     foreach ($endpoints as $endpoint) {
-        $key = routeKey((string)$endpoint['method'], (string)$endpoint['path']);
+        $key = routeKey((string) $endpoint['method'], (string) $endpoint['path']);
         if (isset($routes[$key])) {
             throw new RuntimeException('Duplicate runtime route: ' . $key);
         }
@@ -243,7 +244,7 @@ function applyRouteMetadata(array $contract, array $routes): array
             if (!is_array($operation) || !isset($operation['operationId'])) {
                 continue;
             }
-            $key = routeKey((string)$method, (string)$path);
+            $key = routeKey((string) $method, (string) $path);
             if (!isset($routes[$key])) {
                 continue;
             }
@@ -281,13 +282,13 @@ function validateContract(array $contract, array $routes): void
     $operationIds = [];
     foreach (($contract['paths'] ?? []) as $path => $pathItem) {
         if (!is_array($pathItem)) {
-            throw new RuntimeException('OpenAPI path item must be an object: ' . (string)$path);
+            throw new RuntimeException('OpenAPI path item must be an object: ' . (string) $path);
         }
         foreach ($pathItem as $method => $operation) {
-            if (!in_array(strtolower((string)$method), ['get', 'post', 'put', 'patch', 'delete'], true)) {
+            if (!in_array(strtolower((string) $method), ['get', 'post', 'put', 'patch', 'delete'], true)) {
                 continue;
             }
-            $key = routeKey((string)$method, (string)$path);
+            $key = routeKey((string) $method, (string) $path);
             if (!isset($routes[$key])) {
                 throw new RuntimeException('OpenAPI operation has no runtime route: ' . $key);
             }
@@ -315,10 +316,10 @@ function validateSchemas(mixed $schemas): void
     }
     foreach ($schemas as $name => $schema) {
         if (!is_array($schema) || $schema === []) {
-            throw new RuntimeException('OpenAPI schema must not be empty: ' . (string)$name);
+            throw new RuntimeException('OpenAPI schema must not be empty: ' . (string) $name);
         }
-        validateSchemaNode($schema, '#/components/schemas/' . (string)$name);
-        validateSealedAllOf($schema, $schemas, '#/components/schemas/' . (string)$name);
+        validateSchemaNode($schema, '#/components/schemas/' . (string) $name);
+        validateSealedAllOf($schema, $schemas, '#/components/schemas/' . (string) $name);
     }
 }
 
@@ -328,7 +329,9 @@ function validateSealedAllOf(array $node, array $schemas, string $pointer): void
     $branches = $node['allOf'] ?? null;
     if (is_array($branches)) {
         foreach ($branches as $index => $branch) {
-            if (!is_array($branch)) continue;
+            if (!is_array($branch)) {
+                continue;
+            }
             $sealed = $branch;
             $ref = $branch['$ref'] ?? null;
             if (is_string($ref)
@@ -337,10 +340,14 @@ function validateSealedAllOf(array $node, array $schemas, string $pointer): void
             ) {
                 $sealed = $schemas[$match[1]];
             }
-            if (($sealed['additionalProperties'] ?? null) !== false) continue;
+            if (($sealed['additionalProperties'] ?? null) !== false) {
+                continue;
+            }
             $allowed = array_keys(is_array($sealed['properties'] ?? null) ? $sealed['properties'] : []);
             foreach ($branches as $otherIndex => $other) {
-                if ($otherIndex === $index || !is_array($other)) continue;
+                if ($otherIndex === $index || !is_array($other)) {
+                    continue;
+                }
                 $otherProperties = array_keys(is_array($other['properties'] ?? null) ? $other['properties'] : []);
                 if (array_diff($otherProperties, $allowed) !== []) {
                     throw new RuntimeException('OpenAPI allOf extends a sealed object: ' . $pointer);
@@ -350,7 +357,7 @@ function validateSealedAllOf(array $node, array $schemas, string $pointer): void
     }
     foreach ($node as $key => $value) {
         if (is_array($value) && $value !== []) {
-            validateSealedAllOf($value, $schemas, $pointer . '/' . (string)$key);
+            validateSealedAllOf($value, $schemas, $pointer . '/' . (string) $key);
         }
     }
 }
@@ -362,7 +369,7 @@ function validateSchemaNode(array $node, string $pointer): void
         if (!is_array($value)) {
             continue;
         }
-        $child = $pointer . '/' . (string)$key;
+        $child = $pointer . '/' . (string) $key;
         if ($value === []) {
             throw new RuntimeException('OpenAPI contains an empty schema node: ' . $child);
         }
@@ -398,7 +405,7 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
     foreach ($contract['paths'] as $path => $pathItem) {
         foreach ($pathItem as $method => $operation) {
             if (is_array($operation) && isset($operation['operationId'])) {
-                $documented[routeKey((string)$method, (string)$path)] = $operation;
+                $documented[routeKey((string) $method, (string) $path)] = $operation;
             }
         }
     }
@@ -407,7 +414,7 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
     $exceptions = [];
     foreach (['public', 'authenticated', 'platform_public', 'platform_authenticated'] as $class) {
         foreach ($access[$class] ?? [] as $route) {
-            $parts = preg_split('/\s+/', trim((string)$route), 2);
+            $parts = preg_split('/\s+/', trim((string) $route), 2);
             if (count($parts) === 2) {
                 $exceptions[routeKey($parts[0], $parts[1])] = $class;
             }
@@ -418,20 +425,20 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
     $owners = [];
     $documentationGaps = [];
     foreach ($inventory['endpoints'] as $endpoint) {
-        $key = routeKey((string)$endpoint['method'], (string)$endpoint['path']);
+        $key = routeKey((string) $endpoint['method'], (string) $endpoint['path']);
         $operation = $documented[$key] ?? null;
         [$auth, $permissions] = accessMetadata($endpoint, $exceptions[$key] ?? null);
         $errors = inferredErrors($auth, $permissions);
         if (is_array($operation)) {
             foreach (array_keys($operation['responses'] ?? []) as $status) {
-                if (ctype_digit((string)$status) && (int)$status >= 400) {
-                    $errors[] = (int)$status;
+                if (ctype_digit((string) $status) && (int) $status >= 400) {
+                    $errors[] = (int) $status;
                 }
             }
         }
         $errors = array_values(array_unique($errors));
         sort($errors);
-        $owner = (string)$endpoint['owner']['type'] . ':' . (string)$endpoint['owner']['key'];
+        $owner = (string) $endpoint['owner']['type'] . ':' . (string) $endpoint['owner']['key'];
         $owners[$owner] = ($owners[$owner] ?? 0) + 1;
         $documentation = $operation !== null
             ? [
@@ -447,12 +454,12 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
         if ($operation === null) {
             $moduleFragment = null;
             if (($endpoint['owner']['type'] ?? null) === 'module'
-                && preg_match('#^(server/app/modules/[^/]+/[^/]+)/#', (string)$endpoint['source'], $moduleRoot) === 1) {
+                && preg_match('#^(server/app/modules/[^/]+/[^/]+)/#', (string) $endpoint['source'], $moduleRoot) === 1) {
                 $moduleFragment = $moduleRoot[1] . '/api/metadata/openapi.php';
             }
             $documentationGaps[] = [
                 'method' => $endpoint['method'],
-                'path' => openApiPath((string)$endpoint['path']),
+                'path' => openApiPath((string) $endpoint['path']),
                 'owner' => $endpoint['owner'],
                 'source' => ['file' => $endpoint['source'], 'line' => $endpoint['line']],
                 'reason' => 'Runtime metadata is known; request, response and business-error contracts require the route owner.',
@@ -461,7 +468,7 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
         }
         $endpoints[] = [
             'method' => $endpoint['method'],
-            'path' => openApiPath((string)$endpoint['path']),
+            'path' => openApiPath((string) $endpoint['path']),
             'runtime_path' => $endpoint['path'],
             'application' => $endpoint['application'],
             'owner' => $endpoint['owner'],
@@ -528,7 +535,7 @@ function buildCatalog(string $repositoryRoot, array $contract, array $inventory)
 function operationContractGaps(array $operation, array $endpoint, array $auth, array $permissions): array
 {
     $gaps = [];
-    $path = openApiPath((string)$endpoint['path']);
+    $path = openApiPath((string) $endpoint['path']);
     preg_match_all('/\{([A-Za-z_][A-Za-z0-9_]*)\}/', $path, $matches);
     $declaredPathParameters = [];
     foreach ($operation['parameters'] ?? [] as $parameter) {
@@ -559,13 +566,13 @@ function operationContractGaps(array $operation, array $endpoint, array $auth, a
     } else {
         foreach ($responses as $status => $response) {
             if (!is_array($response)
-                || (!responseHasSchema($response) && !responseMayOmitSchema((string)$status, $response))
+                || (!responseHasSchema($response) && !responseMayOmitSchema((string) $status, $response))
             ) {
-                $gaps[] = 'response_schema:' . (string)$status;
+                $gaps[] = 'response_schema:' . (string) $status;
                 continue;
             }
             if (genericResponseContract($response)) {
-                $gaps[] = 'generic_response:' . (string)$status;
+                $gaps[] = 'generic_response:' . (string) $status;
             }
         }
     }
@@ -605,11 +612,15 @@ function securityRequirements(array $auth): array
 
 function securityMatches(mixed $actual, array $expected): bool
 {
-    if (!is_array($actual) || count($actual) !== count($expected)) return false;
+    if (!is_array($actual) || count($actual) !== count($expected)) {
+        return false;
+    }
     $normalize = static function (array $requirements): array {
         $normalized = [];
         foreach ($requirements as $requirement) {
-            if (!is_array($requirement)) return [];
+            if (!is_array($requirement)) {
+                return [];
+            }
             ksort($requirement, SORT_STRING);
             $normalized[] = $requirement;
         }
@@ -624,9 +635,13 @@ function securityMatches(mixed $actual, array $expected): bool
 
 function responseHasSchema(array $response): bool
 {
-    if (is_string($response['$ref'] ?? null)) return true;
+    if (is_string($response['$ref'] ?? null)) {
+        return true;
+    }
     foreach (($response['content'] ?? []) as $media) {
-        if (is_array($media) && is_array($media['schema'] ?? null) && $media['schema'] !== []) return true;
+        if (is_array($media) && is_array($media['schema'] ?? null) && $media['schema'] !== []) {
+            return true;
+        }
     }
     return false;
 }
@@ -650,7 +665,9 @@ function responseMayOmitSchema(string $status, array $response): bool
 function genericResponseContract(array $response): bool
 {
     $refs = [];
-    if (is_string($response['$ref'] ?? null)) $refs[] = $response['$ref'];
+    if (is_string($response['$ref'] ?? null)) {
+        $refs[] = $response['$ref'];
+    }
     foreach (($response['content'] ?? []) as $media) {
         if (is_array($media) && is_string($media['schema']['$ref'] ?? null)) {
             $refs[] = $media['schema']['$ref'];
@@ -661,7 +678,9 @@ function genericResponseContract(array $response): bool
             '#/components/responses/ApiResponse',
             '#/components/schemas/ApiResponse',
             '#/components/schemas/JsonValue',
-        ], true)) return true;
+        ], true)) {
+            return true;
+        }
     }
     return false;
 }
@@ -670,8 +689,10 @@ function genericResponseContract(array $response): bool
 function sdkConsumers(string $repositoryRoot, array $endpoint): array
 {
     $consumers = ['web/src/generated/openapi.d.ts'];
-    if (($endpoint['owner']['type'] ?? null) !== 'module') return $consumers;
-    $moduleKey = (string)($endpoint['owner']['key'] ?? '');
+    if (($endpoint['owner']['type'] ?? null) !== 'module') {
+        return $consumers;
+    }
+    $moduleKey = (string) ($endpoint['owner']['key'] ?? '');
     $moduleDirectory = str_replace('.', '-', $moduleKey);
     if (is_dir($repositoryRoot . '/web/src/modules/' . $moduleDirectory)) {
         $consumers[] = 'web/src/modules/' . $moduleDirectory . '/generated/openapi.ts';
@@ -693,7 +714,7 @@ function catalogInputs(string $repositoryRoot, array $inventory): array
         $paths[substr($absolutePath, strlen($repositoryRoot) + 1)] = true;
     }
     foreach ($inventory['endpoints'] as $endpoint) {
-        $paths[(string)$endpoint['source']] = true;
+        $paths[(string) $endpoint['source']] = true;
     }
     foreach (glob($repositoryRoot . '/server/app/modules/*/*/api/metadata/openapi.php') ?: [] as $absolutePath) {
         $paths[substr($absolutePath, strlen($repositoryRoot) + 1)] = true;
@@ -726,20 +747,20 @@ function accessMetadata(array $endpoint, ?string $exception): array
     $classes = [];
     $permissions = [];
     foreach ($endpoint['middleware'] as $middleware) {
-        $class = (string)$middleware['class'];
+        $class = (string) $middleware['class'];
         $classes[$class] = $middleware['arguments'];
         if (str_ends_with($class, '\\PlatformPermissionMiddleware') && isset($middleware['arguments'][0])) {
-            $permissions[] = ['kind' => 'platform_action', 'key' => (string)$middleware['arguments'][0]];
+            $permissions[] = ['kind' => 'platform_action', 'key' => (string) $middleware['arguments'][0]];
         }
         if (str_ends_with($class, '\\OfficialModuleMiddleware') && isset($middleware['arguments'][0])) {
-            $permissions[] = ['kind' => 'module_capability', 'key' => (string)$middleware['arguments'][0]];
+            $permissions[] = ['kind' => 'module_capability', 'key' => (string) $middleware['arguments'][0]];
         }
         if (str_ends_with($class, '\\PublicTenantModuleMiddleware')) {
             if (isset($middleware['arguments'][0])) {
-                $permissions[] = ['kind' => 'public_capability', 'key' => (string)$middleware['arguments'][0]];
+                $permissions[] = ['kind' => 'public_capability', 'key' => (string) $middleware['arguments'][0]];
             }
             if (isset($middleware['arguments'][1])) {
-                $permissions[] = ['kind' => 'module_capability', 'key' => (string)$middleware['arguments'][1]];
+                $permissions[] = ['kind' => 'module_capability', 'key' => (string) $middleware['arguments'][1]];
             }
         }
     }
@@ -759,7 +780,7 @@ function accessMetadata(array $endpoint, ?string $exception): array
             'kind' => 'tenant_action',
             'key' => is_string($endpoint['permission'] ?? null) && $endpoint['permission'] !== ''
                 ? $endpoint['permission']
-                : preg_replace('#^/adminapi/#', '', (string)$endpoint['path']),
+                : preg_replace('#^/adminapi/#', '', (string) $endpoint['path']),
         ];
     } elseif (hasMiddlewareSuffix($classes, '\\LoginMiddleware')) {
         $mode = 'tenant_session';
@@ -769,8 +790,8 @@ function accessMetadata(array $endpoint, ?string $exception): array
         $mode = 'public_tenant_module';
     }
 
-    $controller = (string)($endpoint['controller'] ?? '');
-    $action = (string)($endpoint['action'] ?? '');
+    $controller = (string) ($endpoint['controller'] ?? '');
+    $action = (string) ($endpoint['action'] ?? '');
     if (str_ends_with($controller, '\\PlatformSessionController')) {
         $mode = match ($action) {
             'login', 'logout' => 'platform_host',
@@ -840,14 +861,14 @@ function writeModuleTypes(string $repositoryRoot, string $outputRoot, array $con
             if (!is_array($operation) || !isset($operation['operationId'])) {
                 continue;
             }
-            $route = $routes[routeKey((string)$method, (string)$path)];
+            $route = $routes[routeKey((string) $method, (string) $path)];
             if (($route['owner']['type'] ?? null) !== 'module') {
                 continue;
             }
-            $modules[(string)$route['owner']['key']][] = [
-                'method' => strtolower((string)$method),
-                'path' => openApiPath((string)$path),
-                'operationId' => (string)$operation['operationId'],
+            $modules[(string) $route['owner']['key']][] = [
+                'method' => strtolower((string) $method),
+                'path' => openApiPath((string) $path),
+                'operationId' => (string) $operation['operationId'],
             ];
         }
     }
@@ -1026,11 +1047,11 @@ function preserveJsonObjects(mixed $value, ?string $key = null): mixed
         return $value;
     }
     if ($value === [] && $key === 'bearerAuth') {
-        return (object)[];
+        return (object) [];
     }
     $normalized = [];
     foreach ($value as $childKey => $childValue) {
-        $normalized[$childKey] = preserveJsonObjects($childValue, (string)$childKey);
+        $normalized[$childKey] = preserveJsonObjects($childValue, (string) $childKey);
     }
     return $normalized;
 }

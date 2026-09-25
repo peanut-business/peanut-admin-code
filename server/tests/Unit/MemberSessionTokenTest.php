@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -117,8 +118,7 @@ final class MutableMemberSubjectLookup implements MemberSubjectLookup
         public int $tenantIdValue,
         public int $memberId,
         public int $revision,
-    ) {
-    }
+    ) {}
 
     public function tenantId(int $memberId): ?int
     {

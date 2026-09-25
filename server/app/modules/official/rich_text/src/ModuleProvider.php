@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\RichText;
@@ -21,8 +22,8 @@ final class ModuleProvider implements ModuleProviderContract
         return [
             RichTextDocumentService::class => fn(App $app): RichTextDocumentService => new RichTextDocumentService(
                 $app->make(CurrentExecutionContext::class),
-                trim((string)Config::get('peanut.rich_text.collaboration_url', '')),
-                trim((string)Config::get('peanut.rich_text.collaboration_secret', '')),
+                trim((string) Config::get('peanut.rich_text.collaboration_url', '')),
+                trim((string) Config::get('peanut.rich_text.collaboration_secret', '')),
             ),
         ];
     }

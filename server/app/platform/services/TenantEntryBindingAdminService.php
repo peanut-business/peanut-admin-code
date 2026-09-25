@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services;
@@ -15,8 +16,7 @@ final readonly class TenantEntryBindingAdminService
     public function __construct(
         private PlatformOperatorSessionService $sessions,
         private AuditContractHost $audit,
-    ) {
-    }
+    ) {}
 
     /** @return list<array<string,mixed>> */
     public function lists(PlatformOperatorContext $context, ?int $tenantId = null): array
@@ -37,7 +37,7 @@ final readonly class TenantEntryBindingAdminService
         int $tenantId,
         string $host,
         string $clientKey,
-        string $changeReason
+        string $changeReason,
     ): array {
         $this->sessions->assertAllowed($context, 'platform.tenant.update');
         $host = TenantEntryBindingResolver::normalizeHost($host);
@@ -83,9 +83,9 @@ final readonly class TenantEntryBindingAdminService
                     'status' => 'active',
                 ]);
             } else {
-                $bindingId = (int)$existingRow['id'];
+                $bindingId = (int) $existingRow['id'];
                 if ($existingRow['status'] === 'active'
-                    && (int)$existingRow['tenant_id'] !== $tenantId) {
+                    && (int) $existingRow['tenant_id'] !== $tenantId) {
                     throw BusinessException::conflict(
                         'TENANT_ENTRY_BINDING_CONFLICT',
                         'Tenant entry binding request was rejected.',
@@ -117,7 +117,7 @@ final readonly class TenantEntryBindingAdminService
     public function disable(
         PlatformOperatorContext $context,
         int $bindingId,
-        string $changeReason
+        string $changeReason,
     ): array {
         $this->sessions->assertAllowed($context, 'platform.tenant.update');
         if ($bindingId < 1 || trim($changeReason) === '') {
@@ -144,14 +144,14 @@ final readonly class TenantEntryBindingAdminService
                 Db::name('tenant_entry_binding')->where('id', $bindingId)->update(['status' => 'disabled']);
             }
             $this->audit($context, 'tenant.entry-binding.disabled', $changeReason, [
-                'tenant_id' => (int)$row['tenant_id'],
+                'tenant_id' => (int) $row['tenant_id'],
                 'binding_id' => $bindingId,
                 'host' => $row['host'],
                 'client_key' => $row['client_key'],
             ]);
             return [
                 'id' => $bindingId,
-                'tenant_id' => (int)$row['tenant_id'],
+                'tenant_id' => (int) $row['tenant_id'],
                 'status' => 'disabled',
             ];
         });
@@ -162,7 +162,7 @@ final readonly class TenantEntryBindingAdminService
         PlatformOperatorContext $context,
         string $eventType,
         string $reason,
-        array $metadata
+        array $metadata,
     ): void {
         $this->audit->recordPlatform(
             $eventType,

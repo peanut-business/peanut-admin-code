@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\contract;
@@ -13,6 +14,6 @@ interface AdminPermissionPolicy
         bool $isRoot,
         string $accessUri,
         iterable $registeredPermissions,
-        iterable $grantedPermissions
+        iterable $grantedPermissions,
     ): bool;
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -24,8 +25,7 @@ class UserApplicationService
         private readonly VerificationCodeCommands $verificationCodes,
         private readonly PublicArticleQueries $articleCollections,
         private readonly FileReferences $files,
-    ) {
-    }
+    ) {}
 
     /** 用户中心（首屏数据） */
     public function center(AuthenticatedMemberContext $context, int $memberId): array
@@ -91,11 +91,11 @@ class UserApplicationService
     public function changePassword(AuthenticatedMemberContext $context, int $memberId, array $params): bool
     {
         $this->memberIdentities->changePassword(
-                $context,
-                $memberId,
-                (string)$params['old_password'],
-                (string)$params['password'],
-            );
+            $context,
+            $memberId,
+            (string) $params['old_password'],
+            (string) $params['password'],
+        );
         return true;
     }
 
@@ -103,31 +103,31 @@ class UserApplicationService
     public function bindMobile(AuthenticatedMemberContext $context, int $memberId, array $params): bool
     {
         $mobile = $params['mobile'] ?? '';
-            if (!preg_match('/^1[3-9]\d{9}$/', $mobile)) {
-                throw BusinessException::invalid('MEMBER_MOBILE_INVALID', '手机号格式错误');
-            }
-            $member = $this->members->memberFields(
-                $context,
-                $memberId,
-                ['id', 'mobile'],
-            );
-            if ($member === []) {
-                throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
-            }
-            $this->memberIdentities->assertMobileAvailable($context, $memberId, $mobile);
-            $scene = empty($member['mobile'])
-                ? NoticeSceneEnum::BIND_MOBILE
-                : NoticeSceneEnum::CHANGE_MOBILE;
-            $result = $this->verificationCodes->verifyCode(
-                $context,
-                $scene,
-                $mobile,
-                (string) ($params['code'] ?? ''),
-            );
-            if (!$result->accepted) {
-                throw BusinessException::invalid('MEMBER_VERIFICATION_REJECTED', $result->error);
-            }
-            $this->memberIdentities->bindVerifiedMobile($context, $memberId, $mobile);
+        if (!preg_match('/^1[3-9]\d{9}$/', $mobile)) {
+            throw BusinessException::invalid('MEMBER_MOBILE_INVALID', '手机号格式错误');
+        }
+        $member = $this->members->memberFields(
+            $context,
+            $memberId,
+            ['id', 'mobile'],
+        );
+        if ($member === []) {
+            throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
+        }
+        $this->memberIdentities->assertMobileAvailable($context, $memberId, $mobile);
+        $scene = empty($member['mobile'])
+            ? NoticeSceneEnum::BIND_MOBILE
+            : NoticeSceneEnum::CHANGE_MOBILE;
+        $result = $this->verificationCodes->verifyCode(
+            $context,
+            $scene,
+            $mobile,
+            (string) ($params['code'] ?? ''),
+        );
+        if (!$result->accepted) {
+            throw BusinessException::invalid('MEMBER_VERIFICATION_REJECTED', $result->error);
+        }
+        $this->memberIdentities->bindVerifiedMobile($context, $memberId, $mobile);
         return true;
     }
 }

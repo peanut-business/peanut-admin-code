@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\execution;
@@ -11,9 +12,7 @@ use PeanutAdmin\Kernel\Context\TenantSystemContext;
 /** Typed, fail-closed access to the context established by the current boundary. */
 final readonly class CurrentExecutionContext
 {
-    public function __construct(private ExecutionContextStore $store)
-    {
-    }
+    public function __construct(private ExecutionContextStore $store) {}
 
     public function get(): ExecutionContext
     {
@@ -114,7 +113,7 @@ final readonly class CurrentExecutionContext
             throw new \DomainException('EXECUTION_TENANT_ADMIN_CONTEXT_REQUIRED');
         }
         $principal = $context->principal;
-        if ((int)($principal['id'] ?? 0) !== $context->tenant->memberId) {
+        if ((int) ($principal['id'] ?? 0) !== $context->tenant->memberId) {
             throw new \DomainException('EXECUTION_ADMIN_PRINCIPAL_REQUIRED');
         }
         return $principal;

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Service;
@@ -12,9 +13,7 @@ use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 
 final readonly class ImportExportApplicationService implements ImportExportCommands, ImportExportQueries
 {
-    public function __construct(private ImportExportService $service)
-    {
-    }
+    public function __construct(private ImportExportService $service) {}
 
     public function submitCsvExport(
         AuthorizedOperationContext $context,

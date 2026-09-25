@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Validation;
@@ -64,18 +65,18 @@ class RechargeValidate extends TenantContextValidate
             return true;
         }
 
-        return strtotime((string)$value) > strtotime((string)$data['start_time'])
+        return strtotime((string) $value) > strtotime((string) $data['start_time'])
             ? true
             : '搜索的时间范围不正确';
     }
 
     protected function checkRecharge($value): bool|string
     {
-        $order = RechargeOrder::where([])->findOrEmpty((int)$value);
+        $order = RechargeOrder::where([])->findOrEmpty((int) $value);
         if ($order->isEmpty()) {
             return '充值订单不存在';
         }
-        if ((int)$order->pay_status !== RechargeOrder::PAY_STATUS_PAID) {
+        if ((int) $order->pay_status !== RechargeOrder::PAY_STATUS_PAID) {
             return '当前订单不可退款';
         }
         return true;
@@ -83,14 +84,14 @@ class RechargeValidate extends TenantContextValidate
 
     protected function checkRecord($value): bool|string
     {
-        $record = RefundRecord::where([])->findOrEmpty((int)$value);
+        $record = RefundRecord::where([])->findOrEmpty((int) $value);
         if ($record->isEmpty()) {
             return '退款记录不存在';
         }
-        if ((int)$record->refund_status === RefundEnum::REFUND_SUCCESS) {
+        if ((int) $record->refund_status === RefundEnum::REFUND_SUCCESS) {
             return '该退款记录已退款成功';
         }
-        if ((int)$record->refund_status !== RefundEnum::REFUND_ERROR) {
+        if ((int) $record->refund_status !== RefundEnum::REFUND_ERROR) {
             return '退款正在处理中，请勿重复操作';
         }
 

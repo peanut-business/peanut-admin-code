@@ -111,7 +111,12 @@ final readonly class DepartmentAdminService
         int $expectedRevision,
     ): array {
         return $this->transaction(function () use (
-            $actor, $departmentId, $code, $name, $sortOrder, $expectedRevision,
+            $actor,
+            $departmentId,
+            $code,
+            $name,
+            $sortOrder,
+            $expectedRevision,
         ): array {
             $department = $this->requireDepartment($actor->tenantId, $departmentId, true);
             $this->assertRevision($department, $expectedRevision);

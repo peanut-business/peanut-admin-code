@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Service;
@@ -25,8 +26,7 @@ final class NotificationApplicationService implements NotificationCommands, Noti
         private readonly CurrentExecutionContext $executionContext,
         private readonly VerificationCodeService $verificationCodes,
         private readonly NoticeChannelService $channels,
-    ) {
-    }
+    ) {}
 
     public function saveChannel(string $section, array $input): void
     {
@@ -110,7 +110,7 @@ final class NotificationApplicationService implements NotificationCommands, Noti
         $pageResult = $pagination->result($query->order('l.id', 'desc'));
         $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
             ? $item->toArray()
-            : (array)$item);
+            : (array) $item);
         $list = $pageResult->items;
 
         return new PageResult($list, $pageResult->total, $pageResult->page, $pageResult->pageSize);
@@ -143,7 +143,7 @@ final class NotificationApplicationService implements NotificationCommands, Noti
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         string $sceneCode,
         string $mobile,
-        string $code
+        string $code,
     ): VerificationResult {
         return $this->verificationCodes->verify($context, $sceneCode, $mobile, $code);
     }

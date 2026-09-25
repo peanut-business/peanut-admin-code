@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\value\module\ModulePhpNamespace;
@@ -18,7 +19,7 @@ function namespaceCheck(bool $condition, string $message): void
 /** @return array<string,mixed> */
 function namespaceJson(string $path): array
 {
-    $value = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    $value = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
     namespaceCheck(is_array($value), "JSON object is invalid: {$path}");
     return $value;
 }

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Model;
@@ -17,14 +18,14 @@ class Member extends TenantOwnedModel
 
     public function setAvatarAttr($value): string
     {
-        return trim((string)$value);
+        return trim((string) $value);
     }
 
     /** 生成唯一会员编号（M + 10位时间戳 + 4位随机） */
     public static function generateSn(TenantContext|TenantSystemContext $context): string
     {
         do {
-            $sn = 'M' . date('YmdHi') . str_pad((string)random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $sn = 'M' . date('YmdHi') . str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
         } while (Member::where([])->where('sn', $sn)->count() > 0);
         return $sn;
     }

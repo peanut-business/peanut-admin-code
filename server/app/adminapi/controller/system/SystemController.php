@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\controller\system;
@@ -26,7 +27,7 @@ class SystemController extends BaseAdminController
         if ($denial !== null) {
             return $denial;
         }
-        return $this->data($this->system->getInfo((string)$this->request->server('SERVER_SOFTWARE', '')));
+        return $this->data($this->system->getInfo((string) $this->request->server('SERVER_SOFTWARE', '')));
     }
 
     /** 清除系统缓存 */

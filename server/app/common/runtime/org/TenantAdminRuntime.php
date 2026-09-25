@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\runtime\org;
@@ -14,8 +15,7 @@ final readonly class TenantAdminRuntime
         private MemberAdminService $members,
         private AccountSelfService $selfService,
         private DemoAccountPolicy $demoAccounts,
-    ) {
-    }
+    ) {}
 
     public function members(): MemberAdminService
     {

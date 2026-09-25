@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\api\middleware\CheckTokenMiddleware;
@@ -22,16 +23,22 @@ $sessions = new class implements MemberSessions {
     {
         $grant = $this->grants[$key] ?? null;
         if ($grant === null || [$tenant,$member,$revision,$issued,$expires] !== [$grant->tenantId,$grant->memberId,$grant->sessionRevision,$grant->issuedAt,$grant->expiresAt]
-            || $issued > $now || $expires <= $now) throw new UnexpectedValueException('SESSION_INVALID');
+            || $issued > $now || $expires <= $now) {
+            throw new UnexpectedValueException('SESSION_INVALID');
+        }
     }
     public function revokeCurrent(string $key, int $tenant, int $member, int $revision, int $issued, int $expires, int $now): void
     {
-        $this->verify($key,$tenant,$member,$revision,$issued,$expires,$now);
+        $this->verify($key, $tenant, $member, $revision, $issued, $expires, $now);
         unset($this->grants[$key]);
     }
     public function revokeAll(int $tenant, int $member, string $reason, int $now): void
     {
-        foreach ($this->grants as $key => $grant) if ($grant->tenantId === $tenant && $grant->memberId === $member) unset($this->grants[$key]);
+        foreach ($this->grants as $key => $grant) {
+            if ($grant->tenantId === $tenant && $grant->memberId === $member) {
+                unset($this->grants[$key]);
+            }
+        }
     }
 };
 
@@ -93,7 +100,7 @@ jwtExpectThrows(
 );
 $tokens = new UserTokenService($secret, 7200, $sessions);
 $issued = $tokens->createToken(17);
-$GLOBALS['jwt_valid_claims'] = (array)JWT::decode($issued, new Key($secret, 'HS256'));
+$GLOBALS['jwt_valid_claims'] = (array) JWT::decode($issued, new Key($secret, 'HS256'));
 jwtExpect($tokens->parseToken($issued) === 17, 'member JWT round trip failed');
 jwtExpectThrows(
     static fn(): string => $tokens->createToken(0),
@@ -113,11 +120,11 @@ $invalidClaims = [
     'wrong sub' => ['sub' => 'member:18'],
     'wrong sub type' => ['sub' => 17],
     'missing iat' => ['iat' => null],
-    'wrong iat type' => ['iat' => (string)time()],
+    'wrong iat type' => ['iat' => (string) time()],
     'missing nbf' => ['nbf' => null],
     'wrong nbf type' => ['nbf' => time() + 0.5],
     'missing exp' => ['exp' => null],
-    'wrong exp type' => ['exp' => (string)(time() + 7200)],
+    'wrong exp type' => ['exp' => (string) (time() + 7200)],
     'member id string' => ['member_id' => '17'],
     'member id mismatch' => ['member_id' => 18],
     'iat after nbf' => ['iat' => time() + 1, 'nbf' => time()],
@@ -164,14 +171,14 @@ foreach ([
     );
 }
 
-$rootEnvExample = (string)file_get_contents(dirname(__DIR__, 3) . '/.env.example');
-$envExample = (string)file_get_contents(dirname(__DIR__, 2) . '/.env.example');
+$rootEnvExample = (string) file_get_contents(dirname(__DIR__, 3) . '/.env.example');
+$envExample = (string) file_get_contents(dirname(__DIR__, 2) . '/.env.example');
 jwtExpect(
     !str_contains($rootEnvExample, 'JWT_SECRET=')
         && preg_match('/^JWT_SECRET=$/m', $envExample) === 1,
     'backend environment samples expose, duplicate, or supply a JWT secret',
 );
-$jwtConfig = (string)file_get_contents(dirname(__DIR__, 2) . '/config/jwt.php');
+$jwtConfig = (string) file_get_contents(dirname(__DIR__, 2) . '/config/jwt.php');
 jwtExpect(
     preg_match("/'secret'\\s*=>\\s*env\\('JWT_SECRET'\\),/", $jwtConfig) === 1,
     'JWT configuration supplies a default secret',

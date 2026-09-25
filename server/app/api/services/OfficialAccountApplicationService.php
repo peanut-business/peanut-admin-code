@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -24,7 +25,10 @@ final readonly class OfficialAccountApplicationService
     public function verify(string $binding, array $params, string $operationId): void
     {
         $resolution = $this->externalTenants->verifiedCallback(
-            ExternalProvider::WECHAT_OFFICIAL_CALLBACK, $binding, 'wechat.official.verify', $operationId,
+            ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
+            $binding,
+            'wechat.official.verify',
+            $operationId,
             fn(array $config): bool => $this->officialAccount->verify($params, $config),
         );
         $this->executionContexts->run(
@@ -37,8 +41,11 @@ final readonly class OfficialAccountApplicationService
     public function callback(string $binding, array $params, string $rawBody, string $operationId): string
     {
         $resolution = $this->externalTenants->verifiedCallback(
-            ExternalProvider::WECHAT_OFFICIAL_CALLBACK, $binding, 'wechat.official.callback', $operationId,
-            fn(array $config): bool => strtolower((string)($params['encrypt_type'] ?? '')) !== 'aes'
+            ExternalProvider::WECHAT_OFFICIAL_CALLBACK,
+            $binding,
+            'wechat.official.callback',
+            $operationId,
+            fn(array $config): bool => strtolower((string) ($params['encrypt_type'] ?? '')) !== 'aes'
                 && $this->officialAccount->verify($params, $config),
         );
         return $this->executionContexts->run(

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Task\Controller;
@@ -18,7 +19,7 @@ final class TaskJobController extends BaseAdminController
     public function index(): Json
     {
         try {
-            $status = trim((string)$this->request->get('status', 'queued'));
+            $status = trim((string) $this->request->get('status', 'queued'));
             $page = $this->positiveInteger($this->request->get('page', 1));
             $pageSize = $this->positiveInteger($this->request->get('page_size', 20));
             $result = $this->tasks->jobs(
@@ -74,11 +75,11 @@ final class TaskJobController extends BaseAdminController
     private function positiveInteger(mixed $value): int
     {
         if ((!is_int($value) && !(is_string($value) && preg_match('/^[1-9][0-9]*$/D', $value) === 1))
-            || (int)$value < 1
+            || (int) $value < 1
         ) {
             throw TaskJobException::invalid();
         }
-        return (int)$value;
+        return (int) $value;
     }
 
     private function problem(TaskJobException $exception): ApiProblem

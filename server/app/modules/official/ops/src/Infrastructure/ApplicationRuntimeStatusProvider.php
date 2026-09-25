@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
@@ -20,8 +21,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         private string $projectRoot,
         private PlatformUpgradeReadinessService $readiness,
         private ThinkPhpModuleGovernanceProvider $moduleGovernance,
-    ) {
-    }
+    ) {}
 
     public function snapshot(PlatformContext $context): OpsStatusSnapshot
     {
@@ -46,7 +46,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             $readiness['state'],
             $readiness['code'],
             $runtime['identity']['commit'],
-            is_array($readiness['target'] ?? null) ? (string)$readiness['target']['commit'] : null,
+            is_array($readiness['target'] ?? null) ? (string) $readiness['target']['commit'] : null,
             $runtime['identity']['repository_clean'],
             $backup !== null,
             ($backup['source_matches_runtime'] ?? false) === true,
@@ -79,7 +79,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
 
         [$databaseStatus, $databaseLatency] = $this->probe(function (): void {
             $result = Db::query('SELECT 1 AS healthy');
-            if ((int)($result[0]['healthy'] ?? 0) !== 1) {
+            if ((int) ($result[0]['healthy'] ?? 0) !== 1) {
                 throw new \RuntimeException('database probe failed');
             }
         });
@@ -97,7 +97,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             'database.migrations',
             $migrationStatus,
             true,
-            $this->elapsedMilliseconds($migrationStarted)
+            $this->elapsedMilliseconds($migrationStarted),
         );
 
         [$moduleStatus, $moduleLatency] = $this->probe(function (): void {
@@ -168,9 +168,9 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         $receipt = $this->deploymentReceipt($metadata);
         $release = $receipt['release'];
         return [
-            'commit' => $this->commit((string)$release['commit']),
-            'tree' => $this->commit((string)$release['tree']),
-            'release_key' => $receipt['overlay'] === null ? (string)$release['tag'] : null,
+            'commit' => $this->commit((string) $release['commit']),
+            'tree' => $this->commit((string) $release['tree']),
+            'release_key' => $receipt['overlay'] === null ? (string) $release['tag'] : null,
             'built_at' => $this->builtAt($this->deploymentReceiptPath()),
             'repository_clean' => $receipt['overlay'] === null,
         ];
@@ -225,22 +225,22 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             || !is_array($receipt['artifact'])
             || array_keys($receipt['artifact']) !== ['kind', 'archive_sha256', 'manifest_sha256', 'signature_key_id']
             || !in_array($receipt['artifact']['kind'], ['source', 'edition', 'upgrade'], true)
-            || preg_match('/^[a-f0-9]{64}$/D', (string)$receipt['artifact']['archive_sha256']) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', (string) $receipt['artifact']['archive_sha256']) !== 1
             || ($receipt['artifact']['kind'] === 'source'
                 && ($receipt['artifact']['manifest_sha256'] !== null || $receipt['artifact']['signature_key_id'] !== null))
             || ($receipt['artifact']['kind'] === 'edition'
-                && (preg_match('/^[a-f0-9]{64}$/D', (string)$receipt['artifact']['manifest_sha256']) !== 1
+                && (preg_match('/^[a-f0-9]{64}$/D', (string) $receipt['artifact']['manifest_sha256']) !== 1
                     || $receipt['artifact']['signature_key_id'] !== null))
             || ($receipt['artifact']['kind'] === 'upgrade'
-                && (preg_match('/^[a-f0-9]{64}$/D', (string)$receipt['artifact']['manifest_sha256']) !== 1
-                    || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/D', (string)$receipt['artifact']['signature_key_id']) !== 1))
+                && (preg_match('/^[a-f0-9]{64}$/D', (string) $receipt['artifact']['manifest_sha256']) !== 1
+                    || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/D', (string) $receipt['artifact']['signature_key_id']) !== 1))
             || !$this->validImageReceipt($receipt['images'])
-            || preg_match('/^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', (string)$receipt['release']['tag']) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['commit']) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['tree']) !== 1
+            || preg_match('/^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', (string) $receipt['release']['tag']) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) $receipt['release']['commit']) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) $receipt['release']['tree']) !== 1
             || $receipt['release']['tag'] !== $this->releaseKey($metadata)
-            || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string)$receipt['generated_at']) !== 1
-            || !$this->validOverlayReceipt($receipt['overlay'], (string)$receipt['target'])) {
+            || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) $receipt['generated_at']) !== 1
+            || !$this->validOverlayReceipt($receipt['overlay'], (string) $receipt['target'])) {
             throw new \RuntimeException('OPS_RELEASE_IDENTITY_UNAVAILABLE');
         }
         return $receipt;
@@ -250,27 +250,27 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     private function validProductUpgradeReceipt(array $receipt): bool
     {
         return array_keys($receipt) === [
-                'schema_version', 'protocol', 'target', 'edition', 'release',
-                'upgrade_package', 'images', 'generated_at',
-            ]
+            'schema_version', 'protocol', 'target', 'edition', 'release',
+            'upgrade_package', 'images', 'generated_at',
+        ]
             && $receipt['schema_version'] === 1
             && in_array($receipt['target'], ['production', 'production-candidate'], true)
             && in_array($receipt['edition'], ['standalone', 'multi-tenant'], true)
             && is_array($receipt['release'])
             && array_keys($receipt['release']) === ['version', 'commit', 'tree']
-            && preg_match('/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', (string)$receipt['release']['version']) === 1
-            && preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['commit']) === 1
-            && preg_match('/^[a-f0-9]{40}$/D', (string)$receipt['release']['tree']) === 1
+            && preg_match('/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', (string) $receipt['release']['version']) === 1
+            && preg_match('/^[a-f0-9]{40}$/D', (string) $receipt['release']['commit']) === 1
+            && preg_match('/^[a-f0-9]{40}$/D', (string) $receipt['release']['tree']) === 1
             && is_array($receipt['upgrade_package'])
             && array_keys($receipt['upgrade_package']) === [
                 'candidate', 'plan_sha256', 'inventory_sha256', 'manifest_sha256',
             ]
-            && preg_match('/^[A-Za-z0-9._-]{1,128}$/D', (string)$receipt['upgrade_package']['candidate']) === 1
-            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string)$receipt['upgrade_package']['plan_sha256']) === 1
-            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string)$receipt['upgrade_package']['inventory_sha256']) === 1
-            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string)$receipt['upgrade_package']['manifest_sha256']) === 1
+            && preg_match('/^[A-Za-z0-9._-]{1,128}$/D', (string) $receipt['upgrade_package']['candidate']) === 1
+            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string) $receipt['upgrade_package']['plan_sha256']) === 1
+            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string) $receipt['upgrade_package']['inventory_sha256']) === 1
+            && preg_match('/^sha256:[a-f0-9]{64}$/D', (string) $receipt['upgrade_package']['manifest_sha256']) === 1
             && $this->validImageReceipt($receipt['images'])
-            && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string)$receipt['generated_at']) === 1;
+            && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D', (string) $receipt['generated_at']) === 1;
     }
 
     private function validImageReceipt(mixed $images): bool
@@ -294,9 +294,9 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         return $target === 'production-candidate'
             && is_array($overlay)
             && array_keys($overlay) === ['commit', 'archive_sha256', 'metadata_sha256']
-            && preg_match('/^[a-f0-9]{40}$/D', (string)$overlay['commit']) === 1
-            && preg_match('/^[a-f0-9]{64}$/D', (string)$overlay['archive_sha256']) === 1
-            && preg_match('/^[a-f0-9]{64}$/D', (string)$overlay['metadata_sha256']) === 1;
+            && preg_match('/^[a-f0-9]{40}$/D', (string) $overlay['commit']) === 1
+            && preg_match('/^[a-f0-9]{64}$/D', (string) $overlay['archive_sha256']) === 1
+            && preg_match('/^[a-f0-9]{64}$/D', (string) $overlay['metadata_sha256']) === 1;
     }
 
     private function deploymentReceiptPath(): string
@@ -334,8 +334,8 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     {
         $version = ($metadata['schema_version'] ?? null) === 2
             && ($metadata['protocol'] ?? null) === 'peanut.release-metadata.v2'
-            ? (string)($metadata['instance_version'] ?? $metadata['source_product_version'] ?? '')
-            : (string)($metadata['version'] ?? '');
+            ? (string) ($metadata['instance_version'] ?? $metadata['source_product_version'] ?? '')
+            : (string) ($metadata['version'] ?? '');
         return preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $version) === 1
             ? 'v' . $version
             : null;
@@ -348,7 +348,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         $process = proc_open(
             ['git', '-C', $this->projectRoot, ...$arguments],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes
+            $pipes,
         );
         if (!is_resource($process)) {
             throw new \RuntimeException('OPS_RELEASE_IDENTITY_UNAVAILABLE');
@@ -388,9 +388,9 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             ->order('migration_id')->select()->toArray();
         $actual = [];
         foreach ($rows as $row) {
-            $actual[(string)$row['migration_id']] = [
-                'checksum' => (string)$row['checksum'],
-                'status' => (string)$row['status'],
+            $actual[(string) $row['migration_id']] = [
+                'checksum' => (string) $row['checksum'],
+                'status' => (string) $row['status'],
             ];
         }
 
@@ -480,7 +480,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             throw new \RuntimeException('OPS_MIGRATION_TARGET_INVALID');
         }
         try {
-            $overlay = json_decode((string)file_get_contents($overlayPath), true, 512, JSON_THROW_ON_ERROR);
+            $overlay = json_decode((string) file_get_contents($overlayPath), true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new \RuntimeException('OPS_MIGRATION_TARGET_INVALID', 0, $exception);
         }

@@ -66,7 +66,9 @@
   } from '@/modules/official-oauth/api';
 
   const { t } = useI18n();
-  const canView = computed(() => hasPermission('official.oauth.open-platform.config'));
+  const canView = computed(() =>
+    hasPermission('official.oauth.open-platform.config')
+  );
   const loading = ref(false);
   const submitLoading = ref(false);
   const formRef = ref<FormInstance>();

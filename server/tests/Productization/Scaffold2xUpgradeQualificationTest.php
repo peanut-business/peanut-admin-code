@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 function scaffold2xExpect(bool $condition, string $message): void
@@ -22,9 +23,9 @@ function scaffold2xRun(array $command, ?string $cwd = null): string
     fclose($pipes[2]);
     $exitCode = proc_close($process);
     if ($exitCode !== 0) {
-        throw new RuntimeException('command failed (' . $exitCode . '): ' . trim((string)$stderr));
+        throw new RuntimeException('command failed (' . $exitCode . '): ' . trim((string) $stderr));
     }
-    return (string)$stdout;
+    return (string) $stdout;
 }
 
 function scaffold2xDelete(string $path): void
@@ -46,7 +47,7 @@ function scaffold2xTreeDigest(string $root): string
     $rows = [];
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
+        RecursiveIteratorIterator::SELF_FIRST,
     );
     foreach ($iterator as $entry) {
         $relative = str_replace('\\', '/', substr($entry->getPathname(), strlen($root) + 1));
@@ -64,8 +65,8 @@ function scaffold2xTreeDigest(string $root): string
 $root = dirname(__DIR__, 3);
 $fromManifestPath = $root . '/scaffold/releases/v2.0.0/scaffold-manifest.json';
 $toManifestPath = $root . '/scaffold/releases/v2.0.1/scaffold-manifest.json';
-$fromManifest = json_decode((string)file_get_contents($fromManifestPath), true, 512, JSON_THROW_ON_ERROR);
-$toManifest = json_decode((string)file_get_contents($toManifestPath), true, 512, JSON_THROW_ON_ERROR);
+$fromManifest = json_decode((string) file_get_contents($fromManifestPath), true, 512, JSON_THROW_ON_ERROR);
+$toManifest = json_decode((string) file_get_contents($toManifestPath), true, 512, JSON_THROW_ON_ERROR);
 scaffold2xExpect(($fromManifest['release']['version'] ?? null) === '2.0.0', '2.0.0 release manifest is unavailable');
 scaffold2xExpect(($toManifest['release']['version'] ?? null) === '2.0.1', '2.0.1 release manifest is unavailable');
 
@@ -79,8 +80,8 @@ mkdir($temporary, 0700, true);
 try {
     scaffold2xRun(['git', 'clone', '--quiet', '--no-local', '--no-checkout', $root, $source]);
     scaffold2xRun(
-        ['git', 'checkout', '--quiet', '--detach', (string)$fromManifest['release']['source_commit']],
-        $source
+        ['git', 'checkout', '--quiet', '--detach', (string) $fromManifest['release']['source_commit']],
+        $source,
     );
     $creatorCode = <<<'PHP'
 require $argv[1] . '/server/app/common/service/scaffold/ScaffoldPathGuard.php';
@@ -99,18 +100,18 @@ PHP;
 
     $applicationManifestPath = $application . '/.peanut/application-manifest.json';
     $applicationManifest = json_decode(
-        (string)file_get_contents($applicationManifestPath),
+        (string) file_get_contents($applicationManifestPath),
         true,
         512,
-        JSON_THROW_ON_ERROR
+        JSON_THROW_ON_ERROR,
     );
     scaffold2xExpect(
         ($applicationManifest['template']['version'] ?? null) === '2.0.0',
-        'create-app did not adopt the immutable 2.0.0 scaffold release'
+        'create-app did not adopt the immutable 2.0.0 scaffold release',
     );
 
     $appOwnedPath = $application . '/server/config/peanut.php';
-    file_put_contents($appOwnedPath, (string)file_get_contents($appOwnedPath) . "\n// downstream app-owned proof\n");
+    file_put_contents($appOwnedPath, (string) file_get_contents($appOwnedPath) . "\n// downstream app-owned proof\n");
     $appOwnedDigest = hash_file('sha256', $appOwnedPath);
     $before = scaffold2xTreeDigest($application);
 
@@ -124,15 +125,15 @@ PHP;
     ]), true, 512, JSON_THROW_ON_ERROR);
     scaffold2xExpect(
         ($preflight['status'] ?? null) === 'ready' && ($preflight['summary']['conflicts'] ?? null) === 0,
-        '2.0.0 to 2.0.1 preflight is not ready'
+        '2.0.0 to 2.0.1 preflight is not ready',
     );
     $automatic = array_values(array_filter(
         $preflight['actions'] ?? [],
         static fn(array $action): bool => in_array(
             $action['action'] ?? null,
             ['create', 'delete', 'replace', 'regenerate'],
-            true
-        )
+            true,
+        ),
     ));
     scaffold2xExpect($automatic !== [], '2.0.0 to 2.0.1 qualification did not exercise managed changes');
 
@@ -153,23 +154,23 @@ PHP;
     ]), true, 512, JSON_THROW_ON_ERROR);
     scaffold2xExpect(
         ($apply['status'] ?? null) === 'applied' && ($verify['status'] ?? null) === 'verified',
-        '2.x apply and verify did not complete'
+        '2.x apply and verify did not complete',
     );
     scaffold2xExpect(
-        hash_equals((string)$appOwnedDigest, (string)hash_file('sha256', $appOwnedPath)),
-        '2.x upgrade changed app-owned bytes'
+        hash_equals((string) $appOwnedDigest, (string) hash_file('sha256', $appOwnedPath)),
+        '2.x upgrade changed app-owned bytes',
     );
     $upgradedManifest = json_decode(
-        (string)file_get_contents($applicationManifestPath),
+        (string) file_get_contents($applicationManifestPath),
         true,
         512,
-        JSON_THROW_ON_ERROR
+        JSON_THROW_ON_ERROR,
     );
     scaffold2xExpect(
         ($upgradedManifest['template']['version'] ?? null) === '2.0.1'
             && ($upgradedManifest['last_scaffold_upgrade']['from'] ?? null) === '2.0.0'
             && ($upgradedManifest['last_scaffold_upgrade']['to'] ?? null) === '2.0.1',
-        '2.x application manifest did not record the target release'
+        '2.x application manifest did not record the target release',
     );
 
     $recover = json_decode(scaffold2xRun([
@@ -181,7 +182,7 @@ PHP;
     ]), true, 512, JSON_THROW_ON_ERROR);
     scaffold2xExpect(
         ($recover['status'] ?? null) === 'recovered' && hash_equals($before, scaffold2xTreeDigest($application)),
-        '2.x recover did not restore the exact pre-upgrade application tree'
+        '2.x recover did not restore the exact pre-upgrade application tree',
     );
 } finally {
     scaffold2xDelete($temporary);

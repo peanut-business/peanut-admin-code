@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -12,8 +13,8 @@ function expectPlatformStorageBoundary(bool $condition, string $message): void
 
 $serverRoot = dirname(__DIR__, 2);
 $routes = peanut_route_registry_source($serverRoot);
-$policy = (string)file_get_contents($serverRoot . '/vendor/peanut-admin/core/kernel/src/Platform/InstanceControlPlanePolicy.php');
-$permissions = (string)file_get_contents($serverRoot . '/app/common/service/authorization/AdminAuthorizationService.php');
+$policy = (string) file_get_contents($serverRoot . '/vendor/peanut-admin/core/kernel/src/Platform/InstanceControlPlanePolicy.php');
+$permissions = (string) file_get_contents($serverRoot . '/app/common/service/authorization/AdminAuthorizationService.php');
 
 foreach (['infrastructure/storage', 'platform.ops.read',
     'platform.ops.maintenance.manage', 'PlatformStorageController'] as $marker) {
@@ -28,7 +29,7 @@ foreach (['storage/lists', 'storage/detail', 'storage/setup', 'storage/change'] 
 expectPlatformStorageBoundary(
     str_contains($permissions, 'InstanceControlPlanePolicy::isTenantAdminRoute')
         && str_contains($permissions, 'InstanceControlPlanePolicy::tenantAdminPaths'),
-    'Tenant Admin menu or root bypass can still reach instance storage control'
+    'Tenant Admin menu or root bypass can still reach instance storage control',
 );
 
 echo "PLATFORM-STORAGE-BOUNDARY-001 passed\n";

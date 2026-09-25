@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\api\services\OAuthApplicationService;
@@ -77,7 +78,12 @@ final class CallbackApplicationServicesTest extends TestCase
         $sessions = $this->createStub(\PeanutAdmin\Modules\Member\Contract\MemberSessions::class);
         $sessions->method('issue')->willReturnCallback(
             static fn(int $memberId, int $issuedAt, int $expiresAt) => new \PeanutAdmin\Modules\Member\Contract\Dto\MemberSessionGrant(
-                str_repeat('a', 43), 17, $memberId, 1, $issuedAt, $expiresAt,
+                str_repeat('a', 43),
+                17,
+                $memberId,
+                1,
+                $issuedAt,
+                $expiresAt,
             ),
         );
         return new UserTokenService(str_repeat('test-only-secret-', 3), 600, $sessions);
@@ -104,8 +110,10 @@ final class CallbackApplicationServicesTest extends TestCase
             },
         );
         $service = new OAuthApplicationService($commands, $locator, $this->store, $this->boundary('official.oauth'), $resolver, $this->tokens(), $files);
-        self::assertSame(['authorization_url' => 'https://provider.example/authorize', 'expires_in' => 120],
-            $service->begin(['scene' => 'oa', 'client_id' => ' client-1 ', 'return_path' => '/orders'], 'https://tenant.example', 'trace-1'));
+        self::assertSame(
+            ['authorization_url' => 'https://provider.example/authorize', 'expires_in' => 120],
+            $service->begin(['scene' => 'oa', 'client_id' => ' client-1 ', 'return_path' => '/orders'], 'https://tenant.example', 'trace-1'),
+        );
         self::assertTrue($this->store->isEmpty());
     }
 

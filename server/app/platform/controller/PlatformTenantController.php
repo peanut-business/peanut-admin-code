@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -33,14 +34,14 @@ final class PlatformTenantController extends BasePlatformController
         $this->validate($params, PlatformTenantLifecycleValidate::class . '.provision');
         return $this->data($this->tenantGovernance->provision(
             PlatformRequest::bearerToken($this->request),
-            trim((string)$params['tenant_code']),
-            trim((string)$params['tenant_name']),
-            trim((string)$params['owner_email']),
-            isset($params['initial_password']) && (string)$params['initial_password'] !== ''
-                ? (string)$params['initial_password']
+            trim((string) $params['tenant_code']),
+            trim((string) $params['tenant_name']),
+            trim((string) $params['owner_email']),
+            isset($params['initial_password']) && (string) $params['initial_password'] !== ''
+                ? (string) $params['initial_password']
                 : null,
-            trim((string)$params['owner_display_name']),
-            $this->platformContext->core->requestId
+            trim((string) $params['owner_display_name']),
+            $this->platformContext->core->requestId,
         ));
     }
 
@@ -54,11 +55,11 @@ final class PlatformTenantController extends BasePlatformController
         $this->validate($params, PlatformTenantLifecycleValidate::class . '.activate');
         return $this->data($this->tenantGovernance->transition(
             PlatformRequest::bearerToken($this->request),
-            (int)$params['tenant_id'],
-            (int)$params['expected_revision'],
+            (int) $params['tenant_id'],
+            (int) $params['expected_revision'],
             TenantStatus::Active,
-            trim((string)$params['change_reason']),
-            $this->platformContext->core->requestId
+            trim((string) $params['change_reason']),
+            $this->platformContext->core->requestId,
         ));
     }
 
@@ -72,11 +73,11 @@ final class PlatformTenantController extends BasePlatformController
         $this->validate($params, PlatformTenantLifecycleValidate::class . '.suspend');
         return $this->data($this->tenantGovernance->transition(
             PlatformRequest::bearerToken($this->request),
-            (int)$params['tenant_id'],
-            (int)$params['expected_revision'],
+            (int) $params['tenant_id'],
+            (int) $params['expected_revision'],
             TenantStatus::Suspended,
-            trim((string)$params['change_reason']),
-            $this->platformContext->core->requestId
+            trim((string) $params['change_reason']),
+            $this->platformContext->core->requestId,
         ));
     }
 
@@ -90,11 +91,11 @@ final class PlatformTenantController extends BasePlatformController
         $this->validate($params, PlatformTenantLifecycleValidate::class . '.close');
         return $this->data($this->tenantGovernance->transition(
             PlatformRequest::bearerToken($this->request),
-            (int)$params['tenant_id'],
-            (int)$params['expected_revision'],
+            (int) $params['tenant_id'],
+            (int) $params['expected_revision'],
             TenantStatus::Closed,
-            trim((string)$params['change_reason']),
-            $this->platformContext->core->requestId
+            trim((string) $params['change_reason']),
+            $this->platformContext->core->requestId,
         ));
     }
 
@@ -108,7 +109,7 @@ final class PlatformTenantController extends BasePlatformController
         $pageSize = $this->positiveInteger($this->request->get('page_size', 20), 'PAGE_SIZE_INVALID');
         $result = $this->tenantQueries->tenants(
             $this->platformContext,
-            new PageRequest($page, $pageSize)
+            new PageRequest($page, $pageSize),
         );
 
         return $this->dataLists(new PageResult($result['items'], $result['total'], $page, $pageSize));
@@ -123,19 +124,19 @@ final class PlatformTenantController extends BasePlatformController
         $tenantId = $this->positiveInteger($this->request->get('id'), 'TENANT_ID_INVALID');
         return $this->data($this->tenantQueries->tenant(
             $this->platformContext,
-            $tenantId
+            $tenantId,
         ));
     }
 
     private function positiveInteger(mixed $value, string $errorCode): int
     {
-        $candidate = is_int($value) ? (string)$value : trim((string)$value);
+        $candidate = is_int($value) ? (string) $value : trim((string) $value);
         if (preg_match('/^[1-9][0-9]*$/D', $candidate) !== 1) {
             throw AdminAccessException::invalid($errorCode, 'A positive integer is required.');
         }
         if (filter_var($candidate, FILTER_VALIDATE_INT) === false) {
             throw AdminAccessException::invalid($errorCode, 'A positive integer is required.');
         }
-        return (int)$candidate;
+        return (int) $candidate;
     }
 }

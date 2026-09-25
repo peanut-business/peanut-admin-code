@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 /**
@@ -45,7 +46,9 @@ $query = static function (
     ?string $description = null,
 ): array {
     $parameter = ['in' => 'query', 'name' => $name, 'required' => $required, 'schema' => $schema];
-    if ($description !== null) $parameter['description'] = $description;
+    if ($description !== null) {
+        $parameter['description'] = $description;
+    }
     return $parameter;
 };
 $header = static function (string $name, array $schema, bool $required = true): array {
@@ -69,13 +72,30 @@ $operation = static function (
         'parameters' => $parameters,
         'responses' => $responses,
     ];
-    if ($requestBody !== null) $value['requestBody'] = $requestBody;
-    if ($errors !== []) $value['x-peanut-errors'] = $errors;
-    if ($description !== null) $value['description'] = $description;
+    if ($requestBody !== null) {
+        $value['requestBody'] = $requestBody;
+    }
+    if ($errors !== []) {
+        $value['x-peanut-errors'] = $errors;
+    }
+    if ($description !== null) {
+        $value['description'] = $description;
+    }
     return $value;
 };
 
 return compact(
-    'ref', 'parameterRef', 'responseRef', 'error', 'jsonBody', 'multipartBody',
-    'success', 'directJson', 'emptySuccess', 'query', 'header', 'path', 'operation',
+    'ref',
+    'parameterRef',
+    'responseRef',
+    'error',
+    'jsonBody',
+    'multipartBody',
+    'success',
+    'directJson',
+    'emptySuccess',
+    'query',
+    'header',
+    'path',
+    'operation',
 );

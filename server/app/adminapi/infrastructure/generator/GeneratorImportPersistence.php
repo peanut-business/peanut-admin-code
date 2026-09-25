@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\infrastructure\generator;
@@ -56,7 +57,7 @@ final readonly class GeneratorImportPersistence
 
             $columnRows = [];
             foreach ($tables as $index => $table) {
-                $tableId = (int)$table->id;
+                $tableId = (int) $table->id;
                 if ($tableId < 1) {
                     throw new \RuntimeException('生成器父表身份无效');
                 }

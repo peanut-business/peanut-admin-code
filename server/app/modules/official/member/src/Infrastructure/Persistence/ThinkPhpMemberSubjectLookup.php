@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Infrastructure\Persistence;
@@ -10,9 +11,7 @@ use app\common\tenancy\PlatformTenantDataGateway;
 
 final readonly class ThinkPhpMemberSubjectLookup implements MemberSubjectLookup
 {
-    public function __construct(private PlatformTenantDataGateway $tenantData)
-    {
-    }
+    public function __construct(private PlatformTenantDataGateway $tenantData) {}
 
     public function tenantId(int $memberId): ?int
     {
@@ -31,11 +30,11 @@ final readonly class ThinkPhpMemberSubjectLookup implements MemberSubjectLookup
             ->whereNull('delete_time')
             ->field(['id', 'tenant_id', 'session_revision'])
             ->find();
-        if ($member === null || (int)$member->getData('id') !== $memberId) {
+        if ($member === null || (int) $member->getData('id') !== $memberId) {
             return null;
         }
-        $tenantId = (int)$member->getData('tenant_id');
-        $sessionRevision = (int)$member->getData('session_revision');
+        $tenantId = (int) $member->getData('tenant_id');
+        $sessionRevision = (int) $member->getData('session_revision');
         return $tenantId > 0 && $sessionRevision > 0
             ? new MemberSessionSubject($tenantId, $memberId, $sessionRevision)
             : null;

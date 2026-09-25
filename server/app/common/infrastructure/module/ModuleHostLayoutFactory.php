@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\module;
@@ -73,7 +74,7 @@ final class ModuleHostLayoutFactory
                 $overlaps = str_starts_with(strtolower($prefix), strtolower($existingPrefix))
                     || str_starts_with(strtolower($existingPrefix), strtolower($prefix));
                 $sameSource = $samePrefix && count($directories) === 1
-                    && realpath((string)$directories[0]) === $source;
+                    && realpath((string) $directories[0]) === $source;
                 if ($overlaps && !$sameSource) {
                     throw new InvalidArgumentException(
                         "Module PHP namespace {$prefix} conflicts with an existing Composer prefix.",

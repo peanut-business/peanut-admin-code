@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -22,12 +23,12 @@ final class ModuleDisablePackage extends ModuleContextualCommand
     {
         try {
             $this->assertDevelopmentInstanceMaintenanceAccess();
-            $moduleKey = trim((string)$input->getArgument('module_key'));
+            $moduleKey = trim((string) $input->getArgument('module_key'));
             $result = $this->moduleRuntime()->disable($moduleKey);
-            $output->writeln((string)json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            $output->writeln((string) json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 0;
         } catch (PluginLifecycleException $exception) {
-            $output->writeln((string)json_encode([
+            $output->writeln((string) json_encode([
                 'code' => $exception->errorCode,
                 'reason' => $exception->getMessage(),
                 'remediation' => $this->remediation($exception->errorCode),

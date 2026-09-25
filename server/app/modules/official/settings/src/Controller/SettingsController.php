@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Settings\Controller;
@@ -28,8 +29,13 @@ final class SettingsController extends BaseAdminController
         $body = $this->jsonBody(['value']);
         try {
             $record = $this->settings->replace(
-                $this->tenantAdminContext(), $moduleKey, $settingKey, $body['value'],
-                $this->header('If-Match'), $this->header('If-None-Match'), $this->requiredHeader('Idempotency-Key'),
+                $this->tenantAdminContext(),
+                $moduleKey,
+                $settingKey,
+                $body['value'],
+                $this->header('If-Match'),
+                $this->header('If-None-Match'),
+                $this->requiredHeader('Idempotency-Key'),
             );
         } catch (SettingException $exception) {
             throw $this->problem($exception);
@@ -41,8 +47,11 @@ final class SettingsController extends BaseAdminController
     {
         try {
             $record = $this->settings->unset(
-                $this->tenantAdminContext(), $moduleKey, $settingKey,
-                $this->header('If-Match'), $this->requiredHeader('Idempotency-Key'),
+                $this->tenantAdminContext(),
+                $moduleKey,
+                $settingKey,
+                $this->header('If-Match'),
+                $this->requiredHeader('Idempotency-Key'),
             );
         } catch (SettingException $exception) {
             throw $this->problem($exception);
@@ -53,7 +62,7 @@ final class SettingsController extends BaseAdminController
     /** @param list<string> $keys @return array<string,mixed> */
     private function jsonBody(array $keys): array
     {
-        $body = json_decode((string)$this->request->getContent(), true);
+        $body = json_decode((string) $this->request->getContent(), true);
         if (!is_array($body) || array_is_list($body) || array_keys($body) !== $keys) {
             throw new ApiProblem('SETTING_REQUEST_INVALID', 422, 'The setting request is invalid.');
         }
@@ -67,14 +76,16 @@ final class SettingsController extends BaseAdminController
 
     private function header(string $name): ?string
     {
-        $value = trim((string)$this->request->header($name, ''));
+        $value = trim((string) $this->request->header($name, ''));
         return $value === '' ? null : $value;
     }
 
     private function response(array $data, mixed $etag = null): Json
     {
         $response = json(['data' => $data, 'request_id' => $this->executionContext()->requestId()]);
-        if (is_string($etag) && $etag !== '') $response->header(['ETag' => $etag]);
+        if (is_string($etag) && $etag !== '') {
+            $response->header(['ETag' => $etag]);
+        }
         return $response;
     }
 

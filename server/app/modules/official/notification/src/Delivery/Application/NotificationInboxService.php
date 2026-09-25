@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Notification\Delivery\Application;
@@ -11,9 +12,7 @@ use think\facade\Db;
 /** Recipient-owned inbox operations over the module's single notification ledger. */
 final readonly class NotificationInboxService
 {
-    public function __construct(private NotificationRepository $repository)
-    {
-    }
+    public function __construct(private NotificationRepository $repository) {}
 
     /** @return array{items:list<NotificationMessage>,page:int,page_size:int,total:int} */
     public function inbox(AuthorizedOperationContext $context, string $status, int $page, int $pageSize): array

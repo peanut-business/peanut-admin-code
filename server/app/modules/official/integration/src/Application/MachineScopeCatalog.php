@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Integration\Application;
 
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
+
 final readonly class MachineScopeCatalog
 {
     /** @var array<string, true> */

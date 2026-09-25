@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -29,7 +30,7 @@ class CrontabDemo extends ContextualCommand
         $msg = sprintf(
             '[crontab:demo] tenant_id=%d executed at %s',
             $scope->tenantId(),
-            date('Y-m-d H:i:s')
+            date('Y-m-d H:i:s'),
         );
         OperationalLog::info($this->executionContext(), 'crontab_demo_executed', $diagnostics + ['message' => $msg]);
         $output->writeln($msg);

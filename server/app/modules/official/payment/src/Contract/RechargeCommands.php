@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Payment\Contract;
@@ -17,7 +18,7 @@ interface RechargeCommands
         int $payWay,
         string $notifyUrl,
         string $clientIp = '',
-        string $openid = ''
+        string $openid = '',
     ): array;
 
     public function parseCallback(string $channel, array $config, CallbackRequest $request): PaymentEvent;

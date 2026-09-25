@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -38,14 +39,14 @@ function tenantHostRejects(Closure $operation): void
 }
 
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
 $database = 'pa_mt04_auth_' . strtolower(bin2hex(random_bytes(6)));
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
@@ -55,7 +56,7 @@ try {
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
     );
     foreach (KernelSchema::tableNames() as $table) {
         $pdo->exec(KernelSchema::createSql($table));
@@ -78,15 +79,27 @@ SQL);
         'multi-owner@example.test',
         'MultiTenantPassword2026',
         'Multi Owner',
-        'mt04-platform'
+        'mt04-platform',
     );
     $alpha = $bootstrap->provisionTenantOwnerCandidate(
-        $platform->operatorId, 'alpha-host', 'Alpha Host', 'multi-owner@example.test', null, 'Multi Owner', 'mt04-alpha'
+        $platform->operatorId,
+        'alpha-host',
+        'Alpha Host',
+        'multi-owner@example.test',
+        null,
+        'Multi Owner',
+        'mt04-alpha',
     );
     $bootstrap->activateTenantOwner($platform->operatorId, $alpha->tenantId, $alpha->memberId, 'mt04-alpha-owner');
     $bootstrap->activateTenant($platform->operatorId, $alpha->tenantId, 'mt04-alpha-active');
     $beta = $bootstrap->provisionTenantOwnerCandidate(
-        $platform->operatorId, 'beta-host', 'Beta Host', 'multi-owner@example.test', null, 'Multi Owner', 'mt04-beta'
+        $platform->operatorId,
+        'beta-host',
+        'Beta Host',
+        'multi-owner@example.test',
+        null,
+        'Multi Owner',
+        'mt04-beta',
     );
     $bootstrap->activateTenantOwner($platform->operatorId, $beta->tenantId, $beta->memberId, 'mt04-beta-owner');
     $bootstrap->activateTenant($platform->operatorId, $beta->tenantId, 'mt04-beta-active');
@@ -96,7 +109,7 @@ SQL);
         $passwords,
         new SystemClock(),
         new TokenIssuer(),
-        str_repeat('t', 32)
+        str_repeat('t', 32),
     );
     $selection = $auth->login(
         'multi-owner@example.test',
@@ -104,7 +117,7 @@ SQL);
         null,
         '127.0.0.1',
         'MT04 fixture',
-        'mt04-login'
+        'mt04-login',
     );
     tenantHostExpect($selection instanceof TenantSelectionRequired, 'multi-Tenant login skipped selection');
     tenantHostExpect(count($selection->tenants) === 2, 'selection omitted an available Tenant');
@@ -113,7 +126,7 @@ SQL);
         $alpha->tenantId,
         '127.0.0.1',
         'MT04 fixture',
-        'mt04-select-alpha'
+        'mt04-select-alpha',
     );
     tenantHostExpect($alphaAuth->context->tenantId === $alpha->tenantId, 'selection established the wrong Tenant');
 
@@ -121,7 +134,7 @@ SQL);
         $alphaAuth->tokens->access->expose(),
         '127.0.0.1',
         'MT04 fixture',
-        'mt04-switch-challenge'
+        'mt04-switch-challenge',
     );
     tenantHostExpect(count($switch->tenants) === 1 && $switch->tenants[0]->tenantId === $beta->tenantId, 'switch exposed the current or wrong Tenant');
     $betaAuth = $auth->selectTenant(
@@ -129,7 +142,7 @@ SQL);
         $beta->tenantId,
         '127.0.0.1',
         'MT04 fixture',
-        'mt04-select-beta'
+        'mt04-select-beta',
     );
     tenantHostExpect($betaAuth instanceof TenantAuthentication && $betaAuth->context->tenantId === $beta->tenantId, 'switch did not establish Beta');
     tenantHostRejects(static fn() => $auth->context($alphaAuth->tokens->access->expose(), 'mt04-old-context'));

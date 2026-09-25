@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\http;
@@ -8,14 +9,12 @@ final class AdminTokenExtractor
 {
     public static function tokenFromRequest($request): string
     {
-        $authorization = trim((string)$request->header('Authorization', ''));
+        $authorization = trim((string) $request->header('Authorization', ''));
         if (preg_match('/^Bearer\s+(.+)$/i', $authorization, $matches)) {
             return trim($matches[1]);
         }
-        return trim((string)$request->header('token', ''));
+        return trim((string) $request->header('token', ''));
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

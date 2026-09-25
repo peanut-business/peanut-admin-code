@@ -1,9 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\infrastructure\plugin;
 
 use app\platform\exception\plugin\PluginPackageException;
+
 /** Minimal deterministic USTAR writer/reader for self-contained Module packages. */
 final class DeterministicTarArchive
 {
@@ -31,8 +33,8 @@ final class DeterministicTarArchive
             foreach ($entries as $path => $entry) {
                 $this->assertPath($path);
                 $contents = array_key_exists('contents', $entry)
-                    ? (string)$entry['contents']
-                    : $this->readSource((string)($entry['source'] ?? ''));
+                    ? (string) $entry['contents']
+                    : $this->readSource((string) ($entry['source'] ?? ''));
                 $size = strlen($contents);
                 if ($size > self::MAX_ENTRY_BYTES) {
                     throw new PluginPackageException('MODULE_PACKAGE_LIMIT_EXCEEDED', 'Package entry is too large.');
@@ -112,7 +114,7 @@ final class DeterministicTarArchive
                 if ($total > self::MAX_TOTAL_BYTES || count($entries) >= self::MAX_ENTRIES) {
                     throw new PluginPackageException('MODULE_PACKAGE_LIMIT_EXCEEDED', 'Package exceeds the configured limits.');
                 }
-                $contentOffset = (int)$headerOffset + 512;
+                $contentOffset = (int) $headerOffset + 512;
                 $entries[$path] = ['offset' => $contentOffset, 'size' => $size];
                 $next = $contentOffset + $size + ((512 - ($size % 512)) % 512);
                 if (fseek($stream, $next, SEEK_SET) !== 0) {

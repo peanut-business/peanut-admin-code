@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\api\controller\OAuthController as ApiOAuthController;
@@ -17,28 +18,28 @@ use app\common\infrastructure\module\OfficialModuleMiddleware;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) === 'adminapi') {
-Route::group(function (): void {
-    Route::get('official.oauth.web-page.config', [WebPageController::class, 'getConfig']);
-    Route::post('official.oauth.web-page.save', [WebPageController::class, 'setConfig']);
-    Route::get('official.oauth.mini-program.config', [MiniProgramController::class, 'getConfig']);
-    Route::post('official.oauth.mini-program.save', [MiniProgramController::class, 'setConfig']);
-    Route::get('official.oauth.official-account.config', [OfficialAccountController::class, 'getConfig']);
-    Route::post('official.oauth.official-account.save', [OfficialAccountController::class, 'setConfig']);
-    Route::get('official.oauth.official-account.menu.detail', [OfficialAccountMenuController::class, 'detail']);
-    Route::post('official.oauth.official-account.menu.save', [OfficialAccountMenuController::class, 'save']);
-    Route::post('official.oauth.official-account.menu.publish', [OfficialAccountMenuController::class, 'saveAndPublish']);
-    Route::get('official.oauth.official-account.reply.list', [OfficialAccountReplyController::class, 'lists']);
-    Route::get('official.oauth.official-account.reply.detail', [OfficialAccountReplyController::class, 'detail']);
-    Route::post('official.oauth.official-account.reply.add', [OfficialAccountReplyController::class, 'add']);
-    Route::post('official.oauth.official-account.reply.edit', [OfficialAccountReplyController::class, 'edit']);
-    Route::post('official.oauth.official-account.reply.delete', [OfficialAccountReplyController::class, 'delete']);
-    Route::post('official.oauth.official-account.reply.update-status', [OfficialAccountReplyController::class, 'updateStatus']);
-    Route::get('official.oauth.open-platform.config', [OpenPlatformController::class, 'getConfig']);
-    Route::post('official.oauth.open-platform.save', [OpenPlatformController::class, 'setConfig']);
-})->middleware(LoginMiddleware::class)
-    ->middleware(OfficialModuleMiddleware::class, 'official.oauth', 'http.admin')
-    ->middleware(AuthMiddleware::class)
-    ->middleware(OperationLogMiddleware::class);
+    Route::group(function (): void {
+        Route::get('official.oauth.web-page.config', [WebPageController::class, 'getConfig']);
+        Route::post('official.oauth.web-page.save', [WebPageController::class, 'setConfig']);
+        Route::get('official.oauth.mini-program.config', [MiniProgramController::class, 'getConfig']);
+        Route::post('official.oauth.mini-program.save', [MiniProgramController::class, 'setConfig']);
+        Route::get('official.oauth.official-account.config', [OfficialAccountController::class, 'getConfig']);
+        Route::post('official.oauth.official-account.save', [OfficialAccountController::class, 'setConfig']);
+        Route::get('official.oauth.official-account.menu.detail', [OfficialAccountMenuController::class, 'detail']);
+        Route::post('official.oauth.official-account.menu.save', [OfficialAccountMenuController::class, 'save']);
+        Route::post('official.oauth.official-account.menu.publish', [OfficialAccountMenuController::class, 'saveAndPublish']);
+        Route::get('official.oauth.official-account.reply.list', [OfficialAccountReplyController::class, 'lists']);
+        Route::get('official.oauth.official-account.reply.detail', [OfficialAccountReplyController::class, 'detail']);
+        Route::post('official.oauth.official-account.reply.add', [OfficialAccountReplyController::class, 'add']);
+        Route::post('official.oauth.official-account.reply.edit', [OfficialAccountReplyController::class, 'edit']);
+        Route::post('official.oauth.official-account.reply.delete', [OfficialAccountReplyController::class, 'delete']);
+        Route::post('official.oauth.official-account.reply.update-status', [OfficialAccountReplyController::class, 'updateStatus']);
+        Route::get('official.oauth.open-platform.config', [OpenPlatformController::class, 'getConfig']);
+        Route::post('official.oauth.open-platform.save', [OpenPlatformController::class, 'setConfig']);
+    })->middleware(LoginMiddleware::class)
+        ->middleware(OfficialModuleMiddleware::class, 'official.oauth', 'http.admin')
+        ->middleware(AuthMiddleware::class)
+        ->middleware(OperationLogMiddleware::class);
 }
 
 if (($peanutRouteApplication ?? null) !== 'api') {

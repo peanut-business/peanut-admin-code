@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ApplicationCreator;
@@ -23,7 +24,7 @@ function editionInstallerRun(array $command, ?string $cwd = null): string
     $stdout = stream_get_contents($pipes[1]);
     fclose($pipes[1]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('EDITION_BUILD_COMMAND_FAILED: ' . trim((string)$stdout));
+        throw new RuntimeException('EDITION_BUILD_COMMAND_FAILED: ' . trim((string) $stdout));
     }
     return $stdout;
 }
@@ -159,7 +160,7 @@ try {
         (new DeterministicEditionArchive())->write($application, $archiveRoot, $archive);
         $applicationManifestPath = $application . '/.peanut/application-manifest.json';
         $pluginLockPath = $application . '/plugins.lock';
-        $pluginLock = json_decode((string)file_get_contents($pluginLockPath), true, 128, JSON_THROW_ON_ERROR);
+        $pluginLock = json_decode((string) file_get_contents($pluginLockPath), true, 128, JSON_THROW_ON_ERROR);
         $modules = [];
         foreach ($pluginLock['plugins'] ?? [] as $plugin) {
             if (!is_array($plugin) || !is_string($plugin['key'] ?? null) || !is_string($plugin['version'] ?? null)) {
@@ -224,7 +225,7 @@ try {
         $destination = rtrim($options['output'], '/') . '/' . $filename;
         if ($check) {
             if (!is_file($destination)
-                || !hash_equals((string)hash_file('sha256', $built), (string)hash_file('sha256', $destination))) {
+                || !hash_equals((string) hash_file('sha256', $built), (string) hash_file('sha256', $destination))) {
                 throw new RuntimeException('EDITION_BUILD_ARTIFACT_STALE: ' . $filename);
             }
         } else {

@@ -2,9 +2,9 @@ export {
   createOpsConsoleRuntime,
   OpsConsolePage,
   opsConsoleRuntimeKey,
-} from './runtime/src'
+} from './runtime/src';
 export type {
   MaintenanceScheduleInput,
   OpsConsoleTransport,
   OpsTransportResult,
-} from './runtime/src'
+} from './runtime/src';

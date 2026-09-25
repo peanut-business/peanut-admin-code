@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace tests\Unit;
@@ -49,7 +50,7 @@ final class RegisteredMysqlRunnerEnvironmentTest extends TestCase
     {
         $lines = array_values(array_filter(
             $this->environmentLines(),
-            static fn (string $line): bool => !str_starts_with($line, 'PEANUT_DATABASE_ENDPOINT_ID='),
+            static fn(string $line): bool => !str_starts_with($line, 'PEANUT_DATABASE_ENDPOINT_ID='),
         ));
         $result = $this->runHelper($lines, $this->ambient());
 
@@ -138,8 +139,7 @@ final class RegisteredMysqlRunnerEnvironmentTest extends TestCase
         array $ambient,
         bool $probe = false,
         string $runnerMode = '--registered',
-    ): array
-    {
+    ): array {
         $root = dirname(__DIR__, 3);
         $path = $root . '/server/.env.test-' . bin2hex(random_bytes(8));
         $previousUmask = umask(0077);
@@ -228,7 +228,7 @@ PHP,
                 $runnerMode,
             ];
             $environment = $ambient + [
-                'PATH' => (string)(getenv('PATH') ?: '/usr/bin:/bin'),
+                'PATH' => (string) (getenv('PATH') ?: '/usr/bin:/bin'),
                 'TMPDIR' => sys_get_temp_dir(),
             ];
             $process = proc_open(
@@ -242,7 +242,7 @@ PHP,
                 throw new RuntimeException('Cannot start runner environment helper');
             }
             fclose($pipes[0]);
-            $output = (string)stream_get_contents($pipes[1]) . (string)stream_get_contents($pipes[2]);
+            $output = (string) stream_get_contents($pipes[1]) . (string) stream_get_contents($pipes[2]);
             fclose($pipes[1]);
             fclose($pipes[2]);
             return ['status' => proc_close($process), 'output' => $output];
@@ -255,7 +255,7 @@ PHP,
 
     private function bashBinary(): string
     {
-        foreach (explode(PATH_SEPARATOR, (string)getenv('PATH')) as $directory) {
+        foreach (explode(PATH_SEPARATOR, (string) getenv('PATH')) as $directory) {
             $candidate = rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'bash';
             if (is_file($candidate) && is_executable($candidate)) {
                 return $candidate;

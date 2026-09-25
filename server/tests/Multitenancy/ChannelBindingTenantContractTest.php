@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -11,7 +12,7 @@ function expectChannelBindingTenant(bool $condition, string $message): void
 }
 
 $serverRoot = dirname(__DIR__, 2);
-$read = static fn(string $path): string => (string)file_get_contents($serverRoot . '/' . $path);
+$read = static fn(string $path): string => (string) file_get_contents($serverRoot . '/' . $path);
 
 $noticeController = $read('app/modules/official/notification/src/Controller/NoticeChannelController.php');
 $notificationApplication = $read('app/modules/official/notification/src/Service/NotificationApplicationService.php');
@@ -30,7 +31,7 @@ foreach ([
         $constructor?->getDeclaringClass()->getName() === app\BaseController::class
             && count($constructor->getParameters()) === 1
             && $constructor->getParameters()[0]->getType()?->getName() === think\App::class,
-        'admin controller does not inherit the current-App execution context contract'
+        'admin controller does not inherit the current-App execution context contract',
     );
 }
 expectChannelBindingTenant(
@@ -40,7 +41,7 @@ expectChannelBindingTenant(
         && str_contains($noticeController, '@property-read NotificationAdminApplicationService $notifications')
         && str_contains($noticeController, '$this->tenantAdminContext()')
         && str_contains($notificationApplication, '$this->executionContext->tenantAdmin()'),
-    'notification application service drops the trusted Tenant context'
+    'notification application service drops the trusted Tenant context',
 );
 
 foreach ([
@@ -55,20 +56,20 @@ foreach ([
 expectChannelBindingTenant(
     !str_contains($noticeService, 'external_channel_binding')
         && !str_contains($noticeService, "Db::name('external_channel_binding')"),
-    'NoticeChannelService still accesses the shared external binding table directly'
+    'NoticeChannelService still accesses the shared external binding table directly',
 );
 expectChannelBindingTenant(
     !str_contains($noticeService, 'ConfigService'),
-    'Tenant SMS configuration falls back to global pa_config'
+    'Tenant SMS configuration falls back to global pa_config',
 );
 expectChannelBindingTenant(
     str_contains($sender, '$this->channels->sendSms(')
         && str_contains($sender, '$this->executionContext,'),
-    'application sender drops the trusted Tenant context'
+    'application sender drops the trusted Tenant context',
 );
 expectChannelBindingTenant(
     preg_match('/\$this->sender->send\(\s*\$context,/', $verification) === 1,
-    'verification sender call does not preserve the trusted Tenant context'
+    'verification sender call does not preserve the trusted Tenant context',
 );
 
 foreach (['$this->bindings->config(', '$this->bindings->update(',
@@ -78,11 +79,11 @@ foreach (['$this->bindings->config(', '$this->bindings->update(',
 expectChannelBindingTenant(
     str_contains($menuLogic, "(string)(\$config['app_id'] ?? '')")
         && str_contains($menuLogic, "(string)(\$config['app_secret'] ?? '')"),
-    'official-account menu publish does not use the current Tenant binding credentials'
+    'official-account menu publish does not use the current Tenant binding credentials',
 );
 expectChannelBindingTenant(
     str_contains($menuLogic, "\$config['menu'] = \$menu") && !str_contains($menuLogic, 'ConfigService'),
-    'official-account menu is not merged into the Tenant binding'
+    'official-account menu is not merged into the Tenant binding',
 );
 
 echo "CHANNEL-BINDING-TENANT-001 passed\n";

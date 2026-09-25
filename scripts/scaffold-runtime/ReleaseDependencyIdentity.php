@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
@@ -33,7 +34,9 @@ final class ReleaseDependencyIdentity
         $fixed = self::fixed($php['constraint'])
             && $php['constraint'] === (str_starts_with($php['resolved_version'], 'v')
                 ? substr($php['resolved_version'], 1) : $php['resolved_version']);
-        if (!$development && !$fixed) throw new RuntimeException($phpError);
+        if (!$development && !$fixed) {
+            throw new RuntimeException($phpError);
+        }
 
         if (!is_array($web)
             || array_keys($web) !== ['source_type', 'source_url', 'source_reference', 'packages']
@@ -45,7 +48,9 @@ final class ReleaseDependencyIdentity
         $mode = null;
         foreach ($web['packages'] as $identity) {
             if (!is_array($identity) || !is_string($identity['version'] ?? null)
-                || preg_match(self::SEMVER, $identity['version']) !== 1) throw new RuntimeException($webError);
+                || preg_match(self::SEMVER, $identity['version']) !== 1) {
+                throw new RuntimeException($webError);
+            }
             if (array_keys($identity) === ['version', 'archive', 'sha256']) {
                 $current = 'archive';
                 if (!is_string($identity['archive'])
@@ -56,15 +61,21 @@ final class ReleaseDependencyIdentity
             } elseif (array_keys($identity) === ['version', 'resolved', 'integrity']) {
                 $current = 'registry';
                 if (!self::fixed($identity['version']) || !self::https($identity['resolved'])
-                    || !self::integrity($identity['integrity'])) throw new RuntimeException($webError);
+                    || !self::integrity($identity['integrity'])) {
+                    throw new RuntimeException($webError);
+                }
             } else {
                 throw new RuntimeException($webError);
             }
-            if ($mode !== null && $mode !== $current) throw new RuntimeException($webError);
+            if ($mode !== null && $mode !== $current) {
+                throw new RuntimeException($webError);
+            }
             $mode = $current;
         }
         // 原生发布身份不能与 PHP 浮动开发分支拼成一个完整发布候选。
-        if ($mode === 'registry' && !$fixed) throw new RuntimeException($phpError);
+        if ($mode === 'registry' && !$fixed) {
+            throw new RuntimeException($phpError);
+        }
         return $mode;
     }
 
@@ -72,7 +83,9 @@ final class ReleaseDependencyIdentity
     public static function verifyArchives(string $root, array $web, string $error): void
     {
         foreach ($web['packages'] as $identity) {
-            if (array_keys($identity) === ['version', 'resolved', 'integrity']) continue;
+            if (array_keys($identity) === ['version', 'resolved', 'integrity']) {
+                continue;
+            }
             $relative = $identity['archive'] ?? null;
             if (!is_string($relative)
                 || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$#D', $relative) !== 1) {
@@ -81,11 +94,15 @@ final class ReleaseDependencyIdentity
             $path = rtrim($root, '/');
             foreach (explode('/', $relative) as $segment) {
                 $path .= '/' . $segment;
-                if (is_link($path)) throw new RuntimeException($error);
+                if (is_link($path)) {
+                    throw new RuntimeException($error);
+                }
             }
             $digest = is_file($path) ? hash_file('sha256', $path) : false;
             if (!is_string($digest) || !is_string($identity['sha256'] ?? null)
-                || !hash_equals($identity['sha256'], $digest)) throw new RuntimeException($error);
+                || !hash_equals($identity['sha256'], $digest)) {
+                throw new RuntimeException($error);
+            }
         }
     }
 
@@ -97,7 +114,9 @@ final class ReleaseDependencyIdentity
 
     private static function https(mixed $url): bool
     {
-        if (!is_string($url) || preg_match('/[\x00-\x20\x7f]/', $url)) return false;
+        if (!is_string($url) || preg_match('/[\x00-\x20\x7f]/', $url)) {
+            return false;
+        }
         $parts = parse_url($url);
         return is_array($parts) && ($parts['scheme'] ?? null) === 'https'
             && ($parts['host'] ?? '') !== '' && ($parts['path'] ?? '') !== ''
@@ -107,7 +126,9 @@ final class ReleaseDependencyIdentity
 
     private static function integrity(mixed $value): bool
     {
-        if (!is_string($value) || !str_starts_with($value, 'sha512-')) return false;
+        if (!is_string($value) || !str_starts_with($value, 'sha512-')) {
+            return false;
+        }
         $encoded = substr($value, 7);
         $bytes = base64_decode($encoded, true);
         return is_string($bytes) && strlen($bytes) === 64 && base64_encode($bytes) === $encoded;

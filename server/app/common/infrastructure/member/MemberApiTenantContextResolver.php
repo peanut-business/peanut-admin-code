@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\member;
@@ -12,16 +13,14 @@ final class MemberApiTenantContextResolver
 {
     public function __construct(
         private readonly MemberSubjectLookup $members,
-    ) {
-    }
+    ) {}
 
     public function resolve(
         int $memberId,
         string $token,
         string $requestId,
         int $verifiedTenantId,
-    ): AuthenticatedMemberContext
-    {
+    ): AuthenticatedMemberContext {
         if ($memberId < 1 || $token === '' || $requestId === '' || $verifiedTenantId < 1) {
             throw new \DomainException('MEMBER_TENANT_CONTEXT_UNAVAILABLE');
         }

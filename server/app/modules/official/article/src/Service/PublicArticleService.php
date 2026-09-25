@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Article\Service;
@@ -29,7 +30,7 @@ final class PublicArticleService implements PublicArticleQueries
             'click_virtual', 'click_actual', 'create_time', 'sort',
         ])->where('is_show', 1);
 
-        $cid = (int)($params['cid'] ?? 0);
+        $cid = (int) ($params['cid'] ?? 0);
         if ($cid > 0) {
             $query->where('cid', $cid);
         }
@@ -37,7 +38,7 @@ final class PublicArticleService implements PublicArticleQueries
             $query->whereLike('title', '%' . $params['keyword'] . '%');
         }
 
-        $sort = (string)($params['sort'] ?? 'default');
+        $sort = (string) ($params['sort'] ?? 'default');
         if ($sort === 'new') {
             $query->order('id', 'desc');
         } elseif ($sort === 'hot') {
@@ -47,7 +48,7 @@ final class PublicArticleService implements PublicArticleQueries
         }
 
         $pageResult = PaginationInput::from($params)->result($query)
-            ->map(static fn(mixed $item): array => $item instanceof \think\Model ? $item->toArray() : (array)$item);
+            ->map(static fn(mixed $item): array => $item instanceof \think\Model ? $item->toArray() : (array) $item);
         $lists = $pageResult->items;
         $articleIds = array_map('intval', array_column($lists, 'id'));
         $collectIds = $memberId > 0 && $articleIds !== []
@@ -58,9 +59,9 @@ final class PublicArticleService implements PublicArticleQueries
             : [];
         $collectIds = array_map('intval', $collectIds);
         foreach ($lists as &$row) {
-            $row['click'] = (int)$row['click_actual'] + (int)$row['click_virtual'];
-            $row['image'] = $this->assets->forRead((string)($row['image'] ?? ''));
-            $row['collect'] = in_array((int)$row['id'], $collectIds, true);
+            $row['click'] = (int) $row['click_actual'] + (int) $row['click_virtual'];
+            $row['image'] = $this->assets->forRead((string) ($row['image'] ?? ''));
+            $row['collect'] = in_array((int) $row['id'], $collectIds, true);
             unset($row['click_actual'], $row['click_virtual'], $row['sort']);
         }
         unset($row);
@@ -83,8 +84,8 @@ final class PublicArticleService implements PublicArticleQueries
         if ($article === []) {
             return [];
         }
-        $article['image'] = $this->assets->forRead((string)($article['image'] ?? ''));
-        $article['content'] = $this->richText->forRead((string)($article['content'] ?? ''));
+        $article['image'] = $this->assets->forRead((string) ($article['image'] ?? ''));
+        $article['content'] = $this->richText->forRead((string) ($article['content'] ?? ''));
         $article['collect'] = $memberId > 0
             ? ArticleCollect::isCollected($memberId, $id)
             : false;
@@ -121,7 +122,7 @@ final class PublicArticleService implements PublicArticleQueries
                     throw $exception;
                 }
             }
-            if ((int)$collect->status !== 1) {
+            if ((int) $collect->status !== 1) {
                 $collect->status = 1;
                 $collect->save();
             }
@@ -150,11 +151,11 @@ final class PublicArticleService implements PublicArticleQueries
             ->field('c.id,c.article_id,a.title,a.image,a.desc,a.is_show,a.click_virtual,a.click_actual,a.create_time,c.create_time as collect_time,a.sort');
 
         $pageResult = PaginationInput::from($params)->result($query->order(['a.sort' => 'desc', 'c.id' => 'desc']))
-            ->map(static fn(mixed $item): array => $item instanceof \think\Model ? $item->toArray() : (array)$item);
+            ->map(static fn(mixed $item): array => $item instanceof \think\Model ? $item->toArray() : (array) $item);
         $lists = $pageResult->items;
         foreach ($lists as &$row) {
-            $row['click'] = (int)$row['click_actual'] + (int)$row['click_virtual'];
-            $row['collect_time'] = empty($row['collect_time']) ? '' : date('Y-m-d H:i', (int)$row['collect_time']);
+            $row['click'] = (int) $row['click_actual'] + (int) $row['click_virtual'];
+            $row['collect_time'] = empty($row['collect_time']) ? '' : date('Y-m-d H:i', (int) $row['collect_time']);
             unset($row['click_actual'], $row['click_virtual'], $row['sort']);
         }
         unset($row);
@@ -164,7 +165,7 @@ final class PublicArticleService implements PublicArticleQueries
 
     public function countForMember(AuthenticatedMemberContext $context, int $memberId): int
     {
-        return (int)ArticleCollect::where([])->alias('c')
+        return (int) ArticleCollect::where([])->alias('c')
             ->join('article a', 'a.tenant_id = c.tenant_id AND c.article_id = a.id')
             ->where('c.member_id', $memberId)
             ->where('c.status', 1)
@@ -179,13 +180,13 @@ final class PublicArticleService implements PublicArticleQueries
             ->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
         $byCategory = [];
         foreach (Article::topPublishedByCategories(array_column($categories, 'id'), 10) as $article) {
-            $article['click'] = (int)$article['click_actual'] + (int)$article['click_virtual'];
-            $article['image'] = $this->assets->forRead((string)($article['image'] ?? ''));
+            $article['click'] = (int) $article['click_actual'] + (int) $article['click_virtual'];
+            $article['image'] = $this->assets->forRead((string) ($article['image'] ?? ''));
             unset($article['click_actual'], $article['click_virtual'], $article['category_rank']);
-            $byCategory[(int)$article['cid']][] = $article;
+            $byCategory[(int) $article['cid']][] = $article;
         }
         foreach ($categories as &$category) {
-            $category['article'] = $byCategory[(int)$category['id']] ?? [];
+            $category['article'] = $byCategory[(int) $category['id']] ?? [];
         }
         unset($category);
         return $categories;
@@ -202,8 +203,8 @@ final class PublicArticleService implements PublicArticleQueries
             ->select()
             ->toArray();
         foreach ($rows as &$row) {
-            $row['click'] = (int)$row['click_actual'] + (int)$row['click_virtual'];
-            $row['image'] = $this->assets->forRead((string)($row['image'] ?? ''));
+            $row['click'] = (int) $row['click_actual'] + (int) $row['click_virtual'];
+            $row['image'] = $this->assets->forRead((string) ($row['image'] ?? ''));
             unset($row['click_actual'], $row['click_virtual']);
         }
         unset($row);
@@ -217,19 +218,19 @@ final class PublicArticleService implements PublicArticleQueries
             return [];
         }
 
-        $lists = $this->limitArticles($source, 0, (int)$detail['cid']);
+        $lists = $this->limitArticles($source, 0, (int) $detail['cid']);
         $nowIndex = 0;
         foreach ($lists as $key => $item) {
-            if ((int)$item['id'] === $articleId) {
+            if ((int) $item['id'] === $articleId) {
                 $nowIndex = $key;
                 break;
             }
         }
         $detail['last'] = $lists[$nowIndex - 1] ?? [];
         $detail['next'] = $lists[$nowIndex + 1] ?? [];
-        $detail['new'] = $this->limitArticles('new', 8, (int)$detail['cid'], $articleId);
-        $detail['cate_name'] = (string)ArticleCate::where([])
-            ->where('id', (int)$detail['cid'])
+        $detail['new'] = $this->limitArticles('new', 8, (int) $detail['cid'], $articleId);
+        $detail['cate_name'] = (string) ArticleCate::where([])
+            ->where('id', (int) $detail['cid'])
             ->value('name');
         return $detail;
     }
@@ -258,8 +259,8 @@ final class PublicArticleService implements PublicArticleQueries
         }
         $rows = $query->select()->toArray();
         foreach ($rows as &$row) {
-            $row['click'] = (int)$row['click_actual'] + (int)$row['click_virtual'];
-            $row['image'] = $this->assets->forRead((string)($row['image'] ?? ''));
+            $row['click'] = (int) $row['click_actual'] + (int) $row['click_virtual'];
+            $row['image'] = $this->assets->forRead((string) ($row['image'] ?? ''));
             unset($row['click_actual'], $row['click_virtual'], $row['sort']);
         }
         unset($row);

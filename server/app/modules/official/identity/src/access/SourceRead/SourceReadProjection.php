@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Identity\access\SourceRead;
@@ -63,7 +64,7 @@ final class SourceReadProjection
             $ids = [];
             foreach ($objects as $id => $fields) {
                 if (array_diff($requested, [...$global, ...$fields]) === []) {
-                    $ids[] = (int)$id;
+                    $ids[] = (int) $id;
                 }
             }
             if ($ids === []) {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\context\notice;
@@ -42,8 +43,7 @@ final class NoticeTenantContext
         CurrentExecutionContext $executionContext,
         object $request,
         string $operation,
-    ): TenantContext|TenantSystemContext
-    {
+    ): TenantContext|TenantSystemContext {
         $current = $executionContext->current();
         $context = match (true) {
             $current instanceof AdminExecutionContext => $current->tenant,
@@ -68,7 +68,7 @@ final class NoticeTenantContext
     public static function verificationTenantId(
         CurrentExecutionContext $executionContext,
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
-        string $operation
+        string $operation,
     ): int {
         if ($context instanceof AuthenticatedMemberContext) {
             return self::authoritativeTenantId($executionContext, $context->tenantId);

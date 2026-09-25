@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -31,12 +32,16 @@ require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 function moduleDeliveryExpect(bool $condition, string $message): void
 {
-    if (!$condition) throw new RuntimeException($message);
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
 }
 
 function moduleDeliveryCopyTree(string $source, string $target): void
 {
-    if (!is_dir($target)) mkdir($target, 0777, true);
+    if (!is_dir($target)) {
+        mkdir($target, 0777, true);
+    }
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::SELF_FIRST,
@@ -45,7 +50,9 @@ function moduleDeliveryCopyTree(string $source, string $target): void
         $relative = substr($entry->getPathname(), strlen($source) + 1);
         $destination = $target . '/' . $relative;
         if ($entry->isDir()) {
-            if (!is_dir($destination)) mkdir($destination, 0777, true);
+            if (!is_dir($destination)) {
+                mkdir($destination, 0777, true);
+            }
         } else {
             copy($entry->getPathname(), $destination);
         }
@@ -58,14 +65,19 @@ function moduleDeliveryRemoveTree(string $path): void
         unlink($path);
         return;
     }
-    if (!is_dir($path)) return;
+    if (!is_dir($path)) {
+        return;
+    }
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST,
     );
     foreach ($iterator as $entry) {
-        if ($entry->isLink() || !$entry->isDir()) unlink($entry->getPathname());
-        else rmdir($entry->getPathname());
+        if ($entry->isLink() || !$entry->isDir()) {
+            unlink($entry->getPathname());
+        } else {
+            rmdir($entry->getPathname());
+        }
     }
     rmdir($path);
 }
@@ -107,10 +119,10 @@ function moduleDeliverySwapTargetComposerLoader(string $serverRoot, string $targ
 
 function moduleDeliverySetVersion(string $root, string $module, string $version): void
 {
-    $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
+    $directory = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
     $backend = $root . '/server/app/modules/official/' . $directory;
     foreach ([$backend . '/module.json', $backend . '/composer.json'] as $path) {
-        $document = json_decode((string)file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        $document = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
         $document['version'] = $version;
         if ($module === 'Article' && str_ends_with($path, '/module.json')) {
             $document['dependencies'][0]['version'] = '^' . explode('.', $version)[0] . '.0';
@@ -118,7 +130,7 @@ function moduleDeliverySetVersion(string $root, string $module, string $version)
         file_put_contents($path, json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     }
     $frontend = $root . '/web/src/modules/official-' . strtolower($module) . '/package.json';
-    $document = json_decode((string)file_get_contents($frontend), true, 64, JSON_THROW_ON_ERROR);
+    $document = json_decode((string) file_get_contents($frontend), true, 64, JSON_THROW_ON_ERROR);
     $document['version'] = $version;
     file_put_contents($frontend, json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 }
@@ -137,7 +149,7 @@ moduleDeliveryExpect(
     'registered database endpoint identity is required',
 );
 moduleDeliveryExpect(
-    in_array($database, (array)($resource['synthetic_databases']['module_delivery_standalone'] ?? []), true),
+    in_array($database, (array) ($resource['synthetic_databases']['module_delivery_standalone'] ?? []), true),
     'registered delivery database is required',
 );
 $host = IsolatedBackendEnvironment::required('DB_HOST');
@@ -152,7 +164,7 @@ $admin = new PDO(
 );
 $exists = $admin->prepare('SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name=?');
 $exists->execute([$database]);
-moduleDeliveryExpect((int)$exists->fetchColumn() === 0, 'isolated database already exists');
+moduleDeliveryExpect((int) $exists->fetchColumn() === 0, 'isolated database already exists');
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
 
 IsolatedBackendEnvironment::activate([
@@ -215,7 +227,7 @@ $completed = false;
 
 try {
     foreach (['Article', 'File'] as $module) {
-        $directory = strtolower((string)preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
+        $directory = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
         moduleDeliveryCopyTree(
             $projectRoot . '/server/app/modules/official/' . $directory,
             $source . '/server/app/modules/official/' . $directory,
@@ -245,9 +257,9 @@ try {
         symlink($serverRoot . '/vendor', $target . '/server/vendor'),
         'isolated target must use the verified host Composer vendor root',
     );
-    $baseLock = json_decode((string)file_get_contents($projectRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+    $baseLock = json_decode((string) file_get_contents($projectRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
     $identityEntries = array_values(array_filter(
-        (array)($baseLock['plugins'] ?? []),
+        (array) ($baseLock['plugins'] ?? []),
         static fn(mixed $entry): bool => is_array($entry) && ($entry['key'] ?? null) === 'official.identity',
     ));
     moduleDeliveryExpect(count($identityEntries) === 1, 'installed identity baseline is missing from the source lock');
@@ -308,17 +320,28 @@ try {
         $registryPath,
     );
     $preview = $requests->preview(
-        'fixture-module-delivery', 'fixture-target', 'update', 'official-content-bundle', $v2['sha256'], null,
+        'fixture-module-delivery',
+        'fixture-target',
+        'update',
+        'official-content-bundle',
+        $v2['sha256'],
+        null,
     );
     moduleDeliveryExpect(($preview['plan']['dry_run'] ?? null) === true, 'request preview was not dry-run');
     $prepared = $requests->prepare(
-        'fixture-module-delivery', 'fixture-target', 'update', 'official-content-bundle', $v2['sha256'], null, null,
+        'fixture-module-delivery',
+        'fixture-target',
+        'update',
+        'official-content-bundle',
+        $v2['sha256'],
+        null,
+        null,
     );
-    moduleDeliveryExpect(preg_match('/^modreq_[a-f0-9]{32}$/D', (string)$prepared['request_key']) === 1, 'opaque request key changed');
+    moduleDeliveryExpect(preg_match('/^modreq_[a-f0-9]{32}$/D', (string) $prepared['request_key']) === 1, 'opaque request key changed');
 
     $operator = $pdo->prepare('SELECT account_id FROM pa_platform_operator WHERE id=?');
     $operator->execute([$identity['operator_id']]);
-    $operatorAccountId = (int)$operator->fetchColumn();
+    $operatorAccountId = (int) $operator->fetchColumn();
     $context = PlatformContext::fromValidatedSession(new ValidatedPlatformSession(
         $identity['operator_id'],
         'module-delivery-session',
@@ -345,7 +368,7 @@ try {
             new RevisionPermissionCache(),
         )),
     );
-    $submitted = $platform->submit($context, (string)$prepared['request_key'], 'module-delivery-idempotency');
+    $submitted = $platform->submit($context, (string) $prepared['request_key'], 'module-delivery-idempotency');
     moduleDeliveryExpect(($submitted['status'] ?? null) === 'queued', 'Module operation was not queued');
 
     $executor = new ThinkPhpModuleOperationTaskExecutionService(
@@ -359,11 +382,11 @@ try {
     );
     $claimed = $executor->claim();
     moduleDeliveryExpect(is_array($claimed) && ($claimed['current_step'] ?? null) === 'preflight', 'Module operation was not claimed');
-    $taskKey = (string)$claimed['task_key'];
-    $revision = (int)$claimed['execution_revision'];
+    $taskKey = (string) $claimed['task_key'];
+    $revision = (int) $claimed['execution_revision'];
     $backupAction = $executor->advance($taskKey, $revision);
     moduleDeliveryExpect(($backupAction['action'] ?? null) === 'run_backup', 'preflight did not dispatch backup');
-    $backupTask = (string)$backupAction['child_task_key'];
+    $backupTask = (string) $backupAction['child_task_key'];
     $pdo->prepare("UPDATE pa_ops_task SET status='succeeded',completed_at=UTC_TIMESTAMP(3) WHERE task_key=?")
         ->execute([$backupTask]);
     $backupReference = 'backup_' . str_repeat('c', 32);
@@ -376,7 +399,7 @@ SQL)->execute([$backupReference, $backupTask, str_repeat('d', 64), str_repeat('a
 
     $restoreAction = $executor->advance($taskKey, $revision);
     moduleDeliveryExpect(($restoreAction['action'] ?? null) === 'run_restore', 'backup did not dispatch restore verification');
-    $restoreTask = (string)$restoreAction['child_task_key'];
+    $restoreTask = (string) $restoreAction['child_task_key'];
     $pdo->prepare("UPDATE pa_ops_task SET status='succeeded',completed_at=UTC_TIMESTAMP(3) WHERE task_key=?")
         ->execute([$restoreTask]);
     $pdo->prepare(<<<'SQL'
@@ -395,18 +418,18 @@ SQL)->execute([
 
     $executeAction = $executor->advance($taskKey, $revision);
     moduleDeliveryExpect(($executeAction['action'] ?? null) === 'execute', 'restore did not establish maintenance');
-    moduleDeliveryExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_ops_maintenance_window WHERE state='active' AND reason_key='module-lifecycle'")->fetchColumn() === 1, 'maintenance window is not active');
+    moduleDeliveryExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_ops_maintenance_window WHERE state='active' AND reason_key='module-lifecycle'")->fetchColumn() === 1, 'maintenance window is not active');
     $operation = $executor->execute($taskKey, $revision);
     moduleDeliveryExpect(($operation['action'] ?? null) === 'run_smoke', 'Package update did not enter smoke');
     $succeeded = $executor->succeed($taskKey, $revision);
     moduleDeliveryExpect(($succeeded['status'] ?? null) === 'succeeded', 'Module operation did not complete');
-    moduleDeliveryExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND installed_version='2.0.0' AND status='active'")->fetchColumn() === 1, 'Package identity did not reach v2');
-    moduleDeliveryExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key IN ('official.article','official.file')")->fetchColumn() === 0, 'Module operation changed TenantModule state');
-    moduleDeliveryExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_ops_maintenance_window WHERE state='closed'")->fetchColumn() === 1, 'successful smoke did not close maintenance');
-    moduleDeliveryExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_ops_module_execution WHERE current_step='completed' AND recovery_pointer_sha256 IS NOT NULL")->fetchColumn() === 1, 'recovery pointer was not persisted');
+    moduleDeliveryExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND installed_version='2.0.0' AND status='active'")->fetchColumn() === 1, 'Package identity did not reach v2');
+    moduleDeliveryExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key IN ('official.article','official.file')")->fetchColumn() === 0, 'Module operation changed TenantModule state');
+    moduleDeliveryExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_ops_maintenance_window WHERE state='closed'")->fetchColumn() === 1, 'successful smoke did not close maintenance');
+    moduleDeliveryExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_ops_module_execution WHERE current_step='completed' AND recovery_pointer_sha256 IS NOT NULL")->fetchColumn() === 1, 'recovery pointer was not persisted');
 
     $route = peanut_route_registry_source($serverRoot);
-    $controller = (string)file_get_contents($serverRoot . '/app/platform/controller/PlatformOpsController.php');
+    $controller = (string) file_get_contents($serverRoot . '/app/platform/controller/PlatformOpsController.php');
     moduleDeliveryExpect(str_contains($route, "v1/ops/tasks/module"), 'opaque Module task route is missing');
     moduleDeliveryExpect(!str_contains($controller, "archive_sha256'") && !str_contains($controller, "package_key'"), 'production HTTP accepts Module package details');
 

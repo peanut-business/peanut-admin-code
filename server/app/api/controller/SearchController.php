@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\controller;
@@ -15,7 +16,7 @@ class SearchController extends BaseApiController
     public function hotLists()
     {
         $result = $this->search->hotLists(
-            $this->publicTenantContext('hot-search.lists')
+            $this->publicTenantContext('hot-search.lists'),
         );
         return $this->data($result);
     }

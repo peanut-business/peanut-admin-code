@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -114,16 +115,28 @@ entryBindingExpect(
     'an active Tenant file was not deliverable',
 );
 $boundRequest = new class {
-    public function host(): string { return 'ALPHA.Example.test:443'; }
+    public function host(): string
+    {
+        return 'ALPHA.Example.test:443';
+    }
 };
 $unboundRequest = new class {
-    public function host(): string { return 'unbound.example.test'; }
+    public function host(): string
+    {
+        return 'unbound.example.test';
+    }
 };
 $platformRequest = new class {
-    public function host(): string { return 'platform.example.test'; }
+    public function host(): string
+    {
+        return 'platform.example.test';
+    }
 };
 $sharedAdminRequest = new class {
-    public function host(): string { return 'admin.example.test'; }
+    public function host(): string
+    {
+        return 'admin.example.test';
+    }
 };
 
 entryBindingExpect(
@@ -163,7 +176,7 @@ entryBindingExpect(
 );
 
 $insert = $pdo->prepare(
-    'INSERT INTO pa_tenant_entry_binding (tenant_id,host,client_key,status) VALUES (?,?,?,?)'
+    'INSERT INTO pa_tenant_entry_binding (tenant_id,host,client_key,status) VALUES (?,?,?,?)',
 );
 $insert->execute([101, 'alpha.example.test', TenantEntryBindingResolver::ADMIN_CLIENT, 'active']);
 $insert->execute([101, 'alpha.example.test', TenantEntryBindingResolver::MEMBER_CLIENT, 'active']);
@@ -301,24 +314,24 @@ entryBindingExpect(
     'reactivation did not restore the legitimate bound Tenant entry',
 );
 
-$sessionController = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/controller/auth/TenantSessionController.php'
+$sessionController = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/adminapi/controller/auth/TenantSessionController.php',
 );
-$sessionApplication = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/application/auth/TenantSessionApplicationService.php'
+$sessionApplication = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/adminapi/application/auth/TenantSessionApplicationService.php',
 );
-$loginMiddleware = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php'
+$loginMiddleware = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php',
 );
-$storageService = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/common/services/storage/StorageService.php'
+$storageService = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/common/services/storage/StorageService.php',
 );
-$storageController = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/api/controller/StorageController.php'
+$storageController = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/api/controller/StorageController.php',
 );
 $routes = peanut_route_registry_source(dirname(__DIR__, 2));
-$productionNginx = (string)file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/peanut-admin.conf');
-$developmentNginx = (string)file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/development.conf');
+$productionNginx = (string) file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/peanut-admin.conf');
+$developmentNginx = (string) file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/development.conf');
 entryBindingExpect(
     str_contains($sessionController, 'TenantSessionApplicationService')
         && str_contains($sessionApplication, 'TENANT_SWITCH_BOUND_ENTRY')
@@ -345,8 +358,8 @@ foreach ([$productionNginx, $developmentNginx] as $nginx) {
     );
 }
 
-$schema = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/database/init.sql'
+$schema = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/database/init.sql',
 );
 foreach (['pa_tenant_entry_binding', '`tenant_id`', '`host`', '`client_key`', 'fk_tenant_entry_binding_tenant'] as $token) {
     entryBindingExpect(str_contains($schema, $token), 'Tenant entry schema lost contract token: ' . $token);

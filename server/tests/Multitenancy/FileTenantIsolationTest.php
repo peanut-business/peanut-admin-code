@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\File\Contract\FileAdministration;
@@ -28,7 +29,7 @@ function fileTenantContext(int $tenantId, int $memberId, string $requestId): Ten
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT03FILEOBJ' . str_pad((string)$memberId, 13, '0', STR_PAD_LEFT),
+        '01JMT03FILEOBJ' . str_pad((string) $memberId, 13, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 10000,
         $memberId,
@@ -49,7 +50,7 @@ function createFileTenantSchema(PDO $pdo, string $serverRoot): void
 
 $serverRoot = dirname(__DIR__, 2);
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = 'a1-file';
@@ -59,7 +60,7 @@ $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
 );
 expectFileTenant(
     $admin->query("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = " . $admin->quote($database))->fetchColumn() === false,
@@ -82,7 +83,7 @@ try {
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
     );
     createFileTenantSchema($pdo, $serverRoot);
     $pdo->exec("INSERT INTO pa_account (id,display_name,status,security_revision,created_at,updated_at) VALUES (10501,'Alpha','active',1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(10502,'Beta','active',1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
@@ -107,7 +108,7 @@ try {
     expectFileTenant(
         StoragePath::objectKey($alpha->tenantId, 'image.upload', 'file_' . str_repeat('a', 32), 'png')
             !== StoragePath::objectKey($beta->tenantId, 'image.upload', 'file_' . str_repeat('a', 32), 'png'),
-        'two Tenants share the same object namespace'
+        'two Tenants share the same object namespace',
     );
     expectFileTenant(
         app(ExecutionContextStore::class)->run(
@@ -123,18 +124,18 @@ try {
         ),
         'Beta category was not created',
     );
-    $alphaCategory = (int)app(ExecutionContextStore::class)->run(
+    $alphaCategory = (int) app(ExecutionContextStore::class)->run(
         new \app\common\execution\AdminExecutionContext($alpha, 'test.file.category.query.alpha'),
         fn() => FileCate::where([])->where('name', 'Same category')->value('id'),
     );
-    $betaCategory = (int)app(ExecutionContextStore::class)->run(
+    $betaCategory = (int) app(ExecutionContextStore::class)->run(
         new \app\common\execution\AdminExecutionContext($beta, 'test.file.category.query.beta'),
         fn() => FileCate::where([])->where('name', 'Same category')->value('id'),
     );
     expectFileTenant($alphaCategory > 0 && $betaCategory > 0, 'same-name Tenant categories were not created');
     expectFileTenant(
-        (int)$pdo->query("SELECT tenant_id FROM pa_file_cate WHERE id = {$alphaCategory}")->fetchColumn() === 101,
-        'request payload forged category Tenant ownership'
+        (int) $pdo->query("SELECT tenant_id FROM pa_file_cate WHERE id = {$alphaCategory}")->fetchColumn() === 101,
+        'request payload forged category Tenant ownership',
     );
 
     $alphaUpload = app(ExecutionContextStore::class)->run(
@@ -155,10 +156,10 @@ try {
             502,
         ),
     );
-    $alphaFile = (int)$alphaUpload['id'];
-    $betaFile = (int)$betaUpload['id'];
-    $alphaObjectKey = (string)$pdo->query("SELECT object_key FROM pa_file_object WHERE file_key=" . $pdo->quote((string)$alphaUpload['file_key']))->fetchColumn();
-    $betaObjectKey = (string)$pdo->query("SELECT object_key FROM pa_file_object WHERE file_key=" . $pdo->quote((string)$betaUpload['file_key']))->fetchColumn();
+    $alphaFile = (int) $alphaUpload['id'];
+    $betaFile = (int) $betaUpload['id'];
+    $alphaObjectKey = (string) $pdo->query("SELECT object_key FROM pa_file_object WHERE file_key=" . $pdo->quote((string) $alphaUpload['file_key']))->fetchColumn();
+    $betaObjectKey = (string) $pdo->query("SELECT object_key FROM pa_file_object WHERE file_key=" . $pdo->quote((string) $betaUpload['file_key']))->fetchColumn();
     $alphaObject = $serverRoot . '/public/storage/' . $alphaObjectKey;
     $betaObject = $serverRoot . '/public/storage/' . $betaObjectKey;
     expectFileTenant($alphaFile > 0 && $betaFile > 0, 'same-name Tenant files were not created');
@@ -243,7 +244,7 @@ try {
         ),
         'Alpha cleanup deleted Beta file row',
     );
-    expectFileTenant((int)$pdo->query("SELECT COUNT(*) FROM pa_file WHERE tenant_id = 202 AND delete_time IS NULL")->fetchColumn() === 1, 'Beta active file count changed');
+    expectFileTenant((int) $pdo->query("SELECT COUNT(*) FROM pa_file WHERE tenant_id = 202 AND delete_time IS NULL")->fetchColumn() === 1, 'Beta active file count changed');
 
     echo "MT03-FILE-TENANT-OWNERSHIP-001 passed\n";
 } finally {

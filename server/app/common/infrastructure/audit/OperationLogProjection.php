@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\audit;
@@ -12,8 +13,7 @@ final class OperationLogProjection
 {
     public function __construct(
         private readonly ?CurrentExecutionContext $execution,
-    ) {
-    }
+    ) {}
 
     public function append(AuditEvent $event): void
     {
@@ -29,11 +29,11 @@ final class OperationLogProjection
         $params = $metadata['params'] ?? [];
         OperationLog::create([
             'tenant_id' => $event->tenantId,
-            'admin_id' => (int)($metadata['admin_id'] ?? 0),
-            'username' => (string)($metadata['username'] ?? ''),
-            'ip' => (string)($metadata['ip'] ?? $event->trace->ipAddress ?? ''),
-            'uri' => strtolower(trim((string)($metadata['uri'] ?? ''), '/')),
-            'method' => strtoupper((string)($metadata['method'] ?? '')),
+            'admin_id' => (int) ($metadata['admin_id'] ?? 0),
+            'username' => (string) ($metadata['username'] ?? ''),
+            'ip' => (string) ($metadata['ip'] ?? $event->trace->ipAddress ?? ''),
+            'uri' => strtolower(trim((string) ($metadata['uri'] ?? ''), '/')),
+            'method' => strtoupper((string) ($metadata['method'] ?? '')),
             'request_id' => $event->trace->requestId,
             'params' => RedactionPolicy::encode($params),
             'create_time' => time(),

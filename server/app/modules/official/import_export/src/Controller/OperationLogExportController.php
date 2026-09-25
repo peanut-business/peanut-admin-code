@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ImportExport\Controller;
@@ -17,7 +18,7 @@ final class OperationLogExportController extends BaseAdminController
         $operation = $this->exports->submit(
             $context,
             $this->tenantAdminActor(),
-            trim((string)$this->request->header('Idempotency-Key', '')),
+            trim((string) $this->request->header('Idempotency-Key', '')),
         );
         return $this->data($operation->toPublicArray());
     }
@@ -28,7 +29,7 @@ final class OperationLogExportController extends BaseAdminController
         $operation = $this->exports->operation(
             $context,
             $this->tenantAdminActor(),
-            (string)$this->request->get('operation_key', ''),
+            (string) $this->request->get('operation_key', ''),
         );
         return $this->data($operation->toPublicArray());
     }
@@ -39,7 +40,7 @@ final class OperationLogExportController extends BaseAdminController
         $file = $this->exports->download(
             $context,
             $this->tenantAdminActor(),
-            (string)$this->request->get('file_key', ''),
+            (string) $this->request->get('file_key', ''),
         );
         return redirect($file['url']);
     }

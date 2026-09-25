@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\runtime;
@@ -16,15 +17,13 @@ final readonly class RuntimeNamespace
     private function __construct(
         private string $environment,
         private string $resourceId,
-    )
-    {
-    }
+    ) {}
 
     public static function fromConfiguration(): self
     {
         return self::fromResourceId(
-            (string)Config::get('database.resource_id', ''),
-            (string)Config::get('peanut.environment', ''),
+            (string) Config::get('database.resource_id', ''),
+            (string) Config::get('peanut.environment', ''),
         );
     }
 
@@ -32,8 +31,8 @@ final readonly class RuntimeNamespace
     public static function fromEnvironment(): self
     {
         return self::fromResourceId(
-            (string)(getenv('PEANUT_DATABASE_RESOURCE_ID') ?: ''),
-            (string)(getenv('APP_ENV') ?: ''),
+            (string) (getenv('PEANUT_DATABASE_RESOURCE_ID') ?: ''),
+            (string) (getenv('APP_ENV') ?: ''),
         );
     }
 

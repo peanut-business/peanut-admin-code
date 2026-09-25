@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -18,12 +19,12 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->createOperator(
                 $context->operatorId,
                 $context->accountId,
-                trim((string)$params['email']),
-                trim((string)$params['display_name']),
-                isset($params['initial_password']) && (string)$params['initial_password'] !== ''
-                    ? (string)$params['initial_password']
+                trim((string) $params['email']),
+                trim((string) $params['display_name']),
+                isset($params['initial_password']) && (string) $params['initial_password'] !== ''
+                    ? (string) $params['initial_password']
                     : null,
-                $context->requestId
+                $context->requestId,
             );
         });
     }
@@ -34,11 +35,11 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->updateOperator(
                 $context->operatorId,
                 $context->accountId,
-                (int)$params['operator_id'],
-                (int)$params['expected_revision'],
-                trim((string)$params['display_name']),
-                trim((string)$params['change_reason']),
-                $context->requestId
+                (int) $params['operator_id'],
+                (int) $params['expected_revision'],
+                trim((string) $params['display_name']),
+                trim((string) $params['change_reason']),
+                $context->requestId,
             );
         });
     }
@@ -49,11 +50,11 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->replaceOperatorRoles(
                 $context->operatorId,
                 $context->accountId,
-                (int)$params['operator_id'],
-                array_values(array_map(static fn(mixed $id): int => (int)$id, $params['role_ids'])),
-                (int)$params['expected_revision'],
-                trim((string)$params['change_reason']),
-                $context->requestId
+                (int) $params['operator_id'],
+                array_values(array_map(static fn(mixed $id): int => (int) $id, $params['role_ids'])),
+                (int) $params['expected_revision'],
+                trim((string) $params['change_reason']),
+                $context->requestId,
             );
         });
     }
@@ -79,12 +80,12 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->createRole(
                 $context->operatorId,
                 $context->accountId,
-                trim((string)$params['key']),
-                trim((string)$params['name']),
-                isset($params['description']) && trim((string)$params['description']) !== ''
-                    ? trim((string)$params['description'])
+                trim((string) $params['key']),
+                trim((string) $params['name']),
+                isset($params['description']) && trim((string) $params['description']) !== ''
+                    ? trim((string) $params['description'])
                     : null,
-                $context->requestId
+                $context->requestId,
             );
         });
     }
@@ -95,14 +96,14 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->updateRole(
                 $context->operatorId,
                 $context->accountId,
-                (int)$params['role_id'],
-                (int)$params['expected_revision'],
-                trim((string)$params['name']),
-                isset($params['description']) && trim((string)$params['description']) !== ''
-                    ? trim((string)$params['description'])
+                (int) $params['role_id'],
+                (int) $params['expected_revision'],
+                trim((string) $params['name']),
+                isset($params['description']) && trim((string) $params['description']) !== ''
+                    ? trim((string) $params['description'])
                     : null,
-                trim((string)$params['change_reason']),
-                $context->requestId
+                trim((string) $params['change_reason']),
+                $context->requestId,
             );
         });
     }
@@ -113,10 +114,10 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->archiveRole(
                 $context->operatorId,
                 $context->accountId,
-                (int)$params['role_id'],
-                (int)$params['expected_revision'],
-                trim((string)$params['change_reason']),
-                $context->requestId
+                (int) $params['role_id'],
+                (int) $params['expected_revision'],
+                trim((string) $params['change_reason']),
+                $context->requestId,
             );
         });
     }
@@ -127,11 +128,11 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->replaceRolePermissions(
                 $context->operatorId,
                 $context->accountId,
-                (int)$params['role_id'],
-                array_values(array_map(static fn(mixed $key): string => trim((string)$key), $params['permission_keys'])),
-                (int)$params['expected_revision'],
-                trim((string)$params['change_reason']),
-                $context->requestId
+                (int) $params['role_id'],
+                array_values(array_map(static fn(mixed $key): string => trim((string) $key), $params['permission_keys'])),
+                (int) $params['expected_revision'],
+                trim((string) $params['change_reason']),
+                $context->requestId,
             );
         });
     }
@@ -142,11 +143,11 @@ final class PlatformAccessController extends BasePlatformController
             return $this->platformAccess->transitionOperator(
                 $context->operatorId,
                 $context->accountId,
-                (int)$params['operator_id'],
-                (int)$params['expected_revision'],
+                (int) $params['operator_id'],
+                (int) $params['expected_revision'],
                 $status,
-                trim((string)$params['change_reason']),
-                $context->requestId
+                trim((string) $params['change_reason']),
+                $context->requestId,
             );
         });
     }

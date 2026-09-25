@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\execution;
@@ -35,9 +36,18 @@ final readonly class ConsumerExecutionContext implements ExecutionContext
         return new self(null, null, $operation, $requestId);
     }
 
-    public function operation(): string { return trim($this->operation); }
-    public function requestId(): string { return trim($this->requestId); }
-    public function tenantId(): ?int { return $this->member?->tenantId ?? $this->publicTenant?->tenantId; }
+    public function operation(): string
+    {
+        return trim($this->operation);
+    }
+    public function requestId(): string
+    {
+        return trim($this->requestId);
+    }
+    public function tenantId(): ?int
+    {
+        return $this->member?->tenantId ?? $this->publicTenant?->tenantId;
+    }
 
     public function actor(): array
     {

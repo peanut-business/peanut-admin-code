@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth;
@@ -47,7 +48,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(ExternalTenantResolutionService::class),
                 $app->make(OAuthPersistence::class),
                 $app->make(OAuthTransport::class),
-                (string)$app->config->get('project.default_image.user_avatar', ''),
+                (string) $app->config->get('project.default_image.user_avatar', ''),
             ),
             OAuthQueries::class => OAuthQueryService::class,
         ];

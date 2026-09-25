@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -26,12 +27,12 @@ final class ModulePack extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         return $this->runPackageCommand($output, function () use ($input): array {
-            $key = trim((string)$input->getArgument('module_key'));
+            $key = trim((string) $input->getArgument('module_key'));
             $service = new PluginPackageArchiveService(dirname(__DIR__, 2));
             $inspection = (new \app\platform\validation\plugin\ModulePackagePreflight(dirname(__DIR__, 3)))->inspect($key);
             return $service->packModule(
                 $key,
-                $this->packageOutput($key, $inspection['version'], trim((string)$input->getOption('output'))),
+                $this->packageOutput($key, $inspection['version'], trim((string) $input->getOption('output'))),
                 $this->packageSigner($input),
             );
         });

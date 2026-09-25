@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Contract;
@@ -28,9 +29,8 @@ final class ExternalTenantContext
     }
 
     public static function tenantId(
-        AuthenticatedMemberContext|TenantContext|TenantSystemContext $context
-    ): int
-    {
+        AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
+    ): int {
         if ($context instanceof AuthenticatedMemberContext) {
             return $context->tenantId;
         }

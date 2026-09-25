@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -15,8 +16,7 @@ class SmsApplicationService
     public function __construct(
         private readonly MemberIdentityCommands $memberIdentities,
         private readonly VerificationCodeCommands $verificationCodes,
-    ) {
-    }
+    ) {}
 
     public function sendCode(TenantContext|TenantSystemContext $context, array $params): bool
     {

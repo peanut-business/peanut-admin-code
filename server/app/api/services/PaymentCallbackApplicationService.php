@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -44,7 +45,10 @@ final readonly class PaymentCallbackApplicationService
         int $paymentMethod,
     ): void {
         $resolution = $this->externalTenants->verifiedCallback(
-            $provider, $binding, 'payment.settle', $operationId,
+            $provider,
+            $binding,
+            'payment.settle',
+            $operationId,
             fn(array $config) => $this->recharges->parseCallback($channel, $config, $request),
         );
         $event = $resolution->verifiedValue;

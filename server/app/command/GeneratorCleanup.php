@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\command;
@@ -26,8 +27,8 @@ class GeneratorCleanup extends ContextualCommand
         $cleanedIds = [];
         foreach ($rows as $row) {
             try {
-                GeneratorArchiveService::cleanup((string)$row->archive_path, (int)$row->admin_id);
-                $cleanedIds[] = (int)$row->id;
+                GeneratorArchiveService::cleanup((string) $row->archive_path, (int) $row->admin_id);
+                $cleanedIds[] = (int) $row->id;
             } catch (\Throwable) {
                 // 保留记录供下一轮重试，不扩大删除范围。
             }

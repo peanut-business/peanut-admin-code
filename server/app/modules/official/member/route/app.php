@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\Member\Controller\MemberController;
@@ -16,23 +17,23 @@ use app\common\infrastructure\module\OfficialModuleMiddleware;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) === 'adminapi') {
-Route::group(function (): void {
-    Route::get('official.member.list', [MemberController::class, 'lists']);
-    Route::get('official.member.detail', [MemberController::class, 'detail']);
-    Route::post('official.member.add', [MemberController::class, 'add']);
-    Route::post('official.member.edit', [MemberController::class, 'edit']);
-    Route::post('official.member.update-status', [MemberController::class, 'updateStatus']);
-    Route::post('official.member.balance.adjust', [MemberController::class, 'adjustMoney']);
-    Route::get('official.member.tag.list', [MemberTagController::class, 'lists']);
-    Route::post('official.member.tag.add', [MemberTagController::class, 'add']);
-    Route::post('official.member.tag.edit', [MemberTagController::class, 'edit']);
-    Route::post('official.member.tag.delete', [MemberTagController::class, 'delete']);
-    Route::get('official.member.account-log.list', [AccountLogController::class, 'lists']);
-    Route::get('official.member.account-log.change-types', [AccountLogController::class, 'getUmChangeType']);
-})->middleware(LoginMiddleware::class)
-    ->middleware(OfficialModuleMiddleware::class, 'official.member', 'http.admin')
-    ->middleware(AuthMiddleware::class)
-    ->middleware(OperationLogMiddleware::class);
+    Route::group(function (): void {
+        Route::get('official.member.list', [MemberController::class, 'lists']);
+        Route::get('official.member.detail', [MemberController::class, 'detail']);
+        Route::post('official.member.add', [MemberController::class, 'add']);
+        Route::post('official.member.edit', [MemberController::class, 'edit']);
+        Route::post('official.member.update-status', [MemberController::class, 'updateStatus']);
+        Route::post('official.member.balance.adjust', [MemberController::class, 'adjustMoney']);
+        Route::get('official.member.tag.list', [MemberTagController::class, 'lists']);
+        Route::post('official.member.tag.add', [MemberTagController::class, 'add']);
+        Route::post('official.member.tag.edit', [MemberTagController::class, 'edit']);
+        Route::post('official.member.tag.delete', [MemberTagController::class, 'delete']);
+        Route::get('official.member.account-log.list', [AccountLogController::class, 'lists']);
+        Route::get('official.member.account-log.change-types', [AccountLogController::class, 'getUmChangeType']);
+    })->middleware(LoginMiddleware::class)
+        ->middleware(OfficialModuleMiddleware::class, 'official.member', 'http.admin')
+        ->middleware(AuthMiddleware::class)
+        ->middleware(OperationLogMiddleware::class);
 }
 
 if (($peanutRouteApplication ?? null) !== 'api') {

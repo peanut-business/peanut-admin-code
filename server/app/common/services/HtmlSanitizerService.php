@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services;
@@ -55,7 +56,5 @@ final class HtmlSanitizerService
         return self::$sanitizer = new HtmlSanitizer($config);
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

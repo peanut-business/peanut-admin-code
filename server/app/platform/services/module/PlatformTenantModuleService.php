@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\module;
@@ -21,9 +22,8 @@ final readonly class PlatformTenantModuleService implements TenantModuleCommands
         private PlatformOperatorSessionService $sessions,
         private TenantGovernanceService $governance,
         private DeployedTenantModuleRegistry $registry,
-        private OpisTenantModuleConfigValidator $configValidator
-    ) {
-    }
+        private OpisTenantModuleConfigValidator $configValidator,
+    ) {}
 
     /** @param array<string,mixed> $config @return array<string,mixed> */
     public function enable(
@@ -35,7 +35,7 @@ final readonly class PlatformTenantModuleService implements TenantModuleCommands
         ?DateTimeImmutable $effectiveAt,
         ?DateTimeImmutable $expiresAt,
         string $changeReason,
-        string $requestId
+        string $requestId,
     ): array {
         $context = $this->sessions->context($operatorCredential, $requestId);
         $this->sessions->assertAllowed($context, self::PERMISSION);
@@ -55,7 +55,7 @@ final readonly class PlatformTenantModuleService implements TenantModuleCommands
             $effectiveAt,
             $expiresAt,
             $changeReason,
-            $requestId
+            $requestId,
         );
     }
 
@@ -65,7 +65,7 @@ final readonly class PlatformTenantModuleService implements TenantModuleCommands
         int $tenantId,
         string $moduleKey,
         string $changeReason,
-        string $requestId
+        string $requestId,
     ): array {
         $context = $this->sessions->context($operatorCredential, $requestId);
         $this->sessions->assertAllowed($context, self::PERMISSION);
@@ -80,7 +80,7 @@ final readonly class PlatformTenantModuleService implements TenantModuleCommands
             $tenantId,
             $moduleKey,
             $changeReason,
-            $requestId
+            $requestId,
         );
     }
 
@@ -89,7 +89,7 @@ final readonly class PlatformTenantModuleService implements TenantModuleCommands
         return new AdminAccessException(
             $exception->errorCode,
             $exception->errorCode === 'MODULE_CONFIG_INVALID' ? 422 : 409,
-            $exception->getMessage()
+            $exception->getMessage(),
         );
     }
 }

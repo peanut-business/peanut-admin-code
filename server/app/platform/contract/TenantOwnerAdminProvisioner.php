@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\contract;
@@ -11,6 +12,6 @@ interface TenantOwnerAdminProvisioner
         int $memberId,
         int $coreRoleId,
         string $tenantCode,
-        string $displayName
+        string $displayName,
     ): int;
 }

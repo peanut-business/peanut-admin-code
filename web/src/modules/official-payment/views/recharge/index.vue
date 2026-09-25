@@ -345,7 +345,7 @@
           inputErrorMessage: t('recharge.refund.amount.invalid'),
           confirmButtonText: t('recharge.refund.amount.confirm'),
           cancelButtonText: t('recharge.refund.amount.cancel'),
-        },
+        }
       );
       amount = Number(result.value);
     } catch (error) {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
@@ -28,7 +29,7 @@ final class EditionProjector
         string $content,
         EditionProfile $profile,
     ): array {
-        $path = (string)$entry['target'];
+        $path = (string) $entry['target'];
         $content = match ($path) {
             'server/.env.example' => $this->serverEnvironment($content, $profile->edition),
             'server/config/app.php' => $this->applicationConfig($content, $profile),
@@ -38,7 +39,7 @@ final class EditionProjector
         };
         $destination = $stage . DIRECTORY_SEPARATOR
             . str_replace('/', DIRECTORY_SEPARATOR, $path);
-        $this->writeFile($destination, $content, (int)$entry['mode']);
+        $this->writeFile($destination, $content, (int) $entry['mode']);
 
         return [
             'path' => $path,

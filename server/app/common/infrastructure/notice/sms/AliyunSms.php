@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\notice\sms;
@@ -55,7 +56,7 @@ final class AliyunSms implements SmsDriver
 
         $stringToSign = 'POST&%2F&' . rawurlencode($query);
         $params['Signature'] = base64_encode(
-            hash_hmac('sha1', $stringToSign, $this->accessKeySecret . '&', true)
+            hash_hmac('sha1', $stringToSign, $this->accessKeySecret . '&', true),
         );
 
         $body = http_build_query($params);
@@ -70,14 +71,14 @@ final class AliyunSms implements SmsDriver
         $resp = $response->body;
 
         $data = json_decode((string) $resp, true);
-        $receipt = is_array($data) ? $data : ['raw' => (string)$resp];
-        if (!is_array($data) || trim((string)($data['Code'] ?? '')) === '') {
+        $receipt = is_array($data) ? $data : ['raw' => (string) $resp];
+        if (!is_array($data) || trim((string) ($data['Code'] ?? '')) === '') {
             return new SmsDriverResult(SmsDriverResult::OUTCOME_UNKNOWN, '短信服务商返回无法确认', $receipt);
         }
         if ($data['Code'] !== 'OK') {
             return new SmsDriverResult(
                 SmsDriverResult::OUTCOME_FAILED,
-                (string)($data['Message'] ?? $data['Code']),
+                (string) ($data['Message'] ?? $data['Code']),
                 $receipt,
             );
         }

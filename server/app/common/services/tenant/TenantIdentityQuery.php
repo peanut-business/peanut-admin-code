@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\tenant;
@@ -13,6 +14,6 @@ final class TenantIdentityQuery
         if ($tenantId < 1) {
             return '';
         }
-        return trim((string)Db::name('tenant')->where('id', $tenantId)->where('status', 'active')->value('name'));
+        return trim((string) Db::name('tenant')->where('id', $tenantId)->where('status', 'active')->value('name'));
     }
 }

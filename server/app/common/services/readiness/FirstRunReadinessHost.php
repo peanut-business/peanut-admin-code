@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\services\readiness;
@@ -26,8 +27,7 @@ final class FirstRunReadinessHost
         private readonly CoreTenantModuleAdminBridge $modules,
         private readonly StorageConfiguration $storage,
         private readonly WebsiteConfigService $website,
-    ) {
-    }
+    ) {}
 
     /** @return array{production_ready:bool,summary:array<string,int>,items:list<array<string,mixed>>} */
     public function checklist(
@@ -63,11 +63,11 @@ final class FirstRunReadinessHost
             'production_blockers' => 0,
         ];
         foreach ($items as $item) {
-            $status = (string)$item['status'];
+            $status = (string) $item['status'];
             if (array_key_exists($status, $summary)) {
                 $summary[$status]++;
             }
-            if ((bool)$item['production_blocking']) {
+            if ((bool) $item['production_blocking']) {
                 $summary['production_blockers']++;
             }
         }
@@ -87,7 +87,7 @@ final class FirstRunReadinessHost
         $complete = $this->fieldsPresent($website, $requiredFields);
         $customized = false;
         foreach ($defaults as $field => $default) {
-            if ((string)($website[$field] ?? '') !== $default) {
+            if ((string) ($website[$field] ?? '') !== $default) {
                 $customized = true;
                 break;
             }
@@ -109,7 +109,7 @@ final class FirstRunReadinessHost
         $smsConfigured = false;
         if ($moduleEnabled) {
             $detail = $this->notifications->channelDetail();
-            $smsConfigured = (bool)($detail['status']['sms'] ?? false);
+            $smsConfigured = (bool) ($detail['status']['sms'] ?? false);
         }
 
         return $this->item(
@@ -205,8 +205,8 @@ final class FirstRunReadinessHost
 
     private function domainTls(string $requestOrigin, string $deploymentMode): array
     {
-        $scheme = strtolower((string)parse_url($requestOrigin, PHP_URL_SCHEME));
-        $host = strtolower((string)parse_url($requestOrigin, PHP_URL_HOST));
+        $scheme = strtolower((string) parse_url($requestOrigin, PHP_URL_SCHEME));
+        $host = strtolower((string) parse_url($requestOrigin, PHP_URL_HOST));
         $https = $scheme === 'https';
         $publicHost = $this->publicHost($host);
         $observed = $https && $publicHost;
@@ -282,7 +282,7 @@ final class FirstRunReadinessHost
     private function fieldsPresent(array $values, array $fields): bool
     {
         foreach ($fields as $field) {
-            if (trim((string)($values[$field] ?? '')) === '') {
+            if (trim((string) ($values[$field] ?? '')) === '') {
                 return false;
             }
         }
@@ -293,38 +293,38 @@ final class FirstRunReadinessHost
     private function defaultStorageRoutesConfigured(array $snapshot): bool
     {
         $accounts = [];
-        foreach ((array)($snapshot['accounts'] ?? []) as $account) {
+        foreach ((array) ($snapshot['accounts'] ?? []) as $account) {
             if (is_array($account)) {
-                $accounts[(int)($account['id'] ?? 0)] = $account;
+                $accounts[(int) ($account['id'] ?? 0)] = $account;
             }
         }
         $spaces = [];
-        foreach ((array)($snapshot['spaces'] ?? []) as $space) {
+        foreach ((array) ($snapshot['spaces'] ?? []) as $space) {
             if (is_array($space)) {
-                $spaces[(int)($space['id'] ?? 0)] = $space;
+                $spaces[(int) ($space['id'] ?? 0)] = $space;
             }
         }
 
         $ready = ['default.public' => false, 'default.private' => false];
-        foreach ((array)($snapshot['routes'] ?? []) as $route) {
+        foreach ((array) ($snapshot['routes'] ?? []) as $route) {
             if (!is_array($route)) {
                 continue;
             }
-            $key = (string)($route['route_key'] ?? '');
+            $key = (string) ($route['route_key'] ?? '');
             if (!array_key_exists($key, $ready)) {
                 continue;
             }
-            $space = $spaces[(int)($route['space_id'] ?? 0)] ?? null;
+            $space = $spaces[(int) ($route['space_id'] ?? 0)] ?? null;
             $account = is_array($space)
-                ? ($accounts[(int)($space['account_id'] ?? 0)] ?? null)
+                ? ($accounts[(int) ($space['account_id'] ?? 0)] ?? null)
                 : null;
             $expectedAccess = substr($key, strlen('default.'));
             $ready[$key] = is_array($space)
                 && is_array($account)
-                && (string)($route['access_type'] ?? '') === $expectedAccess
-                && (string)($space['access_type'] ?? '') === $expectedAccess
-                && (string)($space['status'] ?? '') === 'active'
-                && (string)($account['status'] ?? '') === 'active';
+                && (string) ($route['access_type'] ?? '') === $expectedAccess
+                && (string) ($space['access_type'] ?? '') === $expectedAccess
+                && (string) ($space['status'] ?? '') === 'active'
+                && (string) ($account['status'] ?? '') === 'active';
         }
         return !in_array(false, $ready, true);
     }

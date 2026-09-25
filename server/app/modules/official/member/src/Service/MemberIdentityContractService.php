@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Service;
@@ -15,9 +16,7 @@ use think\facade\Db;
 /** Owns member credential creation, verification, and identity snapshots within one Tenant. */
 final class MemberIdentityContractService implements MemberIdentityCommands
 {
-    public function __construct(private readonly ?MemberSessions $sessions = null)
-    {
-    }
+    public function __construct(private readonly ?MemberSessions $sessions = null) {}
 
     public function register(TenantSystemContext $context, string $account, string $password, string $avatar): void
     {
@@ -43,13 +42,13 @@ final class MemberIdentityContractService implements MemberIdentityCommands
         if ($member->isEmpty()) {
             throw new \runtimeException('账号不存在');
         }
-        if (!(int)$member->status) {
+        if (!(int) $member->status) {
             throw new \runtimeException('账号已被禁用');
         }
-        if (!$this->passwordMatches((string)$member->password, $password)) {
+        if (!$this->passwordMatches((string) $member->password, $password)) {
             throw new \runtimeException('密码错误');
         }
-        if (password_needs_rehash((string)$member->password, PASSWORD_ARGON2ID)) {
+        if (password_needs_rehash((string) $member->password, PASSWORD_ARGON2ID)) {
             // A successful legacy login is the only point where the plaintext is available for one-time migration.
             $member->password = $this->passwordHash($password);
         }
@@ -78,7 +77,7 @@ final class MemberIdentityContractService implements MemberIdentityCommands
                 'status' => 1,
             ]);
         }
-        if (!(int)$member->status) {
+        if (!(int) $member->status) {
             throw new \runtimeException('账号已被禁用');
         }
         $member->login_time = time();
@@ -99,9 +98,9 @@ final class MemberIdentityContractService implements MemberIdentityCommands
                 throw new \runtimeException('手机号未绑定账号');
             }
             $member->password = $this->passwordHash($password);
-            $member->session_revision = (int)$member->getData('session_revision') + 1;
+            $member->session_revision = (int) $member->getData('session_revision') + 1;
             $member->save();
-            $sessions->revokeAll($context->tenantId, (int)$member->id, 'password_reset', time());
+            $sessions->revokeAll($context->tenantId, (int) $member->id, 'password_reset', time());
         });
     }
 
@@ -134,11 +133,11 @@ final class MemberIdentityContractService implements MemberIdentityCommands
             if ($member->isEmpty()) {
                 throw new \runtimeException('用户不存在');
             }
-            if (!$this->passwordMatches((string)$member->password, $oldPassword)) {
+            if (!$this->passwordMatches((string) $member->password, $oldPassword)) {
                 throw new \runtimeException('原密码错误');
             }
             $member->password = $this->passwordHash($newPassword);
-            $member->session_revision = (int)$member->getData('session_revision') + 1;
+            $member->session_revision = (int) $member->getData('session_revision') + 1;
             $member->save();
             $sessions->revokeAll($context->tenantId, $memberId, 'password_change', time());
         });
@@ -163,13 +162,13 @@ final class MemberIdentityContractService implements MemberIdentityCommands
             'account' => $account,
             'password' => '',
             'nickname' => mb_substr(
-                (string)$profile['nickname'] !== '' ? (string)$profile['nickname'] : ('微信用户' . substr($sn, -6)),
+                (string) $profile['nickname'] !== '' ? (string) $profile['nickname'] : ('微信用户' . substr($sn, -6)),
                 0,
                 50,
             ),
-            'avatar' => (string)$profile['avatar'],
+            'avatar' => (string) $profile['avatar'],
             'mobile' => '',
-            'channel' => (int)$profile['channel'],
+            'channel' => (int) $profile['channel'],
             'is_new_user' => 1,
             'status' => 1,
         ]);
@@ -218,12 +217,12 @@ final class MemberIdentityContractService implements MemberIdentityCommands
     private static function snapshot(object $member): MemberIdentitySnapshot
     {
         return new MemberIdentitySnapshot(
-            (int)$member->id,
-            (string)$member->sn,
-            (string)$member->nickname,
-            (string)$member->avatar,
-            (string)$member->mobile,
-            (int)$member->status,
+            (int) $member->id,
+            (string) $member->sn,
+            (string) $member->nickname,
+            (string) $member->avatar,
+            (string) $member->mobile,
+            (int) $member->status,
         );
     }
 }

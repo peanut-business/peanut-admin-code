@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\payment;
@@ -40,8 +41,8 @@ final class WechatPayGateway implements PrepayGatewayInterface
         }
 
         $payload = [
-            'appid' => trim((string)$this->config['wx_pay_appid']),
-            'mchid' => trim((string)$this->config['wx_pay_mch_id']),
+            'appid' => trim((string) $this->config['wx_pay_appid']),
+            'mchid' => trim((string) $this->config['wx_pay_mch_id']),
             'description' => $request->description(),
             'out_trade_no' => $request->orderSn(),
             'notify_url' => $request->notifyUrl(),
@@ -59,13 +60,13 @@ final class WechatPayGateway implements PrepayGatewayInterface
         if ($body === false) {
             throw new \RuntimeException('微信预支付请求生成失败');
         }
-        $timestamp = (string)time();
+        $timestamp = (string) time();
         $nonce = bin2hex(random_bytes(16));
-        $privateKey = PaymentCrypto::privateKey((string)$this->config['wx_pay_cert_key_path']);
+        $privateKey = PaymentCrypto::privateKey((string) $this->config['wx_pay_cert_key_path']);
         $serial = $this->merchantCertificateSerial();
         $message = "POST\n{$endpoint}\n{$timestamp}\n{$nonce}\n{$body}\n";
         $authorization = 'WECHATPAY2-SHA256-RSA2048 '
-            . 'mchid="' . trim((string)$this->config['wx_pay_mch_id']) . '",'
+            . 'mchid="' . trim((string) $this->config['wx_pay_mch_id']) . '",'
             . 'nonce_str="' . $nonce . '",'
             . 'signature="' . PaymentCrypto::sign($message, $privateKey) . '",'
             . 'timestamp="' . $timestamp . '",'
@@ -74,15 +75,15 @@ final class WechatPayGateway implements PrepayGatewayInterface
             'POST',
             'https://api.mch.weixin.qq.com' . $endpoint,
             ['Accept: application/json', 'Content-Type: application/json', 'Authorization: ' . $authorization],
-            $body
+            $body,
         );
         PaymentCrypto::verifyWechatResponse(
             $response,
-            (string)$this->config['wx_pay_platform_cert_path']
+            (string) $this->config['wx_pay_platform_cert_path'],
         );
         $decoded = json_decode($response->body(), true);
         if ($response->statusCode() < 200 || $response->statusCode() >= 300 || !is_array($decoded)) {
-            $message = is_array($decoded) ? (string)($decoded['message'] ?? $decoded['code'] ?? '') : '';
+            $message = is_array($decoded) ? (string) ($decoded['message'] ?? $decoded['code'] ?? '') : '';
             throw new \RuntimeException('微信预支付失败' . ($message !== '' ? ':' . $message : ''));
         }
         return new PrepayResult('wechat', $scene, $this->clientPayload($scene, $decoded, $privateKey));
@@ -90,14 +91,14 @@ final class WechatPayGateway implements PrepayGatewayInterface
 
     private function assertConfig(): void
     {
-        if ((int)($this->config['wx_pay_status'] ?? 0) !== 1) {
+        if ((int) ($this->config['wx_pay_status'] ?? 0) !== 1) {
             throw new \RuntimeException('微信支付未开启');
         }
         foreach ([
             'wx_pay_appid', 'wx_pay_mch_id', 'wx_pay_cert_path',
             'wx_pay_cert_key_path', 'wx_pay_platform_cert_path',
         ] as $key) {
-            if (trim((string)($this->config[$key] ?? '')) === '') {
+            if (trim((string) ($this->config[$key] ?? '')) === '') {
                 throw new \RuntimeException('微信支付配置不完整:' . $key);
             }
         }
@@ -105,26 +106,32 @@ final class WechatPayGateway implements PrepayGatewayInterface
 
     private function merchantCertificateSerial(): string
     {
-        return PaymentCrypto::certificateSerial((string)$this->config['wx_pay_cert_path']);
+        return PaymentCrypto::certificateSerial((string) $this->config['wx_pay_cert_path']);
     }
 
     private function clientPayload(string $scene, array $response, $privateKey): array
     {
         if ($scene === 'NATIVE') {
-            $value = trim((string)($response['code_url'] ?? ''));
-            if ($value === '') { throw new \RuntimeException('微信预支付响应缺少 code_url'); }
+            $value = trim((string) ($response['code_url'] ?? ''));
+            if ($value === '') {
+                throw new \RuntimeException('微信预支付响应缺少 code_url');
+            }
             return ['code_url' => $value];
         }
         if ($scene === 'MWEB') {
-            $value = trim((string)($response['h5_url'] ?? ''));
-            if ($value === '') { throw new \RuntimeException('微信预支付响应缺少 h5_url'); }
+            $value = trim((string) ($response['h5_url'] ?? ''));
+            if ($value === '') {
+                throw new \RuntimeException('微信预支付响应缺少 h5_url');
+            }
             return ['h5_url' => $value];
         }
-        $prepayId = trim((string)($response['prepay_id'] ?? ''));
-        if ($prepayId === '') { throw new \RuntimeException('微信预支付响应缺少 prepay_id'); }
-        $timestamp = (string)time();
+        $prepayId = trim((string) ($response['prepay_id'] ?? ''));
+        if ($prepayId === '') {
+            throw new \RuntimeException('微信预支付响应缺少 prepay_id');
+        }
+        $timestamp = (string) time();
         $nonce = bin2hex(random_bytes(16));
-        $appId = trim((string)$this->config['wx_pay_appid']);
+        $appId = trim((string) $this->config['wx_pay_appid']);
         if ($scene === 'JSAPI') {
             $package = 'prepay_id=' . $prepayId;
             return [
@@ -139,14 +146,14 @@ final class WechatPayGateway implements PrepayGatewayInterface
         $package = 'Sign=WXPay';
         return [
             'appid' => $appId,
-            'partnerid' => trim((string)$this->config['wx_pay_mch_id']),
+            'partnerid' => trim((string) $this->config['wx_pay_mch_id']),
             'prepayid' => $prepayId,
             'package' => $package,
             'noncestr' => $nonce,
             'timestamp' => $timestamp,
             'sign' => PaymentCrypto::sign(
-                "{$appId}\n" . trim((string)$this->config['wx_pay_mch_id']) . "\n{$prepayId}\n{$package}\n{$nonce}\n{$timestamp}\n",
-                $privateKey
+                "{$appId}\n" . trim((string) $this->config['wx_pay_mch_id']) . "\n{$prepayId}\n{$package}\n{$nonce}\n{$timestamp}\n",
+                $privateKey,
             ),
         ];
     }

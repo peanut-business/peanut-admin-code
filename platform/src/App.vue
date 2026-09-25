@@ -4,120 +4,1833 @@
       <p class="brand">PEANUT ADMIN</p>
       <template v-if="invitation">
         <h1>接受租户所有者邀请</h1>
-        <p class="muted">{{ invitation.tenant_name }} · {{ invitation.display_name }}（{{ invitation.email_hint }}）</p>
-        <el-alert :title="`邀请有效期至 ${invitation.expires_at}`" type="info" :closable="false" />
-        <el-form v-if="invitation.requires_password" label-position="top" @submit.prevent="acceptInvitation">
-          <el-form-item label="设置账户密码"><el-input v-model="acceptPassword" type="password" show-password autocomplete="new-password" /></el-form-item>
-          <el-button native-type="submit" type="primary" :loading="loading" class="wide">接受邀请</el-button>
+        <p class="muted"
+          >{{ invitation.tenant_name }} · {{ invitation.display_name }}（{{
+            invitation.email_hint
+          }}）</p
+        >
+        <el-alert
+          :title="`邀请有效期至 ${invitation.expires_at}`"
+          type="info"
+          :closable="false"
+        />
+        <el-form
+          v-if="invitation.requires_password"
+          label-position="top"
+          @submit.prevent="acceptInvitation"
+        >
+          <el-form-item label="设置账户密码"
+            ><el-input
+              v-model="acceptPassword"
+              type="password"
+              show-password
+              autocomplete="new-password"
+          /></el-form-item>
+          <el-button
+            native-type="submit"
+            type="primary"
+            :loading="loading"
+            class="wide"
+            >接受邀请</el-button
+          >
         </el-form>
-        <el-button v-else type="primary" :loading="loading" class="wide" @click="acceptInvitation">接受邀请</el-button>
+        <el-button
+          v-else
+          type="primary"
+          :loading="loading"
+          class="wide"
+          @click="acceptInvitation"
+          >接受邀请</el-button
+        >
       </template>
-      <el-result v-else-if="error" icon="error" title="邀请不可用" :sub-title="error"><template #extra><el-button @click="goToTenantLogin">前往租户管理端登录</el-button></template></el-result>
+      <el-result
+        v-else-if="error"
+        icon="error"
+        title="邀请不可用"
+        :sub-title="error"
+        ><template #extra
+          ><el-button @click="goToTenantLogin"
+            >前往租户管理端登录</el-button
+          ></template
+        ></el-result
+      >
     </el-card>
   </section>
-  <section v-else-if="!authenticated" class="login-shell"><el-card class="login-card"><p class="brand">PEANUT ADMIN</p><h1>实例平台管理</h1><p class="muted">实例平台操作员使用独立平台会话；平台身份不授予租户业务权限。</p><el-form @submit.prevent="login"><el-form-item><el-input v-model="credentials.email" placeholder="实例平台操作员邮箱" autocomplete="username" /></el-form-item><el-form-item><el-input v-model="credentials.password" type="password" show-password placeholder="密码" autocomplete="current-password" /></el-form-item><el-alert v-if="error" :title="error" type="error" :closable="false" /><el-button native-type="submit" type="primary" :loading="loading" class="wide">登录实例平台</el-button></el-form></el-card></section>
-  <el-container v-else class="app-shell"><el-aside width="224px"><div class="logo">PEANUT <b>平台</b></div><el-menu :default-active="view" @select="selectView"><el-menu-item index="overview">概览</el-menu-item><el-menu-item v-if="can('platform.ops.read')" index="ops">运行与维护</el-menu-item><el-menu-item index="tenants">租户与生命周期</el-menu-item><el-menu-item index="owners">租户所有者邀请</el-menu-item><el-menu-item index="endpoints">入口域名与客户端</el-menu-item><el-menu-item v-if="can('platform.tenant.read')" index="modules">租户模块开通</el-menu-item><el-menu-item v-if="can('platform.module.read')" index="developer">开发者中心</el-menu-item><el-menu-item index="storage">存储基础设施</el-menu-item><el-menu-item index="operators">实例平台操作员</el-menu-item><el-menu-item index="roles">平台角色与权限</el-menu-item><el-menu-item index="audit">平台审计</el-menu-item></el-menu></el-aside><el-container><el-header><div><b>{{ title }}</b><span class="muted">实例平台控制面</span></div><div><el-button text :loading="loading" @click="refreshView">刷新</el-button><el-button text @click="logout">退出登录</el-button></div></el-header><el-main><el-alert v-if="error" :title="error" type="error" show-icon @close="error = ''" />
-    <template v-if="view === 'overview'"><div class="metric-grid"><el-card><span>租户总数</span><strong>{{ tenants.length }}</strong></el-card><el-card><span>运行中租户</span><strong>{{ activeCount }}</strong></el-card><el-card><span>实例平台操作员</span><strong>{{ operators.length }}</strong></el-card></div><el-card><template #header>实例状态</template><el-descriptions :column="2"><el-descriptions-item label="控制面">实例平台操作员独立会话</el-descriptions-item><el-descriptions-item label="治理范围">仅管理本实例租户，不进入租户业务会话</el-descriptions-item></el-descriptions></el-card></template>
-    <template v-else-if="view === 'ops'"><el-alert title="维护窗口可由具备维护权限的平台操作员计划或关闭；窗口生效期间，后端统一拒绝除维护控制接口外的 HTTP 写入并留存审计。" type="info" :closable="false"/><el-card v-loading="upgradeReadinessLoading" class="backup-center-card"><template #header>升级就绪</template><template v-if="upgradeReadiness"><el-alert :title="`${readinessLabel(upgradeReadiness.state)} · ${upgradeReadiness.code}`" :type="readinessType(upgradeReadiness.state)" :closable="false"/><el-descriptions :column="2" border><el-descriptions-item label="静态预检">{{ readinessLabel(upgradeReadiness.preflight.state) }} · {{ upgradeReadiness.preflight.code }}</el-descriptions-item><el-descriptions-item label="当前 Runtime">{{ upgradeReadiness.source.runtime.release_key || upgradeReadiness.source.runtime.commit.slice(0, 12) }}</el-descriptions-item><el-descriptions-item label="目标 Release">{{ upgradeReadiness.target?.release_key || '尚未由 Deployment 固定' }}</el-descriptions-item><el-descriptions-item label="目标迁移">{{ upgradeReadiness.migrations.release ? `${upgradeReadiness.migrations.release.pending_count ?? '待分析'} 项待应用` : '待分析' }}</el-descriptions-item><el-descriptions-item label="Module 兼容">{{ upgradeReadiness.modules.compatible_count }} / {{ upgradeReadiness.modules.installed_count }}</el-descriptions-item>
-<el-descriptions-item label="Scaffold 来源">{{ upgradeReadiness.source.application && upgradeReadiness.target ? `${upgradeReadiness.source.application.template_version} → ${upgradeReadiness.target.scaffold.to_version} · ${upgradeReadiness.scaffold.code}` : '待核验' }}</el-descriptions-item>
-<el-descriptions-item label="部署语义">完整应用发布，业务代码随本应用发布包部署；不在运行环境合并脚手架文件</el-descriptions-item>
-<el-descriptions-item label="恢复指针">{{ upgradeReadiness.recovery_pointer ? `${upgradeReadiness.recovery_pointer.backup_reference_key} / ${upgradeReadiness.recovery_pointer.restore_verification_sha256.slice(0, 12)}…` : '尚未形成' }}</el-descriptions-item></el-descriptions><el-table :data="upgradeReadiness.checks" empty-text="暂无升级检查"><el-table-column prop="key" label="检查"/><el-table-column label="状态"><template #default="{ row }"><el-tag :type="readinessType(row.status)">{{ readinessLabel(row.status) }}</el-tag></template></el-table-column><el-table-column prop="code" label="稳定原因码"/></el-table></template><el-empty v-else description="升级就绪投影尚未加载"/></el-card><el-card v-loading="upgradeCenterLoading" class="backup-center-card"><template #header><div class="card-header"><span>应用升级执行</span><el-button v-if="can('platform.ops.upgrade.manage')" type="primary" :loading="upgradeSubmitting" :disabled="!upgradeReadiness || upgradeReadiness.preflight.state !== 'ready' || !!activeUpgrade" @click="executeUpgrade">执行固定升级</el-button></div></template><el-alert title="执行目标只来自 Deployment 已固定的 descriptor。页面不能提交路径、URL、命令、Release、镜像、凭据或部署目标。" type="info" :closable="false"/><template v-if="latestUpgrade"><el-descriptions :column="2" border><el-descriptions-item label="任务">{{ latestUpgrade.task_key }}</el-descriptions-item><el-descriptions-item label="状态">{{ statusLabel(latestUpgrade.status) }}</el-descriptions-item><el-descriptions-item label="当前步骤">{{ upgradeStepLabel(latestUpgrade.current_step) }}</el-descriptions-item><el-descriptions-item label="目标 Release">{{ latestUpgrade.target.release_key }}</el-descriptions-item><el-descriptions-item label="新备份">{{ latestUpgrade.backup_reference_key || '待执行' }}</el-descriptions-item><el-descriptions-item label="恢复指针">{{ latestUpgrade.recovery_pointer_sha256 ? `${latestUpgrade.recovery_pointer_sha256.slice(0, 12)}…` : '待形成' }}</el-descriptions-item></el-descriptions><el-table :data="latestUpgrade.steps" empty-text="任务尚未被控制 worker 领取"><el-table-column label="步骤"><template #default="{ row }">{{ upgradeStepLabel(row.step_key) }}</template></el-table-column><el-table-column label="状态"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column><el-table-column prop="last_error_code" label="停止原因"><template #default="{ row }">{{ row.last_error_code || '—' }}</template></el-table-column><el-table-column prop="completed_at" label="完成时间"><template #default="{ row }">{{ row.completed_at || '—' }}</template></el-table-column></el-table></template><el-empty v-else description="暂无应用升级任务"/></el-card><div v-if="can('platform.ops.logs.read')" class="toolbar"><el-button :loading="diagnosticLoading" @click="downloadDiagnosticBundle">下载脱敏诊断包（最近 1 小时）</el-button></div><el-card v-loading="backupCenterLoading" class="backup-center-card"><template #header>备份中心</template><template v-if="backupCenter"><p class="muted">最新已验证备份</p><el-alert v-if="backupCenter.latest_verified === null" title="尚无已验证备份" type="info" :closable="false"/><el-descriptions v-else :column="2" border><el-descriptions-item label="Provider">{{ backupCenter.provider.key }}</el-descriptions-item><el-descriptions-item label="完成时间">{{ backupCenter.latest_verified.consistency_completed_at }}</el-descriptions-item><el-descriptions-item label="年龄">{{ formatBackupAge(backupCenter.latest_verified.age_seconds) }}</el-descriptions-item><el-descriptions-item label="Runtime source">{{ backupCenter.latest_verified.source_matches_runtime ? '匹配当前 Runtime' : '不匹配当前 Runtime' }}</el-descriptions-item><el-descriptions-item label="Manifest SHA-256">{{ backupCenter.latest_verified.manifest_sha256.slice(0, 12) }}…</el-descriptions-item></el-descriptions><p class="muted">最近恢复验证</p><el-alert v-if="backupCenter.latest_restore_verified === null" title="尚无已验证恢复" type="info" :closable="false"/><el-descriptions v-else :column="2" border><el-descriptions-item label="Backup reference">{{ backupCenter.latest_restore_verified.backup_reference_key }}</el-descriptions-item><el-descriptions-item label="Target">{{ backupCenter.latest_restore_verified.target_key }}</el-descriptions-item><el-descriptions-item label="Verified at">{{ backupCenter.latest_restore_verified.verified_at }}</el-descriptions-item><el-descriptions-item label="Verification SHA-256">{{ backupCenter.latest_restore_verified.verification_sha256.slice(0, 12) }}…</el-descriptions-item><el-descriptions-item label="表数量">{{ backupCenter.latest_restore_verified.table_count }}</el-descriptions-item><el-descriptions-item label="迁移数量">{{ backupCenter.latest_restore_verified.migration_count }}</el-descriptions-item><el-descriptions-item label="Tenant 数量">{{ backupCenter.latest_restore_verified.tenant_count }}</el-descriptions-item><el-descriptions-item label="Account 数量">{{ backupCenter.latest_restore_verified.account_count }}</el-descriptions-item><el-descriptions-item label="TenantMember 数量">{{ backupCenter.latest_restore_verified.tenant_member_count }}</el-descriptions-item><el-descriptions-item label="文件数量">{{ backupCenter.latest_restore_verified.file_count }}</el-descriptions-item></el-descriptions><p class="muted">最近 20 个备份与恢复任务</p><el-table :data="backupCenter.tasks" empty-text="暂无备份或恢复任务"><el-table-column prop="task_key" label="任务标识"/><el-table-column prop="task_type" label="任务类型"/><el-table-column prop="status" label="状态"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column><el-table-column label="尝试次数"><template #default="{ row }">{{ row.attempt_count }} / {{ row.max_attempts }}</template></el-table-column><el-table-column prop="last_error_code" label="失败原因"><template #default="{ row }">{{ row.last_error_code || '—' }}</template></el-table-column><el-table-column prop="created_at" label="提交时间"/><el-table-column prop="completed_at" label="完成时间"><template #default="{ row }">{{ row.completed_at || '未完成' }}</template></el-table-column><el-table-column prop="updated_at" label="更新时间"/></el-table></template><el-empty v-else description="备份中心快照尚未加载" /></el-card><provider-qualification-card :loading="providerQualificationsLoading" :snapshot="providerQualifications"/><ops-console-page /></template>
-    <template v-else-if="view === 'tenants'"><div class="toolbar"><el-button type="primary" @click="provisionDialog = true">新建租户</el-button></div><el-table v-loading="loading" :data="tenants" row-key="id" empty-text="暂无租户"><el-table-column prop="code" label="租户编码" /><el-table-column prop="display_name" label="名称" /><el-table-column prop="status" label="状态"><template #default="{ row }"><el-tag :type="statusType(row.status)">{{ statusLabel(row.status) }}</el-tag></template></el-table-column><el-table-column prop="revision" label="版本" width="90" /><el-table-column label="操作" width="300"><template #default="{ row }"><el-button link type="primary" @click="showTenant(row)">详情</el-button><el-button v-if="row.status !== 'active' && row.status !== 'closed'" link type="success" @click="changeTenant(row, 'activate')">启用</el-button><el-button v-if="row.status === 'active'" link type="warning" @click="changeTenant(row, 'suspend')">暂停</el-button><el-button v-if="row.status !== 'closed'" link type="danger" @click="changeTenant(row, 'close')">关闭</el-button></template></el-table-column></el-table></template>
-    <template v-else-if="view === 'owners'"><tenant-picker /><div class="two-col"><el-card><template #header>发起租户所有者邀请</template><el-form label-position="top" @submit.prevent="sendInvitation"><el-form-item label="所有者邮箱"><el-input v-model="inviteForm.owner_email" /></el-form-item><el-form-item label="所有者显示名"><el-input v-model="inviteForm.owner_display_name" /></el-form-item><el-form-item label="有效期（小时）"><el-input-number v-model="inviteForm.expires_in_hours" :min="1" :max="720" /></el-form-item><el-button native-type="submit" type="primary" :loading="loading" :disabled="!targetTenant">发送邀请</el-button></el-form></el-card><el-card><template #header>目标租户所有者</template><el-descriptions v-if="owner" :column="1"><el-descriptions-item label="姓名">{{ owner.display_name }}</el-descriptions-item><el-descriptions-item label="邮箱">{{ owner.email || '未登记' }}</el-descriptions-item><el-descriptions-item label="角色">租户所有者（{{ owner.role_key }}）</el-descriptions-item></el-descriptions><el-empty v-else description="尚未找到租户所有者" /></el-card></div><el-table v-loading="loading" :data="invitations" empty-text="暂无邀请"><el-table-column prop="email" label="邮箱"/><el-table-column prop="display_name" label="显示名"/><el-table-column prop="status" label="状态"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column><el-table-column prop="delivery_status" label="投递状态"><template #default="{ row }">{{ statusLabel(row.delivery_status) }}</template></el-table-column><el-table-column prop="expires_at" label="过期时间"/><el-table-column label="操作" width="160"><template #default="{ row }"><el-button v-if="row.status === 'pending'" link type="primary" @click="resendInvitation(row)">重发</el-button><el-button v-if="row.status === 'pending'" link type="danger" @click="revokeInvitation(row)">撤销</el-button></template></el-table-column></el-table></template>
-    <template v-else-if="view === 'endpoints'"><tenant-picker /><div class="two-col"><el-card><template #header>启用入口绑定</template><el-form label-position="top" @submit.prevent="enableBinding"><el-form-item label="域名"><el-input v-model="bindingForm.host" placeholder="admin.example.com" /></el-form-item><el-form-item label="客户端"><el-select v-model="bindingForm.client_key" class="full"><el-option label="管理端网页" value="admin-web"/><el-option label="会员接口" value="member-api"/></el-select></el-form-item><el-form-item label="变更原因"><el-input v-model="bindingForm.change_reason" /></el-form-item><el-button native-type="submit" type="primary" :disabled="!targetTenant" :loading="loading">启用绑定</el-button></el-form></el-card><el-card><template #header>绑定规则</template><p class="muted">一个域名和客户端只能绑定一个有效租户。停用操作会立即撤销该入口识别。</p></el-card></div><el-table v-loading="loading" :data="bindings" empty-text="暂无入口绑定"><el-table-column prop="host" label="域名"/><el-table-column prop="tenant_name" label="租户"/><el-table-column prop="client_key" label="客户端"><template #default="{ row }">{{ clientLabel(row.client_key) }}</template></el-table-column><el-table-column prop="status" label="状态"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column><el-table-column label="操作" width="120"><template #default="{ row }"><el-button v-if="row.status === 'active'" link type="danger" @click="disableBinding(row)">停用</el-button></template></el-table-column></el-table></template>
-    <template v-else-if="view === 'modules'"><el-alert title="此处只开通或停用当前租户的已安装模块；实例安装/升级在运行维护链路完成，人员权限仍在租户后台单独授予。" type="info" :closable="false"/><tenant-picker /><el-empty v-if="!targetTenant" description="请先选择操作目标租户" /><el-table v-else v-loading="loading" :data="modules" empty-text="本实例没有已安装的可分配模块"><el-table-column prop="module_key" label="模块键"/><el-table-column prop="installed_version" label="安装版本"/><el-table-column prop="installation_status" label="实例安装状态"><template #default="{ row }">{{ statusLabel(row.installation_status) }}</template></el-table-column><el-table-column prop="status" label="租户开通状态"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column><el-table-column prop="source" label="配置来源"/><el-table-column prop="config_revision" label="配置版本"/><el-table-column prop="disabled_reason" label="停用原因"/><el-table-column v-if="can('platform.tenant.module.manage')" label="租户开通操作" width="140"><template #default="{ row }"><el-button v-if="row.status === 'enabled'" link type="danger" @click="changeModule(row, false)">停用</el-button><el-button v-else link type="success" @click="changeModule(row, true)">启用</el-button></template></el-table-column></el-table></template>
-    <template v-else-if="view === 'storage'"><el-alert title="一个实例可配置多个账号和多个公开/私有 Space；切换默认路由只影响新文件，旧文件始终绑定原 Space。" type="info" :closable="false"/><div class="toolbar"><el-button type="primary" @click="createStorageAccount">新增账号</el-button><el-button @click="createStorageSpace">新增 Space</el-button></div><el-card><template #header>存储账号</template><el-table :data="storage.accounts"><el-table-column prop="account_key" label="标识"/><el-table-column prop="driver" label="供应商"/><el-table-column prop="name" label="名称"/><el-table-column prop="status" label="状态"/></el-table></el-card><el-card><template #header>Space / Bucket</template><el-table :data="storage.spaces"><el-table-column prop="space_key" label="标识"/><el-table-column prop="account_key" label="账号"/><el-table-column prop="name" label="名称"/><el-table-column prop="access_type" label="公开属性"/><el-table-column prop="bucket" label="Bucket/目录"><template #default="{row}">{{ row.bucket || row.local_path }}</template></el-table-column><el-table-column prop="status" label="状态"/><el-table-column label="操作" width="120"><template #default="{row}"><el-button v-if="row.status === 'active'" link type="primary" @click="setDefaultStorageRoute(row)">设为默认</el-button></template></el-table-column></el-table></el-card><el-card><template #header>上传路由</template><el-table :data="storage.routes"><el-table-column prop="route_key" label="用途/默认"/><el-table-column prop="access_type" label="公开属性"/><el-table-column prop="space_name" label="目标 Space"/><el-table-column prop="driver" label="供应商"/></el-table></el-card></template>
-    <template v-else-if="view === 'operators'"><div class="two-col"><el-card><template #header>创建平台操作员</template><el-form label-position="top" @submit.prevent="createOperator"><el-form-item label="邮箱"><el-input v-model="operatorForm.email" /></el-form-item><el-form-item label="显示名"><el-input v-model="operatorForm.display_name" /></el-form-item><el-form-item label="初始密码（已有账户可留空）"><el-input v-model="operatorForm.initial_password" type="password" show-password /></el-form-item><el-button native-type="submit" type="primary" :loading="loading">创建操作员</el-button></el-form></el-card><el-card><template #header>角色分配</template><p class="muted">在下表操作中调整操作员角色；变更会使其下一次会话按新权限生效。</p></el-card></div><el-table v-loading="loading" :data="operators" empty-text="暂无平台操作员"><el-table-column prop="display_name" label="显示名"/><el-table-column prop="email" label="邮箱"/><el-table-column prop="status" label="状态"><template #default="{ row }">{{ statusLabel(row.status) }}</template></el-table-column><el-table-column label="角色"><template #default="{ row }">{{ row.role_keys.join(', ') || '无' }}</template></el-table-column><el-table-column label="操作" width="310"><template #default="{ row }"><el-button link @click="editOperator(row)">编辑</el-button><el-button link type="primary" @click="assignOperatorRoles(row)">角色</el-button><el-button v-if="row.status !== 'active' && row.status !== 'closed'" link type="success" @click="transitionOperator(row, 'activate')">启用</el-button><el-button v-if="row.status === 'active'" link type="warning" @click="transitionOperator(row, 'suspend')">暂停</el-button><el-button v-if="row.status !== 'closed'" link type="danger" @click="transitionOperator(row, 'close')">关闭</el-button></template></el-table-column></el-table></template>
-    <template v-else-if="view === 'roles'"><div class="two-col"><el-card><template #header>创建平台角色</template><el-form label-position="top" @submit.prevent="createRole"><el-form-item label="角色键"><el-input v-model="roleForm.key" placeholder="platform.example.manage" /></el-form-item><el-form-item label="名称"><el-input v-model="roleForm.name" /></el-form-item><el-form-item label="说明"><el-input v-model="roleForm.description" type="textarea" /></el-form-item><el-button native-type="submit" type="primary" :loading="loading">创建角色</el-button></el-form></el-card><el-card><template #header>权限目录{{ permissionRole ? `：${permissionRole.name}` : '' }}</template><el-scrollbar height="220px"><el-checkbox-group v-model="permissionSelection"><el-checkbox v-for="permission in permissions" :key="permission.key" :value="permission.key">{{ permission.name }}（{{ permission.key }}）</el-checkbox></el-checkbox-group></el-scrollbar><el-button type="primary" :disabled="!permissionRole" :loading="loading" @click="savePermissions">保存当前角色权限</el-button></el-card></div><el-table v-loading="loading" :data="roles" empty-text="暂无平台角色"><el-table-column prop="key" label="角色键"/><el-table-column prop="name" label="名称"/><el-table-column prop="status" label="状态"/><el-table-column label="权限"><template #default="{ row }">{{ row.permission_count }}</template></el-table-column><el-table-column label="操作" width="250"><template #default="{ row }"><el-button link @click="editRole(row)">编辑</el-button><el-button link type="primary" @click="editPermissions(row)">编辑权限</el-button><el-button v-if="!row.is_builtin && row.status === 'active'" link type="danger" @click="archiveRole(row)">归档</el-button></template></el-table-column></el-table></template>
-    <template v-else-if="view === 'audit'"><el-table v-loading="loading" :data="audits" empty-text="暂无平台审计事件"><el-table-column prop="occurred_at" label="时间" width="180"/><el-table-column prop="event_type" label="事件类型"/><el-table-column prop="action" label="操作"/><el-table-column prop="outcome" label="结果"/><el-table-column prop="target_type" label="目标"/><el-table-column prop="target_id" label="目标 ID"/><el-table-column prop="request_id" label="请求 ID"/></el-table></template>
-    <template v-else-if="view === 'developer'"><developer-center-page /></template>
-  </el-main></el-container></el-container>
-  <el-dialog v-model="provisionDialog" title="新建租户" width="520px"><el-form label-position="top"><el-form-item label="租户编码"><el-input v-model="provision.tenant_code" /></el-form-item><el-form-item label="租户名称"><el-input v-model="provision.tenant_name" /></el-form-item><el-form-item label="首位所有者邮箱"><el-input v-model="provision.owner_email" /></el-form-item><el-form-item label="首位所有者显示名"><el-input v-model="provision.owner_display_name" /></el-form-item><el-form-item label="邀请有效期（小时）"><el-input-number v-model="provision.expires_in_hours" :min="1" :max="720" /></el-form-item></el-form><template #footer><el-button @click="provisionDialog=false">取消</el-button><el-button type="primary" :loading="loading" @click="createTenant">创建并发送邀请</el-button></template></el-dialog>
+  <section v-else-if="!authenticated" class="login-shell"
+    ><el-card class="login-card"
+      ><p class="brand">PEANUT ADMIN</p><h1>实例平台管理</h1
+      ><p class="muted"
+        >实例平台操作员使用独立平台会话；平台身份不授予租户业务权限。</p
+      ><el-form @submit.prevent="login"
+        ><el-form-item
+          ><el-input
+            v-model="credentials.email"
+            placeholder="实例平台操作员邮箱"
+            autocomplete="username" /></el-form-item
+        ><el-form-item
+          ><el-input
+            v-model="credentials.password"
+            type="password"
+            show-password
+            placeholder="密码"
+            autocomplete="current-password" /></el-form-item
+        ><el-alert
+          v-if="error"
+          :title="error"
+          type="error"
+          :closable="false"
+        /><el-button
+          native-type="submit"
+          type="primary"
+          :loading="loading"
+          class="wide"
+          >登录实例平台</el-button
+        ></el-form
+      ></el-card
+    ></section
+  >
+  <el-container v-else class="app-shell"
+    ><el-aside width="224px"
+      ><div class="logo">PEANUT <b>平台</b></div
+      ><el-menu :default-active="view" @select="selectView"
+        ><el-menu-item index="overview">概览</el-menu-item
+        ><el-menu-item v-if="can('platform.ops.read')" index="ops"
+          >运行与维护</el-menu-item
+        ><el-menu-item index="tenants">租户与生命周期</el-menu-item
+        ><el-menu-item index="owners">租户所有者邀请</el-menu-item
+        ><el-menu-item index="endpoints">入口域名与客户端</el-menu-item
+        ><el-menu-item v-if="can('platform.tenant.read')" index="modules"
+          >租户模块开通</el-menu-item
+        ><el-menu-item v-if="can('platform.module.read')" index="developer"
+          >开发者中心</el-menu-item
+        ><el-menu-item index="storage">存储基础设施</el-menu-item
+        ><el-menu-item index="operators">实例平台操作员</el-menu-item
+        ><el-menu-item index="roles">平台角色与权限</el-menu-item
+        ><el-menu-item index="audit">平台审计</el-menu-item></el-menu
+      ></el-aside
+    ><el-container
+      ><el-header
+        ><div
+          ><b>{{ title }}</b
+          ><span class="muted">实例平台控制面</span></div
+        ><div
+          ><el-button text :loading="loading" @click="refreshView"
+            >刷新</el-button
+          ><el-button text @click="logout">退出登录</el-button></div
+        ></el-header
+      ><el-main
+        ><el-alert
+          v-if="error"
+          :title="error"
+          type="error"
+          show-icon
+          @close="error = ''"
+        />
+        <template v-if="view === 'overview'"
+          ><div class="metric-grid"
+            ><el-card
+              ><span>租户总数</span
+              ><strong>{{ tenants.length }}</strong></el-card
+            ><el-card
+              ><span>运行中租户</span
+              ><strong>{{ activeCount }}</strong></el-card
+            ><el-card
+              ><span>实例平台操作员</span
+              ><strong>{{ operators.length }}</strong></el-card
+            ></div
+          ><el-card
+            ><template #header>实例状态</template
+            ><el-descriptions :column="2"
+              ><el-descriptions-item label="控制面"
+                >实例平台操作员独立会话</el-descriptions-item
+              ><el-descriptions-item label="治理范围"
+                >仅管理本实例租户，不进入租户业务会话</el-descriptions-item
+              ></el-descriptions
+            ></el-card
+          ></template
+        >
+        <template v-else-if="view === 'ops'"
+          ><el-alert
+            title="维护窗口可由具备维护权限的平台操作员计划或关闭；窗口生效期间，后端统一拒绝除维护控制接口外的 HTTP 写入并留存审计。"
+            type="info"
+            :closable="false" /><el-card
+            v-loading="upgradeReadinessLoading"
+            class="backup-center-card"
+            ><template #header>升级就绪</template
+            ><template v-if="upgradeReadiness"
+              ><el-alert
+                :title="`${readinessLabel(upgradeReadiness.state)} · ${
+                  upgradeReadiness.code
+                }`"
+                :type="readinessType(upgradeReadiness.state)"
+                :closable="false" /><el-descriptions :column="2" border
+                ><el-descriptions-item label="静态预检"
+                  >{{ readinessLabel(upgradeReadiness.preflight.state) }} ·
+                  {{ upgradeReadiness.preflight.code }}</el-descriptions-item
+                ><el-descriptions-item label="当前 Runtime">{{
+                  upgradeReadiness.source.runtime.release_key ||
+                  upgradeReadiness.source.runtime.commit.slice(0, 12)
+                }}</el-descriptions-item
+                ><el-descriptions-item label="目标 Release">{{
+                  upgradeReadiness.target?.release_key ||
+                  '尚未由 Deployment 固定'
+                }}</el-descriptions-item
+                ><el-descriptions-item label="目标迁移">{{
+                  upgradeReadiness.migrations.release
+                    ? `${
+                        upgradeReadiness.migrations.release.pending_count ??
+                        '待分析'
+                      } 项待应用`
+                    : '待分析'
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Module 兼容"
+                  >{{ upgradeReadiness.modules.compatible_count }} /
+                  {{
+                    upgradeReadiness.modules.installed_count
+                  }}</el-descriptions-item
+                >
+                <el-descriptions-item label="Scaffold 来源">{{
+                  upgradeReadiness.source.application && upgradeReadiness.target
+                    ? `${upgradeReadiness.source.application.template_version} → ${upgradeReadiness.target.scaffold.to_version} · ${upgradeReadiness.scaffold.code}`
+                    : '待核验'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="部署语义"
+                  >完整应用发布，业务代码随本应用发布包部署；不在运行环境合并脚手架文件</el-descriptions-item
+                >
+                <el-descriptions-item label="恢复指针">{{
+                  upgradeReadiness.recovery_pointer
+                    ? `${
+                        upgradeReadiness.recovery_pointer.backup_reference_key
+                      } / ${upgradeReadiness.recovery_pointer.restore_verification_sha256.slice(
+                        0,
+                        12
+                      )}…`
+                    : '尚未形成'
+                }}</el-descriptions-item></el-descriptions
+              ><el-table
+                :data="upgradeReadiness.checks"
+                empty-text="暂无升级检查"
+                ><el-table-column prop="key" label="检查" /><el-table-column
+                  label="状态"
+                  ><template #default="{ row }"
+                    ><el-tag :type="readinessType(row.status)">{{
+                      readinessLabel(row.status)
+                    }}</el-tag></template
+                  ></el-table-column
+                ><el-table-column
+                  prop="code"
+                  label="稳定原因码" /></el-table></template
+            ><el-empty v-else description="升级就绪投影尚未加载" /></el-card
+          ><el-card v-loading="upgradeCenterLoading" class="backup-center-card"
+            ><template #header
+              ><div class="card-header"
+                ><span>应用升级执行</span
+                ><el-button
+                  v-if="can('platform.ops.upgrade.manage')"
+                  type="primary"
+                  :loading="upgradeSubmitting"
+                  :disabled="
+                    !upgradeReadiness ||
+                    upgradeReadiness.preflight.state !== 'ready' ||
+                    !!activeUpgrade
+                  "
+                  @click="executeUpgrade"
+                  >执行固定升级</el-button
+                ></div
+              ></template
+            ><el-alert
+              title="执行目标只来自 Deployment 已固定的 descriptor。页面不能提交路径、URL、命令、Release、镜像、凭据或部署目标。"
+              type="info"
+              :closable="false" /><template v-if="latestUpgrade"
+              ><el-descriptions :column="2" border
+                ><el-descriptions-item label="任务">{{
+                  latestUpgrade.task_key
+                }}</el-descriptions-item
+                ><el-descriptions-item label="状态">{{
+                  statusLabel(latestUpgrade.status)
+                }}</el-descriptions-item
+                ><el-descriptions-item label="当前步骤">{{
+                  upgradeStepLabel(latestUpgrade.current_step)
+                }}</el-descriptions-item
+                ><el-descriptions-item label="目标 Release">{{
+                  latestUpgrade.target.release_key
+                }}</el-descriptions-item
+                ><el-descriptions-item label="新备份">{{
+                  latestUpgrade.backup_reference_key || '待执行'
+                }}</el-descriptions-item
+                ><el-descriptions-item label="恢复指针">{{
+                  latestUpgrade.recovery_pointer_sha256
+                    ? `${latestUpgrade.recovery_pointer_sha256.slice(0, 12)}…`
+                    : '待形成'
+                }}</el-descriptions-item></el-descriptions
+              ><el-table
+                :data="latestUpgrade.steps"
+                empty-text="任务尚未被控制 worker 领取"
+                ><el-table-column label="步骤"
+                  ><template #default="{ row }">{{
+                    upgradeStepLabel(row.step_key)
+                  }}</template></el-table-column
+                ><el-table-column label="状态"
+                  ><template #default="{ row }">{{
+                    statusLabel(row.status)
+                  }}</template></el-table-column
+                ><el-table-column prop="last_error_code" label="停止原因"
+                  ><template #default="{ row }">{{
+                    row.last_error_code || '—'
+                  }}</template></el-table-column
+                ><el-table-column prop="completed_at" label="完成时间"
+                  ><template #default="{ row }">{{
+                    row.completed_at || '—'
+                  }}</template></el-table-column
+                ></el-table
+              ></template
+            ><el-empty v-else description="暂无应用升级任务" /></el-card
+          ><div v-if="can('platform.ops.logs.read')" class="toolbar"
+            ><el-button
+              :loading="diagnosticLoading"
+              @click="downloadDiagnosticBundle"
+              >下载脱敏诊断包（最近 1 小时）</el-button
+            ></div
+          ><el-card v-loading="backupCenterLoading" class="backup-center-card"
+            ><template #header>备份中心</template
+            ><template v-if="backupCenter"
+              ><p class="muted">最新已验证备份</p
+              ><el-alert
+                v-if="backupCenter.latest_verified === null"
+                title="尚无已验证备份"
+                type="info"
+                :closable="false" /><el-descriptions v-else :column="2" border
+                ><el-descriptions-item label="Provider">{{
+                  backupCenter.provider.key
+                }}</el-descriptions-item
+                ><el-descriptions-item label="完成时间">{{
+                  backupCenter.latest_verified.consistency_completed_at
+                }}</el-descriptions-item
+                ><el-descriptions-item label="年龄">{{
+                  formatBackupAge(backupCenter.latest_verified.age_seconds)
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Runtime source">{{
+                  backupCenter.latest_verified.source_matches_runtime
+                    ? '匹配当前 Runtime'
+                    : '不匹配当前 Runtime'
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Manifest SHA-256"
+                  >{{
+                    backupCenter.latest_verified.manifest_sha256.slice(0, 12)
+                  }}…</el-descriptions-item
+                ></el-descriptions
+              ><p class="muted">最近恢复验证</p
+              ><el-alert
+                v-if="backupCenter.latest_restore_verified === null"
+                title="尚无已验证恢复"
+                type="info"
+                :closable="false" /><el-descriptions v-else :column="2" border
+                ><el-descriptions-item label="Backup reference">{{
+                  backupCenter.latest_restore_verified.backup_reference_key
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Target">{{
+                  backupCenter.latest_restore_verified.target_key
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Verified at">{{
+                  backupCenter.latest_restore_verified.verified_at
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Verification SHA-256"
+                  >{{
+                    backupCenter.latest_restore_verified.verification_sha256.slice(
+                      0,
+                      12
+                    )
+                  }}…</el-descriptions-item
+                ><el-descriptions-item label="表数量">{{
+                  backupCenter.latest_restore_verified.table_count
+                }}</el-descriptions-item
+                ><el-descriptions-item label="迁移数量">{{
+                  backupCenter.latest_restore_verified.migration_count
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Tenant 数量">{{
+                  backupCenter.latest_restore_verified.tenant_count
+                }}</el-descriptions-item
+                ><el-descriptions-item label="Account 数量">{{
+                  backupCenter.latest_restore_verified.account_count
+                }}</el-descriptions-item
+                ><el-descriptions-item label="TenantMember 数量">{{
+                  backupCenter.latest_restore_verified.tenant_member_count
+                }}</el-descriptions-item
+                ><el-descriptions-item label="文件数量">{{
+                  backupCenter.latest_restore_verified.file_count
+                }}</el-descriptions-item></el-descriptions
+              ><p class="muted">最近 20 个备份与恢复任务</p
+              ><el-table
+                :data="backupCenter.tasks"
+                empty-text="暂无备份或恢复任务"
+                ><el-table-column
+                  prop="task_key"
+                  label="任务标识" /><el-table-column
+                  prop="task_type"
+                  label="任务类型" /><el-table-column prop="status" label="状态"
+                  ><template #default="{ row }">{{
+                    statusLabel(row.status)
+                  }}</template></el-table-column
+                ><el-table-column label="尝试次数"
+                  ><template #default="{ row }"
+                    >{{ row.attempt_count }} / {{ row.max_attempts }}</template
+                  ></el-table-column
+                ><el-table-column prop="last_error_code" label="失败原因"
+                  ><template #default="{ row }">{{
+                    row.last_error_code || '—'
+                  }}</template></el-table-column
+                ><el-table-column
+                  prop="created_at"
+                  label="提交时间" /><el-table-column
+                  prop="completed_at"
+                  label="完成时间"
+                  ><template #default="{ row }">{{
+                    row.completed_at || '未完成'
+                  }}</template></el-table-column
+                ><el-table-column
+                  prop="updated_at"
+                  label="更新时间" /></el-table></template
+            ><el-empty v-else description="备份中心快照尚未加载" /></el-card
+          ><provider-qualification-card
+            :loading="providerQualificationsLoading"
+            :snapshot="providerQualifications" /><ops-console-page
+        /></template>
+        <template v-else-if="view === 'tenants'"
+          ><div class="toolbar"
+            ><el-button type="primary" @click="provisionDialog = true"
+              >新建租户</el-button
+            ></div
+          ><el-table
+            v-loading="loading"
+            :data="tenants"
+            row-key="id"
+            empty-text="暂无租户"
+            ><el-table-column prop="code" label="租户编码" /><el-table-column
+              prop="display_name"
+              label="名称"
+            /><el-table-column prop="status" label="状态"
+              ><template #default="{ row }"
+                ><el-tag :type="statusType(row.status)">{{
+                  statusLabel(row.status)
+                }}</el-tag></template
+              ></el-table-column
+            ><el-table-column
+              prop="revision"
+              label="版本"
+              width="90"
+            /><el-table-column label="操作" width="300"
+              ><template #default="{ row }"
+                ><el-button link type="primary" @click="showTenant(row)"
+                  >详情</el-button
+                ><el-button
+                  v-if="row.status !== 'active' && row.status !== 'closed'"
+                  link
+                  type="success"
+                  @click="changeTenant(row, 'activate')"
+                  >启用</el-button
+                ><el-button
+                  v-if="row.status === 'active'"
+                  link
+                  type="warning"
+                  @click="changeTenant(row, 'suspend')"
+                  >暂停</el-button
+                ><el-button
+                  v-if="row.status !== 'closed'"
+                  link
+                  type="danger"
+                  @click="changeTenant(row, 'close')"
+                  >关闭</el-button
+                ></template
+              ></el-table-column
+            ></el-table
+          ></template
+        >
+        <template v-else-if="view === 'owners'"
+          ><tenant-picker /><div class="two-col"
+            ><el-card
+              ><template #header>发起租户所有者邀请</template
+              ><el-form label-position="top" @submit.prevent="sendInvitation"
+                ><el-form-item label="所有者邮箱"
+                  ><el-input v-model="inviteForm.owner_email" /></el-form-item
+                ><el-form-item label="所有者显示名"
+                  ><el-input
+                    v-model="inviteForm.owner_display_name" /></el-form-item
+                ><el-form-item label="有效期（小时）"
+                  ><el-input-number
+                    v-model="inviteForm.expires_in_hours"
+                    :min="1"
+                    :max="720" /></el-form-item
+                ><el-button
+                  native-type="submit"
+                  type="primary"
+                  :loading="loading"
+                  :disabled="!targetTenant"
+                  >发送邀请</el-button
+                ></el-form
+              ></el-card
+            ><el-card
+              ><template #header>目标租户所有者</template
+              ><el-descriptions v-if="owner" :column="1"
+                ><el-descriptions-item label="姓名">{{
+                  owner.display_name
+                }}</el-descriptions-item
+                ><el-descriptions-item label="邮箱">{{
+                  owner.email || '未登记'
+                }}</el-descriptions-item
+                ><el-descriptions-item label="角色"
+                  >租户所有者（{{ owner.role_key }}）</el-descriptions-item
+                ></el-descriptions
+              ><el-empty
+                v-else
+                description="尚未找到租户所有者" /></el-card></div
+          ><el-table
+            v-loading="loading"
+            :data="invitations"
+            empty-text="暂无邀请"
+            ><el-table-column prop="email" label="邮箱" /><el-table-column
+              prop="display_name"
+              label="显示名"
+            /><el-table-column prop="status" label="状态"
+              ><template #default="{ row }">{{
+                statusLabel(row.status)
+              }}</template></el-table-column
+            ><el-table-column prop="delivery_status" label="投递状态"
+              ><template #default="{ row }">{{
+                statusLabel(row.delivery_status)
+              }}</template></el-table-column
+            ><el-table-column
+              prop="expires_at"
+              label="过期时间"
+            /><el-table-column label="操作" width="160"
+              ><template #default="{ row }"
+                ><el-button
+                  v-if="row.status === 'pending'"
+                  link
+                  type="primary"
+                  @click="resendInvitation(row)"
+                  >重发</el-button
+                ><el-button
+                  v-if="row.status === 'pending'"
+                  link
+                  type="danger"
+                  @click="revokeInvitation(row)"
+                  >撤销</el-button
+                ></template
+              ></el-table-column
+            ></el-table
+          ></template
+        >
+        <template v-else-if="view === 'endpoints'"
+          ><tenant-picker /><div class="two-col"
+            ><el-card
+              ><template #header>启用入口绑定</template
+              ><el-form label-position="top" @submit.prevent="enableBinding"
+                ><el-form-item label="域名"
+                  ><el-input
+                    v-model="bindingForm.host"
+                    placeholder="admin.example.com" /></el-form-item
+                ><el-form-item label="客户端"
+                  ><el-select v-model="bindingForm.client_key" class="full"
+                    ><el-option
+                      label="管理端网页"
+                      value="admin-web" /><el-option
+                      label="会员接口"
+                      value="member-api" /></el-select></el-form-item
+                ><el-form-item label="变更原因"
+                  ><el-input
+                    v-model="bindingForm.change_reason" /></el-form-item
+                ><el-button
+                  native-type="submit"
+                  type="primary"
+                  :disabled="!targetTenant"
+                  :loading="loading"
+                  >启用绑定</el-button
+                ></el-form
+              ></el-card
+            ><el-card
+              ><template #header>绑定规则</template
+              ><p class="muted"
+                >一个域名和客户端只能绑定一个有效租户。停用操作会立即撤销该入口识别。</p
+              ></el-card
+            ></div
+          ><el-table
+            v-loading="loading"
+            :data="bindings"
+            empty-text="暂无入口绑定"
+            ><el-table-column prop="host" label="域名" /><el-table-column
+              prop="tenant_name"
+              label="租户"
+            /><el-table-column prop="client_key" label="客户端"
+              ><template #default="{ row }">{{
+                clientLabel(row.client_key)
+              }}</template></el-table-column
+            ><el-table-column prop="status" label="状态"
+              ><template #default="{ row }">{{
+                statusLabel(row.status)
+              }}</template></el-table-column
+            ><el-table-column label="操作" width="120"
+              ><template #default="{ row }"
+                ><el-button
+                  v-if="row.status === 'active'"
+                  link
+                  type="danger"
+                  @click="disableBinding(row)"
+                  >停用</el-button
+                ></template
+              ></el-table-column
+            ></el-table
+          ></template
+        >
+        <template v-else-if="view === 'modules'"
+          ><el-alert
+            title="此处只开通或停用当前租户的已安装模块；实例安装/升级在运行维护链路完成，人员权限仍在租户后台单独授予。"
+            type="info"
+            :closable="false"
+          /><tenant-picker /><el-empty
+            v-if="!targetTenant"
+            description="请先选择操作目标租户"
+          /><el-table
+            v-else
+            v-loading="loading"
+            :data="modules"
+            empty-text="本实例没有已安装的可分配模块"
+            ><el-table-column
+              prop="module_key"
+              label="模块键"
+            /><el-table-column
+              prop="installed_version"
+              label="安装版本"
+            /><el-table-column prop="installation_status" label="实例安装状态"
+              ><template #default="{ row }">{{
+                statusLabel(row.installation_status)
+              }}</template></el-table-column
+            ><el-table-column prop="status" label="租户开通状态"
+              ><template #default="{ row }">{{
+                statusLabel(row.status)
+              }}</template></el-table-column
+            ><el-table-column prop="source" label="配置来源" /><el-table-column
+              prop="config_revision"
+              label="配置版本"
+            /><el-table-column
+              prop="disabled_reason"
+              label="停用原因"
+            /><el-table-column
+              v-if="can('platform.tenant.module.manage')"
+              label="租户开通操作"
+              width="140"
+              ><template #default="{ row }"
+                ><el-button
+                  v-if="row.status === 'enabled'"
+                  link
+                  type="danger"
+                  @click="changeModule(row, false)"
+                  >停用</el-button
+                ><el-button
+                  v-else
+                  link
+                  type="success"
+                  @click="changeModule(row, true)"
+                  >启用</el-button
+                ></template
+              ></el-table-column
+            ></el-table
+          ></template
+        >
+        <template v-else-if="view === 'storage'"
+          ><el-alert
+            title="一个实例可配置多个账号和多个公开/私有 Space；切换默认路由只影响新文件，旧文件始终绑定原 Space。"
+            type="info"
+            :closable="false" /><div class="toolbar"
+            ><el-button type="primary" @click="createStorageAccount"
+              >新增账号</el-button
+            ><el-button @click="createStorageSpace">新增 Space</el-button></div
+          ><el-card
+            ><template #header>存储账号</template
+            ><el-table :data="storage.accounts"
+              ><el-table-column
+                prop="account_key"
+                label="标识" /><el-table-column
+                prop="driver"
+                label="供应商" /><el-table-column
+                prop="name"
+                label="名称" /><el-table-column
+                prop="status"
+                label="状态" /></el-table></el-card
+          ><el-card
+            ><template #header>Space / Bucket</template
+            ><el-table :data="storage.spaces"
+              ><el-table-column prop="space_key" label="标识" /><el-table-column
+                prop="account_key"
+                label="账号"
+              /><el-table-column prop="name" label="名称" /><el-table-column
+                prop="access_type"
+                label="公开属性"
+              /><el-table-column prop="bucket" label="Bucket/目录"
+                ><template #default="{ row }">{{
+                  row.bucket || row.local_path
+                }}</template></el-table-column
+              ><el-table-column prop="status" label="状态" /><el-table-column
+                label="操作"
+                width="120"
+                ><template #default="{ row }"
+                  ><el-button
+                    v-if="row.status === 'active'"
+                    link
+                    type="primary"
+                    @click="setDefaultStorageRoute(row)"
+                    >设为默认</el-button
+                  ></template
+                ></el-table-column
+              ></el-table
+            ></el-card
+          ><el-card
+            ><template #header>上传路由</template
+            ><el-table :data="storage.routes"
+              ><el-table-column
+                prop="route_key"
+                label="用途/默认" /><el-table-column
+                prop="access_type"
+                label="公开属性" /><el-table-column
+                prop="space_name"
+                label="目标 Space" /><el-table-column
+                prop="driver"
+                label="供应商" /></el-table></el-card
+        ></template>
+        <template v-else-if="view === 'operators'"
+          ><div class="two-col"
+            ><el-card
+              ><template #header>创建平台操作员</template
+              ><el-form label-position="top" @submit.prevent="createOperator"
+                ><el-form-item label="邮箱"
+                  ><el-input v-model="operatorForm.email" /></el-form-item
+                ><el-form-item label="显示名"
+                  ><el-input
+                    v-model="operatorForm.display_name" /></el-form-item
+                ><el-form-item label="初始密码（已有账户可留空）"
+                  ><el-input
+                    v-model="operatorForm.initial_password"
+                    type="password"
+                    show-password /></el-form-item
+                ><el-button
+                  native-type="submit"
+                  type="primary"
+                  :loading="loading"
+                  >创建操作员</el-button
+                ></el-form
+              ></el-card
+            ><el-card
+              ><template #header>角色分配</template
+              ><p class="muted"
+                >在下表操作中调整操作员角色；变更会使其下一次会话按新权限生效。</p
+              ></el-card
+            ></div
+          ><el-table
+            v-loading="loading"
+            :data="operators"
+            empty-text="暂无平台操作员"
+            ><el-table-column
+              prop="display_name"
+              label="显示名"
+            /><el-table-column prop="email" label="邮箱" /><el-table-column
+              prop="status"
+              label="状态"
+              ><template #default="{ row }">{{
+                statusLabel(row.status)
+              }}</template></el-table-column
+            ><el-table-column label="角色"
+              ><template #default="{ row }">{{
+                row.role_keys.join(', ') || '无'
+              }}</template></el-table-column
+            ><el-table-column label="操作" width="310"
+              ><template #default="{ row }"
+                ><el-button link @click="editOperator(row)">编辑</el-button
+                ><el-button
+                  link
+                  type="primary"
+                  @click="assignOperatorRoles(row)"
+                  >角色</el-button
+                ><el-button
+                  v-if="row.status !== 'active' && row.status !== 'closed'"
+                  link
+                  type="success"
+                  @click="transitionOperator(row, 'activate')"
+                  >启用</el-button
+                ><el-button
+                  v-if="row.status === 'active'"
+                  link
+                  type="warning"
+                  @click="transitionOperator(row, 'suspend')"
+                  >暂停</el-button
+                ><el-button
+                  v-if="row.status !== 'closed'"
+                  link
+                  type="danger"
+                  @click="transitionOperator(row, 'close')"
+                  >关闭</el-button
+                ></template
+              ></el-table-column
+            ></el-table
+          ></template
+        >
+        <template v-else-if="view === 'roles'"
+          ><div class="two-col"
+            ><el-card
+              ><template #header>创建平台角色</template
+              ><el-form label-position="top" @submit.prevent="createRole"
+                ><el-form-item label="角色键"
+                  ><el-input
+                    v-model="roleForm.key"
+                    placeholder="platform.example.manage" /></el-form-item
+                ><el-form-item label="名称"
+                  ><el-input v-model="roleForm.name" /></el-form-item
+                ><el-form-item label="说明"
+                  ><el-input
+                    v-model="roleForm.description"
+                    type="textarea" /></el-form-item
+                ><el-button
+                  native-type="submit"
+                  type="primary"
+                  :loading="loading"
+                  >创建角色</el-button
+                ></el-form
+              ></el-card
+            ><el-card
+              ><template #header
+                >权限目录{{
+                  permissionRole ? `：${permissionRole.name}` : ''
+                }}</template
+              ><el-scrollbar height="220px"
+                ><el-checkbox-group v-model="permissionSelection"
+                  ><el-checkbox
+                    v-for="permission in permissions"
+                    :key="permission.key"
+                    :value="permission.key"
+                    >{{ permission.name }}（{{ permission.key }}）</el-checkbox
+                  ></el-checkbox-group
+                ></el-scrollbar
+              ><el-button
+                type="primary"
+                :disabled="!permissionRole"
+                :loading="loading"
+                @click="savePermissions"
+                >保存当前角色权限</el-button
+              ></el-card
+            ></div
+          ><el-table v-loading="loading" :data="roles" empty-text="暂无平台角色"
+            ><el-table-column prop="key" label="角色键" /><el-table-column
+              prop="name"
+              label="名称"
+            /><el-table-column prop="status" label="状态" /><el-table-column
+              label="权限"
+              ><template #default="{ row }">{{
+                row.permission_count
+              }}</template></el-table-column
+            ><el-table-column label="操作" width="250"
+              ><template #default="{ row }"
+                ><el-button link @click="editRole(row)">编辑</el-button
+                ><el-button link type="primary" @click="editPermissions(row)"
+                  >编辑权限</el-button
+                ><el-button
+                  v-if="!row.is_builtin && row.status === 'active'"
+                  link
+                  type="danger"
+                  @click="archiveRole(row)"
+                  >归档</el-button
+                ></template
+              ></el-table-column
+            ></el-table
+          ></template
+        >
+        <template v-else-if="view === 'audit'"
+          ><el-table
+            v-loading="loading"
+            :data="audits"
+            empty-text="暂无平台审计事件"
+            ><el-table-column
+              prop="occurred_at"
+              label="时间"
+              width="180" /><el-table-column
+              prop="event_type"
+              label="事件类型" /><el-table-column
+              prop="action"
+              label="操作" /><el-table-column
+              prop="outcome"
+              label="结果" /><el-table-column
+              prop="target_type"
+              label="目标" /><el-table-column
+              prop="target_id"
+              label="目标 ID" /><el-table-column
+              prop="request_id"
+              label="请求 ID" /></el-table
+        ></template>
+        <template v-else-if="view === 'developer'"
+          ><developer-center-page
+        /></template> </el-main></el-container
+  ></el-container>
+  <el-dialog v-model="provisionDialog" title="新建租户" width="520px"
+    ><el-form label-position="top"
+      ><el-form-item label="租户编码"
+        ><el-input v-model="provision.tenant_code" /></el-form-item
+      ><el-form-item label="租户名称"
+        ><el-input v-model="provision.tenant_name" /></el-form-item
+      ><el-form-item label="首位所有者邮箱"
+        ><el-input v-model="provision.owner_email" /></el-form-item
+      ><el-form-item label="首位所有者显示名"
+        ><el-input v-model="provision.owner_display_name" /></el-form-item
+      ><el-form-item label="邀请有效期（小时）"
+        ><el-input-number
+          v-model="provision.expires_in_hours"
+          :min="1"
+          :max="720" /></el-form-item></el-form
+    ><template #footer
+      ><el-button @click="provisionDialog = false">取消</el-button
+      ><el-button type="primary" :loading="loading" @click="createTenant"
+        >创建并发送邀请</el-button
+      ></template
+    ></el-dialog
+  >
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, onMounted, onUnmounted, provide, reactive, ref } from 'vue';
-import { ElMessage, ElMessageBox, ElOption, ElSelect } from 'element-plus';
-import { createOpsConsoleRuntime, OpsConsolePage, opsConsoleRuntimeKey } from './modules/official-ops/contribution';
-import { api, createPlatformOpsTransport, hasPlatformSession, onPlatformSessionChange, type AuditEvent, type EntryBinding, type Invitation, type InvitationInspection, type ModuleState, type Operator, type OpsBackupCenterSnapshot, type OpsUpgradeCenterSnapshot, type OpsUpgradeReadinessSnapshot, type OpsUpgradeReadinessState, type Permission, type PlatformRole, type ProviderQualificationSnapshot, type StorageSnapshot, type StorageSpace, type Tenant, type TenantOwner } from './api/platform';
-import ProviderQualificationCard from './components/ProviderQualificationCard.vue';
-import DeveloperCenterPage from './components/DeveloperCenterPage.vue';
+  import {
+    computed,
+    defineComponent,
+    h,
+    onMounted,
+    onUnmounted,
+    provide,
+    reactive,
+    ref,
+  } from 'vue';
+  import { ElMessage, ElMessageBox, ElOption, ElSelect } from 'element-plus';
+  import {
+    createOpsConsoleRuntime,
+    OpsConsolePage,
+    opsConsoleRuntimeKey,
+  } from './modules/official-ops/contribution';
+  import {
+    api,
+    createPlatformOpsTransport,
+    hasPlatformSession,
+    onPlatformSessionChange,
+    type AuditEvent,
+    type EntryBinding,
+    type Invitation,
+    type InvitationInspection,
+    type ModuleState,
+    type Operator,
+    type OpsBackupCenterSnapshot,
+    type OpsUpgradeCenterSnapshot,
+    type OpsUpgradeReadinessSnapshot,
+    type OpsUpgradeReadinessState,
+    type Permission,
+    type PlatformRole,
+    type ProviderQualificationSnapshot,
+    type StorageSnapshot,
+    type StorageSpace,
+    type Tenant,
+    type TenantOwner,
+  } from './api/platform';
+  import ProviderQualificationCard from './components/ProviderQualificationCard.vue';
+  import DeveloperCenterPage from './components/DeveloperCenterPage.vue';
 
-const tokenFromUrl = new URLSearchParams(window.location.search).get('invitation');
-const invitationToken = ref(tokenFromUrl || ''); const invitation = ref<InvitationInspection | null>(null); const acceptPassword = ref('');
-const authenticated = ref(hasPlatformSession()); const loading = ref(false); const error = ref(''); const view = ref('overview'); const tenants = ref<Tenant[]>([]); const invitations = ref<Invitation[]>([]); const bindings = ref<EntryBinding[]>([]); const modules = ref<ModuleState[]>([]); const operators = ref<Operator[]>([]); const roles = ref<PlatformRole[]>([]); const permissions = ref<Permission[]>([]); const audits = ref<AuditEvent[]>([]); const storage = ref<StorageSnapshot>({accounts:[],spaces:[],routes:[],purposes:[]}); const owner = ref<TenantOwner | null>(null); const targetTenantId = ref<number | null>(null); const provisionDialog = ref(false); const permissionSelection = ref<string[]>([]); const permissionRole = ref<PlatformRole | null>(null);
-const platformPermissions = ref<string[]>([]);
-const diagnosticLoading = ref(false);
-const backupCenter = ref<OpsBackupCenterSnapshot | null>(null);
-const backupCenterLoading = ref(false);
-const upgradeReadiness = ref<OpsUpgradeReadinessSnapshot | null>(null);
-const upgradeReadinessLoading = ref(false);
-const upgradeCenter = ref<OpsUpgradeCenterSnapshot | null>(null);
-const upgradeCenterLoading = ref(false);
-const upgradeSubmitting = ref(false);
-const providerQualifications = ref<ProviderQualificationSnapshot | null>(null);
-const providerQualificationsLoading = ref(false);
-const stopPlatformSessionSync = onPlatformSessionChange((present) => {
-  authenticated.value = present;
-  if (!present) platformPermissions.value = [];
-});
-const can = (permission: string) => platformPermissions.value.includes(permission);
-const opsRuntime = createOpsConsoleRuntime({ transport: createPlatformOpsTransport(), providers: [{ key: 'peanut.paired-db-files', backup: true, restoreTargets: ['isolated-new-target'] }], maintenanceReasons: ['planned-upgrade', 'database-maintenance', 'security-maintenance'], logSources: [], canRead: () => can('platform.ops.read'), canBackup: () => can('platform.ops.backup.manage'), canRestore: () => can('platform.ops.restore.manage'), canMaintain: () => can('platform.ops.maintenance.manage'), canReadLogs: () => false });
-provide(opsConsoleRuntimeKey, opsRuntime);
-const credentials = reactive({ email: '', password: '' }); const provision = reactive({ tenant_code: '', tenant_name: '', owner_email: '', owner_display_name: '', expires_in_hours: 72 }); const inviteForm = reactive({ owner_email: '', owner_display_name: '', expires_in_hours: 72 }); const bindingForm = reactive({ host: '', client_key: 'admin-web', change_reason: '' }); const operatorForm = reactive({ email: '', display_name: '', initial_password: '' }); const roleForm = reactive({ key: '', name: '', description: '' });
-const labels: Record<string, string> = { overview: '概览', ops: '运行与维护', tenants: '租户与生命周期', owners: '租户所有者邀请管理', endpoints: '入口域名与客户端', modules: '租户模块开通', developer: '开发者中心', storage: '存储基础设施', operators: '实例平台操作员', roles: '平台角色与权限', audit: '平台审计' }; const title = computed(() => labels[view.value]); const activeCount = computed(() => tenants.value.filter((tenant) => tenant.status === 'active').length); const targetTenant = computed(() => tenants.value.find((tenant) => tenant.id === targetTenantId.value));
-const latestUpgrade = computed(() => upgradeCenter.value?.tasks[0] || null);
-const activeUpgrade = computed(() => ['queued', 'running'].includes(latestUpgrade.value?.status || ''));
-const TenantPicker = defineComponent({ setup: () => () => h('div', { class: 'toolbar' }, [h('span', { class: 'muted' }, '操作目标租户'), h(ElSelect, { modelValue: targetTenantId.value, 'onUpdate:modelValue': (id: number) => { targetTenantId.value = id; void loadView(); }, placeholder: '选择目标租户', style: 'width: 280px' }, () => tenants.value.map((tenant) => h(ElOption, { key: tenant.id, label: `${tenant.display_name} (${tenant.code})`, value: tenant.id })))]) });
-function statusType(status: string) { return status === 'active' || status === 'enabled' ? 'success' : status === 'suspended' ? 'warning' : status === 'closed' || status === 'disabled' ? 'danger' : 'info'; }
-function statusLabel(status: string) { return ({ active: '正常', enabled: '已启用', not_enabled: '未开通', provisioning: '待配置', pending: '待接受', pending_delivery: '待投递', delivered: '已投递', accepted: '已接受', revoked: '已撤销', expired: '已过期', suspended: '已暂停', disabled: '已停用', closed: '已关闭', queued: '排队中', running: '执行中', succeeded: '已完成', dead: '失败', cancelled: '已取消' } as Record<string, string>)[status] || status; }
-function clientLabel(client: string) { return ({ 'admin-web': '管理端网页', 'member-api': '会员接口' } as Record<string, string>)[client] || client; }
-function formatBackupAge(seconds: number) { const safeSeconds = Math.max(0, Math.floor(seconds)); const minutes = Math.floor(safeSeconds / 60); if (minutes < 1) return `${safeSeconds} 秒`; const hours = Math.floor(minutes / 60); if (hours < 1) return `${minutes} 分钟`; const days = Math.floor(hours / 24); return days < 1 ? `${hours} 小时` : `${days} 天`; }
-function readinessLabel(state: OpsUpgradeReadinessState) { return ({ ready: '已就绪', blocked: '已阻塞', configuration_required: '待配置' } as Record<OpsUpgradeReadinessState, string>)[state]; }
-function readinessType(state: OpsUpgradeReadinessState) { return state === 'ready' ? 'success' : state === 'blocked' ? 'error' : 'warning'; }
-function upgradeStepLabel(step: string) { return ({ preflight: '静态预检', backup: '新鲜配对备份', restore_verification: '隔离恢复验证', maintenance: '维护门禁', deployment: '部署与迁移', smoke: 'Runtime smoke', recovery_pointer: '恢复指针', completed: '已完成' } as Record<string, string>)[step] || step; }
-function message(cause: unknown) { return cause instanceof Error ? cause.message : '请求失败，请稍后重试'; }
-async function run(action: () => Promise<unknown>, success: string) { loading.value = true; error.value = ''; try { await action(); ElMessage.success(success); await loadView(); } catch (cause) { error.value = message(cause); } finally { loading.value = false; } }
-async function loadTenants() { const result = await api.tenants(); tenants.value = result.lists; if (targetTenantId.value && !targetTenant.value) targetTenantId.value = null; }
-async function loadSessionInfo() { const info = await api.sessionInfo(); platformPermissions.value = info.permissions; if (!can('platform.tenant.read') && can('platform.ops.read')) view.value = 'ops'; }
-async function loadBackupCenter() { backupCenterLoading.value = true; error.value = ''; try { backupCenter.value = await api.backupCenter(); } catch (cause) { error.value = message(cause); if (!hasPlatformSession()) authenticated.value = false; } finally { backupCenterLoading.value = false; } }
-async function loadUpgradeReadiness() { upgradeReadinessLoading.value = true; error.value = ''; try { upgradeReadiness.value = await api.upgradeReadiness(); } catch (cause) { error.value = message(cause); if (!hasPlatformSession()) authenticated.value = false; } finally { upgradeReadinessLoading.value = false; } }
-async function loadUpgradeCenter() { upgradeCenterLoading.value = true; error.value = ''; try { upgradeCenter.value = await api.upgradeCenter(); } catch (cause) { error.value = message(cause); if (!hasPlatformSession()) authenticated.value = false; } finally { upgradeCenterLoading.value = false; } }
-async function loadProviderQualifications() { providerQualificationsLoading.value = true; error.value = ''; try { providerQualifications.value = await api.providerQualifications(); } catch (cause) { error.value = message(cause); if (!hasPlatformSession()) authenticated.value = false; } finally { providerQualificationsLoading.value = false; } }
-async function loadOpsView() { await Promise.all([loadUpgradeReadiness(), loadUpgradeCenter(), loadBackupCenter(), loadProviderQualifications()]); }
-async function loadView() { if (view.value === 'ops') { await loadOpsView(); return; } loading.value = true; error.value = ''; try { await loadTenants(); const id = targetTenantId.value; if (view.value === 'overview') operators.value = (await api.operators()).lists; else if (view.value === 'owners') { if (id) [invitations.value, owner.value] = [(await api.invitations(id)).lists, await api.tenantOwner(id).catch(() => null)]; else [invitations.value, owner.value] = [[], null]; } else if (view.value === 'endpoints') bindings.value = id ? await api.entryBindings(id) : []; else if (view.value === 'modules') modules.value = id ? (await api.moduleStates(id)).lists : []; else if (view.value === 'storage') storage.value = await api.storageSnapshot(); else if (view.value === 'operators') { [operators.value, roles.value] = [(await api.operators()).lists, (await api.roles()).lists]; } else if (view.value === 'roles') { [roles.value, permissions.value] = [(await api.roles()).lists, (await api.permissions()).lists]; } else if (view.value === 'audit') audits.value = (await api.audit()).lists; } catch (cause) { error.value = message(cause); if (!hasPlatformSession()) authenticated.value = false; } finally { loading.value = false; } }
-async function refreshView() { if (view.value === 'ops') await Promise.all([opsRuntime.load(), loadOpsView()]); else await loadView(); }
-async function downloadDiagnosticBundle() { diagnosticLoading.value = true; error.value = ''; try { const artifact = await api.downloadDiagnostics(60); const url = URL.createObjectURL(new Blob([artifact.bytes], { type: 'application/json' })); const anchor = document.createElement('a'); anchor.href = url; anchor.download = artifact.filename; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url); ElMessage.success(`诊断包已校验并下载（SHA-256 ${artifact.sha256.slice(0, 12)}…）`); } catch (cause) { error.value = message(cause); } finally { diagnosticLoading.value = false; } }
-async function executeUpgrade() { if (!upgradeReadiness.value?.target) return; try { await ElMessageBox.confirm(`将提交升级到 ${upgradeReadiness.value.target.release_key}。控制 worker 会先创建新备份并完成隔离恢复验证，再进入维护和部署。`, '确认执行固定升级', { type: 'warning' }); upgradeSubmitting.value = true; error.value = ''; await api.submitUpgrade(); ElMessage.success('升级任务已提交，等待登记的 deployment-control worker'); await loadOpsView(); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } finally { upgradeSubmitting.value = false; } }
-async function selectView(next: string) { view.value = next; await loadView(); }
-async function login() { await run(async () => { await api.login(credentials.email.trim(), credentials.password); await loadSessionInfo(); authenticated.value = true; credentials.password = ''; }, '登录成功'); }
-async function logout() { await api.logout(); opsRuntime.dispose(); authenticated.value = false; platformPermissions.value = []; tenants.value = []; targetTenantId.value = null; backupCenter.value = null; upgradeReadiness.value = null; upgradeCenter.value = null; providerQualifications.value = null; view.value = 'overview'; }
-async function inspectInvitation() { if (!invitationToken.value) return; loading.value = true; error.value = ''; try { invitation.value = await api.inspectInvitation(invitationToken.value); } catch (cause) { error.value = message(cause); } finally { loading.value = false; } }
-async function acceptInvitation() { loading.value = true; error.value = ''; try { await api.acceptInvitation(invitationToken.value, acceptPassword.value); invitation.value = null; invitationToken.value = ''; window.history.replaceState({}, '', window.location.pathname); ElMessage.success('邀请已接受，请使用账户登录 Tenant'); } catch (cause) { error.value = message(cause); } finally { loading.value = false; } }
-function goToTenantLogin() { window.location.assign('/admin/'); }
-async function createTenant() { loading.value = true; error.value = ''; try { const result = await api.provision({ ...provision }); provisionDialog.value = false; Object.assign(provision, { tenant_code: '', tenant_name: '', owner_email: '', owner_display_name: '', expires_in_hours: 72 }); await showManualInvitation(result); ElMessage.success('租户已创建，所有者邀请已生成'); await loadView(); } catch (cause) { error.value = message(cause); } finally { loading.value = false; } }
-async function changeTenant(tenant: Tenant, action: 'activate' | 'suspend' | 'close') { const actionLabel = { activate: '启用', suspend: '暂停', close: '关闭' }[action]; try { await ElMessageBox.confirm(`确认${actionLabel} ${tenant.display_name}？`, '确认生命周期变更', { type: 'warning' }); const result = await ElMessageBox.prompt('填写变更原因', '变更原因', { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.transition(action, tenant, result.value), '租户状态已更新'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function showTenant(tenant: Tenant) { error.value = ''; loading.value = true; let detail: Record<string, unknown>; try { detail = await api.tenantDetail(tenant.id); } catch (cause) { error.value = message(cause); return; } finally { loading.value = false; } try { await ElMessageBox.alert(`<pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre>`, `${tenant.display_name} 详情`, { dangerouslyUseHTMLString: true }); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-function escapeHtml(value: string) { return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] || char)); }
-async function showManualInvitation(result: Invitation) { if (!result.accept_token) return; const url = `${window.location.origin}/platform/?invitation=${encodeURIComponent(result.accept_token)}`; await ElMessageBox.alert(`<p>当前实例使用人工交付模式。该链接只显示一次，请交给租户所有者：</p><pre>${escapeHtml(url)}</pre>`, '一次性邀请链接', { dangerouslyUseHTMLString: true, confirmButtonText: '已记录' }); }
-async function sendInvitation() { if (!targetTenantId.value) return; loading.value = true; error.value = ''; try { const result = await api.inviteOwner({ tenant_id: targetTenantId.value!, ...inviteForm }); await showManualInvitation(result); ElMessage.success('租户所有者邀请已创建'); await loadView(); } catch (cause) { error.value = message(cause); } finally { loading.value = false; } }
-async function resendInvitation(item: Invitation) { loading.value = true; error.value = ''; try { const result = await api.resendInvitation(item.id); await showManualInvitation(result); ElMessage.success('邀请已重新生成'); await loadView(); } catch (cause) { error.value = message(cause); } finally { loading.value = false; } }
-async function revokeInvitation(item: Invitation) { try { await ElMessageBox.confirm(`撤销 ${item.email} 的邀请？`, '确认撤销', { type: 'warning' }); await run(() => api.revokeInvitation(item.id), '邀请已撤销'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function enableBinding() { if (!targetTenantId.value) return; await run(() => api.enableEntryBinding({ tenant_id: targetTenantId.value!, ...bindingForm }), '入口绑定已启用'); }
-async function disableBinding(item: EntryBinding) { try { const result = await ElMessageBox.prompt('填写停用原因', `停用 ${item.host}`, { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.disableEntryBinding(item.id, result.value), '入口绑定已停用'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function changeModule(item: ModuleState, enabled: boolean) { if (!targetTenantId.value) return; try { const result = await ElMessageBox.prompt('填写变更原因', `${enabled ? '启用' : '停用'} ${item.module_key}`, { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.changeModule(enabled, targetTenantId.value!, item.module_key, result.value), `模块已${enabled ? '启用' : '停用'}`); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function createStorageAccount(){try{const key=await ElMessageBox.prompt('账号标识（如 qiniu-main）','新增存储账号');const driver=await ElMessageBox.prompt('供应商：qiniu / aliyun / qcloud','供应商');const name=await ElMessageBox.prompt('显示名称','账号名称');const access=await ElMessageBox.prompt('Access Key','存储凭据');const secret=await ElMessageBox.prompt('Secret Key','存储凭据',{inputType:'password'});await run(()=>api.createStorageAccount({account_key:key.value,driver:driver.value,name:name.value,credentials:{access_key:access.value,secret_key:secret.value}}),'存储账号已创建');}catch(cause){if(cause!=='cancel'&&cause!=='close')error.value=message(cause)}}
-async function createStorageSpace(){try{const account=await ElMessageBox.prompt('账号 ID','新增 Space');const key=await ElMessageBox.prompt('Space 标识','新增 Space');const name=await ElMessageBox.prompt('显示名称','新增 Space');const access=await ElMessageBox.prompt('公开属性：public / private','新增 Space');const bucket=await ElMessageBox.prompt('Bucket；本地账号填写 public/storage 或 private/storage','物理位置');const region=await ElMessageBox.prompt('Region（不适用可留空）','物理位置');const endpoint=await ElMessageBox.prompt('Endpoint（不适用可留空）','物理位置');const domain=await ElMessageBox.prompt('访问域名（不适用可留空）','交付地址');const isLocal=storage.value.accounts.find(a=>a.id===Number(account.value))?.driver==='local';await run(()=>api.createStorageSpace({account_id:Number(account.value),space_key:key.value,name:name.value,access_type:access.value,bucket:isLocal?'':bucket.value,local_path:isLocal?bucket.value:'',region:region.value,endpoint:endpoint.value,access_domain:domain.value}),'Space 已创建');}catch(cause){if(cause!=='cancel'&&cause!=='close')error.value=message(cause)}}
-async function setDefaultStorageRoute(space:StorageSpace){await run(()=>api.setStorageRoute({route_key:`default.${space.access_type}`,access_type:space.access_type,space_id:space.id}),`默认${space.access_type==='public'?'公开':'私有'}路由已更新`)}
-async function createOperator() { await run(async () => { await api.createOperator({ ...operatorForm }); Object.assign(operatorForm, { email: '', display_name: '', initial_password: '' }); }, '平台操作员已创建'); }
-async function editOperator(item: Operator) { try { const name = await ElMessageBox.prompt('显示名', `编辑 ${item.display_name}`, { inputValue: item.display_name, inputPattern: /\S+/, inputErrorMessage: '必须填写显示名' }); const reason = await ElMessageBox.prompt('变更原因', '变更原因', { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.updateOperator(item, name.value, reason.value), '操作员已更新'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function assignOperatorRoles(item: Operator) { try { const result = await ElMessageBox.prompt(`输入角色 ID，多个用逗号分隔。可选：${roles.value.map((role) => `${role.id}:${role.name}`).join('，')}`, '分配角色', { inputValue: '', inputPattern: /^\d+(\s*,\s*\d+)*$/, inputErrorMessage: '请输入一个或多个角色 ID' }); const reason = await ElMessageBox.prompt('变更原因', '变更原因', { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.replaceOperatorRoles(item, result.value.split(',').map((id) => Number(id.trim())), reason.value), '角色分配已更新'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function transitionOperator(item: Operator, action: 'activate' | 'suspend' | 'close') { const actionLabel = { activate: '启用', suspend: '暂停', close: '关闭' }[action]; try { const reason = await ElMessageBox.prompt('变更原因', `${actionLabel} ${item.display_name}`, { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.transitionOperator(action, item, reason.value), '操作员状态已更新'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function createRole() { await run(async () => { await api.createRole({ ...roleForm }); Object.assign(roleForm, { key: '', name: '', description: '' }); }, '平台角色已创建'); }
-async function editRole(item: PlatformRole) { try { const name = await ElMessageBox.prompt('角色名称', `编辑 ${item.key}`, { inputValue: item.name, inputPattern: /\S+/, inputErrorMessage: '必须填写名称' }); const description = await ElMessageBox.prompt('说明', '角色说明', { inputValue: item.description || '' }); const reason = await ElMessageBox.prompt('变更原因', '变更原因', { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.updateRole(item, name.value, description.value, reason.value), '平台角色已更新'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-function editPermissions(item: PlatformRole) { permissionRole.value = item; permissionSelection.value = [...item.permission_keys]; }
-async function savePermissions() { if (!permissionRole.value) return; try { const reason = await ElMessageBox.prompt('变更原因', `保存 ${permissionRole.value.name} 的权限`, { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.replaceRolePermissions(permissionRole.value!, permissionSelection.value, reason.value), '角色权限已更新'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-async function archiveRole(item: PlatformRole) { try { await ElMessageBox.confirm(`归档 ${item.name}？`, '确认归档', { type: 'warning' }); const reason = await ElMessageBox.prompt('变更原因', '变更原因', { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }); await run(() => api.archiveRole(item, reason.value), '平台角色已归档'); } catch (cause) { if (cause !== 'cancel' && cause !== 'close') error.value = message(cause); } }
-onMounted(async () => { try { if (invitationToken.value) await inspectInvitation(); else if (authenticated.value) { await loadSessionInfo(); await loadView(); } } catch (cause) { error.value = message(cause); } });
-onUnmounted(() => { stopPlatformSessionSync(); opsRuntime.dispose(); });
+  const tokenFromUrl = new URLSearchParams(window.location.search).get(
+    'invitation'
+  );
+  const invitationToken = ref(tokenFromUrl || '');
+  const invitation = ref<InvitationInspection | null>(null);
+  const acceptPassword = ref('');
+  const authenticated = ref(hasPlatformSession());
+  const loading = ref(false);
+  const error = ref('');
+  const view = ref('overview');
+  const tenants = ref<Tenant[]>([]);
+  const invitations = ref<Invitation[]>([]);
+  const bindings = ref<EntryBinding[]>([]);
+  const modules = ref<ModuleState[]>([]);
+  const operators = ref<Operator[]>([]);
+  const roles = ref<PlatformRole[]>([]);
+  const permissions = ref<Permission[]>([]);
+  const audits = ref<AuditEvent[]>([]);
+  const storage = ref<StorageSnapshot>({
+    accounts: [],
+    spaces: [],
+    routes: [],
+    purposes: [],
+  });
+  const owner = ref<TenantOwner | null>(null);
+  const targetTenantId = ref<number | null>(null);
+  const provisionDialog = ref(false);
+  const permissionSelection = ref<string[]>([]);
+  const permissionRole = ref<PlatformRole | null>(null);
+  const platformPermissions = ref<string[]>([]);
+  const diagnosticLoading = ref(false);
+  const backupCenter = ref<OpsBackupCenterSnapshot | null>(null);
+  const backupCenterLoading = ref(false);
+  const upgradeReadiness = ref<OpsUpgradeReadinessSnapshot | null>(null);
+  const upgradeReadinessLoading = ref(false);
+  const upgradeCenter = ref<OpsUpgradeCenterSnapshot | null>(null);
+  const upgradeCenterLoading = ref(false);
+  const upgradeSubmitting = ref(false);
+  const providerQualifications = ref<ProviderQualificationSnapshot | null>(
+    null
+  );
+  const providerQualificationsLoading = ref(false);
+  const stopPlatformSessionSync = onPlatformSessionChange((present) => {
+    authenticated.value = present;
+    if (!present) platformPermissions.value = [];
+  });
+  const can = (permission: string) =>
+    platformPermissions.value.includes(permission);
+  const opsRuntime = createOpsConsoleRuntime({
+    transport: createPlatformOpsTransport(),
+    providers: [
+      {
+        key: 'peanut.paired-db-files',
+        backup: true,
+        restoreTargets: ['isolated-new-target'],
+      },
+    ],
+    maintenanceReasons: [
+      'planned-upgrade',
+      'database-maintenance',
+      'security-maintenance',
+    ],
+    logSources: [],
+    canRead: () => can('platform.ops.read'),
+    canBackup: () => can('platform.ops.backup.manage'),
+    canRestore: () => can('platform.ops.restore.manage'),
+    canMaintain: () => can('platform.ops.maintenance.manage'),
+    canReadLogs: () => false,
+  });
+  provide(opsConsoleRuntimeKey, opsRuntime);
+  const credentials = reactive({ email: '', password: '' });
+  const provision = reactive({
+    tenant_code: '',
+    tenant_name: '',
+    owner_email: '',
+    owner_display_name: '',
+    expires_in_hours: 72,
+  });
+  const inviteForm = reactive({
+    owner_email: '',
+    owner_display_name: '',
+    expires_in_hours: 72,
+  });
+  const bindingForm = reactive({
+    host: '',
+    client_key: 'admin-web',
+    change_reason: '',
+  });
+  const operatorForm = reactive({
+    email: '',
+    display_name: '',
+    initial_password: '',
+  });
+  const roleForm = reactive({ key: '', name: '', description: '' });
+  const labels: Record<string, string> = {
+    overview: '概览',
+    ops: '运行与维护',
+    tenants: '租户与生命周期',
+    owners: '租户所有者邀请管理',
+    endpoints: '入口域名与客户端',
+    modules: '租户模块开通',
+    developer: '开发者中心',
+    storage: '存储基础设施',
+    operators: '实例平台操作员',
+    roles: '平台角色与权限',
+    audit: '平台审计',
+  };
+  const title = computed(() => labels[view.value]);
+  const activeCount = computed(
+    () => tenants.value.filter((tenant) => tenant.status === 'active').length
+  );
+  const targetTenant = computed(() =>
+    tenants.value.find((tenant) => tenant.id === targetTenantId.value)
+  );
+  const latestUpgrade = computed(() => upgradeCenter.value?.tasks[0] || null);
+  const activeUpgrade = computed(() =>
+    ['queued', 'running'].includes(latestUpgrade.value?.status || '')
+  );
+  const TenantPicker = defineComponent({
+    setup: () => () =>
+      h('div', { class: 'toolbar' }, [
+        h('span', { class: 'muted' }, '操作目标租户'),
+        h(
+          ElSelect,
+          {
+            'modelValue': targetTenantId.value,
+            'onUpdate:modelValue': (id: number) => {
+              targetTenantId.value = id;
+              void loadView();
+            },
+            'placeholder': '选择目标租户',
+            'style': 'width: 280px',
+          },
+          () =>
+            tenants.value.map((tenant) =>
+              h(ElOption, {
+                key: tenant.id,
+                label: `${tenant.display_name} (${tenant.code})`,
+                value: tenant.id,
+              })
+            )
+        ),
+      ]),
+  });
+  function statusType(status: string) {
+    return status === 'active' || status === 'enabled'
+      ? 'success'
+      : status === 'suspended'
+      ? 'warning'
+      : status === 'closed' || status === 'disabled'
+      ? 'danger'
+      : 'info';
+  }
+  function statusLabel(status: string) {
+    return (
+      (
+        {
+          active: '正常',
+          enabled: '已启用',
+          not_enabled: '未开通',
+          provisioning: '待配置',
+          pending: '待接受',
+          pending_delivery: '待投递',
+          delivered: '已投递',
+          accepted: '已接受',
+          revoked: '已撤销',
+          expired: '已过期',
+          suspended: '已暂停',
+          disabled: '已停用',
+          closed: '已关闭',
+          queued: '排队中',
+          running: '执行中',
+          succeeded: '已完成',
+          dead: '失败',
+          cancelled: '已取消',
+        } as Record<string, string>
+      )[status] || status
+    );
+  }
+  function clientLabel(client: string) {
+    return (
+      (
+        { 'admin-web': '管理端网页', 'member-api': '会员接口' } as Record<
+          string,
+          string
+        >
+      )[client] || client
+    );
+  }
+  function formatBackupAge(seconds: number) {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const minutes = Math.floor(safeSeconds / 60);
+    if (minutes < 1) return `${safeSeconds} 秒`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 1) return `${minutes} 分钟`;
+    const days = Math.floor(hours / 24);
+    return days < 1 ? `${hours} 小时` : `${days} 天`;
+  }
+  function readinessLabel(state: OpsUpgradeReadinessState) {
+    return (
+      {
+        ready: '已就绪',
+        blocked: '已阻塞',
+        configuration_required: '待配置',
+      } as Record<OpsUpgradeReadinessState, string>
+    )[state];
+  }
+  function readinessType(state: OpsUpgradeReadinessState) {
+    return state === 'ready'
+      ? 'success'
+      : state === 'blocked'
+      ? 'error'
+      : 'warning';
+  }
+  function upgradeStepLabel(step: string) {
+    return (
+      (
+        {
+          preflight: '静态预检',
+          backup: '新鲜配对备份',
+          restore_verification: '隔离恢复验证',
+          maintenance: '维护门禁',
+          deployment: '部署与迁移',
+          smoke: 'Runtime smoke',
+          recovery_pointer: '恢复指针',
+          completed: '已完成',
+        } as Record<string, string>
+      )[step] || step
+    );
+  }
+  function message(cause: unknown) {
+    return cause instanceof Error ? cause.message : '请求失败，请稍后重试';
+  }
+  async function run(action: () => Promise<unknown>, success: string) {
+    loading.value = true;
+    error.value = '';
+    try {
+      await action();
+      ElMessage.success(success);
+      await loadView();
+    } catch (cause) {
+      error.value = message(cause);
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function loadTenants() {
+    const result = await api.tenants();
+    tenants.value = result.lists;
+    if (targetTenantId.value && !targetTenant.value)
+      targetTenantId.value = null;
+  }
+  async function loadSessionInfo() {
+    const info = await api.sessionInfo();
+    platformPermissions.value = info.permissions;
+    if (!can('platform.tenant.read') && can('platform.ops.read'))
+      view.value = 'ops';
+  }
+  async function loadBackupCenter() {
+    backupCenterLoading.value = true;
+    error.value = '';
+    try {
+      backupCenter.value = await api.backupCenter();
+    } catch (cause) {
+      error.value = message(cause);
+      if (!hasPlatformSession()) authenticated.value = false;
+    } finally {
+      backupCenterLoading.value = false;
+    }
+  }
+  async function loadUpgradeReadiness() {
+    upgradeReadinessLoading.value = true;
+    error.value = '';
+    try {
+      upgradeReadiness.value = await api.upgradeReadiness();
+    } catch (cause) {
+      error.value = message(cause);
+      if (!hasPlatformSession()) authenticated.value = false;
+    } finally {
+      upgradeReadinessLoading.value = false;
+    }
+  }
+  async function loadUpgradeCenter() {
+    upgradeCenterLoading.value = true;
+    error.value = '';
+    try {
+      upgradeCenter.value = await api.upgradeCenter();
+    } catch (cause) {
+      error.value = message(cause);
+      if (!hasPlatformSession()) authenticated.value = false;
+    } finally {
+      upgradeCenterLoading.value = false;
+    }
+  }
+  async function loadProviderQualifications() {
+    providerQualificationsLoading.value = true;
+    error.value = '';
+    try {
+      providerQualifications.value = await api.providerQualifications();
+    } catch (cause) {
+      error.value = message(cause);
+      if (!hasPlatformSession()) authenticated.value = false;
+    } finally {
+      providerQualificationsLoading.value = false;
+    }
+  }
+  async function loadOpsView() {
+    await Promise.all([
+      loadUpgradeReadiness(),
+      loadUpgradeCenter(),
+      loadBackupCenter(),
+      loadProviderQualifications(),
+    ]);
+  }
+  async function loadView() {
+    if (view.value === 'ops') {
+      await loadOpsView();
+      return;
+    }
+    loading.value = true;
+    error.value = '';
+    try {
+      await loadTenants();
+      const id = targetTenantId.value;
+      if (view.value === 'overview')
+        operators.value = (await api.operators()).lists;
+      else if (view.value === 'owners') {
+        if (id)
+          [invitations.value, owner.value] = [
+            (await api.invitations(id)).lists,
+            await api.tenantOwner(id).catch(() => null),
+          ];
+        else [invitations.value, owner.value] = [[], null];
+      } else if (view.value === 'endpoints')
+        bindings.value = id ? await api.entryBindings(id) : [];
+      else if (view.value === 'modules')
+        modules.value = id ? (await api.moduleStates(id)).lists : [];
+      else if (view.value === 'storage')
+        storage.value = await api.storageSnapshot();
+      else if (view.value === 'operators') {
+        [operators.value, roles.value] = [
+          (await api.operators()).lists,
+          (await api.roles()).lists,
+        ];
+      } else if (view.value === 'roles') {
+        [roles.value, permissions.value] = [
+          (await api.roles()).lists,
+          (await api.permissions()).lists,
+        ];
+      } else if (view.value === 'audit')
+        audits.value = (await api.audit()).lists;
+    } catch (cause) {
+      error.value = message(cause);
+      if (!hasPlatformSession()) authenticated.value = false;
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function refreshView() {
+    if (view.value === 'ops')
+      await Promise.all([opsRuntime.load(), loadOpsView()]);
+    else await loadView();
+  }
+  async function downloadDiagnosticBundle() {
+    diagnosticLoading.value = true;
+    error.value = '';
+    try {
+      const artifact = await api.downloadDiagnostics(60);
+      const url = URL.createObjectURL(
+        new Blob([artifact.bytes], { type: 'application/json' })
+      );
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = artifact.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      ElMessage.success(
+        `诊断包已校验并下载（SHA-256 ${artifact.sha256.slice(0, 12)}…）`
+      );
+    } catch (cause) {
+      error.value = message(cause);
+    } finally {
+      diagnosticLoading.value = false;
+    }
+  }
+  async function executeUpgrade() {
+    if (!upgradeReadiness.value?.target) return;
+    try {
+      await ElMessageBox.confirm(
+        `将提交升级到 ${upgradeReadiness.value.target.release_key}。控制 worker 会先创建新备份并完成隔离恢复验证，再进入维护和部署。`,
+        '确认执行固定升级',
+        { type: 'warning' }
+      );
+      upgradeSubmitting.value = true;
+      error.value = '';
+      await api.submitUpgrade();
+      ElMessage.success('升级任务已提交，等待登记的 deployment-control worker');
+      await loadOpsView();
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    } finally {
+      upgradeSubmitting.value = false;
+    }
+  }
+  async function selectView(next: string) {
+    view.value = next;
+    await loadView();
+  }
+  async function login() {
+    await run(async () => {
+      await api.login(credentials.email.trim(), credentials.password);
+      await loadSessionInfo();
+      authenticated.value = true;
+      credentials.password = '';
+    }, '登录成功');
+  }
+  async function logout() {
+    await api.logout();
+    opsRuntime.dispose();
+    authenticated.value = false;
+    platformPermissions.value = [];
+    tenants.value = [];
+    targetTenantId.value = null;
+    backupCenter.value = null;
+    upgradeReadiness.value = null;
+    upgradeCenter.value = null;
+    providerQualifications.value = null;
+    view.value = 'overview';
+  }
+  async function inspectInvitation() {
+    if (!invitationToken.value) return;
+    loading.value = true;
+    error.value = '';
+    try {
+      invitation.value = await api.inspectInvitation(invitationToken.value);
+    } catch (cause) {
+      error.value = message(cause);
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function acceptInvitation() {
+    loading.value = true;
+    error.value = '';
+    try {
+      await api.acceptInvitation(invitationToken.value, acceptPassword.value);
+      invitation.value = null;
+      invitationToken.value = '';
+      window.history.replaceState({}, '', window.location.pathname);
+      ElMessage.success('邀请已接受，请使用账户登录 Tenant');
+    } catch (cause) {
+      error.value = message(cause);
+    } finally {
+      loading.value = false;
+    }
+  }
+  function goToTenantLogin() {
+    window.location.assign('/admin/');
+  }
+  async function createTenant() {
+    loading.value = true;
+    error.value = '';
+    try {
+      const result = await api.provision({ ...provision });
+      provisionDialog.value = false;
+      Object.assign(provision, {
+        tenant_code: '',
+        tenant_name: '',
+        owner_email: '',
+        owner_display_name: '',
+        expires_in_hours: 72,
+      });
+      await showManualInvitation(result);
+      ElMessage.success('租户已创建，所有者邀请已生成');
+      await loadView();
+    } catch (cause) {
+      error.value = message(cause);
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function changeTenant(
+    tenant: Tenant,
+    action: 'activate' | 'suspend' | 'close'
+  ) {
+    const actionLabel = { activate: '启用', suspend: '暂停', close: '关闭' }[
+      action
+    ];
+    try {
+      await ElMessageBox.confirm(
+        `确认${actionLabel} ${tenant.display_name}？`,
+        '确认生命周期变更',
+        { type: 'warning' }
+      );
+      const result = await ElMessageBox.prompt('填写变更原因', '变更原因', {
+        inputPattern: /\S+/,
+        inputErrorMessage: '必须填写原因',
+      });
+      await run(
+        () => api.transition(action, tenant, result.value),
+        '租户状态已更新'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function showTenant(tenant: Tenant) {
+    error.value = '';
+    loading.value = true;
+    let detail: Record<string, unknown>;
+    try {
+      detail = await api.tenantDetail(tenant.id);
+    } catch (cause) {
+      error.value = message(cause);
+      return;
+    } finally {
+      loading.value = false;
+    }
+    try {
+      await ElMessageBox.alert(
+        `<pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre>`,
+        `${tenant.display_name} 详情`,
+        { dangerouslyUseHTMLString: true }
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  function escapeHtml(value: string) {
+    return value.replace(
+      /[&<>'"]/g,
+      (char) =>
+        ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;',
+        }[char] || char)
+    );
+  }
+  async function showManualInvitation(result: Invitation) {
+    if (!result.accept_token) return;
+    const url = `${
+      window.location.origin
+    }/platform/?invitation=${encodeURIComponent(result.accept_token)}`;
+    await ElMessageBox.alert(
+      `<p>当前实例使用人工交付模式。该链接只显示一次，请交给租户所有者：</p><pre>${escapeHtml(
+        url
+      )}</pre>`,
+      '一次性邀请链接',
+      { dangerouslyUseHTMLString: true, confirmButtonText: '已记录' }
+    );
+  }
+  async function sendInvitation() {
+    if (!targetTenantId.value) return;
+    loading.value = true;
+    error.value = '';
+    try {
+      const result = await api.inviteOwner({
+        tenant_id: targetTenantId.value!,
+        ...inviteForm,
+      });
+      await showManualInvitation(result);
+      ElMessage.success('租户所有者邀请已创建');
+      await loadView();
+    } catch (cause) {
+      error.value = message(cause);
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function resendInvitation(item: Invitation) {
+    loading.value = true;
+    error.value = '';
+    try {
+      const result = await api.resendInvitation(item.id);
+      await showManualInvitation(result);
+      ElMessage.success('邀请已重新生成');
+      await loadView();
+    } catch (cause) {
+      error.value = message(cause);
+    } finally {
+      loading.value = false;
+    }
+  }
+  async function revokeInvitation(item: Invitation) {
+    try {
+      await ElMessageBox.confirm(`撤销 ${item.email} 的邀请？`, '确认撤销', {
+        type: 'warning',
+      });
+      await run(() => api.revokeInvitation(item.id), '邀请已撤销');
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function enableBinding() {
+    if (!targetTenantId.value) return;
+    await run(
+      () =>
+        api.enableEntryBinding({
+          tenant_id: targetTenantId.value!,
+          ...bindingForm,
+        }),
+      '入口绑定已启用'
+    );
+  }
+  async function disableBinding(item: EntryBinding) {
+    try {
+      const result = await ElMessageBox.prompt(
+        '填写停用原因',
+        `停用 ${item.host}`,
+        { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }
+      );
+      await run(
+        () => api.disableEntryBinding(item.id, result.value),
+        '入口绑定已停用'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function changeModule(item: ModuleState, enabled: boolean) {
+    if (!targetTenantId.value) return;
+    try {
+      const result = await ElMessageBox.prompt(
+        '填写变更原因',
+        `${enabled ? '启用' : '停用'} ${item.module_key}`,
+        { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }
+      );
+      await run(
+        () =>
+          api.changeModule(
+            enabled,
+            targetTenantId.value!,
+            item.module_key,
+            result.value
+          ),
+        `模块已${enabled ? '启用' : '停用'}`
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function createStorageAccount() {
+    try {
+      const key = await ElMessageBox.prompt(
+        '账号标识（如 qiniu-main）',
+        '新增存储账号'
+      );
+      const driver = await ElMessageBox.prompt(
+        '供应商：qiniu / aliyun / qcloud',
+        '供应商'
+      );
+      const name = await ElMessageBox.prompt('显示名称', '账号名称');
+      const access = await ElMessageBox.prompt('Access Key', '存储凭据');
+      const secret = await ElMessageBox.prompt('Secret Key', '存储凭据', {
+        inputType: 'password',
+      });
+      await run(
+        () =>
+          api.createStorageAccount({
+            account_key: key.value,
+            driver: driver.value,
+            name: name.value,
+            credentials: { access_key: access.value, secret_key: secret.value },
+          }),
+        '存储账号已创建'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function createStorageSpace() {
+    try {
+      const account = await ElMessageBox.prompt('账号 ID', '新增 Space');
+      const key = await ElMessageBox.prompt('Space 标识', '新增 Space');
+      const name = await ElMessageBox.prompt('显示名称', '新增 Space');
+      const access = await ElMessageBox.prompt(
+        '公开属性：public / private',
+        '新增 Space'
+      );
+      const bucket = await ElMessageBox.prompt(
+        'Bucket；本地账号填写 public/storage 或 private/storage',
+        '物理位置'
+      );
+      const region = await ElMessageBox.prompt(
+        'Region（不适用可留空）',
+        '物理位置'
+      );
+      const endpoint = await ElMessageBox.prompt(
+        'Endpoint（不适用可留空）',
+        '物理位置'
+      );
+      const domain = await ElMessageBox.prompt(
+        '访问域名（不适用可留空）',
+        '交付地址'
+      );
+      const isLocal =
+        storage.value.accounts.find((a) => a.id === Number(account.value))
+          ?.driver === 'local';
+      await run(
+        () =>
+          api.createStorageSpace({
+            account_id: Number(account.value),
+            space_key: key.value,
+            name: name.value,
+            access_type: access.value,
+            bucket: isLocal ? '' : bucket.value,
+            local_path: isLocal ? bucket.value : '',
+            region: region.value,
+            endpoint: endpoint.value,
+            access_domain: domain.value,
+          }),
+        'Space 已创建'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function setDefaultStorageRoute(space: StorageSpace) {
+    await run(
+      () =>
+        api.setStorageRoute({
+          route_key: `default.${space.access_type}`,
+          access_type: space.access_type,
+          space_id: space.id,
+        }),
+      `默认${space.access_type === 'public' ? '公开' : '私有'}路由已更新`
+    );
+  }
+  async function createOperator() {
+    await run(async () => {
+      await api.createOperator({ ...operatorForm });
+      Object.assign(operatorForm, {
+        email: '',
+        display_name: '',
+        initial_password: '',
+      });
+    }, '平台操作员已创建');
+  }
+  async function editOperator(item: Operator) {
+    try {
+      const name = await ElMessageBox.prompt(
+        '显示名',
+        `编辑 ${item.display_name}`,
+        {
+          inputValue: item.display_name,
+          inputPattern: /\S+/,
+          inputErrorMessage: '必须填写显示名',
+        }
+      );
+      const reason = await ElMessageBox.prompt('变更原因', '变更原因', {
+        inputPattern: /\S+/,
+        inputErrorMessage: '必须填写原因',
+      });
+      await run(
+        () => api.updateOperator(item, name.value, reason.value),
+        '操作员已更新'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function assignOperatorRoles(item: Operator) {
+    try {
+      const result = await ElMessageBox.prompt(
+        `输入角色 ID，多个用逗号分隔。可选：${roles.value
+          .map((role) => `${role.id}:${role.name}`)
+          .join('，')}`,
+        '分配角色',
+        {
+          inputValue: '',
+          inputPattern: /^\d+(\s*,\s*\d+)*$/,
+          inputErrorMessage: '请输入一个或多个角色 ID',
+        }
+      );
+      const reason = await ElMessageBox.prompt('变更原因', '变更原因', {
+        inputPattern: /\S+/,
+        inputErrorMessage: '必须填写原因',
+      });
+      await run(
+        () =>
+          api.replaceOperatorRoles(
+            item,
+            result.value.split(',').map((id) => Number(id.trim())),
+            reason.value
+          ),
+        '角色分配已更新'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function transitionOperator(
+    item: Operator,
+    action: 'activate' | 'suspend' | 'close'
+  ) {
+    const actionLabel = { activate: '启用', suspend: '暂停', close: '关闭' }[
+      action
+    ];
+    try {
+      const reason = await ElMessageBox.prompt(
+        '变更原因',
+        `${actionLabel} ${item.display_name}`,
+        { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }
+      );
+      await run(
+        () => api.transitionOperator(action, item, reason.value),
+        '操作员状态已更新'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function createRole() {
+    await run(async () => {
+      await api.createRole({ ...roleForm });
+      Object.assign(roleForm, { key: '', name: '', description: '' });
+    }, '平台角色已创建');
+  }
+  async function editRole(item: PlatformRole) {
+    try {
+      const name = await ElMessageBox.prompt('角色名称', `编辑 ${item.key}`, {
+        inputValue: item.name,
+        inputPattern: /\S+/,
+        inputErrorMessage: '必须填写名称',
+      });
+      const description = await ElMessageBox.prompt('说明', '角色说明', {
+        inputValue: item.description || '',
+      });
+      const reason = await ElMessageBox.prompt('变更原因', '变更原因', {
+        inputPattern: /\S+/,
+        inputErrorMessage: '必须填写原因',
+      });
+      await run(
+        () => api.updateRole(item, name.value, description.value, reason.value),
+        '平台角色已更新'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  function editPermissions(item: PlatformRole) {
+    permissionRole.value = item;
+    permissionSelection.value = [...item.permission_keys];
+  }
+  async function savePermissions() {
+    if (!permissionRole.value) return;
+    try {
+      const reason = await ElMessageBox.prompt(
+        '变更原因',
+        `保存 ${permissionRole.value.name} 的权限`,
+        { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }
+      );
+      await run(
+        () =>
+          api.replaceRolePermissions(
+            permissionRole.value!,
+            permissionSelection.value,
+            reason.value
+          ),
+        '角色权限已更新'
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  async function archiveRole(item: PlatformRole) {
+    try {
+      await ElMessageBox.confirm(`归档 ${item.name}？`, '确认归档', {
+        type: 'warning',
+      });
+      const reason = await ElMessageBox.prompt('变更原因', '变更原因', {
+        inputPattern: /\S+/,
+        inputErrorMessage: '必须填写原因',
+      });
+      await run(() => api.archiveRole(item, reason.value), '平台角色已归档');
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    }
+  }
+  onMounted(async () => {
+    try {
+      if (invitationToken.value) await inspectInvitation();
+      else if (authenticated.value) {
+        await loadSessionInfo();
+        await loadView();
+      }
+    } catch (cause) {
+      error.value = message(cause);
+    }
+  });
+  onUnmounted(() => {
+    stopPlatformSessionSync();
+    opsRuntime.dispose();
+  });
 </script>

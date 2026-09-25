@@ -122,14 +122,14 @@ final readonly class DataPolicyAdminService
                     ->where('id', $policyId)
                     ->where('revision', $expectedRevision)
                     ->update([
-                    'status' => $input['status'],
-                    'valid_from' => $input['valid_from'],
-                    'valid_until' => $input['valid_until'],
-                    'reason' => $input['reason'],
-                    'revision' => new Raw('revision + 1'),
-                    'updated_by_member_id' => $actor->memberId,
-                    'updated_at' => $now,
-                ]) !== 1) {
+                        'status' => $input['status'],
+                        'valid_from' => $input['valid_from'],
+                        'valid_until' => $input['valid_until'],
+                        'reason' => $input['reason'],
+                        'revision' => new Raw('revision + 1'),
+                        'updated_by_member_id' => $actor->memberId,
+                        'updated_at' => $now,
+                    ]) !== 1) {
                     throw AdminAccessException::revisionMismatch();
                 }
             }
@@ -144,9 +144,9 @@ final readonly class DataPolicyAdminService
                 ->where('id', $roleId)
                 ->where('authorization_revision', (int) $role['authorization_revision'])
                 ->update([
-                'authorization_revision' => new Raw('authorization_revision + 1'),
-                'updated_at' => $now,
-            ]);
+                    'authorization_revision' => new Raw('authorization_revision + 1'),
+                    'updated_at' => $now,
+                ]);
             Tenant::where('id', $actor->tenantId)->update([
                 'authorization_revision' => new Raw('authorization_revision + 1'),
                 'updated_at' => $now,

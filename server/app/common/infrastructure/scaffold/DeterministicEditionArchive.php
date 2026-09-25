@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
@@ -125,7 +126,7 @@ final class DeterministicEditionArchive
                 'archive_path' => $archiveRoot . '/' . $relative,
                 'source' => $path,
                 'type' => $type,
-                'size' => $type === '0' ? (int)$file->getSize() : 0,
+                'size' => $type === '0' ? (int) $file->getSize() : 0,
                 'mode' => $file->getPerms() & 0777,
             ];
         }

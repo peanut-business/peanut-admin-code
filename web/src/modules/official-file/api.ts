@@ -27,7 +27,11 @@ export function getFileCateList(type: FileType) {
   });
 }
 
-export function addFileCate(data: { type: FileType; pid?: number; name: string }) {
+export function addFileCate(data: {
+  type: FileType;
+  pid?: number;
+  name: string;
+}) {
   return axios.post('/adminapi/official.file.category.add', data);
 }
 
@@ -60,7 +64,9 @@ export interface FileListParams {
 }
 
 export function getFileList(params: FileListParams) {
-  return axios.get<ListRes<FileRecord>>('/adminapi/official.file.list', { params });
+  return axios.get<ListRes<FileRecord>>('/adminapi/official.file.list', {
+    params,
+  });
 }
 
 export function moveFile(ids: number[], cid: number) {

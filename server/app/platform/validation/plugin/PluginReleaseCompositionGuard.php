@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\validation\plugin;
@@ -18,8 +19,7 @@ final readonly class PluginReleaseCompositionGuard
         private string $targetProjectRoot,
         private array $moduleConfig,
         private ModuleCatalogApplier $catalogs,
-    ) {
-    }
+    ) {}
 
     /**
      * The active database, current release lock and staged target lock must agree before any code is replaced.
@@ -33,7 +33,7 @@ final readonly class PluginReleaseCompositionGuard
         if ($this->sameDirectory($currentRoot, $targetRoot)) {
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_ROOTS_IDENTICAL',
-                'Current and target application releases must be distinct directories.'
+                'Current and target application releases must be distinct directories.',
             );
         }
 
@@ -50,27 +50,27 @@ final readonly class PluginReleaseCompositionGuard
 
         $checked = [];
         foreach ($this->installedPlugins() as $row) {
-            $key = (string)$row['plugin_key'];
-            if ((string)$row['status'] !== 'active') {
+            $key = (string) $row['plugin_key'];
+            if ((string) $row['status'] !== 'active') {
                 throw new PluginLifecycleException(
                     'PLUGIN_RELEASE_STATE_INVALID',
-                    "Plugin is not active during release replacement: {$key}"
+                    "Plugin is not active during release replacement: {$key}",
                 );
             }
             $currentPlugin = $current[$key] ?? throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_CURRENT_PACKAGE_MISSING',
-                "Current release lock omits an installed Plugin: {$key}"
+                "Current release lock omits an installed Plugin: {$key}",
             );
             if (!$this->matchesInstallation($currentPlugin, $row)) {
                 throw new PluginLifecycleException(
                     'PLUGIN_RELEASE_CURRENT_IDENTITY_MISMATCH',
-                    "Current release lock differs from the installed Plugin identity: {$key}"
+                    "Current release lock differs from the installed Plugin identity: {$key}",
                 );
             }
 
             $targetPlugin = $target[$key] ?? throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_PACKAGE_REMOVED',
-                "Target application release omits an installed Plugin: {$key}"
+                "Target application release omits an installed Plugin: {$key}",
             );
             $memberState = $this->memberState($key);
             $currentMembers = array_keys($currentPlugin->moduleRoots);
@@ -80,26 +80,26 @@ final readonly class PluginReleaseCompositionGuard
             if ($memberState['keys'] !== $currentMembers || $targetMembers !== $currentMembers) {
                 throw new PluginLifecycleException(
                     'PLUGIN_RELEASE_PACKAGE_SCOPE_CHANGED',
-                    "Application release changes the installed Plugin member set: {$key}"
+                    "Application release changes the installed Plugin member set: {$key}",
                 );
             }
             $comparison = version_compare($targetPlugin->version, $currentPlugin->version);
             if ($comparison < 0) {
                 throw new PluginLifecycleException(
                     'PLUGIN_RELEASE_PACKAGE_DOWNGRADE',
-                    "Target application release downgrades an installed Plugin: {$key}"
+                    "Target application release downgrades an installed Plugin: {$key}",
                 );
             }
             if ($comparison === 0 && !$this->sameImmutableIdentity($currentPlugin, $targetPlugin)) {
                 throw new PluginLifecycleException(
                     'PLUGIN_RELEASE_PACKAGE_IDENTITY_CHANGED',
-                    "Target application release changes an installed Plugin without a version increase: {$key}"
+                    "Target application release changes an installed Plugin without a version increase: {$key}",
                 );
             }
             if ($memberState['mode'] === 'disabled' && $comparison !== 0) {
                 throw new PluginLifecycleException(
                     'PLUGIN_RELEASE_DISABLED_PACKAGE_CHANGE',
-                    "A disabled Plugin must be re-enabled before changing its package version: {$key}"
+                    "A disabled Plugin must be re-enabled before changing its package version: {$key}",
                 );
             }
             if ($comparison > 0) {
@@ -137,14 +137,14 @@ final readonly class PluginReleaseCompositionGuard
         if ($rows === []) {
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_PACKAGE_SCOPE_INVALID',
-                "Installed Plugin has no recorded Module members: {$pluginKey}"
+                "Installed Plugin has no recorded Module members: {$pluginKey}",
             );
         }
         $keys = [];
         $active = 0;
         $disabled = 0;
         foreach ($rows as $row) {
-            $keys[] = (string)($row['module_key'] ?? '');
+            $keys[] = (string) ($row['module_key'] ?? '');
             if (($row['status'] ?? null) === 'active' && ($row['last_error_code'] ?? null) === null) {
                 $active++;
             } elseif (($row['status'] ?? null) === 'maintenance' && ($row['last_error_code'] ?? null) === null) {
@@ -160,16 +160,16 @@ final readonly class PluginReleaseCompositionGuard
         }
         throw new PluginLifecycleException(
             'PLUGIN_RELEASE_MODULE_STATE_INVALID',
-            "Plugin Module members are in a mixed or transitional state: {$pluginKey}"
+            "Plugin Module members are in a mixed or transitional state: {$pluginKey}",
         );
     }
 
     /** @param array<string,mixed> $row */
     private function matchesInstallation(PluginDescriptor $plugin, array $row): bool
     {
-        return (string)$row['installed_version'] === $plugin->version
-            && (string)$row['source'] === $plugin->source['type'] . ':' . $plugin->source['reference']
-            && hash_equals((string)$row['artifact_sha256'], $plugin->source['sha256'])
+        return (string) $row['installed_version'] === $plugin->version
+            && (string) $row['source'] === $plugin->source['type'] . ':' . $plugin->source['reference']
+            && hash_equals((string) $row['artifact_sha256'], $plugin->source['sha256'])
             // lock_digest covers the whole lock and legitimately becomes stale after another package changes.
             && $this->jsonColumn($row['composer_identity_json'] ?? null) === $this->canonicalValue($plugin->composer)
             && $this->jsonColumn($row['npm_identity_json'] ?? null) === $this->canonicalValue($plugin->npm)
@@ -194,7 +194,7 @@ final readonly class PluginReleaseCompositionGuard
         if (!is_string($value)) {
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_CURRENT_IDENTITY_INVALID',
-                'Installed Plugin package identity is unavailable.'
+                'Installed Plugin package identity is unavailable.',
             );
         }
         try {
@@ -202,13 +202,13 @@ final readonly class PluginReleaseCompositionGuard
         } catch (\JsonException $exception) {
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_CURRENT_IDENTITY_INVALID',
-                'Installed Plugin package identity is invalid: ' . $exception->getMessage()
+                'Installed Plugin package identity is invalid: ' . $exception->getMessage(),
             );
         }
         if (!is_array($decoded) || !array_is_list($decoded) || !str_starts_with(ltrim($value), '[')) {
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_CURRENT_IDENTITY_INVALID',
-                'Installed Plugin package identity must be a list.'
+                'Installed Plugin package identity must be a list.',
             );
         }
         return $this->canonicalValue($decoded);
@@ -248,7 +248,7 @@ final readonly class PluginReleaseCompositionGuard
         if (!is_array($leftStat) || !is_array($rightStat)) {
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_ROOT_IDENTITY_UNAVAILABLE',
-                'Application release directory identity is unavailable.'
+                'Application release directory identity is unavailable.',
             );
         }
         return $leftStat['dev'] === $rightStat['dev'] && $leftStat['ino'] === $rightStat['ino'];

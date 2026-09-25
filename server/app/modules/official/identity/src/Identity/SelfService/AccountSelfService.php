@@ -144,8 +144,10 @@ final readonly class AccountSelfService
 
     public function changePassword(
         TenantContext $actor,
-        #[SensitiveParameter] string $currentPassword,
-        #[SensitiveParameter] string $newPassword,
+        #[SensitiveParameter]
+        string $currentPassword,
+        #[SensitiveParameter]
+        string $newPassword,
         string $ipAddress,
         ?string $userAgent,
     ): void {
@@ -169,7 +171,11 @@ final readonly class AccountSelfService
         $this->acquirePasswordChangeIpLock($ipLockName);
         try {
             $error = Db::transaction(function () use (
-                $actor, $currentPassword, $newPassword, $ipAddress, $userAgent,
+                $actor,
+                $currentPassword,
+                $newPassword,
+                $ipAddress,
+                $userAgent,
             ): ?AdminAccessException {
                 $credential = Credential::alias('credential')
                     ->join('account account', 'account.id = credential.account_id')

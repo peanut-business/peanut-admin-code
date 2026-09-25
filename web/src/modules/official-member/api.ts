@@ -137,7 +137,9 @@ export interface MemberExportResult {
 }
 
 export function getMemberList(params: MemberListParams = {}) {
-  return axios.get<MemberListResult>('/adminapi/official.member.list', { params });
+  return axios.get<MemberListResult>('/adminapi/official.member.list', {
+    params,
+  });
 }
 
 export function getMemberExportInfo(params: MemberListParams) {
@@ -174,12 +176,15 @@ export function updateMemberStatus(id: number, status: number) {
   return axios.post('/adminapi/official.member.update-status', { id, status });
 }
 
-export function adjustMemberMoney(data: {
-  user_id: number;
-  action: 1 | 2;
-  num: number;
-  remark?: string;
-}, idempotencyKey = crypto.randomUUID()) {
+export function adjustMemberMoney(
+  data: {
+    user_id: number;
+    action: 1 | 2;
+    num: number;
+    remark?: string;
+  },
+  idempotencyKey = crypto.randomUUID()
+) {
   return axios.post('/adminapi/official.member.balance.adjust', data, {
     headers: { 'Idempotency-Key': idempotencyKey },
   });
@@ -203,9 +208,12 @@ export function deleteMemberTag(id: number) {
 }
 
 export function getAccountLogList(params: AccountLogParams) {
-  return axios.get<AccountLogListRes>('/adminapi/official.member.account-log.list', {
-    params,
-  });
+  return axios.get<AccountLogListRes>(
+    '/adminapi/official.member.account-log.list',
+    {
+      params,
+    }
+  );
 }
 
 export function getUmChangeType() {

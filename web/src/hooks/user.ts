@@ -10,11 +10,12 @@ export default function useUser() {
     await userStore.logout();
     const currentRoute = router.currentRoute.value;
     ElMessage.success('登出成功');
-    router.push({
+    await router.push({
       name: logoutTo && typeof logoutTo === 'string' ? logoutTo : 'login',
       query: {
         ...router.currentRoute.value.query,
-        redirect: currentRoute.name as string,
+        redirect:
+          typeof currentRoute.name === 'string' ? currentRoute.name : undefined,
       },
     });
   };

@@ -43,8 +43,7 @@ export default {
   'recharge.export.confirm': '确认导出',
   'recharge.export.summary':
     '预计导出 {count} 条数据，共 {pages} 页，每页 {size} 条数据',
-  'recharge.export.limit':
-    '每次导出最大允许 {pages} 页，共 {count} 条数据',
+  'recharge.export.limit': '每次导出最大允许 {pages} 页，共 {count} 条数据',
   'recharge.export.range': '导出范围',
   'recharge.export.all': '全部导出',
   'recharge.export.pages': '分页导出',

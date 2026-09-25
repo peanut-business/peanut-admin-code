@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\value\module;
@@ -49,7 +50,7 @@ final class ModulePhpNamespace
             throw new InvalidArgumentException('Module Composer manifest is unavailable.');
         }
         try {
-            $composer = json_decode((string)file_get_contents($composerPath), true, 64, JSON_THROW_ON_ERROR);
+            $composer = json_decode((string) file_get_contents($composerPath), true, 64, JSON_THROW_ON_ERROR);
         } catch (\JsonException $exception) {
             throw new InvalidArgumentException('Module Composer manifest is invalid.', 0, $exception);
         }

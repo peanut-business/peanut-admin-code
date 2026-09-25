@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\adminapi\validate\auth;
@@ -101,20 +102,20 @@ class AdminValidate extends Validate
 
     public function checkPasswordConfirm($value, $rule, array $data): bool|string
     {
-        $password = (string)($data['password'] ?? '');
+        $password = (string) ($data['password'] ?? '');
         if ($password === '') {
             return true;
         }
-        if (!array_key_exists('password_confirm', $data) || (string)$value === '') {
+        if (!array_key_exists('password_confirm', $data) || (string) $value === '') {
             return '确认密码不能为空';
         }
-        return hash_equals($password, (string)$value) ? true : '两次输入的密码不一致';
+        return hash_equals($password, (string) $value) ? true : '两次输入的密码不一致';
     }
 
     public function checkPageEnd($value, $rule, array $data): bool|string
     {
-        $start = (int)($data['page_start'] ?? 1);
-        return (int)$value < $start ? '导出范围设置不正确，请重新选择' : true;
+        $start = (int) ($data['page_start'] ?? 1);
+        return (int) $value < $start ? '导出范围设置不正确，请重新选择' : true;
     }
 
 }

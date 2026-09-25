@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\persistence;
@@ -17,7 +18,7 @@ final class AdvisoryLockExecution
 
         $name = RuntimeNamespace::fromConfiguration()->advisoryLockName($name);
         $lock = Db::query('SELECT GET_LOCK(?, ?) AS acquired', [$name, $timeoutSeconds]);
-        if ((int)($lock[0]['acquired'] ?? 0) !== 1) {
+        if ((int) ($lock[0]['acquired'] ?? 0) !== 1) {
             throw new AdvisoryLockUnavailable('DATABASE_ADVISORY_LOCK_UNAVAILABLE');
         }
 

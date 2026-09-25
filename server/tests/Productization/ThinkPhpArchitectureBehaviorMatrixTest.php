@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\exception\BusinessException;
@@ -277,7 +278,7 @@ expectTpq51(
 );
 $insertSql = $connection->statements[0]['sql'] ?? '';
 expectTpq51(
-    (int)$created->getData('tenant_id') === 101 && tpq51SqlCount($insertSql, 'tenant_id') === 1,
+    (int) $created->getData('tenant_id') === 101 && tpq51SqlCount($insertSql, 'tenant_id') === 1,
     'before-insert Tenant ownership hook did not populate the trusted Tenant',
 );
 
@@ -352,7 +353,7 @@ $store->run(
     static fn() => Tpq51Child::alias('child')->where('child.id', '>', 0)->select(),
 );
 expectTpq51(
-    (int)$standalone->getData('tenant_id') === 101
+    (int) $standalone->getData('tenant_id') === 101
         && tpq51SqlCount($connection->statements[0]['sql'] ?? '', 'tenant_id') === 1,
     'Standalone write lost the shared Tenant ownership column',
 );
@@ -392,12 +393,12 @@ expectTpq51(
 expectTpq51($mapper->map(new RuntimeException('unknown')) === null, 'unknown exception was exposed as a public problem');
 
 $applicationRoot = dirname(__DIR__, 2) . '/app/adminapi/services';
-$generatorSource = (string)file_get_contents($applicationRoot . '/generator/GeneratorService.php');
+$generatorSource = (string) file_get_contents($applicationRoot . '/generator/GeneratorService.php');
 expectTpq51(
     preg_match('/^\s*use\s+app\\\\[^;]+\\\\model\\\\/mi', $generatorSource) !== 1,
     'Generator orchestration imports a persistence Model',
 );
-$jobsApplicationSource = (string)file_get_contents($applicationRoot . '/dept/JobsApplicationService.php');
+$jobsApplicationSource = (string) file_get_contents($applicationRoot . '/dept/JobsApplicationService.php');
 // 岗位服务负责本应用 CRUD；验证其租户/软删除模型，而非恢复已合并的空转发层。
 preg_match_all('/^\s*use\s+(app\\\\[^;]+\\\\model\\\\[^;]+);/mi', $jobsApplicationSource, $jobsModelImports);
 expectTpq51(
@@ -526,7 +527,9 @@ try {
     expectTpq51($exception->getMessage() === 'generator services output contract violated', 'legacy generated output did not fail the services output contract');
 }
 foreach (['module.json', 'resources/permissions.json', 'route/app.php'] as $missingContribution) {
-    $incomplete = array_values(array_filter($generatedFiles, static fn(array $file): bool =>
+    $incomplete = array_values(array_filter(
+        $generatedFiles,
+        static fn(array $file): bool =>
         $file['path'] !== 'server/app/modules/fixture/delivery_record/' . $missingContribution,
     ));
     try {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Article\Model;
@@ -23,13 +24,13 @@ class Article extends TenantOwnedModel
     /** local 封面存相对 URI；云/CDN 封面保留绝对来源。 */
     public function setImageAttr($value): string
     {
-        return trim((string)$value);
+        return trim((string) $value);
     }
 
     /** Rich text is sanitized before any content reaches persistence. */
     public function setContentAttr($value): string
     {
-        return HtmlSanitizerService::sanitize((string)$value);
+        return HtmlSanitizerService::sanitize((string) $value);
     }
 
     /** 可见文章详情；读取即累计一次真实浏览量。 */

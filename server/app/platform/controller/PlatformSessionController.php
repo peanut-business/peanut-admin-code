@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\controller;
@@ -18,11 +19,11 @@ final class PlatformSessionController extends BasePlatformController
         $params = $this->request->post();
         $this->validate($params, PlatformLoginValidate::class);
         $authentication = $this->sessions->login(
-            trim((string)$params['email']),
-            (string)$params['password'],
+            trim((string) $params['email']),
+            (string) $params['password'],
             $this->request->ip(),
             $this->request->header('User-Agent'),
-            $this->requestId()
+            $this->requestId(),
         );
 
         return $this->data($authentication->responseData())
@@ -36,7 +37,7 @@ final class PlatformSessionController extends BasePlatformController
             $token,
             $this->request->ip(),
             $this->request->header('User-Agent'),
-            $this->requestId()
+            $this->requestId(),
         );
 
         return $this->data($authentication->responseData())
@@ -62,8 +63,8 @@ final class PlatformSessionController extends BasePlatformController
 
         return $this->data([
             'audience' => 'platform',
-            'account_id' => (string)$this->platformContext->core->accountId,
-            'platform_operator_id' => (string)$this->platformContext->core->operatorId,
+            'account_id' => (string) $this->platformContext->core->accountId,
+            'platform_operator_id' => (string) $this->platformContext->core->operatorId,
             'permissions' => $permissions,
             'navigation' => array_values(array_filter([
                 in_array('platform.tenant.read', $permissions, true) ? '/platform/tenants' : null,

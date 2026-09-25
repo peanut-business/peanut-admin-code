@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "48806cf0037bb2aa08236b574a9907f4340e6409f86c106ef9a4569f06c6770d"
+        "sha256": "603a71e8503f08237e3e796395fd6157ba0b13c48123cda7c0bb6a3a1fba919d"
     },
     "trust": {
         "channel": "bundled",
@@ -79,7 +79,7 @@
             "package": "@peanut-admin/official-integration",
             "version": "1.0.0",
             "entry": "web/src/modules/official-integration/contribution.ts",
-            "sha256": "7dbb6d653a8d0da63704cff81b376b1a012facafb716475e1f96e44d1a7bf5c5"
+            "sha256": "4d3edb1f1c288f6085f0f84da127dd9df30ea1ca26b997c63e400ffa4211f2b7"
         }
     ],
     "modules": [

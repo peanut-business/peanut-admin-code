@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\module;
@@ -63,14 +64,14 @@ final readonly class ModuleExecutionBoundary
     private function moduleContext(string $moduleKey, ?string $operation = null): ModuleExecutionContext
     {
         $execution = $this->execution->get();
-        $operation = trim((string)$operation) !== '' ? trim((string)$operation) : $execution->operation();
+        $operation = trim((string) $operation) !== '' ? trim((string) $operation) : $execution->operation();
 
         return match (true) {
             $execution instanceof AdminExecutionContext => ModuleExecutionContext::admin(
-                    $moduleKey,
-                    $execution->tenant,
-                    $operation,
-                ),
+                $moduleKey,
+                $execution->tenant,
+                $operation,
+            ),
             $execution instanceof ConsumerExecutionContext
                 && $execution->member !== null => ModuleExecutionContext::businessMember(
                     $moduleKey,
@@ -84,9 +85,9 @@ final readonly class ModuleExecutionBoundary
                     $execution->publicTenant,
                 ),
             $execution instanceof SystemExecutionContext => ModuleExecutionContext::system(
-                    $moduleKey,
-                    $execution->system,
-                ),
+                $moduleKey,
+                $execution->system,
+            ),
             default => throw new \DomainException('MODULE_EXECUTION_CONTEXT_REQUIRED'),
         };
     }

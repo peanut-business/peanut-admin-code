@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\services\XlsxExportService;
@@ -24,7 +25,7 @@ function tenantXlsxContext(int $tenantId, int $memberId, string $requestId): Ten
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId + 1000,
-        '01JMT03XLSX' . str_pad((string)$memberId, 13, '0', STR_PAD_LEFT),
+        '01JMT03XLSX' . str_pad((string) $memberId, 13, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 1000,
         $memberId,
@@ -54,7 +55,7 @@ function tenantXlsxRun(TenantContext $context, callable $operation): mixed
 
 $serverRoot = dirname(__DIR__, 2);
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(6)));
@@ -95,23 +96,25 @@ $alphaPath = '';
 $betaPath = '';
 
 try {
-    $before = (int)$pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn();
+    $before = (int) $pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn();
     try {
         $exports->create(
             'same-' . $runId,
             ['marker'],
-            [['missing-context']]
+            [['missing-context']],
         );
         throw new RuntimeException('Missing TenantContext unexpectedly created an export');
     } catch (Throwable) {
         expectTenantXlsx(
-            (int)$pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn() === $before,
-            'Missing TenantContext produced a storage-ledger side effect'
+            (int) $pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn() === $before,
+            'Missing TenantContext produced a storage-ledger side effect',
         );
     }
     try {
         tenantXlsxRun($invalid, fn() => $exports->create(
-            'same-' . $runId, ['marker'], [['invalid-context']]
+            'same-' . $runId,
+            ['marker'],
+            [['invalid-context']],
         ));
         throw new RuntimeException('Untrusted TenantContext unexpectedly created an export');
     } catch (InvalidArgumentException) {
@@ -119,20 +122,24 @@ try {
     }
 
     $alphaExport = tenantXlsxRun($alpha, fn() => $exports->create(
-        'same-' . $runId, ['marker'], [['alpha-only-' . $runId]]
+        'same-' . $runId,
+        ['marker'],
+        [['alpha-only-' . $runId]],
     ));
     $betaExport = tenantXlsxRun($beta, fn() => $exports->create(
-        'same-' . $runId, ['marker'], [['beta-only-' . $runId]]
+        'same-' . $runId,
+        ['marker'],
+        [['beta-only-' . $runId]],
     ));
-    $alphaUri = (string)$alphaExport['object_key'];
-    $betaUri = (string)$betaExport['object_key'];
+    $alphaUri = (string) $alphaExport['object_key'];
+    $betaUri = (string) $betaExport['object_key'];
     expectTenantXlsx(
         str_starts_with($alphaUri, 'tenants/v1/101/export/xlsx/'),
-        'Alpha export escaped its Tenant namespace'
+        'Alpha export escaped its Tenant namespace',
     );
     expectTenantXlsx(
         str_starts_with($betaUri, 'tenants/v1/202/export/xlsx/'),
-        'Beta export escaped its Tenant namespace'
+        'Beta export escaped its Tenant namespace',
     );
     expectTenantXlsx(dirname($alphaUri) !== dirname($betaUri), 'Tenant exports share a physical directory');
 
@@ -146,12 +153,12 @@ try {
     expectTenantXlsx(!str_contains($betaSheet, 'alpha-only-' . $runId), 'Beta export leaked Alpha content');
 
     try {
-        $storage->delete($alpha->tenantId, (string)$betaExport['file_key']);
+        $storage->delete($alpha->tenantId, (string) $betaExport['file_key']);
         throw new RuntimeException('Alpha deleted a Beta export');
     } catch (InvalidArgumentException) {
         expectTenantXlsx(is_file($betaPath), 'Cross-Tenant cleanup touched the Beta export');
     }
-    $storage->delete($alpha->tenantId, (string)$alphaExport['file_key']);
+    $storage->delete($alpha->tenantId, (string) $alphaExport['file_key']);
     expectTenantXlsx(!is_file($alphaPath), 'Alpha export survived its own cleanup');
     expectTenantXlsx(is_file($betaPath), 'Alpha cleanup deleted Beta export');
 
@@ -160,14 +167,14 @@ try {
         'app/modules/official/payment/src/Service/RechargeAdministrationService.php',
         'app/adminapi/application/log/OperationLogApplicationService.php',
     ] as $relativePath) {
-        $source = (string)file_get_contents($serverRoot . '/' . $relativePath);
+        $source = (string) file_get_contents($serverRoot . '/' . $relativePath);
         expectTenantXlsx(str_contains($source, '$this->xlsxExport->create('), 'Tenant caller did not adopt the injected export API: ' . $relativePath);
     }
 
     $tenantCreate = new ReflectionMethod(XlsxExportService::class, '__construct');
     expectTenantXlsx(
         $tenantCreate->getParameters()[0]->getType()?->getName() === \app\common\execution\CurrentExecutionContext::class,
-        'Tenant export boundary does not consume CurrentExecutionContext'
+        'Tenant export boundary does not consume CurrentExecutionContext',
     );
 
     echo "MT03-TENANT-XLSX-EXPORT-001 passed\n";

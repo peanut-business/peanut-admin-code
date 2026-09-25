@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\dto\authorization;
@@ -28,21 +29,21 @@ final readonly class AdminPrincipal
     public static function fromArray(array $data): self
     {
         return new self(
-            id: (int)($data['id'] ?? 0),
-            tenantId: (int)($data['tenant_id'] ?? 0),
-            accountId: (int)($data['account_id'] ?? 0),
-            tenantName: (string)($data['tenant_name'] ?? ''),
-            username: (string)($data['username'] ?? $data['account'] ?? ''),
-            nickname: (string)($data['nickname'] ?? $data['name'] ?? ''),
-            name: (string)($data['name'] ?? $data['nickname'] ?? ''),
-            avatar: (string)($data['avatar'] ?? ''),
-            root: (int)($data['root'] ?? 0) === 1,
-            switchableTenantCount: (int)($data['switchable_tenant_count'] ?? 0),
+            id: (int) ($data['id'] ?? 0),
+            tenantId: (int) ($data['tenant_id'] ?? 0),
+            accountId: (int) ($data['account_id'] ?? 0),
+            tenantName: (string) ($data['tenant_name'] ?? ''),
+            username: (string) ($data['username'] ?? $data['account'] ?? ''),
+            nickname: (string) ($data['nickname'] ?? $data['name'] ?? ''),
+            name: (string) ($data['name'] ?? $data['nickname'] ?? ''),
+            avatar: (string) ($data['avatar'] ?? ''),
+            root: (int) ($data['root'] ?? 0) === 1,
+            switchableTenantCount: (int) ($data['switchable_tenant_count'] ?? 0),
             roles: is_array($data['roles'] ?? null) ? $data['roles'] : [],
-            roleName: (string)($data['role_name'] ?? ''),
-            authorizationRevision: (int)($data['authorization_revision'] ?? 0),
+            roleName: (string) ($data['role_name'] ?? ''),
+            authorizationRevision: (int) ($data['authorization_revision'] ?? 0),
             primaryDepartmentId: isset($data['primary_department_id'])
-                ? (int)$data['primary_department_id']
+                ? (int) $data['primary_department_id']
                 : null,
             lastLoginAt: $data['last_login_at'] ?? null,
         );

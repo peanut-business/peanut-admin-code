@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\OAuth\Controller;
@@ -23,7 +24,7 @@ class OfficialAccountMenuController extends BaseAdminController
         $this->validate($params, OfficialAccountMenuValidate::class);
         $this->officialAccountMenus->save(
             $this->tenantAdminContext(),
-            (array)$params['menu']
+            (array) $params['menu'],
         );
         return $this->success('保存成功');
     }
@@ -34,7 +35,7 @@ class OfficialAccountMenuController extends BaseAdminController
         $this->validate($params, OfficialAccountMenuValidate::class);
         $this->officialAccountMenus->saveAndPublish(
             $this->tenantAdminContext(),
-            (array)$params['menu']
+            (array) $params['menu'],
         );
         return $this->success('发布成功');
     }

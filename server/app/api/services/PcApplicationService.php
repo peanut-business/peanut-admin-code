@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\services;
@@ -16,9 +17,7 @@ class PcApplicationService
         private readonly PublicArticleQueries $articles,
         private readonly DecorationReadService $decoration,
         private readonly IndexApplicationService $index,
-    )
-    {
-    }
+    ) {}
 
     /** PC 首页文章分组与即时生效的 PC 装修。 */
     public function getIndexData(TenantContext|TenantSystemContext $context): array
@@ -30,7 +29,7 @@ class PcApplicationService
             'decorate' => $this->decoration->pageByType(
                 $context,
                 DecorationEnum::PC_HOME,
-                'article.pc-index'
+                'article.pc-index',
             ),
         ];
     }

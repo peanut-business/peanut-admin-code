@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\api\validate;
@@ -57,12 +58,12 @@ class RechargeValidate extends Validate
 
     protected function checkTerminal($value): bool|string
     {
-        return UserTerminalEnum::isValid((int)$value) ? true : '支付终端不支持';
+        return UserTerminalEnum::isValid((int) $value) ? true : '支付终端不支持';
     }
 
     protected function checkPayWay($value): bool|string
     {
-        return PaymentMethod::isProvider((int)$value)
+        return PaymentMethod::isProvider((int) $value)
             ? true
             : '支付方式不支持';
     }

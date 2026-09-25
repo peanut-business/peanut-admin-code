@@ -156,7 +156,6 @@
   const userStore = useUserStore();
   const { loading, setLoading } = useLoading(true);
 
-
   const username = ref('');
   const basicRef = ref<FormInstance>();
   const basicLoading = ref(false);

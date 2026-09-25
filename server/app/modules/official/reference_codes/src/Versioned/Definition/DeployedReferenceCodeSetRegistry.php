@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition;
@@ -14,7 +15,7 @@ final readonly class DeployedReferenceCodeSetRegistry
         $registry = new ReferenceCodeSetRegistry();
         $loader = new ReferenceCodeSetLoader();
         foreach ($this->modules->compiled()->modules as $manifest) {
-            $key = (string)($manifest->data['key'] ?? '');
+            $key = (string) ($manifest->data['key'] ?? '');
             $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : [];
             $resource = $backend['reference_code_sets'] ?? null;
             $registry->registerModule($key, is_string($resource)

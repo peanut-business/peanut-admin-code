@@ -68,12 +68,7 @@
           {{ $t('member.operation.add') }}
         </el-button>
       </el-row>
-      <el-table
-        v-loading="loading"
-        row-key="id"
-        :data="renderData"
-        border
-      >
+      <el-table v-loading="loading" row-key="id" :data="renderData" border>
         <el-table-column :label="$t('member.columns.avatar')" width="90">
           <template #default="{ row }">
             <el-avatar :size="46" :src="row.avatar">
@@ -219,7 +214,11 @@
         <el-button @click="modalVisible = false">
           {{ $t('userSetting.cancel') }}
         </el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
+        <el-button
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmit"
+        >
           {{ $t('userSetting.save') }}
         </el-button>
       </template>
@@ -323,10 +322,7 @@
     >
       <el-form :model="fieldForm" label-position="top">
         <el-form-item :label="fieldLabel" required>
-          <el-select
-            v-if="fieldForm.field === 'sex'"
-            v-model="fieldForm.value"
-          >
+          <el-select v-if="fieldForm.field === 'sex'" v-model="fieldForm.value">
             <el-option :value="0" :label="$t('member.sex.unknown')" />
             <el-option :value="1" :label="$t('member.sex.male')" />
             <el-option :value="2" :label="$t('member.sex.female')" />
@@ -343,7 +339,11 @@
         <el-button @click="fieldModalVisible = false">
           {{ $t('userSetting.cancel') }}
         </el-button>
-        <el-button type="primary" :loading="fieldLoading" @click="submitFieldEdit">
+        <el-button
+          type="primary"
+          :loading="fieldLoading"
+          @click="submitFieldEdit"
+        >
           {{ $t('userSetting.save') }}
         </el-button>
       </template>
@@ -365,12 +365,8 @@
         </el-form-item>
         <el-form-item prop="action" :label="$t('member.balance.action')">
           <el-radio-group v-model="balanceForm.action">
-            <el-radio :value="1">{{
-              $t('member.balance.increase')
-            }}</el-radio>
-            <el-radio :value="2">{{
-              $t('member.balance.decrease')
-            }}</el-radio>
+            <el-radio :value="1">{{ $t('member.balance.increase') }}</el-radio>
+            <el-radio :value="2">{{ $t('member.balance.decrease') }}</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item prop="num" :label="$t('member.field.amount')">
@@ -467,7 +463,11 @@
         <el-button @click="exportVisible = false">
           {{ $t('userSetting.cancel') }}
         </el-button>
-        <el-button type="primary" :loading="exportLoading" @click="handleExport">
+        <el-button
+          type="primary"
+          :loading="exportLoading"
+          @click="handleExport"
+        >
           {{ $t('member.export.confirm') }}
         </el-button>
       </template>

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\services\developer;
@@ -22,8 +23,7 @@ final readonly class DeveloperCenterCatalogService
     public function __construct(
         private string $serverRoot,
         private array $deploymentConfig,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function snapshot(?string $selectedModuleKey = null): array
@@ -57,8 +57,8 @@ final readonly class DeveloperCenterCatalogService
             $generatedApi = $this->moduleRoutes($documentedOperations, $key);
             $modules[] = [
                 'key' => $key,
-                'name' => (string)($data['name'] ?? $key),
-                'description' => (string)($data['description'] ?? ''),
+                'name' => (string) ($data['name'] ?? $key),
+                'description' => (string) ($data['description'] ?? ''),
                 'version' => is_string($data['version'] ?? null) ? $data['version'] : null,
                 'source' => [
                     'manifest' => $this->relative($declaration['manifest']),
@@ -95,7 +95,7 @@ final readonly class DeveloperCenterCatalogService
                 'provider' => $this->provider($data),
                 'middleware' => $this->middleware($moduleRoutes),
                 'lifecycle' => $this->lifecycle($data),
-                'events' => array_values((array)($data['contracts']['events'] ?? [])),
+                'events' => array_values((array) ($data['contracts']['events'] ?? [])),
                 'tasks' => $this->tasks($key, $data, $commands),
                 'migrations' => $this->migrations($root, $data),
                 'documentation' => $this->documentation($root),
@@ -148,7 +148,7 @@ final readonly class DeveloperCenterCatalogService
                 $data = $document->data;
             } catch (Throwable) {
                 try {
-                    $data = json_decode((string)file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+                    $data = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
                 } catch (Throwable) {
                     continue;
                 }
@@ -187,7 +187,7 @@ final readonly class DeveloperCenterCatalogService
     private function registration(): array
     {
         try {
-            $lockPath = trim((string)($this->deploymentConfig['plugin_lock'] ?? '../plugins.lock'));
+            $lockPath = trim((string) ($this->deploymentConfig['plugin_lock'] ?? '../plugins.lock'));
             $resolver = new PluginLockResolver($this->serverRoot, $lockPath);
             $registry = (new ModuleDefinitionRegistryFactory($this->serverRoot))->fromPluginLock(
                 $resolver,
@@ -214,7 +214,7 @@ final readonly class DeveloperCenterCatalogService
             ];
         }
         try {
-            $document = json_decode((string)file_get_contents($path), true, 128, JSON_THROW_ON_ERROR);
+            $document = json_decode((string) file_get_contents($path), true, 128, JSON_THROW_ON_ERROR);
             $freshness = $this->apiCatalogFreshness($document['inputs'] ?? null);
             if ($freshness !== null) {
                 return [
@@ -288,8 +288,10 @@ final readonly class DeveloperCenterCatalogService
     private function dependencies(array $data, array $declarations, array $registeredKeys): array
     {
         $dependencies = [];
-        foreach ((array)($data['dependencies'] ?? []) as $dependency) {
-            if (!is_array($dependency)) continue;
+        foreach ((array) ($data['dependencies'] ?? []) as $dependency) {
+            if (!is_array($dependency)) {
+                continue;
+            }
             $key = is_string($dependency['module_key'] ?? null) ? $dependency['module_key'] : '';
             $dependencies[] = [
                 'module_key' => $key,
@@ -306,8 +308,10 @@ final readonly class DeveloperCenterCatalogService
     {
         $dependants = [];
         foreach ($declarations as $key => $declaration) {
-            foreach ((array)($declaration['data']['dependencies'] ?? []) as $dependency) {
-                if (!is_array($dependency) || ($dependency['module_key'] ?? null) !== $moduleKey) continue;
+            foreach ((array) ($declaration['data']['dependencies'] ?? []) as $dependency) {
+                if (!is_array($dependency) || ($dependency['module_key'] ?? null) !== $moduleKey) {
+                    continue;
+                }
                 $dependants[] = [
                     'module_key' => $key,
                     'version' => $dependency['version'] ?? null,
@@ -322,7 +326,7 @@ final readonly class DeveloperCenterCatalogService
     /** @param array<string,mixed> $data */
     private function permissions(array $data): array
     {
-        $items = array_values((array)($data['catalog']['permissions'] ?? []));
+        $items = array_values((array) ($data['catalog']['permissions'] ?? []));
         return array_map(static fn(mixed $item): mixed => is_array($item) ? $item : ['key' => $item], $items);
     }
 
@@ -339,8 +343,10 @@ final readonly class DeveloperCenterCatalogService
             }
         }
         $services = [];
-        foreach ((array)($data['contracts']['exports'] ?? []) as $class) {
-            if (!is_string($class)) continue;
+        foreach ((array) ($data['contracts']['exports'] ?? []) as $class) {
+            if (!is_string($class)) {
+                continue;
+            }
             $services[] = [
                 'class' => $class,
                 'autoloadable' => $this->autoloadable($class),
@@ -384,8 +390,10 @@ final readonly class DeveloperCenterCatalogService
     {
         $middleware = [];
         foreach ($routes as $route) {
-            foreach ((array)($route['middleware'] ?? []) as $entry) {
-                if (!is_array($entry) || !is_string($entry['class'] ?? null)) continue;
+            foreach ((array) ($route['middleware'] ?? []) as $entry) {
+                if (!is_array($entry) || !is_string($entry['class'] ?? null)) {
+                    continue;
+                }
                 $key = $entry['class'] . ':' . hash('sha256', json_encode($entry['arguments'] ?? [], JSON_UNESCAPED_SLASHES));
                 $middleware[$key] = $entry;
             }
@@ -399,10 +407,10 @@ final readonly class DeveloperCenterCatalogService
     {
         return [
             'package_installation' => 'separate',
-            'tenant_enablement' => (bool)($data['tenant']['enableable'] ?? false),
+            'tenant_enablement' => (bool) ($data['tenant']['enableable'] ?? false),
             'person_authorization' => 'separate',
             'disable_behavior' => $data['tenant']['disable_behavior'] ?? null,
-            'protected' => (bool)($data['lifecycle']['protected'] ?? false),
+            'protected' => (bool) ($data['lifecycle']['protected'] ?? false),
             'upgrade' => 'separate_verified_package_operation',
             'uninstall' => 'separate_retire_operation',
             'data_deletion' => 'separate_double_confirmed_purge',
@@ -414,11 +422,13 @@ final readonly class DeveloperCenterCatalogService
     {
         $ownedCommands = [];
         foreach ($commands as $command => $owner) {
-            if ($owner === $moduleKey) $ownedCommands[] = $command;
+            if ($owner === $moduleKey) {
+                $ownedCommands[] = $command;
+            }
         }
         sort($ownedCommands, SORT_STRING);
         $contracts = array_values(array_filter(
-            (array)($data['contracts']['exports'] ?? []),
+            (array) ($data['contracts']['exports'] ?? []),
             static fn(mixed $class): bool => is_string($class) && preg_match('/(?:Task|Job|Worker|Scheduler)/i', $class) === 1,
         ));
         return ['commands' => $ownedCommands, 'public_contracts' => $contracts];
@@ -428,7 +438,9 @@ final readonly class DeveloperCenterCatalogService
     private function migrations(string $root, array $data): array
     {
         $relative = $data['backend']['migrations'] ?? null;
-        if (!is_string($relative)) return ['declared_path' => null, 'files' => []];
+        if (!is_string($relative)) {
+            return ['declared_path' => null, 'files' => []];
+        }
         $files = glob($root . '/' . trim($relative, '/') . '/*.sql') ?: [];
         sort($files, SORT_STRING);
         return [
@@ -466,8 +478,10 @@ final readonly class DeveloperCenterCatalogService
 
     private function selectedKey(?string $value): ?string
     {
-        $value = trim((string)$value);
-        if ($value === '') return null;
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
         if (preg_match('/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/D', $value) !== 1) {
             throw new \InvalidArgumentException('Module key is invalid.');
         }

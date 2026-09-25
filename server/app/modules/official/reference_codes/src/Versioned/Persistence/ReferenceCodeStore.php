@@ -202,10 +202,10 @@ final class ReferenceCodeStore
             $now = $this->databaseNow();
             $affected = ReferenceCodeEntryRecord::where('id', (int) $entry['id'])
                 ->where('lifecycle', 'active')->where('revision', $expectedRevision)->update([
-                'revision' => $revision,
-                'updated_by_member_id' => $context->memberId,
-                'updated_at' => $this->date($now),
-            ]);
+                    'revision' => $revision,
+                    'updated_by_member_id' => $context->memberId,
+                    'updated_at' => $this->date($now),
+                ]);
             if ($affected !== 1) {
                 throw ReferenceCodeException::revisionMismatch();
             }
@@ -254,12 +254,12 @@ final class ReferenceCodeStore
             $now = $this->databaseNow();
             $affected = ReferenceCodeEntryRecord::where('id', (int) $entry['id'])
                 ->where('lifecycle', 'active')->where('revision', $expectedRevision)->update([
-                'lifecycle' => 'retired',
-                'revision' => $revision,
-                'updated_by_member_id' => $context->memberId,
-                'retired_at' => $this->date($now),
-                'updated_at' => $this->date($now),
-            ]);
+                    'lifecycle' => 'retired',
+                    'revision' => $revision,
+                    'updated_by_member_id' => $context->memberId,
+                    'retired_at' => $this->date($now),
+                    'updated_at' => $this->date($now),
+                ]);
             if ($affected !== 1) {
                 throw ReferenceCodeException::revisionMismatch();
             }

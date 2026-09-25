@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Member\Service;
@@ -54,20 +55,20 @@ final class MemberAdministrationService implements MemberAdministration
     public function members(array $params): PageResult|array
     {
         $count = $this->buildListQuery($params)->count();
-        $pageSize = (int)($params['page_size'] ?? $params['limit'] ?? 15);
+        $pageSize = (int) ($params['page_size'] ?? $params['limit'] ?? 15);
         $pageSize = max(1, min(100, $pageSize));
 
-        if ((int)($params['export'] ?? 0) === 1) {
+        if ((int) ($params['export'] ?? 0) === 1) {
             return self::exportInfo($count, $pageSize);
         }
-        if ((int)($params['export'] ?? 0) === 2) {
+        if ((int) ($params['export'] ?? 0) === 2) {
             return $this->export($params, $count, $pageSize);
         }
 
         $pageResult = PaginationInput::from($params)->result($this->buildListQuery($params));
         $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
             ? $item->toArray()
-            : (array)$item);
+            : (array) $item);
         $rows = $pageResult->items;
         $rows = $this->hydrateTags($rows);
 
@@ -90,13 +91,13 @@ final class MemberAdministrationService implements MemberAdministration
             return [];
         }
 
-        $data['id'] = (int)$data['id'];
-        $data['sex'] = (int)$data['sex'];
-        $data['channel'] = MemberChannelEnum::getDesc((int)$data['channel']);
-        $data['avatar'] = $this->files->getFileUrl((string)($data['avatar'] ?? ''));
+        $data['id'] = (int) $data['id'];
+        $data['sex'] = (int) $data['sex'];
+        $data['channel'] = MemberChannelEnum::getDesc((int) $data['channel']);
+        $data['avatar'] = $this->files->getFileUrl((string) ($data['avatar'] ?? ''));
         $data['create_time'] = self::formatTime($data['create_time']);
         $data['login_time'] = self::formatTime($data['login_time']);
-        $data['user_money'] = (float)$data['user_money'];
+        $data['user_money'] = (float) $data['user_money'];
         $data['balance'] = $data['user_money'];
         return $data;
     }
@@ -105,22 +106,22 @@ final class MemberAdministrationService implements MemberAdministration
     {
         $query = Member::where([]);
         if (!empty($params['keyword'])) {
-            $keyword = trim((string)$params['keyword']);
+            $keyword = trim((string) $params['keyword']);
             $query->where('sn|nickname|mobile|account', 'like', '%' . $keyword . '%');
         }
         if (!empty($params['channel'])) {
-            $query->where('channel', (int)$params['channel']);
+            $query->where('channel', (int) $params['channel']);
         }
         if (!empty($params['create_time_start'])) {
-            $query->where('create_time', '>=', strtotime((string)$params['create_time_start']));
+            $query->where('create_time', '>=', strtotime((string) $params['create_time_start']));
         }
         if (!empty($params['create_time_end'])) {
-            $query->where('create_time', '<=', strtotime((string)$params['create_time_end']));
+            $query->where('create_time', '<=', strtotime((string) $params['create_time_end']));
         }
 
         // Peanut 原有状态筛选作为兼容扩展保留，不替代参考筛选字段。
         if (isset($params['status']) && $params['status'] !== '') {
-            $query->where('status', (int)$params['status']);
+            $query->where('status', (int) $params['status']);
         }
         return $query->order('id', 'desc');
     }
@@ -141,10 +142,10 @@ final class MemberAdministrationService implements MemberAdministration
             throw BusinessException::invalid('MEMBER_EXPORT_EMPTY', '没有数据，无法导出');
         }
 
-        $pageType = (int)($params['page_type'] ?? 0);
+        $pageType = (int) ($params['page_type'] ?? 0);
         if ($pageType === 1) {
-            $pageStart = max(1, (int)($params['page_start'] ?? 1));
-            $pageEnd = max($pageStart, (int)($params['page_end'] ?? $pageStart));
+            $pageStart = max(1, (int) ($params['page_start'] ?? 1));
+            $pageEnd = max($pageStart, (int) ($params['page_end'] ?? $pageStart));
             $offset = ($pageStart - 1) * $pageSize;
             $limit = ($pageEnd - $pageStart + 1) * $pageSize;
             if ($limit > self::EXPORT_MAX_ROWS) {
@@ -165,7 +166,7 @@ final class MemberAdministrationService implements MemberAdministration
         $rows = $this->hydrateTags($rows);
         $rows = $this->formatRows($rows);
         $file = $this->xlsxExport->create(
-            (string)($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
+            (string) ($params['file_name'] ?? self::EXPORT_DEFAULT_NAME),
             ['用户编号', '用户昵称', '账号', '手机号码', '注册来源', '注册时间'],
             array_map(static fn(array $row): array => [
                 $row['sn'],
@@ -174,7 +175,7 @@ final class MemberAdministrationService implements MemberAdministration
                 $row['mobile'],
                 $row['channel'],
                 $row['create_time'],
-            ], $rows)
+            ], $rows),
         );
 
         return [
@@ -187,19 +188,19 @@ final class MemberAdministrationService implements MemberAdministration
     {
         $sexDesc = [0 => '未知', 1 => '男', 2 => '女'];
         foreach ($rows as &$row) {
-            $sex = (int)($row['sex'] ?? 0);
-            $channel = (int)($row['channel'] ?? 0);
-            $row['id'] = (int)$row['id'];
+            $sex = (int) ($row['sex'] ?? 0);
+            $channel = (int) ($row['channel'] ?? 0);
+            $row['id'] = (int) $row['id'];
             $row['sex_value'] = $sex;
             $row['sex'] = $sexDesc[$sex] ?? '未知';
             $row['channel_value'] = $channel;
             $row['channel'] = MemberChannelEnum::getDesc($channel);
-            $row['status'] = (int)($row['status'] ?? 1);
+            $row['status'] = (int) ($row['status'] ?? 1);
             $row['is_disable'] = $row['status'] === 1 ? 0 : 1;
-            $row['user_money'] = (float)($row['user_money'] ?? 0);
+            $row['user_money'] = (float) ($row['user_money'] ?? 0);
             $row['balance'] = $row['user_money'];
-            $row['avatar'] = $this->files->getFileUrl((string)($row['avatar'] ?? ''));
-            $row['total_recharge_amount'] = (float)($row['total_recharge_amount'] ?? 0);
+            $row['avatar'] = $this->files->getFileUrl((string) ($row['avatar'] ?? ''));
+            $row['total_recharge_amount'] = (float) ($row['total_recharge_amount'] ?? 0);
             $row['create_time'] = self::formatTime($row['create_time'] ?? 0);
             $row['update_time'] = self::formatTime($row['update_time'] ?? 0);
             $row['login_time'] = self::formatTime($row['login_time'] ?? 0);
@@ -223,13 +224,13 @@ final class MemberAdministrationService implements MemberAdministration
             ->whereIn('id', $tagIds)->column('*', 'id');
         $byMember = [];
         foreach ($relations as $relation) {
-            $tag = $tags[(int)$relation['tag_id']] ?? null;
+            $tag = $tags[(int) $relation['tag_id']] ?? null;
             if ($tag !== null) {
-                $byMember[(int)$relation['member_id']][] = $tag;
+                $byMember[(int) $relation['member_id']][] = $tag;
             }
         }
         foreach ($rows as &$row) {
-            $row['tags'] = $byMember[(int)$row['id']] ?? [];
+            $row['tags'] = $byMember[(int) $row['id']] ?? [];
         }
         unset($row);
         return $rows;
@@ -241,18 +242,18 @@ final class MemberAdministrationService implements MemberAdministration
             return '';
         }
         if (!is_numeric($value)) {
-            return (string)$value;
+            return (string) $value;
         }
-        return date('Y-m-d H:i:s', (int)$value);
+        return date('Y-m-d H:i:s', (int) $value);
     }
 
     public function balanceLogs(array $params): PageResult
     {
-        if (in_array((int)($params['export'] ?? 0), [1, 2], true)) {
+        if (in_array((int) ($params['export'] ?? 0), [1, 2], true)) {
             throw BusinessException::invalid('MEMBER_BALANCE_LOG_EXPORT_UNSUPPORTED', '该列表不支持导出');
         }
 
-        $pageType = (int)($params['page_type'] ?? 1);
+        $pageType = (int) ($params['page_type'] ?? 1);
         if ($pageType === 0) {
             $pageNo = 1;
             $pageSize = self::BALANCE_LOG_MAX_ROWS;
@@ -267,27 +268,27 @@ final class MemberAdministrationService implements MemberAdministration
             ->field(
                 'u.nickname,u.account,u.sn,u.avatar,u.mobile,'
                 . 'al.action,al.change_amount,al.left_amount,'
-                . 'al.change_type,al.source_sn,al.create_time'
+                . 'al.change_type,al.source_sn,al.create_time',
             );
 
         if (($params['type'] ?? '') === 'um') {
             $query->whereIn('al.change_type', AccountLogEnum::getUserMoneyChangeTypes());
         }
         if (isset($params['change_type']) && $params['change_type'] !== '') {
-            $query->where('al.change_type', (int)$params['change_type']);
+            $query->where('al.change_type', (int) $params['change_type']);
         }
         if (!empty($params['user_info'])) {
             $query->where(
                 'u.sn|u.nickname|u.mobile|u.account',
                 'like',
-                '%' . trim((string)$params['user_info']) . '%',
+                '%' . trim((string) $params['user_info']) . '%',
             );
         }
         if (!empty($params['start_time'])) {
-            $query->where('al.create_time', '>=', strtotime((string)$params['start_time']));
+            $query->where('al.create_time', '>=', strtotime((string) $params['start_time']));
         }
         if (!empty($params['end_time'])) {
-            $query->where('al.create_time', '<=', strtotime((string)$params['end_time']));
+            $query->where('al.create_time', '<=', strtotime((string) $params['end_time']));
         }
 
         $pageResult = $pageType === 0
@@ -299,14 +300,14 @@ final class MemberAdministrationService implements MemberAdministration
             : $pagination->result($query->order('al.id', 'desc'));
         $pageResult = $pageResult->map(static fn(mixed $item): array => $item instanceof \think\Model
             ? $item->toArray()
-            : (array)$item);
+            : (array) $item);
         $rows = $pageResult->items;
 
         foreach ($rows as &$row) {
-            $row['avatar'] = $this->files->getFileUrl((string)($row['avatar'] ?? ''));
-            $row['change_type_desc'] = AccountLogEnum::getChangeTypeDesc((int)$row['change_type']);
-            $symbol = (int)$row['action'] === AccountLogEnum::INC ? '+' : '-';
-            $row['change_amount'] = $symbol . number_format((float)$row['change_amount'], 2, '.', '');
+            $row['avatar'] = $this->files->getFileUrl((string) ($row['avatar'] ?? ''));
+            $row['change_type_desc'] = AccountLogEnum::getChangeTypeDesc((int) $row['change_type']);
+            $symbol = (int) $row['action'] === AccountLogEnum::INC ? '+' : '-';
+            $row['change_amount'] = $symbol . number_format((float) $row['change_amount'], 2, '.', '');
             $row['create_time'] = self::formatTime($row['create_time'] ?? '');
         }
         unset($row);
@@ -323,8 +324,8 @@ final class MemberAdministrationService implements MemberAdministration
     {
         $this->tags->create(
             $this->executionContext->tenantAdmin(),
-            (string)$params['name'],
-            (string)($params['remark'] ?? ''),
+            (string) $params['name'],
+            (string) ($params['remark'] ?? ''),
         );
     }
 
@@ -332,9 +333,9 @@ final class MemberAdministrationService implements MemberAdministration
     {
         $this->tags->update(
             $this->executionContext->tenantAdmin(),
-            (int)$params['id'],
-            (string)$params['name'],
-            isset($params['remark']) ? (string)$params['remark'] : null,
+            (int) $params['id'],
+            (string) $params['name'],
+            isset($params['remark']) ? (string) $params['remark'] : null,
         );
     }
 
@@ -348,51 +349,53 @@ final class MemberAdministrationService implements MemberAdministration
     {
         $context = $this->executionContext->tenantAdmin();
         Db::transaction(function () use ($context, $params): void {
-                $this->profiles->createAdminMember($context, [
-                    'nickname' => $params['nickname'],
-                    'avatar'   => $this->files->setTenantFileUrl($context, (string)($params['avatar'] ?? '')),
-                    'mobile'   => $params['mobile']   ?? '',
-                    'email'    => $params['email']    ?? '',
-                    'sex'      => (int)($params['sex'] ?? 0),
-                    'birthday' => $params['birthday']  ?? null,
-                    'status'   => (int)($params['status'] ?? 1),
-                ], (array)($params['tag_ids'] ?? []));
-            });
+            $this->profiles->createAdminMember($context, [
+                'nickname' => $params['nickname'],
+                'avatar'   => $this->files->setTenantFileUrl($context, (string) ($params['avatar'] ?? '')),
+                'mobile'   => $params['mobile']   ?? '',
+                'email'    => $params['email']    ?? '',
+                'sex'      => (int) ($params['sex'] ?? 0),
+                'birthday' => $params['birthday']  ?? null,
+                'status'   => (int) ($params['status'] ?? 1),
+            ], (array) ($params['tag_ids'] ?? []));
+        });
     }
 
     public function updateMember(array $params): void
     {
         $context = $this->executionContext->tenantAdmin();
         Db::transaction(function () use ($context, $params): void {
-                $data = [];
-                foreach (['nickname', 'avatar', 'mobile', 'email', 'birthday'] as $f) {
-                    if (isset($params[$f])) {
-                        $data[$f] = $f === 'avatar'
-                            ? $this->files->setTenantFileUrl($context, (string)$params[$f])
-                            : $params[$f];
-                    }
+            $data = [];
+            foreach (['nickname', 'avatar', 'mobile', 'email', 'birthday'] as $f) {
+                if (isset($params[$f])) {
+                    $data[$f] = $f === 'avatar'
+                        ? $this->files->setTenantFileUrl($context, (string) $params[$f])
+                        : $params[$f];
                 }
-                foreach (['sex', 'status'] as $f) {
-                    if (isset($params[$f])) $data[$f] = (int)$params[$f];
+            }
+            foreach (['sex', 'status'] as $f) {
+                if (isset($params[$f])) {
+                    $data[$f] = (int) $params[$f];
                 }
-                $this->profiles->updateAdminMember(
-                    $context,
-                    (int)$params['id'],
-                    $data,
-                    array_key_exists('tag_ids', $params) ? (array)($params['tag_ids'] ?? []) : null,
-                );
-            });
+            }
+            $this->profiles->updateAdminMember(
+                $context,
+                (int) $params['id'],
+                $data,
+                array_key_exists('tag_ids', $params) ? (array) ($params['tag_ids'] ?? []) : null,
+            );
+        });
     }
 
     /** LikeAdmin 后台用户详情的单字段更新语义。 */
     public function updateMemberField(array $params): void
     {
         $context = $this->executionContext->tenantAdmin();
-        $field = (string)$params['field'];
+        $field = (string) $params['field'];
         $value = $field === 'avatar'
-            ? $this->files->setTenantFileUrl($context, (string)$params['value'])
+            ? $this->files->setTenantFileUrl($context, (string) $params['value'])
             : $params['value'];
-        $this->profiles->updateAdminField($context, (int)$params['id'], $field, $value);
+        $this->profiles->updateAdminField($context, (int) $params['id'], $field, $value);
     }
 
     public function updateMemberStatus(int $id, int $status): void
@@ -405,46 +408,45 @@ final class MemberAdministrationService implements MemberAdministration
         array $params,
         int $adminId,
         string $idempotencyKey,
-    ): void
-    {
+    ): void {
         $context = $this->executionContext->tenantAdmin();
         Db::transaction(function () use ($context, $params, $adminId, $idempotencyKey): void {
-                $action = (int)$params['action'];
-                $memberId = (int)$params['user_id'];
-                $amountCents = Money::toCents(abs((float)$params['num']));
-                $remark = (string)($params['remark'] ?? '');
-                $lease = $this->idempotency->begin(IdempotencyCommand::tenant(
-                    $context,
-                    'member.balance.adjust',
-                    $idempotencyKey,
-                    self::balanceAdjustmentRequestHash($memberId, $action, $amountCents, $remark),
-                    new DateTimeImmutable('+24 hours'),
-                ));
-                if (!$lease->isExecutionOwner()) {
-                    if (!$lease->isReplayable()) {
-                        throw BusinessException::conflict('MEMBER_BALANCE_ADJUSTMENT_IN_PROGRESS', '余额调账请求仍在处理中，请稍后查询流水');
-                    }
-                    return;
+            $action = (int) $params['action'];
+            $memberId = (int) $params['user_id'];
+            $amountCents = Money::toCents(abs((float) $params['num']));
+            $remark = (string) ($params['remark'] ?? '');
+            $lease = $this->idempotency->begin(IdempotencyCommand::tenant(
+                $context,
+                'member.balance.adjust',
+                $idempotencyKey,
+                self::balanceAdjustmentRequestHash($memberId, $action, $amountCents, $remark),
+                new DateTimeImmutable('+24 hours'),
+            ));
+            if (!$lease->isExecutionOwner()) {
+                if (!$lease->isReplayable()) {
+                    throw BusinessException::conflict('MEMBER_BALANCE_ADJUSTMENT_IN_PROGRESS', '余额调账请求仍在处理中，请稍后查询流水');
                 }
+                return;
+            }
 
-                $changeType = $action === AccountLogEnum::INC
-                    ? AccountLogEnum::USER_MONEY_INC_ADMIN
-                    : AccountLogEnum::USER_MONEY_DEC_ADMIN;
-                $this->balances->applyInTransaction(
-                    $context,
-                    new MemberBalanceMutation(
-                        $memberId,
-                        $changeType,
-                        $action,
-                        $amountCents,
-                        '',
-                        $remark,
-                        [],
-                        $adminId,
-                    ),
-                );
-                $this->idempotency->complete($lease, new IdempotencyReceipt(200, ['success' => true]));
-            });
+            $changeType = $action === AccountLogEnum::INC
+                ? AccountLogEnum::USER_MONEY_INC_ADMIN
+                : AccountLogEnum::USER_MONEY_DEC_ADMIN;
+            $this->balances->applyInTransaction(
+                $context,
+                new MemberBalanceMutation(
+                    $memberId,
+                    $changeType,
+                    $action,
+                    $amountCents,
+                    '',
+                    $remark,
+                    [],
+                    $adminId,
+                ),
+            );
+            $this->idempotency->complete($lease, new IdempotencyReceipt(200, ['success' => true]));
+        });
     }
 
     private static function balanceAdjustmentRequestHash(

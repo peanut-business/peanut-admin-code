@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\platform\invitation;
@@ -8,9 +9,7 @@ final class OneTimeInvitationToken
     private const BYTES = 32;
     private const PATTERN = '/^[A-Za-z0-9_-]{43}$/D';
 
-    private function __construct(private readonly string $plaintext)
-    {
-    }
+    private function __construct(private readonly string $plaintext) {}
 
     public static function issue(): self
     {

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\composition\payment;
@@ -30,8 +31,7 @@ final class PaymentServiceFactory
         private readonly OutboundHttpTransport $httpTransport,
         array $config = [],
         ?PaymentTransportInterface $transport = null,
-    )
-    {
+    ) {
         $this->config = $config;
         $this->transport = $transport ?? new CurlPaymentTransport($httpTransport);
     }
