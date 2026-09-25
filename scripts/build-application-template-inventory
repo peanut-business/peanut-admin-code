@@ -286,7 +286,9 @@ function transform(string $path, string $classification): string
     }
     // Public guides are real source inputs, so their bytes (not a constant
     // semantic placeholder digest) participate in the release baseline.
-    if (str_starts_with($path, 'docs/public/')) {
+    if (str_starts_with($path, 'docs/public/')
+        || str_starts_with($path, 'docs/development/')
+        || $path === 'docs/module-layout.md') {
         return 'text';
     }
     if ($path === 'SECURITY.md' || ((str_starts_with($path, 'docs-site/') || str_starts_with($path, 'docs/')) && str_ends_with($path, '.md'))) {
