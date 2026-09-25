@@ -15,7 +15,7 @@ use app\platform\infrastructure\plugin\ModuleMigrationSqlExecutor;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Settings\Definition\SettingDefinitionSynchronizer;
+use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
 use think\App;
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
