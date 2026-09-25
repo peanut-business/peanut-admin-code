@@ -87,6 +87,30 @@ final class ModuleScaffoldCapabilitiesTest extends TestCase
         self::assertSame(['.', '..'], scandir($this->fixture . '/server/app/modules'));
     }
 
+    public function testRollbackPreservesExistingEmptyNamespaceDirectories(): void
+    {
+        $existing = [
+            'server/app/modules/acme',
+            'server/tests/Modules/Acme',
+            'web/src/modules',
+        ];
+        foreach ($existing as $relative) {
+            self::assertTrue(mkdir($this->fixture . '/' . $relative, 0700, true));
+        }
+        try {
+            $this->generator('/usr/bin/false')->create('acme.failed', 'acme', 'admin-web');
+            self::fail('Invalid generated Composer acceptance.');
+        } catch (ModuleScaffoldException $error) {
+            self::assertSame('MODULE_CREATE_COMPOSER_INVALID', $error->errorCode);
+        }
+        foreach ($existing as $relative) {
+            self::assertDirectoryExists($this->fixture . '/' . $relative, 'Rollback removed a pre-existing directory: ' . $relative);
+        }
+        foreach (['server/app/modules/acme/failed', 'server/tests/Modules/Acme/Failed', 'web/src/modules/acme-failed'] as $relative) {
+            self::assertDirectoryDoesNotExist($this->fixture . '/' . $relative);
+        }
+    }
+
     public function testComposerFailureRollsBackOnlyNewModule(): void
     {
         try {

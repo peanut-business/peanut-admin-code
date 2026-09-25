@@ -103,11 +103,12 @@ final class ModuleScaffoldGenerator
         $backendBase = $this->projectRoot . '/server/app/modules';
         $frontendBase = $this->projectRoot . '/web/src/modules';
         $testBase = $this->projectRoot . '/server/tests';
-        $this->assertAvailableTarget($backendBase, $backendRoot);
+        $backendCleanupBase = $this->assertAvailableTarget($backendBase, $backendRoot);
+        $frontendCleanupBase = $frontendBase;
         if ($withFrontend) {
-            $this->assertAvailableTarget($frontendBase, $frontendRoot);
+            $frontendCleanupBase = $this->assertAvailableTarget($frontendBase, $frontendRoot);
         }
-        $this->assertAvailableTarget($testBase, $testRoot);
+        $testCleanupBase = $this->assertAvailableTarget($testBase, $testRoot);
 
         $vendorKey = $rawSegments[0];
         $slug = $key->slug();
@@ -179,24 +180,24 @@ final class ModuleScaffoldGenerator
             $this->postflight($moduleKey, $backendRoot, $withFrontend);
         } catch (ModuleScaffoldException $exception) {
             if ($testCreated) {
-                $this->removeCreatedTree($testRoot, $testBase);
+                $this->removeCreatedTree($testRoot, $testCleanupBase);
             }
             if ($frontendCreated) {
-                $this->removeCreatedTree($frontendRoot, $frontendBase);
+                $this->removeCreatedTree($frontendRoot, $frontendCleanupBase);
             }
             if ($backendCreated) {
-                $this->removeCreatedTree($backendRoot, $backendBase);
+                $this->removeCreatedTree($backendRoot, $backendCleanupBase);
             }
             throw $exception;
         } catch (\Throwable $exception) {
             if ($testCreated) {
-                $this->removeCreatedTree($testRoot, $testBase);
+                $this->removeCreatedTree($testRoot, $testCleanupBase);
             }
             if ($frontendCreated) {
-                $this->removeCreatedTree($frontendRoot, $frontendBase);
+                $this->removeCreatedTree($frontendRoot, $frontendCleanupBase);
             }
             if ($backendCreated) {
-                $this->removeCreatedTree($backendRoot, $backendBase);
+                $this->removeCreatedTree($backendRoot, $backendCleanupBase);
             }
             throw new ModuleScaffoldException('MODULE_CREATE_FAILED', 'Module scaffold generation failed.', 0, $exception);
         }
@@ -214,7 +215,8 @@ final class ModuleScaffoldGenerator
         ];
     }
 
-    private function assertAvailableTarget(string $base, string $target): void
+    /** Returns the nearest existing ancestor: rollback must preserve it even when empty. */
+    private function assertAvailableTarget(string $base, string $target): string
     {
         $resolvedBase = realpath($base);
         if ($resolvedBase === false || $resolvedBase !== $base || !str_starts_with($target, $base . '/')) {
@@ -222,15 +224,20 @@ final class ModuleScaffoldGenerator
         }
         $relative = substr(dirname($target), strlen($base) + 1);
         $cursor = $base;
+        $cleanupBase = $base;
         foreach (array_filter(explode('/', $relative), 'strlen') as $segment) {
             $cursor .= '/' . $segment;
             if (is_link($cursor) || (file_exists($cursor) && !is_dir($cursor))) {
                 throw new ModuleScaffoldException('MODULE_CREATE_PATH_INVALID', 'Module target path contains an unsafe ancestor.');
             }
+            if (is_dir($cursor)) {
+                $cleanupBase = $cursor;
+            }
         }
         if (file_exists($target) || is_link($target)) {
             throw new ModuleScaffoldException('MODULE_CREATE_TARGET_EXISTS', 'Module target already exists.');
         }
+        return $cleanupBase;
     }
 
     private function assertNamespaceAvailable(string $moduleKey, string $namespace): void
