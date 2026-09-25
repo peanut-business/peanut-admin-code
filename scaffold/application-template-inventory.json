@@ -607,28 +607,28 @@
             "target": "docs/development/standard.md",
             "classification": "managed",
             "owner": "scaffold",
-            "transform": "docs-page",
+            "transform": "text",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
             ],
-            "source_sha256": "29452f9f1f2ab1d1dc20061d0cef774db7fff7f3da4cfee2abd609a2c9d65db9"
+            "source_sha256": "104f301e0eea44d6987644e817844ad965f54445e909bfb208ca923370b186b2"
         },
         {
             "path": "docs/module-layout.md",
             "target": "docs/module-layout.md",
             "classification": "managed",
             "owner": "scaffold",
-            "transform": "docs-page",
+            "transform": "text",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
             ],
-            "source_sha256": "dbefd34a1d3fc6093565e7288fa928c6f7100a592eff1a0909db796fdffa70d2"
+            "source_sha256": "286e5429057f97b115e65b4b4ace8b0644d8cac213cac322579e6f2b67693041"
         },
         {
             "path": "docs/public/README.md",
@@ -6860,7 +6860,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "805fa1db026b34a69dbcd6366644b6c57b44da8a80d775aaa735570161260db3"
+            "source_sha256": "65cf9627c3d6e89168d2c747c1f58cf5a73b37607e302b405b97fd67dac76469"
         },
         {
             "path": "server/app/common/infrastructure/module/OfficialModuleMiddleware.php",
@@ -26114,6 +26114,19 @@
         {
             "path": "server/tests/Unit/PublicApiArtifactCheckTest.php",
             "target": "server/tests/Unit/PublicApiArtifactCheckTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/PublicDevelopmentInventoryPolicyTest.php",
+            "target": "server/tests/Unit/PublicDevelopmentInventoryPolicyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
