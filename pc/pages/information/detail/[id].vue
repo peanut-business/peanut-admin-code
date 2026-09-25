@@ -44,7 +44,7 @@ import sanitizeRichText, { richTextToPlainText } from '~/utils/sanitize-rich-tex
 import {
   addArticleCollect,
   cancelArticleCollect,
-  getArticleDetail,
+  getArticleDetailOrNull,
 } from '~/api/article'
 
 definePageMeta({ layout: 'default' })
@@ -56,7 +56,7 @@ const request = useRequest()
 const collected = ref(false)
 const article = ref(
   Number.isInteger(id) && id > 0
-    ? await getArticleDetail(request, id).catch(() => null)
+    ? await getArticleDetailOrNull(request, id)
     : null,
 )
 if (import.meta.server && !article.value) setResponseStatus(404)

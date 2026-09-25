@@ -38,7 +38,13 @@ assert.equal(pcCategory.includes('getArticleCategories') && pcCategory.includes(
 assert.equal(pcCollection.includes('getArticleCollections'), true, 'PC member collection bypassed the Article collection API')
 
 // A disabled module must never leave server-fetched Article data rendered from stale state.
-assert.equal(pcIndex.includes('indexData?.all || indexData?.article || []'), true, 'PC home lacks an empty fail-closed Article fallback')
+const homeProjection = pcIndex.match(/const articles = computed\(\(\) => (.+)\)/)?.[1]
+assert.ok(homeProjection, 'review the actual reactive home projection')
+const projectHome = new Function('indexData', `return (${homeProjection});`)
+assert.deepEqual(projectHome({ value: undefined }), [], 'unavailable data must not retain Article rows')
+assert.deepEqual(projectHome({ value: {} }), [], 'missing Article capabilities must render no rows')
+assert.deepEqual(projectHome({ value: { all: [{ id: 1 }] } }), [{ id: 1 }])
+assert.deepEqual(projectHome({ value: { article: [{ id: 2 }] } }), [{ id: 2 }])
 assert.equal(pcCollection.includes('data?.lists || []'), true, 'PC member collection lacks an empty fail-closed Article fallback')
 
 console.log('PC-ARTICLE-MODULE-CAPABILITY-001 passed')

@@ -93,6 +93,18 @@ export function getArticleDetail(client: ArticleRequestClient, id: number) {
     .then(publicArticle)
 }
 
+/** 只有明确的不存在响应转为空状态；服务、权限、网络和解析异常继续交给页面错误处理。 */
+export async function getArticleDetailOrNull(client: ArticleRequestClient, id: number) {
+  try {
+    return await getArticleDetail(client, id)
+  } catch (error) {
+    if (typeof error === 'object' && error !== null
+      && 'kind' in error && error.kind === 'business'
+      && 'code' in error && error.code === '40400') return null
+    throw error
+  }
+}
+
 export function addArticleCollect(client: ArticleRequestClient, id: number) {
   return client.post('api/article/addCollect', { id })
 }

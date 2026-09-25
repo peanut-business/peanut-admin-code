@@ -154,6 +154,11 @@ class FreezeCoreReleaseTest(unittest.TestCase):
                 'version': '1.0.0', 'peerDependencies': {'@peanut-admin/client': '1.0.0', 'vue': '^3.4.21'},
                 'devDependencies': {'@peanut-admin/client': 'workspace:*'}})
             (package / 'source.ts').write_text('export const value = "1.0.0";')
+            symbol = {'vue': 'PEANUT_ADMIN_VUE_VERSION', 'ui-vue': 'PEANUT_ADMIN_UI_VUE_VERSION',
+                      'testing': 'WEB_TESTING_VERSION'}.get(name)
+            if symbol:
+                (package / 'src').mkdir()
+                (package / 'src/index.ts').write_text(f"export const {symbol} = '1.0.0' as const\n")
         release.stamp_web(root, '4.0.0-rc.1')
         data = release.read_json(root / 'packages/vue/package.json')
         self.assertEqual(data['version'], '4.0.0-rc.1')
@@ -161,6 +166,36 @@ class FreezeCoreReleaseTest(unittest.TestCase):
         self.assertEqual(data['peerDependencies']['vue'], '^3.4.21')
         self.assertEqual(data['devDependencies']['@peanut-admin/client'], 'workspace:*')
         self.assertIn('1.0.0', (root / 'packages/vue/source.ts').read_text())
+        for suffix in ('vue', 'ui-vue', 'testing'):
+            self.assertIn("'4.0.0-rc.1' as const", (root / 'packages' / suffix / 'src/index.ts').read_text())
+
+    def packed_web(self, manifest_version, javascript_version, type_version):
+        path = self.root / 'version-fixture.tgz'
+        documents = {
+            'package/package.json': json.dumps({'name': '@peanut-admin/vue', 'version': manifest_version}),
+            'package/LICENSE': 'Synthetic test license',
+            'package/dist/index.js': f'export const PEANUT_ADMIN_VUE_VERSION = "{javascript_version}";\n',
+            'package/dist/index.d.ts': f'export declare const PEANUT_ADMIN_VUE_VERSION = "{type_version}";\n',
+        }
+        with tarfile.open(path, 'w:gz') as archive:
+            for name, text in documents.items():
+                raw = text.encode(); info = tarfile.TarInfo(name); info.size = len(raw)
+                archive.addfile(info, io.BytesIO(raw))
+        return path
+
+    def test_packed_runtime_version_must_match_the_manifest(self):
+        path = self.packed_web('4.0.0-rc.1', '4.0.0-dev.0', '4.0.0-rc.1')
+        with self.assertRaisesRegex(ValueError, 'exported version'):
+            release.inspect_web_archive(path, 'vue', '4.0.0-rc.1')
+
+    def test_packed_type_literal_must_match_the_manifest(self):
+        path = self.packed_web('4.0.0-rc.1', '4.0.0-rc.1', '4.0.0-dev.0')
+        with self.assertRaisesRegex(ValueError, 'exported version'):
+            release.inspect_web_archive(path, 'vue', '4.0.0-rc.1')
+
+    def test_matching_packed_runtime_and_type_versions_are_accepted(self):
+        path = self.packed_web('4.0.0-rc.1', '4.0.0-rc.1', '4.0.0-rc.1')
+        self.assertEqual(release.inspect_web_archive(path, 'vue', '4.0.0-rc.1')['version'], '4.0.0-rc.1')
 
     def test_existing_output_is_never_replaced(self):
         output = self.root / 'output'; output.mkdir(); (output / 'keep').write_text('keep')

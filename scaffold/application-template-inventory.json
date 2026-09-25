@@ -862,7 +862,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8eac27aba9512b156518b63413df2de49ca3912d7211de4c6e7cb36160e9e0f7"
+            "source_sha256": "2f31117d6f2199f239a276f74453527228dabe914465b6106b1c62e256f2c298"
         },
         {
             "path": "pc/api/oauth.ts",
@@ -1083,7 +1083,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "154e688a8bd3aa711a6a92d7e027bb271d98e33c7b0307cc257a503dbe8c0fb5"
+            "source_sha256": "3d90867d0e754a349c9125aeaa81ec9480fee37e5e77a75524f25b07b9fa921a"
         },
         {
             "path": "pc/pages/information/index.vue",
@@ -1346,6 +1346,19 @@
             "source_sha256": "86f2b04ffed9ae8dd865e0f2711efc687fa2556572b168d18f5994994eb070e4"
         },
         {
+            "path": "pc/tests/Productization/article-detail-error.test.mjs",
+            "target": "pc/tests/Productization/article-detail-error.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d991ffbab99ba4c2f2d10ecb367cde3087eba93b5552be4cf7f8e3277d623c09"
+        },
+        {
             "path": "pc/tests/Productization/article-module-capability.test.mjs",
             "target": "pc/tests/Productization/article-module-capability.test.mjs",
             "classification": "managed",
@@ -1356,7 +1369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7df2e68f306ed594f64eac2dd32c12a018868adbb3e1f0de1d17b35d35e40c70"
+            "source_sha256": "b465fb68856ebb2be4e4ea24b5ccee7cb1c264673edf8b1f3e3fc2f8aea8e8ee"
         },
         {
             "path": "pc/tests/Productization/fixtures/ssr-upstream.mjs",
@@ -2758,7 +2771,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6188f6323306d2d14bfbc2623ebb86b405620f90fb58f399a346f43462265733"
+            "source_sha256": "ce86367ef903a3a8b763073ef5478fd25ea140ed88deaf53229b42577a9be53f"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
@@ -3427,7 +3440,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "293c842741afc665f44f8cfde73b05416bf3d1e3dd18118c41becb227607a158"
+            "source_sha256": "a1187da0af156cd0ac325538f96044869dafe9c84b0346ebf51e3bca7bf03589"
         },
         {
             "path": "scripts/tests/generated-application-preinstall.php",

@@ -16,6 +16,10 @@ import tempfile
 import zipfile
 
 PACKAGES = ('client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing')
+# 这三个公开常量描述包版本，不是独立的协议版本；冻结时必须与清单一致。
+WEB_VERSION_EXPORTS = {'vue': 'PEANUT_ADMIN_VUE_VERSION',
+                       'ui-vue': 'PEANUT_ADMIN_UI_VUE_VERSION',
+                       'testing': 'WEB_TESTING_VERSION'}
 SEMVER = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?')
 
 
@@ -130,6 +134,7 @@ def snapshot(root: Path, commit: str, destination: Path) -> None:
 def stamp_web(root: Path, selected_version: str) -> None:
     selected_version = version(selected_version)
     manifests = []
+    version_sources = []
     for suffix in PACKAGES:
         path = root / 'packages' / suffix / 'package.json'
         data = read_json(path)
@@ -142,9 +147,24 @@ def stamp_web(root: Path, selected_version: str) -> None:
                     if name.removeprefix('@peanut-admin/') not in PACKAGES:
                         raise ValueError('An undeclared internal Core Web dependency was found.')
                     data[field][name] = selected_version
+        symbol = WEB_VERSION_EXPORTS.get(suffix)
+        if symbol:
+            source = path.parent / 'src/index.ts'
+            text = source.read_text(encoding='utf-8')
+            pattern = re.compile(r'(?m)^(export const ' + re.escape(symbol)
+                                 + r' = )([\'\"])([^\'\"\r\n]+)\2( as const;?)[ \t]*$')
+            matches = list(pattern.finditer(text))
+            if len(matches) != 1:
+                raise ValueError(f'Expected one literal exported version: {suffix}/{symbol}')
+            version(matches[0].group(3))
+            stamped = pattern.sub(lambda match: match[1] + match[2] + selected_version
+                                  + match[2] + match[4], text)
+            version_sources.append((source, stamped))
         manifests.append((path, data))
     for path, data in manifests:
         write_json(path, data)
+    for path, text in version_sources:
+        path.write_text(text, encoding='utf-8')
     manifest = read_json(root / 'package.json')
     manifest['version'] = selected_version
     write_json(root / 'package.json', manifest)
@@ -197,6 +217,18 @@ def inspect_web_archive(path: Path, suffix: str, selected_version: str) -> dict:
             for name, requirement in manifest.get(field, {}).items():
                 if name.startswith('@peanut-admin/') and requirement != selected_version:
                     raise ValueError('Packed internal Core Web version was not frozen.')
+        symbol = WEB_VERSION_EXPORTS.get(suffix)
+        if symbol:
+            for entry in ('package/dist/index.js', 'package/dist/index.d.ts'):
+                stream = archive.extractfile(entry)
+                if stream is None:
+                    raise ValueError(f'Packed exported version is missing: {suffix}/{entry}')
+                with stream:
+                    text = stream.read().decode('utf-8')
+                values = re.findall(r'(?m)^export (?:declare )?const ' + re.escape(symbol)
+                                    + r'\s*=\s*[\'\"]([^\'\"\r\n]+)[\'\"]\s*;?[ \t]*$', text)
+                if values != [selected_version]:
+                    raise ValueError(f'Packed exported version differs from manifest: {suffix}/{entry}')
     return {'version': selected_version, 'archive': 'packages/core-web/' + path.name,
             'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
 
@@ -224,8 +256,9 @@ def freeze(php_source: Path, web_source: Path, destination: Path,
         snapshot(web_source, sources['web']['commit'], web_root)
         pnpm_environment = task_pnpm_environment(temporary, corepack)
         run_pnpm(corepack, ['install', '--frozen-lockfile'], web_root, pnpm_environment, 900)
-        run_pnpm(corepack, ['run', 'build'], web_root, pnpm_environment, 900)
+        # 先按原生锁安装，再修改独立源码投影的版本并编译；禁止编译后只改清单。
         stamp_web(web_root, web_version)
+        run_pnpm(corepack, ['run', 'build'], web_root, pnpm_environment, 900)
         web_output = output / 'packages/core-web'
         web_output.mkdir(parents=True)
         web_packages = {}
