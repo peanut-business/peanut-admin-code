@@ -9,6 +9,7 @@ use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Integration\Application\MachineScopeCatalog;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings;
+use PeanutAdmin\Modules\Integration\Contract\ExternalBindingTransfer;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantAudit;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository;
@@ -21,6 +22,7 @@ use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBinding
 use PeanutAdmin\Modules\Integration\Infrastructure\UnavailableWebhookSecretProtector;
 use PeanutAdmin\Modules\Integration\Infrastructure\Persistence\ThinkPhpIntegrationSecurityRepository;
 use PeanutAdmin\Modules\Integration\Service\ExternalChannelBindingService;
+use PeanutAdmin\Modules\Integration\Service\ExternalBindingTransferService;
 use PeanutAdmin\Modules\Integration\Service\ExternalTenantResolver;
 use PeanutAdmin\IntegrationSecurity\Crypto\AesGcmWebhookSecretProtector;
 use PeanutAdmin\IntegrationSecurity\Crypto\WebhookSecretProtector;
@@ -45,6 +47,7 @@ final class ModuleProvider implements ModuleProviderContract
             ExternalChannelBindingStore::class => ThinkPhpExternalTenantBindingRepository::class,
             ExternalTenantResolutionService::class => ExternalTenantResolver::class,
             ExternalChannelBindings::class => ExternalChannelBindingService::class,
+            ExternalBindingTransfer::class => ExternalBindingTransferService::class,
             ExternalIntegrationBootstrapCommands::class => fn(App $app): ExternalIntegrationBootstrapCommands => new ExternalIntegrationBootstrapCommands(
                 $app->make(ExternalChannelBindingStore::class),
                 $app->make(CurrentExecutionContext::class),
