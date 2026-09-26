@@ -166,7 +166,21 @@ def relative(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
-def hits_for(path: Path, text: str) -> list[tuple[str, int, str]]:
+def declared_module_exports() -> set[str]:
+    """Current declared public types, not an allowlist inferred from directory names."""
+    exported: set[str] = set()
+    for path in (ROOT / "server/app/modules").glob("*/*/module.json"):
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        types = manifest.get("contracts", {}).get("exports", [])
+        if not isinstance(types, list) or any(not isinstance(item, str) for item in types):
+            raise ValueError("MODULE_PUBLIC_DECLARATION_INVALID: " + str(path))
+        exported.update(types)
+    return exported
+
+
+def hits_for(path: Path, text: str, public_types: set[str] | None = None) -> list[tuple[str, int, str]]:
+    if public_types is None:
+        public_types = declared_module_exports()
     lines = text.splitlines()
     hits: list[tuple[str, int, str]] = []
     rel = relative(path)
@@ -250,11 +264,13 @@ def hits_for(path: Path, text: str) -> list[tuple[str, int, str]]:
             and method == "channelConfigured"
             and re.search(r"\bcatch\s*\(\\?Throwable\b", line)):
             hits.append(("classified_false_error", number, line.strip()))
+        imported = re.match(r"^\s*use\s+(PeanutAdmin\\Modules\\[A-Za-z0-9_\\]+)(?:\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?\s*;", line)
+        declared_public_import = imported is not None and imported.group(1) in public_types
         if (rel.startswith("server/app/common/")
             and re.search(r"\bPeanutAdmin\\Modules\\", line)
-            and "\\Contract\\" not in line):
+            and "\\Contract\\" not in line and not declared_public_import):
             hits.append(("common_module_reverse_dependency", number, line.strip()))
-        if host_path and re.search(
+        if host_path and not declared_public_import and re.search(
             r"^\s*use\s+PeanutAdmin\\Modules\\[^;]*\\(?:Application|Infrastructure|Model|Service)\\[^;]+;",
             line,
             re.IGNORECASE,
@@ -447,9 +463,10 @@ def current_findings(register: dict) -> list[dict]:
     findings: list[dict] = []
     occurrences: dict[tuple[str, str, str], int] = {}
     registered = registered_issues(register)
+    public_types = declared_module_exports()
     for path in source_files():
         text = path.read_text(encoding="utf-8")
-        for rule, line, excerpt in hits_for(path, text):
+        for rule, line, excerpt in hits_for(path, text, public_types):
             normalized = re.sub(r"\s+", " ", excerpt.strip())
             key = (rule, relative(path), normalized)
             occurrences[key] = occurrences.get(key, 0) + 1
@@ -571,6 +588,46 @@ def concrete_models() -> set[str]:
     return models
 
 
+def composer_model_path(model: str) -> Path | None:
+    """Resolve current Composer PSR-4 bytes without loading PHP or guessing app paths."""
+    manifest = json.loads((ROOT / "server/composer.json").read_text(encoding="utf-8"))
+    mappings = manifest.get("autoload", {}).get("psr-4", {})
+    if not isinstance(mappings, dict):
+        raise ValueError("MODEL_SOURCE_MAPPING_INVALID")
+    prefixes = sorted((prefix for prefix in mappings if model.startswith(prefix)), key=len, reverse=True)
+    root = ROOT.resolve()
+    for prefix in prefixes:
+        suffix = model[len(prefix):].replace("\\", "/") + ".php"
+        paths = mappings[prefix]
+        if isinstance(paths, str):
+            paths = [paths]
+        if not isinstance(paths, list) or not paths or any(not isinstance(path, str) for path in paths):
+            raise ValueError("MODEL_SOURCE_MAPPING_INVALID: " + prefix)
+        matches = []
+        for mapping in paths:
+            if Path(mapping).is_absolute():
+                raise ValueError("MODEL_SOURCE_OUTSIDE_ROOT: " + model)
+            candidate = ROOT / "server" / mapping / suffix
+            resolved = candidate.resolve()
+            if not resolved.is_relative_to(root):
+                raise ValueError("MODEL_SOURCE_OUTSIDE_ROOT: " + model)
+            # Match native namespace/path case on macOS as well as Linux.
+            cursor = root
+            for part in candidate.relative_to(ROOT).parts:
+                if part in {".", ".."} or not cursor.is_dir() or part not in {item.name for item in cursor.iterdir()}:
+                    break
+                cursor = cursor / part
+            else:
+                if cursor.is_file():
+                    matches.append(cursor)
+        matches = list(dict.fromkeys(matches))
+        if len(matches) > 1:
+            raise ValueError("MODEL_SOURCE_AMBIGUOUS: " + model)
+        if matches:
+            return matches[0]
+    return None
+
+
 def ownership_errors() -> list[str]:
     try:
         ownership = json.loads(OWNERSHIP.read_text(encoding="utf-8"))
@@ -616,9 +673,15 @@ def ownership_errors() -> list[str]:
             errors.append(f"model_owners[{index}] has invalid owner")
             continue
         model = str(item.get("model", ""))
-        model_path = ROOT / "server" / (model.replace("\\", "/") + ".php")
         expected = expected_bases.get(str(item.get("owner")))
-        if not model_path.is_file() or f"extends {expected}" not in model_path.read_text(encoding="utf-8"):
+        try:
+            model_path = composer_model_path(model)
+        except (OSError, ValueError) as exc:
+            errors.append(f"model_owners[{index}] {model}: {exc}")
+            continue
+        if model_path is None:
+            errors.append(f"model_owners[{index}] {model} has no exact current Composer source")
+        elif f"extends {expected}" not in model_path.read_text(encoding="utf-8"):
             errors.append(f"model_owners[{index}] {model} must extend {expected}")
     for index, item in enumerate(table_rows, 1):
         if item.get("owner") not in {"tenant-orm", "tenant-gateway"}:

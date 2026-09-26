@@ -93,6 +93,26 @@ class ComposerSourceResolutionTest(unittest.TestCase):
         finally:
             outside.unlink()
 
+    def test_explicit_public_service_is_not_rejected_by_its_directory_name(self):
+        published = 'PeanutAdmin\\Modules\\Article\\Service\\PublicSummary'
+        path = self.root / 'server/app/modules/fixture/article/module.json'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({'contracts': {'exports': [published]}}))
+        host = self.root / 'server/app/common/services/Consumer.php'
+        hits = checker.hits_for(host, '<?php\nuse ' + published + ' as Summary;\n')
+        categories = {hit[0] for hit in hits}
+        self.assertNotIn('host_module_internal_dependency', categories)
+        self.assertNotIn('common_module_reverse_dependency', categories)
+        private = 'PeanutAdmin\\Modules\\Article\\Service\\PrivateSummary'
+        private_hits = checker.hits_for(host, '<?php\nuse ' + private + ';\n')
+        self.assertIn('host_module_internal_dependency', {hit[0] for hit in private_hits})
+        self.assertIn('common_module_reverse_dependency', {hit[0] for hit in private_hits})
+
+    def test_public_manifest_does_not_turn_raw_table_access_into_an_api(self):
+        host = self.root / 'server/app/adminapi/services/Consumer.php'
+        hits = checker.hits_for(host, '<?php\nuse think\\facade\\Db;\nDb::name("member")->select();\n', set())
+        self.assertIn('application_raw_persistence', {hit[0] for hit in hits})
+
     def test_missing_source_is_not_reported_as_an_existing_class(self):
         self.assertIsNone(checker.composer_model_path('PeanutAdmin\\Modules\\Article\\Model\\Missing'))
 

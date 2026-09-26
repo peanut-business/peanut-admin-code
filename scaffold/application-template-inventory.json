@@ -2878,7 +2878,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41e4f9993167204e068bee5ed1f14f3ddcb9ca3a07b859b0808896b4ba3525c7"
+            "source_sha256": "530ed39a7c0292aa1c991cc8fb108157730b9b4c66d2d4106dc0c364aefb5249"
         },
         {
             "path": "scripts/ci-change-classifier",
@@ -4016,6 +4016,20 @@
                 "full"
             ],
             "source_sha256": "afe42f80a1b3fff942a564484c1ce3b5f091d1d77a48cdf6f8b7a8ae4c485ae6"
+        },
+        {
+            "path": "scripts/tests/thinkphp-source-resolution-test.py",
+            "target": "scripts/tests/thinkphp-source-resolution-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a5673077d9e1d620589901877aca7e0a93a0392c9f6395913bcd9b3c2394d5ce"
         },
         {
             "path": "scripts/tests/uniapp-request-boundary-test.mjs",
@@ -27423,7 +27437,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3f394e7a037fb90af01653468b906af372db4fd7e6011c260075ec616290a42d"
+            "source_sha256": "24e1b7bb72529053e6ac43ee1f6879ddc542db56ae39b8274581d7e2e0d3c791"
         },
         {
             "path": "tools/quality/composer.json",
