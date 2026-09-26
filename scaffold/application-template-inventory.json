@@ -21261,7 +21261,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e5d2464d2ddc0a62af4907e0e3d27cf63c64e7ac0d8903f815cf8eba1440bda9"
+            "source_sha256": "afcd1f02f45e67dd6a8a96530795cf7191173bcc3032655badef2d882a18660d"
         },
         {
             "path": "server/app/platform/services/CoreTenantOwnerAdminProvisioner.php",
@@ -26905,6 +26905,19 @@
         {
             "path": "server/tests/Unit/TenantBootstrapAuthorizationTest.php",
             "target": "server/tests/Unit/TenantBootstrapAuthorizationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/TenantBootstrapSettingsBoundaryTest.php",
+            "target": "server/tests/Unit/TenantBootstrapSettingsBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

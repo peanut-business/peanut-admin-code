@@ -15,7 +15,8 @@ use app\common\model\decoration\DecorateTabbar;
 use app\common\model\decoration\DecorationTabbarSetting;
 use app\common\model\setting\TransactionSetting;
 use app\common\model\setting\CustomerServiceSetting;
-use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
+use PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery;
+use PeanutAdmin\Modules\Settings\Contract\TenantSettingsCommands;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
 use think\DbManager;
@@ -42,7 +43,8 @@ final readonly class ApplicationTenantBootstrapService
         private NotificationBootstrapCommands $notifications,
         private TaskBootstrapCommands $tasks,
         private ExecutionContextStore $executionContexts,
-        private TenantSettingService $tenantSettings,
+        private TenantSettingsQuery $tenantSettings,
+        private TenantSettingsCommands $settingCommands,
         private ExternalIntegrationBootstrapCommands $externalBindings,
         private TenantAuthorizationCommands $authorization,
         private DbManager $database,
@@ -242,7 +244,7 @@ final readonly class ApplicationTenantBootstrapService
         ];
         foreach ($documents as $namespace => $document) {
             if ($this->tenantSettings->get($context, $namespace)->revision === 0) {
-                $this->tenantSettings->replace($context, $namespace, $document);
+                $this->settingCommands->replace($context, $namespace, $document);
             }
         }
         if (CustomerServiceSetting::where([])->find() === null) {
