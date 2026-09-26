@@ -1,4 +1,4 @@
-import type { RouteRecordNormalized } from 'vue-router';
+import type { RouteRecordRaw } from 'vue-router';
 import {
   allowsInstanceTools,
   deploymentMode,
@@ -10,17 +10,26 @@ import {
 import instanceToolRoutes from 'virtual:peanut-instance-tool-routes';
 import { pluginRoutes } from './plugin-contributions';
 
-const modules = import.meta.glob(
+interface RouteModule {
+  default?: RouteRecordRaw | RouteRecordRaw[];
+}
+
+// These are trusted source modules, not normalized records returned by the router.
+const modules = import.meta.glob<RouteModule>(
   ['./modules/*.ts', '!./modules/dev-tools.ts'],
   { eager: true }
 );
-const externalModules = import.meta.glob('./externalModules/*.ts', {
-  eager: true,
-});
+const externalModules = import.meta.glob<RouteModule>(
+  './externalModules/*.ts',
+  { eager: true }
+);
 
-function formatModules(_modules: any, result: RouteRecordNormalized[]) {
-  Object.keys(_modules).forEach((key) => {
-    const defaultModule = _modules[key].default;
+function formatModules(
+  sourceModules: Record<string, RouteModule>,
+  result: RouteRecordRaw[]
+): RouteRecordRaw[] {
+  Object.keys(sourceModules).forEach((key) => {
+    const defaultModule = sourceModules[key].default;
     if (!defaultModule) return;
     const moduleList = Array.isArray(defaultModule)
       ? [...defaultModule]
@@ -40,14 +49,14 @@ if (__PEANUT_INSTANCE_TOOLS_COMPILED__ !== expectedInstanceTools) {
 const instanceToolsAllowed =
   __PEANUT_INSTANCE_TOOLS_COMPILED__ && allowsInstanceTools(configuredMode);
 
-export const appRoutes: RouteRecordNormalized[] = routesForDeployment(
+export const appRoutes: RouteRecordRaw[] = routesForDeployment(
   [...formatModules(modules, []), ...instanceToolRoutes, ...pluginRoutes],
   mode,
   instanceToolsAllowed
-) as RouteRecordNormalized[];
+);
 
-export const appExternalRoutes: RouteRecordNormalized[] = routesForDeployment(
+export const appExternalRoutes: RouteRecordRaw[] = routesForDeployment(
   formatModules(externalModules, []),
   mode,
   instanceToolsAllowed
-) as RouteRecordNormalized[];
+);
