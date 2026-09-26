@@ -105,8 +105,10 @@ function isModuleOptions(
 
 function isPreflight(value: unknown): value is InstallationPreflight {
   return (
-    isPreflightCheck(value) &&
     isRecord(value) &&
+    ['status', 'code', 'reason', 'remediation'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string'
+    ) &&
     (value.checks === undefined ||
       (Array.isArray(value.checks) && value.checks.every(isPreflightCheck))) &&
     (value.modules === undefined || isModuleOptions(value.modules)) &&
@@ -151,7 +153,11 @@ function normalizeStatus(value: unknown): InstallationStatus {
   ) {
     throw new Error('Installation status returned an invalid state.');
   }
-  if (preflight !== null && preflight !== undefined && !isPreflight(preflight)) {
+  if (
+    preflight !== null &&
+    preflight !== undefined &&
+    !isPreflight(preflight)
+  ) {
     throw new Error('Installation status returned an invalid preflight.');
   }
   if (

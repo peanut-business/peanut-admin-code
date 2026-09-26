@@ -43,6 +43,8 @@
 
 宿主 services 与模块 Service 是明确分区，不是自由选择。既有复杂领域的 Application / Query 等有职责的局部结构允许保留，不能只为对称搬动。缩写按词命名，如 ApiClient、SkuCode、UserId；既有 OAuth 及第三方类型保留准确拼写。类型名称、导入、映射、实际路径必须一致，不靠 macOS 忽略大小写。
 
+命名先识别角色，再应用规则。例如展示组件 `OrderList.vue`、组合函数 `useOrderList.ts`、普通工具 `order-status.ts` 各用自己的写法。Nuxt 的 `pages/` 动态参数与 `layouts/` 注册名、uni-app 的 pages.json 路径、语言资源的已登记 `en-US` / `zh-CN` 键属于运行合同，不能仅为满足普通文件名规则改动公开URL或语言键。它们不是给普通组件/工具文件保留旧写法的白名单；重命名前须核实际注册、导入和生成源。
+
 PHP 格式固定 PER-CS 2.0、PSR-4；UTF-8、LF、末尾换行，PHP 四空格，TS / Vue / JSON 二空格。纯 PHP 无结束标签，业务文件声明严格类型；覆写方法保持框架签名。语言语法要求的例外保留。引号、分号和换行由目标工程已提交 formatter / linter 配置唯一决定，不叠加互相冲突的外部配置。
 
 控制器 XxxController，验证器 XxxValidate，业务动作 XxxService，模型实体名，公开纯查询 XxxQueries，命令合同 XxxCommands。拒绝用新的 CommonService、Helper、Manager 掩盖职责；已有确有语义的名称不机械替换。不按行数强拆文件。
@@ -92,6 +94,23 @@ contracts.exports 是模块公开面，不是所有可 autoload 类的目录。�
 PC 普通业务 CSR，已登记公开展示页才 SSR；公开 HTML / payload 无个人凭据。SSR 按请求隔离，不用模块级单例存个人状态。SPA 使用完整静态产物和同一 PHP API，不运行 PC Node，不能拆 hybrid/public 冒充 SPA。现行根路径、admin / platform 等边界保留，主版本不因规范迁移升级。
 
 沿现有 UI 和主题，不替换 Element Plus。优先 token / 变量，样式 scoped、CSS Modules 或模块前缀，不污染全局。业务文件 / 组织选择器留业务模块，纯控件可入公共 UI。交互提供清楚标签、禁用、焦点和错误状态，按平台验证可访问性。
+
+### 外部响应必须先校验再收窄
+
+网络泛型、类型断言和生成类型均不校验收到的字节。适配器从unknown开始，逐项核实实际消费的对象/列表形状、状态字面量、可选字段与嵌套元素，再返回声明类型；只检查Array.isArray不证明列表元素正确。可扩展的未知元数据保持unknown，不将其提升为任意业务类型。
+
+```ts
+type InstallationState = 'uninstalled' | 'installed' | 'blocked';
+
+function readInstallationState(value: unknown): InstallationState {
+  if (value === 'uninstalled' || value === 'installed' || value === 'blocked') {
+    return value;
+  }
+  throw new Error('Invalid installation state');
+}
+```
+
+反例：`String(value)` 后检查枚举，再把原value断言成枚举，会让数组或自定义对象伪装成字符串；`value as unknown as Result`只压过类型错误。修复不能把损坏响应变成空列表或成功状态，也不能改变既有合法响应、凭据传递和网络错误语义。验证使用真实消费者源码和真实依赖声明，覆盖合法值、null/数组/错误类型及失败传播；格式通过不代替这项验证。
 
 ## 8. uni-app
 

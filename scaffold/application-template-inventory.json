@@ -615,7 +615,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "449e30440fe36afa404a437c1571dfc9e7226d2308e8c3a5795369ea5e1f0ded"
+            "source_sha256": "2c63aae8472a404f437bbf9ddbbaf2067784a23eed1013cb2f68bec0dfa6a30b"
         },
         {
             "path": "docs/architecture/events-and-tasks.md",
@@ -783,7 +783,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "104f301e0eea44d6987644e817844ad965f54445e909bfb208ca923370b186b2"
+            "source_sha256": "b2a0e8f93032bf2939186689ec0a9188a080133e6eb103bce3402c50cd323073"
         },
         {
             "path": "docs/module-layout.md",
@@ -3750,6 +3750,20 @@
                 "full"
             ],
             "source_sha256": "258f4fe10cd9c9ef2c7549c69a08975a4b30a48ce2a02f0a797198f3b508eff1"
+        },
+        {
+            "path": "scripts/tests/installation-response-test.mjs",
+            "target": "scripts/tests/installation-response-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ecc6689c65b2c94d3b8df58c7b7e0c19dc4684e0aa2d455c2ff43b6023e8ff12"
         },
         {
             "path": "scripts/tests/installed-business-http.py",
@@ -27219,7 +27233,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "75c11eb3ff093e28ec979d30cadc43b5d8980616b4b8ddd8df66cc5d252a4e77"
+            "source_sha256": "65bb733292044d8f09e2c26e7d460cb612bc42c61f0a8479e19acf076fdd8001"
         },
         {
             "path": "tools/quality/composer.json",
@@ -28695,7 +28709,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d4d91321f24816d78080bf55540d3585e68cde7d05cde11b2400b3ae4922e747"
+            "source_sha256": "6fbd9bb07b248f9def864f78e836a88beb4bd90fb9d5647eb8e63d1c3ddd7c98"
         },
         {
             "path": "web/src/api/interceptor.ts",
