@@ -276,15 +276,16 @@ final readonly class ApplicationTenantBootstrapService
 
     private function seedExternalBindings(int $tenantId, string $tenantCode): void
     {
-        foreach ([
-            'payment.wechat',
-            'payment.alipay',
-            'wechat.official-account',
-            'oauth.wechat.oa',
-            'oauth.wechat.mini-program',
-            'oauth.wechat.open-pc',
-        ] as $provider) {
-            $this->externalBindings->ensureUnconfiguredBinding($tenantId, $tenantCode, $provider);
-        }
+        $execution = new SystemExecutionContext(new TenantSystemContext(
+            $tenantId,
+            'platform.tenant-bootstrap',
+            'integration.bootstrap-bindings',
+            $this->executionContexts->require()->requestId(),
+        ));
+        $this->executionContexts->run($execution, function () use ($tenantId, $tenantCode): void {
+            foreach (ExternalIntegrationBootstrapCommands::DEFAULT_PROVIDERS as $provider) {
+                $this->externalBindings->ensureUnconfiguredBinding($tenantId, $tenantCode, $provider);
+            }
+        });
     }
 }

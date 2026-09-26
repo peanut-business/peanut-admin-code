@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Contract;
 
 use app\common\execution\CurrentExecutionContext;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
 
 /** Non-ORM read boundary for the native Account/TenantMember directory. */
@@ -13,6 +14,17 @@ final readonly class AdminDirectoryQuery
     public function __construct(
         private CurrentExecutionContext $execution,
     ) {}
+
+    /** 受信初始化命令在事务内读取并锁定目标；返回稳定代码，不授予调用者权限。 */
+    public function bootstrapTenantCode(int $tenantId): ?string
+    {
+        if ($tenantId < 1) {
+            return null;
+        }
+        $code = Tenant::where('id', $tenantId)->whereIn('status', ['provisioning', 'active'])
+            ->lock(true)->value('code');
+        return is_string($code) && $code !== '' ? $code : null;
+    }
 
     /** @return list<array<string,mixed>> */
     public function rows(array $filters): array

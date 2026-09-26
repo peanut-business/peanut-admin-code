@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration;
 
+use app\common\execution\CurrentExecutionContext;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Integration\Application\MachineScopeCatalog;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings;
@@ -45,6 +47,8 @@ final class ModuleProvider implements ModuleProviderContract
             ExternalChannelBindings::class => ExternalChannelBindingService::class,
             ExternalIntegrationBootstrapCommands::class => fn(App $app): ExternalIntegrationBootstrapCommands => new ExternalIntegrationBootstrapCommands(
                 $app->make(ExternalChannelBindingStore::class),
+                $app->make(CurrentExecutionContext::class),
+                $app->make(AdminDirectoryQuery::class),
             ),
             IntegrationSecurityRepository::class => ThinkPhpIntegrationSecurityRepository::class,
             HostAddressResolver::class => SystemHostAddressResolver::class,
