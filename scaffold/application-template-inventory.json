@@ -3934,6 +3934,20 @@
             "source_sha256": "21e6d1a59afe4d151e7cd5ecb243692b7950f5983e35cc8e0eae2a0b014332b8"
         },
         {
+            "path": "scripts/tests/uniapp-request-boundary-test.mjs",
+            "target": "scripts/tests/uniapp-request-boundary-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5deed32cd193d80a2ff023fecac08f91aa24db1e60b88a264ff4bb105f1ed2a5"
+        },
+        {
             "path": "scripts/upgrade",
             "target": "scripts/upgrade",
             "classification": "managed",
@@ -27233,7 +27247,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65bb733292044d8f09e2c26e7d460cb612bc42c61f0a8479e19acf076fdd8001"
+            "source_sha256": "2b5296aaa19e54ea014e24d0253b443ceb5c77c54ab7a48cb292e09112b5c303"
         },
         {
             "path": "tools/quality/composer.json",
@@ -27460,7 +27474,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c91c536125273f8eefca69e9ba357afa2b79bb4a8100fb09faa1e3f53d44449a"
+            "source_sha256": "fad71b75372aac960213fe30f3a148e742ffa8339ae42030a383bd6214e1af95"
         },
         {
             "path": "uniapp/src/api/index.ts",
@@ -27538,7 +27552,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a4759bdf2dcad7f1fe7291ec03d8e855a4d0e2044f5cc2aa074f737a65c9f50"
+            "source_sha256": "29d87e381aa57126a28ddb0ea5e7636b00f5229fbe4511ad2e615f985570b517"
         },
         {
             "path": "uniapp/src/components/DecorationTabbar.vue",
@@ -28097,7 +28111,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28b8f36cb6b0ff48c436a134deca12236561f36294f4ef059f82054c8f9bfa18"
+            "source_sha256": "92c4f8204d0962304635687c009b04f773c4e7e63fa96e2d753a8725d8afb6f0"
         },
         {
             "path": "uniapp/tests/Productization/article-module-capability.test.mjs",
