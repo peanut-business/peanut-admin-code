@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace app\platform\services;
 
 use app\platform\contract\TenantOwnerAdminProvisioner;
-use think\facade\Db;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 
 /** Verifies that Core already provisioned the first owner and initializes application capabilities. */
 final readonly class CoreTenantOwnerAdminProvisioner implements TenantOwnerAdminProvisioner
 {
     public function __construct(
         private ApplicationTenantBootstrapService $applicationBootstrap,
+        private AdminDirectoryQuery $directory,
     ) {}
 
     public function provision(
@@ -26,14 +27,7 @@ final readonly class CoreTenantOwnerAdminProvisioner implements TenantOwnerAdmin
             throw new \DomainException('TENANT_OWNER_ADMIN_PRINCIPAL_INVALID');
         }
 
-        $principal = Db::name('tenant_member')->alias('member')
-            ->join('account account', "account.id=member.account_id AND account.status='active'")
-            ->join('member_role membership', 'membership.tenant_id=member.tenant_id AND membership.tenant_member_id=member.id')
-            ->join('role role', "role.tenant_id=membership.tenant_id AND role.id=membership.role_id AND role.`key`='core.tenant-owner' AND role.is_builtin=1 AND role.status='active'")
-            ->where('member.tenant_id', $tenantId)->where('member.id', $memberId)
-            ->where('member.account_id', $accountId)->where('member.status', 'active')
-            ->where('role.id', $coreRoleId)->value('member.id');
-        if ($principal === null) {
+        if (!$this->directory->isProvisionedOwner($tenantId, $accountId, $memberId, $coreRoleId)) {
             throw new \DomainException('TENANT_OWNER_ADMIN_PRINCIPAL_INVALID');
         }
 

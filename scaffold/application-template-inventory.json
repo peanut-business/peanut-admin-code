@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b2fade95b8d98f260a1d21e98e9c3dfdc44abb5f06ab2f68b01f9bf8e2ec49c0"
+            "source_sha256": "6b04a8d9af010f9aefe11b68926f1222cacef0178217cd824c1ddebbadc5c3fa"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ac72cba2898ae4737ff734dac662c494b8fa89e70925ff3816cb093b01342294"
+            "source_sha256": "d7fa7d6215c16e1206f457cc142d8012ab5d624f03dcdcf433b441f3d35fce68"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -10556,7 +10556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6c2670a5e6d1fbb75ac4b46b5d418f774bc1ef09576e7bed07bd2f7de1f86993"
+            "source_sha256": "7972f7af14edd70a6436a32045e4aec18d5b2b3fb3daedb9382081fab38b361a"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/Dto/TenantMemberSummary.php",
@@ -21415,7 +21415,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "967538f71d664a32511b131d86c8c4495226c40d82512cfca1edfd49eb13fc02"
+            "source_sha256": "9920758f867874f0a74f6b91eccf78f8ace3b7d492c127bfd0ad4f7feb24cf76"
         },
         {
             "path": "server/app/platform/services/PlatformOperatorSessionService.php",
@@ -27019,6 +27019,19 @@
         {
             "path": "server/tests/Unit/PluginAuthoringBootstrapTest.php",
             "target": "server/tests/Unit/PluginAuthoringBootstrapTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ProvisionedOwnerBoundaryTest.php",
+            "target": "server/tests/Unit/ProvisionedOwnerBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

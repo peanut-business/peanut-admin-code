@@ -19,7 +19,7 @@ use app\common\tenancy\MultiTenantDataScopePolicy;
 use app\platform\infrastructure\ThinkPhpTenantApplicationBootstrapPersistence;
 use app\platform\service\ApplicationTenantBootstrapService;
 use app\platform\service\TenantGovernanceService;
-use app\platform\service\CoreTenantOwnerAdminProvisioner;
+use app\platform\services\CoreTenantOwnerAdminProvisioner;
 use app\platform\service\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
@@ -154,7 +154,7 @@ SQL);
         new LifecycleIdentity(new PlatformOperatorIdentity($platform->operatorId, $platform->accountId)),
         $administration,
         $owners,
-        new CoreTenantOwnerAdminProvisioner(lifecycleApplicationBootstrap()),
+        new CoreTenantOwnerAdminProvisioner(lifecycleApplicationBootstrap(), new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore()))),
     );
 
     lifecycleRejects(static fn() => $service->provision(
@@ -233,7 +233,7 @@ SQL);
         private CoreTenantOwnerAdminProvisioner $delegate;
         public function __construct()
         {
-            $this->delegate = new CoreTenantOwnerAdminProvisioner(lifecycleApplicationBootstrap());
+            $this->delegate = new CoreTenantOwnerAdminProvisioner(lifecycleApplicationBootstrap(), new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())));
         }
         public function provision(
             int $tenantId,

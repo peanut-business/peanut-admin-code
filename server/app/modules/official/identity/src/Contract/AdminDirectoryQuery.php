@@ -88,6 +88,24 @@ final readonly class AdminDirectoryQuery
         return is_string($code) && $code !== '' ? $code : null;
     }
 
+    /**
+     * 核验初始化调用方已提供的四元组；只返回关系是否成立，不授予初始化或管理权限。
+     * 与activeTenantOwner不同，本入口位于租户激活前，不能附加active租户前提。
+     */
+    public function isProvisionedOwner(int $tenantId, int $accountId, int $memberId, int $roleId): bool
+    {
+        if (min($tenantId, $accountId, $memberId, $roleId) < 1) {
+            return false;
+        }
+        return TenantMember::alias('member')
+            ->join('account account', "account.id=member.account_id AND account.status='active'")
+            ->join('member_role membership', 'membership.tenant_id=member.tenant_id AND membership.tenant_member_id=member.id')
+            ->join('role role', "role.tenant_id=membership.tenant_id AND role.id=membership.role_id AND role.`key`='core.tenant-owner' AND role.is_builtin=1 AND role.status='active'")
+            ->where('member.tenant_id', $tenantId)->where('member.id', $memberId)
+            ->where('member.account_id', $accountId)->where('member.status', 'active')
+            ->where('role.id', $roleId)->value('member.id') !== null;
+    }
+
     /** @return list<array<string,mixed>> */
     public function rows(array $filters): array
     {
