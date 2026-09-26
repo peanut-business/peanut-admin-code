@@ -14,7 +14,16 @@ interface ApiResponse<T = unknown> {
   data: T;
 }
 
-type FetchMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'OPTIONS' | 'CONNECT' | 'TRACE';
+type FetchMethod =
+  | 'GET'
+  | 'HEAD'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'OPTIONS'
+  | 'CONNECT'
+  | 'TRACE';
 
 const isFetchMethod = (value: unknown): value is FetchMethod => {
   switch (value) {
@@ -111,12 +120,17 @@ export function useRequest() {
           throw new Error('PC_FETCH_BODY_INVALID');
         }
         try {
-          return await $fetch<unknown>(url, options === undefined ? undefined : {
-            method,
-            query,
-            body,
-            headers: options.headers,
-          });
+          return await $fetch<unknown>(
+            url,
+            options === undefined
+              ? undefined
+              : {
+                  method,
+                  query,
+                  body,
+                  headers: options.headers,
+                }
+          );
         } catch (error) {
           const data =
             typeof error === 'object' && error !== null && 'data' in error

@@ -1138,7 +1138,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9390cabee0253f056677a9b94de033b411262b98a0e0f396c22c6e7be901f7e9"
+            "source_sha256": "dc82929ab36f8d90f90442e692c667db45a1ac3cd8d9c628b86394e3a740632e"
         },
         {
             "path": "pc/generated/brand.json",
@@ -3848,6 +3848,20 @@
                 "full"
             ],
             "source_sha256": "a11fe2a79f7a439fe6322190346f476a33a14aae3bea6c37067bfbe9d670961b"
+        },
+        {
+            "path": "scripts/tests/pc-request-options-test.mjs",
+            "target": "scripts/tests/pc-request-options-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e5ca47a646b5abe614919e5c4e772f4b167419dffe74e3004f72af7acb36bf21"
         },
         {
             "path": "scripts/tests/release-dependency-locks-test.mjs",
@@ -27205,7 +27219,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "95e3e755b5b19a2f8bf03805c83e414d6deb0afc9438bd7d1731b879c24b5e95"
+            "source_sha256": "75c11eb3ff093e28ec979d30cadc43b5d8980616b4b8ddd8df66cc5d252a4e77"
         },
         {
             "path": "tools/quality/composer.json",
