@@ -56,6 +56,7 @@ final class PublicDevelopmentInventoryPolicyTest extends TestCase
             ['docs/development/controller-access-and-namespaces.md'],
             ['docs/development/developer-center-and-documentation.md'],
             ['docs/development/php-thinkphp-guidelines.md'],
+            ['docs/development/current-code-lifecycle.md'],
             ['docs/architecture/overview.md'],
             ['docs/architecture/default-delivery-and-ownership.md'],
             ['docs/architecture/identity-organization-access.md'],

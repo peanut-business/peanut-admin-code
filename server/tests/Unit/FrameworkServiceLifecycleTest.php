@@ -30,10 +30,15 @@ final class FrameworkServiceLifecycleTest extends TestCase
         self::assertTrue(mkdir($temporary . '/config', 0700));
         $serviceFile = $temporary . '/app/service.php';
         $configFile = $temporary . '/config/app.php';
+        $cacheFile = $temporary . '/config/cache.php';
         file_put_contents($serviceFile, "<?php\nreturn [\$this->get('lifecycle.probe')];\n");
         file_put_contents($configFile, "<?php\nreturn ['default_timezone' => 'UTC'];\n");
+        file_put_contents($cacheFile, '<?php return ' . var_export([
+            'default' => 'file',
+            'stores' => ['file' => ['type' => 'File', 'path' => $temporary . '/runtime/cache/']],
+        ], true) . ';');
         $app = new App($temporary);
-        $probe = new class($app) extends Service {
+        $probe = new class ($app) extends Service {
             public array $events = [];
 
             public function register(): void
@@ -76,6 +81,7 @@ final class FrameworkServiceLifecycleTest extends TestCase
             date_default_timezone_set($timezone);
             unlink($serviceFile);
             unlink($configFile);
+            unlink($cacheFile);
             rmdir($temporary . '/app');
             rmdir($temporary . '/config');
             // Runtime logs, if any, are retained in this uniquely owned temporary root.

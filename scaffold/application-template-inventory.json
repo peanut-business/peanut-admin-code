@@ -601,7 +601,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5047ea5a0f80a2665af389361bc10247d27cc771974ab9789ecf20b9d3bddc48"
+            "source_sha256": "47f0ce57ffd877aa778ff4cb23f57c7fc946b733902fd60495130b41aa78efc1"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -728,6 +728,20 @@
                 "full"
             ],
             "source_sha256": "0da3568b5e2458ca454bbd7d2dd66f9271f00ca61b4433034c4074b2df4bdd14"
+        },
+        {
+            "path": "docs/development/current-code-lifecycle.md",
+            "target": "docs/development/current-code-lifecycle.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "703ea6d972d943ad3f3a9ba7038b916eeb0fcd169a50de2369e4909146d38a7a"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -26269,6 +26283,19 @@
         {
             "path": "server/tests/Unit/ExternalBindingTransferBoundaryTest.php",
             "target": "server/tests/Unit/ExternalBindingTransferBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/FrameworkServiceLifecycleTest.php",
+            "target": "server/tests/Unit/FrameworkServiceLifecycleTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
