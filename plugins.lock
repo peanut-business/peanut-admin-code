@@ -305,7 +305,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "4979301ea2ae61f85378c6dc660d74bf84789a4ae5f7f20763b6216ea771dfb5"
+                "sha256": "a6e4eed60a6aa4f3e858f764af7d4b2dec6a4bb58ae59e55922d01d317ffb42a"
             },
             "trust": {
                 "channel": "bundled",
@@ -375,7 +375,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "fd297b728f515d7c596a05a70ba0edc00bd573fe7f6e2ee09dc544208fa1c713"
+            "manifest_sha256": "e0a5eff2c4a639d66667f2508cdebf77aaf10707a6895c750418f3d63bd04108"
         },
         {
             "key": "official.import-export",
@@ -383,7 +383,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "384fbb416e52e20a503f9c360ee7180471c82c59eb1b51b580736637ea41d37f"
+                "sha256": "b6ec5862adbb1dbe5328e96cea584f0beaf8d51f625b19bc1a6083def234eaf3"
             },
             "trust": {
                 "channel": "bundled",
@@ -492,7 +492,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "605ea69f0d19a51269380a5068e2e4071ab80b975084bba442c94907664b007a"
+            "manifest_sha256": "de235acde7b68c29744f3fe5da92157090177744a674fbdd260967d5565a5e11"
         },
         {
             "key": "official.integration",
@@ -500,7 +500,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "bb2830095382d1657fb5667a31f9ea3be26f6ac2a3ebe122fa1d8269b01d6560"
+                "sha256": "019843a63a738c79dbb25ad5ab437b3820012c50c93dc8f8cac65b2ad1297be1"
             },
             "trust": {
                 "channel": "bundled",
@@ -584,7 +584,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "5c269ce98dd76460e6e9cc757d5629f98ea3bda729aaa85c7cc5c48967a3560d"
+            "manifest_sha256": "1579e9ab0d78b7437949f1d38e6539e60d70baa79fbb4691e46473de8e8385a2"
         },
         {
             "key": "official.member",

@@ -69,7 +69,14 @@ final class TenantModuleTransferBoundaryTest extends TestCase
     private function actor(int $tenantId = 1): TenantContext
     {
         return TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            $tenantId, 'synthetic-session', $tenantId, 101, 201, 'admin-web', new DateTimeImmutable('2099-01-01T00:00:00Z'), 3,
+            $tenantId,
+            'synthetic-session',
+            $tenantId,
+            101,
+            201,
+            'admin-web',
+            new DateTimeImmutable('2099-01-01T00:00:00Z'),
+            3,
         ), 'synthetic-module-transfer');
     }
 
