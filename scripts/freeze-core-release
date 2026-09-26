@@ -225,8 +225,14 @@ def inspect_web_archive(path: Path, suffix: str, selected_version: str) -> dict:
                     raise ValueError(f'Packed exported version is missing: {suffix}/{entry}')
                 with stream:
                     text = stream.read().decode('utf-8')
-                values = re.findall(r'(?m)^export (?:declare )?const ' + re.escape(symbol)
-                                    + r'\s*=\s*[\'\"]([^\'\"\r\n]+)[\'\"]\s*;?[ \t]*$', text)
+                # 原生 tsc 为 as-const 导出生成字面量类型，不是 JavaScript 赋值。
+                # 声明还可使用常量初始化语法；运行时只接受真正的赋值导出。
+                declaration = entry.endswith('.d.ts')
+                prefix = r'(?m)^export declare const ' if declaration else r'(?m)^export const '
+                operator = r'[ \t]*(?::|=)[ \t]*' if declaration else r'[ \t]*=[ \t]*'
+                pattern = re.compile(prefix + re.escape(symbol) + operator
+                                     + r'([\'\"])([^\'\"\r\n]+)\1[ \t]*;?[ \t]*$')
+                values = [match.group(2) for match in pattern.finditer(text)]
                 if values != [selected_version]:
                     raise ValueError(f'Packed exported version differs from manifest: {suffix}/{entry}')
     return {'version': selected_version, 'archive': 'packages/core-web/' + path.name,
