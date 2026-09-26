@@ -52,6 +52,7 @@
   "contracts": {
     "exports": [
       "PeanutAdmin\\Modules\\Payment\\Contract\\PaymentChannelGrantCommands",
+      "PeanutAdmin\\Modules\\Payment\\Contract\\PaymentMethod",
       "PeanutAdmin\\Modules\\Payment\\Contract\\RechargeCommands",
       "PeanutAdmin\\Modules\\Payment\\Contract\\RechargeQueries",
       "PeanutAdmin\\Modules\\Payment\\Contract\\RefundReconciliationCommands"
