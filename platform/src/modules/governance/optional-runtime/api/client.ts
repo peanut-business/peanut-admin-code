@@ -2,8 +2,8 @@ import createClient from 'openapi-fetch';
 import type { Client } from 'openapi-fetch';
 
 import type { paths } from '../generated/api';
-import { createBrowserRefreshCoordinator } from './refresh';
-import type { RefreshCoordinator } from './refresh';
+import { createBrowserRefreshCoordinator } from '@peanut-admin/vue';
+import type { RefreshCoordinator } from '@peanut-admin/vue';
 
 export type ApiAudience = 'tenant' | 'platform';
 

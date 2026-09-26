@@ -189,7 +189,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1c4f6fb8a9c128821b93dedf3879b65ac4b099c99adfbbc4401cbc47b53b58ed"
+            "source_sha256": "8160cd3047e923031f988e971ae92e0943561d3c4f29c65b48a526ba2121ba9e"
         },
         {
             "path": ".vscode/settings.json",
@@ -614,7 +614,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "10e41c732dabb6159801894558a2998c3df8c12b457592bb80d363f7af22248a"
+            "source_sha256": "5047ea5a0f80a2665af389361bc10247d27cc771974ab9789ecf20b9d3bddc48"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -1727,7 +1727,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81739d07846aaf0205256ee10e28a7f50497d4460a9a9032032f3543c8d10623"
+            "source_sha256": "5d268166fa29aa2aa09d1fbb6ebee2e9c0a5268a73303ac0d0a6ab971054c3c7"
         },
         {
             "path": "platform/package.json",
@@ -1741,7 +1741,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5bc9e98a79a333478114fa7f729e8ea8d4a6d3f944cc98ed97a87773f7aa2a21"
+            "source_sha256": "950cb0b30293d4b0f5098e93f908e9fb67bca64cfba41c01be906db582a5567b"
+        },
+        {
+            "path": "platform/scripts/check-governance-types.mjs",
+            "target": "platform/scripts/check-governance-types.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0d98604590550890d730232c44654c852a3161f0870fc0db589da205d74a27d8"
         },
         {
             "path": "platform/src/App.vue",
@@ -1825,7 +1839,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d9571698d3d12160f0e9c55eddb7f0361ce188faafedfc83e88b06568cfa29bc"
+            "source_sha256": "b4b907a8871241ff102ace76e48651cfc0f492fa8eaf889c31b1c2d2721b8e4c"
         },
         {
             "path": "platform/src/modules/governance/optional-runtime/generated/api.d.ts",
@@ -1923,7 +1937,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0b33178bf02c8424621cc2f1abda19652c2e4c08f9d8d2713ea9fd4bf6bf5d51"
+            "source_sha256": "836bfa0d886ef32af0fe2d50ddcf3d1342a5de04ac2b87ef622a80df96c5a651"
         },
         {
             "path": "platform/src/modules/governance/optional-runtime/tests/api-client.spec.ts",
@@ -1937,7 +1951,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c97f063d133b35e3e0d06b9d65db22c648c77e43e3c29e8c58610d4b623515c8"
+            "source_sha256": "9ff2c9d2d970bcc7c1cbd1b67756daa7c313a3da21ab7b3f4b01fae5b84485e6"
         },
         {
             "path": "platform/src/modules/governance/optional-runtime/tests/governance/governance.spec.ts",
@@ -1951,7 +1965,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b86b069c4e3228144356ea68bfe39d714535c93458d59169da5f791b0854d730"
+            "source_sha256": "244c6cc4467960e0ba6e3cbd359580c20278729248e701426334a84cce34d7e8"
+        },
+        {
+            "path": "platform/src/modules/governance/optional-runtime/tsconfig.json",
+            "target": "platform/src/modules/governance/optional-runtime/tsconfig.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ae79f846a6389755dd125f20bd9383c5d86629c179bab6ccae7dab89a56aece4"
         },
         {
             "path": "platform/src/modules/official-ops/contribution.ts",
@@ -2164,6 +2192,20 @@
             "source_sha256": "f9ccb332b126a8868c4877d1d896670e7346ac54a0ee6ea6c962b2fc4392f9e5"
         },
         {
+            "path": "platform/tsconfig.governance-tests.json",
+            "target": "platform/tsconfig.governance-tests.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "95e624bdeaea0bc3391a45418585b44a2fe32055433016a137c982f31533e0e7"
+        },
+        {
             "path": "platform/tsconfig.json",
             "target": "platform/tsconfig.json",
             "classification": "managed",
@@ -2175,7 +2217,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e6544fec64ae890b86fb785814e1a9edadee1927ba4fb0d34d7badf2ff92209a"
+            "source_sha256": "21d97b364e65a6f59018457af6b6c6dc2d6fb681a54462f70dcfc5cad5b30ac8"
         },
         {
             "path": "platform/vite.config.mts",
@@ -2190,6 +2232,20 @@
                 "full"
             ],
             "source_sha256": "f0085f55735b9eba2deef28ee01772549b2ec2f149e43f5a4bfb68d524d73762"
+        },
+        {
+            "path": "platform/vitest.governance.config.mjs",
+            "target": "platform/vitest.governance.config.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "10a1953ab86a372bef42dcb248fd9f34538b23b9a08a0fdbf595b3148d250b38"
         },
         {
             "path": "plugins.lock",
@@ -26975,6 +27031,20 @@
             "source_sha256": "7f4398381a8cddbdc343e8af33125948f24687186be124a19a5f00b0ac34b68c"
         },
         {
+            "path": "tools/quality/README.md",
+            "target": "tools/quality/README.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "95e3e755b5b19a2f8bf03805c83e414d6deb0afc9438bd7d1731b879c24b5e95"
+        },
+        {
             "path": "tools/quality/composer.json",
             "target": "tools/quality/composer.json",
             "classification": "managed",
@@ -27003,6 +27073,20 @@
             "source_sha256": "fb6cbd85fa62dafe5f2561f66eb14713120d03366c4f042e86e54c7a188c23eb"
         },
         {
+            "path": "tools/quality/package.json",
+            "target": "tools/quality/package.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "package",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "da5f4405d31f9a083b00f62f7905434417eb166e107092e9b7eac650c9fe08ee"
+        },
+        {
             "path": "tools/quality/php-cs-fixer.php",
             "target": "tools/quality/php-cs-fixer.php",
             "classification": "managed",
@@ -27015,6 +27099,20 @@
                 "full"
             ],
             "source_sha256": "c98dc925efff5b09f6b23c7132d13eb6a037f76c7e12bf379637d953bd588702"
+        },
+        {
+            "path": "tools/quality/pnpm-lock.yaml",
+            "target": "tools/quality/pnpm-lock.yaml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "package",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9f1e5da077424ecd7d469176b662537b74e25d498f60dbbac40a9732b41386af"
         },
         {
             "path": "tools/quality/prettier-ignore",

@@ -6,7 +6,7 @@ import {
   createRolePermissionDraft,
   explainMenuVisibility,
   projectAuditDetail,
-} from '../../src/governance/index';
+} from '../../governance/index';
 
 describe('governance catalog', () => {
   const catalog = createGovernanceCatalog({

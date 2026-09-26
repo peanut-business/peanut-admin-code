@@ -1,4 +1,4 @@
-import type { AdminNavigationRoute } from '../runtime/navigation';
+import type { AdminNavigationRoute } from '@peanut-admin/vue';
 
 export type GovernanceAudience = 'tenant' | 'platform';
 

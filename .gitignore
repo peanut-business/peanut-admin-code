@@ -40,5 +40,5 @@ web/.claude/
 # Runtime/test output is not repository source
 /output/
 
-# Documentation moved to sibling peanut-admin-project; never treat stale local docs-site caches as source.
+# Public contracts live in docs; stale maintainer docs-site caches are not source.
 /docs-site/

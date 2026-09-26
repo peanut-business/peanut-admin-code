@@ -14,7 +14,10 @@
   "scripts": {
     "dev": "../scripts/local-client-dev platform",
     "build": "vue-tsc --noEmit && vite build --configLoader runner",
-    "type:check": "vue-tsc --noEmit"
+    "type:check": "vue-tsc --noEmit",
+    "type:check:governance": "node scripts/check-governance-types.mjs",
+    "type:check:governance-tests": "node ../tools/quality/node_modules/typescript/bin/tsc --noEmit --project tsconfig.governance-tests.json",
+    "test:governance": "node ../tools/quality/node_modules/vitest/vitest.mjs run --config vitest.governance.config.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
@@ -22,6 +25,7 @@
     "@peanut-admin/vue": "file:../packages/core-web/peanut-admin-vue-4.0.0-dev.1.tgz",
     "axios": "0.33.0",
     "element-plus": "2.14.3",
+    "openapi-fetch": "0.17.0",
     "pinia": "2.0.23",
     "vue": "3.5.41",
     "vue-router": "4.0.14"

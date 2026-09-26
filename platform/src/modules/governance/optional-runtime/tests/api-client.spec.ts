@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createProtectedFetch,
   createPlatformApiClient,
-  createMemoryRefreshCoordinator,
   createTenantApiClient,
+} from '../api/client';
+import {
+  createMemoryRefreshCoordinator,
   isProblemCode,
   parseProblemDetails,
-} from '../src/index';
+} from '@peanut-admin/vue';
 
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), {
