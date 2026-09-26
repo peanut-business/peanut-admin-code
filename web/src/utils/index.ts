@@ -2,7 +2,10 @@ type TargetContext = '_self' | '_parent' | '_blank' | '_top';
 
 export const openWindow = (
   url: string,
-  opts?: { target?: TargetContext; [key: string]: any }
+  opts?: {
+    target?: TargetContext;
+    [key: string]: string | number | boolean | undefined;
+  }
 ) => {
   const { target = '_blank', ...others } = opts || {};
   window.open(
