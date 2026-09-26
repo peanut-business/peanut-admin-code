@@ -26,6 +26,44 @@ export interface NoticeChannelDetail {
   status: { sms: boolean };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isChannelConfiguration(
+  value: unknown,
+  stringFields: readonly string[]
+): boolean {
+  return (
+    isRecord(value) &&
+    stringFields.every((field) => typeof value[field] === 'string') &&
+    (value.status === 0 || value.status === 1)
+  );
+}
+
+function isNoticeChannelDetail(value: unknown): value is NoticeChannelDetail {
+  return (
+    isRecord(value) &&
+    (value.sms_default === '' ||
+      value.sms_default === 'aliyun' ||
+      value.sms_default === 'tencent') &&
+    isChannelConfiguration(value.sms_aliyun, [
+      'access_key_id',
+      'access_key_secret',
+      'sign_name',
+    ]) &&
+    isChannelConfiguration(value.sms_tencent, [
+      'secret_id',
+      'secret_key',
+      'sdk_app_id',
+      'sign_name',
+      'region',
+    ]) &&
+    isRecord(value.status) &&
+    typeof value.status.sms === 'boolean'
+  );
+}
+
 // ─── 固定业务场景 ───────────────────────────────────────────────────────────
 
 export interface NoticeSceneRecord {
@@ -67,10 +105,15 @@ export function saveNoticeScene(
 
 export type ChannelSection = 'sms_default' | 'sms_aliyun' | 'sms_tencent';
 
-export function getNoticeChannelDetail() {
-  return axios.get<NoticeChannelDetail>(
+export async function getNoticeChannelDetail() {
+  const response = await axios.get<unknown>(
     '/adminapi/official.notification.channel.detail'
   );
+  if (!isNoticeChannelDetail(response.data)) {
+    // Do not include raw channel configuration or secret fields in errors.
+    throw new Error('NOTIFICATION_CHANNEL_RESPONSE_INVALID');
+  }
+  return { ...response, data: response.data };
 }
 
 export function saveNoticeChannel(
