@@ -52,7 +52,15 @@
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportQueries",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportWorkerRuntime",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferCommands",
-      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferQueries"
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferQueries",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\Dto\\AsyncExportOperation",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\Dto\\CsvExportOperation",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\DataProvider",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\ColumnDefinition",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\SchemaDefinition",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\ExportBatch",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\RowIssue",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Application\\ImportExportException"
     ],
     "events": []
   },
