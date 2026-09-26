@@ -10,7 +10,7 @@
 
 ## 2. 参考材料融合
 
-核对 Composer lock、自动加载与当前调用链，再对照锁定版本的框架源码和正式扩展点；将结论落实到可运行样板、生成器或检查中。不复制平行规则库，也不根据其他框架或版本的教程猜测 API。
+核对 Composer lock、自动加载与当前调用链，再对照照锁定版本的框架源码和正式扩展点；将结论落实到可运行样板、生成器或检查中。不复制平行规则库，也不根据其他框架或版本的教程猜测 API。
 
 ## 3. 规范覆盖
 
@@ -77,3 +77,21 @@ ImportExport 的 `TenantSettingsConfigurationAdapter` 构造注入 Settings 公�
 Settings 拥有事务内的数据访问，包级应用继续拥有最外层事务和审计；后续适配器或审计失败时，前面的设置写入必须一起回滚。公开合同供受信应用服务使用，不新增HTTP入口、不自动授予动作权限；调用者仍须完成相应身份、模块和动作授权。
 
 秘密引用的脱敏、重绑定和包格式仍由 ImportExport 现有 codec 负责。原始快照不得直接作为HTTP响应、日志或导出文件。该边界的回归入口为 `server/tests/Unit/TenantSettingsTransferBoundaryTest.php`，覆盖真实ORM读写、修订冲突、跨租户隔离、外层回滚和脱敏；进程内合成数据库测试不能替代MySQL并发锁或真实HTTP权限验收。
+
+## 10. 渠道绑定与租户生命周期
+
+Integration 的绑定存储构造注入 Identity 已公开的 `AdminDirectoryQuery`，通过 `tenantStatus(tenantId, forUpdate)` 获取最小生命周期状态；不连接或查询 Identity 私表。该查询只返回状态，不授予调用者权限。带锁读取参加调用者事务，先锁租户再锁渠道绑定，不通过返回 Query/Model 把锁职责转交其他模块。
+
+回调候选保持最多两条的歧义检查，不能过滤停用租户或孤立绑定后只剩一条就接受。绑定指向不存在的租户时明确拒绝；停用租户仍保持不可用状态。渠道签名校验、受限系统身份和审计继续由原解析用例处理，不以状态为active代替验签。
+
+ImportExport 的 `ExternalBindingConfigurationAdapter` 构造注入 Integration 的公开 `ExternalBindingTransfer`；Integration 负责自有绑定数据，Identity 负责租户状态及锁。`snapshot/current` 返回稳定数组，不带callback_key；其中原始配置仅限受信调用链，公开序列化前必须经过现有秘密引用codec。`apply` 只接收identity_hash、identity_hint、config、status，保留当前callback_key和创建时间，创建时生成新的callback_key。修订令牌仍根据完整持久状态生成，同秒内内容变化也必须冲突；null仅创建，非null必须匹配现存状态。修改、秘密重绑定、外层回滚和停用拒绝不得因移动代码而失效。
+
+回归入口为 `IntegrationTenantBoundaryTest.php` 与 `ExternalBindingTransferBoundaryTest.php`，位于 `server/tests/Unit/`。真实数据库锁竞争、HTTP动作授权和渠道外部行为需要各自的集成验证。
+
+## 11. 租户模块配置的导入导出
+
+ImportExport 复用 Identity 已公开的 `TenantModuleConfigurationService`，读取走 `transferSnapshot/transferCurrent`，写入仍走既有 `update`。不直接读tenant_module，不为同一用例再造Repository门面。公开读取返回配置、有效状态和修订号，不返回ORM。
+
+快照按租户与模块键读取，仅导出已启用且处于有效窗口内的配置；同一次读取使用一个应用UTC时间，起始边界包含、到期边界不包含，损坏日期按不可用处理。current与导出使用一致的有效性判断，不以主机或数据库会话时区替代UTC。配置JSON损坏明确拒绝；缺少模块不能通过导入自动开通，supportsCreate保持false。
+
+写入保留原生JSON Schema校验、ModuleGuard、预期修订号、模块与租户授权修订更新、同事务审计。审计失败或最外层事务失败时，配置、修订与审计必须一起回滚。所有原始配置经过ImportExport的现有秘密引用codec后才能公开。`server/tests/Unit/TenantModuleTransferBoundaryTest.php` 使用真实校验器、运行时仓库和审计执行这些回归，不代替MySQL并发或HTTP权限验收。
