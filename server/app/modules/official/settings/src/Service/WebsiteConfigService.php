@@ -13,7 +13,7 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Modules\Settings\Application\WebsiteConfigService as CoreWebsiteConfigService;
 
-/** Tenant-aware application bridge to the framework-neutral core service. */
+/** Public tenant-aware website use cases; persistence and normalization remain module-owned. */
 final readonly class WebsiteConfigService
 {
     public function __construct(
@@ -41,6 +41,14 @@ final readonly class WebsiteConfigService
         return CoreWebsiteConfigService::fields();
     }
 
+    /** Public template defaults, not stored tenant state or an authorization decision.
+     * @return array<string, string>
+     */
+    public static function defaults(): array
+    {
+        return BrandDefaults::website();
+    }
+
     private function delegate(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
     ): CoreWebsiteConfigService {
@@ -48,7 +56,7 @@ final readonly class WebsiteConfigService
             new TenantSettingWebsiteStore($context, $this->settings),
             fn(string $value): string => $this->files->getFileUrl($value),
             fn(string $value): string => $this->files->setTenantFileUrl($context, $value),
-            BrandDefaults::website(),
+            self::defaults(),
         );
     }
 }
