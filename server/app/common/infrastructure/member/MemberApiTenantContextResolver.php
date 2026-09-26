@@ -6,13 +6,14 @@ namespace app\common\infrastructure\member;
 
 use PeanutAdmin\Modules\Member\Contract\MemberSubjectLookup;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
-use think\facade\Db;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 
 /** Restores application-member identity from a verified JWT subject and authoritative ownership. */
 final class MemberApiTenantContextResolver
 {
     public function __construct(
         private readonly MemberSubjectLookup $members,
+        private readonly AdminDirectoryQuery $tenants,
     ) {}
 
     public function resolve(
@@ -29,7 +30,7 @@ final class MemberApiTenantContextResolver
         if ($tenantId === null || $tenantId !== $verifiedTenantId) {
             throw new \DomainException('MEMBER_TENANT_CONTEXT_UNAVAILABLE');
         }
-        if (Db::name('tenant')->where('id', $tenantId)->where('status', 'active')->value('id') === null) {
+        if ($this->tenants->tenantStatus($tenantId) !== 'active') {
             throw new \DomainException('MEMBER_TENANT_CONTEXT_UNAVAILABLE');
         }
 

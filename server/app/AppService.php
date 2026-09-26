@@ -50,7 +50,7 @@ use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
 use PeanutAdmin\Modules\Task\Contract\TaskDiagnosticQuery;
 use PeanutAdmin\Modules\Identity\access\SourceRead\SourceReadCapabilityRegistry;
 use app\common\runtime\org\TenantAdminRuntime;
-use app\common\services\tenant\TenantIdentityQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantIdentityQuery;
 use PeanutAdmin\Modules\File\Composition\Storage\AliyunStorageClientFactory;
 use PeanutAdmin\Modules\File\Infrastructure\Storage\FailClosedStorageCredentialResolver;
 use PeanutAdmin\Modules\File\Composition\Storage\QcloudStorageClientFactory;

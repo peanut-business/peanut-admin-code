@@ -17,7 +17,7 @@ use PeanutAdmin\Kernel\Module\ModuleExecutionContext;
 use PeanutAdmin\Kernel\Module\ModuleGuard;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
-use think\facade\Db;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 
 /**
  * Single execution boundary for every Module-aware entry point.
@@ -33,6 +33,7 @@ final readonly class ModuleExecutionBoundary
     public function __construct(
         private CurrentExecutionContext $execution,
         ModuleRuntimeRepository $modules,
+        private AdminDirectoryQuery $tenants,
     ) {
         $this->guard = new ModuleGuard($modules);
     }
@@ -102,7 +103,7 @@ final readonly class ModuleExecutionBoundary
     private function assertBackgroundTenant(ModuleExecutionContext $context): void
     {
         if (in_array($context->moduleKey, ['core', 'platform'], true)) {
-            if (Db::name('tenant')->where('id', $context->tenantId)->value('status') !== 'active') {
+            if ($this->tenants->tenantStatus($context->tenantId) !== 'active') {
                 throw new ModuleException('CONTEXT_TENANT_REQUIRED', 'Tenant is not active.');
             }
             return;

@@ -688,7 +688,7 @@ expectTpq51(
 $contextFailure = false;
 try {
     $emptyRegistry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], hash('sha256', ''));
-    (new ModuleExecutionBoundary($current, new ThinkPhpModuleRuntimeRepository($emptyRegistry)))
+    (new ModuleExecutionBoundary($current, new ThinkPhpModuleRuntimeRepository($emptyRegistry), new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery($current)))
         ->assertWorker('official.article');
 } catch (DomainException $exception) {
     $contextFailure = $exception->getMessage() === 'EXECUTION_CONTEXT_REQUIRED';

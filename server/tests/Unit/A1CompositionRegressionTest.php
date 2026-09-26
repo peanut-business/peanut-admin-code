@@ -47,7 +47,7 @@ final class A1CompositionRegressionTest extends TestCase
             $contexts,
             $current,
             new AdminDirectoryQuery($current),
-            new ModuleExecutionBoundary($current, $this->createStub(ModuleRuntimeRepository::class)),
+            new ModuleExecutionBoundary($current, $this->createStub(ModuleRuntimeRepository::class), new AdminDirectoryQuery($current)),
             new CrontabCommandService([], []),
             static fn(): int => 0,
             [],

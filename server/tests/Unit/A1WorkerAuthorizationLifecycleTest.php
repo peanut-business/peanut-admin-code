@@ -371,7 +371,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
         TaskHandler $handler,
     ): ModuleAwareTaskHandler {
         return new ModuleAwareTaskHandler(
-            new ModuleExecutionBoundary(new CurrentExecutionContext($contexts), $modules),
+            new ModuleExecutionBoundary(new CurrentExecutionContext($contexts), $modules, new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext($contexts))),
             $contexts,
             'official.import-export',
             $handler,

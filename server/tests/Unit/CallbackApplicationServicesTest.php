@@ -55,7 +55,7 @@ final class CallbackApplicationServicesTest extends TestCase
             ->willReturn(new ModuleInstallationRecord($key, '1.0.0', 'active', 1, str_repeat('a', 64)));
         $repository->expects(self::any())->method('tenantModule')->with(17, $key)
             ->willReturn(new TenantModuleRecord(17, $key, $enabled ? 'enabled' : 'disabled', null, null, 1));
-        return new ModuleExecutionBoundary(new CurrentExecutionContext($this->store), $repository);
+        return new ModuleExecutionBoundary(new CurrentExecutionContext($this->store), $repository, new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext($this->store)));
     }
 
     private function resolution(string $operation, mixed $value = null): ExternalTenantResolution

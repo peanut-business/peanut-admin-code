@@ -106,6 +106,7 @@
             "PeanutAdmin\\Modules\\Identity\\Tenancy\\DefaultTenantContextResolver",
             "PeanutAdmin\\Modules\\Identity\\Tenancy\\TenantStatus",
             "PeanutAdmin\\Modules\\Identity\\Contract\\AdminDirectoryQuery",
+            "PeanutAdmin\\Modules\\Identity\\Contract\\TenantIdentityQuery",
             "PeanutAdmin\\Modules\\Identity\\Contract\\Dto\\TenantMemberSummary",
             "PeanutAdmin\\Modules\\Identity\\Contract\\Dto\\TenantSessionSummary",
             "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuditDiagnosticQuery",

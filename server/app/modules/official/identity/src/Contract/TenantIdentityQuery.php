@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace app\common\services\tenant;
+namespace PeanutAdmin\Modules\Identity\Contract;
 
 use think\facade\Db;
 
-/** Instance-owned read boundary for public Tenant identity projection. */
+/** Owner-provided public name projection only; not tenant selection or an authorization grant. */
 final class TenantIdentityQuery
 {
     public function activeName(int $tenantId): string

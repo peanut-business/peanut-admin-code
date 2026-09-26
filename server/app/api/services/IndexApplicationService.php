@@ -13,7 +13,7 @@ use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use app\common\enum\decoration\DecorationEnum;
 use app\common\services\decoration\DecorationReadService;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
-use app\common\services\tenant\TenantIdentityQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantIdentityQuery;
 
 class IndexApplicationService
 {
