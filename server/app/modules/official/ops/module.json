@@ -46,6 +46,7 @@
   "contracts": {
     "exports": [
       "PeanutAdmin\\Modules\\Ops\\Domain\\Application\\PlatformPermissionChecker",
+      "PeanutAdmin\\Modules\\Ops\\Contract\\InstanceSafetyQueries",
       "PeanutAdmin\\Modules\\Ops\\Contract\\DeploymentModuleRequests",
       "PeanutAdmin\\Modules\\Ops\\Contract\\BackupTaskExecution",
       "PeanutAdmin\\Modules\\Ops\\Contract\\RestoreTaskExecution",

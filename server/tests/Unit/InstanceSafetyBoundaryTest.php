@@ -160,6 +160,23 @@ final class InstanceSafetyBoundaryTest extends TestCase
         self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_platform_audit_event')->fetchColumn());
     }
 
+    public function testMissingBackupStoreRemainsUnavailableAndBlocking(): void
+    {
+        // Separate process: no active SQLite read cursor exists when removing this synthetic table.
+        $this->database->exec('DROP TABLE pa_ops_backup_evidence');
+        $host = (new ReflectionClass(FirstRunReadinessHost::class))->newInstanceWithoutConstructor();
+        (new ReflectionProperty($host, 'instanceSafety'))->setValue($host, $this->queries);
+        $missing = (new ReflectionMethod($host, 'backup'))->invoke($host, 'multi-tenant');
+        self::assertSame('action_required', $missing['status']);
+        self::assertTrue($missing['production_blocking']);
+        self::assertSame([
+            'application_ledger_available' => false,
+            'backup_verified' => false,
+            'last_verified_at' => null,
+            'restore_verified' => false,
+        ], $missing['facts']);
+    }
+
     public function testBackupProjectionNeverClaimsRestoreOrProductionReadiness(): void
     {
         $host = (new ReflectionClass(FirstRunReadinessHost::class))->newInstanceWithoutConstructor();
@@ -174,9 +191,11 @@ final class InstanceSafetyBoundaryTest extends TestCase
         self::assertSame('unverified', $present['status']);
         self::assertTrue($present['production_blocking']);
         self::assertStringNotContainsString('private-path', json_encode($present, JSON_THROW_ON_ERROR));
-        $this->database->exec('DROP TABLE pa_ops_backup_evidence');
-        $missing = $backup->invoke($host, 'saas');
-        self::assertSame('action_required', $missing['status']);
-        self::assertTrue($missing['production_blocking']);
+        self::assertSame([
+            'application_ledger_available' => true,
+            'backup_verified' => true,
+            'last_verified_at' => '2031-01-01T00:00:00.123Z',
+            'restore_verified' => false,
+        ], $present['facts']);
     }
 }

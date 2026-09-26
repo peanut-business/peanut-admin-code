@@ -8,7 +8,7 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\http\RequestTrace;
 use app\common\services\audit\AuditContractHost;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
-use think\facade\Db;
+use PeanutAdmin\Modules\Ops\Contract\InstanceSafetyQueries;
 
 /** Fails closed for every HTTP mutation while an active maintenance window is in effect. */
 final class MaintenanceWriteGateMiddleware
@@ -18,6 +18,7 @@ final class MaintenanceWriteGateMiddleware
     public function __construct(
         private readonly AuditContractHost $audit,
         private readonly CurrentExecutionContext $executionContext,
+        private readonly InstanceSafetyQueries $instanceSafety,
     ) {}
 
     public function handle($request, \Closure $next)
@@ -30,7 +31,7 @@ final class MaintenanceWriteGateMiddleware
 
         $requestId = RequestTrace::id($this->executionContext, $request, 'maintenance');
         try {
-            $window = $this->activeWindow();
+            $window = $this->instanceSafety->blockingMaintenanceWindow();
             if ($window !== null) {
                 $this->audit->recordPlatform(
                     'platform.maintenance.write-blocked',
@@ -65,16 +66,6 @@ final class MaintenanceWriteGateMiddleware
             ['error_code' => 'MAINTENANCE_WRITE_BLOCKED'],
             50300,
         )->withHeaders(['Cache-Control' => 'no-store', 'X-Request-Id' => $requestId]);
-    }
-
-    /** @return array{maintenance_key:string,reason_key:string}|null */
-    private function activeWindow(): ?array
-    {
-        $window = Db::name('ops_maintenance_window')->whereIn('state', ['scheduled', 'active'])
-            ->where('starts_at', '<=', Db::raw('UTC_TIMESTAMP(3)'))
-            ->where('ends_at', '>', Db::raw('UTC_TIMESTAMP(3)'))
-            ->field('maintenance_key,reason_key')->order('id', 'desc')->find();
-        return is_array($window) ? $window : null;
     }
 
     private function isMaintenanceControlRequest($request): bool

@@ -11,7 +11,7 @@ use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Modules\File\Contract\StorageConfiguration;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use think\facade\Db;
+use PeanutAdmin\Modules\Ops\Contract\InstanceSafetyQueries;
 
 /**
  * Read-only first-run readiness projection.
@@ -26,6 +26,7 @@ final class FirstRunReadinessHost
         private readonly CoreTenantModuleAdminBridge $modules,
         private readonly StorageConfiguration $storage,
         private readonly WebsiteConfigService $website,
+        private readonly InstanceSafetyQueries $instanceSafety,
     ) {}
 
     /** @return array{production_ready:bool,summary:array<string,int>,items:list<array<string,mixed>>} */
@@ -158,8 +159,7 @@ final class FirstRunReadinessHost
         $ledgerAvailable = false;
         $verifiedAt = null;
         try {
-            $value = Db::name('ops_backup_evidence')->order('verified_at', 'desc')->order('id', 'desc')
-                ->value('verified_at');
+            $value = $this->instanceSafety->lastVerifiedBackupAt();
             $ledgerAvailable = true;
             $verifiedAt = is_string($value) && $value !== ''
                 ? (new \DateTimeImmutable($value, new \DateTimeZone('UTC')))
