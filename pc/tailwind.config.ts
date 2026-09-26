@@ -1,7 +1,12 @@
-import type { Config } from 'tailwindcss'
+import type { Config } from 'tailwindcss';
 
 export default {
-  content: ['./app.vue', './pages/**/*.vue', './components/**/*.vue', './layouts/**/*.vue'],
+  content: [
+    './app.vue',
+    './pages/**/*.vue',
+    './components/**/*.vue',
+    './layouts/**/*.vue',
+  ],
   theme: {
     extend: {
       colors: {
@@ -14,4 +19,4 @@ export default {
   corePlugins: {
     preflight: false,
   },
-} satisfies Config
+} satisfies Config;

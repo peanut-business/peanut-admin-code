@@ -11,5 +11,8 @@ import { readClientEnvironment } from '../../../scripts/client-environment';
 const configDir = dirname(fileURLToPath(import.meta.url));
 
 export function isReportMode(): boolean {
-  return readClientEnvironment(resolve(configDir, '../../.env.production')).REPORT === 'true';
+  return (
+    readClientEnvironment(resolve(configDir, '../../.env.production'))
+      .REPORT === 'true'
+  );
 }

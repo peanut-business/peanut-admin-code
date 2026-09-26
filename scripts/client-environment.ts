@@ -53,11 +53,14 @@ export function readClientEnvironment(defaultPath: string): ClientEnvironment {
       const trimmed = line.trim();
       if (trimmed === '' || trimmed.startsWith('#')) return;
       const separator = line.indexOf('=');
-      if (separator < 1) throw new Error(`CLIENT_ENVIRONMENT_LINE_INVALID:${index + 1}`);
+      if (separator < 1)
+        throw new Error(`CLIENT_ENVIRONMENT_LINE_INVALID:${index + 1}`);
       const key = line.slice(0, separator).trim();
       const value = line.slice(separator + 1).trim();
-      if (!allowed.has(key)) throw new Error(`CLIENT_ENVIRONMENT_UNKNOWN_KEY:${key}`);
-      if (Object.hasOwn(values, key)) throw new Error(`CLIENT_ENVIRONMENT_DUPLICATE_KEY:${key}`);
+      if (!allowed.has(key))
+        throw new Error(`CLIENT_ENVIRONMENT_UNKNOWN_KEY:${key}`);
+      if (Object.hasOwn(values, key))
+        throw new Error(`CLIENT_ENVIRONMENT_DUPLICATE_KEY:${key}`);
       values[key as ClientEnvironmentKey] = value;
     });
   return values;

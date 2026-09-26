@@ -1,1 +1,4 @@
-export default defineEventHandler(() => ({ status: 'ok', runtime: 'nuxt-ssr' }))
+export default defineEventHandler(() => ({
+  status: 'ok',
+  runtime: 'nuxt-ssr',
+}));

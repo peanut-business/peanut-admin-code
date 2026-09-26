@@ -35,7 +35,13 @@ module.exports = {
     'property-no-unknown': [
       true,
       {
-        ignoreProperties: ['composes', '@import', '@extend', '@mixin', '@at-root'],
+        ignoreProperties: [
+          'composes',
+          '@import',
+          '@extend',
+          '@mixin',
+          '@at-root',
+        ],
       },
     ],
   },

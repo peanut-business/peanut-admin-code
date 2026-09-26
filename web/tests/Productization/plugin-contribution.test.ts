@@ -33,12 +33,8 @@ expect(
   'a deployed Module became visible before TenantModule enablement'
 );
 expect(
-  routesForTenantModules(
-    contributions,
-    ['fixture.delivery-record'],
-    [],
-    exact
-  ).length === 0,
+  routesForTenantModules(contributions, ['fixture.delivery-record'], [], exact)
+    .length === 0,
   'an enabled TenantModule became visible without member permission'
 );
 expect(

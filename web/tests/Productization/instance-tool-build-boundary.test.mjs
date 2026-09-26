@@ -25,7 +25,8 @@ async function virtualRouteSource(command, mode, deploymentMode, configFile) {
       webRoot
     );
   } finally {
-    if (previousEnvFile === undefined) delete process.env.PEANUT_CLIENT_ENV_FILE;
+    if (previousEnvFile === undefined)
+      delete process.env.PEANUT_CLIENT_ENV_FILE;
     else process.env.PEANUT_CLIENT_ENV_FILE = previousEnvFile;
     rmSync(envDirectory, { recursive: true, force: true });
   }

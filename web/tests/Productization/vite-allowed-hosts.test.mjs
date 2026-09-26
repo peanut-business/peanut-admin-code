@@ -3,9 +3,18 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const webVite = readFileSync(resolve(root, 'web/config/vite.config.dev.ts'), 'utf8');
-const platformVite = readFileSync(resolve(root, 'platform/vite.config.mts'), 'utf8');
-const demoScript = readFileSync(resolve(root, 'scripts/local-multi-tenant-demo'), 'utf8');
+const webVite = readFileSync(
+  resolve(root, 'web/config/vite.config.dev.ts'),
+  'utf8'
+);
+const platformVite = readFileSync(
+  resolve(root, 'platform/vite.config.mts'),
+  'utf8'
+);
+const demoScript = readFileSync(
+  resolve(root, 'scripts/local-multi-tenant-demo'),
+  'utf8'
+);
 const hosts = [
   'platform.peanut-admin.test',
   'admin.peanut-admin.test',
@@ -23,7 +32,10 @@ for (const source of [webVite, platformVite]) {
       source.includes('environment.VITE_ALLOWED_HOSTS ||'),
     'Vite host allowlist is not environment-driven'
   );
-  expect(source.includes('allowedHosts,'), 'Vite server does not enforce the parsed host allowlist');
+  expect(
+    source.includes('allowedHosts,'),
+    'Vite server does not enforce the parsed host allowlist'
+  );
 }
 expect(
   demoScript.includes(`VITE_ALLOWED_HOSTS ${hosts.join(',')}`),

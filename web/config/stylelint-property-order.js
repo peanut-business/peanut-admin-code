@@ -6,7 +6,14 @@ const group = (groupName, properties) => ({
 
 module.exports = [
   group('Special', ['composes', '@import', '@extend', '@mixin', '@at-root']),
-  group('Positioning', ['position', 'top', 'right', 'bottom', 'left', 'z-index']),
+  group('Positioning', [
+    'position',
+    'top',
+    'right',
+    'bottom',
+    'left',
+    'z-index',
+  ]),
   group('Box Model', [
     'display',
     'flex',

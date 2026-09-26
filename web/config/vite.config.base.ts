@@ -54,7 +54,9 @@ function resolveContributionImport(entry: unknown): string {
     throw new Error(`Plugin contribution is outside web/src: ${entry}`);
   }
   if (!existsSync(entryPath) || realpathSync(entryPath) !== entryPath) {
-    throw new Error(`Plugin contribution is unavailable or a symlink: ${entry}`);
+    throw new Error(
+      `Plugin contribution is unavailable or a symlink: ${entry}`
+    );
   }
   return `/${relative(webRoot, entryPath).split(sep).join('/')}`;
 }
@@ -101,7 +103,10 @@ function instanceToolRouteManifest(instanceToolsCompiled: boolean): Plugin {
   };
 }
 
-function compileInstanceTools({ command, mode }: ConfigEnv, deploymentMode?: string): boolean {
+function compileInstanceTools(
+  { command, mode }: ConfigEnv,
+  deploymentMode?: string
+): boolean {
   return (
     command === 'serve' &&
     mode === 'development' &&
@@ -113,8 +118,13 @@ export function createBaseConfig(
   configEnv: ConfigEnv,
   contributionEntries: () => string[] = lockedAdminContributions
 ): UserConfig {
-  const fileEnv = readClientEnvironment(resolve(configDir, `../.env.${configEnv.mode}`));
-  const instanceToolsCompiled = compileInstanceTools(configEnv, fileEnv.VITE_DEPLOYMENT_MODE);
+  const fileEnv = readClientEnvironment(
+    resolve(configDir, `../.env.${configEnv.mode}`)
+  );
+  const instanceToolsCompiled = compileInstanceTools(
+    configEnv,
+    fileEnv.VITE_DEPLOYMENT_MODE
+  );
   return {
     // The admin SPA is published below server/public/admin in every environment.
     base: '/admin/',
