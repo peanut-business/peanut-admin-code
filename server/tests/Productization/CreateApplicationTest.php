@@ -189,7 +189,7 @@ foreach ([
     );
 }
 // Generated application documentation has real, content-addressed template inputs, not absent source pages.
-foreach (['docs-site/capabilities.md', 'docs-site/guide/application-module-lifecycle.md', 'SECURITY.md'] as $targetPath) {
+foreach (['docs-site/capabilities.md', 'docs-site/guide/application-module-lifecycle.md', 'SECURITY.md', 'AGENTS.md'] as $targetPath) {
     $sourcePath = 'server/resources/scaffold-application/' . $targetPath . '.stub';
     $entry = $inventoryByPath[$sourcePath] ?? [];
     $expectedClassification = $targetPath === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
@@ -359,7 +359,17 @@ try {
     sort($expected, SORT_STRING);
     createApplicationExpect(createApplicationFiles($first) === $expected, 'generated tree must exactly match inventory plus declared metadata/baselines');
     createApplicationExpect(!is_dir($first . '/.git') && !is_dir($first . '/output'), 'generated application must exclude Git and historical output');
-    createApplicationExpect(!is_file($first . '/AGENTS.md'), 'source governance evidence must be excluded');
+    createApplicationExpect(!isset($inventoryByPath['AGENTS.md']), 'the maintainer entry must not compete with the public application template');
+    foreach ([$standardTarget, $first, $second, $standalone, $other] as $applicationRoot) {
+        $generatedAgents = (string) file_get_contents($applicationRoot . '/AGENTS.md');
+        createApplicationExpect($generatedAgents !== '' && !str_contains($generatedAgents, '{{'), 'public development entry must be generated and fully rendered');
+        createApplicationExpect(!str_contains($generatedAgents, 'peanut-admin-project') && !str_contains($generatedAgents, '/Users/'), 'maintainer-only instructions must not enter the application entry');
+        foreach (['docs/development/standard.md', 'docs/README.md', 'tools/quality/README.md'] as $publicDocument) {
+            createApplicationExpect(str_contains($generatedAgents, $publicDocument) && is_file($applicationRoot . '/' . $publicDocument), 'generated entry must resolve a shipped public document: ' . $publicDocument);
+        }
+    }
+    createApplicationExpect(str_contains((string) file_get_contents($other . '/AGENTS.md'), 'Beta Workspace'), 'public development entry must use the application identity');
+    createApplicationExpect((string) file_get_contents($first . '/AGENTS.md') !== (string) file_get_contents($root . '/AGENTS.md'), 'do not copy source governance as the public application entry');
     createApplicationExpect(!is_dir($first . '/docs/product-status'), 'source product capability ledger must be excluded');
     createApplicationExpect(!is_file($first . '/docs-site/.vitepress/theme/ProductStatus.vue'), 'source product status component must be excluded');
     createApplicationExpect(!is_file($first . '/docs-site/product-status.md'), 'source product status page must be excluded');

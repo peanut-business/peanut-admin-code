@@ -27,6 +27,7 @@ function inventoryGitFiles(string $root): array
     $files = array_values(array_filter($files, static fn(string $path): bool => $path !== 'scaffold/application-template-inventory.json'
         && !str_starts_with($path, 'scaffold/')
         && $path !== 'SECURITY.md' // Generated applications receive their own declared security template.
+        && $path !== 'AGENTS.md' // The generated entry is public; never distribute the maintainer entry.
         && !str_starts_with($path, 'output/')
         && (file_exists($root . '/' . $path) || is_link($root . '/' . $path))));
     sort($files, SORT_STRING);

@@ -205,19 +205,6 @@
             ]
         },
         {
-            "path": "AGENTS.md",
-            "target": "AGENTS.md",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "CHANGELOG.md",
             "target": "CHANGELOG.md",
             "classification": "generated-managed",
@@ -23207,6 +23194,20 @@
             "source_sha256": "8b264412cfa91a3ad06736e3854bb37b4de092bc93e933b9735daaa409bb9af0"
         },
         {
+            "path": "server/resources/scaffold-application/AGENTS.md.stub",
+            "target": "AGENTS.md",
+            "classification": "generated-managed",
+            "owner": "scaffold",
+            "transform": "docs-page",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d241bc6267e7dbf2c52bbeded683267f1e92d1736270516481228a4b75b4d118"
+        },
+        {
             "path": "server/resources/scaffold-application/SECURITY.md.stub",
             "target": "SECURITY.md",
             "classification": "app-owned",
@@ -26112,6 +26113,19 @@
         {
             "path": "server/tests/Unit/ApiMetadataCompletionTest.php",
             "target": "server/tests/Unit/ApiMetadataCompletionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ApplicationDevelopmentEntryTest.php",
+            "target": "server/tests/Unit/ApplicationDevelopmentEntryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
