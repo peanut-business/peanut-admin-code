@@ -25,6 +25,93 @@ final readonly class TenantModuleConfigurationService
         private AuditService $audit,
     ) {}
 
+    /** @return list<array{module_key:string,exists:bool,config:array<string,mixed>,revision:int}> */
+    public function transferSnapshot(TenantContext $actor): array
+    {
+        $this->assertTransferContext($actor);
+        // Use one application UTC instant, as current-state evaluation and ModuleGuard do.
+        $now = $this->now();
+        $instant = new DateTimeImmutable($now, new DateTimeZone('UTC'));
+        $states = [];
+        foreach (Db::name('tenant_module')->where('tenant_id', $actor->tenantId)->where('status', 'enabled')
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('effective_at')->whereOr('effective_at', '<=', $now);
+            })
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('expires_at')->whereOr('expires_at', '>', $now);
+            })
+            ->field('module_key,status,config_json,config_revision,effective_at,expires_at')->order('module_key')->select()->toArray() as $row) {
+            if ($this->transferEffective($row, $instant)) {
+                $states[] = $this->transferState((string) $row['module_key'], $row, $instant);
+            }
+        }
+        return $states;
+    }
+
+    /** @return null|array{module_key:string,exists:bool,config:array<string,mixed>,revision:int} */
+    public function transferCurrent(TenantContext $actor, string $moduleKey): ?array
+    {
+        $this->assertTransferContext($actor);
+        $this->assertTransferKey($moduleKey);
+        $row = Db::name('tenant_module')->where('tenant_id', $actor->tenantId)->where('module_key', $moduleKey)
+            ->field('status,config_json,config_revision,effective_at,expires_at')->find();
+        return is_array($row) ? $this->transferState($moduleKey, $row, new DateTimeImmutable('now', new DateTimeZone('UTC'))) : null;
+    }
+
+    /** @param array<string,mixed> $row @return array{module_key:string,exists:bool,config:array<string,mixed>,revision:int} */
+    private function transferState(string $moduleKey, array $row, DateTimeImmutable $now): array
+    {
+        $this->assertTransferKey($moduleKey);
+        $encoded = $row['config_json'] ?? null;
+        try {
+            $config = $encoded === null || $encoded === '' ? [] : json_decode((string) $encoded, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new RuntimeException('TRANSFER_TENANT_MODULE_INVALID');
+        }
+        if (!is_array($config)) {
+            throw new RuntimeException('TRANSFER_TENANT_MODULE_INVALID');
+        }
+        return ['module_key' => $moduleKey, 'exists' => $this->transferEffective($row, $now), 'config' => $config, 'revision' => (int) ($row['config_revision'] ?? 0)];
+    }
+
+    private function transferEffective(array $row, DateTimeImmutable $now): bool
+    {
+        if (($row['status'] ?? null) !== 'enabled') {
+            return false;
+        }
+        foreach (['effective_at' => true, 'expires_at' => false] as $column => $lowerBound) {
+            $value = $row[$column] ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+            try {
+                $date = new DateTimeImmutable((string) $value, new DateTimeZone('UTC'));
+            } catch (\Throwable) {
+                return false;
+            }
+            if (($lowerBound && $date > $now) || (!$lowerBound && $date <= $now)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private function assertTransferContext(TenantContext $actor): void
+    {
+        if ($actor->tenantId < 1 || $actor->accountId < 1 || $actor->memberId < 1
+            || $actor->authorizationRevision < 1 || $actor->sessionKey === ''
+            || $actor->clientKey === '' || $actor->requestId === '') {
+            throw new RuntimeException('TRANSFER_TENANT_CONTEXT_INVALID');
+        }
+    }
+
+    private function assertTransferKey(string $moduleKey): void
+    {
+        if (preg_match('/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$/D', $moduleKey) !== 1) {
+            throw new RuntimeException('TRANSFER_TENANT_MODULE_INVALID');
+        }
+    }
+
     /** @param array<string, mixed> $config
      * @return array<string, mixed>
      */
