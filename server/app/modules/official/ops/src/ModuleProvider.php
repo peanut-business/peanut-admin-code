@@ -18,6 +18,7 @@ final class ModuleProvider implements ModuleProviderContract
     public function bindings(): array
     {
         return [
+            Contract\DeploymentModuleRequests::class => Service\DeploymentModuleRequestService::class,
             Contract\BackupTaskExecution::class => Infrastructure\ThinkPhpBackupTaskExecutionService::class,
             Contract\RestoreTaskExecution::class => Infrastructure\ThinkPhpRestoreTaskExecutionService::class,
             Contract\ModuleTaskExecution::class => Infrastructure\ThinkPhpModuleOperationTaskExecutionService::class,

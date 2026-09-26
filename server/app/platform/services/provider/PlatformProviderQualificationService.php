@@ -11,7 +11,7 @@ use DateTimeImmutable;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker;
-use PeanutAdmin\Modules\Ops\Domain\Package;
+use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusService;
 
 /** Secret-free, read-only Platform projection. Contributors never run probes here. */
 final class PlatformProviderQualificationService
@@ -47,7 +47,7 @@ final class PlatformProviderQualificationService
     /** @return array{schema_version:int,generated_at:string,providers:list<array<string,mixed>>} */
     public function snapshot(PlatformContext $context): array
     {
-        if (!$this->permissions->allows($context, Package::READ_PERMISSION)) {
+        if (!$this->permissions->allows($context, OpsStatusService::READ_PERMISSION)) {
             throw OpsConsoleException::denied();
         }
         $subjects = [];

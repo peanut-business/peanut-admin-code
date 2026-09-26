@@ -919,7 +919,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "72105c27adfccbb884839f6bdc2cf6ad62d774afa8b2eec5c442f3ed67877355"
+                "sha256": "0c2e8ab37332fa5f6f1d9991ef0d3cb68fd1615d41f5bf5d2b5f4de7b0e9dc15"
             },
             "trust": {
                 "channel": "bundled",
@@ -1007,7 +1007,7 @@
                 }
             ],
             "manifest": "plugins/official.ops/plugin.json",
-            "manifest_sha256": "7ba82366b280ab52a8c72d536bcecf1dd66db95510c7976c9a28e9d56dd438ec"
+            "manifest_sha256": "a1c36635de2a17d7b97bd85600b45e4ee3b74f7a896171ba92ef84b66dd7d253"
         },
         {
             "key": "official.payment",
@@ -1418,7 +1418,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "7e296316951afc6ae9c2fe565ddce12d7fdafb18b0370ab08cd68eaacba57a79"
+                "sha256": "adade6bab02f8c6f567a183ee4de491e2313e2626de6a11aa9a0380937dff30b"
             },
             "trust": {
                 "channel": "bundled",
@@ -1511,7 +1511,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "22ccef1bbb4dbf3658c17c5c9bd8afa1e1074797add00a8acf5d121166d85df4"
+            "manifest_sha256": "17f7ccdfaad5f2f9ee9cbe657b26a4c2c2913a03acf952f7b3ce676f8b112a99"
         },
         {
             "key": "peanut.artifact-revision",

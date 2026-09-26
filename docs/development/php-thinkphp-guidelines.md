@@ -102,4 +102,6 @@ ImportExport 复用 Identity 已公开的 `TenantModuleConfigurationService`，�
 
 接口仅表达现有固定任务动作、任务编号、修订号和必要结果材料，不接受任意 SQL、命令或部署路径。接口公开不是部署授权；原执行器仍检查任务状态、操作人员、修订 fencing、允许错误码、输入摘要和证据。CLI 的标准输入大小限制、错误脱敏与上下文恢复保持，不能为了迁移类型而放宽。完整备份、恢复、模块操作或升级仍需独立的资源与执行授权，本规范测试不运行这些操作。
 
+模块请求 CLI 另消费 `DeploymentModuleRequests` 的 `preview/prepare`，复用组合根已有的配置与签名密钥装配，不在执行方法中重建治理服务。公开接口不含内部请求行查询或 `execute`；准备成功不等于获准安装、停用或删除。非法配置在原生依赖构建阶段失败，不回退到宽松配置。工作器贡献由已登记的 `TaskWorkerDefinitionRegistry` 在宿主技术组合根解析，重复授权键、处理者键、所有者不符和空处理者集合仍拒绝；登记和解析不执行任务，也不代替任务运行时重新授权。平台状态权限标识由 `OpsStatusService::READ_PERMISSION` 提供，权限查询接口公开不意味查询会返回允许。
+
 `server/tests/Unit/OpsWorkerContractTest.php` 用原生 ThinkPHP Input/Output、容器与上下文，以及合成工作器验证调用合同；公开面检查不公开实际存储/执行实现。实际部署工作器与数据库并发必须单独验证，单元通过不能宣称真实备份或升级成功。

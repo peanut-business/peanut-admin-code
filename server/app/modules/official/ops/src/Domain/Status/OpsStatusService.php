@@ -12,6 +12,9 @@ use Throwable;
 
 final readonly class OpsStatusService
 {
+    /** Fixed permission identity for consumers; knowing it does not grant access. */
+    public const READ_PERMISSION = Package::READ_PERMISSION;
+
     public function __construct(
         private PlatformPermissionChecker $permissions,
         private RuntimeStatusProvider $provider,
@@ -19,7 +22,7 @@ final readonly class OpsStatusService
 
     public function read(PlatformContext $context): OpsStatusSnapshot
     {
-        if (!$this->permissions->allows($context, Package::READ_PERMISSION)) {
+        if (!$this->permissions->allows($context, self::READ_PERMISSION)) {
             throw OpsConsoleException::denied();
         }
         try {

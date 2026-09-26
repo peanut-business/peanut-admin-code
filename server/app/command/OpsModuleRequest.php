@@ -4,19 +4,27 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
-use app\platform\services\plugin\PluginRuntimeGovernanceService;
-use app\common\execution\ModuleContextualCommand;
+use PeanutAdmin\Modules\Ops\Contract\DeploymentModuleRequests;
+use app\common\execution\ContextualCommand;
+use app\common\execution\CurrentExecutionContext;
+use app\common\execution\ExecutionContextStore;
 use think\console\Input;
 use think\console\input\Argument;
 use think\console\input\Option;
 use think\console\Output;
-use think\facade\Config;
 use Throwable;
 
 /** Deployment-only preparation of an opaque Module operation request. */
-final class OpsModuleRequest extends ModuleContextualCommand
+final class OpsModuleRequest extends ContextualCommand
 {
+    public function __construct(
+        ?ExecutionContextStore $contexts = null,
+        ?CurrentExecutionContext $executionContext = null,
+        private readonly ?DeploymentModuleRequests $requests = null,
+    ) {
+        parent::__construct($contexts, $executionContext);
+    }
+
     protected function configure(): void
     {
         $this->setName('ops-module:request')
@@ -34,18 +42,8 @@ final class OpsModuleRequest extends ModuleContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            $config = Config::get('modules', []);
-            if (!is_array($config)) {
-                throw new \RuntimeException('OPS_MODULE_CONFIG_INVALID');
-            }
-            $catalogs = $this->moduleCatalogs();
-            $service = new DeploymentModuleRequestService(
-                dirname(__DIR__, 3),
-                $config,
-                $this->trustedKeys(),
-                new PluginRuntimeGovernanceService(dirname(__DIR__, 2), $config, $catalogs),
-                $catalogs,
-            );
+            $service = $this->requests
+                ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
             $arguments = [
                 trim((string) $input->getOption('delivery-resource-id')),
                 trim((string) $input->getOption('target-resource-id')),
@@ -72,18 +70,5 @@ final class OpsModuleRequest extends ModuleContextualCommand
             $output->writeln(json_encode(['ok' => false, 'error_code' => $code], JSON_THROW_ON_ERROR));
             return 1;
         }
-    }
-
-    /** @return array<string,string> */
-    private function trustedKeys(): array
-    {
-        $trusted = [];
-        foreach ((array) Config::get('module_packages.trusted_ed25519_keys', []) as $keyId => $encoded) {
-            $decoded = is_string($encoded) ? base64_decode($encoded, true) : false;
-            if (is_string($keyId) && is_string($decoded) && strlen($decoded) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) {
-                $trusted[$keyId] = $decoded;
-            }
-        }
-        return $trusted;
     }
 }

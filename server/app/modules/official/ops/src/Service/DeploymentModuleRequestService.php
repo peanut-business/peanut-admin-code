@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Service;
 
+use PeanutAdmin\Modules\Ops\Contract\DeploymentModuleRequests;
 use app\platform\infrastructure\plugin\PluginPackageInstaller;
 use app\platform\services\plugin\PluginRuntimeGovernanceService;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use think\facade\Db;
 
 /** Creates immutable, registry-bound requests before Platform submission. */
-final readonly class DeploymentModuleRequestService
+final readonly class DeploymentModuleRequestService implements DeploymentModuleRequests
 {
     /** @param array<string,mixed> $moduleConfig @param array<string,string> $trustedKeys */
     public function __construct(

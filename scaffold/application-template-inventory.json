@@ -783,7 +783,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5f48651a3c6907c4562b94a7334e16df4a3829fed0e90af65bc7005bf43dec6e"
+            "source_sha256": "3ae1068135958e8240044b2147666e9179c6eb4d59ae5b6728bc0ad4b51c186f"
         },
         {
             "path": "docs/development/standard.md",
@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5e07445fb89fe2a5ffa8ee5ffeda424c478ea0ec8a3cb311c4318bedae02a0de"
+            "source_sha256": "b60225efe74c97a742b1ae89d2c5b94248ccddc0fe1975c275f8d0c509ea0c58"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2440,7 +2440,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ba82366b280ab52a8c72d536bcecf1dd66db95510c7976c9a28e9d56dd438ec"
+            "source_sha256": "a1c36635de2a17d7b97bd85600b45e4ee3b74f7a896171ba92ef84b66dd7d253"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -2510,7 +2510,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "22ccef1bbb4dbf3658c17c5c9bd8afa1e1074797add00a8acf5d121166d85df4"
+            "source_sha256": "17f7ccdfaad5f2f9ee9cbe657b26a4c2c2913a03acf952f7b3ce676f8b112a99"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -5849,7 +5849,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "76efd8a2e131e61e92db89f6643ab25778d30c8177d60a6b4a7e4f2e26a1ff8a"
+            "source_sha256": "de0f2ba062f4f760c9034c3a08d8335ffa309fd7c5c7184c4734401102705c49"
         },
         {
             "path": "server/app/command/OpsModuleTask.php",
@@ -15781,7 +15781,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b7574005f505823f5a5275339052511cde29e577291249900641a3a7e51b754f"
+            "source_sha256": "cdd76b270ce625eb2d7a8f178eced02e2eaa53d741a6b69d8ebf402d26359faf"
         },
         {
             "path": "server/app/modules/official/ops/src/Contract/BackupTaskExecution.php",
@@ -15796,6 +15796,20 @@
                 "full"
             ],
             "source_sha256": "f7bd2ac8c8725aaae9720638fc1d82260dc5f595d161c05a4339f892d5ee278c"
+        },
+        {
+            "path": "server/app/modules/official/ops/src/Contract/DeploymentModuleRequests.php",
+            "target": "server/app/modules/official/ops/src/Contract/DeploymentModuleRequests.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b98715adaa8dc1811835a38fd9ae9d3597afb366d96037550bf7a939308746bf"
         },
         {
             "path": "server/app/modules/official/ops/src/Contract/ModuleTaskExecution.php",
@@ -16103,7 +16117,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5e33e6f9d41fa837ef16352edeeb6f0767f6ec296666cdb37322319c64926f1f"
+            "source_sha256": "0db7033bc7fb9b1740dd6f7fa89c4d0d961c24a7e703a44eb71ab499af5b8d45"
         },
         {
             "path": "server/app/modules/official/ops/src/Domain/Status/OpsStatusSnapshot.php",
@@ -16425,7 +16439,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "005cca728fd9f8f6c502006fe2c467fcce7134230e8adb47162737b701779342"
+            "source_sha256": "411bc2e871cef9e5e40dfee2c1262b0a26f342eb3e43b48a151be0560dafc6de"
         },
         {
             "path": "server/app/modules/official/ops/src/Service/DeploymentModuleRequestService.php",
@@ -16439,7 +16453,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0b7b493192cf0fef0e855e4424ce5d63a5eeb391fc124c41b98edefe7081822"
+            "source_sha256": "030f899e122c1414127e4ae7f6159ab2908ce747a8d675418413598a23a29022"
         },
         {
             "path": "server/app/modules/official/ops/src/Service/PlatformBackupCenterService.php",
@@ -18712,7 +18726,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a70ae15df5aaa1fa74398c792eb91d5e406b4f56b8e434a2efa4c99bec06b257"
+            "source_sha256": "45966ef2be773db5d13d92483ce65a035d3ad707f997829ba191c556dcdd9358"
         },
         {
             "path": "server/app/modules/official/task/resources/menus.json",
@@ -21597,7 +21611,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4cebbaacdbaa2ae91d684390ad3e914b09aa23a6f93ef24cdfca3fe959869b6b"
+            "source_sha256": "3987bd42fc9c04c02136625c828ecf7a0337952cef89f58c6b36a4a677d74bb5"
         },
         {
             "path": "server/app/platform/validate/PlatformAccessValidate.php",
@@ -26624,6 +26638,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/HostCompositionContractsTest.php",
+            "target": "server/tests/Unit/HostCompositionContractsTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/HostModuleFacadeTest.php",
             "target": "server/tests/Unit/HostModuleFacadeTest.php",
             "classification": "excluded",
@@ -26860,6 +26887,19 @@
         {
             "path": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
             "target": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/OpsModuleRequestContractTest.php",
+            "target": "server/tests/Unit/OpsModuleRequestContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
