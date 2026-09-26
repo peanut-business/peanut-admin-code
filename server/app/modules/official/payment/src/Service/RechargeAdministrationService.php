@@ -9,6 +9,7 @@ use PeanutAdmin\Modules\Payment\Model\RefundLog;
 use PeanutAdmin\Modules\Payment\Model\RefundRecord;
 use PeanutAdmin\Modules\Member\Contract\Dto\MemberBalanceMutation;
 use PeanutAdmin\Modules\Member\Contract\MemberBalanceCommands;
+use PeanutAdmin\Modules\Member\Contract\MemberQueries;
 use DateTimeImmutable;
 use app\common\enum\AccountLogEnum;
 use app\common\contract\idempotency\IdempotentCommandExecutor;
@@ -41,6 +42,7 @@ class RechargeAdministrationService
         private readonly PaymentServiceFactory $payments,
         private readonly FileReferences $files,
         private readonly MemberBalanceCommands $memberBalances,
+        private readonly MemberQueries $members,
     ) {}
 
     /**
@@ -120,7 +122,7 @@ class RechargeAdministrationService
                 return compact('idempotency', 'lease') + ['replay' => true];
             }
 
-            $amountCents = self::requestedRefundAmountCents($context, $order, $requestedCents);
+            $amountCents = $this->requestedRefundAmountCents($context, $order, $requestedCents);
             $amount = $amountCents / 100;
             $refundSn = RefundRecord::generateSn();
 
@@ -232,7 +234,7 @@ class RechargeAdministrationService
         }
     }
 
-    private static function requestedRefundAmountCents(object $context, object $order, mixed $requested): int
+    private function requestedRefundAmountCents(object $context, object $order, mixed $requested): int
     {
         $orderCents = Money::toCents((string) $order->order_amount);
         $refundedCents = Money::toCents((string) (RefundRecord::where([])
@@ -249,12 +251,8 @@ class RechargeAdministrationService
             throw BusinessException::invalid('REFUND_AMOUNT_INVALID', '退款金额超过当前可退款金额');
         }
 
-        $member = RechargeOrder::alias('ro')->where([])
-            ->join('member m', 'm.tenant_id = ro.tenant_id AND m.id = ro.user_id')
-            ->where('ro.id', (int) $order->id)
-            ->field('m.user_money')
-            ->findOrEmpty();
-        if ($member->isEmpty() || Money::toCents((string) $member->user_money) < $amountCents) {
+        $member = $this->members->balanceSnapshot($context, (int) $order->user_id);
+        if ($member === null || $member->balanceCents < $amountCents) {
             throw BusinessException::conflict('REFUND_MEMBER_BALANCE_INSUFFICIENT', '退款失败:用户余额已不足退款金额');
         }
         return $amountCents;

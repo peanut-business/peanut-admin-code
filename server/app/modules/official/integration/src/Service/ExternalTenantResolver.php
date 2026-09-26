@@ -10,6 +10,7 @@ use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolution;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionException;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
+use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 
 /** Framework-agnostic resolver for a uniquely owned active external channel. */
@@ -62,6 +63,52 @@ final class ExternalTenantResolver implements ExternalTenantResolutionService
             throw new ExternalTenantResolutionException();
         }
         return $this->oneAvailable($this->bindings->byTenant($provider, $tenantId), $provider, 'tenant:' . $tenantId, $requireActive);
+    }
+
+    public function bindingForGrant(int $tenantId, string $provider, ?int $bindingId = null, bool $forUpdate = false): ?ExternalTenantBinding
+    {
+        if ($tenantId < 1 || ($bindingId !== null && $bindingId < 1)
+            || !in_array($provider, [ExternalProvider::WECHAT_PAYMENT, ExternalProvider::ALIPAY_PAYMENT], true)) {
+            throw new ExternalTenantResolutionException();
+        }
+        $bindings = $this->bindings->byTenant($provider, $tenantId, $forUpdate);
+        if (count($bindings) > 1) {
+            throw new ExternalTenantResolutionException();
+        }
+        $binding = $bindings[0] ?? null;
+        if ($binding === null || ($bindingId !== null && $binding->id !== $bindingId)) {
+            return null;
+        }
+        if ($binding->id < 1 || $binding->tenantId !== $tenantId || !hash_equals($provider, $binding->provider)) {
+            throw new ExternalTenantResolutionException();
+        }
+        return $binding;
+    }
+
+    public function bindingForCallbackReference(int $tenantId, ?string $provider, ?int $bindingId = null): ExternalTenantBinding
+    {
+        $oauthProviders = [ExternalProvider::WECHAT_OFFICIAL_OAUTH, ExternalProvider::WECHAT_OPEN_PLATFORM, ExternalProvider::WECHAT_MINI_PROGRAM];
+        if ($tenantId < 1 || ($bindingId !== null && $bindingId < 1)
+            || ($provider === null && $bindingId === null)
+            || ($provider !== null && !in_array($provider, $oauthProviders, true))) {
+            throw new ExternalTenantResolutionException();
+        }
+        $bindings = $bindingId === null
+            ? $this->bindings->byTenant((string) $provider, $tenantId)
+            : $this->bindings->byReference($tenantId, $bindingId);
+        if (count($bindings) !== 1) {
+            throw new ExternalTenantResolutionException();
+        }
+        $binding = $bindings[0];
+        if ($binding->id < 1 || $binding->tenantId !== $tenantId
+            || ($bindingId !== null && $binding->id !== $bindingId)
+            || !in_array($binding->provider, $oauthProviders, true)
+            || ($provider !== null && !hash_equals($provider, $binding->provider))) {
+            throw new ExternalTenantResolutionException();
+        }
+        // Keep inactive candidates visible to the existing authorization resolver;
+        // filtering here could turn an ambiguous callback into one accepted owner.
+        return $binding;
     }
 
     private function resolve(string $provider, string $candidate, string $operation, string $operationId, callable $lookup, ?callable $verifier = null, bool $requireProviderMatch = true): ExternalTenantResolution

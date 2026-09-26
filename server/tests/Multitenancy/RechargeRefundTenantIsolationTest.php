@@ -14,6 +14,7 @@ use app\common\service\payment\PaymentRetryLock;
 use app\common\service\payment\PaymentServiceFactory;
 use app\common\services\XlsxExportService;
 use PeanutAdmin\Modules\Member\Contract\MemberBalanceCommands;
+use PeanutAdmin\Modules\Member\Contract\MemberQueries;
 use PeanutAdmin\Modules\Payment\Service\RechargeAdministrationService;
 use PeanutAdmin\Modules\Payment\Model\RechargeOrder;
 use PeanutAdmin\Modules\Payment\Model\RefundLog;
@@ -104,6 +105,7 @@ function financeRefundService(
         app(PaymentServiceFactory::class),
         app(FileService::class),
         app(MemberBalanceCommands::class),
+        app(MemberQueries::class),
     );
 }
 

@@ -11,6 +11,7 @@ use app\common\execution\ExecutionContextStore;
 use app\common\infrastructure\crontab\CrontabTenantLock;
 use app\common\tenancy\PlatformTenantDataGateway;
 use PeanutAdmin\Modules\Task\Model\Crontab;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use app\common\enum\CrontabEnum;
 use PeanutAdmin\Kernel\Scheduling\ScheduleWindow;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
@@ -26,6 +27,7 @@ final class CrontabSchedulerService
         private readonly CrontabTenantLock $locks,
         private readonly AuditContractHost $audit,
         private readonly PlatformTenantDataGateway $tenantData,
+        private readonly AdminDirectoryQuery $directory,
     ) {}
 
     /**
@@ -35,19 +37,33 @@ final class CrontabSchedulerService
     public function runDue(int $now, callable $trigger): array
     {
         $tenantIds = [];
-        $schedules = $this->tenantData
+        // Freeze this discovery window and walk owned rows in bounded batches.
+        // Inactive or orphan owners must not cause all schedules to be buffered.
+        $upperId = (int) $this->tenantData
             ->query(Crontab::class, 'scheduler', 'crontab.discover-due')
-            ->alias('c')
-            ->join('tenant t', 't.id = c.tenant_id')
-            ->where('t.status', 'active')
-            ->where('c.status', CrontabEnum::START)
-            ->field('c.*')
-            ->select();
-        foreach ($schedules as $schedule) {
-            $item = $schedule->getData();
-            $tenantId = self::positiveInt($item['tenant_id'] ?? null, 'Scheduled job Tenant owner is invalid');
-            $tenantIds[$tenantId] = true;
-            $this->consider($item, $now, $trigger);
+            ->where('status', CrontabEnum::START)->max('id');
+        $afterId = 0;
+        while ($afterId < $upperId) {
+            $schedules = $this->tenantData
+                ->query(Crontab::class, 'scheduler', 'crontab.discover-due')
+                ->where('status', CrontabEnum::START)
+                ->where('id', '>', $afterId)->where('id', '<=', $upperId)
+                ->order('id', 'asc')->limit(500)->select();
+            if ($schedules->isEmpty()) {
+                break;
+            }
+            $candidateTenantIds = array_values(array_filter(array_unique(array_map('intval', $schedules->column('tenant_id'))), static fn(int $id): bool => $id > 0));
+            $activeTenants = array_fill_keys($this->directory->activeTenantIds($candidateTenantIds), true);
+            foreach ($schedules as $schedule) {
+                $item = $schedule->getData();
+                $afterId = self::positiveInt($item['id'] ?? null, 'Scheduled job ID is invalid');
+                $tenantId = (int) ($item['tenant_id'] ?? 0);
+                if (!isset($activeTenants[$tenantId])) {
+                    continue;
+                }
+                $tenantIds[$tenantId] = true;
+                $this->consider($item, $now, $trigger);
+            }
         }
         return array_map('intval', array_keys($tenantIds));
     }

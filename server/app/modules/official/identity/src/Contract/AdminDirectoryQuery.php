@@ -16,6 +16,27 @@ final readonly class AdminDirectoryQuery
     ) {}
 
     /**
+     * Lifecycle projection for a bounded caller-selected set, not a grant of access.
+     * @param list<int> $tenantIds
+     * @return list<int>
+     */
+    public function activeTenantIds(array $tenantIds): array
+    {
+        foreach ($tenantIds as $tenantId) {
+            if (!is_int($tenantId) || $tenantId < 1) {
+                throw new \InvalidArgumentException('TENANT_ID_INVALID');
+            }
+        }
+        $active = [];
+        foreach (array_chunk(array_values(array_unique($tenantIds)), 500) as $chunk) {
+            foreach (Tenant::whereIn('id', $chunk)->where('status', 'active')->column('id') as $id) {
+                $active[] = (int) $id;
+            }
+        }
+        return $active;
+    }
+
+    /**
      * Minimal lifecycle projection for trusted binding resolution; not an authorization grant.
      * A locking read participates in the caller's current transaction and must precede binding locks.
      */
@@ -30,6 +51,30 @@ final readonly class AdminDirectoryQuery
         }
         $status = $query->value('status');
         return is_string($status) ? $status : null;
+    }
+
+    /**
+     * Current display names for existing tenant-owned log references, not historical snapshots.
+     * Inactive members remain addressable; missing references are omitted and never cross tenants.
+     * @param list<int> $memberIds
+     * @return array<int,string>
+     */
+    public function memberDisplayNames(\PeanutAdmin\Kernel\Auth\TenantContext $context, array $memberIds): array
+    {
+        $names = [];
+        foreach ($memberIds as $id) {
+            if (!is_int($id) || $id < 1) {
+                throw new \InvalidArgumentException('TENANT_MEMBER_ID_INVALID');
+            }
+        }
+        foreach (array_chunk(array_values(array_unique($memberIds)), 500) as $chunk) {
+            $rows = TenantMember::where('tenant_id', $context->tenantId)
+                ->whereIn('id', $chunk)->field('id,display_name')->select()->toArray();
+            foreach ($rows as $row) {
+                $names[(int) $row['id']] = (string) $row['display_name'];
+            }
+        }
+        return $names;
     }
 
     /** 受信初始化命令在事务内读取并锁定目标；返回稳定代码，不授予调用者权限。 */

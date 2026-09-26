@@ -13,6 +13,8 @@ use PeanutAdmin\Modules\OAuth\Model\OAuthCompletionTicket;
 
 final class ThinkPhpOAuthCallbackLocator implements OAuthCallbackLocator
 {
+    public function __construct(private readonly ExternalTenantResolutionService $bindings) {}
+
     public function locateState(string $provider, string $stateHash): array
     {
         $scene = match ($provider) {
@@ -24,61 +26,26 @@ final class ThinkPhpOAuthCallbackLocator implements OAuthCallbackLocator
             return [];
         }
 
-        return $this->bindings(
-            OAuthAttempt::callbackCandidates()->alias('o')
-                ->field($this->bindingFields())
-                ->join('external_channel_binding b', 'b.tenant_id = o.tenant_id')
-                ->join('tenant t', 't.id = b.tenant_id')
-                ->where('b.provider', $provider)
-                ->where('o.state_hash', $stateHash)
-                ->where('o.scene', $scene)
-                ->whereNull('o.used_at')
-                ->where('o.expires_at', '>=', time())
-                ->limit(2)->select()->toArray(),
-        );
+        $attempts = OAuthAttempt::callbackCandidates()
+            ->field('tenant_id')
+            ->where('state_hash', $stateHash)
+            ->where('scene', $scene)
+            ->whereNull('used_at')
+            ->where('expires_at', '>=', time())
+            ->limit(2)->select()->toArray();
+        return array_map(fn(array $attempt): ExternalTenantBinding =>
+            $this->bindings->bindingForCallbackReference((int) $attempt['tenant_id'], $provider), $attempts);
     }
 
     public function locateTicket(string $ticketHash): array
     {
-        return $this->bindings(
-            OAuthCompletionTicket::callbackCandidates()->alias('o')
-                ->field($this->bindingFields())
-                ->join('external_channel_binding b', 'b.id = o.binding_id AND b.tenant_id = o.tenant_id')
-                ->join('tenant t', 't.id = b.tenant_id')
-                ->where('o.token_hash', $ticketHash)
-                ->whereNull('o.used_at')
-                ->where('o.expires_at', '>=', time())
-                ->whereIn('b.provider', [
-                    ExternalProvider::WECHAT_MINI_PROGRAM,
-                    ExternalProvider::WECHAT_OFFICIAL_OAUTH,
-                    ExternalProvider::WECHAT_OPEN_PLATFORM,
-                ])
-                ->limit(2)->select()->toArray(),
-        );
-    }
-
-    /** @param list<array<string, mixed>> $rows @return list<ExternalTenantBinding> */
-    private function bindings(array $rows): array
-    {
-        return array_map(static function (array $row): ExternalTenantBinding {
-            $config = json_decode((string) ($row['config_json'] ?? ''), true);
-            return new ExternalTenantBinding(
-                (int) ($row['id'] ?? 0),
-                (int) ($row['tenant_id'] ?? 0),
-                (string) ($row['provider'] ?? ''),
-                (string) ($row['callback_key'] ?? ''),
-                (string) ($row['identity_hash'] ?? ''),
-                (string) ($row['identity_hint'] ?? ''),
-                is_array($config) ? $config : [],
-                (int) ($row['status'] ?? 0) === 1,
-                (string) ($row['tenant_status'] ?? '') === 'active',
-            );
-        }, $rows);
-    }
-
-    private function bindingFields(): string
-    {
-        return 'b.id,b.tenant_id,b.provider,b.callback_key,b.identity_hash,b.identity_hint,'
-            . 'b.config_json,b.status,t.status AS tenant_status';
+        $tickets = OAuthCompletionTicket::callbackCandidates()
+            ->field('tenant_id,binding_id')
+            ->where('token_hash', $ticketHash)
+            ->whereNull('used_at')
+            ->where('expires_at', '>=', time())
+            ->limit(2)->select()->toArray();
+        return array_map(fn(array $ticket): ExternalTenantBinding =>
+            $this->bindings->bindingForCallbackReference((int) $ticket['tenant_id'], null, (int) $ticket['binding_id']), $tickets);
     }
 }

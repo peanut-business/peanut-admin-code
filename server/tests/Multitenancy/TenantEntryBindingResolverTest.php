@@ -14,7 +14,9 @@ use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
 use PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL')
+    ? PHPUNIT_COMPOSER_INSTALL
+    : dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 function entryBindingExpect(bool $condition, string $message): void
@@ -101,6 +103,7 @@ $storage = new StorageService(
     new DefaultTenantContextResolver(),
     str_repeat('s', 32),
     'https://admin.example.test',
+    new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())),
 );
 $deliverable = static function (int $tenantId, string $fileKey) use ($storage): bool {
     try {
@@ -318,13 +321,13 @@ $sessionController = (string) file_get_contents(
     dirname(__DIR__, 2) . '/app/adminapi/controller/auth/TenantSessionController.php',
 );
 $sessionApplication = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/application/auth/TenantSessionApplicationService.php',
+    dirname(__DIR__, 2) . '/app/adminapi/services/auth/TenantSessionApplicationService.php',
 );
 $loginMiddleware = (string) file_get_contents(
     dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php',
 );
 $storageService = (string) file_get_contents(
-    dirname(__DIR__, 2) . '/app/common/services/storage/StorageService.php',
+    dirname(__DIR__, 2) . '/app/modules/official/file/src/Service/Storage/StorageService.php',
 );
 $storageController = (string) file_get_contents(
     dirname(__DIR__, 2) . '/app/api/controller/StorageController.php',

@@ -82,7 +82,7 @@ final class StandardModuleBoundaryTest extends TestCase
             CREATE TABLE pa_external_channel_binding (id INTEGER PRIMARY KEY, tenant_id INTEGER, provider TEXT, callback_key TEXT, identity_hash TEXT, identity_hint TEXT, config_json TEXT, status INTEGER, create_time INTEGER, update_time INTEGER);
             CREATE TABLE pa_oauth_attempt (id INTEGER PRIMARY KEY, tenant_id INTEGER, scene TEXT, state_hash TEXT, used_at INTEGER, expires_at INTEGER);
             CREATE TABLE pa_oauth_completion_ticket (id INTEGER PRIMARY KEY, tenant_id INTEGER, binding_id INTEGER, token_hash TEXT, used_at INTEGER, expires_at INTEGER);
-            CREATE TABLE pa_crontab (id INTEGER PRIMARY KEY, tenant_id INTEGER, status INTEGER, last_time INTEGER, expression TEXT, update_time INTEGER);
+            CREATE TABLE pa_crontab (id INTEGER PRIMARY KEY, tenant_id INTEGER, status INTEGER, last_time INTEGER, expression TEXT, update_time INTEGER, delete_time INTEGER);
             CREATE TABLE pa_refund_record (id INTEGER PRIMARY KEY, tenant_id INTEGER, order_type INTEGER, order_id INTEGER, refund_amount TEXT, delete_time INTEGER);
             CREATE TABLE pa_member (id INTEGER PRIMARY KEY, tenant_id INTEGER, user_money TEXT, total_recharge_amount TEXT, delete_time INTEGER);
             INSERT INTO pa_member VALUES (15,1,'80.00','120.00',NULL),(16,2,'999.00','999.00',NULL);
@@ -95,8 +95,14 @@ final class StandardModuleBoundaryTest extends TestCase
             CREATE TABLE pa_file_object (id INTEGER PRIMARY KEY, file_key TEXT, tenant_id INTEGER, access_type TEXT, storage_space_id INTEGER, object_key TEXT, status TEXT);
             INSERT INTO pa_file_object VALUES (1,'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'public',1,'tenants/v1/1/material/image/file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png','ready');
             SQL);
-        $this->database->sqliteCreateFunction('GET_LOCK', function (string $name, int $timeout): int { $this->locks[] = ['acquire', $name]; return 1; }, 2);
-        $this->database->sqliteCreateFunction('RELEASE_LOCK', function (string $name): int { $this->locks[] = ['release', $name]; return 1; }, 1);
+        $this->database->sqliteCreateFunction('GET_LOCK', function (string $name, int $timeout): int {
+            $this->locks[] = ['acquire', $name];
+            return 1;
+        }, 2);
+        $this->database->sqliteCreateFunction('RELEASE_LOCK', function (string $name): int {
+            $this->locks[] = ['release', $name];
+            return 1;
+        }, 1);
     }
 
     private function context(int $tenant = 1): TenantContext
@@ -126,7 +132,7 @@ final class StandardModuleBoundaryTest extends TestCase
         self::assertNull($this->resolver->bindingForGrant(1, 'payment.wechat', 2));
         $binding = Db::transaction(fn() => $this->resolver->bindingForGrant(1, 'payment.wechat', 1, true));
         self::assertSame(1, $binding?->id);
-        self::assertFalse($binding?->bindingActive);
+        self::assertFalse($binding?->active);
         self::assertTrue($binding?->tenantActive);
         self::assertSame('synthetic', $binding?->config['app_id']);
     }
@@ -195,7 +201,12 @@ final class StandardModuleBoundaryTest extends TestCase
         $storage = new StorageService((new ReflectionClass(StorageDriverFactory::class))->newInstanceWithoutConstructor(), $this->policy, new DefaultTenantContextResolver(), str_repeat('s', 32), 'https://synthetic.example.test', $this->directory);
         $key = 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
         self::assertSame($key, $storage->normalizePublicReference(1, $key));
-        try { $storage->normalizePublicReference(2, $key); self::fail('Another tenant obtained the reference'); } catch (RuntimeException) { self::assertTrue(true); }
+        try {
+            $storage->normalizePublicReference(2, $key);
+            self::fail('Another tenant obtained the reference');
+        } catch (RuntimeException) {
+            self::assertTrue(true);
+        }
         $this->database->exec("UPDATE pa_tenant SET status='suspended' WHERE id=1");
         $this->expectException(RuntimeException::class);
         $storage->normalizePublicReference(1, $key);
@@ -203,7 +214,7 @@ final class StandardModuleBoundaryTest extends TestCase
 
     public function testRefundLogPreservesOrderingSystemAndFormerOperatorNamesWithoutSecrets(): void
     {
-        $service = new RefundApplicationService($this->createMock(FileReferences::class), $this->directory);
+        $service = new RefundApplicationService($this->createStub(FileReferences::class), $this->directory);
         $context = $this->context();
         $rows = $this->contexts->run(new AdminExecutionContext($context, 'refund.log'), fn() => $service->refundLog($context, 9));
         self::assertSame([3, 2, 1], array_column($rows, 'id'));
@@ -232,16 +243,68 @@ final class StandardModuleBoundaryTest extends TestCase
     {
         $now = time();
         $last = $now - 300;
-        $this->database->exec("INSERT INTO pa_crontab VALUES (1,1,1,$last,'* * * * *',0),(2,3,1,$last,'* * * * *',0),(3,999,1,$last,'* * * * *',0),(4,2,2,$last,'* * * * *',0)");
+        $this->database->exec("INSERT INTO pa_crontab VALUES (1,1,1,$last,'* * * * *',0,NULL),(2,3,1,$last,'* * * * *',0,NULL),(3,999,1,$last,'* * * * *',0,NULL),(4,2,2,$last,'* * * * *',0,NULL)");
         $scheduler = new CrontabSchedulerService($this->contexts, $this->current, new CrontabTenantLock(new ThinkPhpTenantLockStore()), new AuditContractHost($this->current), new PlatformTenantDataGateway($this->current), $this->directory);
         $seen = [];
-        $ids = $scheduler->runDue($now, function ($scope, array $item) use (&$seen): void { $seen[] = [$scope->tenantId(), (int) $item['id']]; });
+        $ids = $scheduler->runDue($now, function ($scope, array $item) use (&$seen): void {
+            $seen[] = [$scope->tenantId(), (int) $item['id']];
+        });
         self::assertSame([1], $ids);
         self::assertSame([[1, 1]], $seen);
         self::assertSame(['acquire', 'release'], array_column($this->locks, 0));
         self::assertSame($this->locks[0][1], $this->locks[1][1]);
         self::assertNull($this->current->current());
         self::assertSame($last, (int) $this->database->query('SELECT last_time FROM pa_crontab WHERE id=2')->fetchColumn());
+    }
+
+    public function testSchedulerScansPastInactiveBatchesWithoutRepeatingOrAdoptingNewRows(): void
+    {
+        $now = time();
+        $last = $now - 300;
+        $insert = $this->database->prepare('INSERT INTO pa_crontab VALUES (?,?,1,?,\'* * * * *\',0,NULL)');
+        for ($id = 1; $id <= 501; $id++) {
+            $insert->execute([$id, 3, $last]);
+        }
+        $insert->execute([502, 1, $last]);
+        $insert->execute([503, 2, $last]);
+        $scheduler = new CrontabSchedulerService($this->contexts, $this->current, new CrontabTenantLock(new ThinkPhpTenantLockStore()), new AuditContractHost($this->current), new PlatformTenantDataGateway($this->current), $this->directory);
+        $seen = [];
+        $owners = $scheduler->runDue($now, function ($scope, array $item) use (&$seen, $insert, $last): void {
+            $seen[] = [$scope->tenantId(), (int) $item['id']];
+            if ((int) $item['id'] === 502) {
+                $insert->execute([504, 1, $last]);
+            }
+        });
+        self::assertSame([1, 2], $owners);
+        self::assertSame([[1, 502], [2, 503]], $seen);
+        self::assertSame(['acquire', 'release', 'acquire', 'release'], array_column($this->locks, 0));
+        self::assertSame($last, (int) $this->database->query('SELECT last_time FROM pa_crontab WHERE id=504')->fetchColumn());
+        self::assertSame(501, (int) $this->database->query('SELECT COUNT(*) FROM pa_crontab WHERE tenant_id=3 AND last_time=' . $last)->fetchColumn());
+        self::assertNull($this->current->current());
+    }
+
+    public function testBindingReadDoesNotCommitTheCallersTransaction(): void
+    {
+        $this->binding(1, 1, 'payment.wechat');
+        Db::startTrans();
+        Db::name('external_channel_binding')->where('id', 1)->update(['status' => 0]);
+        self::assertFalse($this->resolver->bindingForGrant(1, 'payment.wechat', 1, true)?->active);
+        Db::rollback();
+        self::assertTrue($this->resolver->bindingForGrant(1, 'payment.wechat', 1)?->active);
+    }
+
+    public function testCallbackReferenceRejectsMissingTenantAndWrongProvider(): void
+    {
+        $this->binding(1, 999);
+        try {
+            $this->resolver->bindingForCallbackReference(999, null, 1);
+            self::fail('Orphan binding was accepted');
+        } catch (ExternalTenantResolutionException) {
+            self::assertTrue(true);
+        }
+        $this->binding(2, 1, 'payment.wechat');
+        $this->expectException(ExternalTenantResolutionException::class);
+        $this->resolver->bindingForCallbackReference(1, null, 2);
     }
 
     public function testMigratedSourcesDoNotReadForeignBindingOrLifecycleTables(): void

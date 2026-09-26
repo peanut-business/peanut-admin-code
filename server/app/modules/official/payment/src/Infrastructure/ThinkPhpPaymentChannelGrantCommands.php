@@ -8,7 +8,6 @@ use PeanutAdmin\Modules\Payment\Model\PaymentScene;
 use PeanutAdmin\Modules\Payment\Model\PaymentTenantChannelGrant;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantContext;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBinding;
-use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
 use PeanutAdmin\Modules\Integration\Contract\ExternalProvider;
 use app\common\tenancy\PlatformTenantDataGateway;
@@ -18,7 +17,7 @@ use think\facade\Db;
 final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCommands
 {
     public function __construct(
-        private readonly ExternalTenantBindingRepository $bindings,
+        private readonly ExternalTenantResolutionService $bindings,
         private readonly PlatformTenantDataGateway $tenantData,
     ) {}
 
@@ -211,11 +210,6 @@ final class ThinkPhpPaymentChannelGrantCommands implements PaymentChannelGrantCo
         ?int $bindingId = null,
         bool $lock = false,
     ): ?ExternalTenantBinding {
-        foreach ($this->bindings->byTenant($provider, $tenantId, $lock) as $binding) {
-            if ($bindingId === null || $binding->id === $bindingId) {
-                return $binding;
-            }
-        }
-        return null;
+        return $this->bindings->bindingForGrant($tenantId, $provider, $bindingId, $lock);
     }
 }

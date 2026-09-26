@@ -23,6 +23,7 @@ use PeanutAdmin\FileMedia\Delivery\ReplayMode;
 use PeanutAdmin\FileMedia\Delivery\SignedDeliveryTokenService;
 use PeanutAdmin\FileMedia\Storage\StorageObjectKey;
 use PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use think\db\BaseQuery;
 use think\db\Raw;
 use think\facade\Db;
@@ -38,6 +39,7 @@ final readonly class StorageService implements FileStorage
         private DefaultTenantContextResolver $defaultTenant,
         private string $signingSecret,
         private string $applicationOrigin,
+        private AdminDirectoryQuery $directory,
     ) {
         if (strlen($this->signingSecret) < 32) {
             throw new \RuntimeException('文件签名配置无效');
@@ -291,16 +293,16 @@ final readonly class StorageService implements FileStorage
         if ($readyOnly) {
             $query->where('f.status', 'ready');
         }
-        return $this->find($query);
+        return $this->findOwnedObject($query, false);
     }
 
     private function deliverableObjectForTenant(int $tenantId, string $fileKey): ?array
     {
-        return $this->find(
+        return $this->findOwnedObject(
             $this->objectQuery($this->logicalTenantId($tenantId))
                 ->where('f.file_key', $fileKey)
-                ->where('f.status', 'ready')
-                ->where('t.status', 'active'),
+                ->where('f.status', 'ready'),
+            true,
         );
     }
 
@@ -325,12 +327,12 @@ final readonly class StorageService implements FileStorage
             }
             $tenantId = $referenceTenantId;
         }
-        return $this->find(
+        return $this->findOwnedObject(
             $this->objectQuery($tenantId)
                 ->where($field, $reference)
                 ->where('f.access_type', 'public')
-                ->where('f.status', 'ready')
-                ->where('t.status', 'active'),
+                ->where('f.status', 'ready'),
+            true,
         );
     }
 
@@ -471,13 +473,23 @@ final readonly class StorageService implements FileStorage
             if (!is_int($tenantId) || $tenantId < 1) {
                 throw new \LogicException('STORAGE_STANDALONE_TENANT_UNAVAILABLE');
             }
-            $query->join('tenant t', 't.id=' . $tenantId)
-                ->where('t.code', 'default')
-                ->fieldRaw($tenantId . ' AS tenant_id');
-        } else {
-            $query->join('tenant t', 't.id=f.tenant_id');
+            // Identity resolved and validated the default owner before this query.
+            $query->fieldRaw($tenantId . ' AS tenant_id');
         }
         return $query;
+    }
+
+    private function findOwnedObject(BaseQuery $query, bool $requireActive): ?array
+    {
+        $row = $this->find($query);
+        if ($row === null) {
+            return null;
+        }
+        $status = $this->directory->tenantStatus((int) ($row['tenant_id'] ?? 0));
+        if ($status === null || ($requireActive && $status !== 'active')) {
+            return null;
+        }
+        return $row;
     }
 
     private function find(BaseQuery $query): ?array

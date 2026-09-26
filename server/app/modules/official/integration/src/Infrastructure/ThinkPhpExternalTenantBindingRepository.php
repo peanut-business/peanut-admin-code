@@ -47,6 +47,15 @@ final class ThinkPhpExternalTenantBindingRepository implements ExternalTenantBin
         );
     }
 
+    public function byReference(int $tenantId, int $bindingId): array
+    {
+        return $this->bindings(Db::name('external_channel_binding')->alias('b')
+            ->field($this->bindingFields())
+            ->where('b.tenant_id', $tenantId)
+            ->where('b.id', $bindingId)
+            ->limit(2)->select()->toArray());
+    }
+
     public function byTenant(string $provider, int $tenantId, bool $lock = false): array
     {
         if ($lock) {

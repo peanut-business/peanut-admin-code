@@ -9,6 +9,7 @@ use PeanutAdmin\Modules\Payment\Model\RefundRecord;
 use app\common\http\PageResult;
 use app\common\exception\BusinessException;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use app\common\support\PaginationInput;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
@@ -17,7 +18,10 @@ class RefundApplicationService
 {
     private const PAGE_SIZE_MAX = 25000;
 
-    public function __construct(private readonly FileReferences $files) {}
+    public function __construct(
+        private readonly FileReferences $files,
+        private readonly AdminDirectoryQuery $directory,
+    ) {}
 
     /** Peanut 按实际退款金额汇总；当前全额退款时与参考订单金额口径一致。 */
     public function stat(TenantContext $context): array
@@ -113,15 +117,17 @@ class RefundApplicationService
     {
         $lists = RefundLog::where([])
             ->alias('rl')
-            ->leftJoin('tenant_member tm', 'tm.tenant_id = rl.tenant_id AND tm.id = rl.handle_id')
-            ->field('rl.*,tm.display_name AS handler')
+            ->field('rl.*')
             ->order(['rl.id' => 'desc'])
             ->where('rl.record_id', $recordId)
             ->hidden(['refund_msg'])
             ->select()
             ->toArray();
 
+        $handlerIds = array_values(array_filter(array_unique(array_map('intval', array_column($lists, 'handle_id'))), static fn(int $id): bool => $id > 0));
+        $handlerNames = $this->directory->memberDisplayNames($context, $handlerIds);
         foreach ($lists as &$item) {
+            $item['handler'] = $handlerNames[(int) ($item['handle_id'] ?? 0)] ?? '';
             $item['id'] = (int) $item['id'];
             $item['record_id'] = (int) $item['record_id'];
             $item['user_id'] = (int) $item['user_id'];
