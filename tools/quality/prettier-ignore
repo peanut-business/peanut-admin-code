@@ -9,5 +9,5 @@ scaffold/releases/**
 scaffold/legacy/**
 **/pnpm-lock.yaml
 **/package-lock.json
-# unplugin-vue-components owns this declaration output (including its formatting).
-web/components.d.ts
+# The ignore file lives below the repo root; match the exact generator-owned path.
+**/web/components.d.ts
