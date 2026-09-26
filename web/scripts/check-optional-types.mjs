@@ -7,10 +7,12 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(resolve(root, '../tools/quality/package.json'));
 const ts = require('typescript');
 const areas = [
-  'official-file',
-  'official-import-export',
-  'official-notification',
-  'official-task',
+  'official-file/optional-runtime',
+  'official-import-export/optional-runtime',
+  'official-notification/optional-runtime',
+  'official-task/optional-runtime',
+  'official-reference-codes/runtime',
+  'official-settings/runtime',
 ];
 const vueExtension = [
   {
@@ -77,7 +79,7 @@ for (const name of ['client', 'vue', 'ui-vue']) {
 let productionCount = 0;
 let testCount = 0;
 for (const area of areas) {
-  const directory = resolve(root, `src/modules/${area}/optional-runtime`);
+  const directory = resolve(root, `src/modules/${area}`);
   const productionFiles = files(resolve(directory, 'src'));
   const testFiles = files(resolve(directory, 'tests'));
   requireIncluded(production, productionFiles, area + ' production');

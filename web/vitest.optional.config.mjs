@@ -70,6 +70,8 @@ export default {
       'src/modules/official-import-export/optional-runtime/tests/**/*.spec.ts',
       'src/modules/official-notification/optional-runtime/tests/**/*.spec.ts',
       'src/modules/official-task/optional-runtime/tests/**/*.spec.ts',
+      'src/modules/official-reference-codes/runtime/tests/**/*.spec.ts',
+      'src/modules/official-settings/runtime/tests/**/*.spec.ts',
     ],
     passWithNoTests: false,
   },

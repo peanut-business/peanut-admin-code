@@ -73,9 +73,13 @@ node web/scripts/check-optional-types.mjs
 node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.optional.config.mjs
 ```
 
-这两个入口覆盖file、import-export、notification、task四个可选运行区域；前者拒绝空输入、生产源码重新被排除、测试文件遗漏或关闭strict，随后按quality锁的TypeScript核真实测试及导入。后者执行原有9份测试，显式绑定Core公开源码和同一Vue运行时，passWithNoTests=false；文件选择器保留Happy DOM组件挂载与选择/禁用断言。没有网络、数据库或真实短信/任务操作。reference-codes与settings的其他运行测试不因此被标已验收。
+这两个入口覆盖file、import-export、notification、task、reference-codes、settings六个运行区域；前者拒绝空输入、生产源码重新被排除、测试文件遗漏或关闭strict，随后按quality锁的TypeScript核真实测试及导入。后者执行这些区域现行测试，显式绑定Core公开源码和同一Vue运行时，passWithNoTests=false；保留Happy DOM挂载、选择/禁用、租户清理、并发、修订冲突、秘密只写及错误状态断言。reference-codes/settings的路由测试针对package.json真正导出的contribution.ts和RuntimePage，不恢复旧/app路径及竞争装配。没有网络、数据库或真实短信/任务操作。
 
 组件测试工具 `@vue/test-utils`、`happy-dom`及其Vue运行依赖只进入本目录原生锁，不写入产品客户端依赖锁。源码测试、虚拟DOM、开发类型映射与实际产品安装分别记录，不以这些入口成功声明默认产品Core链接已更新。
+
+## 路由、装修编辑与原生移动适配
+
+从Code根执行 `node --test scripts/tests/standard-remaining-boundaries-test.mjs`，显式提供 `WEB_CORE_SOURCE_ROOT` 与 `UNIAPP_DEPENDENCY_ROOT`。使用真实路由/装修API/页面脚本、实际Vue和原生DCloud声明；验证原始路由集合、合法PHP空对象表示、嵌套编辑与保存、非法响应、选择器输入及SDK参数。支付渠道仅映射到原生提供者标识，测试SDK为合成回调，不触发支付，后端仍负责确认资金终态。此项不代替模板完整渲染、真实浏览器或终端验收。
 
 ## 结果范围
 

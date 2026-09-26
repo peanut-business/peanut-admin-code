@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { readDecorationPage } from './decoration-model';
 
 /** The business link value object shared by all decoration surfaces. */
 export type DecorationLinkType = 'shop' | 'article' | 'custom' | 'mini_program';
@@ -30,11 +31,31 @@ export interface DecorationItem {
   [key: string]: unknown;
 }
 
+export interface DecorationContent extends Record<string, unknown> {
+  title?: string;
+  title_img?: string;
+  bg_color?: string;
+  bg_image?: string;
+  title_type?: number;
+  bg_type?: number;
+  text_color?: number;
+  time?: string;
+  mobile?: string;
+  qrcode?: string;
+  remark?: string;
+  style?: number;
+  bg_style?: number;
+  per_line?: number;
+  show_line?: number;
+  enabled?: number;
+  data?: DecorationItem[];
+}
+
 export interface DecorationComponent {
   title: string;
   name: string;
   disabled?: 0 | 1;
-  content: Record<string, unknown>;
+  content: DecorationContent;
   styles: Record<string, string | number>;
 }
 
@@ -86,10 +107,14 @@ export function getMobileDecorationLists() {
   );
 }
 
-export function getMobileDecorationDetail(id: number) {
-  return axios.get<DecorationPage>('/adminapi/decoration/mobile/page/detail', {
-    params: { id },
-  });
+export async function getMobileDecorationDetail(id: number) {
+  const response = await axios.get<unknown>(
+    '/adminapi/decoration/mobile/page/detail',
+    {
+      params: { id },
+    }
+  );
+  return { ...response, data: readDecorationPage(response.data) };
 }
 
 export function saveMobileDecoration(data: DecorationSavePayload) {
@@ -117,10 +142,14 @@ export function getPcDecorationLists() {
   );
 }
 
-export function getPcDecorationDetail(id: number) {
-  return axios.get<DecorationPage>('/adminapi/decoration/pc/page/detail', {
-    params: { id },
-  });
+export async function getPcDecorationDetail(id: number) {
+  const response = await axios.get<unknown>(
+    '/adminapi/decoration/pc/page/detail',
+    {
+      params: { id },
+    }
+  );
+  return { ...response, data: readDecorationPage(response.data) };
 }
 
 export function savePcDecoration(data: DecorationSavePayload) {

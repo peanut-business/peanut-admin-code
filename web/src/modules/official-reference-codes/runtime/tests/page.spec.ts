@@ -4,8 +4,14 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 
 import ReferenceCodesPage from '../src/ReferenceCodesPage.vue';
+import contribution from '../../contribution';
+import RuntimePage from '../../RuntimePage.vue';
+import { defineComponent, inject } from 'vue';
+import type { ReferenceCodesRuntime } from '../src/runtime';
+vi.mock('@/hooks/permission', () => ({ hasPermission: () => false }));
+vi.mock('@/utils/auth', () => ({ getToken: () => null }));
+vi.mock('@/router/routes/base', () => ({ DEFAULT_LAYOUT: {} }));
 import {
-  createReferenceCodesModuleContribution,
   createReferenceCodesRuntime,
   REFERENCE_CODES_MODULE_KEY,
   REFERENCE_CODES_READ_PERMISSION,
@@ -139,6 +145,27 @@ const createTransport = (): ReferenceCodesTransport => ({
   ),
 });
 
+it('the adopted reference-code host provides a per-page runtime and disposes it on unmount', () => {
+  const observed: { runtime?: ReferenceCodesRuntime } = {};
+  const child = defineComponent({
+    setup() {
+      const runtime = inject(referenceCodesRuntimeKey);
+      if (!runtime) throw new Error('REFERENCE_CODES_RUNTIME_NOT_PROVIDED');
+      observed.runtime = runtime;
+      return () => null;
+    },
+  });
+  const wrapper = mount(RuntimePage, {
+    global: { stubs: { ReferenceCodesPage: child } },
+  });
+  const runtime = observed.runtime;
+  if (!runtime) throw new Error('REFERENCE_CODES_RUNTIME_NOT_PROVIDED');
+  runtime.state.loading = true;
+  wrapper.unmount();
+  expect(runtime.state.loading).toBe(false);
+  expect(runtime.state.requests.size).toBe(0);
+});
+
 describe('reference-code Tenant page', () => {
   it('exports one Tenant-only read-guarded contribution and fails closed before reads', async () => {
     const transport = createTransport();
@@ -148,20 +175,30 @@ describe('reference-code Tenant page', () => {
       canManage: () => false,
       now: () => '2026-07-20T02:00:00.000Z',
     });
-    const contribution = createReferenceCodesModuleContribution(runtime);
 
     await expect(runtime.loadSets()).rejects.toThrow(
       'REFERENCE_CODES_READ_FORBIDDEN'
     );
     expect(transport.listSets).not.toHaveBeenCalled();
-    expect(contribution.key).toBe(REFERENCE_CODES_MODULE_KEY);
+    expect(contribution.moduleKey).toBe(REFERENCE_CODES_MODULE_KEY);
     expect(contribution.routes).toHaveLength(1);
     expect(contribution.routes[0]).toMatchObject({
-      path: '/app/reference-codes',
-      access: {
-        moduleKey: REFERENCE_CODES_MODULE_KEY,
-        permissionKeys: [REFERENCE_CODES_READ_PERMISSION],
+      path: '/system',
+      meta: {
+        requiresAuth: true,
+        tenantModuleKey: REFERENCE_CODES_MODULE_KEY,
+        requiredPermissions: REFERENCE_CODES_READ_PERMISSION,
       },
+      children: [
+        {
+          path: 'reference-codes',
+          meta: {
+            requiresAuth: true,
+            tenantModuleKey: REFERENCE_CODES_MODULE_KEY,
+            requiredPermissions: REFERENCE_CODES_READ_PERMISSION,
+          },
+        },
+      ],
     });
     expect(
       contribution.routes.some((route) => route.path.startsWith('/platform/'))

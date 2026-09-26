@@ -1,6 +1,4 @@
-import { defineAdminModule } from '@peanut-admin/vue';
 import { inject, reactive } from 'vue';
-import type { AdminModuleContribution } from '@peanut-admin/vue';
 import type { InjectionKey } from 'vue';
 
 import {
@@ -639,28 +637,3 @@ export const useSettingsRuntime = (): SettingsRuntime => {
   if (runtime === null) throw new Error('SETTINGS_RUNTIME_NOT_INSTALLED');
   return runtime;
 };
-
-export const createSettingsModuleContribution = (
-  runtime: SettingsRuntime
-): AdminModuleContribution =>
-  defineAdminModule({
-    key: SETTINGS_MODULE_KEY,
-    routes: [
-      {
-        name: SETTINGS_ROUTE_NAME,
-        path: SETTINGS_ROUTE_PATH,
-        component: () => import('./SettingsPage.vue'),
-        access: {
-          moduleKey: SETTINGS_MODULE_KEY,
-          permissionKeys: [SETTINGS_READ_PERMISSION],
-        },
-      },
-    ],
-    disposeOnTenantChange: true,
-    stores: [
-      {
-        key: SETTINGS_STORE_KEY,
-        dispose: () => runtime.dispose(),
-      },
-    ],
-  });

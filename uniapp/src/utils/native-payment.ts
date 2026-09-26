@@ -9,9 +9,15 @@ function stringField(payload: Record<string, unknown>, key: string): string {
 }
 
 /** Adapt the existing business payment result; only the backend confirms settlement. */
-export async function requestNativePayment(payment: PaymentResult): Promise<void> {
+export async function requestNativePayment(
+  payment: PaymentResult
+): Promise<void> {
   const { payload } = payment;
-  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload)
+  ) {
     throw new Error('PAYMENT_PAYLOAD_INVALID');
   }
   const scene = payment.scene.toUpperCase();
@@ -34,7 +40,10 @@ export async function requestNativePayment(payment: PaymentResult): Promise<void
       options.orderInfo = payload;
     }
   } else if (payment.channel === 'alipay') {
-    options = { provider: 'alipay', orderInfo: stringField(payload, 'order_string') };
+    options = {
+      provider: 'alipay',
+      orderInfo: stringField(payload, 'order_string'),
+    };
   } else {
     throw new Error('支付渠道暂不支持');
   }
@@ -43,7 +52,8 @@ export async function requestNativePayment(payment: PaymentResult): Promise<void
     uni.requestPayment({
       ...options,
       success: () => resolve(),
-      fail: (error: unknown) => reject(error instanceof Error ? error : new Error('支付未完成')),
+      fail: (error: unknown) =>
+        reject(error instanceof Error ? error : new Error('支付未完成')),
     });
   });
 }

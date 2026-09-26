@@ -82,11 +82,35 @@
     }
   });
 
-  function onSexChange(e: any) {
-    sexIndex.value = Number(e.detail.value);
+  function pickerValue(event: unknown): unknown {
+    if (typeof event !== 'object' || event === null || !('detail' in event)) {
+      throw new Error('PICKER_EVENT_INVALID');
+    }
+    const { detail } = event;
+    if (typeof detail !== 'object' || detail === null || !('value' in detail)) {
+      throw new Error('PICKER_EVENT_INVALID');
+    }
+    return detail.value;
   }
-  function onBirthdayChange(e: any) {
-    form.value.birthday = e.detail.value;
+
+  function onSexChange(event: unknown) {
+    const value = pickerValue(event);
+    if (
+      value !== 0 &&
+      value !== 1 &&
+      value !== 2 &&
+      value !== '0' &&
+      value !== '1' &&
+      value !== '2'
+    ) {
+      throw new Error('PICKER_VALUE_INVALID');
+    }
+    sexIndex.value = Number(value);
+  }
+  function onBirthdayChange(event: unknown) {
+    const value = pickerValue(event);
+    if (typeof value !== 'string') throw new Error('PICKER_VALUE_INVALID');
+    form.value.birthday = value;
   }
 
   function chooseAvatar() {

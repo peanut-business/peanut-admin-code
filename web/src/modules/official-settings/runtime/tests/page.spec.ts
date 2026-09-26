@@ -2,19 +2,26 @@
 
 import { flushPromises, mount } from '@vue/test-utils';
 import {
-  ForbiddenState,
-  ModuleUnavailableState,
-  SessionExpiredState,
+  ForbiddenState as ForbiddenStateComponent,
+  ModuleUnavailableState as ModuleUnavailableStateComponent,
+  SessionExpiredState as SessionExpiredStateComponent,
 } from '@peanut-admin/ui-vue';
 import { describe, expect, it, vi } from 'vitest';
-import { nextTick } from 'vue';
+import { nextTick, defineComponent, inject, type Component } from 'vue';
+// Keep the actual component identity without recursively instantiating Vue's
+// entire public-instance type in every test-utils selector overload.
+const ForbiddenState: Component = ForbiddenStateComponent;
+const ModuleUnavailableState: Component = ModuleUnavailableStateComponent;
+const SessionExpiredState: Component = SessionExpiredStateComponent;
 
 import SettingsPage from '../src/SettingsPage.vue';
-import {
-  createSettingsModuleContribution,
-  createSettingsRuntime,
-  settingsRuntimeKey,
-} from '../src/runtime';
+import contribution from '../../contribution';
+import RuntimePage from '../../RuntimePage.vue';
+import type { SettingsRuntime } from '../src/runtime';
+vi.mock('@/hooks/permission', () => ({ hasPermission: () => false }));
+vi.mock('@/utils/auth', () => ({ getToken: () => null }));
+vi.mock('@/router/routes/base', () => ({ DEFAULT_LAYOUT: {} }));
+import { createSettingsRuntime, settingsRuntimeKey } from '../src/runtime';
 import type {
   SettingsTransport,
   SettingsTransportResult,
@@ -842,6 +849,28 @@ describe('settings page runtime', () => {
   });
 });
 
+it('the adopted settings host provides a per-page runtime and disposes it on unmount', () => {
+  const observed: { runtime?: SettingsRuntime } = {};
+  const child = defineComponent({
+    setup() {
+      const runtime = inject(settingsRuntimeKey);
+      if (!runtime) throw new Error('SETTINGS_RUNTIME_NOT_PROVIDED');
+      observed.runtime = runtime;
+      return () => null;
+    },
+  });
+  const wrapper = mount(RuntimePage, {
+    global: { stubs: { SettingsPage: child } },
+  });
+  const runtime = observed.runtime;
+  if (!runtime) throw new Error('SETTINGS_RUNTIME_NOT_PROVIDED');
+  runtime.state.loading = true;
+  wrapper.unmount();
+  expect(runtime.state.loading).toBe(false);
+  expect(runtime.state.groups).toEqual([]);
+  expect(runtime.state.pendingResources.size).toBe(0);
+});
+
 describe('settings module page', () => {
   it('renders session-expired, forbidden, and module-unavailable list failures distinctly', async () => {
     const cases = [
@@ -890,7 +919,8 @@ describe('settings module page', () => {
       await flushPromises();
 
       expect(runtime.state.errors.page?.status).toBe(failure.status);
-      const renderedState = wrapper.findComponent(failure.component);
+      const component: Component = failure.component;
+      const renderedState = wrapper.findComponent(component);
       expect(renderedState.exists()).toBe(true);
       expect(renderedState.text()).toContain(failure.requestId);
       wrapper.unmount();
@@ -958,19 +988,28 @@ describe('settings module page', () => {
     });
     const dispose = vi.spyOn(runtime, 'dispose');
 
-    const contribution = createSettingsModuleContribution(runtime);
-
-    expect(contribution.key).toBe('peanut.settings');
+    expect(contribution.moduleKey).toBe('official.settings');
     expect(contribution.routes[0]).toMatchObject({
-      name: 'peanut.settings.list',
-      path: '/app/settings',
-      access: {
-        moduleKey: 'peanut.settings',
-        permissionKeys: ['peanut.settings.read'],
+      name: 'officialSettingsRoot',
+      path: '/system',
+      meta: {
+        requiresAuth: true,
+        tenantModuleKey: 'official.settings',
+        requiredPermissions: 'official.settings.read',
       },
+      children: [
+        {
+          name: 'OfficialSettings',
+          path: 'settings',
+          meta: {
+            requiresAuth: true,
+            tenantModuleKey: 'official.settings',
+            requiredPermissions: 'official.settings.read',
+          },
+        },
+      ],
     });
-    expect(contribution.disposeOnTenantChange).toBe(true);
-    contribution.stores?.[0]?.dispose();
+    runtime.dispose();
     expect(dispose).toHaveBeenCalledOnce();
   });
 

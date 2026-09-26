@@ -236,7 +236,8 @@ describe('reference-code fetch transport', () => {
     const request = fetcher.mock.calls[0]?.[0];
     const url = new URL(request?.url ?? '');
     expect(url.pathname).toBe(
-      '/adminapi/api/v1/reference-code-sets/example.catalog/service-level/codes'
+      // The adopted generated SDK composes paths with the configured API base.
+      '/root/adminapi/api/v1/reference-code-sets/example.catalog/service-level/codes'
     );
     expect(Object.fromEntries(url.searchParams)).toEqual({
       as_of: '2026-07-20T02:00:00.000Z',

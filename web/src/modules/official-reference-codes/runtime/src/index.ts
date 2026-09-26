@@ -31,7 +31,6 @@ export type {
   ReferenceCodeVersionInput,
 } from './contracts';
 export {
-  createReferenceCodesModuleContribution,
   createReferenceCodesRuntime,
   REFERENCE_CODES_MANAGE_PERMISSION,
   REFERENCE_CODES_MODULE_KEY,

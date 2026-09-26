@@ -16,6 +16,8 @@
     "src/modules/official-import-export/optional-runtime/tests/**/*.ts",
     "src/modules/official-notification/optional-runtime/tests/**/*.ts",
     "src/modules/official-task/optional-runtime/tests/**/*.ts",
+    "src/modules/official-reference-codes/runtime/tests/**/*.ts",
+    "src/modules/official-settings/runtime/tests/**/*.ts",
     "src/env.d.ts"
   ],
   "exclude": []

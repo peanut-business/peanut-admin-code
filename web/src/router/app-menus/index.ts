@@ -2,15 +2,8 @@ import { appRoutes, appExternalRoutes } from '../routes';
 
 const mixinRoutes = [...appRoutes, ...appExternalRoutes];
 
-const appClientMenus = mixinRoutes.map((el) => {
-  const { name, path, meta, redirect, children } = el;
-  return {
-    name,
-    path,
-    meta,
-    redirect,
-    children,
-  };
-});
+// The menu tree and server-menu registry also consume these as route records.
+// Preserve the trusted component/redirect instead of projecting an incomplete route.
+const appClientMenus = mixinRoutes.map((route) => ({ ...route }));
 
 export default appClientMenus;

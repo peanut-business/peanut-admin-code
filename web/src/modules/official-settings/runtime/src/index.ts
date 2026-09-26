@@ -25,7 +25,6 @@ export type {
   UnsetSettingRequest,
 } from './contracts';
 export {
-  createSettingsModuleContribution,
   createSettingsRuntime,
   SETTINGS_MANAGE_PERMISSION,
   SETTINGS_MODULE_KEY,

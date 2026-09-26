@@ -515,33 +515,13 @@
     getMobileDecorationDetail,
     getDecorationArticleOptions,
     saveMobileDecoration,
-    type DecorationComponent,
+    type DecorationComponent as MutableComponent,
+    type DecorationContent as MutableContent,
     type DecorationArticleOption,
     type DecorationItem,
     type DecorationPage,
   } from '@/api/decoration';
 
-  interface MutableContent {
-    [key: string]: unknown;
-    title?: string;
-    bg_color?: string;
-    bg_image?: string;
-    title_type?: number;
-    bg_type?: number;
-    text_color?: number;
-    time?: string;
-    mobile?: string;
-    qrcode?: string;
-    remark?: string;
-    style?: number;
-    per_line?: number;
-    show_line?: number;
-    enabled?: number;
-    data?: DecorationItem[];
-  }
-  interface MutableComponent extends Omit<DecorationComponent, 'content'> {
-    content: MutableContent;
-  }
   interface ThemeValue {
     themeColorId: number;
     topTextColor: 'white' | 'black';
@@ -647,22 +627,18 @@
   });
 
   const components = computed<MutableComponent[]>(() =>
-    Array.isArray(page.data) ? (page.data as unknown as MutableComponent[]) : []
+    Array.isArray(page.data) ? page.data : []
   );
   const metaContent = computed<MutableContent>(() => {
     const list = Array.isArray(page.meta) ? page.meta : [];
-    const meta = list.find(
-      (item) => (item as DecorationComponent).name === 'page-meta'
-    ) as MutableComponent | undefined;
+    const meta = list.find((item) => item.name === 'page-meta');
     if (meta) return meta.content;
     return {};
   });
   const hasMeta = computed(
     () =>
       Array.isArray(page.meta) &&
-      page.meta.some(
-        (item) => (item as DecorationComponent).name === 'page-meta'
-      )
+      page.meta.some((item) => item.name === 'page-meta')
   );
 
   const content = (component: MutableComponent) => component.content;

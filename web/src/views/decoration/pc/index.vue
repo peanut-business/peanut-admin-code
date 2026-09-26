@@ -205,21 +205,11 @@
     getPcDecorationDetail,
     getDecorationArticleOptions,
     savePcDecoration,
-    type DecorationComponent,
+    type DecorationComponent as MutableComponent,
     type DecorationArticleOption,
     type DecorationItem,
     type DecorationPage,
   } from '@/api/decoration';
-
-  interface MutableContent extends Record<string, unknown> {
-    enabled?: number;
-    data?: DecorationItem[];
-  }
-  interface MutableComponent
-    extends Omit<DecorationComponent, 'content' | 'styles'> {
-    content: MutableContent;
-    styles: Record<string, string>;
-  }
 
   const loading = ref(true);
   const submitLoading = ref(false);
@@ -233,9 +223,7 @@
     meta: [],
   });
   const banner = computed<MutableComponent | undefined>(() => {
-    const list = Array.isArray(page.data)
-      ? (page.data as unknown as MutableComponent[])
-      : [];
+    const list = Array.isArray(page.data) ? page.data : [];
     return list.find((component) => component.name === 'pc-banner');
   });
   const items = computed<DecorationItem[]>(() => {

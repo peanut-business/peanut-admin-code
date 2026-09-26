@@ -79,6 +79,7 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue';
   import { onLoad } from '@dcloudio/uni-app';
+  import { requestNativePayment } from '@/utils/native-payment';
   import {
     createRecharge,
     getRechargeConfig,
@@ -190,41 +191,6 @@
     }
 
     throw new Error('当前支付场景暂不支持');
-  }
-
-  function requestNativePayment(payment: PaymentResult): Promise<void> {
-    const payload = payment.payload;
-    const options: Record<string, unknown> = { provider: payment.channel };
-    if (payment.channel === 'wechat') {
-      if (String(payment.scene).toUpperCase() === 'JSAPI') {
-        Object.assign(options, {
-          appId: String(payload.appId || ''),
-          timeStamp: String(payload.timeStamp || ''),
-          nonceStr: String(payload.nonceStr || ''),
-          package: String(payload.package || ''),
-          signType: String(payload.signType || ''),
-          paySign: String(payload.paySign || ''),
-        });
-      } else {
-        options.orderInfo = payload;
-      }
-    } else if (payment.channel === 'alipay') {
-      options.orderInfo = String(payload.order_string || '');
-    } else {
-      return Promise.reject(new Error('支付渠道暂不支持'));
-    }
-
-    return new Promise((resolve, reject) => {
-      const requestPayment = uni.requestPayment as unknown as (
-        params: Record<string, unknown>
-      ) => void;
-      requestPayment({
-        ...options,
-        success: () => resolve(),
-        fail: (error: unknown) =>
-          reject(error instanceof Error ? error : new Error('支付未完成')),
-      });
-    });
   }
 
   function openExternal(url: string) {

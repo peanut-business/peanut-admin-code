@@ -1,6 +1,4 @@
-import { defineAdminModule } from '@peanut-admin/vue';
 import { inject, reactive } from 'vue';
-import type { AdminModuleContribution } from '@peanut-admin/vue';
 import type { InjectionKey } from 'vue';
 
 import {
@@ -984,28 +982,3 @@ export const useReferenceCodesRuntime = (): ReferenceCodesRuntime => {
     throw new Error('REFERENCE_CODES_RUNTIME_NOT_INSTALLED');
   return runtime;
 };
-
-export const createReferenceCodesModuleContribution = (
-  runtime: ReferenceCodesRuntime
-): AdminModuleContribution =>
-  defineAdminModule({
-    key: REFERENCE_CODES_MODULE_KEY,
-    routes: [
-      {
-        name: REFERENCE_CODES_ROUTE_NAME,
-        path: REFERENCE_CODES_ROUTE_PATH,
-        component: () => import('./ReferenceCodesPage.vue'),
-        access: {
-          moduleKey: REFERENCE_CODES_MODULE_KEY,
-          permissionKeys: [REFERENCE_CODES_READ_PERMISSION],
-        },
-      },
-    ],
-    disposeOnTenantChange: true,
-    stores: [
-      {
-        key: REFERENCE_CODES_STORE_KEY,
-        dispose: () => runtime.dispose(),
-      },
-    ],
-  });
