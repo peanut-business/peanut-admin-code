@@ -61,12 +61,6 @@ export interface InstallationExecuteResult {
   health: InstallationHealth;
 }
 
-interface JsonServiceResponse<T> {
-  code: number;
-  msg: string;
-  data: T;
-}
-
 // This client intentionally has no shared request interceptor. The status
 // endpoint is public, and the execute endpoint receives only the one-time
 // setup token supplied by the caller.
@@ -75,10 +69,53 @@ export const installationClient = axios.create({
 });
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function unwrap<T>(response: AxiosResponse<JsonServiceResponse<T>>): T {
+function isPreflightCheck(value: unknown): value is InstallationPreflightCheck {
+  return (
+    isRecord(value) &&
+    ['id', 'status', 'code', 'reason', 'remediation'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string'
+    )
+  );
+}
+
+function isModuleOption(value: unknown): value is InstallationModuleOption {
+  return (
+    isRecord(value) &&
+    typeof value.key === 'string' &&
+    ['name', 'label', 'description'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string'
+    ) &&
+    ['required', 'default', 'selected'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'boolean'
+    )
+  );
+}
+
+function isModuleOptions(
+  value: unknown
+): value is Array<string | InstallationModuleOption> {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === 'string' || isModuleOption(item))
+  );
+}
+
+function isPreflight(value: unknown): value is InstallationPreflight {
+  return (
+    isPreflightCheck(value) &&
+    isRecord(value) &&
+    (value.checks === undefined ||
+      (Array.isArray(value.checks) && value.checks.every(isPreflightCheck))) &&
+    (value.modules === undefined || isModuleOptions(value.modules)) &&
+    (value.official_modules === undefined ||
+      isModuleOptions(value.official_modules))
+  );
+}
+
+function unwrap(response: AxiosResponse<unknown>): unknown {
   const body = response.data;
   if (!isRecord(body) || !('data' in body)) {
     throw new Error('Installation API returned an invalid response.');
@@ -90,7 +127,7 @@ function unwrap<T>(response: AxiosResponse<JsonServiceResponse<T>>): T {
         : 'Installation API returned an error.'
     );
   }
-  return body.data as T;
+  return body.data;
 }
 
 function normalizeStatus(value: unknown): InstallationStatus {
@@ -103,26 +140,38 @@ function normalizeStatus(value: unknown): InstallationStatus {
     deployment_mode: deploymentMode,
     preflight,
     official_modules: officialModules,
+    code,
+    retryable,
+    health,
   } = value;
   if (
-    !['uninstalled', 'installed', 'blocked'].includes(String(state)) ||
-    !['guided', 'automatic'].includes(String(mode)) ||
-    !['standalone', 'multi-tenant'].includes(String(deploymentMode))
+    (state !== 'uninstalled' && state !== 'installed' && state !== 'blocked') ||
+    (mode !== 'guided' && mode !== 'automatic') ||
+    (deploymentMode !== 'standalone' && deploymentMode !== 'multi-tenant')
   ) {
     throw new Error('Installation status returned an invalid state.');
   }
-  if (preflight !== null && preflight !== undefined && !isRecord(preflight)) {
+  if (preflight !== null && preflight !== undefined && !isPreflight(preflight)) {
     throw new Error('Installation status returned an invalid preflight.');
   }
+  if (
+    (officialModules !== undefined && !isModuleOptions(officialModules)) ||
+    (code !== undefined && typeof code !== 'string') ||
+    (retryable !== undefined && typeof retryable !== 'boolean') ||
+    (health !== undefined && health !== null && !isRecord(health))
+  ) {
+    throw new Error('Installation status returned invalid optional fields.');
+  }
   return {
-    ...(value as unknown as InstallationStatus),
-    state: state as InstallationState,
-    mode: mode as InstallationMode,
-    deployment_mode: deploymentMode as InstallationDeploymentMode,
-    preflight: (preflight as InstallationPreflight | null | undefined) || null,
-    official_modules: Array.isArray(officialModules)
-      ? (officialModules as Array<string | InstallationModuleOption>)
-      : undefined,
+    ...value,
+    state,
+    mode,
+    deployment_mode: deploymentMode,
+    preflight: preflight ?? null,
+    official_modules: officialModules,
+    code,
+    retryable,
+    health,
   };
 }
 
@@ -134,17 +183,11 @@ function normalizeExecuteResult(value: unknown): InstallationExecuteResult {
   if (!isRecord(health)) {
     throw new Error('Installation returned an invalid health state.');
   }
-  return {
-    ...(value as unknown as InstallationExecuteResult),
-    state: 'installed',
-    health: health as InstallationHealth,
-  };
+  return { ...value, state: 'installed', health };
 }
 
 export async function getInstallationStatus(): Promise<InstallationStatus> {
-  const response = await installationClient.get<
-    JsonServiceResponse<InstallationStatus>
-  >('/installapi/status');
+  const response = await installationClient.get<unknown>('/installapi/status');
   return normalizeStatus(unwrap(response));
 }
 
@@ -162,12 +205,14 @@ export async function executeInstallation(
     platform_password: payload.platform_password,
     official_modules: [...payload.official_modules],
   };
-  const response = await installationClient.post<
-    JsonServiceResponse<InstallationExecuteResult>
-  >('/installapi/execute', requestPayload, {
-    headers: {
-      Authorization: `Bearer ${setupToken.trim()}`,
-    },
-  });
+  const response = await installationClient.post<unknown>(
+    '/installapi/execute',
+    requestPayload,
+    {
+      headers: {
+        Authorization: `Bearer ${setupToken.trim()}`,
+      },
+    }
+  );
   return normalizeExecuteResult(unwrap(response));
 }
