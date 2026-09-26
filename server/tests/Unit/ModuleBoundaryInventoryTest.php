@@ -104,6 +104,55 @@ final class ModuleBoundaryInventoryTest extends TestCase
         \moduleBoundaryInventory($this->root);
     }
 
+    public function testHostPrivateTypeAndTableRemainFindings(): void
+    {
+        $this->write($this->root . '/server/composer.json', '{"autoload":{"psr-4":{"app\\\\":"app/"}}}');
+        $this->write($this->root . '/server/app/api/Consumer.php', '<?php namespace app\\api; use Fixture\\Beta\\PrivateRecord; new PrivateRecord(); \\think\\facade\\Db::name("beta")->select();');
+        $report = \moduleBoundaryInventory($this->root, true);
+        self::assertSame(1, $report['host_php_files']);
+        self::assertContains('PRIVATE_MODULE_TYPE', array_column($report['findings'], 'code'));
+        self::assertContains('FOREIGN_MODULE_TABLE', array_column($report['findings'], 'code'));
+    }
+
+    public function testHostPublicCapabilityDoesNotDoubleScanModuleSourcesOrMigrations(): void
+    {
+        $this->write($this->root . '/server/composer.json', '{"autoload":{"psr-4":{"app\\\\":"app/"}}}');
+        $this->write($this->root . '/server/app/api/Consumer.php', '<?php namespace app\\api; use Fixture\\Beta\\PublicQueries; new PublicQueries();');
+        $this->write($this->root . '/server/app/modules/fixture/beta/database/migrations/fixture.php', '<?php throw new RuntimeException("not production source"); \\think\\facade\\Db::name("alpha");');
+        $report = \moduleBoundaryInventory($this->root, true);
+        self::assertSame('passed', $report['status']);
+        self::assertSame(2, $report['modules']);
+        self::assertSame(3, $report['php_files']);
+        self::assertSame(1, $report['host_php_files']);
+        self::assertSame(0, $report['composition_type_references']);
+    }
+
+    public function testCompositionRootMayWirePrivateTypesButNotReadPrivateTables(): void
+    {
+        $this->write($this->root . '/server/composer.json', '{"autoload":{"psr-4":{"app\\\\":"app/"}}}');
+        $this->write($this->root . '/server/app/AppService.php', '<?php namespace app; new \\Fixture\\Beta\\PrivateRecord(); \\think\\facade\\Db::name("beta")->select();');
+        $report = \moduleBoundaryInventory($this->root, true);
+        self::assertSame(1, $report['composition_type_references']);
+        self::assertCount(1, $report['findings']);
+        self::assertSame('FOREIGN_MODULE_TABLE', $report['findings'][0]['code']);
+    }
+
+    public function testMissingHostMappingCannotProduceAnEmptyPassingCheck(): void
+    {
+        $this->write($this->root . '/server/composer.json', '{"autoload":{"psr-4":{}}}');
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('MODULE_BOUNDARY_HOST_MAPPING_REQUIRED');
+        \moduleBoundaryInventory($this->root, true);
+    }
+
+    public function testHostMappingCannotEscapeApplicationRoot(): void
+    {
+        $this->write($this->root . '/server/composer.json', '{"autoload":{"psr-4":{"app\\\\":"../"}}}');
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('MODULE_BOUNDARY_HOST_SOURCE_INVALID');
+        \moduleBoundaryInventory($this->root, true);
+    }
+
     protected function tearDown(): void
     {
         foreach (array_keys($this->ownedFiles) as $file) {

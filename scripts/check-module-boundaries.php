@@ -14,15 +14,17 @@ if (!class_exists(ParserFactory::class)) {
 }
 
 /** @return array<string,mixed> */
-function moduleBoundaryInventory(string $root): array
+function moduleBoundaryInventory(string $root, bool $includeHost = false): array
 {
     $modules = [];
     $namespaces = [];
     $tables = [];
     $findings = [];
+    $moduleRoots = [];
     $root = realpath($root) ?: throw new InvalidArgumentException('MODULE_BOUNDARY_ROOT_MISSING');
     foreach (glob($root . '/server/app/modules/*/*/module.json') ?: [] as $manifestPath) {
         $directory = dirname($manifestPath);
+        $moduleRoots[] = $directory;
         $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
         $composer = json_decode((string) file_get_contents($directory . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
         $key = $manifest['key'];
@@ -70,12 +72,32 @@ function moduleBoundaryInventory(string $root): array
         }
         return null;
     };
+    $scanGroups = $modules;
+    if ($includeHost) {
+        $manifest = json_decode((string) file_get_contents($root . '/server/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        $hostMappings = $manifest['autoload']['psr-4']['app\\'] ?? null;
+        if ($hostMappings === null || (array) $hostMappings === []) {
+            throw new RuntimeException('MODULE_BOUNDARY_HOST_MAPPING_REQUIRED');
+        }
+        $hostSources = [];
+        foreach ((array) $hostMappings as $mapping) {
+            $source = is_string($mapping) ? realpath($root . '/server/' . $mapping) : false;
+            if ($source === false || !is_dir($source)
+                || ($source !== $root . '/server/app' && !str_starts_with($source, $root . '/server/app/'))) {
+                throw new RuntimeException('MODULE_BOUNDARY_HOST_SOURCE_INVALID');
+            }
+            $hostSources[$source] = true;
+        }
+        $scanGroups['@host'] = ['sources' => array_keys($hostSources), 'exports' => []];
+    }
     $parser = (new ParserFactory())->createForHostVersion();
     $files = 0;
     $references = 0;
     $literalTables = 0;
+    $hostFiles = 0;
+    $compositionReferences = 0;
     $seenFiles = [];
-    foreach ($modules as $owner => $module) {
+    foreach ($scanGroups as $owner => $module) {
         foreach ($module['sources'] as $directory) {
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
             foreach ($iterator as $file) {
@@ -83,23 +105,29 @@ function moduleBoundaryInventory(string $root): array
                     continue;
                 }
                 $path = $file->getPathname();
+                if ($owner === '@host' && array_filter($moduleRoots, static fn(string $directory): bool => str_starts_with($path, $directory . '/')) !== []) {
+                    continue;
+                }
                 if (isset($seenFiles[$path])) {
                     continue;
                 }
                 $seenFiles[$path] = true;
                 $files++;
+                $hostFiles += (int) ($owner === '@host');
                 $relative = substr($path, strlen($root) + 1);
+                $composition = $owner === '@host' && $relative === 'server/app/AppService.php';
                 $nodes = $parser->parse((string) file_get_contents($path)) ?? [];
                 $traverser = new NodeTraverser();
                 $traverser->addVisitor(new NameResolver());
                 $nodes = $traverser->traverse($nodes);
-                $visit = function (Node $node) use (&$visit, $owner, $ownerOf, $modules, $tables, $relative, &$findings, &$references, &$literalTables): void {
+                $visit = function (Node $node) use (&$visit, $owner, $ownerOf, $modules, $tables, $relative, $composition, &$findings, &$references, &$literalTables, &$compositionReferences): void {
                     if ($node instanceof Node\Name\FullyQualified) {
                         $target = $node->toString();
                         $targetOwner = $ownerOf($target);
                         if ($targetOwner !== null && $targetOwner !== $owner) {
                             $references++;
-                            if (!isset($modules[$targetOwner]['exports'][$target])) {
+                            $compositionReferences += (int) $composition;
+                            if (!$composition && !isset($modules[$targetOwner]['exports'][$target])) {
                                 $id = $relative . ':' . $node->getStartFilePos() . ':type:' . $target;
                                 $findings[$id] = ['code' => 'PRIVATE_MODULE_TYPE', 'path' => $relative, 'line' => $node->getStartLine(), 'owner' => $owner, 'target_owner' => $targetOwner, 'target' => $target];
                             }
@@ -139,8 +167,10 @@ function moduleBoundaryInventory(string $root): array
     ksort($findings, SORT_STRING);
     return [
         'status' => $findings === [] ? 'passed' : 'failed',
-        'scope' => 'Current module Composer sources, resolved static PHP names and literal table calls; not computed class names, arbitrary SQL or runtime authorization.',
+        'scope' => ($includeHost ? 'Current module and native app Composer sources; AppService type wiring counted separately. ' : 'Current module Composer sources. ')
+            . 'Resolved static PHP names and literal table calls; not computed class names, arbitrary SQL or runtime authorization.',
         'modules' => count($modules), 'php_files' => $files,
+        'host_php_files' => $hostFiles, 'composition_type_references' => $compositionReferences,
         'cross_module_type_references' => $references, 'literal_table_calls' => $literalTables,
         'declared_tables' => count($tables), 'findings' => array_values($findings),
     ];
@@ -148,10 +178,11 @@ function moduleBoundaryInventory(string $root): array
 
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
     try {
-        if (count($argv) > 1) {
-            throw new InvalidArgumentException('Usage: php scripts/check-module-boundaries.php');
+        $arguments = array_slice($argv, 1);
+        if ($arguments !== [] && $arguments !== ['--include-host']) {
+            throw new InvalidArgumentException('Usage: php scripts/check-module-boundaries.php [--include-host]');
         }
-        $report = moduleBoundaryInventory(dirname(__DIR__));
+        $report = moduleBoundaryInventory(dirname(__DIR__), $arguments === ['--include-host']);
         echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), PHP_EOL;
         exit($report['status'] === 'passed' ? 0 : 1);
     } catch (Throwable $error) {

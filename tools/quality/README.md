@@ -103,6 +103,8 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 检查器自身的正反例见 `server/tests/Unit/ModuleBoundaryInventoryTest.php`，其中源文本包含副作用也不得被执行，别名不能隐藏私有类型，同一行多处违规分别计数，租户条件不使私表变成公开能力。`scripts/check-test-integrity` 另核测试是否有真实失败路径。旧TPQ历史问题队列的闭合状态不适用于当前迁移；以上检查只证明各自范围，不替代其他仍有效的框架行为、安全测试或人工代码审阅。
 
+增加 `--include-host` 时，同一检查器还读取 `server/composer.json` 的原生 `app\\` 映射，覆盖宿主 PHP；不将模块迁移脚本算作宿主源码，也不重复扫描模块。应用组合根 `server/app/AppService.php` 的类型装配单独计数，但组合根不因此获得任意私表访问豁免；其他宿主发现的未公开类型和私表访问仍须逐项审阅，不能把原模块-only结果称为宿主已经覆盖。检查器保持语法树只读、不执行扫描源码；缺失映射或越出宿主目录不能空集合通过。
+
 旧 TPQ 的模型路径按当前 `server/composer.json` 最长 PSR-4 前缀解析，核精确大小写、路径边界和重复映射；已公开的业务类以 `module.json` 声明识别，不仅凭 `Service` 目录名判为内部。对应正反例执行 `python3 scripts/tests/thinkphp-source-resolution-test.py`。这些修复不自动补齐历史模型/表登记，也不更新旧问题清单的验收状态；CLI 的登记失败与纯规则/框架行为通过须分别记录。
 
 ## 结果范围

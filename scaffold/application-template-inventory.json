@@ -2796,7 +2796,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3d8a6443db9f0afd725f8b7a820890a88e86b517bd87d386c6e009428ab65c4b"
+            "source_sha256": "9b5034b9d6be2ccc03c1d2aeacd32ddbc30749fba2cc4ae9bc7ed3cb21d3d291"
         },
         {
             "path": "scripts/check-openapi",
@@ -27626,7 +27626,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24e1b7bb72529053e6ac43ee1f6879ddc542db56ae39b8274581d7e2e0d3c791"
+            "source_sha256": "d7af4ea2f2853b77328e116248b95d5ae758fb31373279db3fed1e6b820e27f5"
         },
         {
             "path": "tools/quality/composer.json",
