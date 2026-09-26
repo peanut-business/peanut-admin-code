@@ -3051,7 +3051,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce86367ef903a3a8b763073ef5478fd25ea140ed88deaf53229b42577a9be53f"
+            "source_sha256": "e960faec11b3ad8e9e04fc2f0ca4690a0285651b0843c1eae90ed9ebb1587020"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
@@ -3707,6 +3707,20 @@
                 "full"
             ],
             "source_sha256": "0f601682ed559da4a6ecfd7effd5e6b0db2910fb90e9f7279d536ce0bf7627a0"
+        },
+        {
+            "path": "scripts/tests/freeze-core-native-types-test.py",
+            "target": "scripts/tests/freeze-core-native-types-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c272fb563c2169e5a710e323912a0b9b90991d4076fd397bdd187490855adec2"
         },
         {
             "path": "scripts/tests/freeze-core-release-test.py",
