@@ -38,4 +38,36 @@ final readonly class TenantModuleStateQueries
             ->where(fn($query) => $query->whereNull('expires_at')->whereOr('expires_at', '>', Db::raw('CURRENT_TIMESTAMP(3)')))
             ->order('module_key')->column('module_key')));
     }
+
+    /**
+     * 生命周期阻断按已启用登记，不按当前可用时间或租户状态过滤；不可复用activeModuleKeys缩小阻断。
+     * @return array<string,int>
+     */
+    public function enabledCounts(): array
+    {
+        $counts = [];
+        $rows = Db::name('tenant_module')->where('status', 'enabled')
+            ->field('module_key')->fieldRaw('COUNT(*) AS enabled_count')->group('module_key')->select()->toArray();
+        foreach ($rows as $row) {
+            $counts[(string) $row['module_key']] = (int) $row['enabled_count'];
+        }
+        return $counts;
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function hasEnabledModules(array $moduleKeys): bool
+    {
+        return $moduleKeys !== [] && Db::name('tenant_module')->whereIn('module_key', $moduleKeys)
+            ->where('status', 'enabled')->count() !== 0;
+    }
+
+    /** 每条启用登记保留一个键，重复值参与现有卸载计划，不返回租户配置或账户信息。 @param list<string> $moduleKeys @return list<string> */
+    public function enabledModuleReferences(array $moduleKeys): array
+    {
+        if ($moduleKeys === []) {
+            return [];
+        }
+        return array_map('strval', Db::name('tenant_module')->whereIn('module_key', $moduleKeys)
+            ->where('status', 'enabled')->order('module_key')->column('module_key'));
+    }
 }
