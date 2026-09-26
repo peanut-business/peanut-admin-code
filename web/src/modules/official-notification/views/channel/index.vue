@@ -146,12 +146,10 @@
   const saving = reactive({ aliyun: false, tencent: false });
 
   const fetchDetail = async () => {
-    const res = await getNoticeChannelDetail();
-    const data = res.data as unknown as NoticeChannelDetail;
+    const { data } = await getNoticeChannelDetail();
     detail.value = data;
-    const d = data;
-    Object.assign(aliyunForm, d.sms_aliyun ?? {});
-    Object.assign(tencentForm, d.sms_tencent ?? {});
+    Object.assign(aliyunForm, data.sms_aliyun);
+    Object.assign(tencentForm, data.sms_tencent);
   };
 
   const providerName = (provider?: string) => {
@@ -192,7 +190,7 @@
   .section-title {
     margin: 0 0 16px;
     color: var(--el-text-color-primary);
-    font-size: 16px;
     font-weight: 600;
+    font-size: 16px;
   }
 </style>
