@@ -8,9 +8,8 @@ use app\platform\exception\plugin\PluginLifecycleException;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer;
-use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Modules\Identity\Menu\MenuCatalogSynchronizer;
-use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
+use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionLoader;
@@ -24,7 +23,11 @@ use think\facade\Db;
 /** The single application entry point for applying, retiring, and purging Module catalog contributions. */
 final readonly class ModuleCatalogApplier
 {
-    public function __construct(private SettingDefinitionSynchronizer $settings) {}
+    public function __construct(
+        private SettingDefinitionSynchronizer $settings,
+        private ModuleAuthorizationCatalogSynchronizer $authorization,
+        private MenuCatalogRepository $menuCatalog,
+    ) {}
 
     /**
      * @param null|list<string> $moduleKeys Null applies the complete compiled registry; a list applies only that scope.
@@ -50,13 +53,11 @@ final readonly class ModuleCatalogApplier
         $compiledScope = $this->scope($registry, $selected);
         $before = $this->catalogRevision();
         Db::transaction(function () use ($compiledScope, $fullRegistry, $registry, $selected, $selectedKeys): void {
-            (new ModuleAuthorizationCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))
-                ->synchronize($compiledScope);
+            $this->authorization->synchronize($compiledScope);
 
-            $menuRepository = new ThinkPhpMenuCatalogRepository();
             $menus = $fullRegistry
-                ? $menuRepository
-                : new ScopedMenuCatalogRepository($menuRepository, $selectedKeys);
+                ? $this->menuCatalog
+                : new ScopedMenuCatalogRepository($this->menuCatalog, $selectedKeys);
             (new MenuCatalogSynchronizer($menus))->synchronize($fullRegistry ? $registry : $compiledScope);
 
             $settings = new SettingDefinitionRegistry();

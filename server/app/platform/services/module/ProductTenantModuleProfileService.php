@@ -15,7 +15,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\TenantModuleManager;
 use think\facade\Db;
 
@@ -45,7 +45,7 @@ final readonly class ProductTenantModuleProfileService
 
     /** @param array<string,mixed> $deploymentConfig */
     public function __construct(
-        private ThinkPhpModuleRuntimeRepository $moduleRuntime,
+        private ModuleRuntimeRepository $moduleRuntime,
         private ThinkPhpModuleGovernanceProvider $moduleGovernance,
         private AuditContractHost $audit,
     ) {}

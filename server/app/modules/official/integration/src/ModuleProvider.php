@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Integration;
 use PeanutAdmin\Modules\Integration\Application\MachineScopeCatalog;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
 use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindings;
+use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantAudit;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantBindingRepository;
 use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
@@ -42,6 +43,9 @@ final class ModuleProvider implements ModuleProviderContract
             ExternalChannelBindingStore::class => ThinkPhpExternalTenantBindingRepository::class,
             ExternalTenantResolutionService::class => ExternalTenantResolver::class,
             ExternalChannelBindings::class => ExternalChannelBindingService::class,
+            ExternalIntegrationBootstrapCommands::class => fn(App $app): ExternalIntegrationBootstrapCommands => new ExternalIntegrationBootstrapCommands(
+                $app->make(ExternalChannelBindingStore::class),
+            ),
             IntegrationSecurityRepository::class => ThinkPhpIntegrationSecurityRepository::class,
             HostAddressResolver::class => SystemHostAddressResolver::class,
             WebhookDestinationPolicy::class => fn(App $app): WebhookDestinationPolicy => new WebhookDestinationPolicy(

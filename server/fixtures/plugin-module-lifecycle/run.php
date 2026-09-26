@@ -245,7 +245,13 @@ $config = [
     'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web'],
 ];
-$catalogs = new ModuleCatalogApplier(new SettingDefinitionSynchronizer());
+$catalogs = new ModuleCatalogApplier(
+    new SettingDefinitionSynchronizer(),
+    new \PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer(
+        new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository(),
+    ),
+    new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(),
+);
 $artifact = null;
 $repairArtifact = null;
 try {

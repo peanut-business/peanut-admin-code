@@ -42,6 +42,8 @@ use app\common\services\ProductAssetReferenceService;
 use app\common\services\authorization\MenuPermissionUsageQuery;
 use app\common\runtime\authorization\RoleAdministrationRuntime;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
+use PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuditDiagnosticQuery;
 use PeanutAdmin\Modules\Identity\Contract\PlatformAuditDiagnosticQuery;
 use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
@@ -177,6 +179,10 @@ class AppService extends Service
         $this->app->bind(PasswordHasher::class, fn(): PasswordHasher => ApplicationPasswordPolicy::hasher());
         $this->app->bind(ModuleCatalogApplier::class, fn(): ModuleCatalogApplier => new ModuleCatalogApplier(
             $this->app->make(SettingDefinitionSynchronizer::class),
+            new ModuleAuthorizationCatalogSynchronizer(
+                $this->app->make(\PeanutAdmin\Kernel\Authorization\Persistence\AuthorizationCatalogRepository::class),
+            ),
+            $this->app->make(\PeanutAdmin\Kernel\Menu\MenuCatalogRepository::class),
         ));
         $this->app->bind(IdempotencyService::class, fn(): IdempotencyService => new IdempotencyService(
             $this->app->make(TenantPersistenceConfiguration::class)->mode,
@@ -199,6 +205,7 @@ class AppService extends Service
         );
         $this->app->bind(AuditContractHost::class, fn(): AuditContractHost => new AuditContractHost(
             $this->app->make(CurrentExecutionContext::class),
+            $this->app->make(AuditService::class),
         ));
         $this->app->bind(OperationLogService::class, fn(): OperationLogService => new OperationLogService(
             $this->app->make(AuditContractHost::class),
@@ -252,21 +259,29 @@ class AppService extends Service
         $this->app->bind(AdminPermissionPolicy::class, fn(): AdminPermissionPolicy =>
             CoreServiceOverrides::adminPermissionPolicy());
         $this->app->bind(\PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository::class, ThinkPhpTenantAuthorizationRepository::class);
+        $this->app->bind(
+            \PeanutAdmin\Kernel\Authorization\Persistence\AuthorizationCatalogRepository::class,
+            \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository::class,
+        );
         $this->app->bind(\PeanutAdmin\Kernel\Menu\MenuCatalogRepository::class, ThinkPhpMenuCatalogRepository::class);
         $this->app->bind(AdminAuthorizationService::class, fn(): AdminAuthorizationService => new AdminAuthorizationService(
             $this->app->make(CoreTenantModuleAdminBridge::class),
             $this->app->make(AdminPermissionPolicy::class),
             $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory::class),
+            $this->app->make(AdminDirectoryQuery::class),
+            $this->app->make(TenantAuthorizationQuery::class),
         ));
         $this->app->bind(AdminAuthorizationQuery::class, fn(): AdminAuthorizationQuery => $this->app->make(AdminAuthorizationService::class));
         $this->app->bind(CoreTenantModuleAdminBridge::class, fn(): CoreTenantModuleAdminBridge => new CoreTenantModuleAdminBridge(
             $this->app->make(ThinkPhpModuleGovernanceProvider::class),
             $this->app->make(\PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository::class),
             $this->app->make(\PeanutAdmin\Kernel\Menu\MenuCatalogRepository::class),
+            $this->app->make(TenantAuthorizationQuery::class),
         ));
         $this->app->bind(RoleAdministrationRuntime::class, fn(): RoleAdministrationRuntime => new RoleAdministrationRuntime(
             new RoleAdminService($this->app->make(AuditService::class)),
             $this->app->make(AdminAuthorizationService::class),
+            $this->app->make(TenantAuthorizationQuery::class),
         ));
         $this->app->bind(AdminDirectoryQuery::class, fn(): AdminDirectoryQuery => new AdminDirectoryQuery(
             $this->app->make(CurrentExecutionContext::class),

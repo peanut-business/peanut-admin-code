@@ -11,18 +11,19 @@ use app\common\contract\audit\AuditEvent;
 use app\common\contract\audit\AuditResource;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
-use PeanutAdmin\Modules\Identity\Audit\Model\PlatformAuditEventRecord;
-use PeanutAdmin\Modules\Identity\Audit\Model\TenantAuditEventRecord;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use think\facade\Db;
 
 final class AuditContractHost
 {
     private OperationLogProjection $operationLogs;
+    private AuditService $identityAudit;
 
-    public function __construct(?CurrentExecutionContext $execution)
+    public function __construct(?CurrentExecutionContext $execution, ?AuditService $identityAudit = null)
     {
         $this->operationLogs = new OperationLogProjection($execution);
+        $this->identityAudit = $identityAudit ?? new AuditService();
     }
 
     public function record(AuditEvent $event): void
@@ -185,24 +186,23 @@ final class AuditContractHost
     private function appendPlatformEvent(AuditEvent $event): void
     {
         $actor = $event->actor;
-        (new PlatformAuditEventRecord())->save([
-            'event_type' => $event->eventType,
-            'action' => $event->operation,
-            'outcome' => $event->outcome->value,
-            'reason_code' => $event->reasonCode,
-            'operator_id' => $actor->platformOperatorId,
-            'account_id' => $actor->accountId,
-            'target_type' => $event->resource?->type,
-            'target_id' => $event->resource?->id,
-            'request_id' => $event->trace->requestId,
-            'operation_id' => $event->trace->operationId,
-            'ip_address' => $event->trace->ipAddress,
-            'user_agent_hash' => $event->trace->userAgentHash,
-            'before_json' => RedactionPolicy::nullableJson($event->before),
-            'after_json' => RedactionPolicy::nullableJson($event->after),
-            'metadata_json' => RedactionPolicy::nullableJson($event->metadata),
-            'occurred_at' => Db::raw('UTC_TIMESTAMP(3)'),
-        ]);
+        $this->identityAudit->appendPlatformEvent(
+            $event->eventType,
+            $event->operation,
+            $event->outcome->value,
+            $event->reasonCode,
+            $actor->platformOperatorId,
+            $actor->accountId,
+            $event->resource?->type,
+            $event->resource?->id,
+            $event->trace->requestId,
+            $event->trace->operationId,
+            $event->trace->ipAddress,
+            $event->trace->userAgentHash,
+            RedactionPolicy::nullableJson($event->before),
+            RedactionPolicy::nullableJson($event->after),
+            RedactionPolicy::nullableJson($event->metadata),
+        );
     }
 
     private function appendTenantEvent(AuditEvent $event): void
@@ -211,34 +211,33 @@ final class AuditContractHost
             throw new \InvalidArgumentException('AUDIT_TENANT_REQUIRED');
         }
         $actor = $event->actor;
-        (new TenantAuditEventRecord())->save([
-            'tenant_id' => $event->tenantId,
-            'event_type' => $event->eventType,
-            'action' => $event->operation,
-            'outcome' => $event->outcome->value,
-            'reason_code' => $event->reasonCode,
-            'actor_tenant_id' => $actor->type === AuditActor::TENANT_MEMBER || $actor->type === AuditActor::TENANT_SYSTEM
+        $this->identityAudit->appendTenantEvent(
+            $event->tenantId,
+            $event->eventType,
+            $event->operation,
+            $event->outcome->value,
+            $event->reasonCode,
+            $actor->type === AuditActor::TENANT_MEMBER || $actor->type === AuditActor::TENANT_SYSTEM
                 ? $actor->tenantId
                 : null,
-            'actor_tenant_member_id' => $actor->tenantMemberId,
-            'actor_account_id' => $actor->accountId,
-            'actor_platform_operator_id' => $actor->platformOperatorId,
-            'actor_type' => $actor->type,
-            'target_resource_type' => $event->resource?->type,
-            'target_resource_id' => $event->resource?->id,
-            'boundary_target_type' => $event->boundaryTarget?->type,
-            'boundary_target_id' => $event->boundaryTarget?->id,
-            'target_count' => $event->targetCount,
-            'target_set_digest' => $event->targetSetDigest,
-            'authorization_basis_json' => RedactionPolicy::nullableJson($event->authorizationBasis),
-            'request_id' => $event->trace->requestId,
-            'operation_id' => $event->trace->operationId,
-            'ip_address' => $event->trace->ipAddress,
-            'user_agent_hash' => $event->trace->userAgentHash,
-            'before_json' => RedactionPolicy::nullableJson($event->before),
-            'after_json' => RedactionPolicy::nullableJson($event->after),
-            'metadata_json' => RedactionPolicy::nullableJson($event->metadata),
-            'occurred_at' => Db::raw('UTC_TIMESTAMP(3)'),
-        ]);
+            $actor->tenantMemberId,
+            $actor->accountId,
+            $actor->platformOperatorId,
+            $actor->type,
+            $event->resource?->type,
+            $event->resource?->id,
+            $event->boundaryTarget?->type,
+            $event->boundaryTarget?->id,
+            $event->targetCount,
+            $event->targetSetDigest,
+            RedactionPolicy::nullableJson($event->authorizationBasis),
+            $event->trace->requestId,
+            $event->trace->operationId,
+            $event->trace->ipAddress,
+            $event->trace->userAgentHash,
+            RedactionPolicy::nullableJson($event->before),
+            RedactionPolicy::nullableJson($event->after),
+            RedactionPolicy::nullableJson($event->metadata),
+        );
     }
 }

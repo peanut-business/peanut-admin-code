@@ -6,7 +6,7 @@ namespace app\platform\services;
 
 use PeanutAdmin\Modules\Notification\Contract\NotificationBootstrapCommands;
 use PeanutAdmin\Modules\Task\Contract\TaskBootstrapCommands;
-use PeanutAdmin\Modules\Integration\Contract\ExternalChannelBindingStore;
+use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
 use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
@@ -17,11 +17,9 @@ use app\common\model\setting\TransactionSetting;
 use app\common\model\setting\CustomerServiceSetting;
 use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
-use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
-use PeanutAdmin\Modules\Identity\Persistence\Model\RolePermission;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
 use think\DbManager;
 use think\db\PDOConnection;
-use think\db\Raw;
 
 /** Seeds the application-owned defaults that every new Tenant must receive. */
 final readonly class ApplicationTenantBootstrapService
@@ -45,7 +43,8 @@ final readonly class ApplicationTenantBootstrapService
         private TaskBootstrapCommands $tasks,
         private ExecutionContextStore $executionContexts,
         private TenantSettingService $tenantSettings,
-        private ExternalChannelBindingStore $externalBindings,
+        private ExternalIntegrationBootstrapCommands $externalBindings,
+        private TenantAuthorizationCommands $authorization,
         private DbManager $database,
     ) {}
 
@@ -108,21 +107,12 @@ final readonly class ApplicationTenantBootstrapService
 
     private function grantOwnerPermissions(int $tenantId, int $ownerMemberId, int $ownerRoleId): void
     {
-        $permissionIds = array_map('intval', Permission::where('module_key', 'peanut.admin')
-            ->where('status', 'active')->column('id'));
-        $existing = $permissionIds === [] ? [] : array_map('intval', RolePermission::where('tenant_id', $tenantId)
-            ->where('role_id', $ownerRoleId)
-            ->whereIn('permission_id', $permissionIds)->column('permission_id'));
-        $missing = array_values(array_diff($permissionIds, $existing));
-        if ($missing !== []) {
-            (new RolePermission())->saveAll(array_map(static fn(int $permissionId): array => [
-                'tenant_id' => $tenantId,
-                'role_id' => $ownerRoleId,
-                'permission_id' => $permissionId,
-                'granted_by_member_id' => $ownerMemberId,
-                'granted_at' => new Raw('UTC_TIMESTAMP(3)'),
-            ], $missing));
-        }
+        $this->authorization->grantActiveModulePermissions(
+            $tenantId,
+            $ownerMemberId,
+            $ownerRoleId,
+            'peanut.admin',
+        );
     }
 
     private function seedCrontab(): void

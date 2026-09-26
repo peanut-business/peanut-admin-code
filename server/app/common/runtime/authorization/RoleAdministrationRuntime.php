@@ -8,7 +8,7 @@ use app\common\services\authorization\AdminAuthorizationService;
 use app\common\model\auth\SystemMenu;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
-use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 
 /** Container-owned assembly and read projections for native Tenant roles. */
 final readonly class RoleAdministrationRuntime
@@ -16,6 +16,7 @@ final readonly class RoleAdministrationRuntime
     public function __construct(
         private RoleAdminService $roles,
         private AdminAuthorizationService $authorization,
+        private TenantAuthorizationQuery $identityAuthorization,
     ) {}
 
     public function service(): RoleAdminService
@@ -41,7 +42,7 @@ final readonly class RoleAdministrationRuntime
 
     public function memberCount(int $tenantId, int $roleId): int
     {
-        return MemberRole::where('tenant_id', $tenantId)->where('role_id', $roleId)->count();
+        return $this->identityAuthorization->roleMemberCount($tenantId, $roleId);
     }
 
     /** @param list<int> $menuIds @return list<string> */

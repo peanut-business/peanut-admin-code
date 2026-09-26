@@ -12,7 +12,7 @@ use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\exception\plugin\PluginLifecycleException;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use think\console\Input;
 use think\console\Output;
 use think\console\input\Option;
@@ -42,7 +42,7 @@ final class TenantModuleEnableLockedPrivate extends ModuleContextualCommand
             $root = dirname(__DIR__, 2);
             $governance = new ThinkPhpModuleGovernanceProvider($root, $config, $this->moduleCatalogs());
             $service = new ProductTenantModuleProfileService(
-                new ThinkPhpModuleRuntimeRepository($governance->registry()->compiled(), true),
+                app(ModuleRuntimeRepository::class),
                 $governance,
                 app(AuditContractHost::class),
             );

@@ -8,7 +8,7 @@ use app\common\services\audit\AuditContractHost;
 use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use app\common\execution\ModuleContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
@@ -37,7 +37,7 @@ final class TenantModuleProfile extends ModuleContextualCommand
                 $this->moduleCatalogs(),
             );
             $result = (new ProductTenantModuleProfileService(
-                new ThinkPhpModuleRuntimeRepository($governance->registry()->compiled(), true),
+                app(ModuleRuntimeRepository::class),
                 $governance,
                 app(AuditContractHost::class),
             ))->apply(trim((string) $input->getArgument('profile')));

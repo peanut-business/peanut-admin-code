@@ -112,7 +112,9 @@
             "PeanutAdmin\\Modules\\Identity\\Contract\\PlatformAuditDiagnosticQuery",
             "PeanutAdmin\\Modules\\Identity\\Contract\\PlatformOperatorIdentityQuery",
             "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccess",
-            "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccessException"
+            "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccessException",
+            "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationQuery",
+            "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationCommands"
         ],
         "events": []
     },

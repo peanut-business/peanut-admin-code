@@ -39,7 +39,8 @@
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantResolutionService",
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantResolutionException",
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalChannelBindings",
-            "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalProvider"
+            "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalProvider",
+            "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalIntegrationBootstrapCommands"
         ],
         "events": []
     },

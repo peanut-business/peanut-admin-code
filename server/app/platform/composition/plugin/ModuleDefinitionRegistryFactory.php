@@ -9,8 +9,6 @@ use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\platform\validation\module\ReflectionContractInspector;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
-use PeanutAdmin\Modules\Identity\DataPermission\Persistence\Schema\DataPermissionSchema;
-use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
 use PeanutAdmin\Kernel\Idempotency\IdempotencySchema;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -111,6 +109,7 @@ final readonly class ModuleDefinitionRegistryFactory
         }
 
         $kernelRoot = dirname((new \ReflectionClass(ModuleProvider::class))->getFileName(), 3);
+        $reservedTableOwners = $this->historicalBusinessTableOwners();
         $compiler = new ModuleRegistryCompiler(
             new OpisManifestSchemaValidator($kernelRoot . '/resources/schemas/module-manifest.schema.json'),
             new StrictVersionConstraintMatcher(),
@@ -120,17 +119,16 @@ final readonly class ModuleDefinitionRegistryFactory
             $layout,
             [
                 ...KernelSchema::tableNames(),
-                ...AuthorizationSchema::tableNames(),
                 ...ModuleSchema::tableNames(),
                 ...IdempotencySchema::tableNames(),
-                ...DataPermissionSchema::tableNames(),
+                ...array_keys($reservedTableOwners),
             ],
             $clients,
             [
                 ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT,
                 ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM,
             ],
-            $this->historicalBusinessTableOwners(),
+            $reservedTableOwners,
         );
         $registry = $compiler->compile($documents);
         (new ModuleBoundaryChecker($registry, $layout, ['pa_']))->check();

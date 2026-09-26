@@ -11,9 +11,7 @@ use PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository;
 use PeanutAdmin\Kernel\Menu\MenuDefinition;
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Menu\MenuRegistry;
-use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
-use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
-use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 
 /**
  * Adapts the Core Module/TenantModule catalog to the Admin Shell menu payload.
@@ -48,6 +46,7 @@ final readonly class CoreTenantModuleAdminBridge
         private ThinkPhpModuleGovernanceProvider $moduleGovernance,
         private TenantAuthorizationRepository $authorization,
         private MenuCatalogRepository $menuCatalog,
+        private TenantAuthorizationQuery $identityAuthorization,
     ) {}
 
     /** @return array{menu:list<array<string,mixed>>,permissions:list<string>} */
@@ -132,8 +131,7 @@ final readonly class CoreTenantModuleAdminBridge
                 static fn(string $moduleKey): bool => isset($installed[$moduleKey]),
             ),
         ]));
-        return array_values(array_map('strval', Permission::where('status', 'active')
-            ->whereIn('module_key', $active)->distinct(true)->order('key')->column('key')));
+        return $this->identityAuthorization->registeredPermissionKeys($active);
     }
 
     /** @return list<string> */
@@ -177,14 +175,7 @@ final readonly class CoreTenantModuleAdminBridge
     /** @return list<string> */
     private function applicationPermissions(TenantContext $context): array
     {
-        return array_values(array_map('strval', Tenant::alias('tenant')
-            ->join('tenant_member member', "member.tenant_id=tenant.id AND member.status='active'")
-            ->join('member_role membership', 'membership.tenant_id=tenant.id AND membership.tenant_member_id=member.id')
-            ->join('role role', "role.tenant_id=tenant.id AND role.id=membership.role_id AND role.status='active'")
-            ->join('role_permission binding', 'binding.tenant_id=tenant.id AND binding.role_id=role.id')
-            ->join('permission permission', "permission.id=binding.permission_id AND permission.module_key='peanut.admin' AND permission.status='active'")
-            ->where('tenant.id', $context->tenantId)->where('tenant.status', 'active')->where('member.id', $context->memberId)
-            ->distinct(true)->order('permission.key')->column('permission.key')));
+        return $this->identityAuthorization->applicationPermissionKeys($context);
     }
 
     /**
@@ -234,10 +225,6 @@ final readonly class CoreTenantModuleAdminBridge
 
     private function isTenantOwner(TenantContext $context): bool
     {
-        return MemberRole::alias('membership')
-            ->join('role role', "role.tenant_id=membership.tenant_id AND role.id=membership.role_id AND role.`key`='core.tenant-owner' AND role.is_builtin=1 AND role.status='active'")
-            ->where('membership.tenant_id', $context->tenantId)
-            ->where('membership.tenant_member_id', $context->memberId)
-            ->value('membership.tenant_member_id') !== null;
+        return $this->identityAuthorization->isTenantOwner($context);
     }
 }

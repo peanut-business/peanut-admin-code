@@ -11,7 +11,7 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Host\AuthorizedExternalOperation;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantColumnScope;
 use PeanutAdmin\Kernel\Persistence\Tenancy\TenantPersistenceMode;
-use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
+use PeanutAdmin\Modules\Identity\Tenancy\Application\TenantWorkspaceQueryService;
 use PeanutAdmin\Kernel\Persistence\Model\EditionTenantModel;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use PeanutAdmin\Modules\Settings\Cache\RevisionedSettingCache;
@@ -36,6 +36,7 @@ final readonly class SettingResolver
         private RevisionedSettingCache $cache,
         private TenantPersistenceMode $persistenceMode = TenantPersistenceMode::TenantScoped,
         private ?int $instanceTenantId = null,
+        private ?TenantWorkspaceQueryService $tenants = null,
     ) {
         $this->tenantColumnScope = new TenantColumnScope($this->persistenceMode, $this->instanceTenantId);
     }
@@ -567,7 +568,9 @@ final readonly class SettingResolver
         $scope = $this->tenantScope($tenantId);
 
         return Db::transaction(function () use ($definition, $scope, $targetResourceKey, $targetId): array {
-            if (!Tenant::where('id', $scope->tenantId())->find() instanceof Tenant) {
+            try {
+                ($this->tenants ?? new TenantWorkspaceQueryService())->tenant($scope->tenantId());
+            } catch (\Throwable) {
                 throw SettingException::notFound();
             }
             $definitionRow = $this->definitionRow($definition);

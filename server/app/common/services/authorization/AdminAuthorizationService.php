@@ -17,11 +17,9 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
-use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
-use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
-use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
-use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Platform\InstanceControlPlanePolicy;
 
 /** Tenant Admin identity, RBAC and access projection service. */
@@ -31,6 +29,8 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         private readonly CoreTenantModuleAdminBridge $moduleAdmin,
         private readonly AdminPermissionPolicy $permissionPolicy,
         private readonly TenantMemberDirectory $members,
+        private readonly AdminDirectoryQuery $directory,
+        private readonly TenantAuthorizationQuery $identityAuthorization,
     ) {}
 
     public function principal(TenantContext $tenantContext): AdminPrincipal
@@ -41,15 +41,12 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
 
-        $tenant = Tenant::where('id', $member->tenantId)->where('status', 'active')->find();
-        $account = Account::where('id', $member->accountId)->where('status', 'active')->find();
-        $credential = Credential::where('account_id', $member->accountId)
-            ->where('kind', 'email_password')->where('identifier_type', 'email')->where('status', 'active')->find();
-        if ($tenant === null || $account === null || $credential === null) {
+        $profile = $this->directory->activePrincipalProfile($member->tenantId, $member->accountId);
+        if ($profile === null) {
             throw new \DomainException('TENANT_ADMIN_PRINCIPAL_UNAVAILABLE');
         }
 
-        $roles = $this->roles($tenantContext->tenantId, $tenantContext->memberId);
+        $roles = $this->identityAuthorization->roles($tenantContext->tenantId, $tenantContext->memberId);
         $switchableTenantCount = $this->members->activeMembershipCount($member->accountId);
         $root = false;
         foreach ($roles as $role) {
@@ -60,18 +57,18 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             id: $member->memberId,
             tenantId: $member->tenantId,
             accountId: $member->accountId,
-            tenantName: (string) $tenant->getAttr('name'),
-            username: (string) $credential->getAttr('identifier_normalized'),
+            tenantName: $profile['tenant_name'],
+            username: $profile['username'],
             nickname: $member->displayName,
             name: $member->displayName,
-            avatar: (string) ($account->getAttr('avatar_uri') ?? ''),
+            avatar: $profile['avatar'],
             root: $root,
             switchableTenantCount: (int) $switchableTenantCount,
             roles: $roles,
             roleName: implode('/', array_column($roles, 'name')),
             authorizationRevision: $member->authorizationRevision,
             primaryDepartmentId: $member->primaryDepartmentId,
-            lastLoginAt: $account->getAttr('last_login_at'),
+            lastLoginAt: $profile['last_login_at'],
         );
     }
 
@@ -289,21 +286,4 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             : null;
     }
 
-    /** @return list<array{id:int,key:string,name:string,is_builtin:bool}> */
-    private function roles(int $tenantId, int $memberId): array
-    {
-        $rows = MemberRole::alias('membership')
-            ->join('role role', "role.tenant_id=membership.tenant_id AND role.id=membership.role_id AND role.status='active'")
-            ->where('membership.tenant_id', $tenantId)
-            ->where('membership.tenant_member_id', $memberId)
-            ->field('role.id,role.key,role.name,role.is_builtin')
-            ->order('role.key')->order('role.id')->select()->toArray();
-
-        return array_map(static fn(array $row): array => [
-            'id' => (int) $row['id'],
-            'key' => (string) $row['key'],
-            'name' => (string) $row['name'],
-            'is_builtin' => (int) $row['is_builtin'] === 1,
-        ], $rows);
-    }
 }

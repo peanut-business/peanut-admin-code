@@ -75,6 +75,7 @@ final class ModuleProvider implements ModuleProviderContract
                     new ArrayRevisionedSettingCache(),
                     $persistence->mode,
                     $persistence->instanceTenantId,
+                    $app->make(\PeanutAdmin\Modules\Identity\Tenancy\Application\TenantWorkspaceQueryService::class),
                 );
             },
             SettingsHttpApplicationService::class => fn(App $app): SettingsHttpApplicationService => new SettingsHttpApplicationService(

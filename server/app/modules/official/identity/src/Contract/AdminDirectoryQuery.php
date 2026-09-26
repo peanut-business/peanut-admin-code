@@ -71,4 +71,29 @@ final readonly class AdminDirectoryQuery
             'authorization_revision' => (int) $owner['authorization_revision'],
         ] : null;
     }
+
+    /** @return null|array{tenant_name:string,username:string,avatar:string,last_login_at:mixed} */
+    public function activePrincipalProfile(int $tenantId, int $accountId): ?array
+    {
+        $row = TenantMember::alias('member')
+            ->join('tenant tenant', "tenant.id = member.tenant_id AND tenant.status = 'active'")
+            ->join('account account', "account.id = member.account_id AND account.status = 'active'")
+            ->join('credential credential', "credential.account_id = account.id AND credential.kind = 'email_password' AND credential.identifier_type = 'email' AND credential.status = 'active'")
+            ->where('member.tenant_id', $tenantId)
+            ->where('member.account_id', $accountId)
+            ->where('member.status', 'active')
+            ->field([
+                'tenant.name' => 'tenant_name',
+                'credential.identifier_normalized' => 'username',
+                'account.avatar_uri' => 'avatar',
+                'account.last_login_at',
+            ])->find()?->toArray();
+
+        return $row === null ? null : [
+            'tenant_name' => (string) $row['tenant_name'],
+            'username' => (string) $row['username'],
+            'avatar' => (string) ($row['avatar'] ?? ''),
+            'last_login_at' => $row['last_login_at'] ?? null,
+        ];
+    }
 }

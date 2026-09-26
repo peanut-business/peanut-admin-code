@@ -11,6 +11,100 @@ use think\db\Raw;
 
 final readonly class AuditService implements \PeanutAdmin\Kernel\Audit\AuditWriter
 {
+    /** Persists a fully authorized platform audit projection without exposing its Model. */
+    public function appendPlatformEvent(
+        string $eventType,
+        string $action,
+        string $outcome,
+        ?string $reasonCode,
+        ?int $operatorId,
+        ?int $accountId,
+        ?string $targetType,
+        ?string $targetId,
+        string $requestId,
+        ?string $operationId,
+        ?string $ipAddress,
+        ?string $userAgentHash,
+        ?string $beforeJson,
+        ?string $afterJson,
+        ?string $metadataJson,
+    ): void {
+        (new PlatformAuditEventRecord())->save([
+            'event_type' => $eventType,
+            'action' => $action,
+            'outcome' => $outcome,
+            'reason_code' => $reasonCode,
+            'operator_id' => $operatorId,
+            'account_id' => $accountId,
+            'target_type' => $targetType,
+            'target_id' => $targetId,
+            'request_id' => $requestId,
+            'operation_id' => $operationId,
+            'ip_address' => $ipAddress,
+            'user_agent_hash' => $userAgentHash,
+            'before_json' => $beforeJson,
+            'after_json' => $afterJson,
+            'metadata_json' => $metadataJson,
+            'occurred_at' => new Raw('UTC_TIMESTAMP(3)'),
+        ]);
+    }
+
+    /** Persists a fully authorized Tenant audit projection without exposing its Model. */
+    public function appendTenantEvent(
+        int $tenantId,
+        string $eventType,
+        string $action,
+        string $outcome,
+        ?string $reasonCode,
+        ?int $actorTenantId,
+        ?int $actorTenantMemberId,
+        ?int $actorAccountId,
+        ?int $actorPlatformOperatorId,
+        string $actorType,
+        ?string $targetResourceType,
+        ?string $targetResourceId,
+        ?string $boundaryTargetType,
+        ?string $boundaryTargetId,
+        int $targetCount,
+        ?string $targetSetDigest,
+        ?string $authorizationBasisJson,
+        string $requestId,
+        ?string $operationId,
+        ?string $ipAddress,
+        ?string $userAgentHash,
+        ?string $beforeJson,
+        ?string $afterJson,
+        ?string $metadataJson,
+    ): void {
+        (new TenantAuditEventRecord())->save([
+            'tenant_id' => $tenantId,
+            'event_type' => $eventType,
+            'action' => $action,
+            'outcome' => $outcome,
+            'reason_code' => $reasonCode,
+            'actor_tenant_id' => $actorTenantId,
+            'actor_tenant_member_id' => $actorTenantMemberId,
+            'actor_account_id' => $actorAccountId,
+            'actor_platform_operator_id' => $actorPlatformOperatorId,
+            'actor_type' => $actorType,
+            'target_resource_type' => $targetResourceType,
+            'target_resource_id' => $targetResourceId,
+            'boundary_target_type' => $boundaryTargetType,
+            'boundary_target_id' => $boundaryTargetId,
+            'target_count' => $targetCount,
+            'target_set_digest' => $targetSetDigest,
+            'authorization_basis_json' => $authorizationBasisJson,
+            'request_id' => $requestId,
+            'operation_id' => $operationId,
+            'ip_address' => $ipAddress,
+            'user_agent_hash' => $userAgentHash,
+            'before_json' => $beforeJson,
+            'after_json' => $afterJson,
+            'metadata_json' => $metadataJson,
+            'occurred_at' => new Raw('UTC_TIMESTAMP(3)'),
+        ]);
+    }
+
     /** @param array<string, mixed> $metadata */
     public function tenantMember(
         TenantContext $context,
