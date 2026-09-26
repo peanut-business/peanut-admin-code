@@ -135,6 +135,29 @@ final class ReferenceCodeCatalogBoundaryTest extends TestCase
         self::assertSame([], $this->catalog->revisionRows());
     }
 
+    public function testRealHostFingerprintAndCountsUseTheSameOwnerRows(): void
+    {
+        $this->installFixtureTable();
+        $this->database->sqliteCreateFunction('DATE_FORMAT', static fn($value, $format) => $value, 2);
+        $this->database->exec(<<<'SQL'
+            CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, retired_at TEXT);
+            CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, module_key TEXT, status TEXT, manifest_digest TEXT);
+            CREATE TABLE pa_setting_definition (id INTEGER PRIMARY KEY, module_key TEXT, setting_key TEXT, status TEXT, revision INTEGER, definition_digest TEXT);
+            SQL);
+        $host = ThinkPhpTestConnection::moduleCatalogs($this->database);
+        $empty = $host->catalogRevision();
+        $this->catalog->synchronize(['fixture.alpha' => $this->manifest('fixture.alpha', 'Alpha')], $this->now());
+        $rows = [
+            'pa_permission' => [],
+            'pa_menu_definition' => [],
+            'pa_setting_definition' => [],
+            'pa_reference_code_set' => $this->catalog->revisionRows(),
+        ];
+        self::assertSame(hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), $host->catalogRevision());
+        self::assertNotSame($empty, $host->catalogRevision());
+        self::assertSame(['menus' => 0, 'permissions' => 0, 'settings' => 0, 'reference_codes' => 1], (new ReflectionMethod($host, 'activeCounts'))->invoke($host, ['fixture.alpha']));
+    }
+
     private function installFixtureTable(): void
     {
         $this->database->exec('CREATE TABLE pa_reference_code_set (id INTEGER PRIMARY KEY AUTOINCREMENT, module_key TEXT NOT NULL, set_key TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, definition_digest TEXT NOT NULL, lifecycle TEXT NOT NULL, revision INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(module_key,set_key))');

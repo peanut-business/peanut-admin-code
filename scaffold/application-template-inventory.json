@@ -671,7 +671,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b4688b9a6125dc0c945bea5daf3bf9c6a42be2b219c977c00a39aec6009fb76f"
+            "source_sha256": "5ee82d882134609fba4b6448a117c7427373c0cdd6cb863aaa04e2f11407b237"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01761463c828a6309f6d41baad54e222ecf95e1e2db6dd4e2bf2a6098a577ee8"
+            "source_sha256": "f4a5748aee03cd5433f8e90525d7855ebd6c7827badb3d2174ef2bdeb038caf6"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2468,7 +2468,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "11819637e6be6e6c269e58805d2310ecbad7f3071e04eb2a91c9e05745722c4c"
+            "source_sha256": "6a5b4f6ff51c9b3f9ceff9773a3d1f34b9725bf2dfdb101597669a96f42e001f"
         },
         {
             "path": "plugins/official.rich-text/plugin.json",
@@ -4169,7 +4169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e39f945525ceec896d73feb1ab5a87d22e7e7fd327aa6ff7852c5e3fab1d10c"
+            "source_sha256": "d84d0198e5d51ace4a5d8586a49ea2d35738d3d36c0cb108c54ba1410992c6d0"
         },
         {
             "path": "server/app/BaseController.php",
@@ -17027,7 +17027,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bf97368ffa3aac097e5aeaad6be02067cc2d9302b320396460d51a4fe0c08743"
+            "source_sha256": "42c713ad59c14c7355b5119085362cf767e09941ee46de408c17eef98fa6e7e0"
         },
         {
             "path": "server/app/modules/official/reference_codes/resources/menus.json",
@@ -17422,6 +17422,20 @@
                 "full"
             ],
             "source_sha256": "a7c6cc7ed6b524084fe569170f9d71047958197602a86fe49b00e87a46441481"
+        },
+        {
+            "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodeCatalogService.php",
+            "target": "server/app/modules/official/reference_codes/src/Service/ReferenceCodeCatalogService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f14db56ac8b8c3dbcc578745fd24f87ac1875d04132dddca0c7311fb8020cd6b"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodesHttpApplicationService.php",
@@ -20869,7 +20883,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38020a8cc27ed3cdf9883a2202501db7761854acc4ddb2dd7a53ce224ed40b74"
+            "source_sha256": "42aaa2fa759193632a5c6c1904cf38d9cff0b736f2b149950a26751490d7e094"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",
@@ -26814,6 +26828,19 @@
         {
             "path": "server/tests/Unit/PublicSettingsAuthorizationTest.php",
             "target": "server/tests/Unit/PublicSettingsAuthorizationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ReferenceCodeCatalogBoundaryTest.php",
+            "target": "server/tests/Unit/ReferenceCodeCatalogBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

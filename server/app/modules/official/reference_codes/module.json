@@ -34,7 +34,8 @@
     "exports": [
       "PeanutAdmin\\Modules\\ReferenceCodes\\Contract\\DictionaryQuery",
       "PeanutAdmin\\Modules\\ReferenceCodes\\Contract\\TenantDictionaryCommands",
-      "PeanutAdmin\\Modules\\ReferenceCodes\\Contract\\SystemReferenceCodeQuery"
+      "PeanutAdmin\\Modules\\ReferenceCodes\\Contract\\SystemReferenceCodeQuery",
+      "PeanutAdmin\\Modules\\ReferenceCodes\\Service\\ReferenceCodeCatalogService"
     ],
     "events": []
   },

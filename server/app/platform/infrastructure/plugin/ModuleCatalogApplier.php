@@ -15,9 +15,8 @@ use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionLoader;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
-use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetLoader;
-use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegistry;
-use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore;
+use PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService;
+use PeanutAdmin\Kernel\Module\ModuleException;
 use think\facade\Db;
 
 /** The single application entry point for applying, retiring, and purging Module catalog contributions. */
@@ -27,6 +26,7 @@ final readonly class ModuleCatalogApplier
         private SettingDefinitionSynchronizer $settings,
         private ModuleAuthorizationCatalogSynchronizer $authorization,
         private MenuCatalogRepository $menuCatalog,
+        private ReferenceCodeCatalogService $referenceCodes,
     ) {}
 
     /**
@@ -79,25 +79,11 @@ final readonly class ModuleCatalogApplier
                 $now,
             );
 
-            $referenceCodes = new ReferenceCodeSetRegistry();
-            $referenceCodeLoader = new ReferenceCodeSetLoader();
-            foreach ($selected as $key => $manifest) {
-                $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : [];
-                $resource = $backend['reference_code_sets'] ?? null;
-                $definitions = is_string($resource)
-                    ? $referenceCodeLoader->load($key, $manifest->root . '/' . ltrim($resource, '/'))
-                    : [];
-                $referenceCodes->registerModule($key, $definitions);
-            }
-            // 字典账本由其业务模块迁移创建。未安装且无字典贡献时不访问不存在的表；
-            // 实际声明了字典的模块必须先满足依赖，不把缺表静默当成同步成功。
-            if (self::referenceCodeTableExists()) {
-                (new ReferenceCodeStore())->synchronize($referenceCodes, $now);
-            } elseif ($referenceCodes->all() !== []) {
-                throw new PluginLifecycleException(
-                    'MODULE_REFERENCE_CODE_STORAGE_REQUIRED',
-                    'Install the declared reference-code dependency before registering its contributions.',
-                );
+            try {
+                $this->referenceCodes->synchronize($selected, $now);
+            } catch (ModuleException $exception) {
+                // Keep the deployment-facing failure contract; the owner never exposes its storage.
+                throw new PluginLifecycleException($exception->errorCode, $exception->getMessage());
             }
 
             $mutations = new ModuleCatalogMutationRepository();
@@ -148,10 +134,7 @@ final readonly class ModuleCatalogApplier
             ->field('id,key,module_key,status,manifest_digest')->order('id')->select()->toArray();
         $rows['pa_setting_definition'] = Db::name('setting_definition')
             ->field('id,module_key,setting_key,status,revision,definition_digest')->order('id')->select()->toArray();
-        $rows['pa_reference_code_set'] = self::referenceCodeTableExists()
-            ? Db::name('reference_code_set')
-                ->field('id,module_key,set_key,lifecycle,revision,definition_digest')->order('id')->select()->toArray()
-            : [];
+        $rows['pa_reference_code_set'] = $this->referenceCodes->revisionRows();
         return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
     }
 
@@ -205,15 +188,7 @@ final readonly class ModuleCatalogApplier
         foreach (['menus' => 'pa_menu_definition', 'permissions' => 'pa_permission', 'settings' => 'pa_setting_definition'] as $name => $table) {
             $counts[$name] = (int) Db::table($table)->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
         }
-        $counts['reference_codes'] = self::referenceCodeTableExists()
-            ? (int) Db::table('pa_reference_code_set')
-                ->whereIn('module_key', $moduleKeys)->where('lifecycle', 'active')->count()
-            : 0;
+        $counts['reference_codes'] = $this->referenceCodes->activeCount($moduleKeys);
         return $counts;
-    }
-
-    private static function referenceCodeTableExists(): bool
-    {
-        return Db::query("SHOW TABLES LIKE 'pa_reference_code_set'") !== [];
     }
 }
