@@ -1115,7 +1115,7 @@ PHP;
 
     private function modulesConfig(string $content): string
     {
-        if (substr_count($content, "'plugin_lock' => (string)env('PEANUT_PLUGIN_LOCK', '../plugins.lock')") !== 1) {
+        if (substr_count($content, "'plugin_lock' => (string) env('PEANUT_PLUGIN_LOCK', '../plugins.lock')") !== 1) {
             throw new RuntimeException('CREATE_APP_MODULES_CONFIG_SOURCE_INVALID');
         }
         return $content;

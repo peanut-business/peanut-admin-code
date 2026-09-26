@@ -274,6 +274,36 @@ try {
     );
     createApplicationExpect(!file_exists($nestedTarget), 'rejected nested generation must not create output');
     createApplicationExpect(!is_dir($root . '/server/vendor'), 'source snapshot must not copy installed dependencies');
+    $minimalTarget = $temporary . '/minimal';
+    $minimalManifest = (new ApplicationCreator($root, $inventoryPath, $identity))->create(
+        'Acme Console',
+        'acme-console',
+        'acme/acme-console',
+        $minimalTarget,
+        'multi-tenant',
+        null,
+        'minimal',
+    );
+    createApplicationExpect(
+        ($minimalManifest['application']['profile'] ?? null) === 'minimal',
+        'ApplicationCreator must generate the minimal profile explicitly',
+    );
+    $minimalExpected = ['.peanut/application-manifest.json'];
+    foreach ($inventory['files'] as $entry) {
+        if ($entry['classification'] === 'excluded' || !in_array('minimal', $entry['profiles'], true)) {
+            continue;
+        }
+        $minimalExpected[] = $entry['target'];
+        if (in_array($entry['classification'], ['managed', 'generated-managed'], true)) {
+            $minimalExpected[] = '.peanut/scaffold-baseline/' . $inventory['template_version'] . '/files/' . $entry['target'];
+        }
+    }
+    sort($minimalExpected, SORT_STRING);
+    createApplicationExpect(
+        createApplicationFiles($minimalTarget) === $minimalExpected,
+        'minimal generated tree must exactly match its inventory and declared metadata/baselines',
+    );
+
     $standardTarget = $temporary . '/standard-default';
     $standardManifest = (new ApplicationCreator($root, $inventoryPath, $identity))->create(
         'Acme Console',
@@ -360,7 +390,7 @@ try {
     createApplicationExpect(createApplicationFiles($first) === $expected, 'generated tree must exactly match inventory plus declared metadata/baselines');
     createApplicationExpect(!is_dir($first . '/.git') && !is_dir($first . '/output'), 'generated application must exclude Git and historical output');
     createApplicationExpect(!isset($inventoryByPath['AGENTS.md']), 'the maintainer entry must not compete with the public application template');
-    foreach ([$standardTarget, $first, $second, $standalone, $other] as $applicationRoot) {
+    foreach ([$minimalTarget, $standardTarget, $first, $second, $standalone, $other] as $applicationRoot) {
         $generatedAgents = (string) file_get_contents($applicationRoot . '/AGENTS.md');
         createApplicationExpect($generatedAgents !== '' && !str_contains($generatedAgents, '{{'), 'public development entry must be generated and fully rendered');
         createApplicationExpect(!str_contains($generatedAgents, 'peanut-admin-project') && !str_contains($generatedAgents, '/Users/'), 'maintainer-only instructions must not enter the application entry');
