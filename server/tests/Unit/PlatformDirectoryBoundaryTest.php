@@ -52,7 +52,8 @@ final class PlatformDirectoryBoundaryTest extends TestCase
         $app = new App($temporary);
         $app->config->set(['default' => 'file', 'stores' => ['file' => ['type' => 'File', 'path' => $temporary . '/cache/']]], 'cache');
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        $this->database->sqliteCreateAggregate('fixture_sorted_keys',
+        $this->database->sqliteCreateAggregate(
+            'fixture_sorted_keys',
             static function (?array $values, int $row, mixed $value): array {
                 $values ??= [];
                 if ($value !== null) {
@@ -67,7 +68,9 @@ final class PlatformDirectoryBoundaryTest extends TestCase
                 $keys = array_keys($values);
                 sort($keys, SORT_STRING);
                 return implode(',', $keys);
-            }, 1);
+            },
+            1,
+        );
         $this->connection = new PlatformDirectoryFixtureConnection($this->database);
         $manager = new \SharedPdoDbManager($this->connection);
         $this->connection->setDb($manager);
@@ -170,13 +173,17 @@ final class PlatformDirectoryBoundaryTest extends TestCase
 
     public static function readMethods(): array
     {
-        return [['operators'], ['roles'], ['permissions'], ['audit'], ['owner']];
+        return [
+            ['operators', 'platform.operator.read'], ['roles', 'platform.role.read'],
+            ['permissions', 'platform.permission.read'], ['audit', 'platform.audit.read'],
+            ['owner', 'platform.tenant.read'],
+        ];
     }
 
     #[DataProvider('readMethods')]
-    public function testEachReadChecksTheCurrentPermissionBeforeAnyDataQuery(string $method): void
+    public function testEachReadChecksTheCurrentPermissionBeforeAnyDataQuery(string $method, string $permission): void
     {
-        $this->permissions->keys = [];
+        $this->permissions->keys = array_values(array_diff($this->permissions->keys, [$permission]));
         ++$this->permissions->currentRevision;
         $this->connection->observedSql = [];
         try {
