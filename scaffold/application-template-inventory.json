@@ -671,7 +671,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3ad0c4511f6ff552805ee506fea1bd7b4f84c615baf81d27ebcd91720bbc3a79"
+            "source_sha256": "a4b330824d84ed84f109ba4cea3cd73416fc08a11b6d8e2779e8c0929f539249"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f13e7c80e2e69ccb519ce114f9014bf08985c4af051698650731abadca73114e"
+            "source_sha256": "78ab3cd91e054c95e0fe984494b3c22817399d21b1f8110cc4a174146b12eb36"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2370,7 +2370,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53a7a9ecc57a232eba376895f8cf71cc17ff6baf980d5dad9160a50d662e40ca"
+            "source_sha256": "6582e5f57673242dad5ea43c1a4bd94ff968e3ee72ef4d3c2d3d1ed8a900b68e"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -4155,7 +4155,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "52d9cb8e9ce7a9b9d14a0a986ad82e2e40879a99a8119f33648901140ba4fbd4"
+            "source_sha256": "3e39f945525ceec896d73feb1ab5a87d22e7e7fd327aa6ff7852c5e3fab1d10c"
         },
         {
             "path": "server/app/BaseController.php",
@@ -4715,7 +4715,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bfebf608a92ef9e25eacbc2ee33f53287d84c26a76688cb1c0a8a8bb701f58ab"
+            "source_sha256": "b49d4cffbda7fe1e913917b8835188298b926a7f5aa071b400aee8d1fc33d68e"
         },
         {
             "path": "server/app/adminapi/services/decoration/DecorationPageApplicationService.php",
@@ -4841,7 +4841,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bafb77b5992b88e3f20dc69fd137251cae08e69171ce42432b06cd003fd9f67c"
+            "source_sha256": "67555873ab660a54f5205348cf0b85f5210664b10bf9c94a73c81b327d599e0b"
         },
         {
             "path": "server/app/adminapi/services/setting/TransactionSettingsApplicationService.php",
@@ -5387,7 +5387,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ab1583f88a54d46e200ae323170b498484328daa08e51362d9f78529c3029b4d"
+            "source_sha256": "c4731f0a0164d79e03925561f1c3c70ef4d613ce1492d49b5d47393b3d96d678"
         },
         {
             "path": "server/app/api/services/LoginApplicationService.php",
@@ -5401,7 +5401,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "511d886a3db191a39e61fbc72b1f887a5a8b5d6a94ce43cbeb25163ec6c93965"
+            "source_sha256": "e1c597d4b9d22b103b620b6db52522e66d51c3415c4b48bda617c21e39edacca"
         },
         {
             "path": "server/app/api/services/OAuthApplicationService.php",
@@ -5485,7 +5485,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd157452b1faa21eda49a65d11adf9a43930b0bef97768ed0313c86e7a8ce0ce"
+            "source_sha256": "cbe86f42cb83c998b8ecdd65f1cd8be3e419fed16bb2746ae327e0e2707c66dd"
         },
         {
             "path": "server/app/api/services/SmsApplicationService.php",
@@ -11788,7 +11788,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1dea1febe798575045119128ca273abb8a2e2ee28ec941eec829c4c74d0a3ab8"
+            "source_sha256": "37bcc14eb46121568a4ee7596932b4c224f4691f13abd657745a14ec6cead67a"
         },
         {
             "path": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
@@ -26512,6 +26512,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/HostSettingsBoundaryTest.php",
+            "target": "server/tests/Unit/HostSettingsBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/IdentityAuditProjectionTest.php",
             "target": "server/tests/Unit/IdentityAuditProjectionTest.php",
             "classification": "excluded",
@@ -26527,6 +26540,19 @@
         {
             "path": "server/tests/Unit/IdentityPublicQueriesTest.php",
             "target": "server/tests/Unit/IdentityPublicQueriesTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ImportExportExtensionBoundaryTest.php",
+            "target": "server/tests/Unit/ImportExportExtensionBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
