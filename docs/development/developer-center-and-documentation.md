@@ -49,6 +49,6 @@ UI/CLI共用服务。开发可创建模块、编辑声明、生成/检查/预览
 
 ## 7. 实际阅读入口
 
-内部从`docs/README.md`按任务读，接口真值为`docs/api/openapi.yaml`。在`docs-site`按锁安装后运行`pnpm dev`，或`pnpm build`再`pnpm preview`；`/api`由api.data.ts只读公开合同，提供方法/路径/模块搜索、请求/响应展开、类型与JSON下载，不存令牌或调用生产API。页面构建、浏览器验证、远端发布分别记录，不拿旧线上站代表新候选。
+从 [公开文档目录](../README.md) 按任务阅读；接口真值与 SDK 入口见 [API 与 SDK](../public/api-and-sdk.md)。随产品交付的文档站按其 package.json 与锁文件安装、启动和构建，不依赖维护者私有站点、绝对路径或私有 API 副本。文档页面只展示可公开合同，不保存令牌或自动调用生产 API。页面构建、浏览器验证与远端发布分别记录，旧线上站不代表新候选。
 
 生成应用自带 `docs-site`；API 指南指向 `server/generated/openapi.json` 及 `api-catalog.json`，可由支持 OpenAPI 的工具读取。维护者可读目录不等于生成应用自动携带同一组件。结构化 metadata/路由生成合同与 SDK，不会自动理解全部 PHP 注释；复杂字段、时序、事务和错误仍需人工说明与用例核对。`info.version` 是接口合同版本，不是产品或脚手架版本。

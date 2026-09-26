@@ -107,12 +107,18 @@ final readonly class ApplicationTenantBootstrapService
 
     private function grantOwnerPermissions(int $tenantId, int $ownerMemberId, int $ownerRoleId): void
     {
-        $this->authorization->grantActiveModulePermissions(
+        $execution = new SystemExecutionContext(new TenantSystemContext(
+            $tenantId,
+            'platform.tenant-bootstrap',
+            'identity.bootstrap-owner-permissions',
+            $this->executionContexts->require()->requestId(),
+        ));
+        $this->executionContexts->run($execution, fn() => $this->authorization->grantActiveModulePermissions(
             $tenantId,
             $ownerMemberId,
             $ownerRoleId,
             'peanut.admin',
-        );
+        ));
     }
 
     private function seedCrontab(): void

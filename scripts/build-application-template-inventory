@@ -77,6 +77,18 @@ function excluded(string $path): bool
             'docs/plugin-module-development.md',
             'docs/module-layout.md',
             'docs/development/standard.md',
+            'docs/README.md',
+            'docs/development/application-conventions.md',
+            'docs/development/controller-access-and-namespaces.md',
+            'docs/development/developer-center-and-documentation.md',
+            'docs/development/php-thinkphp-guidelines.md',
+            'docs/architecture/overview.md',
+            'docs/architecture/default-delivery-and-ownership.md',
+            'docs/architecture/identity-organization-access.md',
+            'docs/architecture/tenant-modules-and-data-scopes.md',
+            'docs/architecture/module-development-delivery.md',
+            'docs/architecture/service-bindings.md',
+            'docs/architecture/events-and-tasks.md',
             'docs/public/README.md',
             'docs/public/release-channels.md',
             'docs/public/api-and-sdk.md',
@@ -288,7 +300,8 @@ function transform(string $path, string $classification): string
     // semantic placeholder digest) participate in the release baseline.
     if (str_starts_with($path, 'docs/public/')
         || str_starts_with($path, 'docs/development/')
-        || $path === 'docs/module-layout.md') {
+        || str_starts_with($path, 'docs/architecture/')
+        || in_array($path, ['docs/README.md', 'docs/module-layout.md'], true)) {
         return 'text';
     }
     if ($path === 'SECURITY.md' || ((str_starts_with($path, 'docs-site/') || str_starts_with($path, 'docs/')) && str_ends_with($path, '.md'))) {

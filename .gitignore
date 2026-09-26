@@ -2,6 +2,9 @@
 
 # Each subproject owns its dependencies, build output and local configuration
 # in its own .gitignore, including when that subproject is opened separately.
+# Match dependency directories and development symlinks alike.
+**/vendor
+**/node_modules
 
 # Production deployment secrets
 deploy/production.env

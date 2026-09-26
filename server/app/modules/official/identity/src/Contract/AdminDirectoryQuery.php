@@ -51,10 +51,20 @@ final readonly class AdminDirectoryQuery
             ->order('member.id', 'desc')->select()->toArray();
     }
 
-    /** @return null|array{id:int,account_id:int,authorization_revision:int} */
+    /**
+     * 供受信任务恢复所有者资料；不授予操作权限，也不要求员工在线会话。
+     * 指定成员时必须同时指定账号，且租户、账号、成员和内建所有者关系均仍有效。
+     *
+     * @return null|array{id:int,account_id:int,authorization_revision:int}
+     */
     public function activeTenantOwner(int $tenantId, ?int $memberId, ?int $accountId): ?array
     {
+        if ($tenantId < 1 || ($memberId === null) !== ($accountId === null)
+            || ($memberId !== null && ($memberId < 1 || $accountId < 1))) {
+            return null;
+        }
         $query = TenantMember::alias('member')
+            ->join('tenant tenant', "tenant.id = member.tenant_id AND tenant.status = 'active'")
             ->join('account account', "account.id = member.account_id AND account.status = 'active'")
             ->join('member_role membership', 'membership.tenant_id = member.tenant_id AND membership.tenant_member_id = member.id')
             ->join('role role', "role.tenant_id = membership.tenant_id AND role.id = membership.role_id AND role.`key` = 'core.tenant-owner' AND role.is_builtin = 1 AND role.status = 'active'")
@@ -63,9 +73,9 @@ final readonly class AdminDirectoryQuery
         if ($memberId !== null && $accountId !== null) {
             $query->where('member.id', $memberId)->where('member.account_id', $accountId);
         }
-        $owner = $query->order('member.id')->find();
+        $owner = $query->order('member.id')->find()?->toArray();
 
-        return is_array($owner) ? [
+        return $owner !== null ? [
             'id' => (int) $owner['id'],
             'account_id' => (int) $owner['account_id'],
             'authorization_revision' => (int) $owner['authorization_revision'],

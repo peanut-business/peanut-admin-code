@@ -29,6 +29,11 @@ final readonly class AuditService implements \PeanutAdmin\Kernel\Audit\AuditWrit
         ?string $afterJson,
         ?string $metadataJson,
     ): void {
+        self::assertProjection($eventType, $action, $outcome, $requestId);
+        if (($operatorId === null) !== ($accountId === null)
+            || ($operatorId !== null && ($operatorId < 1 || $accountId < 1))) {
+            throw new \DomainException('AUDIT_PLATFORM_ACTOR_INVALID');
+        }
         (new PlatformAuditEventRecord())->save([
             'event_type' => $eventType,
             'action' => $action,
@@ -42,9 +47,9 @@ final readonly class AuditService implements \PeanutAdmin\Kernel\Audit\AuditWrit
             'operation_id' => $operationId,
             'ip_address' => $ipAddress,
             'user_agent_hash' => $userAgentHash,
-            'before_json' => $beforeJson,
-            'after_json' => $afterJson,
-            'metadata_json' => $metadataJson,
+            'before_json' => self::jsonDocument($beforeJson),
+            'after_json' => self::jsonDocument($afterJson),
+            'metadata_json' => self::jsonDocument($metadataJson),
             'occurred_at' => new Raw('UTC_TIMESTAMP(3)'),
         ]);
     }
@@ -76,6 +81,19 @@ final readonly class AuditService implements \PeanutAdmin\Kernel\Audit\AuditWrit
         ?string $afterJson,
         ?string $metadataJson,
     ): void {
+        self::assertProjection($eventType, $action, $outcome, $requestId);
+        $actorValid = match ($actorType) {
+            'member' => $actorTenantId === $tenantId && ($actorTenantMemberId ?? 0) > 0
+                && ($actorAccountId ?? 0) > 0 && $actorPlatformOperatorId === null,
+            'tenant_system' => $actorTenantId === $tenantId && $actorTenantMemberId === null
+                && $actorAccountId === null && $actorPlatformOperatorId === null,
+            'platform_operator' => $actorTenantId === null && $actorTenantMemberId === null
+                && ($actorAccountId ?? 0) > 0 && ($actorPlatformOperatorId ?? 0) > 0,
+            default => false,
+        };
+        if ($tenantId < 1 || !$actorValid || $targetCount < 0) {
+            throw new \DomainException('AUDIT_TENANT_PROJECTION_INVALID');
+        }
         (new TenantAuditEventRecord())->save([
             'tenant_id' => $tenantId,
             'event_type' => $eventType,
@@ -93,16 +111,41 @@ final readonly class AuditService implements \PeanutAdmin\Kernel\Audit\AuditWrit
             'boundary_target_id' => $boundaryTargetId,
             'target_count' => $targetCount,
             'target_set_digest' => $targetSetDigest,
-            'authorization_basis_json' => $authorizationBasisJson,
+            'authorization_basis_json' => self::jsonDocument($authorizationBasisJson),
             'request_id' => $requestId,
             'operation_id' => $operationId,
             'ip_address' => $ipAddress,
             'user_agent_hash' => $userAgentHash,
-            'before_json' => $beforeJson,
-            'after_json' => $afterJson,
-            'metadata_json' => $metadataJson,
+            'before_json' => self::jsonDocument($beforeJson),
+            'after_json' => self::jsonDocument($afterJson),
+            'metadata_json' => self::jsonDocument($metadataJson),
             'occurred_at' => new Raw('UTC_TIMESTAMP(3)'),
         ]);
+    }
+
+    private static function assertProjection(string $eventType, string $action, string $outcome, string $requestId): void
+    {
+        if (trim($eventType) === '' || trim($action) === '' || trim($requestId) === ''
+            || \PeanutAdmin\Kernel\Audit\AuditOutcome::tryFrom($outcome) === null) {
+            throw new \DomainException('AUDIT_PROJECTION_INVALID');
+        }
+    }
+
+    /** @return array<array-key, mixed>|null */
+    private static function jsonDocument(?string $value): ?array
+    {
+        if ($value === null) {
+            return null;
+        }
+        try {
+            $document = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new \DomainException('AUDIT_JSON_INVALID', 0, $exception);
+        }
+        if (!is_array($document)) {
+            throw new \DomainException('AUDIT_JSON_DOCUMENT_REQUIRED');
+        }
+        return $document;
     }
 
     /** @param array<string, mixed> $metadata */

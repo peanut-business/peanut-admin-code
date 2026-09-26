@@ -10,9 +10,11 @@ use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
 use PeanutAdmin\Modules\Identity\Persistence\Model\RolePermission;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 
-/** Stable authorization projections for host composition without exposing Identity persistence. */
-final class TenantAuthorizationQuery
+/** 公开授权投影；人员权限查询逐次复核原生会话与修订，不缓存跨请求身份。 */
+final readonly class TenantAuthorizationQuery
 {
+    public function __construct(private TenantMemberDirectory $members) {}
+
     /** @param list<string> $moduleKeys @return list<string> */
     public function registeredPermissionKeys(array $moduleKeys): array
     {
@@ -24,6 +26,9 @@ final class TenantAuthorizationQuery
     /** @return list<string> */
     public function applicationPermissionKeys(TenantContext $context): array
     {
+        if ($this->members->current($context) === null) {
+            return [];
+        }
         return array_values(array_map('strval', Tenant::alias('tenant')
             ->join('tenant_member member', "member.tenant_id=tenant.id AND member.status='active'")
             ->join('member_role membership', 'membership.tenant_id=tenant.id AND membership.tenant_member_id=member.id')
@@ -36,6 +41,9 @@ final class TenantAuthorizationQuery
 
     public function isTenantOwner(TenantContext $context): bool
     {
+        if ($this->members->current($context) === null) {
+            return false;
+        }
         return MemberRole::alias('membership')
             ->join('role role', "role.tenant_id=membership.tenant_id AND role.id=membership.role_id AND role.`key`='core.tenant-owner' AND role.is_builtin=1 AND role.status='active'")
             ->where('membership.tenant_id', $context->tenantId)

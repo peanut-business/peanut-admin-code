@@ -35,6 +35,10 @@ final class ThinkPhpTestConnection
         $connection = self::fromPdo($pdo);
         return new \app\platform\infrastructure\plugin\ModuleCatalogApplier(
             new \PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer(),
+            new \PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer(
+                new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository(),
+            ),
+            new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(),
         );
     }
 }

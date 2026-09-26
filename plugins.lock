@@ -305,7 +305,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "cd18817c239841112ed783233fca1a4831c4c04b68d8678bf8c4aa718bedf44d"
+                "sha256": "ff0f88f56aa40bb0b89adf2bd4e91bb0f257506d02449b513a7779c5d323f074"
             },
             "trust": {
                 "channel": "bundled",
@@ -375,7 +375,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "2af577c57ff53badbbdf234434e99807020c9a806d78f33f3caf7370c90e183a"
+            "manifest_sha256": "cf2bf00f9a6928e97ebe8dd92fa9215c6962b62681c64a741a3f6e6aa7cfe070"
         },
         {
             "key": "official.import-export",
@@ -500,7 +500,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "603a71e8503f08237e3e796395fd6157ba0b13c48123cda7c0bb6a3a1fba919d"
+                "sha256": "a2b0012a8728a38024d146c4b607df843b5c128f92942eec1e4e74a35a4d85b7"
             },
             "trust": {
                 "channel": "bundled",
@@ -584,7 +584,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "e134968d443a78d23cf7c94cc8289a7fca2fe890f71f56141227af37098482ab"
+            "manifest_sha256": "9b89fe64486adfa0de851386885157b16bb992a2f5c5e2160a0c7c9ad2c4690f"
         },
         {
             "key": "official.member",
@@ -1317,7 +1317,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "720b6492bb355694a09b0993e173811bef536c10c09296739ed81f1d964af6fc"
+                "sha256": "be77a0846da26fd583350705d4f75a68e81d52edf0ba9644d6791132a6ad8ba0"
             },
             "trust": {
                 "channel": "bundled",
@@ -1410,7 +1410,7 @@
                 }
             ],
             "manifest": "plugins/official.settings/plugin.json",
-            "manifest_sha256": "cf58ebde6d91b5ec53d9fc6639834de0af6e8f45abbefb996f4eb2197dc6609c"
+            "manifest_sha256": "13dabd23399b6e48afb8568c4fd686d1bfae4ce8e1e9f8935001e14bf91e5e05"
         },
         {
             "key": "official.task",
