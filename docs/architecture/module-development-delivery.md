@@ -42,6 +42,10 @@ OAuth 从自己保存的 state/ticket 读取引用后调用 `bindingForCallbackR
 
 设置宿主消费已登记的 `TenantApplicationSettings`，由 Settings Provider 将接口绑定到所属实现；宿主的容器工厂同样请求该接口，不直接绑定内部 `TenantApplicationSettingService`。调用合同改变不代替既有租户上下文、权限和业务校验，也不为同一个能力再建转发层。
 
+网站配置使用已登记的 `Service\WebsiteConfigService`：`get/save` 仍处理可信租户上下文、固定字段与文件引用，`defaults` 只返回模板默认值，不读租户状态或授予权限。公开业务类可由原生容器装配，无须仅为命名再加一层接口。`OAuthBrowserCallbackService` 只提供既定浏览器回调地址和允许的查询参数，不能把回调跳转当作身份验证。
+
+导出授权资源使用公开 `ImportExportCommands::RESOURCE_KEY`；固定值仍为 `peanut.import-export`，宿主不为读取标识而依赖内部任务编排服务。标识、公开类型与真正获得授权是三件事，原授权核验及一次性消费不变。
+
 导入导出扩展实现已登记的 `Engine\Contract\DataProvider`，配套使用 `ColumnDefinition`、`SchemaDefinition`、`ExportBatch`、`RowIssue` 和 `ImportExportException`。提交与查询用例的 `AsyncExportOperation`、`CsvExportOperation` 也是公开结果/输入类型；它们不是存储记录或授权凭据。提供者只处理自身数据，导出批次上限500行，导入列/导出列、模式修订、游标和错误码保持原合同；日志提供者仍拒绝导入。执行前依然由原用例/worker验证授权，不因为类型公开就允许未授权直接执行。存储库、任务编排实现和数据库查询对象不在此公开面内。
 
 ## 4. 依赖是业务成立的前提

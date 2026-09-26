@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\ImportExport\Engine\Application;
 
 use JsonException;
+use PeanutAdmin\Modules\ImportExport\Contract\ImportExportCommands;
 use PeanutAdmin\Modules\ImportExport\Engine\Contract\DataProviderRegistry;
 use PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
@@ -16,7 +17,7 @@ use PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher;
 
 final readonly class ImportExportService
 {
-    public const RESOURCE_KEY = 'peanut.import-export';
+    public const RESOURCE_KEY = ImportExportCommands::RESOURCE_KEY;
     public const TASK_TYPE = 'peanut.import-export.execute';
 
     public function __construct(

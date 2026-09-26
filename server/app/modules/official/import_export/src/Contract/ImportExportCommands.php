@@ -10,6 +10,9 @@ use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 
 interface ImportExportCommands
 {
+    /** Stable authorization resource; using the identifier does not grant permission. */
+    public const RESOURCE_KEY = 'peanut.import-export';
+
     /**
      * 已授权低层入口：调用者必须先由管理用例或 worker 复核授权，不能自行伪造上下文。
      * Submits a CSV operation; it never writes or exposes a result file inline.

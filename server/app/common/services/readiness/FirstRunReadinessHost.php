@@ -7,7 +7,6 @@ namespace app\common\services\readiness;
 use PeanutAdmin\Modules\Notification\Contract\NotificationQueries;
 use app\common\security\ApplicationPasswordPolicy;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
-use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Modules\File\Contract\StorageConfiguration;
@@ -81,7 +80,7 @@ final class FirstRunReadinessHost
 
     private function brand(AuthenticatedMemberContext|TenantContext $context): array
     {
-        $defaults = BrandDefaults::website();
+        $defaults = WebsiteConfigService::defaults();
         $website = $this->website->get($context);
         $requiredFields = ['name', 'web_logo', 'web_favicon', 'shop_name', 'pc_title'];
         $complete = $this->fieldsPresent($website, $requiredFields);

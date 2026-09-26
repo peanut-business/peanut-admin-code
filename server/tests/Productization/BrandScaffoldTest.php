@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
-use app\common\service\config\BrandDefaults;
-use app\common\service\config\WebsiteConfigService;
+use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL')
+    ? PHPUNIT_COMPOSER_INSTALL
+    : dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 function brandExpect(bool $condition, string $message): void
 {
@@ -14,7 +16,7 @@ function brandExpect(bool $condition, string $message): void
     }
 }
 
-$website = BrandDefaults::website();
+$website = WebsiteConfigService::defaults();
 $defaultImages = BrandDefaults::defaultImages();
 brandExpect(
     array_keys($website) === WebsiteConfigService::fields(),
@@ -25,7 +27,7 @@ brandExpect($website['shop_name'] === 'Peanut Admin', 'default consumer name mus
 brandExpect($website['pc_title'] === 'Peanut Admin', 'default PC title must be complete');
 brandExpect($website['official_url'] === '', 'environment-specific official URL must not be a template default');
 brandExpect(
-    $website['github_url'] === 'https://github.com/peanut-business/peanut-admin',
+    $website['github_url'] === 'https://github.com/peanut-business/peanut-admin-code',
     'GitHub entry must point to the application source repository',
 );
 

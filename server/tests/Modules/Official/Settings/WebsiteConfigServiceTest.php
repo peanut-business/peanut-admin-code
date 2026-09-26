@@ -6,7 +6,9 @@ use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
 use PeanutAdmin\Modules\Settings\Application\WebsiteConfigService;
 use PeanutAdmin\Modules\Settings\Contract\WebsiteConfigStore;
 
-require dirname(__DIR__, 4) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL')
+    ? PHPUNIT_COMPOSER_INSTALL
+    : dirname(__DIR__, 4) . '/vendor/autoload.php';
 
 final class MemoryWebsiteConfigStore implements WebsiteConfigStore
 {

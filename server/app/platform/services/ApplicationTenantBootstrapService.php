@@ -9,7 +9,7 @@ use PeanutAdmin\Modules\Task\Contract\TaskBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
-use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use app\common\model\decoration\DecoratePage;
 use app\common\model\decoration\DecorateTabbar;
 use app\common\model\decoration\DecorationTabbarSetting;
@@ -220,7 +220,7 @@ final readonly class ApplicationTenantBootstrapService
     private function seedSettings(TenantSystemContext $context): void
     {
         $documents = [
-            'website' => BrandDefaults::website(),
+            'website' => WebsiteConfigService::defaults(),
             'copyright' => ['config' => []],
             'agreement' => [
                 'service_title' => '',

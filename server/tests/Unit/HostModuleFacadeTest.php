@@ -63,7 +63,7 @@ final class HostModuleFacadeTest extends TestCase
         });
         $provider->expects(self::never())->method('replace');
         $files = $this->createMock(FileReferences::class);
-        $files->method('getFileUrl')->willReturnCallback(static fn(string $path): string => 'public:' . $path);
+        $files->expects(self::exactly(14))->method('getFileUrl')->willReturnCallback(static fn(string $path): string => 'public:' . $path);
         $service = new WebsiteConfigService(new TenantSettingService($provider), $files);
         foreach ([101, 202] as $tenant) {
             $result = $service->get($this->context($tenant));
@@ -90,7 +90,7 @@ final class HostModuleFacadeTest extends TestCase
             return new TenantSettingSnapshot($tenant, $namespace, $document, 1, 1, 1);
         });
         $files = $this->createMock(FileReferences::class);
-        $files->method('setTenantFileUrl')->willReturnCallback(static function ($actual, string $path) use ($context): string {
+        $files->expects(self::exactly(7))->method('setTenantFileUrl')->willReturnCallback(static function ($actual, string $path) use ($context): string {
             self::assertSame($context, $actual);
             return 'stored:' . $path;
         });
