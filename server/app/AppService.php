@@ -419,6 +419,7 @@ class AppService extends Service
                 $this->app->make(PluginRuntimeGovernanceService::class),
                 $this->app->make(PluginCatalogSyncService::class),
                 $this->app->make(ModuleCatalogApplier::class),
+                $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
             ));
         $this->app->bind(PlatformPermissionChecker::class, PlatformOpsPermissionChecker::class);
         $this->app->bind(OpsTaskDispatcher::class, ThinkPhpOpsTaskDispatcher::class);
@@ -446,6 +447,7 @@ class AppService extends Service
                 dirname(__DIR__),
                 $this->moduleConfiguration(),
                 $this->app->make(ModuleCatalogApplier::class),
+                $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
             ));
         $this->app->bind(DeploymentModuleRequestService::class, fn(): DeploymentModuleRequestService =>
             new DeploymentModuleRequestService(

@@ -56,6 +56,7 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
             $this->moduleConfig,
             $this->catalogs,
             new ModuleMigrationSqlExecutor(),
+            new TenantModuleStateQueries(),
         );
     }
 

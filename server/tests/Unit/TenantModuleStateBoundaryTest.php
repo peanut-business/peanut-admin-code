@@ -128,6 +128,73 @@ final class TenantModuleStateBoundaryTest extends TestCase
         $this->qualification->activeTenantModuleKeys(1);
     }
 
+    public function testLifecycleUsageIsNotReducedToCurrentlyUsableTenantModules(): void
+    {
+        $this->database->exec("INSERT INTO pa_tenant_module (id,tenant_id,module_key,status,effective_at,expires_at) VALUES (8,2,'fixture.current','enabled',NULL,'2030-01-01 00:00:00.000'),(9,3,'fixture.current','enabled','2032-01-01 00:00:00.000',NULL)");
+        $counts = $this->queries->enabledCounts();
+        self::assertSame(3, $counts['fixture.current']);
+        self::assertSame(1, $counts['fixture.expired']);
+        self::assertSame(1, $counts['fixture.future']);
+        self::assertArrayNotHasKey('fixture.disabled', $counts);
+        self::assertArrayNotHasKey('fixture.foundation', $counts);
+        self::assertTrue($this->queries->hasEnabledModules(['fixture.expired']));
+        self::assertTrue($this->queries->hasEnabledModules(['fixture.foreign']));
+        self::assertFalse($this->queries->hasEnabledModules(['fixture.disabled', 'fixture.foundation']));
+        self::assertFalse($this->queries->hasEnabledModules([]));
+        self::assertSame(['fixture.current', 'fixture.current', 'fixture.current', 'fixture.expired'], $this->queries->enabledModuleReferences(['fixture.expired', 'fixture.current']));
+        self::assertSame([], $this->queries->enabledModuleReferences([]));
+    }
+
+    public function testLifecycleConsumersKeepTheGuardButDoNotReadThePrivateStateTable(): void
+    {
+        $root = dirname(__DIR__, 2) . '/app/platform/services/plugin/';
+        foreach (['PlatformModuleRuntimeService.php', 'PluginRuntimeGovernanceService.php', 'PluginLifecycleService.php'] as $file) {
+            $source = file_get_contents($root . $file);
+            self::assertStringContainsString('TenantModuleStateQueries $tenantStates', $source);
+            self::assertStringNotContainsString("Db::name('tenant_module')", $source);
+            self::assertStringContainsString('PLUGIN_TENANT_MODULE_ACTIVE', $source);
+        }
+    }
+
+    public function testAffectedNativeFactoriesAndRetainedFixturesSupplyTheRequiredOwnerQuery(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $minimum = [
+            \app\platform\services\plugin\PlatformModuleRuntimeService::class => 7,
+            \app\platform\services\plugin\PluginRuntimeGovernanceService::class => 4,
+            \app\platform\services\plugin\PluginLifecycleService::class => 6,
+        ];
+        $sites = 0;
+        foreach ([
+            'server/app/AppService.php', 'server/app/command/ModuleSync.php',
+            'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
+            'server/app/platform/infrastructure/plugin/PluginPackageInstaller.php',
+            'server/fixtures/plugin-module-lifecycle/run.php',
+            'server/tests/Productization/ModuleCommandContractTest.php',
+            'server/tests/Productization/ModuleBundleLifecycleTest.php',
+            'server/tests/Productization/ModuleRuntimeGovernanceTest.php',
+            'server/tests/Productization/ModuleDeliveryOperationTest.php',
+        ] as $path) {
+            $traverser = new \PhpParser\NodeTraverser();
+            $traverser->addVisitor(new \PhpParser\NodeVisitor\NameResolver());
+            $nodes = $traverser->traverse((new \PhpParser\ParserFactory())->createForHostVersion()->parse(file_get_contents($root . '/' . $path)));
+            foreach ((new \PhpParser\NodeFinder())->findInstanceOf($nodes, \PhpParser\Node\Expr\New_::class) as $call) {
+                if ($call->class instanceof \PhpParser\Node\Name && isset($minimum[$call->class->toString()])) {
+                    ++$sites;
+                    self::assertGreaterThanOrEqual($minimum[$call->class->toString()], count($call->args), $path . ':' . $call->getStartLine());
+                }
+            }
+        }
+        self::assertSame(23, $sites);
+    }
+
+    public function testMissingLifecycleLedgerIsNotTreatedAsNoEnabledConsumers(): void
+    {
+        $this->database->exec('DROP TABLE pa_tenant_module');
+        $this->expectException(\Throwable::class);
+        $this->queries->hasEnabledModules(['fixture.current']);
+    }
+
     public function testMissingStateLedgerDoesNotSilentlyReturnAnEmptyGrantSet(): void
     {
         $this->database->exec('DROP TABLE pa_tenant_module');

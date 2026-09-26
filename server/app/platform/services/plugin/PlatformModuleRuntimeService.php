@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\plugin;
 
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use app\platform\infrastructure\plugin\PluginLockResolver;
@@ -26,6 +27,7 @@ final readonly class PlatformModuleRuntimeService
         private PluginRuntimeGovernanceService $governance,
         private PluginCatalogSyncService $catalog,
         private ModuleCatalogApplier $catalogs,
+        private TenantModuleStateQueries $tenantStates,
     ) {}
 
     /** @return array{items:list<array<string,mixed>>,total:int} */
@@ -71,12 +73,7 @@ final readonly class PlatformModuleRuntimeService
             ->leftJoin('module_installation installation', 'installation.module_key=member.module_key')
             ->field('member.module_key,member.module_version,member.manifest_digest,member.plugin_key,plugin.installed_version AS package_version,plugin.status AS package_status,installation.status AS module_status,installation.last_error_code')
             ->order('member.module_key')->select()->toArray();
-        $enabledCounts = [];
-        $enabledRows = Db::name('tenant_module')->where('status', 'enabled')
-            ->field('module_key')->fieldRaw('COUNT(*) AS enabled_count')->group('module_key')->select()->toArray();
-        foreach ($enabledRows as $enabledRow) {
-            $enabledCounts[(string) $enabledRow['module_key']] = (int) $enabledRow['enabled_count'];
-        }
+        $enabledCounts = $this->tenantStates->enabledCounts();
         foreach ($rows as $row) {
             $key = (string) $row['module_key'];
             $details[$key] ??= [
@@ -218,7 +215,7 @@ final readonly class PlatformModuleRuntimeService
                     ),
                     $moduleKeys,
                 );
-                if (Db::name('tenant_module')->whereIn('module_key', $moduleKeys)->where('status', 'enabled')->count() !== 0) {
+                if ($this->tenantStates->hasEnabledModules($moduleKeys)) {
                     throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Disable every TenantModule in the Bundle first.');
                 }
                 Db::transaction(function () use ($moduleKeys): void {

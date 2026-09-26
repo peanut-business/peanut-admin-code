@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
-use app\platform\service\plugin\ModuleUninstallPlanCodec;
-use app\platform\service\plugin\PluginLifecycleException;
-use app\platform\service\plugin\PluginPackageArchiveService;
-use app\platform\service\plugin\PluginPackageInstaller;
-use app\platform\service\plugin\PluginRuntimeGovernanceService;
+use app\platform\infrastructure\plugin\ModuleUninstallPlanCodec;
+use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\services\plugin\PluginPackageArchiveService;
+use app\platform\infrastructure\plugin\PluginPackageInstaller;
+use app\platform\services\plugin\PluginRuntimeGovernanceService;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 2) . '/database/install.php';
@@ -143,7 +143,7 @@ try {
     moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchColumn() === 0, 'fixture package install changed TenantModule enablement');
 
     $purgeSeed = moduleGovernanceSeed($pdo);
-    $service = new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs);
+    $service = new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries());
     $retirePreview = $service->preview('fixture.delivery-record', false);
     moduleGovernanceExpect($retirePreview['blockers'] === [], 'retire preview unexpectedly blocked');
     try {
@@ -171,14 +171,14 @@ SQL);
     moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_role_permission rp JOIN pa_permission p ON p.id=rp.permission_id WHERE p.module_key='fixture.delivery-record'")->fetchColumn() === 1, 'retire deleted tenant role binding');
     moduleGovernanceExpect((string) $pdo->query("SELECT status FROM pa_permission WHERE module_key='fixture.delivery-record'")->fetchColumn() === 'retired', 'retire left permission active');
 
-    $previewA = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs))->preview('fixture.delivery-record', true);
-    $previewB = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs))->preview('fixture.delivery-record', true);
+    $previewA = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))->preview('fixture.delivery-record', true);
+    $previewB = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))->preview('fixture.delivery-record', true);
     moduleGovernanceExpect($previewA['plan_digest'] === $previewB['plan_digest'], 'purge preview digest is not deterministic');
     moduleGovernanceExpect($previewA['blockers'] === [], 'purge preview unexpectedly blocked');
     moduleGovernanceExpect(count($previewA['affected_modules']) === 1, 'purge after retire lost the quarantined Module scope');
     moduleGovernanceExpect(count(array_filter($previewA['removed'], static fn(array $entry): bool => in_array($entry['table'], ['pa_role_permission', 'pa_platform_role_permission'], true))) === 2, 'purge preview omitted explicit role bindings');
     try {
-        (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs, static function (string $point): void {
+        (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(), static function (string $point): void {
             if ($point === 'after-first-drop-statement') {
                 throw new RuntimeException('injected interruption');
             }
@@ -193,7 +193,7 @@ SQL);
     $remainingTables = (int) $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('pa_fixture_delivery_record','pa_fixture_delivery_aux')")->fetchColumn();
     moduleGovernanceExpect($remainingTables === 1, 'interrupted purge did not leave a deterministic partial table set');
 
-    $purged = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs))->uninstall('fixture.delivery-record', true, $previewA['confirm_plan'], $previewA['plan_digest']);
+    $purged = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))->uninstall('fixture.delivery-record', true, $previewA['confirm_plan'], $previewA['plan_digest']);
     moduleGovernanceExpect($purged['operation'] === 'purged', 'purge recovery did not finish');
     moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('pa_fixture_delivery_record','pa_fixture_delivery_aux')")->fetchColumn() === 0, 'purge left owned tables');
     moduleGovernanceExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE module_key='fixture.delivery-record'")->fetchColumn() === 0, 'purge left migration ledger');
@@ -204,7 +204,7 @@ SQL);
     $bindingCount = $pdo->prepare('SELECT COUNT(*) FROM pa_platform_role_permission WHERE permission_id=?');
     $bindingCount->execute([$purgeSeed['permission_id']]);
     moduleGovernanceExpect((int) $bindingCount->fetchColumn() === 0, 'purge left platform role binding');
-    $unchanged = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs))->uninstall('fixture.delivery-record', true, $previewA['confirm_plan'], $previewA['plan_digest']);
+    $unchanged = (new PluginRuntimeGovernanceService($targetProject . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))->uninstall('fixture.delivery-record', true, $previewA['confirm_plan'], $previewA['plan_digest']);
     moduleGovernanceExpect($unchanged['operation'] === 'unchanged', 'repeated clean purge was not idempotent');
 
     $codec = new ModuleUninstallPlanCodec();

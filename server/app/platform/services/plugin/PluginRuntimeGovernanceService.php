@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\plugin;
 
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
@@ -25,6 +26,7 @@ final class PluginRuntimeGovernanceService
         private readonly string $serverRoot,
         private readonly array $moduleConfig,
         private readonly ModuleCatalogApplier $catalogs,
+        private readonly TenantModuleStateQueries $tenantStates,
         private readonly mixed $faultInjector = null,
     ) {}
 
@@ -345,8 +347,7 @@ final class PluginRuntimeGovernanceService
                 'identifiers' => $protected,
             ];
         }
-        $enabled = array_map('strval', Db::name('tenant_module')->whereIn('module_key', $moduleKeys)
-            ->where('status', 'enabled')->order('module_key')->column('module_key'));
+        $enabled = $this->tenantStates->enabledModuleReferences($moduleKeys);
         if ($enabled !== []) {
             $blockers[] = ['code' => 'PLUGIN_TENANT_MODULE_ACTIVE', 'kind' => 'tenant_enablement', 'identifiers' => $enabled];
         }

@@ -164,6 +164,7 @@ final class PluginPackageInstaller
                             $this->moduleConfig,
                             $this->catalogs,
                             new ModuleMigrationSqlExecutor(),
+                            new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
                         );
                         $lifecycleStarted = true;
                         $result = $operation === 'update'

@@ -31,9 +31,14 @@ final class ModuleCommandContractTest extends TestCase
     protected function setUp(): void
     {
         $this->previousContainer = Container::getInstance();
-        $temporaryRoot = realpath(sys_get_temp_dir());
+        $parent = dirname(__DIR__, 3) . '/.local/tmp/module-command-tests';
+        if (!is_dir($parent) && !mkdir($parent, 0700, true) && !is_dir($parent)) {
+            throw new \RuntimeException('MODULE_COMMAND_TEST_DIRECTORY_UNAVAILABLE');
+        }
+        $temporaryRoot = realpath($parent);
         self::assertIsString($temporaryRoot);
-        $this->temporary = $temporaryRoot . '/peanut-module-command-' . bin2hex(random_bytes(8));
+        self::assertStringStartsWith(dirname(__DIR__, 3) . '/.local/tmp/', $temporaryRoot);
+        $this->temporary = $temporaryRoot . '/case-' . bin2hex(random_bytes(8));
         mkdir($this->temporary . '/server', 0700, true);
     }
 
@@ -116,6 +121,17 @@ final class ModuleCommandContractTest extends TestCase
         self::assertTrue($store->isEmpty());
     }
 
+    #[DataProvider('deniedRuntimeProvider')]
+    public function testSyncUsesTheSameInstanceMaintenanceGuard(string $mode, string $environment, bool $debug): void
+    {
+        [$app, $store] = $this->application($mode, $environment, $debug);
+        $command = $this->command($app, \app\command\ModuleSync::class);
+        $output = new Output('buffer');
+        self::assertSame(1, $command->run(new Input([]), $output));
+        self::assertSame('MODULE_RUNTIME_MUTATION_DISABLED', json_decode(trim($output->fetch()), true, 16, JSON_THROW_ON_ERROR)['error'] ?? null);
+        self::assertTrue($store->isEmpty());
+    }
+
     /** @return iterable<string,array{string,string,bool}> */
     public static function deniedRuntimeProvider(): iterable
     {
@@ -193,6 +209,7 @@ final class ModuleCommandContractTest extends TestCase
             'ModuleUpdatePackage.php',
             'ModuleDisablePackage.php',
             'ModuleUninstallPackage.php',
+            'ModuleSync.php',
         ] as $file) {
             $source = (string) file_get_contents($serverRoot . '/app/command/' . $file);
             self::assertStringContainsString('$this->assertDevelopmentInstanceMaintenanceAccess()', $source);
@@ -223,9 +240,10 @@ final class ModuleCommandContractTest extends TestCase
             $this->temporary . '/server',
             $moduleConfig,
             $trustedKeys,
-            new PluginRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs),
+            new PluginRuntimeGovernanceService($this->temporary . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()),
             new PluginCatalogSyncService($this->temporary . '/server', $moduleConfig, $catalogs),
             $catalogs,
+            new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
         );
         $app->instance(ExecutionContextStore::class, $store);
         $app->instance(CurrentExecutionContext::class, $current);

@@ -658,7 +658,7 @@ try {
         moduleBundleExpect(moduleBundleCount($pdo, $table, $moduleKeys, 'active') === $catalogExpected[$name], "bundle {$name} catalog is not active");
     }
 
-    $governance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs);
+    $governance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries());
     $retirePreview = $governance->preview('official.article', false);
     moduleBundleExpect(($retirePreview['confirm_plan']['package_key'] ?? null) === 'official-content-bundle', 'member key did not resolve the bundle package');
     moduleBundleExpect(array_column($retirePreview['affected_modules'], 'module_key') === $moduleKeys, 'retire preview did not display the complete bundle scope');
@@ -772,6 +772,7 @@ try {
         $governance,
         new PluginCatalogSyncService($target . '/server', $moduleConfig, $catalogs),
         $catalogs,
+        new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
     );
     $runtimeProjection = $moduleRuntime->modules(1, 100, 'official.task');
     $runtimeTask = $runtimeProjection['items'][0] ?? null;
@@ -821,7 +822,7 @@ try {
         'same-identity application release did not preserve a disabled Package',
     );
 
-    $recoverableGovernance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs);
+    $recoverableGovernance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries());
     $recoverableRetirePreview = $recoverableGovernance->preview('official.task', false);
     moduleBundleExpect(($recoverableRetirePreview['confirm_plan']['package_key'] ?? null) === 'official-runtime-bundle', 'recoverable member key did not resolve its bundle');
     moduleBundleExpect(array_column($recoverableRetirePreview['affected_modules'], 'module_key') === $recoverableModuleKeys, 'recoverable retire preview split its bundle scope');
@@ -851,7 +852,7 @@ try {
     );
     moduleBundleExpect(($recoverableRepeatRetire['operation'] ?? null) === 'unchanged', 'repeated recoverable bundle retire was not idempotent');
 
-    $recoverablePurgePreview = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs))
+    $recoverablePurgePreview = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))
         ->preview('official.notification', true);
     moduleBundleExpect(($recoverablePurgePreview['confirm_plan']['package_key'] ?? null) === 'official-runtime-bundle', 'retired recoverable member key lost its bundle');
     moduleBundleExpect(array_column($recoverablePurgePreview['affected_modules'], 'module_key') === $recoverableModuleKeys, 'recoverable purge preview split its bundle scope');
@@ -862,6 +863,7 @@ try {
             $target . '/server',
             $moduleConfig,
             $catalogs,
+            new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
             static function (string $point): void {
                 if ($point === 'after-first-module-drop') {
                     throw new RuntimeException('injected bundle interruption');
@@ -887,7 +889,7 @@ try {
     moduleBundleExpect($interruptedModuleTableCounts[0] === 0 && $interruptedModuleTableCounts[1] > 0, 'bundle interruption did not stop between member completion points');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_migration', $recoverableModuleKeys) === $recoverableMigrationCount, 'interrupted bundle purge deleted migration ledger early');
 
-    $purged = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs))
+    $purged = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))
         ->uninstall(
             'official.notification',
             true,
@@ -902,7 +904,7 @@ try {
     }
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_installation', $recoverableModuleKeys) === 0, 'bundle purge left Module installation rows');
     moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_module WHERE plugin_key='official-runtime-bundle'")->fetchColumn() === 2, 'bundle purge deleted ownership history');
-    $repeatPurge = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs))
+    $repeatPurge = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))
         ->uninstall(
             'official.notification',
             true,

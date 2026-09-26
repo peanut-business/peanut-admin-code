@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\plugin;
 
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\platform\composition\plugin\PluginModuleRegistryFactory;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
@@ -27,6 +28,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         private array $moduleConfig,
         private ModuleCatalogApplier $catalogs,
         private ModuleMigrationSqlExecutor $migrationSql,
+        private TenantModuleStateQueries $tenantStates,
     ) {}
 
     /** @return array<string,mixed> */
@@ -167,7 +169,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             array_keys($manifests),
         );
         $ownedModuleKeys = Db::name('plugin_module')->where('plugin_key', $pluginKey)->column('module_key');
-        if ($ownedModuleKeys !== [] && Db::name('tenant_module')->whereIn('module_key', $ownedModuleKeys)->where('status', 'enabled')->count() !== 0) {
+        if ($ownedModuleKeys !== [] && $this->tenantStates->hasEnabledModules($ownedModuleKeys)) {
             throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Disable every TenantModule before uninstall.');
         }
         $modules = $this->pluginModuleRows($pluginKey);

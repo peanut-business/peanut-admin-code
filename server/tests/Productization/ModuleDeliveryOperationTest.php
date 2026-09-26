@@ -315,7 +315,7 @@ try {
         $target,
         $config,
         [],
-        new PluginRuntimeGovernanceService($target . '/server', $config, $catalogs),
+        new PluginRuntimeGovernanceService($target . '/server', $config, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()),
         $catalogs,
         $registryPath,
     );

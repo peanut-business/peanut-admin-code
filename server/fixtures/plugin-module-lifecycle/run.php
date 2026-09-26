@@ -256,6 +256,7 @@ try {
         $config,
         $catalogs,
         new ModuleMigrationSqlExecutor(),
+        new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
     );
     $first = $service->install('fixture.delivery-record');
     pluginLifecycleExpect(($first['status'] ?? null) === 'active', 'Plugin did not activate');
@@ -371,6 +372,7 @@ SQL);
         $config + ['plugin_lock' => $artifact['lock']],
         $catalogs,
         new ModuleMigrationSqlExecutor(),
+        new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
     );
     try {
         $failureService->install('fixture.delivery-record');
@@ -398,6 +400,7 @@ SQL);
         $config + ['plugin_lock' => $repairArtifact['lock']],
         $catalogs,
         new ModuleMigrationSqlExecutor(),
+        new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
     );
     $recovered = $repairService->install('fixture.delivery-record');
     pluginLifecycleExpect(($recovered['operation'] ?? null) === 'recovered', 'higher repair package did not recover the install');
