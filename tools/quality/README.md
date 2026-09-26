@@ -60,6 +60,23 @@ Core 依赖必须来自本次实际选定组合。测试依赖安装在本仓 `t
 
 从Code根执行 `node --test scripts/tests/notification-channel-response-test.mjs`。使用本工程已安装的Vue公开 `vue/compiler-sfc` 入口解析现行SFC，分别以Web原生TypeScript与quality锁定TypeScript检查完整API和script setup正文；不代替模板、整站构建或浏览器检查。行为部分执行实际API模块，仅Axios传输用合成响应，核渠道声明字段、合法空密钥/脱敏哨兵、非法结构拒绝、错误传播和原保存参数，不联网、不发送短信、不修改真实配置。测试状态另据实际回执，不能因为脚本已存在就记为通过。
 
+## Web 工具函数和设置补丁
+
+从Code根执行 `node --test scripts/tests/web-standard-utilities-test.mjs`。复用Web与quality各自锁定的TypeScript，检查unknown收窄、原始类型与布尔返回合同、非浏览器环境、窗口参数及实际Pinia补丁行为；设置输入使用AppSettings，运行时菜单使用菜单动作。行为回归保留原生深层合并和订阅通知，非本范围的菜单请求仅使用测试替身。此项不是整站浏览器验证。
+
+## Web 可选生产源码与独立测试
+
+Web默认 `vue-tsc --noEmit --project web/tsconfig.json` 包含可选模块生产源码，不再排除整个optional-runtime；各模块配置只负责生产源码，测试独立进入 `web/tsconfig.optional-tests.json`。从Code根明确设置 `WEB_CORE_SOURCE_ROOT` 为选定Web Core源码根后执行：
+
+```sh
+node web/scripts/check-optional-types.mjs
+node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.optional.config.mjs
+```
+
+这两个入口覆盖file、import-export、notification、task四个可选运行区域；前者拒绝空输入、生产源码重新被排除、测试文件遗漏或关闭strict，随后按quality锁的TypeScript核真实测试及导入。后者执行原有9份测试，显式绑定Core公开源码和同一Vue运行时，passWithNoTests=false；文件选择器保留Happy DOM组件挂载与选择/禁用断言。没有网络、数据库或真实短信/任务操作。reference-codes与settings的其他运行测试不因此被标已验收。
+
+组件测试工具 `@vue/test-utils`、`happy-dom`及其Vue运行依赖只进入本目录原生锁，不写入产品客户端依赖锁。源码测试、虚拟DOM、开发类型映射与实际产品安装分别记录，不以这些入口成功声明默认产品Core链接已更新。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

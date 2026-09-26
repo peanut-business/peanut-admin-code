@@ -6,7 +6,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "vitest": ["../tools/quality/node_modules/vitest"]
+      "vitest": ["../tools/quality/node_modules/vitest"],
+      "@vue/test-utils": ["../tools/quality/node_modules/@vue/test-utils"]
     },
     "types": []
   },

@@ -2,7 +2,8 @@
   "extends": "../../../../tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["node", "vite/client"]
+    "types": []
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts", "../../../../env.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "../../../../src/env.d.ts"],
+  "exclude": []
 }

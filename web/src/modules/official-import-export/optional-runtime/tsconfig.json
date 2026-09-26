@@ -2,7 +2,8 @@
   "extends": "../../../../tsconfig.json",
   "compilerOptions": {
     "composite": false,
-    "types": ["vitest/globals"]
+    "types": []
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "../../../../src/env.d.ts"],
+  "exclude": []
 }

@@ -6,6 +6,7 @@
     nextTick,
     ref,
     type Component,
+    type VNode,
   } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { useRoute, useRouter, RouteRecordRaw } from 'vue-router';
@@ -225,7 +226,7 @@
 
       const renderSubMenu = () => {
         submenuKeys.clear();
-        function travel(_route: RouteRecordRaw[]): any[] {
+        function travel(_route: RouteRecordRaw[]): VNode[] {
           if (!_route) return [];
           return _route.map((element) => {
             const index = element.name as string;

@@ -654,7 +654,7 @@
   const fieldLoading = ref(false);
   const fieldForm = reactive<{
     field: MemberEditableField;
-    value: any;
+    value: MemberDetail[MemberEditableField];
   }>({ field: 'account', value: '' });
   const fieldLabel = computed(
     () =>

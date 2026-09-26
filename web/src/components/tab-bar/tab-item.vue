@@ -125,7 +125,7 @@
   const findCurrentRouteIndex = () => {
     return tagList.value.findIndex((el) => el.fullPath === route.fullPath);
   };
-  const actionSelect = async (value: any) => {
+  const actionSelect = async (value: unknown) => {
     const { itemData, index } = props;
     const copyTagList = [...tagList.value];
     if (value === Eaction.current) {
