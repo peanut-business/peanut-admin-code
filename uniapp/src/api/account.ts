@@ -22,12 +22,12 @@ export interface LoginResult {
 
 /** POST api/login/register */
 export function register(data: RegisterParams) {
-  return http.post<void>('api/login/register', data, false);
+  return http.post<void>('api/login/register', { ...data }, false);
 }
 
 /** POST api/login/account */
 export function loginByAccount(data: LoginParams) {
-  return http.post<LoginResult>('api/login/account', data, false);
+  return http.post<LoginResult>('api/login/account', { ...data }, false);
 }
 
 /** POST api/login/logout */
