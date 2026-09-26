@@ -481,7 +481,10 @@ class AppService extends Service
                     new PaymentQualificationContributor($this->platformIdentifierHmacKey()),
                     new NotificationQualificationContributor($this->platformIdentifierHmacKey()),
                     new OauthQualificationContributor($this->platformIdentifierHmacKey()),
-                    new StorageQualificationContributor($this->platformIdentifierHmacKey()),
+                    new StorageQualificationContributor(
+                        $this->platformIdentifierHmacKey(),
+                        $this->app->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class),
+                    ),
                 ],
                 $this->platformIdentifierHmacKey(),
             ));

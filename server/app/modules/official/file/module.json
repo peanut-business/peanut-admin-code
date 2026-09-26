@@ -42,6 +42,7 @@
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\File\\Contract\\StorageQualificationQueries",
       "PeanutAdmin\\Modules\\File\\Contract\\FileAdministration",
       "PeanutAdmin\\Modules\\File\\Contract\\FileUploads",
       "PeanutAdmin\\Modules\\File\\Contract\\FileReferences",

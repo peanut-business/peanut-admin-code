@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "47faed1ef6abafc55cbae39a07b53f6fba34fb425bee8d80f5a1e976b7735c0a"
+            "source_sha256": "8cfbb9af8f184c2fc325c9cb003a9a086955e7aa25e1ba7ce88dd898a2a35dd8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2342,7 +2342,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9022c297f8e6911c31941a40ec802e5a1242a436985ecd2e6005c17f8a2d5f48"
+            "source_sha256": "68623827f049525e462602c93dfcccad19db8f1d75e482ae072ca114da74d682"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -4169,7 +4169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a292d22ba0a259b1cde51bdca45136707391105c58a36914f9462541776d95be"
+            "source_sha256": "75242dd91657f99adaa74c0be23b2c729d59923bdb637c789d776882007cdf95"
         },
         {
             "path": "server/app/BaseController.php",
@@ -9282,7 +9282,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "725fccd2decb4dcf19743ef4df68fb77d176c92a6c9651b5656bebfebd76ce2e"
+            "source_sha256": "3afc471c2d435ff766b1ea11f1b1d9aa67d230f3580bc7d294d7404fc0f042ed"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -9479,6 +9479,20 @@
                 "full"
             ],
             "source_sha256": "7b1242888d0cf9acf9b8ee0eea0421c8f8c624500bbcd75dbdac2d03965dd582"
+        },
+        {
+            "path": "server/app/modules/official/file/src/Contract/StorageQualificationQueries.php",
+            "target": "server/app/modules/official/file/src/Contract/StorageQualificationQueries.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d224b8f3266fedbf788664dc2f44674ff59906600ae348d8a687cab5fdc9d925"
         },
         {
             "path": "server/app/modules/official/file/src/Controller/FileController.php",
@@ -21191,7 +21205,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cd8c9ff22b2130eed31c0b8ccd4d0eadb2b635826802f17497a78c6e2267bba1"
+            "source_sha256": "8b8e48d6f3a5b6f46e3eb713fdde597514fa62400753cab5114abf753ae6d05a"
         },
         {
             "path": "server/app/platform/invitation/OneTimeInvitationToken.php",
@@ -27122,6 +27136,19 @@
         {
             "path": "server/tests/Unit/StandardModuleBoundaryTest.php",
             "target": "server/tests/Unit/StandardModuleBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/StorageQualificationBoundaryTest.php",
+            "target": "server/tests/Unit/StorageQualificationBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
