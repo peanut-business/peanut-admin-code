@@ -23,6 +23,33 @@ final readonly class TenantAuthorizationQuery
             ->distinct(true)->order('key')->column('key')));
     }
 
+    /**
+     * 只读取调用方已选菜单引用的定义元数据；不存在与停用必须区分，不授予人员权限。
+     * 以有界批次查询，返回缺失项为空缺，存储失败原样传播。
+     * @param list<string> $permissionKeys
+     * @return array<string,array{module_key:string|null,status:string}>
+     */
+    public function permissionStates(array $permissionKeys): array
+    {
+        foreach ($permissionKeys as $key) {
+            if (!is_string($key) || $key === '') {
+                throw new \InvalidArgumentException('PERMISSION_KEY_INVALID');
+            }
+        }
+        $states = [];
+        foreach (array_chunk(array_values(array_unique($permissionKeys)), 500) as $keys) {
+            $rows = Permission::whereIn('key', $keys)->field('key,module_key,status')->order('key')->select()->toArray();
+            foreach ($rows as $row) {
+                $states[(string) $row['key']] = [
+                    'module_key' => $row['module_key'] === null ? null : (string) $row['module_key'],
+                    'status' => (string) $row['status'],
+                ];
+            }
+        }
+        ksort($states, SORT_STRING);
+        return $states;
+    }
+
     /** @return list<string> */
     public function applicationPermissionKeys(TenantContext $context): array
     {
@@ -65,7 +92,7 @@ final readonly class TenantAuthorizationQuery
             'id' => (int) $row['id'],
             'key' => (string) $row['key'],
             'name' => (string) $row['name'],
-            'is_builtin' => (int) $row['is_builtin'] === 1,
+            'is_builtin' => (int) $row['is_builtin'],
         ], $rows);
     }
 
