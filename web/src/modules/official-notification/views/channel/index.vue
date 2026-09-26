@@ -190,7 +190,7 @@
   .section-title {
     margin: 0 0 16px;
     color: var(--el-text-color-primary);
-    font-weight: 600;
     font-size: 16px;
+    font-weight: 600;
   }
 </style>

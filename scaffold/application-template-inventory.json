@@ -643,7 +643,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5734cb84d18ae54130b5bc4038327d000c57fd0157c96dc0464cfda4950d91b2"
+            "source_sha256": "9135e1a0360f17d7cf4eaf8474fad83bd46b1e396775248ac1f83d5bbff2596d"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -657,7 +657,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24ad504041507c3e13b93773be50efe5d8fb9657bb18107cf14c4461cdde3c27"
+            "source_sha256": "ff4748c8351b1b5918d9211d0ba27b716b3f724d588d482e74ea14f23971d714"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -2260,7 +2260,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "259c8d9d38b54ae07f08af0b91352d71afeea77f473d97d6bada5eee8b63554d"
+            "source_sha256": "c63db342f2f727f9374428a3ef51a3ab82388c59b9ddaf095cf09239bd274e40"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2398,7 +2398,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1bda20907e05f91a41a15375d2de0265046a200ee7e5a2d2e1c2d8d63ad7ea0"
+            "source_sha256": "fa4ee17ac99464d3699098279164af22a5881af9f302702eea77f8e3c1845801"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -3834,6 +3834,20 @@
                 "full"
             ],
             "source_sha256": "87ef1d4a548f7eb790cdc4ce0a733935b087c6fc9eb0009028bd8fb5523444ea"
+        },
+        {
+            "path": "scripts/tests/notification-channel-response-test.mjs",
+            "target": "scripts/tests/notification-channel-response-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c840f8d78b65de4196d8c8279e5e4b1baeb3c2e2a805d60a43e3e52a50657273"
         },
         {
             "path": "scripts/tests/package-release-files-test.py",
@@ -27247,7 +27261,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b5296aaa19e54ea014e24d0253b443ceb5c77c54ab7a48cb292e09112b5c303"
+            "source_sha256": "586c913f5c4e2d1abc2bd59825c0fe31fe5cfb6d4a32027210d2d6943b3c4298"
         },
         {
             "path": "tools/quality/composer.json",
@@ -30570,7 +30584,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2a10fb75fe1ca48e36e033fa499ff4320afedbb6bb055c9b2f62fd1ccf7e072c"
+            "source_sha256": "78910d73a71acf43c6ac858168157a57ebccbdcf6ab4f7cb568ab138b2435918"
         },
         {
             "path": "web/src/modules/official-notification/contribution.ts",
@@ -30738,7 +30752,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "019f703ddfa747af58e61e9bfa4733c4003862ce4c9e03a245cc9e6ca6e5d43f"
+            "source_sha256": "6088e105728cb2327e975b9faf9143c00f7f9e0aa80848c59ffd435f51e2a261"
         },
         {
             "path": "web/src/modules/official-notification/views/channel/locale/en-US.ts",
