@@ -67,3 +67,13 @@ Controller解析/校验HTTP输入并映射输出；外部回调绑定/签名/模
 沿用现有绑定、验签和模块机制，不因历史类型名差异另造身份域。原始正文/签名确认先于业务写，不能凭任意 `tenant_id` 获信任；保留渠道确认响应、防重复，并在 `finally` 恢复上下文。命名迁移不能改变公开安全类型或权限语义。
 
 生成顺序：API/SDK → 模块制品摘要与 `plugins.lock` → 模板清单 → 编译验证。摘要不符时修正源并重新生成，不关闭完整性检查。
+
+## 9. 租户设置导入导出的模块边界
+
+ImportExport 的 `TenantSettingsConfigurationAdapter` 构造注入 Settings 公开的 `PeanutAdmin\Modules\Settings\Contract\TenantSettingsTransfer`；不直接查询、连接或修改 Settings 私表，也不取得内部 Provider/Model。Settings 在自己的 ModuleProvider 绑定实际服务，通过既有 `TenantSettingSnapshot` 返回稳定结果；普通 `TenantSettingsCommands::replace` 没有导入所需的预期修订号，不能拿它替代条件写入。
+
+`current` 对不存在的命名空间返回 null；`snapshot` 只读取当前租户，并按命名空间排序。`apply` 的 revision=null 表示仅创建，非空 revision 必须等于规划时的现存修订号；目标消失、已被创建或修订变化均不得盲目覆盖。成功替换保留创建时间并增加修订号，JSON错误明确拒绝，不把损坏配置变成空文档。
+
+Settings 拥有事务内的数据访问，包级应用继续拥有最外层事务和审计；后续适配器或审计失败时，前面的设置写入必须一起回滚。公开合同供受信应用服务使用，不新增HTTP入口、不自动授予动作权限；调用者仍须完成相应身份、模块和动作授权。
+
+秘密引用的脱敏、重绑定和包格式仍由 ImportExport 现有 codec 负责。原始快照不得直接作为HTTP响应、日志或导出文件。该边界的回归入口为 `server/tests/Unit/TenantSettingsTransferBoundaryTest.php`，覆盖真实ORM读写、修订冲突、跨租户隔离、外层回滚和脱敏；进程内合成数据库测试不能替代MySQL并发锁或真实HTTP权限验收。
