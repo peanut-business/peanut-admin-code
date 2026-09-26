@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace app\platform\http\middleware;
 
 use app\common\http\JsonResponseFactory;
-use app\common\policy\DemoAccountPolicy;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\execution\CurrentExecutionContext;
 use app\platform\context\PlatformOperatorContext;
 use app\platform\services\PlatformOperatorSessionService;

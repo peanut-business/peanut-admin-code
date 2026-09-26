@@ -376,7 +376,7 @@ function initializeCoreIdentity(
     string $email,
     string $password,
     ?array $platformCredentials,
-    \app\common\policy\DemoAccountPolicy $demoAccounts,
+    \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy $demoAccounts,
     array $tenantBootstrap,
 ): array {
     foreach (KernelSchema::tableNames() as $table) {
@@ -736,7 +736,7 @@ function installFreshDatabase(string $serverDir, array $input): array
         $adminEmail = $credentials['admin_email'];
         $adminPassword = $credentials['admin_password'];
         $platformCredentials = $credentials['platform_credentials'];
-        $demoAccounts = new \app\common\policy\DemoAccountPolicy(
+        $demoAccounts = new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(
             getenv('PEANUT_DEMO_MODE') === 'enabled',
             array_values(array_filter([
                 $adminEmail,

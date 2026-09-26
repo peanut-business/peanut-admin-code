@@ -9,7 +9,7 @@ use app\common\dto\authorization\AdminPrincipal;
 use app\common\dto\authorization\PermissionDecision;
 use app\common\services\authorization\AdminAuthorizationService;
 use app\common\http\JsonResponseFactory;
-use app\common\policy\DemoAccountPolicy;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 

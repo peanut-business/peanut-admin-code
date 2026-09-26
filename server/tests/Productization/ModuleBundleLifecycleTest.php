@@ -343,7 +343,7 @@ initializeCoreIdentity(
     'module-bundle@example.test',
     'module-bundle-test-password',
     null,
-    new \app\common\policy\DemoAccountPolicy(false, []),
+    new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []),
     [
         'kind' => 'real-default-tenant',
         'code' => 'default',

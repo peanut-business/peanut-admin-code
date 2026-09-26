@@ -36,7 +36,7 @@ use app\common\infrastructure\module\ModuleExecutionBoundary;
 use app\common\security\ApplicationPasswordPolicy;
 use app\common\composition\CoreServiceOverrides;
 use app\common\services\CrontabCommandService;
-use app\common\policy\DemoAccountPolicy;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use PeanutAdmin\Modules\File\Service\FileService;
 use app\common\services\ProductAssetReferenceService;
 use app\common\services\authorization\MenuPermissionUsageQuery;

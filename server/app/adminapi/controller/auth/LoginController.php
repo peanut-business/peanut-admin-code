@@ -10,7 +10,7 @@ use app\common\contract\authorization\AdminAuthorizationQuery;
 use app\common\dto\authorization\AdminPrincipal;
 use app\adminapi\http\AdminTokenExtractor;
 use app\adminapi\validate\auth\LoginValidate;
-use app\common\policy\DemoAccountPolicy;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\exception\BusinessException;
 use think\App;
 

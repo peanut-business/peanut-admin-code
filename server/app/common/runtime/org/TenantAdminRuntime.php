@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\common\runtime\org;
 
-use app\common\policy\DemoAccountPolicy;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService;
 use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
 

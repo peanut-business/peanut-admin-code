@@ -195,7 +195,7 @@ $identity = initializeCoreIdentity(
     'module-delivery@example.test',
     'module-delivery-password',
     null,
-    new \app\common\policy\DemoAccountPolicy(false, []),
+    new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []),
     [
         'kind' => 'real-default-tenant',
         'code' => 'default',

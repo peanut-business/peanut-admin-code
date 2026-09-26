@@ -11,7 +11,7 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\ApiProblem;
 use app\common\service\authorization\AdminAuthorizationService;
-use app\common\service\DemoAccountPolicy;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\service\permission\RegisteredAdminPermissionPolicy;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;

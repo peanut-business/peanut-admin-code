@@ -169,7 +169,7 @@ try {
         'module-http-owner@example.test',
         'ModuleHttpOwnerPassword2026',
         null,
-        new \app\common\service\DemoAccountPolicy(false, []),
+        new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []),
     );
     executeSqlFiles($pdo, [$serverRoot . '/database/init.sql']);
     (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();

@@ -40,7 +40,7 @@ initializeCoreIdentity(
     'module-catalog@example.test',
     'module-catalog-test-password',
     null,
-    new \app\common\policy\DemoAccountPolicy(false, []),
+    new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []),
     [
         'kind' => 'real-default-tenant',
         'code' => 'default',

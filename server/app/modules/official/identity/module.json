@@ -85,6 +85,7 @@
             "PeanutAdmin\\Modules\\Identity\\Http\\TenantAuthResponse",
             "PeanutAdmin\\Modules\\Identity\\Identity\\AccountStatus",
             "PeanutAdmin\\Modules\\Identity\\Identity\\CredentialStatus",
+            "PeanutAdmin\\Modules\\Identity\\Policy\\DemoAccountPolicy",
             "PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService",
             "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService",
             "PeanutAdmin\\Modules\\Identity\\Membership\\TenantMemberStatus",
