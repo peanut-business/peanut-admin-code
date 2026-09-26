@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace app\command;
 
-use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpBackupTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Contract\BackupTaskExecution;
+use app\common\execution\CurrentExecutionContext;
+use app\common\execution\ExecutionContextStore;
 use app\common\execution\ContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
@@ -15,6 +17,14 @@ use Throwable;
 /** Deployment-only bridge for claiming and finalizing trusted backup tasks. */
 final class OpsBackupTask extends ContextualCommand
 {
+    public function __construct(
+        ?ExecutionContextStore $contexts = null,
+        ?CurrentExecutionContext $executionContext = null,
+        private readonly ?BackupTaskExecution $service = null,
+    ) {
+        parent::__construct($contexts, $executionContext);
+    }
+
     protected function configure(): void
     {
         $this->setName('ops-backup:task')
@@ -28,7 +38,8 @@ final class OpsBackupTask extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            $service = app(ThinkPhpBackupTaskExecutionService::class);
+            $service = $this->service
+                ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
             $action = trim((string) $input->getArgument('action'));
             $result = match ($action) {
                 'claim' => $service->claim(),

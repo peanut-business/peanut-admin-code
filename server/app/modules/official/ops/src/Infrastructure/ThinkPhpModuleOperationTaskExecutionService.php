@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
+use PeanutAdmin\Modules\Ops\Contract\ModuleTaskExecution;
 use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
 use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
 use PeanutAdmin\Modules\Ops\Service\PlatformModuleOperationExecutionService;
@@ -22,7 +23,7 @@ use Closure;
 use think\facade\Db;
 
 /** Trusted state machine for one registry-bound Module delivery request. */
-final readonly class ThinkPhpModuleOperationTaskExecutionService
+final readonly class ThinkPhpModuleOperationTaskExecutionService implements ModuleTaskExecution
 {
     private const FAILURE_CODES = [
         'OPS_MODULE_PREFLIGHT_FAILED',

@@ -6,7 +6,7 @@ namespace app\command;
 
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpModuleOperationTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Contract\ModuleTaskExecution;
 use app\common\execution\ContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
@@ -20,7 +20,7 @@ final class OpsModuleTask extends ContextualCommand
     public function __construct(
         ?ExecutionContextStore $contexts = null,
         ?CurrentExecutionContext $executionContext = null,
-        private readonly ?ThinkPhpModuleOperationTaskExecutionService $service = null,
+        private readonly ?ModuleTaskExecution $service = null,
     ) {
         parent::__construct($contexts, $executionContext);
     }
@@ -62,7 +62,7 @@ final class OpsModuleTask extends ContextualCommand
         }
     }
 
-    private function service(): ThinkPhpModuleOperationTaskExecutionService
+    private function service(): ModuleTaskExecution
     {
         return $this->service
             ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');

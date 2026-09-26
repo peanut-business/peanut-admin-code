@@ -28,7 +28,7 @@ final class OpsWorkerContractTest extends TestCase
     }
 
     #[DataProvider('workers')]
-    public function testOnlyWorkerPortIsPublicAndNativeBindingKeepsTheImplementation(string $command, string $port, string $implementation): void
+    public function testOnlyWorkerPortIsPublicAndNativeBindingKeepsTheImplementation(string $command, string $port, string $implementation, string $name, string $prefix): void
     {
         $module = new \PeanutAdmin\Modules\Ops\ModuleProvider();
         self::assertSame($implementation, $module->bindings()[$port] ?? null);
@@ -48,7 +48,7 @@ final class OpsWorkerContractTest extends TestCase
     }
 
     #[DataProvider('workers')]
-    public function testClaimUsesInjectedPortAndRestoresActualExecutionContext(string $type, string $port, string $implementation, string $name): void
+    public function testClaimUsesInjectedPortAndRestoresActualExecutionContext(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
         $contexts = new ExecutionContextStore();
         $worker = $this->createMock($port);
@@ -63,7 +63,7 @@ final class OpsWorkerContractTest extends TestCase
     }
 
     #[DataProvider('workers')]
-    public function testHeartbeatKeepsTaskKeyRevisionAndResult(string $type, string $port, string $implementation, string $name): void
+    public function testHeartbeatKeepsTaskKeyRevisionAndResult(string $type, string $port, string $implementation, string $name, string $prefix): void
     {
         $key = 'job_' . str_repeat('a', 32);
         $worker = $this->createMock($port);
@@ -112,6 +112,18 @@ final class OpsWorkerContractTest extends TestCase
         $source = file_get_contents((new ReflectionClass($type))->getFileName());
         self::assertStringNotContainsString('app(', $source);
         self::assertStringNotContainsString('Ops\\Infrastructure\\', $source);
+    }
+
+    #[DataProvider('workers')]
+    public function testUnknownActionDoesNotInvokeAnyWorkerMethod(string $type, string $port, string $implementation, string $name, string $prefix): void
+    {
+        $worker = $this->createMock($port);
+        foreach ((new ReflectionClass($port))->getMethods() as $method) {
+            $worker->expects(self::never())->method($method->name);
+        }
+        [$exit, $payload] = $this->runCommand($type, $port, $worker, ['unknown'], new ExecutionContextStore(), $name);
+        self::assertSame(1, $exit);
+        self::assertSame(['ok' => false, 'error_code' => $prefix . ($prefix === 'OPS_MODULE' ? '_TASK_ACTION_INVALID' : '_ACTION_INVALID')], $payload);
     }
 
     public function testModuleAndUpgradeSpecificTransitionsKeepTheirExactInputs(): void

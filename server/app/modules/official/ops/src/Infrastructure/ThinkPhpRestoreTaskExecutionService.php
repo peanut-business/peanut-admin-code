@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
+use PeanutAdmin\Modules\Ops\Contract\RestoreTaskExecution;
 use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
 use app\platform\value\ops\PairedBackupManifest;
 use app\platform\value\ops\RestoreVerificationEvidence;
@@ -14,7 +15,7 @@ use RuntimeException;
 use think\facade\Db;
 
 /** Trusted deployment-worker boundary for isolated restore verification. */
-final readonly class ThinkPhpRestoreTaskExecutionService
+final readonly class ThinkPhpRestoreTaskExecutionService implements RestoreTaskExecution
 {
     private const FAILURE_CODES = [
         'OPS_RESTORE_BACKUP_NOT_FOUND',

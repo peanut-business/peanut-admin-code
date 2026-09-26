@@ -16,7 +16,6 @@ use app\platform\infrastructure\plugin\ModuleMigrationSqlExecutor;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
 use think\App;
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
@@ -245,13 +244,8 @@ $config = [
     'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web'],
 ];
-$catalogs = new ModuleCatalogApplier(
-    new SettingDefinitionSynchronizer(),
-    new \PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer(
-        new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository(),
-    ),
-    new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(),
-);
+// The initialized native application owns the current catalog dependency graph.
+$catalogs = app(ModuleCatalogApplier::class);
 $artifact = null;
 $repairArtifact = null;
 try {

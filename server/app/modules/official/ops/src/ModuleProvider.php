@@ -17,6 +17,11 @@ final class ModuleProvider implements ModuleProviderContract
     /** @return array<class-string, class-string|callable> */
     public function bindings(): array
     {
-        return [];
+        return [
+            Contract\BackupTaskExecution::class => Infrastructure\ThinkPhpBackupTaskExecutionService::class,
+            Contract\RestoreTaskExecution::class => Infrastructure\ThinkPhpRestoreTaskExecutionService::class,
+            Contract\ModuleTaskExecution::class => Infrastructure\ThinkPhpModuleOperationTaskExecutionService::class,
+            Contract\UpgradeTaskExecution::class => Infrastructure\ThinkPhpUpgradeTaskExecutionService::class,
+        ];
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
+use PeanutAdmin\Modules\Ops\Contract\UpgradeTaskExecution;
 use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
 use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeExecutionService;
 use app\platform\value\ops\PlatformUpgradeTarget;
@@ -22,7 +23,7 @@ use PeanutAdmin\Modules\Ops\Domain\Task\BackupRestoreProviderRegistry;
 use think\facade\Db;
 
 /** Trusted state machine behind the fixed deployment-control worker. */
-final readonly class ThinkPhpUpgradeTaskExecutionService
+final readonly class ThinkPhpUpgradeTaskExecutionService implements UpgradeTaskExecution
 {
     private const STEPS = [
         1 => 'preflight',

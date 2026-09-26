@@ -6,7 +6,7 @@ namespace app\command;
 
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
-use PeanutAdmin\Modules\Ops\Infrastructure\ThinkPhpUpgradeTaskExecutionService;
+use PeanutAdmin\Modules\Ops\Contract\UpgradeTaskExecution;
 use app\common\execution\ContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
@@ -20,7 +20,7 @@ final class OpsUpgradeTask extends ContextualCommand
     public function __construct(
         ?ExecutionContextStore $contexts = null,
         ?CurrentExecutionContext $executionContext = null,
-        private readonly ?ThinkPhpUpgradeTaskExecutionService $service = null,
+        private readonly ?UpgradeTaskExecution $service = null,
     ) {
         parent::__construct($contexts, $executionContext);
     }
@@ -65,7 +65,7 @@ final class OpsUpgradeTask extends ContextualCommand
         }
     }
 
-    private function service(): ThinkPhpUpgradeTaskExecutionService
+    private function service(): UpgradeTaskExecution
     {
         return $this->service
             ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
+use PeanutAdmin\Modules\Ops\Contract\BackupTaskExecution;
 use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
 use app\platform\value\ops\PairedBackupManifest;
 use app\common\services\audit\AuditContractHost;
@@ -13,7 +14,7 @@ use RuntimeException;
 use think\facade\Db;
 
 /** Trusted deployment-worker boundary; no HTTP controller calls this service. */
-final readonly class ThinkPhpBackupTaskExecutionService
+final readonly class ThinkPhpBackupTaskExecutionService implements BackupTaskExecution
 {
     private const FAILURE_CODES = [
         'OPS_BACKUP_CAPACITY_INSUFFICIENT',

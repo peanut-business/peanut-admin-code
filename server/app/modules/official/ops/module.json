@@ -45,6 +45,10 @@
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\Ops\\Contract\\BackupTaskExecution",
+      "PeanutAdmin\\Modules\\Ops\\Contract\\RestoreTaskExecution",
+      "PeanutAdmin\\Modules\\Ops\\Contract\\ModuleTaskExecution",
+      "PeanutAdmin\\Modules\\Ops\\Contract\\UpgradeTaskExecution",
       "PeanutAdmin\\Modules\\Ops\\Domain\\Maintenance\\MaintenanceService",
       "PeanutAdmin\\Modules\\Ops\\Domain\\Status\\OpsStatusService",
       "PeanutAdmin\\Modules\\Ops\\Domain\\Task\\OpsTaskService",
