@@ -47,6 +47,8 @@
 
 PHP 格式固定 PER-CS 2.0、PSR-4；UTF-8、LF、末尾换行，PHP 四空格，TS / Vue / JSON 二空格。纯 PHP 无结束标签，业务文件声明严格类型；覆写方法保持框架签名。语言语法要求的例外保留。引号、分号和换行由目标工程已提交 formatter / linter 配置唯一决定，不叠加互相冲突的外部配置。
 
+Code四端共用根 `.prettierrc.cjs`，Web入口仅引用；Prettier版本和PHP格式工具在 `tools/quality` 原生锁中固定，跨仓检查使用明确根目录与仓内配置。编辑器读取 `.editorconfig`，前端格式检查/受控写入统一走 `scripts/format-source.mjs`，PHP走既定PER-CS入口；准备和具体命令见[质量工具](../../tools/quality/README.md)。配置存在、保存自动格式化、实际全范围检查通过是三个不同状态，须分别核实。纯格式归一化与业务修改分开提交，历史/生成字节不重排；后续按变更范围检查，不能仅靠口头要求减少冲突。
+
 控制器 XxxController，验证器 XxxValidate，业务动作 XxxService，模型实体名，公开纯查询 XxxQueries，命令合同 XxxCommands。拒绝用新的 CommonService、Helper、Manager 掩盖职责；已有确有语义的名称不机械替换。不按行数强拆文件。
 
 ## 4. ThinkPHP 实现合同

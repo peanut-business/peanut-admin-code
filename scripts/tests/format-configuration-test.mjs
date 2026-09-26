@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { isFormattingSource } from '../format-source.mjs';
+import { formatSources, isFormattingSource } from '../format-source.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const require = createRequire(resolve(root, 'tools/quality/package.json'));
@@ -15,6 +15,11 @@ test('the formatter version is explicit and matches the installed tool', () => {
   const manifest = JSON.parse(readFileSync(resolve(root, 'tools/quality/package.json'), 'utf8'));
   assert.equal(manifest.devDependencies.prettier, '2.8.8');
   assert.equal(prettier.version, manifest.devDependencies.prettier);
+});
+
+test('contradictory modes fail before any source enumeration or writes', () => {
+  assert.throws(() => formatSources(['--check', '--write']), /FORMAT_MODE_CONFLICT/);
+  assert.throws(() => formatSources(['--write', '--check']), /FORMAT_MODE_CONFLICT/);
 });
 
 test('Web retains its entry without duplicating the Code policy', () => {

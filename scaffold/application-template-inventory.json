@@ -192,6 +192,20 @@
             "source_sha256": "8160cd3047e923031f988e971ae92e0943561d3c4f29c65b48a526ba2121ba9e"
         },
         {
+            "path": ".prettierrc.cjs",
+            "target": ".prettierrc.cjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6dfe29929473f0e6d27f7342fc1ed46340d1a8d507ee4bd91e84ddb30547cedd"
+        },
+        {
             "path": ".vscode/settings.json",
             "target": ".vscode/settings.json",
             "classification": "excluded",
@@ -783,7 +797,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "278b405b87c0659fbaa6bff1deac385a3c96ceee789f28635b0ba8f22770ceb7"
+            "source_sha256": "06a84b358107f91c8962b033f50398fe34cb0f8e84f08c1cc1bd25455f6b059b"
         },
         {
             "path": "docs/module-layout.md",
@@ -3055,6 +3069,20 @@
             ]
         },
         {
+            "path": "scripts/format-source.mjs",
+            "target": "scripts/format-source.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "153fb03e6dbf1392520ca95954e141ae6aab388ba7ea82198d8873387f105444"
+        },
+        {
             "path": "scripts/freeze-core-release",
             "target": "scripts/freeze-core-release",
             "classification": "managed",
@@ -3722,6 +3750,20 @@
                 "full"
             ],
             "source_sha256": "0f601682ed559da4a6ecfd7effd5e6b0db2910fb90e9f7279d536ce0bf7627a0"
+        },
+        {
+            "path": "scripts/tests/format-configuration-test.mjs",
+            "target": "scripts/tests/format-configuration-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "36af66e7290be34511210ec23fd9ac2924a305ca23eaa7a8d0696604c1e89118"
         },
         {
             "path": "scripts/tests/freeze-core-native-types-test.py",
@@ -27329,7 +27371,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c5f7bfd73f4f7911c089ee21343f0a380245fe15fc7320c69017d91a3734b0cc"
+            "source_sha256": "3f394e7a037fb90af01653468b906af372db4fd7e6011c260075ec616290a42d"
         },
         {
             "path": "tools/quality/composer.json",
@@ -27371,7 +27413,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a03a888529dfc84c24259c62872cc1f551828e4930399124bf5b5580af1131c"
+            "source_sha256": "0493369d59109a3649976dd6ec3b32112fa95afd221970614970e261552fe11d"
         },
         {
             "path": "tools/quality/php-cs-fixer.php",
@@ -27399,7 +27441,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bdf0f9744f36d3a550307ba76ded6fa8bde5ec11b38b505133631b62096d9009"
+            "source_sha256": "4e02fbc738ad00e216a5caf123fe01f6ec4d0360b94f070dc2e320590e473998"
         },
         {
             "path": "tools/quality/prettier-ignore",
@@ -28426,7 +28468,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d536c41b62c71c67ea8a0753b24b1029c68779431144492b3778d4a654f109cc"
+            "source_sha256": "5288f494db00460f92039073fab2b1101fe7b171cf13e253a6043a966e93a3f1"
         },
         {
             "path": "web/.stylelintrc.js",

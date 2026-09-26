@@ -23,11 +23,16 @@ export function isFormattingSource(path) {
 export function formatSources(arguments_) {
   let root = codeRoot;
   let write = false;
+  let mode;
   const requested = [];
   for (const argument of arguments_) {
-    if (argument === '--check') continue;
-    if (argument === '--write') write = true;
-    else if (argument.startsWith('--root=')) root = realpathSync(argument.slice(7));
+    if (argument === '--check' || argument === '--write') {
+      if (mode && mode !== argument) throw new Error('FORMAT_MODE_CONFLICT');
+      mode = argument;
+      write = argument === '--write';
+      continue;
+    }
+    if (argument.startsWith('--root=')) root = realpathSync(argument.slice(7));
     else if (argument.startsWith('-')) throw new Error('Unknown formatter option: ' + argument);
     else requested.push(argument);
   }
