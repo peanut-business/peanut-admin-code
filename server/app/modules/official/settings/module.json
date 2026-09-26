@@ -34,6 +34,8 @@
       "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingsCommands",
       "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingsQuery",
       "PeanutAdmin\\Modules\\Settings\\Contract\\TenantApplicationSettings",
+      "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingsTransfer",
+      "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingSnapshot",
       "PeanutAdmin\\Modules\\Settings\\Contract\\DeploymentSettingsTransfer",
       "PeanutAdmin\\Modules\\Settings\\Contract\\DeploymentSettingsTransferException"
     ],

@@ -15,12 +15,14 @@ use PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings;
 use PeanutAdmin\Modules\Settings\Contract\DeploymentSettingsTransfer;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsProvider;
 use PeanutAdmin\Modules\Settings\Contract\TenantSettingsQuery;
+use PeanutAdmin\Modules\Settings\Contract\TenantSettingsTransfer;
 use PeanutAdmin\Modules\Settings\Infrastructure\ThinkPhpTenantSettingsProvider;
 use PeanutAdmin\Modules\Settings\Infrastructure\UnavailableSecretProtector;
 use PeanutAdmin\Modules\Settings\Definition\DeployedSettingDefinitionRegistry;
 use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry;
 use PeanutAdmin\Modules\Settings\Service\SettingsHttpApplicationService;
 use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
+use PeanutAdmin\Modules\Settings\Service\TenantSettingsTransferService;
 use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
 use PeanutAdmin\Modules\Settings\Service\DeploymentSettingsTransferService;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
@@ -50,6 +52,7 @@ final class ModuleProvider implements ModuleProviderContract
             ),
             TenantSettingsCommands::class => TenantSettingService::class,
             TenantSettingsQuery::class => TenantSettingService::class,
+            TenantSettingsTransfer::class => TenantSettingsTransferService::class,
             TenantApplicationSettings::class => TenantApplicationSettingService::class,
             DeploymentSettingsTransfer::class => fn(App $app): DeploymentSettingsTransfer => new DeploymentSettingsTransferService(
                 $app->make(SettingDefinitionRegistry::class),
