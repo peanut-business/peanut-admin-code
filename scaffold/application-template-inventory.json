@@ -2259,7 +2259,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ec0d25cf8ef55db69cc6439257ba962d08e44e744ff517cc599590529e483da"
+            "source_sha256": "e21d76233eebe561ca10331abd2b15145bee08981806b56fb3ca06959a715576"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2341,7 +2341,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81c2b5a04421af5c62dde150cb0be3e5d097b5b5959936ad3709016d294264cb"
+            "source_sha256": "fd297b728f515d7c596a05a70ba0edc00bd573fe7f6e2ee09dc544208fa1c713"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2369,7 +2369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0c27a593020b8bbee89e15514ef10bde1271b10eecb845ce5f91c7e8ad66b511"
+            "source_sha256": "5c269ce98dd76460e6e9cc757d5629f98ea3bda729aaa85c7cc5c48967a3560d"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -10401,7 +10401,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bb86ea6342fc37a0fbb9293e5acc009e453868bc046cb425ba6459cba691398e"
+            "source_sha256": "b31d40ea65a7b2250e45c1a08afd4aaa22f1686650028e19ad623166d925e9f4"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/Dto/TenantMemberSummary.php",
@@ -13034,7 +13034,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "43f94be3388d96cf392994b502a8fc066395d564451163a7f4385e3321a442ea"
+            "source_sha256": "a6606e188e460fa071355694719e365f7a82cbb090acf32b8c585a7f607efeb8"
         },
         {
             "path": "server/app/modules/official/integration/src/Infrastructure/UnavailableWebhookSecretProtector.php",
@@ -26331,6 +26331,19 @@
         {
             "path": "server/tests/Unit/IntegrationBootstrapAuthorizationTest.php",
             "target": "server/tests/Unit/IntegrationBootstrapAuthorizationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/IntegrationTenantBoundaryTest.php",
+            "target": "server/tests/Unit/IntegrationTenantBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

@@ -119,7 +119,7 @@ final readonly class AdminDirectoryQuery
             ->join('account account', "account.id = member.account_id AND account.status = 'active'")
             ->join('credential credential', "credential.account_id = account.id AND credential.kind = 'email_password' AND credential.identifier_type = 'email' AND credential.status = 'active'")
             ->where('member.tenant_id', $tenantId)
-            ->where('account.id', $accountId)
+            ->where('member.account_id', $accountId)
             ->where('member.status', 'active')
             ->field([
                 'tenant.name' => 'tenant_name',

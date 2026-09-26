@@ -60,7 +60,7 @@ final class IntegrationBootstrapAuthorizationTest extends TestCase
         $this->contexts = new ExecutionContextStore();
         $this->current = new CurrentExecutionContext($this->contexts);
         $this->directory = new AdminDirectoryQuery($this->current);
-        $this->bindings = new ThinkPhpExternalTenantBindingRepository();
+        $this->bindings = new ThinkPhpExternalTenantBindingRepository($this->directory);
         $this->commands = new ExternalIntegrationBootstrapCommands($this->bindings, $this->current, $this->directory);
     }
 
