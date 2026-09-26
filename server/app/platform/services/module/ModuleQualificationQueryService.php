@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\module;
 
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
 use app\common\contract\module\ModuleQualification;
 use app\common\contract\module\ModuleQualificationQuery;
@@ -16,6 +17,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
 {
     public function __construct(
         private DeployedTenantModuleRegistry $registry,
+        private TenantModuleStateQueries $tenantStates,
     ) {}
 
     public function installedModule(string $moduleKey): ModuleQualification
@@ -59,9 +61,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
             return [];
         }
 
-        $rows = Db::name('tenant_module')->where('tenant_id', $tenantId)
-            ->field('id,tenant_id,module_key,status,source,config_revision,effective_at,expires_at,enabled_at,disabled_at,disabled_reason,created_at,updated_at')
-            ->order('module_key')->select()->toArray();
+        $rows = $this->tenantStates->stateRows($tenantId);
         $foundationKeys = array_fill_keys($this->foundationKeys(), true);
         $rows = array_values(array_filter(
             $rows,
@@ -100,11 +100,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
             return [];
         }
 
-        $keys = array_values(array_map('strval', Db::name('tenant_module')->where('tenant_id', $tenantId)
-            ->where('status', 'enabled')
-            ->where(fn($query) => $query->whereNull('effective_at')->whereOr('effective_at', '<=', Db::raw('CURRENT_TIMESTAMP(3)')))
-            ->where(fn($query) => $query->whereNull('expires_at')->whereOr('expires_at', '>', Db::raw('CURRENT_TIMESTAMP(3)')))
-            ->order('module_key')->column('module_key')));
+        $keys = $this->tenantStates->activeModuleKeys($tenantId);
         array_push($keys, ...array_keys($this->activeFoundations()));
         $keys = array_values(array_unique($keys));
         sort($keys, SORT_STRING);
@@ -114,8 +110,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
 
     private function tenantIsActive(int $tenantId): bool
     {
-        return $tenantId > 0
-            && Db::name('tenant')->where('id', $tenantId)->where('status', 'active')->value('id') !== null;
+        return $this->tenantStates->tenantIsActive($tenantId);
     }
 
     /** @return array<string,array<string,mixed>> */

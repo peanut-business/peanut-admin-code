@@ -55,6 +55,7 @@
     },
     "contracts": {
         "exports": [
+            "PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries",
             "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService",
             "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\EffectiveAccessPreviewService",
             "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog",

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\infrastructure\module;
 
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\platform\services\module\ModuleQualificationQueryService;
 use app\common\contract\module\ModuleGovernanceProvider;
 use app\common\contract\module\ModuleQualificationQuery;
@@ -60,7 +61,7 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
 
     public function qualification(): ModuleQualificationQuery
     {
-        return $this->qualificationInstance ??= new ModuleQualificationQueryService($this->registry());
+        return $this->qualificationInstance ??= new ModuleQualificationQueryService($this->registry(), new TenantModuleStateQueries());
     }
 
     private function lockResolver(?string $lockPath = null): PluginLockResolver

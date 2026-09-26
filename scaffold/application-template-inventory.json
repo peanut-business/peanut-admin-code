@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b04a8d9af010f9aefe11b68926f1222cacef0178217cd824c1ddebbadc5c3fa"
+            "source_sha256": "4c7677beba614fd1d5e17d20bf01a6e3937694689b2d26aa540afc956e57be55"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d7fa7d6215c16e1206f457cc142d8012ab5d624f03dcdcf433b441f3d35fce68"
+            "source_sha256": "c9e436223d215901a5379c264c95e3516f9273bc239a954bc4306e80e2ed390b"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -9954,7 +9954,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "154869c27a97e21fe960a9fced53f0c610443878ee501816ba4ba6717881a0c1"
+            "source_sha256": "8511f771108b7dcec2b131449e0b0a9a2e7f351b55a261d0e718270521618534"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -10683,6 +10683,20 @@
                 "full"
             ],
             "source_sha256": "9690b17d69036a03842b67dcc0782e19e9b306be1e427b68b10a82f95d9d949c"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/TenantModuleStateQueries.php",
+            "target": "server/app/modules/official/identity/src/Contract/TenantModuleStateQueries.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "02cda6bc00e971aaff2f315cdf230fe00626e6422d78a244cec8b80c83e5ccdd"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantSessionAccess.php",
@@ -20953,7 +20967,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fec4938871052ba68b4c334da258bcec4263677682f387bc9818cb55664f26b4"
+            "source_sha256": "6811be80902e9b0f784aa00fcd0b960898a8385ad8ce7ef485f6981d8ff95a85"
         },
         {
             "path": "server/app/platform/infrastructure/module/VerifiedTenantModuleRepository.php",
@@ -21499,7 +21513,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ceab1e9fccc5ce22c4e3bee0dc938e46361cdc8438b792385e2f459791abc66e"
+            "source_sha256": "1229d0d0ddf00d2e3ce61e4e0234d7dce3e421ab66c9b15a2352daf6b5e02d86"
         },
         {
             "path": "server/app/platform/services/module/PlatformTenantModuleService.php",
@@ -27227,6 +27241,19 @@
         {
             "path": "server/tests/Unit/TenantBootstrapSettingsBoundaryTest.php",
             "target": "server/tests/Unit/TenantBootstrapSettingsBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/TenantModuleStateBoundaryTest.php",
+            "target": "server/tests/Unit/TenantModuleStateBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
