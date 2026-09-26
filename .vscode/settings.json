@@ -1,3 +1,18 @@
 {
-  "explorer.excludeGitIgnore": true
+  "explorer.excludeGitIgnore": true,
+  "editor.detectIndentation": false,
+  "files.eol": "\n",
+  "prettier.requireConfig": true,
+  "prettier.prettierPath": "./tools/quality/node_modules/prettier",
+  "prettier.ignorePath": "./tools/quality/prettier-ignore",
+  "[javascript][javascriptreact][typescript][typescriptreact][vue][css][scss][less][html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[php]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  }
 }
