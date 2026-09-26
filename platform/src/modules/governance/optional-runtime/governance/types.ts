@@ -1,6 +1,6 @@
-import type { AdminNavigationRoute } from '@peanut-admin/vue';
+import type { AdminNavigationRoute } from "@peanut-admin/vue";
 
-export type GovernanceAudience = 'tenant' | 'platform';
+export type GovernanceAudience = "tenant" | "platform";
 
 export interface GovernancePermissionDefinition {
   key: string;
@@ -36,7 +36,7 @@ export interface GovernanceCatalogInput {
 
 export interface GovernanceMenuInput {
   key: string;
-  type: 'group' | 'page' | 'link';
+  type: "group" | "page" | "link";
   audience: GovernanceAudience;
   routeName: string | null;
   routePath: string | null;

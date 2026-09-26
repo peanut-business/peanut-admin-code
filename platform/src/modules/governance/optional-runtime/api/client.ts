@@ -1,11 +1,11 @@
-import createClient from 'openapi-fetch';
-import type { Client } from 'openapi-fetch';
+import createClient from "openapi-fetch";
+import type { Client } from "openapi-fetch";
 
-import type { paths } from '../generated/api';
-import { createBrowserRefreshCoordinator } from '@peanut-admin/vue';
-import type { RefreshCoordinator } from '@peanut-admin/vue';
+import type { paths } from "../generated/api";
+import { createBrowserRefreshCoordinator } from "@peanut-admin/vue";
+import type { RefreshCoordinator } from "@peanut-admin/vue";
 
-export type ApiAudience = 'tenant' | 'platform';
+export type ApiAudience = "tenant" | "platform";
 
 export interface AudienceApiClientOptions {
   baseUrl?: string;
@@ -22,8 +22,8 @@ export interface AudienceApiClientOptions {
 export type AudienceApiClient = Client<paths>;
 
 const requestId = (): string => {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return `req_${globalThis.crypto.randomUUID().replace(/-/g, '')}`;
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `req_${globalThis.crypto.randomUUID().replace(/-/g, "")}`;
   }
 
   return `req_${Date.now().toString(36)}_${Math.random()
@@ -32,18 +32,18 @@ const requestId = (): string => {
 };
 
 const isAudiencePath = (audience: ApiAudience, pathname: string): boolean =>
-  audience === 'tenant'
-    ? pathname.startsWith('/api/v1/')
-    : pathname.startsWith('/api/platform/v1/');
+  audience === "tenant"
+    ? pathname.startsWith("/api/v1/")
+    : pathname.startsWith("/api/platform/v1/");
 
 const isCredentialExchange = (pathname: string): boolean =>
   /\/auth\/(?:login|refresh|tenants\/select)$/.test(pathname);
 
 const canReplay = (request: Request): boolean =>
-  ['GET', 'HEAD', 'OPTIONS'].includes(request.method.toUpperCase()) ||
-  request.headers.has('Idempotency-Key');
+  ["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase()) ||
+  request.headers.has("Idempotency-Key");
 
-const originError = (): Error => new Error('API_ORIGIN_INVALID');
+const originError = (): Error => new Error("API_ORIGIN_INVALID");
 
 const parseHttpUrl = (value: string, base?: string): URL => {
   let url: URL;
@@ -54,10 +54,10 @@ const parseHttpUrl = (value: string, base?: string): URL => {
   }
 
   if (
-    !['http:', 'https:'].includes(url.protocol) ||
-    url.origin === 'null' ||
-    url.username !== '' ||
-    url.password !== ''
+    !["http:", "https:"].includes(url.protocol) ||
+    url.origin === "null" ||
+    url.username !== "" ||
+    url.password !== ""
   ) {
     throw originError();
   }
@@ -67,23 +67,23 @@ const parseHttpUrl = (value: string, base?: string): URL => {
 
 const browserOrigin = (): string | undefined => {
   const origin = globalThis.location?.origin;
-  if (typeof origin !== 'string' || origin === '' || origin === 'null')
+  if (typeof origin !== "string" || origin === "" || origin === "null")
     return undefined;
 
   return parseHttpUrl(origin).origin;
 };
 
 const resolveAllowedOrigin = (
-  options: Pick<ProtectedFetchOptions, 'allowedOrigin' | 'baseUrl'>
+  options: Pick<ProtectedFetchOptions, "allowedOrigin" | "baseUrl">
 ): string => {
   if (options.allowedOrigin !== undefined) {
     const url = parseHttpUrl(options.allowedOrigin);
-    if (url.pathname !== '/' || url.search !== '' || url.hash !== '')
+    if (url.pathname !== "/" || url.search !== "" || url.hash !== "")
       throw originError();
     return url.origin;
   }
 
-  if (options.baseUrl !== undefined && options.baseUrl !== '') {
+  if (options.baseUrl !== undefined && options.baseUrl !== "") {
     try {
       return parseHttpUrl(options.baseUrl).origin;
     } catch {
@@ -105,7 +105,7 @@ const assertProtectedRequest = (
 ): URL => {
   const url = parseHttpUrl(request.url);
   if (url.origin !== allowedOrigin) {
-    throw new Error('API_ORIGIN_MISMATCH');
+    throw new Error("API_ORIGIN_MISMATCH");
   }
   if (!isAllowedPath(url.pathname)) {
     throw new Error(
@@ -122,19 +122,19 @@ const withSecurityHeaders = (
   createRequestId: () => string
 ): Request => {
   const headers = new Headers(request.headers);
-  if (token !== null && token !== '') {
-    headers.set('Authorization', `Bearer ${token}`);
+  if (token !== null && token !== "") {
+    headers.set("Authorization", `Bearer ${token}`);
   } else {
-    headers.delete('Authorization');
+    headers.delete("Authorization");
   }
-  if (!headers.has('X-Request-Id')) {
-    headers.set('X-Request-Id', createRequestId());
+  if (!headers.has("X-Request-Id")) {
+    headers.set("X-Request-Id", createRequestId());
   }
 
   return new Request(request, {
     headers,
-    credentials: 'include',
-    redirect: 'manual',
+    credentials: "include",
+    redirect: "manual",
   });
 };
 
@@ -187,7 +187,7 @@ export const createProtectedFetch = (
     }
 
     const refreshedToken = await refreshOnce(failedToken);
-    if (refreshedToken === null || refreshedToken === '') {
+    if (refreshedToken === null || refreshedToken === "") {
       return response;
     }
 
@@ -211,17 +211,17 @@ const createAudienceClient = (
   });
 
   return createClient<paths>({
-    baseUrl: options.baseUrl ?? '',
-    credentials: 'include',
+    baseUrl: options.baseUrl ?? "",
+    credentials: "include",
     fetch: securedFetch,
-    querySerializer: { array: { style: 'form', explode: false } },
+    querySerializer: { array: { style: "form", explode: false } },
   });
 };
 
 export const createTenantApiClient = (
   options: AudienceApiClientOptions
-): AudienceApiClient => createAudienceClient('tenant', options);
+): AudienceApiClient => createAudienceClient("tenant", options);
 
 export const createPlatformApiClient = (
   options: AudienceApiClientOptions
-): AudienceApiClient => createAudienceClient('platform', options);
+): AudienceApiClient => createAudienceClient("platform", options);
