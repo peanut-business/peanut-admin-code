@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fe4a341e827e783509f0af19b35507795c8670057ef8d19807e97fa7bcb67cab"
+            "source_sha256": "78df4df33e51233e2a225ad769aa0e618982819b807fa830932b84122eace031"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2496,7 +2496,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c5c3bd8747da17a544b208322bef504471b59bc067df6c26cccf7c323c090e04"
+            "source_sha256": "63101384abb0c989bf33608258bb6131fc74eccee76db8c6cf43fe0c89513e39"
         },
         {
             "path": "plugins/official.task/plugin.json",
@@ -18473,7 +18473,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "391bb75571c6dd72e70a82c503d3073b46ab5e70bbc1eab6b36e0d880025d4fd"
+            "source_sha256": "f7ef38f515141cdf8a7e816c8ee1d5cc850e70ba2475cb3fe40e276f3db11925"
         },
         {
             "path": "server/app/modules/official/settings/src/Service/SettingsHttpApplicationService.php",
@@ -20897,7 +20897,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8864a34e9566017dda5b77941f577b2c125a8e45987ff7c6f67b77f8e0ba8b15"
+            "source_sha256": "7fbd5d4d122e0b51e707459a0b8eb5919d094fc8c19c6212029b18a91449d8f9"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",
@@ -20911,7 +20911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b6db91e44a672d4bb092dfe90365252431aee50419e5f175ad1fca3ce7be8c22"
+            "source_sha256": "4abcafe3926b186478485be1153667416dfd6250ca3cb77b6f3f68bcea4237ab"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleMigrationSqlExecutor.php",
@@ -26361,6 +26361,19 @@
         {
             "path": "server/tests/Unit/CallbackApplicationServicesTest.php",
             "target": "server/tests/Unit/CallbackApplicationServicesTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/CatalogSettingsLifecycleBoundaryTest.php",
+            "target": "server/tests/Unit/CatalogSettingsLifecycleBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

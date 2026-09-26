@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace app\platform\infrastructure\plugin;
 
 use PeanutAdmin\Kernel\Module\ManifestDocument;
+use PeanutAdmin\Modules\Settings\Service\SettingCatalogService;
 use think\facade\Db;
 
 /** Computes and applies the catalog/RBAC part of retire and purge through ThinkPHP. */
 final readonly class ModuleCatalogMutationRepository
 {
+    public function __construct(private SettingCatalogService $settings) {}
+
     /** @param array<string,ManifestDocument> $manifests */
     public function retireMissing(array $manifests): void
     {
@@ -81,12 +84,17 @@ final readonly class ModuleCatalogMutationRepository
     public function activeModuleKeys(): array
     {
         $keys = [];
-        foreach (['pa_permission', 'pa_protected_resource', 'pa_target_type', 'pa_data_condition_definition', 'pa_menu_definition', 'pa_setting_definition'] as $table) {
+        foreach (['pa_permission', 'pa_protected_resource', 'pa_target_type', 'pa_data_condition_definition', 'pa_menu_definition'] as $table) {
             foreach (Db::table($table)->where('status', 'active')->distinct(true)->order('module_key')->column('module_key') as $key) {
                 $key = (string) $key;
                 if (!in_array($key, ['core', 'platform'], true)) {
                     $keys[$key] = true;
                 }
+            }
+        }
+        foreach ($this->settings->activeModuleKeys() as $key) {
+            if (!in_array($key, ['core', 'platform'], true)) {
+                $keys[$key] = true;
             }
         }
         $result = array_keys($keys);
@@ -103,17 +111,17 @@ final readonly class ModuleCatalogMutationRepository
         $conditions = $this->ids('pa_data_condition_definition', $moduleKeys);
         $operations = $this->operationIds($resources);
         $menus = $this->ids('pa_menu_definition', $moduleKeys);
-        $settings = $this->ids('pa_setting_definition', $moduleKeys);
+        $settings = $this->settings->lifecycleReferences($moduleKeys);
         $removed = [];
         $preserved = [];
         $blockers = $this->crossModuleBlockers($moduleKeys, $permissions, $targets, $conditions, $operations);
 
         if ($purge) {
             foreach ([
-                ['pa_setting_target_value', $this->foreignIds('pa_setting_target_value', 'definition_id', $settings)],
-                ['pa_setting_tenant_value', $this->foreignIds('pa_setting_tenant_value', 'definition_id', $settings)],
-                ['pa_setting_deployment_value', $this->foreignIds('pa_setting_deployment_value', 'definition_id', $settings)],
-                ['pa_setting_definition', $settings],
+                ['pa_setting_target_value', $settings['target_values']],
+                ['pa_setting_tenant_value', $settings['tenant_values']],
+                ['pa_setting_deployment_value', $settings['deployment_values']],
+                ['pa_setting_definition', $settings['definitions']],
                 ['pa_role_permission', $this->roleBindingIds($permissions, false)],
                 ['pa_platform_role_permission', $this->roleBindingIds($permissions, true)],
                 ['pa_menu_definition', $menus],
@@ -131,7 +139,7 @@ final readonly class ModuleCatalogMutationRepository
         } else {
             foreach ([
                 ['pa_menu_definition', $this->activeIds('pa_menu_definition', $moduleKeys)],
-                ['pa_setting_definition', $this->activeIds('pa_setting_definition', $moduleKeys)],
+                ['pa_setting_definition', $settings['active_definitions']],
                 ['pa_resource_operation_target_type', $this->activeOperationRelationIds('pa_resource_operation_target_type', $operations)],
                 ['pa_resource_operation_condition', $this->activeOperationRelationIds('pa_resource_operation_condition', $operations)],
                 ['pa_resource_operation', $this->activeOperationIds($resources)],
@@ -143,9 +151,9 @@ final readonly class ModuleCatalogMutationRepository
                 $this->append($removed, 'catalog', $table, 'soft_retire', $identifiers);
             }
             foreach ([
-                ['pa_setting_target_value', $this->foreignIds('pa_setting_target_value', 'definition_id', $settings)],
-                ['pa_setting_tenant_value', $this->foreignIds('pa_setting_tenant_value', 'definition_id', $settings)],
-                ['pa_setting_deployment_value', $this->foreignIds('pa_setting_deployment_value', 'definition_id', $settings)],
+                ['pa_setting_target_value', $settings['target_values']],
+                ['pa_setting_tenant_value', $settings['tenant_values']],
+                ['pa_setting_deployment_value', $settings['deployment_values']],
                 ['pa_role_permission', $this->roleBindingIds($permissions, false)],
                 ['pa_platform_role_permission', $this->roleBindingIds($permissions, true)],
             ] as [$table, $identifiers]) {
@@ -171,7 +179,7 @@ final readonly class ModuleCatalogMutationRepository
             foreach (['pa_target_type', 'pa_data_condition_definition', 'pa_menu_definition'] as $table) {
                 $this->updateByIds($table, $this->ids($table, $moduleKeys), ['status' => 'retired', 'updated_at' => $now]);
             }
-            $this->updateByIds('pa_setting_definition', $this->ids('pa_setting_definition', $moduleKeys), ['status' => 'retired', 'revision' => Db::raw('revision+1'), 'updated_at' => $now]);
+            $this->settings->retire($moduleKeys);
             $this->updateByIds('pa_resource_operation', $operations, ['status' => 'retired', 'updated_at' => $now]);
             foreach (['pa_resource_operation_target_type', 'pa_resource_operation_condition'] as $table) {
                 $this->updateByIds($table, $this->operationRelationIds($table, $operations), ['status' => 'retired']);
@@ -188,10 +196,7 @@ final readonly class ModuleCatalogMutationRepository
             $targets = $this->ids('pa_target_type', $moduleKeys);
             $conditions = $this->ids('pa_data_condition_definition', $moduleKeys);
             $operations = $this->operationIds($resources);
-            $settings = $this->ids('pa_setting_definition', $moduleKeys);
-            foreach (['pa_setting_target_value', 'pa_setting_tenant_value', 'pa_setting_deployment_value'] as $table) {
-                $this->deleteByForeignIds($table, 'definition_id', $settings);
-            }
+            $this->settings->purge($moduleKeys);
             $this->deleteByForeignIds('pa_role_permission', 'permission_id', $permissions);
             $this->deleteByForeignIds('pa_platform_role_permission', 'permission_id', $permissions);
             $this->deleteByIds('pa_menu_definition', $this->ids('pa_menu_definition', $moduleKeys));
@@ -202,7 +207,6 @@ final readonly class ModuleCatalogMutationRepository
             $this->deleteByIds('pa_protected_resource', $resources);
             $this->deleteByIds('pa_target_type', $targets);
             $this->deleteByIds('pa_data_condition_definition', $conditions);
-            $this->deleteByIds('pa_setting_definition', $settings);
             $this->deleteByIds('pa_permission', $permissions);
         });
     }
@@ -338,8 +342,6 @@ final readonly class ModuleCatalogMutationRepository
         $values = ['status' => 'retired', 'updated_at' => $now];
         if (in_array($table, ['pa_permission', 'pa_protected_resource'], true)) {
             $values['retired_at'] = $now;
-        } elseif ($table === 'pa_setting_definition') {
-            $values['revision'] = Db::raw('revision+1');
         }
         $query->update($values);
     }

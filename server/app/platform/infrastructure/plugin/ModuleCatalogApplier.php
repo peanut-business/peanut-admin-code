@@ -70,7 +70,7 @@ final readonly class ModuleCatalogApplier
                 throw new PluginLifecycleException($exception->errorCode, $exception->getMessage());
             }
 
-            $mutations = new ModuleCatalogMutationRepository();
+            $mutations = new ModuleCatalogMutationRepository($this->settings);
             $mutations->retireMissing($selected);
             if ($fullRegistry) {
                 $absent = array_values(array_diff($mutations->activeModuleKeys(), $selectedKeys));
@@ -92,19 +92,19 @@ final readonly class ModuleCatalogApplier
     /** @param list<string> $moduleKeys */
     public function retire(array $moduleKeys): void
     {
-        (new ModuleCatalogMutationRepository())->retire($moduleKeys);
+        (new ModuleCatalogMutationRepository($this->settings))->retire($moduleKeys);
     }
 
     /** @param list<string> $moduleKeys */
     public function purge(array $moduleKeys): void
     {
-        (new ModuleCatalogMutationRepository())->purge($moduleKeys);
+        (new ModuleCatalogMutationRepository($this->settings))->purge($moduleKeys);
     }
 
     /** @param list<string> $moduleKeys @return array{removed:list<array<string,mixed>>,preserved:list<array<string,mixed>>,blockers:list<array<string,mixed>>} */
     public function plan(array $moduleKeys, bool $purge): array
     {
-        return (new ModuleCatalogMutationRepository())->plan($moduleKeys, $purge);
+        return (new ModuleCatalogMutationRepository($this->settings))->plan($moduleKeys, $purge);
     }
 
     public function catalogRevision(): string

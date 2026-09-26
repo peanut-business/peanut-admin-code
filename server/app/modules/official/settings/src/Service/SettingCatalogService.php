@@ -65,6 +65,93 @@ final readonly class SettingCatalogService
             ->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
     }
 
+    /** @return list<string> */
+    public function activeModuleKeys(): array
+    {
+        return array_map('strval', Db::name('setting_definition')->where('status', 'active')
+            ->distinct(true)->order('module_key')->column('module_key'));
+    }
+
+    /**
+     * Fixed references for an already authorized deployment lifecycle preview; no stored values.
+     * @param list<string> $moduleKeys
+     * @return array{definitions:list<string>,active_definitions:list<string>,deployment_values:list<string>,tenant_values:list<string>,target_values:list<string>}
+     */
+    public function lifecycleReferences(array $moduleKeys): array
+    {
+        $rows = $moduleKeys === [] ? [] : Db::name('setting_definition')
+            ->whereIn('module_key', $moduleKeys)->field('id,status')->order('id')->select()->toArray();
+        $definitions = array_map(static fn(array $row): string => (string) $row['id'], $rows);
+        $active = array_values(array_filter($rows, static fn(array $row): bool => $row['status'] === 'active'));
+        return [
+            'definitions' => $definitions,
+            'active_definitions' => array_map(static fn(array $row): string => (string) $row['id'], $active),
+            'deployment_values' => $this->valueReferences('setting_deployment_value', $definitions),
+            'tenant_values' => $this->valueReferences('setting_tenant_value', $definitions),
+            'target_values' => $this->valueReferences('setting_target_value', $definitions),
+        ];
+    }
+
+    /**
+     * Retires definitions while preserving every stored setting value.
+     * The caller retains lifecycle authorization and its outer transaction.
+     * @param list<string> $moduleKeys
+     */
+    public function retire(array $moduleKeys): void
+    {
+        if ($moduleKeys === []) {
+            return;
+        }
+        Db::transaction(function () use ($moduleKeys): void {
+            $ids = $this->definitionIds($moduleKeys);
+            if ($ids !== []) {
+                Db::name('setting_definition')->whereIn('id', $ids)->update([
+                    'status' => 'retired', 'revision' => Db::raw('revision+1'),
+                    'updated_at' => gmdate('Y-m-d H:i:s.v'),
+                ]);
+            }
+        });
+    }
+
+    /**
+     * Applies the already approved purge of selected definitions and their values.
+     * Does not authorize purge, commit a caller transaction or accept table/column names.
+     * @param list<string> $moduleKeys
+     */
+    public function purge(array $moduleKeys): void
+    {
+        if ($moduleKeys === []) {
+            return;
+        }
+        Db::transaction(function () use ($moduleKeys): void {
+            $ids = $this->definitionIds($moduleKeys);
+            if ($ids === []) {
+                return;
+            }
+            foreach (['setting_target_value', 'setting_tenant_value', 'setting_deployment_value'] as $table) {
+                Db::name($table)->whereIn('definition_id', $ids)->delete();
+            }
+            Db::name('setting_definition')->whereIn('id', $ids)->delete();
+        });
+    }
+
+    /** @param list<string> $moduleKeys @return list<string> */
+    private function definitionIds(array $moduleKeys): array
+    {
+        return array_map('strval', Db::name('setting_definition')
+            ->whereIn('module_key', $moduleKeys)->order('id')->column('id'));
+    }
+
+    /** The table is selected only by the three fixed calls above.
+     * @param list<string> $definitionIds
+     * @return list<string>
+     */
+    private function valueReferences(string $table, array $definitionIds): array
+    {
+        return $definitionIds === [] ? [] : array_map('strval', Db::name($table)
+            ->whereIn('definition_id', $definitionIds)->order('id')->column('id'));
+    }
+
     private function resourcePath(ManifestDocument $manifest, string $resource): string
     {
         if ($resource === '' || str_starts_with($resource, '/') || str_contains($resource, '\\')
