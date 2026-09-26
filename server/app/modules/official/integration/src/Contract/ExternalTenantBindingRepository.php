@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Integration\Contract;
 
+/** Internal persistence contract; consumers use ExternalTenantResolutionService. */
 interface ExternalTenantBindingRepository
 {
     /** @return list<ExternalTenantBinding> */
@@ -18,4 +19,6 @@ interface ExternalTenantBindingRepository
     /** @return list<ExternalTenantBinding> */
     public function byTenant(string $provider, int $tenantId, bool $lock = false): array;
 
+    /** @return list<ExternalTenantBinding> */
+    public function byReference(int $tenantId, int $bindingId): array;
 }
