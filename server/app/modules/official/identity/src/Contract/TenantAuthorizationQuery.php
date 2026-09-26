@@ -9,6 +9,7 @@ use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
 use PeanutAdmin\Modules\Identity\Persistence\Model\RolePermission;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
+use think\facade\Db;
 
 /** 公开授权投影；人员权限查询逐次复核原生会话与修订，不缓存跨请求身份。 */
 final readonly class TenantAuthorizationQuery
@@ -25,9 +26,10 @@ final readonly class TenantAuthorizationQuery
 
     /**
      * 只读取调用方已选菜单引用的定义元数据；不存在与停用必须区分，不授予人员权限。
-     * 以有界批次查询，返回缺失项为空缺，存储失败原样传播。
+     * 以有界批次查询；数据库负责引用相等性，避免大小写/排序规则差异把停用定义误判成未登记。
+     * 输入键映射到规范键；缺失项为空缺，存储失败原样传播，不返回SQL或查询对象。
      * @param list<string> $permissionKeys
-     * @return array<string,array{module_key:string|null,status:string}>
+     * @return array<string,array{key:string,module_key:string|null,status:string}>
      */
     public function permissionStates(array $permissionKeys): array
     {
@@ -37,10 +39,22 @@ final readonly class TenantAuthorizationQuery
             }
         }
         $states = [];
+        if ($permissionKeys === []) {
+            return $states;
+        }
+        $table = (new Permission())->getTable();
+        if (!is_string($table) || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $table) !== 1) {
+            throw new \LogicException('PERMISSION_TABLE_INVALID');
+        }
         foreach (array_chunk(array_values(array_unique($permissionKeys)), 500) as $keys) {
-            $rows = Permission::whereIn('key', $keys)->field('key,module_key,status')->order('key')->select()->toArray();
+            $references = implode(' UNION ALL ', array_fill(0, count($keys), 'SELECT ? AS input_key'));
+            // Fixed owner-side join; every caller value is bound, never interpolated into SQL.
+            $rows = Db::query('SELECT selected.input_key, permission.`key`, permission.module_key, permission.status '
+                . 'FROM (' . $references . ') selected JOIN `' . $table . '` permission '
+                . 'ON permission.`key` = selected.input_key ORDER BY permission.`key`', $keys);
             foreach ($rows as $row) {
-                $states[(string) $row['key']] = [
+                $states[(string) $row['input_key']] = [
+                    'key' => (string) $row['key'],
                     'module_key' => $row['module_key'] === null ? null : (string) $row['module_key'],
                     'status' => (string) $row['status'],
                 ];
@@ -92,7 +106,7 @@ final readonly class TenantAuthorizationQuery
             'id' => (int) $row['id'],
             'key' => (string) $row['key'],
             'name' => (string) $row['name'],
-            'is_builtin' => (int) $row['is_builtin'],
+            'is_builtin' => (int) $row['is_builtin'] === 1,
         ], $rows);
     }
 

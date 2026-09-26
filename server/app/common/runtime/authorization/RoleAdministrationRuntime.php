@@ -51,14 +51,11 @@ final readonly class RoleAdministrationRuntime
         if ($menuIds === []) {
             return [];
         }
-        $keys = array_values(array_unique(array_map('strval', SystemMenu::alias('menu')
-            ->join('permission permission', 'permission.`key`=menu.perms')
-            ->where('menu.is_disable', 0)
-            ->whereIn('menu.id', $menuIds)
-            ->where('menu.perms', '<>', '')
-            ->where('permission.status', 'active')
-            ->order('permission.key')
-            ->column('permission.key'))));
+        $menuPermissions = array_map('strval', SystemMenu::where('is_disable', 0)
+            ->whereIn('id', $menuIds)->where('perms', '<>', '')->distinct(true)->column('perms'));
+        $states = $this->identityAuthorization->permissionStates($menuPermissions);
+        $keys = array_values(array_unique(array_column(array_filter($states, static fn(array $state): bool => $state['status'] === 'active'), 'key')));
+        sort($keys, SORT_STRING);
         $selected = array_fill_keys($menuIds, true);
         foreach ($this->authorization->assignableMenuRecordsForTenant($tenantId) as $menu) {
             if (isset($selected[(int) $menu['id']]) && trim((string) $menu['required_permission']) !== '') {

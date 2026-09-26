@@ -49,7 +49,7 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         \ThinkPhpTestConnection::fromPdo($this->database);
         $this->database->exec(<<<'SQL'
-            CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT UNIQUE, module_key TEXT, status TEXT);
+            CREATE TABLE pa_permission (id INTEGER PRIMARY KEY, "key" TEXT COLLATE NOCASE UNIQUE, module_key TEXT, status TEXT);
             CREATE TABLE pa_system_menu (id INTEGER PRIMARY KEY, perms TEXT, is_disable INTEGER);
             INSERT INTO pa_permission VALUES (1,'app.active','peanut.admin','active'),(2,'app.retired','peanut.admin','retired'),(3,'module.unavailable','official.unavailable','active'),(4,'unowned.active',NULL,'active'),(5,'hidden.active','peanut.admin','active');
             INSERT INTO pa_system_menu VALUES (1,'app.active',0),(2,'app.retired',0),(3,'module.unavailable',0),(4,'legacy.unregistered',0),(5,'unowned.active',0),(6,'hidden.active',1),(7,'',0),(8,'app.active',0);
@@ -95,9 +95,9 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
     public function testOwnerReturnsOnlyRequestedDefinitionMetadata(): void
     {
         self::assertSame([
-            'app.active' => ['module_key' => 'peanut.admin', 'status' => 'active'],
-            'app.retired' => ['module_key' => 'peanut.admin', 'status' => 'retired'],
-            'unowned.active' => ['module_key' => null, 'status' => 'active'],
+            'app.active' => ['key' => 'app.active', 'module_key' => 'peanut.admin', 'status' => 'active'],
+            'app.retired' => ['key' => 'app.retired', 'module_key' => 'peanut.admin', 'status' => 'retired'],
+            'unowned.active' => ['key' => 'unowned.active', 'module_key' => null, 'status' => 'active'],
         ], $this->identity->permissionStates(['unowned.active', 'missing', 'app.retired', 'app.active', 'app.active']));
         self::assertSame([], $this->identity->permissionStates([]));
     }
@@ -131,6 +131,13 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
         self::assertCount(601, $states);
         self::assertSame($keys, array_keys($states));
         self::assertArrayNotHasKey('app.active', $states);
+    }
+
+    public function testDatabaseEquivalentMenuKeysDoNotBecomeUnknownOrBypassRetirement(): void
+    {
+        $this->database->exec("INSERT INTO pa_system_menu VALUES (9,'APP.RETIRED',0),(10,'APP.ACTIVE',0)");
+        self::assertNotContains('APP.RETIRED', $this->bridge->registeredSystemMenuPermissions(101));
+        self::assertSame(['app.active'], $this->roles->permissionKeys(101, [9, 10]));
     }
 
     public function testInvalidLookupInputIsNotCoerced(): void

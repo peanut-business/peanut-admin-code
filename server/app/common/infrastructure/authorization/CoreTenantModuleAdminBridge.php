@@ -153,20 +153,18 @@ final readonly class CoreTenantModuleAdminBridge
             ),
         ])), true);
         $permissions = [];
-        $rows = SystemMenu::alias('menu')
-            ->join('permission permission', 'permission.`key`=menu.perms', 'LEFT')
-            ->where('menu.is_disable', 0)
-            ->where('menu.perms', '<>', '')
-            ->field(['menu.perms', 'permission.module_key', 'permission.status' => 'permission_status'])
-            ->distinct(true)->select()->toArray();
-        foreach ($rows as $row) {
-            $moduleKey = $row['module_key'] ?? null;
+        $menuPermissions = array_map('strval', SystemMenu::where('is_disable', 0)
+            ->where('perms', '<>', '')->distinct(true)->column('perms'));
+        $states = $this->identityAuthorization->permissionStates($menuPermissions);
+        foreach ($menuPermissions as $permission) {
+            $state = $states[$permission] ?? null;
+            $moduleKey = $state['module_key'] ?? null;
             if ($moduleKey !== null && $moduleKey !== '') {
-                if (($row['permission_status'] ?? null) !== 'active' || !isset($active[$moduleKey])) {
+                if (($state['status'] ?? null) !== 'active' || !isset($active[$moduleKey])) {
                     continue;
                 }
             }
-            $permissions[] = (string) $row['perms'];
+            $permissions[] = $permission;
         }
 
         return array_values(array_unique($permissions));

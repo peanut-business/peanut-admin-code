@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e4c43c75f95c1165cb87678bdf6b2fa5c471b268fd6c22313614af7550c1c51"
+            "source_sha256": "59fb7d25789cf0a0f046ce508c5b7abb2a0c6a24207c346b92321bc041ff0c96"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8d5f6cf2bf0f6c41b9541afbb508f35d41b9d1489063f0f11f76f7fe8b430d85"
+            "source_sha256": "a5822fcdbfe682e12a0e28c5f8f1d77ccbe981fb5bc60c657e021ca406c72afd"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -7139,7 +7139,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb91d3daa95e2daa670ef761593a198d3feb9191a191d7decfa8f549ed6f7723"
+            "source_sha256": "3fe27056577ee57aada978947ec23732f7c1957efe79940272abe7b8d5d0f691"
         },
         {
             "path": "server/app/common/infrastructure/crontab/CrontabTenantLock.php",
@@ -7911,7 +7911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "af16e9aa9b393c8ec192e2fc21f03ef737a686511af4b94811fbf9121aead49b"
+            "source_sha256": "6d0d70132f2922fcb1d3f3e4051ecd5514f92047d80695d514fc5c85654a4c0e"
         },
         {
             "path": "server/app/common/runtime/org/TenantAdminRuntime.php",
@@ -10654,7 +10654,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "780454469cf7b28179dc5cdd1a10d6ba1c5edd3de71a88be5d6013a7f2c24983"
+            "source_sha256": "be366e7b490ca3645d81cb6680316d1782b472f15b8308e27a6bd8ec7be34e55"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantIdentityQuery.php",
@@ -27095,6 +27095,19 @@
         {
             "path": "server/tests/Unit/StandardModuleBoundaryTest.php",
             "target": "server/tests/Unit/StandardModuleBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/SystemMenuPermissionBoundaryTest.php",
+            "target": "server/tests/Unit/SystemMenuPermissionBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
