@@ -6,6 +6,7 @@ namespace PeanutAdmin\Modules\Identity\Menu;
 
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleException;
+use think\facade\Db;
 
 final readonly class MenuCatalogSynchronizer
 {
@@ -24,6 +25,22 @@ final readonly class MenuCatalogSynchronizer
             static fn(\PeanutAdmin\Kernel\Menu\MenuDefinition $definition): string => $definition->key,
             $definitions,
         ));
+    }
+
+    /** Fixed definition metadata for deployment catalog fingerprints, not user menu access.
+     * @return list<array<string, mixed>>
+     */
+    public function revisionRows(): array
+    {
+        return Db::name('menu_definition')
+            ->field('id,key,module_key,status,manifest_digest')->order('id')->select()->toArray();
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function activeCount(array $moduleKeys): int
+    {
+        return $moduleKeys === [] ? 0 : (int) Db::table('pa_menu_definition')
+            ->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
     }
 
     /** @param array<string, mixed> $menu */

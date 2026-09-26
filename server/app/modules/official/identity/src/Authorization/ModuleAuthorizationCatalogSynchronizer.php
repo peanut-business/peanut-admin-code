@@ -13,6 +13,7 @@ use PeanutAdmin\Kernel\Authorization\Persistence\TargetTypeDefinition;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ModuleException;
+use think\facade\Db;
 
 final readonly class ModuleAuthorizationCatalogSynchronizer
 {
@@ -30,6 +31,52 @@ final readonly class ModuleAuthorizationCatalogSynchronizer
         foreach ($registry->modules as $module) {
             $this->synchronizeProtectedResources($module);
         }
+    }
+
+    /** Fixed catalog fingerprint fields, not credentials or a query builder.
+     * @return list<array<string, mixed>>
+     */
+    public function revisionRows(): array
+    {
+        return Db::name('permission')
+            ->field('id,key,module_key,status')
+            ->fieldRaw('COALESCE(DATE_FORMAT(retired_at,"%Y-%m-%d %H:%i:%s.%f"),"") AS retired_at')
+            ->order('id')->select()->toArray();
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function activeCount(array $moduleKeys): int
+    {
+        return $moduleKeys === [] ? 0 : (int) Db::table('pa_permission')
+            ->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
+    }
+
+    /**
+     * Invalidates affected authorization snapshots after an approved catalog change.
+     * The deployment caller keeps lifecycle authorization and its enclosing transaction;
+     * this advances revisions only and never grants a permission or enables a Module.
+     * @param list<string> $moduleKeys
+     */
+    public function invalidateTenantAuthorization(array $moduleKeys): void
+    {
+        if ($moduleKeys === []) {
+            return;
+        }
+        Db::transaction(function () use ($moduleKeys): void {
+            $tenantIds = array_map('intval', Db::name('tenant_module')
+                ->whereIn('module_key', $moduleKeys)->lock(true)->distinct(true)->order('tenant_id')->column('tenant_id'));
+            Db::name('tenant_module')->whereIn('module_key', $moduleKeys)->update([
+                'authorization_revision' => Db::raw('authorization_revision+1'),
+                'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
+            ]);
+            if ($tenantIds !== []) {
+                Db::name('tenant')->whereIn('id', $tenantIds)->update([
+                    'authorization_revision' => Db::raw('authorization_revision+1'),
+                    'revision' => Db::raw('revision+1'),
+                    'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
+                ]);
+            }
+        });
     }
 
     private function synchronizePermissions(ManifestDocument $module): void

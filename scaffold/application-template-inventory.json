@@ -671,7 +671,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c0f24abf4a89e6b00e1e3cf9d84c0b4a43372a57f3a33692c2cdc3b2c9ca231b"
+            "source_sha256": "570c109f38257b349ed307399e9a244f3f1e1569b24b4dd0b9f1bab7a40f1f1c"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e8e75c6ed5589eb5df502ba952862354a8701306a8d1f48a4e98bb248f63d70"
+            "source_sha256": "fe4a341e827e783509f0af19b35507795c8670057ef8d19807e97fa7bcb67cab"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "235da007cdca8dc84d5e42ed8f7471aaa815ad713313d68d9ed84559cbc9cefc"
+            "source_sha256": "82575db7c264050110c1fd7403e6f7d87929e3ec01105adb6867d1ac92aa6719"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -10472,7 +10472,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e8d96f74755823af926bda2cc30ae17a2c969c074ecfb88e3ddeb40cf900fd8"
+            "source_sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d"
         },
         {
             "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
@@ -11018,7 +11018,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19185d45056d371d8ef46e57761c068e37eafe2c26ca0edd90e77d80a64c92be"
+            "source_sha256": "1bd0db218260c15c9d7b33d21b004fb1993a948a0b994b9430d9de5abadec48b"
         },
         {
             "path": "server/app/modules/official/identity/src/Menu/ThinkPhpMenuCatalogRepository.php",
@@ -20897,7 +20897,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "62fa28073a77c47a9421f71e5b5e655fb619bc5e804be140378305c4bdecb979"
+            "source_sha256": "8864a34e9566017dda5b77941f577b2c125a8e45987ff7c6f67b77f8e0ba8b15"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",
@@ -26582,6 +26582,19 @@
         {
             "path": "server/tests/Unit/IdentityAuditProjectionTest.php",
             "target": "server/tests/Unit/IdentityAuditProjectionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/IdentityCatalogBoundaryTest.php",
+            "target": "server/tests/Unit/IdentityCatalogBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

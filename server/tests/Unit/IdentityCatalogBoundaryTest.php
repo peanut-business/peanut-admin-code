@@ -82,9 +82,13 @@ final class IdentityCatalogBoundaryTest extends TestCase
 
     public function testCountsUseOnlySelectedActiveDefinitionsAndEmptyMeansEmpty(): void
     {
-        foreach ([[] => 0] as $unused) {
-            // Kept out of execution: PHP array keys cannot be arrays.
+        $before = $this->revisions();
+        foreach ([[[], 0], [['fixture.alpha'], 1], [['fixture.beta'], 0], [['fixture.alpha', 'fixture.alpha', 'fixture.beta'], 1]] as [$selection, $count]) {
+            self::assertSame($count, $this->authorization->activeCount($selection));
+            self::assertSame($count, $this->menus->activeCount($selection));
+            self::assertSame(['menus' => $count, 'permissions' => $count, 'settings' => 0, 'reference_codes' => 0], (new ReflectionMethod($this->host, 'activeCounts'))->invoke($this->host, $selection));
         }
+        self::assertSame($before, $this->revisions());
     }
 
     public function testSelectedModuleInvalidationBumpsEachTenantOnceWithoutTouchingOtherModules(): void

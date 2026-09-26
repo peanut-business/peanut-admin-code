@@ -110,12 +110,8 @@ final readonly class ModuleCatalogApplier
     public function catalogRevision(): string
     {
         $rows = [];
-        $rows['pa_permission'] = Db::name('permission')
-            ->field('id,key,module_key,status')
-            ->fieldRaw('COALESCE(DATE_FORMAT(retired_at,"%Y-%m-%d %H:%i:%s.%f"),"") AS retired_at')
-            ->order('id')->select()->toArray();
-        $rows['pa_menu_definition'] = Db::name('menu_definition')
-            ->field('id,key,module_key,status,manifest_digest')->order('id')->select()->toArray();
+        $rows['pa_permission'] = $this->authorization->revisionRows();
+        $rows['pa_menu_definition'] = (new MenuCatalogSynchronizer($this->menuCatalog))->revisionRows();
         $rows['pa_setting_definition'] = $this->settings->revisionRows();
         $rows['pa_reference_code_set'] = $this->referenceCodes->revisionRows();
         return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
@@ -124,24 +120,7 @@ final readonly class ModuleCatalogApplier
     /** @param list<string> $moduleKeys */
     public function invalidateTenantAuthorization(array $moduleKeys): void
     {
-        if ($moduleKeys === []) {
-            return;
-        }
-        Db::transaction(function () use ($moduleKeys): void {
-            $tenantIds = array_map('intval', Db::name('tenant_module')
-                ->whereIn('module_key', $moduleKeys)->lock(true)->distinct(true)->order('tenant_id')->column('tenant_id'));
-            Db::name('tenant_module')->whereIn('module_key', $moduleKeys)->update([
-                'authorization_revision' => Db::raw('authorization_revision+1'),
-                'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
-            ]);
-            if ($tenantIds !== []) {
-                Db::name('tenant')->whereIn('id', $tenantIds)->update([
-                    'authorization_revision' => Db::raw('authorization_revision+1'),
-                    'revision' => Db::raw('revision+1'),
-                    'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
-                ]);
-            }
-        });
+        $this->authorization->invalidateTenantAuthorization($moduleKeys);
     }
 
     /** @param array<string,ManifestDocument> $manifests */
@@ -167,10 +146,10 @@ final readonly class ModuleCatalogApplier
         if ($moduleKeys === []) {
             return ['menus' => 0, 'permissions' => 0, 'settings' => 0, 'reference_codes' => 0];
         }
-        $counts = [];
-        foreach (['menus' => 'pa_menu_definition', 'permissions' => 'pa_permission'] as $name => $table) {
-            $counts[$name] = (int) Db::table($table)->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
-        }
+        $counts = [
+            'menus' => (new MenuCatalogSynchronizer($this->menuCatalog))->activeCount($moduleKeys),
+            'permissions' => $this->authorization->activeCount($moduleKeys),
+        ];
         $counts['settings'] = $this->settings->activeCount($moduleKeys);
         $counts['reference_codes'] = $this->referenceCodes->activeCount($moduleKeys);
         return $counts;
