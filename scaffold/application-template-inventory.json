@@ -2203,7 +2203,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9b02884320f0e98ae2ca031c792b8e2d01ac070779e08bd4e9a4db863997b4d2"
+            "source_sha256": "464cc50a4663b28c7c2eb73239a28dac176663879a5edca89540ee9ac2b0197b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2285,7 +2285,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf2bf00f9a6928e97ebe8dd92fa9215c6962b62681c64a741a3f6e6aa7cfe070"
+            "source_sha256": "81c2b5a04421af5c62dde150cb0be3e5d097b5b5959936ad3709016d294264cb"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2313,7 +2313,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9b89fe64486adfa0de851386885157b16bb992a2f5c5e2160a0c7c9ad2c4690f"
+            "source_sha256": "0c27a593020b8bbee89e15514ef10bde1271b10eecb845ce5f91c7e8ad66b511"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -10331,7 +10331,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f265a46e34d3f3fd7c7a53edf4962de3a9368050b3505e9ffd7a7661a846aa2"
+            "source_sha256": "bb86ea6342fc37a0fbb9293e5acc009e453868bc046cb425ba6459cba691398e"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/Dto/TenantMemberSummary.php",
@@ -12684,7 +12684,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a2346fbaa927c9079460ab75e70b4d20995f533fc23619a038749671aa8820f"
+            "source_sha256": "824d476379de0add1d4b3be916aee36a60d4dd5eb71fdcfbb398c4a312111f60"
         },
         {
             "path": "server/app/modules/official/integration/src/Contract/ExternalProvider.php",
@@ -13062,7 +13062,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "45d140bc1fa880640b48b784e93a3460c9f1703fed19af52bd78922f3627b1c0"
+            "source_sha256": "bf60c0c6bd05d77403b948e2999f3031aab76f00579387f129491ed59e565f1a"
         },
         {
             "path": "server/app/modules/official/integration/src/Package.php",
@@ -20980,7 +20980,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cde9577f778c4d588fc855ec4dd652b0233cd5e05c3decb0c517ff664b397cc5"
+            "source_sha256": "965de56fc8fe094759ab140351ef0382f57a5e9b68c131f8326a11841c3fe08c"
         },
         {
             "path": "server/app/platform/services/CoreTenantOwnerAdminProvisioner.php",
@@ -26220,6 +26220,19 @@
         {
             "path": "server/tests/Unit/InputValidatorPolicyTest.php",
             "target": "server/tests/Unit/InputValidatorPolicyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/IntegrationBootstrapAuthorizationTest.php",
+            "target": "server/tests/Unit/IntegrationBootstrapAuthorizationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
