@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "78df4df33e51233e2a225ad769aa0e618982819b807fa830932b84122eace031"
+            "source_sha256": "01c8fb7602610ff0a185f771845a62adad97bbcabe42599a1dfb7ac8a655d759"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82575db7c264050110c1fd7403e6f7d87929e3ec01105adb6867d1ac92aa6719"
+            "source_sha256": "9bdf56421d5911cdd6c9f44d246b95857846cf168a4ab8392d1e86e83d553644"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -4169,7 +4169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4d2a12dba0738e8809fef8ef5c0c2b39e9649787078de8148a0ea4fe5a2ef1bc"
+            "source_sha256": "05cee1858aa01c23e6dfea66a115a4de445882752bf879b57ab920e4934fa1e1"
         },
         {
             "path": "server/app/BaseController.php",
@@ -9968,7 +9968,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0c0c02ec9f35d523a7386c812aa65f650c731cf89424a75c3f8fad32934d5274"
+            "source_sha256": "bb8057f1a08f9959d3000d11aacb399bcd2f1638597fcd2efe72d29c2a4b07fc"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -10333,6 +10333,20 @@
                 "full"
             ],
             "source_sha256": "560afc7bc51ba29e418688c13d2a6bdbabf5c74c2a56e0e87a0b6beac797b5a1"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Authorization/CatalogLifecycleService.php",
+            "target": "server/app/modules/official/identity/src/Authorization/CatalogLifecycleService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2a6344ab61db04e9efbfc7c2ccd3358e783bf5a730c323edb5f4f1a739e91088"
         },
         {
             "path": "server/app/modules/official/identity/src/Authorization/CorePermissionCatalog.php",
@@ -20897,7 +20911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7fbd5d4d122e0b51e707459a0b8eb5919d094fc8c19c6212029b18a91449d8f9"
+            "source_sha256": "6b35b38a72f0da289b17201a103ad7833fb29cce843e090a4bd352870bc01bb3"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",
@@ -20911,7 +20925,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4abcafe3926b186478485be1153667416dfd6250ca3cb77b6f3f68bcea4237ab"
+            "source_sha256": "69c472462104bca05378bed9876341d5b8b08c7e69fd8ffb0cdd75b897522259"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleMigrationSqlExecutor.php",

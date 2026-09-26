@@ -80,6 +80,7 @@
             "PeanutAdmin\\Modules\\Identity\\Authorization\\CorePermissionCatalog",
             "PeanutAdmin\\Modules\\Identity\\Authorization\\CorePermissionCatalogSynchronizer",
             "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer",
+            "PeanutAdmin\\Modules\\Identity\\Authorization\\CatalogLifecycleService",
             "PeanutAdmin\\Modules\\Identity\\Http\\TenantAuthEndpoint",
             "PeanutAdmin\\Modules\\Identity\\Http\\TenantAuthResponse",
             "PeanutAdmin\\Modules\\Identity\\Identity\\AccountStatus",

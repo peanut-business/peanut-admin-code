@@ -63,6 +63,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
         $constructor = (new ReflectionClass(ModuleCatalogMutationRepository::class))->getConstructor();
         self::assertNotNull($constructor);
         self::assertSame(SettingCatalogService::class, $constructor->getParameters()[0]->getType()->getName());
+        self::assertSame(\PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService::class, $constructor->getParameters()[1]->getType()->getName());
         $source = file_get_contents((new ReflectionClass(ModuleCatalogMutationRepository::class))->getFileName());
         foreach (["\$this->ids('pa_setting_definition'", "\$this->activeIds('pa_setting_definition'", "\$this->foreignIds('pa_setting_", "\$this->deleteByIds('pa_setting_", "\$this->updateByIds('pa_setting_"] as $access) {
             self::assertStringNotContainsString($access, $source);
@@ -127,7 +128,7 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
     public function testSettingsOnlyActiveModuleIsStillDiscovered(): void
     {
         $this->database->exec("UPDATE pa_permission SET status='retired'");
-        $coordinator = new ModuleCatalogMutationRepository($this->settings);
+        $coordinator = new ModuleCatalogMutationRepository($this->settings, new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService());
         self::assertSame(['fixture.alpha','fixture.beta'], $coordinator->activeModuleKeys());
         $this->database->exec("INSERT INTO pa_setting_definition VALUES (13,'core','reserved','active',1,'old'),(14,'platform','reserved','active',1,'old')");
         self::assertSame(['fixture.alpha','fixture.beta'], $coordinator->activeModuleKeys());
@@ -160,6 +161,103 @@ final class CatalogSettingsLifecycleBoundaryTest extends TestCase
         } catch (DomainException $exception) {
             self::assertSame('FIXTURE_OUTER_FAILURE', $exception->getMessage());
         }
+        self::assertSame($before, $this->snapshot());
+    }
+
+    public function testCoordinatorCannotSelectAnyModuleTable(): void
+    {
+        $source = file_get_contents((new ReflectionClass(ModuleCatalogMutationRepository::class))->getFileName());
+        foreach (['Db::name(', 'Db::table(', 'Db::query(', 'Db::execute(', 'Db::raw('] as $access) {
+            self::assertStringNotContainsString($access, $source);
+        }
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertContains(\PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService::class, $manifest['contracts']['exports']);
+    }
+
+    public function testPublicIdentityPlanContainsResourceReferencesNotDatabaseNames(): void
+    {
+        $owner = new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService();
+        foreach ([false, true] as $purge) {
+            $plan = $owner->plan(['fixture.alpha'], $purge);
+            self::assertStringNotContainsString('pa_', json_encode($plan, JSON_THROW_ON_ERROR));
+            foreach ([...$plan['removed'], ...$plan['preserved']] as $entry) {
+                self::assertSame(['resource','action','count','identifiers'], array_keys($entry));
+            }
+        }
+        self::assertContains($this->entry('pa_permission', 'delete', ['7']), $this->host->plan(['fixture.alpha'], true)['removed']);
+    }
+
+    public function testPermissionRemovalIsBlockedEvenWhenSelectedModuleHasNoOperations(): void
+    {
+        $this->database->exec(<<<'SQL'
+            INSERT INTO pa_protected_resource VALUES (200,'fixture.beta.resource','fixture.beta','active',NULL,'old');
+            INSERT INTO pa_resource_operation VALUES (201,200,'read','active','old');
+            INSERT INTO pa_resource_operation_permission VALUES (202,201,7);
+            SQL);
+        $before = $this->snapshot();
+        foreach ([false, true] as $purge) {
+            $plan = $this->host->plan(['fixture.alpha'], $purge);
+            self::assertSame([['code' => 'MODULE_CATALOG_EXTERNAL_PERMISSION_REFERENCE', 'identifiers' => ['202']]], $plan['blockers']);
+        }
+        self::assertSame($before, $this->snapshot());
+    }
+
+    public function testTargetAndConditionRemovalDetectsForeignOperationsWithoutAnOwnOperation(): void
+    {
+        $this->database->exec(<<<'SQL'
+            INSERT INTO pa_target_type VALUES (11,'fixture.alpha.target','fixture.alpha','active','old');
+            INSERT INTO pa_data_condition_definition VALUES (12,'fixture.alpha.condition','fixture.alpha','active','old');
+            INSERT INTO pa_protected_resource VALUES (200,'fixture.beta.resource','fixture.beta','active',NULL,'old');
+            INSERT INTO pa_resource_operation VALUES (201,200,'read','active','old');
+            INSERT INTO pa_resource_operation_target_type VALUES (203,201,11,'active');
+            INSERT INTO pa_resource_operation_condition VALUES (204,201,12,'active');
+            SQL);
+        $before = $this->snapshot();
+        self::assertSame([
+            ['code' => 'MODULE_CATALOG_EXTERNAL_CONDITION_REFERENCE', 'identifiers' => ['204']],
+            ['code' => 'MODULE_CATALOG_EXTERNAL_TARGET_REFERENCE', 'identifiers' => ['203']],
+        ], $this->host->plan(['fixture.alpha'], true)['blockers']);
+        self::assertSame($before, $this->snapshot());
+    }
+
+    public function testIdentityPurgeFailureRestoresAlreadyRemovedSettingValues(): void
+    {
+        $before = $this->snapshot();
+        $this->database->exec("CREATE TRIGGER fail_permission_delete BEFORE DELETE ON pa_permission BEGIN SELECT RAISE(ABORT, 'FIXTURE_IDENTITY_FAILURE'); END");
+        $failure = null;
+        try {
+            $this->host->purge(['fixture.alpha']);
+        } catch (\think\db\exception\PDOException $exception) {
+            $failure = $exception;
+        }
+        self::assertNotNull($failure);
+        self::assertSame($before, $this->snapshot());
+    }
+
+    public function testMissingOperationRetiresOnlyItsRelationsAndPreservesTheOtherModule(): void
+    {
+        $this->database->exec(<<<'SQL'
+            INSERT INTO pa_protected_resource VALUES (100,'fixture.alpha.resource','fixture.alpha','active',NULL,'old'),(200,'fixture.beta.resource','fixture.beta','active',NULL,'old');
+            INSERT INTO pa_resource_operation VALUES (101,100,'read','active','old'),(102,100,'write','active','old'),(201,200,'read','active','old');
+            INSERT INTO pa_resource_operation_permission VALUES (301,101,7),(302,102,7),(303,201,8);
+            INSERT INTO pa_target_type VALUES (11,'fixture.alpha.target','fixture.alpha','active','old');
+            INSERT INTO pa_data_condition_definition VALUES (12,'fixture.alpha.condition','fixture.alpha','active','old');
+            INSERT INTO pa_resource_operation_target_type VALUES (401,101,11,'active'),(402,102,11,'active');
+            INSERT INTO pa_resource_operation_condition VALUES (501,101,12,'active'),(502,102,12,'active');
+            SQL);
+        $manifest = \PeanutAdmin\Kernel\Module\ManifestDocument::fromArray(dirname(__DIR__, 3), ['key' => 'fixture.alpha', 'catalog' => [
+            'permissions' => [['key' => 'fixture.alpha.read']],
+            'target_types' => [['key' => 'fixture.alpha.target']],
+            'data_conditions' => [['key' => 'fixture.alpha.condition']],
+            'protected_resources' => [['key' => 'fixture.alpha.resource', 'operations' => [['key' => 'read']]]],
+        ]]);
+        $coordinator = new ModuleCatalogMutationRepository($this->settings, new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService());
+        $before = $this->snapshot();
+        $coordinator->retireMissing(['fixture.alpha' => $manifest]);
+        self::assertSame(['active','retired','active'], $this->database->query('SELECT status FROM pa_resource_operation ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        self::assertSame([301,303], $this->database->query('SELECT id FROM pa_resource_operation_permission ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        self::assertSame(['active','retired'], $this->database->query('SELECT status FROM pa_resource_operation_target_type ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        self::assertSame(['active','retired'], $this->database->query('SELECT status FROM pa_resource_operation_condition ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
         self::assertSame($before, $this->snapshot());
     }
 

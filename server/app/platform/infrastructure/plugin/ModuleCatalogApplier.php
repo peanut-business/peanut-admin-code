@@ -8,6 +8,7 @@ use app\platform\exception\plugin\PluginLifecycleException;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService;
 use PeanutAdmin\Modules\Identity\Menu\MenuCatalogSynchronizer;
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -25,6 +26,7 @@ final readonly class ModuleCatalogApplier
         private ModuleAuthorizationCatalogSynchronizer $authorization,
         private MenuCatalogRepository $menuCatalog,
         private ReferenceCodeCatalogService $referenceCodes,
+        private CatalogLifecycleService $identityLifecycle,
     ) {}
 
     /**
@@ -70,7 +72,7 @@ final readonly class ModuleCatalogApplier
                 throw new PluginLifecycleException($exception->errorCode, $exception->getMessage());
             }
 
-            $mutations = new ModuleCatalogMutationRepository($this->settings);
+            $mutations = new ModuleCatalogMutationRepository($this->settings, $this->identityLifecycle);
             $mutations->retireMissing($selected);
             if ($fullRegistry) {
                 $absent = array_values(array_diff($mutations->activeModuleKeys(), $selectedKeys));
@@ -92,19 +94,19 @@ final readonly class ModuleCatalogApplier
     /** @param list<string> $moduleKeys */
     public function retire(array $moduleKeys): void
     {
-        (new ModuleCatalogMutationRepository($this->settings))->retire($moduleKeys);
+        (new ModuleCatalogMutationRepository($this->settings, $this->identityLifecycle))->retire($moduleKeys);
     }
 
     /** @param list<string> $moduleKeys */
     public function purge(array $moduleKeys): void
     {
-        (new ModuleCatalogMutationRepository($this->settings))->purge($moduleKeys);
+        (new ModuleCatalogMutationRepository($this->settings, $this->identityLifecycle))->purge($moduleKeys);
     }
 
     /** @param list<string> $moduleKeys @return array{removed:list<array<string,mixed>>,preserved:list<array<string,mixed>>,blockers:list<array<string,mixed>>} */
     public function plan(array $moduleKeys, bool $purge): array
     {
-        return (new ModuleCatalogMutationRepository($this->settings))->plan($moduleKeys, $purge);
+        return (new ModuleCatalogMutationRepository($this->settings, $this->identityLifecycle))->plan($moduleKeys, $purge);
     }
 
     public function catalogRevision(): string

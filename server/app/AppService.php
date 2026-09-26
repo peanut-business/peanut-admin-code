@@ -184,6 +184,7 @@ class AppService extends Service
             ),
             $this->app->make(\PeanutAdmin\Kernel\Menu\MenuCatalogRepository::class),
             $this->app->make(\PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService::class),
+            $this->app->make(\PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService::class),
         ));
         $this->app->bind(IdempotencyService::class, fn(): IdempotencyService => new IdempotencyService(
             $this->app->make(TenantPersistenceConfiguration::class)->mode,

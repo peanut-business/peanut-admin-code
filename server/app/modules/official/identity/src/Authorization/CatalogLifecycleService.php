@@ -87,7 +87,7 @@ final readonly class CatalogLifecycleService
         return $result;
     }
 
-    /** Fixed legacy plan labels and identifiers only; neither approval nor a database handle.
+    /** Logical resource references only; neither storage names, approval nor a database handle.
      * @param list<string> $moduleKeys
      * @return array{removed:list<array<string,mixed>>,preserved:list<array<string,mixed>>,blockers:list<array<string,mixed>>}
      */
@@ -226,14 +226,14 @@ final readonly class CatalogLifecycleService
         if ($moduleKeys !== [] && $permissionIds !== []) {
             $checks['MODULE_CATALOG_EXTERNAL_MENU_REFERENCE'] = Db::table('pa_menu_definition')->whereNotIn('module_key', $moduleKeys)->whereIn('required_permission_id', $permissionIds)->order('id')->column('id');
         }
-        if ($permissionIds !== [] && $operationIds !== []) {
-            $checks['MODULE_CATALOG_EXTERNAL_PERMISSION_REFERENCE'] = Db::table('pa_resource_operation_permission')->whereIn('permission_id', $permissionIds)->whereNotIn('resource_operation_id', $operationIds)->order('id')->column('id');
+        if ($permissionIds !== []) {
+            $checks['MODULE_CATALOG_EXTERNAL_PERMISSION_REFERENCE'] = $this->externalOperationReferenceIds('pa_resource_operation_permission', 'permission_id', $permissionIds, $operationIds);
         }
-        if ($targetIds !== [] && $operationIds !== []) {
-            $checks['MODULE_CATALOG_EXTERNAL_TARGET_REFERENCE'] = Db::table('pa_resource_operation_target_type')->whereIn('target_type_id', $targetIds)->whereNotIn('resource_operation_id', $operationIds)->order('id')->column('id');
+        if ($targetIds !== []) {
+            $checks['MODULE_CATALOG_EXTERNAL_TARGET_REFERENCE'] = $this->externalOperationReferenceIds('pa_resource_operation_target_type', 'target_type_id', $targetIds, $operationIds);
         }
-        if ($conditionIds !== [] && $operationIds !== []) {
-            $checks['MODULE_CATALOG_EXTERNAL_CONDITION_REFERENCE'] = Db::table('pa_resource_operation_condition')->whereIn('condition_definition_id', $conditionIds)->whereNotIn('resource_operation_id', $operationIds)->order('id')->column('id');
+        if ($conditionIds !== []) {
+            $checks['MODULE_CATALOG_EXTERNAL_CONDITION_REFERENCE'] = $this->externalOperationReferenceIds('pa_resource_operation_condition', 'condition_definition_id', $conditionIds, $operationIds);
         }
         $blockers = [];
         foreach ($checks as $code => $ids) {
@@ -244,17 +244,64 @@ final readonly class CatalogLifecycleService
         return $blockers;
     }
 
+    /** With no selected operations, every reference to a selected definition is external.
+     * @return list<string>
+     */
+    private function externalOperationReferenceIds(string $table, string $column, array $definitionIds, array $operationIds): array
+    {
+        $query = Db::table($table)->whereIn($column, $definitionIds);
+        if ($operationIds !== []) {
+            $query->whereNotIn('resource_operation_id', $operationIds);
+        }
+        return array_map('strval', $query->order('id')->column('id'));
+    }
+
     private function append(array &$entries, string $table, string $action, array $ids, bool $includeEmpty = false): void
     {
         sort($ids, SORT_STRING);
         if ($ids !== [] || $includeEmpty) {
-            $entries[] = ['scope' => 'catalog', 'table' => $table, 'action' => $action, 'count' => count($ids), 'identifiers' => $ids];
+            $resource = match ($table) {
+                'pa_permission' => 'permissions',
+                'pa_protected_resource' => 'protected-resources',
+                'pa_target_type' => 'target-types',
+                'pa_data_condition_definition' => 'data-conditions',
+                'pa_menu_definition' => 'menu-definitions',
+                'pa_resource_operation' => 'resource-operations',
+                'pa_resource_operation_permission' => 'operation-permissions',
+                'pa_resource_operation_target_type' => 'operation-targets',
+                'pa_resource_operation_condition' => 'operation-conditions',
+                'pa_role_permission' => 'tenant-role-grants',
+                'pa_platform_role_permission' => 'platform-role-grants',
+                default => throw new \LogicException('IDENTITY_CATALOG_RESOURCE_UNDECLARED'),
+            };
+            $entries[] = ['resource' => $resource, 'action' => $action, 'count' => count($ids), 'identifiers' => $ids];
         }
     }
 
     private function sortEntries(array &$entries): void
     {
-        usort($entries, static fn(array $a, array $b): int => strcmp($a['scope'] . "\0" . $a['table'] . "\0" . $a['action'], $b['scope'] . "\0" . $b['table'] . "\0" . $b['action']));
+        usort($entries, static fn(array $a, array $b): int => strcmp($a['resource'] . "\0" . $a['action'], $b['resource'] . "\0" . $b['action']));
+    }
+
+    private function updateByIds(string $table, array $ids, array $values): void
+    {
+        if ($ids !== []) {
+            Db::table($table)->whereIn('id', $ids)->update($values);
+        }
+    }
+
+    private function deleteByIds(string $table, array $ids): void
+    {
+        if ($ids !== []) {
+            Db::table($table)->whereIn('id', $ids)->delete();
+        }
+    }
+
+    private function deleteByForeignIds(string $table, string $column, array $ids): void
+    {
+        if ($ids !== []) {
+            Db::table($table)->whereIn($column, $ids)->delete();
+        }
     }
 
     private function retireMissingKeys(string $table, string $moduleKey, array $activeKeys, string $now): void

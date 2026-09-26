@@ -42,6 +42,7 @@ final class ThinkPhpTestConnection
             ),
             new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(),
             new \PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService(),
+            new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService(),
         );
     }
 }

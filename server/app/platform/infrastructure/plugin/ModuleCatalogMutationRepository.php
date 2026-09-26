@@ -42,6 +42,8 @@ final readonly class ModuleCatalogMutationRepository
     public function plan(array $moduleKeys, bool $purge): array
     {
         $result = $this->identity->plan($moduleKeys, $purge);
+        $result['removed'] = array_map($this->legacyIdentityEntry(...), $result['removed']);
+        $result['preserved'] = array_map($this->legacyIdentityEntry(...), $result['preserved']);
         $settings = $this->settings->lifecycleReferences($moduleKeys);
         $this->append($result['removed'], 'pa_setting_definition', $purge ? 'delete' : 'soft_retire', $settings[$purge ? 'definitions' : 'active_definitions']);
         foreach ([
@@ -78,6 +80,26 @@ final readonly class ModuleCatalogMutationRepository
             $this->settings->purge($moduleKeys);
             $this->identity->purge($moduleKeys);
         });
+    }
+
+    /** Keeps the existing host plan representation without turning its labels into storage access. */
+    private function legacyIdentityEntry(array $entry): array
+    {
+        $label = match ($entry['resource']) {
+            'permissions' => 'pa_permission',
+            'protected-resources' => 'pa_protected_resource',
+            'target-types' => 'pa_target_type',
+            'data-conditions' => 'pa_data_condition_definition',
+            'menu-definitions' => 'pa_menu_definition',
+            'resource-operations' => 'pa_resource_operation',
+            'operation-permissions' => 'pa_resource_operation_permission',
+            'operation-targets' => 'pa_resource_operation_target_type',
+            'operation-conditions' => 'pa_resource_operation_condition',
+            'tenant-role-grants' => 'pa_role_permission',
+            'platform-role-grants' => 'pa_platform_role_permission',
+            default => throw new \LogicException('MODULE_CATALOG_RESOURCE_UNDECLARED'),
+        };
+        return ['scope' => 'catalog', 'table' => $label, 'action' => $entry['action'], 'count' => $entry['count'], 'identifiers' => $entry['identifiers']];
     }
 
     private function append(array &$entries, string $table, string $action, array $ids, bool $includeEmpty = false): void
