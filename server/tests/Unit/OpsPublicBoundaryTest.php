@@ -118,7 +118,12 @@ final class OpsPublicBoundaryTest extends TestCase
     private function context(): PlatformContext
     {
         return PlatformContext::fromValidatedSession(new ValidatedPlatformSession(
-            11, 'fixture-platform-session', 21, 31, 'platform-web', new DateTimeImmutable('2031-01-01T00:00:00Z'),
+            11,
+            'fixture-platform-session',
+            21,
+            31,
+            'platform-web',
+            new DateTimeImmutable('2031-01-01T00:00:00Z'),
         ), 'fixture-ops-boundary');
     }
 }

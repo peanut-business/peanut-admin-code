@@ -671,7 +671,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "245a106a4383f2f22501d9d7bb4840fe14ad243ca6eba82910823a462b296fb6"
+            "source_sha256": "b4688b9a6125dc0c945bea5daf3bf9c6a42be2b219c977c00a39aec6009fb76f"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "175872620a437bdc26efdd2caaef9813da7190dba1851520d2aa42a78d561e2e"
+            "source_sha256": "01761463c828a6309f6d41baad54e222ecf95e1e2db6dd4e2bf2a6098a577ee8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2440,7 +2440,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aeb49dc832562fd4309976aeebedd418af05ddafdac3e00ba301a459cffd1ed8"
+            "source_sha256": "d959cf71ab5e5501929e6ff5b1e763cecc103edd8c6b6cfbf01d21ea06412cb8"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -15767,7 +15767,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09fc8ba011f61e290bef23c030ec0d36c5607e0cc4f0b9fc0e39f2ee54afd838"
+            "source_sha256": "b002b0f68ed3dba2bc80a2a18e17e2603a5541e23aec3cea9eabb0da8e068114"
         },
         {
             "path": "server/app/modules/official/ops/src/Domain/Application/OpsConsoleException.php",
@@ -26736,6 +26736,19 @@
         {
             "path": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
             "target": "server/tests/Unit/OfficialAccountSecretRedactionTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/OpsPublicBoundaryTest.php",
+            "target": "server/tests/Unit/OpsPublicBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

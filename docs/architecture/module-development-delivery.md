@@ -48,6 +48,8 @@ OAuth 从自己保存的 state/ticket 读取引用后调用 `bindingForCallbackR
 
 导入导出扩展实现已登记的 `Engine\Contract\DataProvider`，配套使用 `ColumnDefinition`、`SchemaDefinition`、`ExportBatch`、`RowIssue` 和 `ImportExportException`。提交与查询用例的 `AsyncExportOperation`、`CsvExportOperation` 也是公开结果/输入类型；它们不是存储记录或授权凭据。提供者只处理自身数据，导出批次上限500行，导入列/导出列、模式修订、游标和错误码保持原合同；日志提供者仍拒绝导入。执行前依然由原用例/worker验证授权，不因为类型公开就允许未授权直接执行。存储库、任务编排实现和数据库查询对象不在此公开面内。
 
+Ops 的平台业务入口及其 `MaintenanceWindow`、`OpsStatusSnapshot`、`OpsTask` 结果、稳定异常和租户诊断字段已显式登记；结果公开不授予平台操作权限。`BackupRestoreProvider` 与现有 `PairedBackupProvider` 仅定义逻辑提供者/处理者/隔离目标及重试上限，后者不执行备份、恢复或任意命令；它不是持久化对象。真正的任务存储、数据库执行器、恢复验证与部署资源仍保持内部边界和各自执行授权，不能因为描述器可见就绕过它们。
+
 ## 4. 依赖是业务成立的前提
 
 必需项缺失拒绝；可选项缺失有真实退化；可替换能力由产品明确选提供者并记录，不临时猜。依赖无环，安装/开通/升级/停用/卸载均核适用版本与状态。

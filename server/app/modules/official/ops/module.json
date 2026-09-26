@@ -47,7 +47,15 @@
     "exports": [
       "PeanutAdmin\\Modules\\Ops\\Domain\\Maintenance\\MaintenanceService",
       "PeanutAdmin\\Modules\\Ops\\Domain\\Status\\OpsStatusService",
-      "PeanutAdmin\\Modules\\Ops\\Domain\\Task\\OpsTaskService"
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Task\\OpsTaskService",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Application\\OpsConsoleException",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Logs\\TenantDiagnosticAttributes",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Maintenance\\MaintenanceWindow",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Status\\OpsStatusSnapshot",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Task\\OpsTask",
+      "PeanutAdmin\\Modules\\Ops\\Domain\\Task\\BackupRestoreProvider",
+      "PeanutAdmin\\Modules\\Ops\\Infrastructure\\PairedBackupProvider",
+      "PeanutAdmin\\Modules\\Ops\\Service\\PlatformOpsApplicationService"
     ],
     "events": []
   },
