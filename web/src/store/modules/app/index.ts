@@ -4,7 +4,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import { enabledTenantModulesFromRoutes } from '@peanut-admin/vue';
 import defaultSettings from '@/config/settings.json';
 import { getMenuList } from '@/api/user';
-import type { AppState, ServerMenuRecord } from './types';
+import type { AppSettings, AppState, ServerMenuRecord } from './types';
 import mapServerMenu from './server-menu';
 
 const useAppStore = defineStore('app', {
@@ -23,8 +23,8 @@ const useAppStore = defineStore('app', {
   },
 
   actions: {
-    // Update app settings
-    updateSettings(partial: Partial<AppState>) {
+    // Update presentation settings; runtime menus use setServerMenu/clearServerMenu.
+    updateSettings(partial: Partial<AppSettings>) {
       this.$patch(partial);
     },
 
