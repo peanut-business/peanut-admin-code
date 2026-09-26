@@ -151,7 +151,7 @@ use PeanutAdmin\Modules\Ops\Domain\Status\RuntimeStatusProvider;
 use PeanutAdmin\Modules\Ops\Domain\Task\BackupRestoreProviderRegistry;
 use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskDispatcher;
 use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskService;
-use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
+use PeanutAdmin\Modules\Settings\Service\SettingCatalogService;
 use app\common\persistence\TenantPersistenceConfiguration;
 
 /** 应用组合根，集中注册 Host 基础设施、业务服务与官方 Module Runtime。 */
@@ -178,7 +178,7 @@ class AppService extends Service
         CoreServiceOverrides::configure(is_array($configuredOverrides) ? $configuredOverrides : []);
         $this->app->bind(PasswordHasher::class, fn(): PasswordHasher => ApplicationPasswordPolicy::hasher());
         $this->app->bind(ModuleCatalogApplier::class, fn(): ModuleCatalogApplier => new ModuleCatalogApplier(
-            $this->app->make(SettingDefinitionSynchronizer::class),
+            $this->app->make(SettingCatalogService::class),
             new ModuleAuthorizationCatalogSynchronizer(
                 $this->app->make(\PeanutAdmin\Kernel\Authorization\Persistence\AuthorizationCatalogRepository::class),
             ),

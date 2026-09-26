@@ -35,6 +35,7 @@
       "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingsQuery",
       "PeanutAdmin\\Modules\\Settings\\Contract\\TenantApplicationSettings",
       "PeanutAdmin\\Modules\\Settings\\Service\\WebsiteConfigService",
+      "PeanutAdmin\\Modules\\Settings\\Service\\SettingCatalogService",
       "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingsTransfer",
       "PeanutAdmin\\Modules\\Settings\\Contract\\TenantSettingSnapshot",
       "PeanutAdmin\\Modules\\Settings\\Contract\\DeploymentSettingsTransfer",

@@ -12,9 +12,7 @@ use PeanutAdmin\Modules\Identity\Menu\MenuCatalogSynchronizer;
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
-use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionLoader;
-use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionRegistry;
-use PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer;
+use PeanutAdmin\Modules\Settings\Service\SettingCatalogService;
 use PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use think\facade\Db;
@@ -23,7 +21,7 @@ use think\facade\Db;
 final readonly class ModuleCatalogApplier
 {
     public function __construct(
-        private SettingDefinitionSynchronizer $settings,
+        private SettingCatalogService $settings,
         private ModuleAuthorizationCatalogSynchronizer $authorization,
         private MenuCatalogRepository $menuCatalog,
         private ReferenceCodeCatalogService $referenceCodes,
@@ -60,26 +58,12 @@ final readonly class ModuleCatalogApplier
                 : new ScopedMenuCatalogRepository($this->menuCatalog, $selectedKeys);
             (new MenuCatalogSynchronizer($menus))->synchronize($fullRegistry ? $registry : $compiledScope);
 
-            $settings = new SettingDefinitionRegistry();
-            $loader = new SettingDefinitionLoader();
-            foreach ($selected as $key => $manifest) {
-                $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : [];
-                $resource = $backend['setting_definitions'] ?? null;
-                $definitions = is_string($resource)
-                    ? $loader->load($key, $manifest->root . '/' . ltrim($resource, '/'))
-                    : [];
-                $settings->registerModule($key, $definitions);
-            }
             $now = new DateTimeImmutable(
                 (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.v'),
                 new DateTimeZone('UTC'),
             );
-            $this->settings->synchronize(
-                $settings,
-                $now,
-            );
-
             try {
+                $this->settings->synchronize($selected, $now);
                 $this->referenceCodes->synchronize($selected, $now);
             } catch (ModuleException $exception) {
                 // Keep the deployment-facing failure contract; the owner never exposes its storage.
@@ -132,8 +116,7 @@ final readonly class ModuleCatalogApplier
             ->order('id')->select()->toArray();
         $rows['pa_menu_definition'] = Db::name('menu_definition')
             ->field('id,key,module_key,status,manifest_digest')->order('id')->select()->toArray();
-        $rows['pa_setting_definition'] = Db::name('setting_definition')
-            ->field('id,module_key,setting_key,status,revision,definition_digest')->order('id')->select()->toArray();
+        $rows['pa_setting_definition'] = $this->settings->revisionRows();
         $rows['pa_reference_code_set'] = $this->referenceCodes->revisionRows();
         return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
     }
@@ -185,9 +168,10 @@ final readonly class ModuleCatalogApplier
             return ['menus' => 0, 'permissions' => 0, 'settings' => 0, 'reference_codes' => 0];
         }
         $counts = [];
-        foreach (['menus' => 'pa_menu_definition', 'permissions' => 'pa_permission', 'settings' => 'pa_setting_definition'] as $name => $table) {
+        foreach (['menus' => 'pa_menu_definition', 'permissions' => 'pa_permission'] as $name => $table) {
             $counts[$name] = (int) Db::table($table)->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
         }
+        $counts['settings'] = $this->settings->activeCount($moduleKeys);
         $counts['reference_codes'] = $this->referenceCodes->activeCount($moduleKeys);
         return $counts;
     }
