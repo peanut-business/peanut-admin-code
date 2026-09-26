@@ -15,6 +15,23 @@ final readonly class AdminDirectoryQuery
         private CurrentExecutionContext $execution,
     ) {}
 
+    /**
+     * Minimal lifecycle projection for trusted binding resolution; not an authorization grant.
+     * A locking read participates in the caller's current transaction and must precede binding locks.
+     */
+    public function tenantStatus(int $tenantId, bool $forUpdate = false): ?string
+    {
+        if ($tenantId < 1) {
+            return null;
+        }
+        $query = Tenant::where('id', $tenantId);
+        if ($forUpdate) {
+            $query->lock(true);
+        }
+        $status = $query->value('status');
+        return is_string($status) ? $status : null;
+    }
+
     /** 受信初始化命令在事务内读取并锁定目标；返回稳定代码，不授予调用者权限。 */
     public function bootstrapTenantCode(int $tenantId): ?string
     {
@@ -102,7 +119,7 @@ final readonly class AdminDirectoryQuery
             ->join('account account', "account.id = member.account_id AND account.status = 'active'")
             ->join('credential credential', "credential.account_id = account.id AND credential.kind = 'email_password' AND credential.identifier_type = 'email' AND credential.status = 'active'")
             ->where('member.tenant_id', $tenantId)
-            ->where('member.account_id', $accountId)
+            ->where('account.id', $accountId)
             ->where('member.status', 'active')
             ->field([
                 'tenant.name' => 'tenant_name',
