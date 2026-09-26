@@ -18,7 +18,8 @@ export interface ServerMenuRecord {
   children?: ServerMenuRecord[];
 }
 
-export interface AppState {
+/** Editable presentation settings; registered menus use the menu actions. */
+export interface AppSettings {
   theme: string;
   colorWeak: boolean;
   navbar: boolean;
@@ -33,6 +34,9 @@ export interface AppState {
   device: string;
   tabBar: boolean;
   menuFromServer: boolean;
+}
+
+export interface AppState extends AppSettings {
   serverMenuLoaded: boolean;
   serverMenu: RouteRecordRaw[];
   enabledTenantModules: string[];
