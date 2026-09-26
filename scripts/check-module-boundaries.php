@@ -3,13 +3,15 @@
 
 declare(strict_types=1);
 
-/** Read current module declarations and PHP ASTs; never execute application source. */
-require_once dirname(__DIR__) . '/server/vendor/autoload.php';
-
 use PhpParser\Node;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\ParserFactory;
+
+// Honor an already selected test autoloader; parse, never execute, audited sources.
+if (!class_exists(ParserFactory::class)) {
+    require_once dirname(__DIR__) . '/tools/quality/vendor/autoload.php';
+}
 
 /** @return array<string,mixed> */
 function moduleBoundaryInventory(string $root): array
@@ -98,7 +100,7 @@ function moduleBoundaryInventory(string $root): array
                         if ($targetOwner !== null && $targetOwner !== $owner) {
                             $references++;
                             if (!isset($modules[$targetOwner]['exports'][$target])) {
-                                $id = $relative . ':' . $node->getStartLine() . ':type:' . $target;
+                                $id = $relative . ':' . $node->getStartFilePos() . ':type:' . $target;
                                 $findings[$id] = ['code' => 'PRIVATE_MODULE_TYPE', 'path' => $relative, 'line' => $node->getStartLine(), 'owner' => $owner, 'target_owner' => $targetOwner, 'target' => $target];
                             }
                         }
@@ -114,7 +116,7 @@ function moduleBoundaryInventory(string $root): array
                             $targetOwner = $tables[$logical] ?? null;
                             $literalTables++;
                             if ($targetOwner !== null && $targetOwner !== $owner) {
-                                $id = $relative . ':' . $node->getStartLine() . ':table:' . $logical;
+                                $id = $relative . ':' . $node->getStartFilePos() . ':table:' . $logical;
                                 $findings[$id] = ['code' => 'FOREIGN_MODULE_TABLE', 'path' => $relative, 'line' => $node->getStartLine(), 'owner' => $owner, 'target_owner' => $targetOwner, 'target' => $logical];
                             }
                         }

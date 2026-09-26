@@ -2771,6 +2771,20 @@
             "source_sha256": "3a5f575a3911e24bf0da4e296c420070bf59e25eaf834cb412e9c4ddd519c18c"
         },
         {
+            "path": "scripts/check-module-boundaries.php",
+            "target": "scripts/check-module-boundaries.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3d8a6443db9f0afd725f8b7a820890a88e86b517bd87d386c6e009428ab65c4b"
+        },
+        {
             "path": "scripts/check-openapi",
             "target": "scripts/check-openapi",
             "classification": "managed",
@@ -26547,6 +26561,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/ModuleBoundaryInventoryTest.php",
+            "target": "server/tests/Unit/ModuleBoundaryInventoryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/ModuleCreateInputTest.php",
             "target": "server/tests/Unit/ModuleCreateInputTest.php",
             "classification": "excluded",
@@ -27302,7 +27329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1930d1e76ab5304404931424021e9225faf249533ee22a8e2906002a5e2fd24f"
+            "source_sha256": "c5f7bfd73f4f7911c089ee21343f0a380245fe15fc7320c69017d91a3734b0cc"
         },
         {
             "path": "tools/quality/composer.json",
@@ -27316,7 +27343,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "39147179dcfe5e8d4dd042002da31cea87975e5908c02cdaf83d02d3be118739"
+            "source_sha256": "f98f339be80c7b32a4ec550b0bcb46ab278212ffe37fc90f504580c51c34d9f7"
         },
         {
             "path": "tools/quality/composer.lock",
@@ -27330,7 +27357,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fb6cbd85fa62dafe5f2561f66eb14713120d03366c4f042e86e54c7a188c23eb"
+            "source_sha256": "5792ed6f25619d364ba9df6776c040e6b6777e4ad4235d578458a965fae0efd4"
         },
         {
             "path": "tools/quality/package.json",

@@ -31,7 +31,9 @@ use think\App;
 use think\exception\ValidateException;
 use think\Validate;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL')
+    ? PHPUNIT_COMPOSER_INSTALL
+    : dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
 function expectTpq51(bool $condition, string $message): void

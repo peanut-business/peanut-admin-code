@@ -81,6 +81,12 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 从Code根执行 `node --test scripts/tests/standard-remaining-boundaries-test.mjs`，显式提供 `WEB_CORE_SOURCE_ROOT` 与 `UNIAPP_DEPENDENCY_ROOT`。使用真实路由/装修API/页面脚本、实际Vue和原生DCloud声明；验证原始路由集合、合法PHP空对象表示、嵌套编辑与保存、非法响应、选择器输入及SDK参数。支付渠道仅映射到原生提供者标识，测试SDK为合成回调，不触发支付，后端仍负责确认资金终态。此项不代替模板完整渲染、真实浏览器或终端验收。
 
+## PHP 源码布局与模块边界
+
+从Code根执行 `php scripts/check-source-layout.php --root=<Code根> --root=<PHP Core根> --root=<Web Core根>`，按Git登记的精确路径及Composer映射核生产类型声明和已知类型引用大小写；显式加载的独立升级运行时不冒充PSR-4类型。执行 `php scripts/check-module-boundaries.php` 前按准备步骤安装本目录明确锁定的nikic/php-parser；检查使用当前module.json的公开类型、表归属和模块自己的Composer源码映射，PHP AST只解析不执行业务，检查跨模块静态类型与字面表访问，不维护另一份手工归属清单。重复归属、缺失源码映射和真实违规均失败；语法树不能证明任意拼接SQL、动态类名或运行授权。
+
+检查器自身的正反例见 `server/tests/Unit/ModuleBoundaryInventoryTest.php`，其中源文本包含副作用也不得被执行，别名不能隐藏私有类型，同一行多处违规分别计数，租户条件不使私表变成公开能力。`scripts/check-test-integrity` 另核测试是否有真实失败路径。旧TPQ历史问题队列的闭合状态不适用于当前迁移；以上检查只证明各自范围，不替代其他仍有效的框架行为、安全测试或人工代码审阅。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。
