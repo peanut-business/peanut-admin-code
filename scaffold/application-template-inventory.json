@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "86af1e7ccb8ce2d89aeb973bd5c6f197040c63293d7ba330204b409e4b9a9a48"
+            "source_sha256": "f13e7c80e2e69ccb519ce114f9014bf08985c4af051698650731abadca73114e"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2426,7 +2426,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "50d5216f09a8a5b59f435166ae40315503d55271867e8540b445e23ae83b86cf"
+            "source_sha256": "200f7b4af7303ab26973bb45fec7f693edc7a869d321912e9eb3bb3f42b7808b"
         },
         {
             "path": "plugins/official.ops/plugin.json",
@@ -2454,7 +2454,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "432d6aee5957e5ed115e2d3c1c52f3d4bcd561fa24850ed70361f1c0fa55055d"
+            "source_sha256": "c731ce22ebfcf8775659f2ceb8b47a9c64623dda3cdad4f5fdd64140598f05b8"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -15066,7 +15066,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f111c8dfee18f3dc9c8f22ad81a0266bc807b9346a2a3ebcd119044d14ae9951"
+            "source_sha256": "111163073207354bf7bcbc6894eaad76ef5036b9d6dec684392f8ea07e602820"
         },
         {
             "path": "server/app/modules/official/oauth/resources/menus.json",
@@ -15220,7 +15220,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4a23f17f40bec6d756340f657f7529fda74b5b585487ef4955ea5b35dac8cc0d"
+            "source_sha256": "98569810d86b64fc444fe81a802021e6bd4582fb3e8ec82b1f0c1aafe2645ad5"
         },
         {
             "path": "server/app/modules/official/oauth/src/Contract/OAuthCommands.php",
@@ -16495,7 +16495,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "332d62de2381fb496b70ab5e7dc582d8e5b8016d540b6e1c09d225c560b0d95f"
+            "source_sha256": "2b97091f6a235f0cf1ab6f039c25a11a390ee4926ca937388d7a126ad8688b92"
         },
         {
             "path": "server/app/modules/official/payment/resources/menus.json",
@@ -26488,6 +26488,19 @@
         {
             "path": "server/tests/Unit/GeneratorSoftDeleteContractTest.php",
             "target": "server/tests/Unit/GeneratorSoftDeleteContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/HostPublicContractsTest.php",
+            "target": "server/tests/Unit/HostPublicContractsTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
