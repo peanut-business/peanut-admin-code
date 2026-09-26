@@ -8,62 +8,90 @@ import { useUserStore } from '@/store/user';
 
 const configuredBaseUrl = import.meta.env.VITE_APP_BASE_URL || '';
 
-interface RuntimeLocation {
-  origin?: unknown;
-}
-
-interface RuntimeGlobal {
-  location?: RuntimeLocation;
-}
-
 interface RequestOptions {
   url: string;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   header?: Record<string, string>;
   /** skip auth check — for login/register/public routes */
   auth?: boolean;
 }
 
-interface ApiResponse<T = unknown> {
-  code: number;
-  msg: string;
-  data: T;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isRequestMethod(
+  value: string
+): value is NonNullable<UniNamespace.RequestOptions['method']> {
+  switch (value) {
+    case 'OPTIONS':
+    case 'GET':
+    case 'HEAD':
+    case 'POST':
+    case 'PUT':
+    case 'DELETE':
+    case 'TRACE':
+    case 'CONNECT':
+      return true;
+    default:
+      return false;
+  }
 }
 
 function baseUrl(): string {
   if (configuredBaseUrl) return configuredBaseUrl;
-  const origin = (globalThis as unknown as RuntimeGlobal).location?.origin;
+  const runtime: unknown = globalThis;
+  if (!isRecord(runtime) || !isRecord(runtime.location)) return '';
+  const { origin } = runtime.location;
   return typeof origin === 'string' ? origin : '';
 }
 
-function decodeResponse<T>(response: unknown): ClientDecodeResult<T> {
-  const result = response as Partial<ApiResponse<T>>;
-  if (result.code === 20000) {
-    return { kind: 'success', data: result.data as T };
+function decodeResponse(response: unknown): ClientDecodeResult {
+  if (
+    !isRecord(response) ||
+    typeof response.code !== 'number' ||
+    !Number.isFinite(response.code) ||
+    (response.msg !== undefined && typeof response.msg !== 'string') ||
+    (response.code === 20000 && !('data' in response))
+  ) {
+    return {
+      kind: 'business',
+      code: 'API_RESPONSE_INVALID',
+      message: '响应格式无效',
+    };
   }
-  if (result.code === 40100) {
+  // Only the shared envelope is validated here; endpoint-specific data remains unknown.
+  if (response.code === 20000) {
+    return { kind: 'success', data: response.data };
+  }
+  if (response.code === 40100) {
     return {
       kind: 'unauthorized',
       code: 'AUTH_REQUIRED',
-      message: result.msg || '请先登录',
+      message: response.msg || '请先登录',
     };
   }
   return {
     kind: 'business',
     code: 'BUSINESS_REJECTED',
-    message: result.msg || '请求失败',
+    message: response.msg || '请求失败',
   };
 }
 
 const transport = createUniAppClientTransport({
   baseUrl: baseUrl(),
   request: (options) => {
+    if (!isRequestMethod(options.method)) {
+      throw new Error('UNIAPP_REQUEST_METHOD_INVALID');
+    }
+    if (options.data !== undefined && !isRecord(options.data)) {
+      throw new Error('UNIAPP_REQUEST_DATA_INVALID');
+    }
     uni.request({
       url: options.url,
-      method: options.method as UniNamespace.RequestOptions['method'],
-      data: options.data as UniNamespace.RequestOptions['data'],
+      method: options.method,
+      data: options.data,
       header: options.header,
       success: (response) => options.success?.({ data: response.data }),
       fail: options.fail,
@@ -106,12 +134,10 @@ async function request<T = unknown>(options: RequestOptions): Promise<T> {
 }
 
 export const http = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get<T = unknown>(url: string, data?: Record<string, any>, auth = true) {
+  get<T = unknown>(url: string, data?: Record<string, unknown>, auth = true) {
     return request<T>({ url, method: 'GET', data, auth });
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  post<T = unknown>(url: string, data?: Record<string, any>, auth = true) {
+  post<T = unknown>(url: string, data?: Record<string, unknown>, auth = true) {
     return request<T>({ url, method: 'POST', data, auth });
   },
 };
