@@ -768,7 +768,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37dd2a54f1308478ed2106b1016f4a6cef1bf2d34734da441ab03deeb6ad7de4"
+            "source_sha256": "f97bbe7a81ae55bba19908e6d431294b0587a80b70efee001300dccfc2a30709"
         },
         {
             "path": "docs/development/standard.md",
@@ -2259,7 +2259,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "464cc50a4663b28c7c2eb73239a28dac176663879a5edca89540ee9ac2b0197b"
+            "source_sha256": "0ec0d25cf8ef55db69cc6439257ba962d08e44e744ff517cc599590529e483da"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2355,7 +2355,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6c4e148d59144356b05b9074874a51cedf6bcf694fbacdd55a1ecbbe1b603252"
+            "source_sha256": "605ea69f0d19a51269380a5068e2e4071ab80b975084bba442c94907664b007a"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -2481,7 +2481,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13dabd23399b6e48afb8568c4fd686d1bfae4ce8e1e9f8935001e14bf91e5e05"
+            "source_sha256": "9b9ab871e0659d02cd1df89fcbae150e12a06c8648c00959cf4a763819054c3d"
         },
         {
             "path": "plugins/official.task/plugin.json",
@@ -12250,7 +12250,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f83d67fc34c5f98e04fbd76cb466d68aa64c7ac6eb96685ec17e762169a39b2"
+            "source_sha256": "a857b33dbe7a4eb05d9fcb929b0bfbd51f73e9327d59885f8e90c15503e66d9c"
         },
         {
             "path": "server/app/modules/official/import_export/src/ModuleProvider.php",
@@ -17700,7 +17700,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b7dbf6907c93aaf9aab01eba48a63a7f98b9704e5b20a7680be3159a962b1b8"
+            "source_sha256": "f9a7a6ddd45e670dbaf739841c3e73d15d520146646a40a6794f09f8c84b812a"
         },
         {
             "path": "server/app/modules/official/settings/resources/menus.json",
@@ -17983,6 +17983,20 @@
             "source_sha256": "11cbd9e58c0a863fa8ee392ed9daf92db8f463a970552d19293fbeb9d96d74a0"
         },
         {
+            "path": "server/app/modules/official/settings/src/Contract/TenantSettingsTransfer.php",
+            "target": "server/app/modules/official/settings/src/Contract/TenantSettingsTransfer.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bc9d222677760e988ae1d732689cd5b7026bc40efd520ff1d79933b200b2e5b9"
+        },
+        {
             "path": "server/app/modules/official/settings/src/Contract/WebsiteConfigStore.php",
             "target": "server/app/modules/official/settings/src/Contract/WebsiteConfigStore.php",
             "classification": "managed",
@@ -18220,7 +18234,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "470a9650149d2789786e8630dfd84ec39541e77f50dfc04aabde932560eb1da2"
+            "source_sha256": "63071f90a3cd7dc791a8eb7f2ff794cb1f8b9e6b528e33d8cfbf3ef0d4e14b4a"
         },
         {
             "path": "server/app/modules/official/settings/src/Package.php",
@@ -18291,6 +18305,20 @@
                 "full"
             ],
             "source_sha256": "482de8e400f87564e76cb4d0f9d0a2b841451423243a59d93c315477f911c1f0"
+        },
+        {
+            "path": "server/app/modules/official/settings/src/Service/TenantSettingsTransferService.php",
+            "target": "server/app/modules/official/settings/src/Service/TenantSettingsTransferService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1f461e0dd4b74cc626c801f0296deda7bb17cb10ab19bbe5f8cef89da64f5f6e"
         },
         {
             "path": "server/app/modules/official/settings/src/Service/WebsiteConfigService.php",
@@ -26537,6 +26565,19 @@
         {
             "path": "server/tests/Unit/TenantBootstrapAuthorizationTest.php",
             "target": "server/tests/Unit/TenantBootstrapAuthorizationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/TenantSettingsTransferBoundaryTest.php",
+            "target": "server/tests/Unit/TenantSettingsTransferBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

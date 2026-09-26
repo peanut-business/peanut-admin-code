@@ -99,8 +99,12 @@ final class TenantSettingsTransferService implements TenantSettingsTransfer
             throw new \RuntimeException('TRANSFER_TENANT_SETTING_INVALID');
         }
         return new TenantSettingSnapshot(
-            $tenantId, (string) ($row['namespace'] ?? ''), $document,
-            (int) ($row['revision'] ?? 0), (int) ($row['create_time'] ?? 0), (int) ($row['update_time'] ?? 0),
+            $tenantId,
+            (string) ($row['namespace'] ?? ''),
+            $document,
+            (int) ($row['revision'] ?? 0),
+            (int) ($row['create_time'] ?? 0),
+            (int) ($row['update_time'] ?? 0),
         );
     }
 
