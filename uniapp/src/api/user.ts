@@ -58,15 +58,15 @@ export function getUserInfo() {
 
 /** POST api/user/setInfo */
 export function setUserInfo(data: SetInfoParams) {
-  return http.post('api/user/setInfo', data);
+  return http.post('api/user/setInfo', { ...data });
 }
 
 /** POST api/user/changePassword */
 export function changePassword(data: ChangePasswordParams) {
-  return http.post('api/user/changePassword', data);
+  return http.post('api/user/changePassword', { ...data });
 }
 
 /** POST api/user/bindMobile */
 export function bindMobile(data: BindMobileParams) {
-  return http.post('api/user/bindMobile', data);
+  return http.post('api/user/bindMobile', { ...data });
 }
