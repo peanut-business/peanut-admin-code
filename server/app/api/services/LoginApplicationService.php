@@ -10,7 +10,7 @@ use PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands;
 use app\api\services\UserTokenService;
 use app\common\enum\notice\NoticeSceneEnum;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
-use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
+use PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings;
 use app\common\exception\BusinessException;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
@@ -20,7 +20,7 @@ class LoginApplicationService
     public function __construct(
         private readonly MemberIdentityCommands $memberIdentities,
         private readonly VerificationCodeCommands $verificationCodes,
-        private readonly TenantApplicationSettingService $applicationSettings,
+        private readonly TenantApplicationSettings $applicationSettings,
         private readonly FileReferences $files,
         private readonly UserTokenService $tokens,
         private readonly string $defaultAvatar,

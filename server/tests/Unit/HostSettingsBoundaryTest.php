@@ -101,8 +101,12 @@ final class HostSettingsBoundaryTest extends TestCase
         $files = $this->createMock(FileReferences::class);
         $files->expects(self::never())->method('getFileUrl');
         $consumer = new LoginApplicationService(
-            $identities, $verification, $settings, $files,
-            (new ReflectionClass(\app\api\services\UserTokenService::class))->newInstanceWithoutConstructor(), '',
+            $identities,
+            $verification,
+            $settings,
+            $files,
+            (new ReflectionClass(\app\api\services\UserTokenService::class))->newInstanceWithoutConstructor(),
+            '',
         );
         $this->expectException(\app\common\exception\BusinessException::class);
         $consumer->login(new \PeanutAdmin\Kernel\Context\TenantSystemContext(101, 'fixture', 'fixture.login', 'fixture-request'), ['account' => 'fixture', 'password' => 'fixture'], '127.0.0.1');
@@ -122,7 +126,14 @@ final class HostSettingsBoundaryTest extends TestCase
     private function tenant(): TenantContext
     {
         return TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            1, '01J00000000000000000000000', 101, 301, 501, 'admin-web', new DateTimeImmutable('2031-01-01T00:00:00Z'), 1,
+            1,
+            '01J00000000000000000000000',
+            101,
+            301,
+            501,
+            'admin-web',
+            new DateTimeImmutable('2031-01-01T00:00:00Z'),
+            1,
         ), 'host-settings-test');
     }
 }

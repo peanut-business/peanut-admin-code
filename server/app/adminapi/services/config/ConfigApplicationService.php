@@ -6,7 +6,7 @@ namespace app\adminapi\services\config;
 
 use PeanutAdmin\Modules\File\Contract\FileReferences;
 use app\common\services\RichTextResourceService;
-use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
+use PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
@@ -14,7 +14,7 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 class ConfigApplicationService
 {
     public function __construct(
-        private readonly TenantApplicationSettingService $applicationSettings,
+        private readonly TenantApplicationSettings $applicationSettings,
         private readonly FileReferences $files,
         private readonly RichTextResourceService $richText,
         private readonly WebsiteConfigService $website,

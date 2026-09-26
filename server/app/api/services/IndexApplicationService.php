@@ -8,7 +8,7 @@ use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use app\common\services\RichTextResourceService;
-use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
+use PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use app\common\enum\decoration\DecorationEnum;
 use app\common\services\decoration\DecorationReadService;
@@ -19,7 +19,7 @@ class IndexApplicationService
 {
     public function __construct(
         private readonly TenantIdentityQuery $tenantIdentities,
-        private readonly TenantApplicationSettingService $applicationSettings,
+        private readonly TenantApplicationSettings $applicationSettings,
         private readonly PublicArticleQueries $articles,
         private readonly RichTextResourceService $richText,
         private readonly DecorationReadService $decoration,

@@ -556,7 +556,7 @@ class AppService extends Service
             (array) Config::get('project.default_image', []),
         ));
         $this->app->bind(ConfigApplicationService::class, fn(): ConfigApplicationService => new ConfigApplicationService(
-            $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
             $this->app->make(FileService::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\PeanutAdmin\Modules\Settings\Service\WebsiteConfigService::class),
@@ -569,7 +569,7 @@ class AppService extends Service
         ));
         $this->app->bind(IndexApplicationService::class, fn(): IndexApplicationService => new IndexApplicationService(
             $this->app->make(TenantIdentityQuery::class),
-            $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
             $this->app->make(PublicArticleQueries::class),
             $this->app->make(\app\common\services\RichTextResourceService::class),
             $this->app->make(\app\common\services\decoration\DecorationReadService::class),
@@ -588,7 +588,7 @@ class AppService extends Service
         $this->app->bind(MemberLoginApplicationService::class, fn(): MemberLoginApplicationService => new MemberLoginApplicationService(
             $this->app->make(\PeanutAdmin\Modules\Member\Contract\MemberIdentityCommands::class),
             $this->app->make(\PeanutAdmin\Modules\Notification\Contract\VerificationCodeCommands::class),
-            $this->app->make(\PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService::class),
+            $this->app->make(\PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings::class),
             $this->app->make(FileService::class),
             $this->app->make(UserTokenService::class),
             (string) Config::get('project.default_image.user_avatar', ''),

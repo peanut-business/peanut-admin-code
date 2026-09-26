@@ -6,7 +6,7 @@ namespace app\adminapi\services\setting;
 
 use think\facade\Db;
 use app\common\model\setting\HotSearch;
-use PeanutAdmin\Modules\Settings\Service\TenantApplicationSettingService;
+use PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 
 /**
@@ -20,7 +20,7 @@ class HotSearchApplicationService
     protected const CONFIG_TYPE = 'hot_search';
 
     public function __construct(
-        private readonly TenantApplicationSettingService $applicationSettings,
+        private readonly TenantApplicationSettings $applicationSettings,
     ) {}
 
     /** 读取配置：开关 + 词条列表 */
