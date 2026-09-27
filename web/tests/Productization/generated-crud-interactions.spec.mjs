@@ -259,10 +259,18 @@ describe(`native generated ${example}`, () => {
       const wrapper = await recycled();
       await button(wrapper, '永久删除').trigger('click');
       await drain();
-      const confirm = document.body.querySelector(
-        '.el-popconfirm__action .el-button--primary'
+      // The real popover appears after its scheduled transition, not after
+      // an assumed number of microtasks. Do not replace the confirm event.
+      const confirm = await vi.waitFor(
+        () => {
+          const element = document.body.querySelector(
+            '.el-popconfirm__action .el-button--primary'
+          );
+          expect(element).not.toBeNull();
+          return element;
+        },
+        { timeout: 1000, interval: 10 }
       );
-      expect(confirm).not.toBeNull();
       confirm.click();
       await drain();
       expect(pending).toHaveLength(3);
