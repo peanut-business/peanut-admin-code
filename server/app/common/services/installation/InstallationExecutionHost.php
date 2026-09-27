@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\common\services\installation;
 
 use app\common\exception\installation\InstallationExecutionException;
+use app\common\services\audit\AuditContractHost;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\plugin\PluginLockResolver;
@@ -31,6 +32,7 @@ final class InstallationExecutionHost
         private readonly ModuleCatalogApplier $catalogs,
         private readonly \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery $tenantDirectory,
         private readonly Closure $moduleRuntimeFactory,
+        private readonly AuditContractHost $audit,
     ) {
         require_once $serverRoot . '/database/install.php';
     }
@@ -348,7 +350,7 @@ final class InstallationExecutionHost
         $profile = (new ProductTenantModuleProfileService(
             $this->runtimeForProfile($this->definitionRegistry()),
             new ThinkPhpModuleGovernanceProvider($this->serverRoot, $config, $this->catalogs),
-            app(\app\common\services\audit\AuditContractHost::class),
+            $this->audit,
             $this->tenantDirectory,
         ))->applyInstallationSelection($moduleKeys, $tenantBootstrap['code']);
         return ['operations' => $operations, 'profile' => $profile];

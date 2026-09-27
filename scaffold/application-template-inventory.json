@@ -4197,7 +4197,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29eb17ca65d3a6bc7d3ae3738f84cef8258cc38b284785b25542c93b209744cb"
+            "source_sha256": "ec11248c9e9c78a64a57d34bbebdc5e1b50a4610d2a06aa4a346dfe9efd1ea90"
         },
         {
             "path": "server/app/BaseController.php",
@@ -8107,7 +8107,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f554d36ca903b68547d009463b8fc92f876e90ccd0f60c6ff8a65bc2bf5ebb2d"
+            "source_sha256": "13c20f646f578605013bd6572134f6fe42c16c9d0c47281d2bdc7c6c20e8f429"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -26908,6 +26908,19 @@
         {
             "path": "server/tests/Unit/InputValidatorPolicyTest.php",
             "target": "server/tests/Unit/InputValidatorPolicyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/InstallationAuditDependencyTest.php",
+            "target": "server/tests/Unit/InstallationAuditDependencyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

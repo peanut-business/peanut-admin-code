@@ -205,6 +205,7 @@ class AppService extends Service
                 $this->app->make(ModuleCatalogApplier::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
                 fn(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository => $this->installationModuleRuntime($registry),
+                $this->app->make(AuditContractHost::class),
             ),
         );
         $this->app->bind(AuditContractHost::class, fn(): AuditContractHost => new AuditContractHost(
