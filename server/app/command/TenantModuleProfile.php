@@ -40,6 +40,7 @@ final class TenantModuleProfile extends ModuleContextualCommand
                 app(ModuleRuntimeRepository::class),
                 $governance,
                 app(AuditContractHost::class),
+                $this->getApp()->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
             ))->apply(trim((string) $input->getArgument('profile')));
             $output->writeln((string) json_encode(
                 $result,

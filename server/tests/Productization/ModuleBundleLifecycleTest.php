@@ -926,6 +926,7 @@ try {
         new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository($moduleGovernance->registry()->compiled(), true),
         $moduleGovernance,
         new \app\common\services\audit\AuditContractHost(null),
+        new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new \app\common\execution\CurrentExecutionContext(new \app\common\execution\ExecutionContextStore())),
     );
     foreach ([
         [['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::MultiTenant, 'PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED'],

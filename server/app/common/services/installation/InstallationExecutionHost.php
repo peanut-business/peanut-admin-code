@@ -26,6 +26,7 @@ final class InstallationExecutionHost
     public function __construct(
         private readonly string $serverRoot,
         private readonly ModuleCatalogApplier $catalogs,
+        private readonly \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery $tenantDirectory,
     ) {
         require_once $serverRoot . '/database/install.php';
     }
@@ -347,6 +348,7 @@ final class InstallationExecutionHost
             ),
             new ThinkPhpModuleGovernanceProvider($this->serverRoot, $config, $this->catalogs),
             app(\app\common\services\audit\AuditContractHost::class),
+            $this->tenantDirectory,
         ))->applyInstallationSelection($moduleKeys, $tenantBootstrap['code']);
         return ['operations' => $operations, 'profile' => $profile];
     }

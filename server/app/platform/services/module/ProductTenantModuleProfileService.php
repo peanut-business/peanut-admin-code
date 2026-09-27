@@ -17,6 +17,7 @@ use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\TenantModuleManager;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use think\facade\Db;
 
 /** Applies explicit application product profiles through the canonical TenantModule runtime. */
@@ -48,6 +49,7 @@ final readonly class ProductTenantModuleProfileService
         private ModuleRuntimeRepository $moduleRuntime,
         private ThinkPhpModuleGovernanceProvider $moduleGovernance,
         private AuditContractHost $audit,
+        private AdminDirectoryQuery $tenantDirectory,
     ) {}
 
     /** @return array{profile:string,tenant_count:int,module_count:int,binding_count:int} */
@@ -269,8 +271,7 @@ final readonly class ProductTenantModuleProfileService
     /** @param list<string> $tenantCodes @return list<array{id:int,code:string}> */
     private function tenants(array $tenantCodes): array
     {
-        $tenants = Db::name('tenant')->whereIn('code', $tenantCodes)->where('status', 'active')
-            ->field('id,code')->order('code')->lock(true)->select()->toArray();
+        $tenants = $this->tenantDirectory->profileTenantsForUpdate($tenantCodes);
         $actualCodes = array_column($tenants, 'code');
         $expectedCodes = $tenantCodes;
         sort($expectedCodes, SORT_STRING);

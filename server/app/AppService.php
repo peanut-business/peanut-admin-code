@@ -203,6 +203,7 @@ class AppService extends Service
             fn(): InstallationExecutionHost => new InstallationExecutionHost(
                 dirname(__DIR__),
                 $this->app->make(ModuleCatalogApplier::class),
+                $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
             ),
         );
         $this->app->bind(AuditContractHost::class, fn(): AuditContractHost => new AuditContractHost(

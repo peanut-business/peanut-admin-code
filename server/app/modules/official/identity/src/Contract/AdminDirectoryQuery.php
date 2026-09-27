@@ -47,6 +47,19 @@ final readonly class AdminDirectoryQuery
     }
 
     /**
+     * Locked selection for an explicit product profile, within its existing transaction.
+     * The caller still rejects missing, inactive, duplicate or non-exact requested codes.
+     * @param list<string> $tenantCodes
+     * @return list<array{id:int,code:string}>
+     */
+    public function profileTenantsForUpdate(array $tenantCodes): array
+    {
+        $rows = Tenant::whereIn('code', $tenantCodes)->where('status', 'active')
+            ->field('id,code')->order('code')->lock(true)->select()->toArray();
+        return array_map(static fn(array $row): array => ['id' => (int) $row['id'], 'code' => (string) $row['code']], $rows);
+    }
+
+    /**
      * Minimal lifecycle projection for trusted binding resolution; not an authorization grant.
      * A locking read participates in the caller's current transaction and must precede binding locks.
      */
