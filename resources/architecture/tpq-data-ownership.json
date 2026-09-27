@@ -10,11 +10,63 @@
   ],
   "policy": {
     "tenant-orm": "TenantOwnedModel applies the Edition-selected global data scope and write ownership hook.",
-    "tenant-gateway": "A non-ORM aggregate or state-machine repository requires an explicit trusted Tenant context on every operation.",
+    "tenant-gateway": "Tenant-owned records accessed through explicit scoped gateways, not automatic global ORM scope. Reviewed tenant operations remain distinct from other-security-domain and pending system operations; registration grants no runtime authorization.",
     "instance": "Deployment-instance data is not Tenant-scoped.",
     "shared": "Immutable or product-wide reference data is shared by design."
   },
+  "access_contracts": {
+    "PeanutAdmin\\Kernel\\Idempotency\\IdempotencyService": {
+      "source": "php-core",
+      "path": "kernel/src/Idempotency/IdempotencyService.php",
+      "sha256": "e9a049d1000d60ad509c1b1ae656e95f191da83fa282d9ab0fd1fdad43f79432",
+      "scope": "explicit-edition-tenant",
+      "tenant_operations": ["beginTenant", "completeTenant", "failTenant"],
+      "other_operations": ["beginPlatform", "completePlatform", "failPlatform"],
+      "pending_operations": [],
+      "reason": "租户操作经TenantScope及EditionTenantModel读写模式检查；平台动作是另一安全域，不由租户表登记授权。调用者仍负责可信上下文、操作授权和事务。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/EditionTenantModel.php", "sha256": "5a1e55a9dacfa01d8c071b19e4a9f456f5029132ae900f5174e6cfa03ded18e8"},
+        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantColumnScope.php", "sha256": "d5a50c48866888f4ae0eece820326ac322705ce64ef1ef4156a898a690b56eff"},
+        {"source": "php-core", "path": "kernel/src/Idempotency/Model/TenantIdempotencyRecord.php", "sha256": "3ed4c7a091d63fef64aeb5675a7f00db43d99692049ed82596651451b343facf"}
+      ]
+    },
+    "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore": {
+      "source": "application",
+      "path": "server/app/modules/official/task/src/Job/Persistence/TaskJobStore.php",
+      "sha256": "4b009ebfe886ac2da134df2e80905b0039a07e66658d7bed0eb31e7e581e0338",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["enqueue", "list", "get", "cancel", "retryDead", "claim", "renew", "assertExecutable", "succeed", "fail"],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "内部任务状态存储。query/tenantData检查租户编号及Edition存储形态，读取结果复核归属；调用方仍负责模块、人员授权和任务可信信封。不是自动全局Scope。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantColumnScope.php", "sha256": "d5a50c48866888f4ae0eece820326ac322705ce64ef1ef4156a898a690b56eff"},
+        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantPersistenceMode.php", "sha256": "b964354d0e787b0348e36d00a982f5396a5898ebb3008bc7ffa49f0a47f83bbb"},
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"}
+      ]
+    },
+    "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore": {
+      "source": "application",
+      "path": "server/app/modules/official/import_export/src/Engine/Persistence/ImportExportStore.php",
+      "sha256": "d77de6f76cca610f29ffe87a9e3ad76184d507c7e34e52c6f71f9e244d12696e",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["create", "attachJob", "list", "get", "resultFile", "requestCancel", "beginAttempt", "checkpointProgressOrCancel", "addRowIssue", "rowIssues", "finish"],
+      "other_operations": [],
+      "pending_operations": ["expireDue"],
+      "reason": "租户动作经query/tenantData/scopedRow及TenantColumnScope；expireDue是有界系统级跨租户过期写，本次未找到生产调用方或授权入口，保留待决策，不授权执行。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantColumnScope.php", "sha256": "d5a50c48866888f4ae0eece820326ac322705ce64ef1ef4156a898a690b56eff"},
+        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantPersistenceMode.php", "sha256": "b964354d0e787b0348e36d00a982f5396a5898ebb3008bc7ffa49f0a47f83bbb"},
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"}
+      ]
+    }
+  },
   "model_owners": [
+    {"model": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\Model\\TaskJobRecord", "table": "pa_task_job", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
+    {"model": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\Model\\TaskJobAttemptRecord", "table": "pa_task_job_attempt", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
+    {"model": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\Model\\TaskJobEventRecord", "table": "pa_task_job_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
+    {"model": "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\Model\\ImportExportOperationRecord", "table": "pa_import_export_operation", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore"},
+    {"model": "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\Model\\ImportExportRowErrorRecord", "table": "pa_import_export_row_error", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore"},
     {"model": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord", "table": "pa_fixture_delivery_record", "owner": "tenant-orm"},
     {"model": "PeanutAdmin\\Modules\\Article\\Model\\Article", "table": "pa_article", "owner": "tenant-orm"},
     {"model": "PeanutAdmin\\Modules\\Article\\Model\\ArticleCate", "table": "pa_article_cate", "owner": "tenant-orm"},
@@ -94,14 +146,14 @@
     {"table": "pa_tenant_setting", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Settings\\Infrastructure\\ThinkPhpTenantSettingsProvider"},
     {"table": "pa_tenant_entry_binding", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\TenantEntryBindingAdminService"},
     {"table": "pa_tenant_owner_invitation", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Identity\\Invitation\\TenantOwnerInvitationAdminService"},
-    {"table": "pa_tenant_idempotency_record", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Kernel\\Idempotency\\PdoIdempotencyRepository"},
+    {"table": "pa_tenant_idempotency_record", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Kernel\\Idempotency\\IdempotencyService"},
     {"table": "pa_customer_service_setting", "owner": "tenant-orm", "access_entry": "app\\common\\model\\setting\\CustomerServiceSetting"},
     {"table": "pa_decorate_tabbar_setting", "owner": "tenant-orm", "access_entry": "app\\common\\model\\decoration\\DecorationTabbarSetting"},
     {"table": "pa_task_job", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
     {"table": "pa_task_job_attempt", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
     {"table": "pa_task_job_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
-    {"table": "pa_import_export_operation", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\ImportExport\\Persistence\\PdoImportExportRepository"},
-    {"table": "pa_import_export_row_error", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\ImportExport\\Persistence\\PdoImportExportRepository"},
+    {"table": "pa_import_export_operation", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore"},
+    {"table": "pa_import_export_row_error", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore"},
     {"table": "pa_file_object", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\File\\Model\\Storage\\FileObject"},
     {"table": "pa_file_image_asset", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\File\\Model\\Storage\\FileImageAsset"},
     {"table": "pa_file_derivative", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\File\\Model\\Storage\\FileDerivative"},
@@ -116,10 +168,10 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 46,
-    "tenant_models": 37,
+    "concrete_models": 51,
+    "tenant_models": 42,
     "non_tenant_models": 9,
     "tenant_tables": 51,
-    "tenant_tables_without_model": 14
+    "tenant_tables_without_model": 8
   }
 }

@@ -187,7 +187,8 @@ class CurrentOwnershipTest(unittest.TestCase):
 
     def test_gateway_entry_requires_a_real_declared_application_type(self):
         self.registry['tenant_tables'][0].update(owner='tenant-gateway', access_entry='Fixture\\Gateway')
-        self.registry['counts']['tenant_tables_without_model'] = 1
+        # A gateway entry does not make the existing concrete model disappear.
+        self.registry['counts']['tenant_tables_without_model'] = 0
         self.save_registry()
         self.assertTrue(any('access_entry' in e for e in checker.ownership_errors()))
         path = 'server/app/modules/fixture/example/src/Gateway.php'
