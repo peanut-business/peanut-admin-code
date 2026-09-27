@@ -69,39 +69,33 @@ final readonly class ReferenceCodeQuery
                 'The reference-code query is invalid.',
             );
         }
-        $snapshot = $this->store->snapshot($definition, $context, null, $asOf);
+        $snapshot = $this->store->pageSnapshot(
+            $definition,
+            $context,
+            $asOf,
+            $effectiveStatus,
+            $includeRetired,
+            $page,
+            $pageSize,
+            function (array $raw, DateTimeImmutable $instant) use ($definition): void {
+                $this->hydrate($definition, $raw, $instant);
+            },
+        );
         $items = [];
         foreach ($snapshot['entries'] as $raw) {
             $entry = $this->hydrate($definition, $raw, $snapshot['as_of']);
-            if ($entry === null || (!$includeRetired && $entry->lifecycle === 'retired')) {
-                continue;
-            }
-            $status = $entry->effective['status'] ?? null;
-            if ($effectiveStatus !== 'all' && $status !== $effectiveStatus) {
-                continue;
+            if ($entry === null) {
+                throw ReferenceCodeException::internal();
             }
             $items[] = $entry;
         }
-        usort($items, static function (EffectiveReferenceCode $left, EffectiveReferenceCode $right): int {
-            if ($left->effective === null) {
-                return $right->effective === null ? strcmp($left->code, $right->code) : 1;
-            }
-            if ($right->effective === null) {
-                return -1;
-            }
-            $sort = $left->effective['sort_order'] <=> $right->effective['sort_order'];
-
-            return $sort !== 0 ? $sort : strcmp($left->code, $right->code);
-        });
-        $total = count($items);
-        $items = array_slice($items, ($page - 1) * $pageSize, $pageSize);
 
         return [
             'items' => $items,
             'as_of' => $this->rfc3339($snapshot['as_of']),
             'page' => $page,
             'page_size' => $pageSize,
-            'total' => $total,
+            'total' => $snapshot['total'],
         ];
     }
 

@@ -289,6 +289,44 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
         self::assertSame([], $query->list($this->definition, $this->context, $this->asOf, page: 100, pageSize: 1)['items']);
     }
 
+    public function testListUsesDatabaseCountAndPageAfterBoundedIntegrityScan(): void
+    {
+        for ($offset = 0; $offset < 250; ++$offset) {
+            $id = 100 + $offset;
+            $this->database->prepare('INSERT INTO pa_reference_code_entry SELECT ?,tenant_id,set_id,?,lifecycle,revision,created_by_member_id,updated_by_member_id,retired_at,created_at,updated_at FROM pa_reference_code_entry WHERE id=10')->execute([$id, sprintf('batch-%03d', $offset)]);
+            foreach ([11, 12] as $version) {
+                $this->database->prepare('INSERT INTO pa_reference_code_entry_version SELECT ?,?,revision,label,metadata_json,status,sort_order,effective_at,expires_at,changed_by_member_id,created_at FROM pa_reference_code_entry_version WHERE id=?')->execute([$id * 10 + $version, $id, $version]);
+            }
+        }
+        $page = (new ReferenceCodeQuery($this->store))->list($this->definition, $this->context, $this->asOf, page: 2, pageSize: 2);
+        self::assertSame(251, $page['total']);
+        self::assertSame(['batch-002', 'batch-003'], array_map(static fn($item): string => $item->code, $page['items']));
+        $sql = implode("\n", $this->connection->sql);
+        self::assertMatchesRegularExpression('/SELECT[^;\n]*COUNT\(/i', $sql, 'The total must come from the same database-side effective query.');
+        self::assertMatchesRegularExpression('/LIMIT\s+2\s*(?:,\s*2|OFFSET\s+2)/i', $sql, 'Only the requested page is selected after validation.');
+        foreach ($this->connection->sql as $statement) {
+            if (preg_match('/^SELECT \* FROM [`"]?pa_reference_code_entry[`"]?\s/i', $statement)) {
+                self::assertStringContainsString('LIMIT', strtoupper($statement), 'Integrity reads must be bounded rather than materializing all entries.');
+            }
+        }
+        self::assertCount(1, $this->directoryReads(), 'Repeated authors are verified once in the same paging transaction.');
+    }
+
+    public function testTemporalPagingSelectsGreatestEffectiveRevisionNotLatestRevision(): void
+    {
+        $this->database->exec("UPDATE pa_reference_code_entry_version SET expires_at=NULL WHERE id=11; UPDATE pa_reference_code_entry_version SET effective_at='2031-01-01 06:00:00.000',expires_at='2031-01-01 18:00:00.000',status='inactive' WHERE id=12;");
+        $query = new ReferenceCodeQuery($this->store);
+        $during = $query->list($this->definition, $this->context, $this->asOf, effectiveStatus: 'inactive', pageSize: 1);
+        self::assertSame(1, $during['total']);
+        self::assertSame(2, $during['items'][0]->effective['revision']);
+        self::assertSame(0, $query->list($this->definition, $this->context, $this->asOf, effectiveStatus: 'active')['total']);
+        $after = $query->list($this->definition, $this->context, new DateTimeImmutable('2031-01-01T18:00:00.000Z'), effectiveStatus: 'active');
+        self::assertSame(1, $after['total']);
+        self::assertSame(1, $after['items'][0]->effective['revision']);
+        self::assertSame(2, $after['items'][0]->revision);
+        self::assertSame('"rev-2"', $after['items'][0]->etag);
+    }
+
     public function testOwnerUsesOnlyPublicIdentityContractsAndKeepsBinding(): void
     {
         $source = file_get_contents((new \ReflectionClass(ReferenceCodeStore::class))->getFileName());
@@ -318,6 +356,10 @@ final class ReferenceSnapshotConnection extends \think\db\connector\Sqlite
     public function getPDOStatement(string $sql, array $bind = [], bool $master = false, bool $procedure = false): PDOStatement
     {
         $this->sql[] = $sql;
-        return parent::getPDOStatement(str_replace('BINARY `code` ASC', '`code` COLLATE BINARY ASC', $sql), $bind, $master, $procedure);
+        return parent::getPDOStatement(str_replace(
+            ['BINARY `code` ASC', 'BINARY entry.code ASC'],
+            ['`code` COLLATE BINARY ASC', 'entry.code COLLATE BINARY ASC'],
+            $sql,
+        ), $bind, $master, $procedure);
     }
 }
