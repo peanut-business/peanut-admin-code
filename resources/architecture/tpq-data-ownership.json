@@ -15,6 +15,23 @@
     "shared": "Immutable or product-wide reference data is shared by design."
   },
   "access_contracts": {
+    "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore": {
+      "source": "application",
+      "path": "server/app/modules/official/notification/src/Delivery/Persistence/NotificationStore.php",
+      "sha256": "7479b0af1d403600997c9b3a68dac948fef0d62516504886844b877444bec1af",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["putTemplate", "activeTemplate", "createMessage", "inbox", "changeInbox", "bulkChangeInbox", "outboxForSubmission", "bindJob", "deliverInbox", "beginSms", "reserveSmsRate", "completeSms", "failSms"],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "通知台账、模板、收件箱、投递状态和限频桶显式绑定tenant_id；收件箱同时绑定recipient_member_id，创建核当前人员与同租户收件人。后台投递由已授权任务上下文、租户一致性和租约检查后传入job/outbox身份。原子性由现有用例事务负责；此登记不发送短信，不声明自动全局Scope或渠道资格。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
+        {"source": "application", "path": "server/app/modules/official/notification/src/Delivery/Application/NotificationService.php", "sha256": "946295e6e758c77ab836f99630719f15f6f2170b8116969880b5d041dd0146a1"},
+        {"source": "application", "path": "server/app/modules/official/notification/src/Delivery/Application/NotificationInboxService.php", "sha256": "0000ce4ff01eec27a9c5578cc618f7b9db8fdb1c9f7103d96493af2d9edd4305"},
+        {"source": "application", "path": "server/app/modules/official/notification/src/Delivery/Task/SmsTaskHandler.php", "sha256": "d830460e69cbd59aeab5708bd822eceb82c3b07992f46a03b12ee07647e0e34e"},
+        {"source": "application", "path": "server/app/modules/official/notification/src/Delivery/Task/InboxTaskHandler.php", "sha256": "cd35b8d77fdb868ef6a4e30f6c91b5125a9974823ecf856d7b16d1fedfd25ab1"}
+      ]
+    },
     "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository": {
       "source": "application",
       "path": "server/app/modules/peanut/artifact_revision/src/Persistence/ThinkPhpArtifactRevisionRepository.php",
@@ -107,6 +124,12 @@
     }
   },
   "model_owners": [
+    {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationTemplateRecord", "table": "pa_notification_template", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationMessageRecord", "table": "pa_notification_message", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationAttachmentRecord", "table": "pa_notification_attachment", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationOutboxRecord", "table": "pa_notification_outbox", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationEventRecord", "table": "pa_notification_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\SmsRateBucketRecord", "table": "pa_sms_rate_bucket", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
     {"model": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\Model\\ArtifactRecord", "table": "pa_artifact", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
     {"model": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\Model\\ArtifactRevisionRecord", "table": "pa_artifact_revision", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
     {"model": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\Model\\EntitlementGrantRecord", "table": "pa_entitlement_grant", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
@@ -172,6 +195,12 @@
     {"model": "app\\common\\model\\provider\\ProviderQualificationEvidence", "table": "pa_provider_qualification_evidence", "owner": "instance"}
   ],
   "tenant_tables": [
+    {"table": "pa_notification_template", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"table": "pa_notification_message", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"table": "pa_notification_attachment", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"table": "pa_notification_outbox", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"table": "pa_notification_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
+    {"table": "pa_sms_rate_bucket", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
     {"table": "pa_artifact", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
     {"table": "pa_artifact_revision", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
     {"table": "pa_entitlement_grant", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
@@ -237,10 +266,10 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 63,
-    "tenant_models": 54,
+    "concrete_models": 69,
+    "tenant_models": 60,
     "non_tenant_models": 9,
-    "tenant_tables": 63,
+    "tenant_tables": 69,
     "tenant_tables_without_model": 8
   }
 }

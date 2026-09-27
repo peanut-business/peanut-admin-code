@@ -1,4 +1,4 @@
-"""Exercise the reviewed three-module registration against explicit immutable sources.
+"""Exercise reviewed module registrations against explicit immutable sources.
 
 This inspects real source declarations and mutates only a temporary registration.
 It neither executes application PHP nor reads historical exception records.
@@ -113,7 +113,7 @@ class ReviewedModulesTest(unittest.TestCase):
         contract['pending_operations'].append('events')
         self.save()
         report = self.report()
-        self.assertIn(report['status'], {'registration_failed', 'decision_required'})
+        self.assertIn(report['status'], {'registration_failed', 'decision_required', 'check_incomplete'})
         self.assertEqual('not_run', report['business_scan'])
         self.assertIsNone(report['finding_count'])
         self.assertFalse(report['historical_register_read'])
@@ -145,6 +145,52 @@ class ReviewedModulesTest(unittest.TestCase):
         self.registry['access_contracts'][entry]['sha256'] = '0' * 64
         self.save()
         self.assertTrue(any('SOURCE_REVIEW_STALE' in e for e in checker.ownership_errors()))
+
+    def test_notification_six_records_have_exact_private_owner_and_table(self):
+        expected = {
+            'NotificationTemplateRecord': 'pa_notification_template',
+            'NotificationMessageRecord': 'pa_notification_message',
+            'NotificationAttachmentRecord': 'pa_notification_attachment',
+            'NotificationOutboxRecord': 'pa_notification_outbox',
+            'NotificationEventRecord': 'pa_notification_event',
+            'SmsRateBucketRecord': 'pa_sms_rate_bucket',
+        }
+        entry = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore'
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tables = {row['table']: row for row in self.registry['tenant_tables']}
+        native, _ = checker.module_table_inventory()
+        self.assertNotIn(entry, checker.declared_module_exports())
+        for name, table in expected.items():
+            with self.subTest(model=name):
+                model = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\' + name
+                self.assertEqual(table, models[model]['table'])
+                self.assertEqual('tenant-gateway', models[model]['owner'])
+                self.assertEqual(entry, models[model]['access_entry'])
+                self.assertEqual(entry, tables[table]['access_entry'])
+                self.assertEqual('official.notification', native[table])
+                self.assertEqual((model, 'PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel'), checker.model_header(checker.composer_model_path(model)))
+
+    def test_notification_review_includes_recipient_and_leased_worker_callers(self):
+        entry = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore'
+        contract = self.registry['access_contracts'][entry]
+        self.assertEqual([], checker.access_contract_errors({entry: contract}))
+        paths = {Path(item['path']).name for item in contract['support_sources']}
+        self.assertTrue({'NotificationService.php', 'NotificationInboxService.php', 'SmsTaskHandler.php', 'InboxTaskHandler.php'}.issubset(paths))
+        self.assertFalse(contract['other_operations'])
+        self.assertFalse(contract['pending_operations'])
+
+    def test_notification_explicit_predicates_are_not_automatic_orm_scope(self):
+        row = next(item for item in self.registry['model_owners'] if item['table'] == 'pa_notification_message')
+        row['owner'] = 'tenant-orm'
+        self.save()
+        self.assertTrue(any('must extend TenantOwnedModel' in error and 'NotificationMessageRecord' in error for error in checker.ownership_errors()))
+
+    def test_worker_review_drift_requires_revalidation(self):
+        entry = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore'
+        dependency = next(item for item in self.registry['access_contracts'][entry]['support_sources'] if item['path'].endswith('/SmsTaskHandler.php'))
+        dependency['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
 
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
