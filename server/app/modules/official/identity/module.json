@@ -12,7 +12,7 @@
     "provider": "PeanutAdmin\\Modules\\Identity\\ModuleProvider",
     "migrations": "database/migrations"
   },
-  "frontend": [],
+  "frontend": {},
   "database": {
     "owned_tables": [
       "pa_account",

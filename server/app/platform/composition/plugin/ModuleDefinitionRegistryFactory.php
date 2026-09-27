@@ -138,12 +138,17 @@ final readonly class ModuleDefinitionRegistryFactory
     /**
      * The protected, shipped IAM manifest is the ownership source. Arbitrary modules
      * cannot opt themselves into the historical table exception by declaring a table.
-     * Technical ModuleSchema/IdempotencySchema tables have no exception.
+     * Core may still provide bootstrap DDL for tables whose runtime/business ownership
+     * has moved to a protected shipped Module. Keep that transfer explicit and narrow:
+     * pa_module_migration and every other technical table remain Core-owned/reserved.
      * @return array<string,string>
      */
     private function historicalBusinessTableOwners(): array
     {
         $technical = [...ModuleSchema::tableNames(), ...IdempotencySchema::tableNames()];
+        $transferredTechnicalOwners = [
+            'official.identity' => ['pa_menu_definition', 'pa_module_installation'],
+        ];
         $owners = [];
         foreach (['official.identity' => 'identity', 'official.ops' => 'ops'] as $key => $directory) {
             $path = $this->serverRoot . '/app/modules/official/' . $directory . '/module.json';
@@ -153,7 +158,11 @@ final readonly class ModuleDefinitionRegistryFactory
                 throw new ModuleException('MODULE_MANIFEST_INVALID', "The protected {$key} manifest is unavailable.");
             }
             foreach (($manifest['database']['owned_tables'] ?? []) as $table) {
-                if (!is_string($table) || in_array($table, $technical, true) || isset($owners[$table])) {
+                $isTransferredTechnicalTable = is_string($table)
+                    && in_array($table, $transferredTechnicalOwners[$key] ?? [], true);
+                if (!is_string($table)
+                    || (in_array($table, $technical, true) && !$isTransferredTechnicalTable)
+                    || isset($owners[$table])) {
                     throw new ModuleException('MODULE_REGISTRY_CONFLICT', "{$key} historical table ownership is invalid.");
                 }
                 $owners[$table] = $key;

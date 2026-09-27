@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "6ee5ffa324fb3d398d0c58208eb5cc6e1621fdf24c5547919fb463b8f8e5d63c"
+        "sha256": "e38b47187e5b7fee4de47ca3b65d89841b0714f65d5f8452a36920a3f681fab3"
     },
     "trust": {
         "channel": "bundled",
@@ -45,6 +45,10 @@
                         {
                             "module_key": "official.file",
                             "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
                         },
                         {
                             "module_key": "official.integration",

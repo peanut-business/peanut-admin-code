@@ -305,7 +305,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "bb640a81fdccf8a961ed1eef8c5863ab2c11d26ede367cf49d7f368043c62432"
+                "sha256": "820a8b91846316e57a546a665b81551cc277fd1451995be0b429097ab7e39062"
             },
             "trust": {
                 "channel": "bundled",
@@ -375,7 +375,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "83beb1935e995a7cd156b84a0d9f79e891a0a8ab02a9f19d60321717ee943254"
+            "manifest_sha256": "81e4776cc6e42afb458ade21ec9f11c6d714fe357dfd926d38ca32a6a310c077"
         },
         {
             "key": "official.import-export",
@@ -1015,7 +1015,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "6ee5ffa324fb3d398d0c58208eb5cc6e1621fdf24c5547919fb463b8f8e5d63c"
+                "sha256": "e38b47187e5b7fee4de47ca3b65d89841b0714f65d5f8452a36920a3f681fab3"
             },
             "trust": {
                 "channel": "bundled",
@@ -1055,6 +1055,10 @@
                                 {
                                     "module_key": "official.file",
                                     "version": "^1.0"
+                                },
+                                {
+                                    "module_key": "official.identity",
+                                    "version": "4.0.0-dev"
                                 },
                                 {
                                     "module_key": "official.integration",
@@ -1120,7 +1124,7 @@
                 }
             ],
             "manifest": "plugins/official.payment/plugin.json",
-            "manifest_sha256": "04a87a7d46cef694d81aab54ab4ea0a65f9d2a9e56f5919f874276c88b6320a9"
+            "manifest_sha256": "08172c071ebcf001a3b3535df648b74dfc8b7dc9e87631f57966c81a94669d70"
         },
         {
             "key": "official.reference-codes",

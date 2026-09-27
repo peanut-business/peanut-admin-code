@@ -14,6 +14,10 @@
       "version": "^1.0"
     },
     {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    },
+    {
       "module_key": "official.integration",
       "version": "^1.0"
     },

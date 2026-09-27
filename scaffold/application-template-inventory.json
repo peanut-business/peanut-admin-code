@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "be3e27a35c1404e2efc131a5797b9545a4689c413a40aabab4f728f6121a32be"
+            "source_sha256": "7ab99cacdff806890e6ff289fb174ff7f42163d61d253e7c4d0624e0335fa057"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2369,7 +2369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "83beb1935e995a7cd156b84a0d9f79e891a0a8ab02a9f19d60321717ee943254"
+            "source_sha256": "81e4776cc6e42afb458ade21ec9f11c6d714fe357dfd926d38ca32a6a310c077"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2467,7 +2467,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "04a87a7d46cef694d81aab54ab4ea0a65f9d2a9e56f5919f874276c88b6320a9"
+            "source_sha256": "08172c071ebcf001a3b3535df648b74dfc8b7dc9e87631f57966c81a94669d70"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -10149,7 +10149,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
+            "source_sha256": "21dca8e696b1c61793443aa918101a3efda22d7348cb38cee77370dfecbb5774"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -17054,7 +17054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "214397969d3ce205cfc760173fc48c0e02344a2c7ded60d326d228090685adcf"
+            "source_sha256": "820df93e35683bd7745eda4f2eeaa109be14f16cad7184dfba90a9a52a744856"
         },
         {
             "path": "server/app/modules/official/payment/resources/menus.json",
@@ -20910,7 +20910,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa88ed8a5b5ec7ef2492958742ba490793397c3d17fd956cee264051099805b9"
+            "source_sha256": "43f60a1c64adea0d476fa8e3348fcc30487154476b2e6875bc27cab7893dc8d3"
         },
         {
             "path": "server/app/platform/composition/plugin/PluginModuleRegistryFactory.php",
@@ -25620,6 +25620,19 @@
         {
             "path": "server/tests/Multitenancy/PlatformOperatorBoundaryTest.php",
             "target": "server/tests/Multitenancy/PlatformOperatorBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Multitenancy/PlatformRetentionMysqlTest.php",
+            "target": "server/tests/Multitenancy/PlatformRetentionMysqlTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
