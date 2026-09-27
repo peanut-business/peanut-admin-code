@@ -27247,6 +27247,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/PlatformLifecycleFixtureAssemblyTest.php",
+            "target": "server/tests/Unit/PlatformLifecycleFixtureAssemblyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/PluginAuthoringBootstrapTest.php",
             "target": "server/tests/Unit/PluginAuthoringBootstrapTest.php",
             "classification": "excluded",

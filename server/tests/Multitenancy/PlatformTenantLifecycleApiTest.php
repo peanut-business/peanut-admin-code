@@ -13,12 +13,15 @@ use PeanutAdmin\Modules\Notification\Service\NotificationBootstrapService;
 use PeanutAdmin\Modules\Task\Service\TaskBootstrapService;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\CurrentExecutionContext;
-use app\common\service\tenant\TenantSettingService;
-use app\common\service\tenant\ThinkPhpTenantSettingsProvider;
+use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
+use PeanutAdmin\Modules\Settings\Infrastructure\ThinkPhpTenantSettingsProvider;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
+use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
+use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
 use app\common\tenancy\MultiTenantDataScopePolicy;
-use app\platform\infrastructure\ThinkPhpTenantApplicationBootstrapPersistence;
-use app\platform\service\ApplicationTenantBootstrapService;
-use app\platform\service\TenantGovernanceService;
+use app\platform\services\ApplicationTenantBootstrapService;
+use app\platform\services\TenantGovernanceService;
 use app\platform\services\CoreTenantOwnerAdminProvisioner;
 use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
@@ -82,14 +85,20 @@ final readonly class LifecycleIdentity implements PlatformOperatorIdentityPort
 function lifecycleApplicationBootstrap(): ApplicationTenantBootstrapService
 {
     $contexts = new ExecutionContextStore();
+    $current = new CurrentExecutionContext($contexts);
+    $directory = new AdminDirectoryQuery($current);
+    $settings = new TenantSettingService(new ThinkPhpTenantSettingsProvider(
+        new MultiTenantDataScopePolicy($current),
+    ));
     return new ApplicationTenantBootstrapService(
         new NotificationBootstrapService(),
         new TaskBootstrapService(),
         $contexts,
-        new TenantSettingService(new ThinkPhpTenantSettingsProvider(
-            new MultiTenantDataScopePolicy(new CurrentExecutionContext($contexts)),
-        )),
-        new ThinkPhpTenantApplicationBootstrapPersistence(),
+        $settings,
+        $settings,
+        new ExternalIntegrationBootstrapCommands(new ThinkPhpExternalTenantBindingRepository($directory), $current, $directory),
+        new TenantAuthorizationCommands($current, new AuditService()),
+        \think\Container::getInstance()->make(\think\DbManager::class),
     );
 }
 
@@ -138,9 +147,10 @@ SQL);
         'Lifecycle Operator',
         'pm01-lifecycle-bootstrap',
     );
+    $registry = new CompiledModuleRegistry([], [], [], [], 'pm01-lifecycle');
     $modules = new TenantModuleManager(
-        new CompiledModuleRegistry([], [], [], [], 'pm01-lifecycle'),
-        new ThinkPhpModuleRuntimeRepository(),
+        $registry,
+        new ThinkPhpModuleRuntimeRepository($registry),
         new class implements TenantModuleConfigValidator {
             public function assertValid(\PeanutAdmin\Kernel\Module\ManifestDocument $manifest, array $config): void
             {

@@ -51,6 +51,12 @@ final class PlatformLifecycleFixtureAssemblyTest extends TestCase
         $traverser = new NodeTraverser();
         $traverser->addVisitor(new NameResolver());
         $nodes = $traverser->traverse($this->nodes());
+        $localTypes = [];
+        foreach ((new NodeFinder())->findInstanceOf($nodes, Node\Stmt\Class_::class) as $type) {
+            if ($type->name !== null) {
+                $localTypes[$type->namespacedName->toString()] = $type;
+            }
+        }
         $calls = (new NodeFinder())->findInstanceOf($nodes, Node\Expr\New_::class);
         $checked = 0;
         foreach ($calls as $call) {
@@ -58,11 +64,15 @@ final class PlatformLifecycleFixtureAssemblyTest extends TestCase
                 continue;
             }
             $class = $call->class->toString();
-            self::assertTrue(class_exists($class), $class);
-            $constructor = (new \ReflectionClass($class))->getConstructor();
-            if ($constructor !== null) {
-                self::assertGreaterThanOrEqual($constructor->getNumberOfRequiredParameters(), count($call->args), $class);
+            if (isset($localTypes[$class])) {
+                $constructor = $localTypes[$class]->getMethod('__construct');
+                $required = $constructor === null ? 0 : count(array_filter($constructor->params, static fn(Node\Param $param): bool => $param->default === null && !$param->variadic));
+            } else {
+                self::assertTrue(class_exists($class), $class);
+                $constructor = (new \ReflectionClass($class))->getConstructor();
+                $required = $constructor?->getNumberOfRequiredParameters() ?? 0;
             }
+            self::assertGreaterThanOrEqual($required, count($call->args), $class);
             ++$checked;
         }
         self::assertGreaterThan(15, $checked);
