@@ -7,7 +7,9 @@ $root = getenv('TPQ_SOURCE_ROOT');
 $core = getenv('TPQ_CORE_SOURCE_ROOT');
 $vendor = getenv('TPQ_VENDOR_ROOT');
 $scenario = $argv[1] ?? '';
-if (!$root || !$core || !$vendor || !in_array($scenario, ['baseline', 'missing-parent', 'foreign-parent', 'foreign-link'], true)) {
+if (!$root || !$core || !$vendor || !in_array($scenario, ['baseline', 'missing-parent', 'foreign-parent', 'foreign-link',
+    'page-baseline', 'page-missing-parent', 'page-foreign-parent', 'page-foreign-set',
+    'page-corrupt-outside-page', 'page-callback-failure'], true)) {
     throw new RuntimeException('TPQ_PARENT_RUNTIME_INPUT_INVALID');
 }
 // Use Composer's installed third-party maps without importing the vendor
@@ -67,7 +69,57 @@ $assert = static function (bool $condition, string $message): void {
         throw new RuntimeException('TPQ_PARENT_RUNTIME_ASSERTION: ' . $message);
     }
 };
-if ($scenario === 'baseline') {
+if (str_starts_with($scenario, 'page-')) {
+    $query = new PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeQuery($store);
+    if (in_array($scenario, ['page-missing-parent', 'page-foreign-parent', 'page-foreign-set'], true)) {
+        $database->exec(match ($scenario) {
+            'page-missing-parent' => 'DELETE FROM pa_reference_code_entry WHERE id=10',
+            'page-foreign-parent' => 'UPDATE pa_reference_code_entry SET tenant_id=202 WHERE id=10',
+            'page-foreign-set' => 'UPDATE pa_reference_code_entry SET set_id=999 WHERE id=10',
+        });
+        $assert((int) $database->query('SELECT COUNT(*) FROM pa_reference_code_entry_version WHERE entry_id=10')->fetchColumn() === 2, 'negative children remain present');
+        $page = $query->list($definition, $context, $asOf, page: 1, pageSize: 1);
+        $assert($page['total'] === 0 && $page['items'] === [], 'page cannot expose orphan, foreign Tenant or foreign set children');
+    } elseif ($scenario === 'page-corrupt-outside-page') {
+        $database->exec("INSERT INTO pa_reference_code_entry SELECT 30,tenant_id,set_id,'z-hidden-code',lifecycle,revision,created_by_member_id,updated_by_member_id,retired_at,created_at,updated_at FROM pa_reference_code_entry WHERE id=10;");
+        $database->exec("INSERT INTO pa_reference_code_entry_version SELECT id+30,30,revision,label,'not-json','inactive',sort_order,effective_at,expires_at,changed_by_member_id,created_at FROM pa_reference_code_entry_version WHERE entry_id=10;");
+        $rejected = false;
+        try {
+            $query->list($definition, $context, $asOf, effectiveStatus: 'active', page: 1, pageSize: 1);
+        } catch (PeanutAdmin\Modules\ReferenceCodes\Versioned\Application\ReferenceCodeException) {
+            $rejected = true;
+        }
+        $assert($rejected, 'Query callback must reject corrupt history outside page/filter');
+    } elseif ($scenario === 'page-callback-failure') {
+        $failure = new DomainException('TPQ_PAGE_CALLBACK_SENTINEL');
+        $seen = false;
+        $propagated = false;
+        try {
+            $store->pageSnapshot(
+                $definition,
+                $context,
+                $asOf,
+                'all',
+                false,
+                1,
+                1,
+                static function (array $raw, DateTimeImmutable $instant) use ($failure, &$seen, $assert, $asOf): void {
+                    $seen = true;
+                    $assert($instant == $asOf && (int) $raw['entry']['tenant_id'] === 101, 'scoped callback with fixed time');
+                    throw $failure;
+                },
+            );
+        } catch (DomainException $error) {
+            $assert($error === $failure, 'original callback failure must propagate');
+            $propagated = true;
+        }
+        $assert($seen && $propagated, 'callback must execute and its failure must propagate');
+    } else {
+        $page = $query->list($definition, $context, $asOf, page: 1, pageSize: 1);
+        $assert($page['total'] === 1 && count($page['items']) === 1, 'one scoped page and total');
+        $assert($page['items'][0]->code === 'sample-code' && $page['items'][0]->effective['label'] === 'Earlier', 'effective version preserved');
+    }
+} elseif ($scenario === 'baseline') {
     $snapshot = $store->snapshot($definition, $context, 'sample-code', $asOf);
     $assert(count($snapshot['entries']) === 1, 'one scoped parent');
     $assert(array_column($snapshot['entries'][0]['versions'], 'entry_id') === [10, 10], 'only matching children');

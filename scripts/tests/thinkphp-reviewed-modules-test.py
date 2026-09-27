@@ -426,7 +426,7 @@ class ReviewedModulesTest(unittest.TestCase):
     def test_reference_revalidated_snapshot_pins_both_membership_boundaries(self):
         entry = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore'
         contract = self.registry['access_contracts'][entry]
-        self.assertEqual({'create', 'replace', 'retire', 'snapshot'}, set(contract['tenant_operations']))
+        self.assertEqual({'create', 'replace', 'retire', 'snapshot', 'pageSnapshot'}, set(contract['tenant_operations']))
         self.assertEqual({'atomically', 'synchronize', 'assertCurrentDefinition', 'definitionSummaries'}, set(contract['other_operations']))
         self.assertFalse(contract['pending_operations'])
         paths = {Path(item['path']).name for item in contract['support_sources']}
@@ -488,6 +488,27 @@ class ReviewedModulesTest(unittest.TestCase):
     def test_reference_version_changed_parent_source_invalidates_ownership(self):
         child = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_reference_code_entry_version')
         child['parent_review']['parent_source']['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
+    def test_reference_page_role_is_required_for_parent_and_gateway(self):
+        entry = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore'
+        contract = self.registry['access_contracts'][entry]
+        child = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_reference_code_entry_version')
+        self.assertIn('pageSnapshot', contract['tenant_operations'])
+        self.assertIn('pageSnapshot', child['parent_review']['operations'])
+        child['parent_review']['operations'].remove('pageSnapshot')
+        self.save()
+        self.assertTrue(any('PARENT_OPERATION_REVIEW_REQUIRED' in error for error in checker.ownership_errors()))
+
+    def test_reference_page_validation_caller_drift_requires_new_review(self):
+        entry = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore'
+        contract = self.registry['access_contracts'][entry]
+        caller = next(row for row in contract['support_sources'] if row['path'].endswith('/ReferenceCodeQuery.php'))
+        source, _ = checker.reviewed_source(caller)
+        self.assertIn('->pageSnapshot(', source.read_text())
+        self.assertIn('$this->hydrate($definition, $raw, $instant)', source.read_text())
+        caller['sha256'] = '0' * 64
         self.save()
         self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
 

@@ -18,12 +18,12 @@
     "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore": {
       "source": "application",
       "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php",
-      "sha256": "4252822c437fedbf1af4987979ef7f6d954b72b89b0e090b6cd61cf3c1e1899f",
+      "sha256": "6525c84d2a7a9229a2472207f7248b33bb63c7dfa14aace2e9e69da57323bee3",
       "scope": "explicit-tenant-column",
-      "tenant_operations": ["create", "replace", "retire", "snapshot"],
+      "tenant_operations": ["create", "replace", "retire", "snapshot", "pageSnapshot"],
       "other_operations": ["atomically", "synchronize", "assertCurrentDefinition", "definitionSummaries"],
       "pending_operations": [],
-      "reason": "租户条目按可信TenantContext、set_id和code读取；修改前核活动读取者/写入者的账号与授权修订，事务内锁同租户条目并核预期修订。历史版本通过父条目的同租户/集合/可选代码联查读取，历史署名先校验并去重，再由Identity公开目录按既有上限分批核同租户存在；不强加历史作者当前活动状态，空显示名仍可用，非法或缺失成员拒绝。HTTP入口另核当前执行身份、模块与固定权限，再处理幂等。目录同步/事务辅助不是租户授权；本登记不证明业务扫描、分页性能或数据库资格，不将无tenant_id的历史版本模型归为共享/实例数据。",
+      "reason": "租户条目按可信TenantContext、set_id和code读取；修改前核活动读取者/写入者的账号与授权修订，事务内锁同租户条目并核预期修订。历史版本通过父条目的同租户/集合/可选代码联查读取，历史署名先校验并去重，再由Identity公开目录按既有上限分批核同租户存在；不强加历史作者当前活动状态，空显示名仍可用，非法或缺失成员拒绝。pageSnapshot先以200父条目有界批次和同租户/集合版本关联调用Query的纯历史校验，再以相同身份/时刻求有效版本、计数和取至多100条当前页；页外损坏历史仍拒绝，校验异常向上传播，成员键集只存在本事务。HTTP入口另核当前执行身份、模块与固定权限，再处理幂等。目录同步/事务辅助不是租户授权；本登记不证明业务扫描、分页性能或数据库资格，不将无tenant_id的历史版本模型归为共享/实例数据。",
       "support_sources": [
         {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
         {"source": "application", "path": "server/app/modules/official/identity/src/Contract/AdminDirectoryQuery.php", "sha256": "700697f97f99c69d035991f99a5237c0c9bf7d349388515ea290a02805118fd5"},
@@ -32,7 +32,7 @@
         {"source": "application", "path": "server/app/modules/official/reference_codes/src/ModuleProvider.php", "sha256": "ee78d1774f273c70914e740909e47d423746b49c1c6a4879b212e8cfb0bfdd10"},
         {"source": "application", "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodesHttpApplicationService.php", "sha256": "8443efb882f8cf0ee2b99703cf8a4b86a5990fff8fb55a3122255635487b6130"},
         {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Application/ReferenceCodeAdminService.php", "sha256": "4bec30658cdb751affab594b0006418d62ed48790a786890b9bf4bb1360764cd"},
-        {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Application/ReferenceCodeQuery.php", "sha256": "f7438616742e71b1edc511cba176a9d0c3ddfcc6ff656876184c61da852ecca5"},
+        {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Application/ReferenceCodeQuery.php", "sha256": "7e7f13f706c8f92668b1899da05bcb439ce234514fdb8df4058f029f5c04d6a2"},
         {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Database/Schema.php", "sha256": "5788d85ceee1eabd58657a39f949724367051be94b91e220aa3b958bffa2202d"}
       ]
     },
@@ -215,8 +215,8 @@
         "parent_model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryRecord",
         "column": "entry_id",
         "parent_column": "id",
-        "operations": ["create", "replace", "retire", "snapshot"],
-        "reason": "历史版本通过非空entry_id外键属于已按租户限定的父条目，不是实例或共享数据。写入仅使用同事务内创建或锁定的父条目身份，读取先按TenantContext/set/code取父，再通过同样限定租户/集合/可选代码的父表JOIN读取版本；父记录缺失、移到其他租户或版本关系损坏不得返回其他租户数据。历史署名与当前执行者仍由各自公开身份合同核对；模型和关系源码变化使本证据失效。原生内存夹具验证了父不存在、父跨租户与错链拒绝，但不代表MySQL迁移、并发或全业务资格；已按A的新源码复核批量版本/成员查询；内存分页与全历史损坏检测取舍仍是独立事项，不由归属登记批准。",
+        "operations": ["create", "replace", "retire", "snapshot", "pageSnapshot"],
+        "reason": "历史版本通过非空entry_id外键属于已按租户限定的父条目，不是实例或共享数据。写入仅使用同事务内创建或锁定的父条目身份，读取先按TenantContext/set/code取父，再通过同样限定租户/集合/可选代码的父表JOIN读取版本；父记录缺失、移到其他租户或版本关系损坏不得返回其他租户数据。历史署名与当前执行者仍由各自公开身份合同核对；模型和关系源码变化使本证据失效。原生内存夹具验证了父不存在、父跨租户与错链拒绝，但不代表MySQL迁移、并发或全业务资格；pageSnapshot的扫描、有效版本与当前页版本均沿同租户/集合父条目获取；Query闭包继续执行完整历史校验，数据库计数/分页不掩盖页外损坏。该记录只复核本次分页增量，不代表全业务扫描或新的运行授权。",
         "model_source": {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeEntryVersionRecord.php", "sha256": "0f905162e12466af511e0a36adf6da547ee1fc8146b11b006654d335462f0d8e"},
         "parent_source": {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeEntryRecord.php", "sha256": "0aecb08a0122f52a4a391bc8347e7e9126b06abacad119f6c645a0ae29f31ba5"},
         "schema_source": {"source": "application", "path": "server/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql", "sha256": "01809393f85e3945fc8832830ac45c5b17c542019b28ae30d3ebba2c990d01be"}
@@ -555,7 +555,7 @@
         "model_source": {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeSetRecord.php", "sha256": "f1d16d34e55853d3bcdd477b5e4fb693ed5dc6b5cdaec49b51497a94197bbda5"},
         "schema_source": {"source": "application", "path": "server/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql", "sha256": "01809393f85e3945fc8832830ac45c5b17c542019b28ae30d3ebba2c990d01be"},
         "access_sources": [
-          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php", "sha256": "4252822c437fedbf1af4987979ef7f6d954b72b89b0e090b6cd61cf3c1e1899f"},
+          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php", "sha256": "6525c84d2a7a9229a2472207f7248b33bb63c7dfa14aace2e9e69da57323bee3"},
           {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Service\\ReferenceCodeCatalogService", "source": "application", "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodeCatalogService.php", "sha256": "f14db56ac8b8c3dbcc578745fd24f87ac1875d04132dddca0c7311fb8020cd6b"},
           {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Definition\\ReferenceCodeSetRegistry", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Definition/ReferenceCodeSetRegistry.php", "sha256": "9bdda89e582d9eef60e55f66eeebd444d79ac9942cdc0dacc14b954c8d618b24"},
           {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider", "source": "application", "path": "server/app/modules/official/reference_codes/src/ModuleProvider.php", "sha256": "ee78d1774f273c70914e740909e47d423746b49c1c6a4879b212e8cfb0bfdd10"}

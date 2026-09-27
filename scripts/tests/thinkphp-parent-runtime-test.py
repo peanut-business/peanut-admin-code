@@ -29,6 +29,9 @@ def main():
     parser.add_argument('--php-core-root', required=True)
     parser.add_argument('--php-core-ref', required=True)
     parser.add_argument('--vendor-root', required=True)
+    parser.add_argument('--case', action='append', choices=['baseline', 'missing-parent', 'foreign-parent', 'foreign-link',
+                        'page-baseline', 'page-missing-parent', 'page-foreign-parent', 'page-foreign-set',
+                        'page-corrupt-outside-page', 'page-callback-failure'])
     args = parser.parse_args()
     vendor = Path(args.vendor_root).resolve(strict=True)
     if not (vendor / 'autoload.php').is_file():
@@ -54,7 +57,8 @@ def main():
         classes = {prefix + 'ReferenceCodeStore': 'server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php',
                    prefix + 'Model\\ReferenceCodeEntryRecord': 'server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeEntryRecord.php',
                    prefix + 'Model\\ReferenceCodeEntryVersionRecord': 'server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeEntryVersionRecord.php',
-                   'PeanutAdmin\\Modules\\Identity\\Contract\\AdminDirectoryQuery': 'server/app/modules/official/identity/src/Contract/AdminDirectoryQuery.php'}
+                   'PeanutAdmin\\Modules\\Identity\\Contract\\AdminDirectoryQuery': 'server/app/modules/official/identity/src/Contract/AdminDirectoryQuery.php',
+                   'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Application\\ReferenceCodeQuery': 'server/app/modules/official/reference_codes/src/Versioned/Application/ReferenceCodeQuery.php'}
         classes = {key: str(target / path) for key, path in classes.items()}
         classes['PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel'] = str(checker.PHP_CORE_ROOT / 'kernel/src/Persistence/Model/TenantModel.php')
         classes['SharedPdoDbManager'] = str(support_path)
@@ -67,13 +71,14 @@ def main():
         (target / 'runtime-source-proof.json').write_text(json.dumps({'classes': classes, 'sha256': {p: hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in classes.values()}, 'packages': packages}))
         env = os.environ.copy()
         env.update(TPQ_SOURCE_ROOT=str(target), TPQ_CORE_SOURCE_ROOT=str(checker.PHP_CORE_ROOT), TPQ_VENDOR_ROOT=str(vendor))
-        for scenario in ('baseline', 'missing-parent', 'foreign-parent', 'foreign-link'):
+        cases = args.case or ['baseline', 'missing-parent', 'foreign-parent', 'foreign-link']
+        for scenario in cases:
             result = subprocess.run([env.get('TPQ_PHP_BINARY', 'php'), str(ROOT / 'scripts/tests/thinkphp-parent-runtime-test.php'), scenario], env=env, cwd=target, capture_output=True, text=True, timeout=30)
             print(result.stdout, end='')
             if result.returncode:
                 print(result.stderr, file=sys.stderr, end='')
                 return result.returncode
-        print(json.dumps({'tests': 4, 'status': 'passed', 'code': args.source_ref, 'php_core': args.php_core_ref,
+        print(json.dumps({'tests': len(cases), 'cases': cases, 'status': 'passed', 'code': args.source_ref, 'php_core': args.php_core_ref,
                           'fixture_sha256': hashlib.sha256(blob(fixture)).hexdigest(), 'packages': packages}))
     return 0
 
