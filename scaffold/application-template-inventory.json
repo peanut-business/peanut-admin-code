@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d3858f760e9bd3b897a5c5685e204d06f9d126c972b14718339c03d44d2b3bb4"
+            "source_sha256": "8db28525e74c74762f60babab90f87dea859ff74dc43b183822a6bddab58028f"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2481,7 +2481,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b49d24cffc6407ecb3077dc5b2a7de9ef576b8d4a7c318bacd3a39bbbfa7a5bc"
+            "source_sha256": "726f5b654d929086f440b155c69d3ff8266593712ffff55f6f10144b5d3856cb"
         },
         {
             "path": "plugins/official.rich-text/plugin.json",
@@ -18078,7 +18078,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e0fcaa92967afbe910b2dd14056e04d2699a871ba1a01aae4ae1599a0803790"
+            "source_sha256": "4252822c437fedbf1af4987979ef7f6d954b72b89b0e090b6cd61cf3c1e1899f"
         },
         {
             "path": "server/app/modules/official/rich_text/composer.json",

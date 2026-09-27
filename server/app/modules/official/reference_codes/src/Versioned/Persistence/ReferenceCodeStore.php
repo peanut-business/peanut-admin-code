@@ -307,24 +307,37 @@ final class ReferenceCodeStore
                 $query->where('code', $code);
             }
             $rows = $query->orderRaw('BINARY `code` ASC')->select()->toArray();
-            $entries = [];
+            if ($rows === []) {
+                return ['as_of' => $comparisonTime, 'entries' => []];
+            }
+
+            // 同一快照的全部历史仍参与核验；版本经所属条目联查限定租户/集合/代码，不逐条取版本或搬运全量ID。
+            $versionQuery = ReferenceCodeEntryVersionRecord::alias('version')
+                ->join('reference_code_entry entry', 'entry.id = version.entry_id')
+                ->where('entry.tenant_id', $context->tenantId)->where('entry.set_id', (int) $set['id']);
+            if ($code !== null) {
+                $versionQuery->where('entry.code', $code);
+            }
+            $versionsByEntry = [];
+            $memberIds = [];
             foreach ($rows as $entry) {
                 if (!is_array($entry)) {
                     throw ReferenceCodeException::internal();
                 }
-                if (!$this->memberBelongsToTenant($context, $entry['created_by_member_id'] ?? null)
-                    || !$this->memberBelongsToTenant($context, $entry['updated_by_member_id'] ?? null)) {
+                $memberIds[$this->referenceMemberId($entry['created_by_member_id'] ?? null)] = true;
+                $memberIds[$this->referenceMemberId($entry['updated_by_member_id'] ?? null)] = true;
+            }
+            foreach ($versionQuery->field('version.*')->order('version.entry_id')->order('version.revision')->select()->toArray() as $version) {
+                if (!is_array($version)) {
                     throw ReferenceCodeException::internal();
                 }
-                $versions = ReferenceCodeEntryVersionRecord::where('entry_id', (int) $entry['id'])
-                    ->order('revision')->select()->toArray();
-                foreach ($versions as $version) {
-                    if (!is_array($version)
-                        || !$this->memberBelongsToTenant($context, $version['changed_by_member_id'] ?? null)) {
-                        throw ReferenceCodeException::internal();
-                    }
-                }
-                $entries[] = ['entry' => $entry, 'versions' => array_values($versions)];
+                $memberIds[$this->referenceMemberId($version['changed_by_member_id'] ?? null)] = true;
+                $versionsByEntry[(int) $version['entry_id']][] = $version;
+            }
+            $this->assertMemberReferences($context, $memberIds);
+            $entries = [];
+            foreach ($rows as $entry) {
+                $entries[] = ['entry' => $entry, 'versions' => $versionsByEntry[(int) $entry['id']] ?? []];
             }
 
             return ['as_of' => $comparisonTime, 'entries' => $entries];
@@ -390,20 +403,33 @@ final class ReferenceCodeStore
         return $row;
     }
 
-    /**
-     * 历史署名只核同租户成员关系，不能要求作者至今仍活动；当前读取者由assertTenantActor另验。
-     * 复用Identity公开目录的键集，空显示名仍是有效成员；不公开名字、不缓存跨快照身份。
-     */
-    private function memberBelongsToTenant(TenantContext $context, mixed $memberId): bool
+    /** 数据库整数字符串须精确可表示，不把损坏编号强转为其他成员。 */
+    private function referenceMemberId(mixed $memberId): int
     {
         if ((!is_int($memberId)
                 && !(is_string($memberId) && ctype_digit($memberId) && (string) (int) $memberId === $memberId))
-            || (int) $memberId < 1
-            || $this->memberReferences === null) {
-            return false;
+            || (int) $memberId < 1) {
+            throw ReferenceCodeException::internal();
         }
-        $memberId = (int) $memberId;
-        return array_key_exists($memberId, $this->memberReferences->memberDisplayNames($context, [$memberId]));
+        return (int) $memberId;
+    }
+
+    /**
+     * 历史作者只核同租户存在，停用/空显示名仍合法；读取者由assertTenantActor另验。
+     * Identity负责既有500成员分批；键集只活在本次快照事务内，不跨调用缓存。
+     * @param array<int, true> $memberIds 同次快照已去重且校验类型的全部署名成员。
+     */
+    private function assertMemberReferences(TenantContext $context, array $memberIds): void
+    {
+        if ($this->memberReferences === null) {
+            throw ReferenceCodeException::internal();
+        }
+        $members = $this->memberReferences->memberDisplayNames($context, array_keys($memberIds));
+        foreach ($memberIds as $memberId => $_) {
+            if (!array_key_exists($memberId, $members)) {
+                throw ReferenceCodeException::internal();
+            }
+        }
     }
 
     private function assertTenantActor(TenantContext $context): void

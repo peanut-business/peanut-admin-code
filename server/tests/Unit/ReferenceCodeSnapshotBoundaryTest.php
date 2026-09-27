@@ -204,6 +204,91 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
         self::assertSame(2, $result->revision);
     }
 
+    private function directoryReads(): array
+    {
+        return array_values(array_filter($this->connection->sql, static fn(string $sql): bool =>
+            str_starts_with(ltrim(strtoupper($sql)), 'SELECT ')
+            && str_contains($sql, 'pa_tenant_member') && !str_contains(strtoupper($sql), ' JOIN ')));
+    }
+
+    public function testRepeatedAuthorsAreDeduplicatedOnceWithinEachSnapshot(): void
+    {
+        for ($id = 100; $id < 125; ++$id) {
+            $this->database->prepare('INSERT INTO pa_reference_code_entry SELECT ?,tenant_id,set_id,?,lifecycle,revision,created_by_member_id,updated_by_member_id,retired_at,created_at,updated_at FROM pa_reference_code_entry WHERE id=10')->execute([$id, 'batch-code-' . $id]);
+            $this->database->prepare('INSERT INTO pa_reference_code_entry_version SELECT ?,?,revision,label,metadata_json,status,sort_order,effective_at,expires_at,changed_by_member_id,created_at FROM pa_reference_code_entry_version WHERE id=?')->execute([$id * 10, $id, 11]);
+            $this->database->prepare('INSERT INTO pa_reference_code_entry_version SELECT ?,?,revision,label,metadata_json,status,sort_order,effective_at,expires_at,changed_by_member_id,created_at FROM pa_reference_code_entry_version WHERE id=?')->execute([$id * 10 + 1, $id, 12]);
+        }
+        $snapshot = $this->store->snapshot($this->definition, $this->context, null, $this->asOf);
+        self::assertCount(26, $snapshot['entries']);
+        self::assertSame(52, array_sum(array_map(static fn(array $item): int => count($item['versions']), $snapshot['entries'])));
+        self::assertCount(1, $this->directoryReads(), '104 attribution references to two authors must use one actual directory SELECT.');
+        $this->connection->sql = [];
+        $again = $this->store->snapshot($this->definition, $this->context, null, $this->asOf);
+        self::assertSame($snapshot, $again);
+        self::assertCount(1, $this->directoryReads(), 'Each new snapshot must query identity again, not reuse a cross-snapshot cache.');
+    }
+
+    public function testDistinctAuthorsUseThePublicDirectoryChunkBound(): void
+    {
+        for ($offset = 0; $offset < 501; ++$offset) {
+            $id = 2000 + $offset;
+            $this->database->prepare('INSERT INTO pa_tenant_member VALUES (?,101,502,?,\'disabled\',NULL,1,1)')->execute([$id, '']);
+            $this->database->prepare('INSERT INTO pa_reference_code_entry_version VALUES (?,10,?,\'History\',\'{}\',\'active\',0,\'2031-01-01 00:00:00.000\',NULL,?,\'2031-01-01 00:00:00.000\')')->execute([$id, $offset + 3, $id]);
+        }
+        $this->database->exec('UPDATE pa_reference_code_entry SET revision=503 WHERE id=10');
+        $snapshot = $this->store->snapshot($this->definition, $this->context, 'sample-code', $this->asOf);
+        self::assertCount(503, $snapshot['entries'][0]['versions']);
+        self::assertCount(2, $this->directoryReads(), '503 distinct authors must follow the existing 500-ID batch boundary.');
+        $this->database->exec('UPDATE pa_tenant_member SET tenant_id=202 WHERE id=2500');
+        $this->expectException(ReferenceCodeException::class);
+        $this->store->snapshot($this->definition, $this->context, 'sample-code', $this->asOf);
+    }
+
+    public function testEmptySnapshotDoesNotIssueAHistoricalDirectoryQuery(): void
+    {
+        self::assertSame([], $this->store->snapshot($this->definition, $this->context, 'missing-code', $this->asOf)['entries']);
+        self::assertSame([], $this->directoryReads());
+    }
+
+    public function testVersionQueriesDoNotGrowPerEntryAndRemainInsideTheSelectedSet(): void
+    {
+        $this->database->exec("INSERT INTO pa_reference_code_entry SELECT 30,tenant_id,set_id,'another-code',lifecycle,revision,created_by_member_id,updated_by_member_id,retired_at,created_at,updated_at FROM pa_reference_code_entry WHERE id=10;");
+        $this->database->exec('INSERT INTO pa_reference_code_entry_version SELECT id+30,30,revision,label,metadata_json,status,sort_order,effective_at,expires_at,changed_by_member_id,created_at FROM pa_reference_code_entry_version WHERE entry_id=10;');
+        $snapshot = $this->store->snapshot($this->definition, $this->context, null, $this->asOf);
+        self::assertSame(['another-code', 'sample-code'], array_column(array_column($snapshot['entries'], 'entry'), 'code'));
+        $queries = array_values(array_filter($this->connection->sql, static fn(string $sql): bool => str_starts_with(ltrim(strtoupper($sql)), 'SELECT ') && str_contains($sql, 'pa_reference_code_entry_version')));
+        self::assertCount(1, $queries, 'One owner-scoped version SELECT must replace per-entry version reads.');
+        self::assertSame([1, 2], array_column($snapshot['entries'][0]['versions'], 'revision'));
+        self::assertSame([1, 2], array_column($snapshot['entries'][1]['versions'], 'revision'));
+    }
+
+    public function testPaginationStillRejectsCorruptHistoryOutsideRequestedPageOrFilter(): void
+    {
+        $this->database->exec("INSERT INTO pa_reference_code_entry SELECT 30,tenant_id,set_id,'z-hidden-code',lifecycle,revision,created_by_member_id,updated_by_member_id,retired_at,created_at,updated_at FROM pa_reference_code_entry WHERE id=10;");
+        $this->database->exec("INSERT INTO pa_reference_code_entry_version SELECT id+30,30,revision,label,'not-json','inactive',sort_order,effective_at,expires_at,changed_by_member_id,created_at FROM pa_reference_code_entry_version WHERE entry_id=10;");
+        $query = new ReferenceCodeQuery($this->store);
+        $this->expectException(ReferenceCodeException::class);
+        $query->list($this->definition, $this->context, $this->asOf, effectiveStatus: 'active', page: 1, pageSize: 1);
+    }
+
+    public function testFilteredPaginationUsesEffectiveWinnerTotalAndStableCodeOrder(): void
+    {
+        foreach (['z-code', 'a-code', 'b-code'] as $offset => $code) {
+            $id = 100 + $offset;
+            $this->database->prepare('INSERT INTO pa_reference_code_entry SELECT ?,tenant_id,set_id,?,lifecycle,revision,created_by_member_id,updated_by_member_id,retired_at,created_at,updated_at FROM pa_reference_code_entry WHERE id=10')->execute([$id, $code]);
+            foreach ([11, 12] as $version) {
+                $this->database->prepare('INSERT INTO pa_reference_code_entry_version SELECT ?,?,revision,label,metadata_json,status,?,effective_at,expires_at,changed_by_member_id,created_at FROM pa_reference_code_entry_version WHERE id=?')->execute([$id * 10 + $version, $id, $code === 'b-code' ? -1 : 0, $version]);
+            }
+        }
+        $this->database->exec("UPDATE pa_reference_code_entry_version SET status='inactive' WHERE entry_id=10");
+        $query = new ReferenceCodeQuery($this->store);
+        $page = $query->list($this->definition, $this->context, $this->asOf, effectiveStatus: 'active', page: 2, pageSize: 2);
+        self::assertSame(3, $page['total']);
+        self::assertSame(['z-code'], array_map(static fn($item): string => $item->code, $page['items']));
+        self::assertSame('2031-01-01T12:00:00.000Z', $page['as_of']);
+        self::assertSame([], $query->list($this->definition, $this->context, $this->asOf, page: 100, pageSize: 1)['items']);
+    }
+
     public function testOwnerUsesOnlyPublicIdentityContractsAndKeepsBinding(): void
     {
         $source = file_get_contents((new \ReflectionClass(ReferenceCodeStore::class))->getFileName());
