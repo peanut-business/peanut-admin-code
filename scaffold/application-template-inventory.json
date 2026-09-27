@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ad848da9d62d04ec3e88cd88849b13529e56c2cd77d96d5b5cd9faa2ad3ce20"
+            "source_sha256": "be3e27a35c1404e2efc131a5797b9545a4689c413a40aabab4f728f6121a32be"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2369,7 +2369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f090bceb2771fd5b4cd82560b9e65354f08565f8dd753bae235726474b3ac4b9"
+            "source_sha256": "83beb1935e995a7cd156b84a0d9f79e891a0a8ab02a9f19d60321717ee943254"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2453,7 +2453,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "974875a05e185fcec19111d470022cdc21ea62e046372f4060aaa774bffb1d88"
+            "source_sha256": "62069db7b6819c335f34f276d1d8b0ee178f67e95db9fb3077da5ce39a4d1ee6"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -2607,7 +2607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "efd2157159087816b6c3a12e8eee6783548eba7e138c49225e60fcce2b860f3d"
+            "source_sha256": "1c034bdc94f7512c3eccb717a052248d50f34188956e9593e55ef32175fc68a7"
         },
         {
             "path": "resources/architecture/tpq-issue-register.json",
@@ -6156,7 +6156,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "438afa6b2675afe23eff0f0cc9ed0f465301ea4d21bc59ec6adaf56ca9ef9d51"
+            "source_sha256": "c3b6d891409d9be130830d3b6d0af472bfc9c2b69c419cb0e2008d703625427c"
         },
         {
             "path": "server/app/command/PluginReleaseComposition.php",
@@ -10527,7 +10527,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f5dca35b106a38213eecadd3eef9ee8e1997a284ac10e5c326d255c19da88e9"
+            "source_sha256": "2fe67fd6c52a2cce90c5422b42fd4dbd00b8f0302c2e208bdd26f0d2f3b3004d"
         },
         {
             "path": "server/app/modules/official/identity/src/Authorization/CorePermissionCatalog.php",
@@ -10905,7 +10905,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e9a104bebb3d58497e177639020f8fdebf5c17b3c6c4ab114b0787fb2c94068"
+            "source_sha256": "1daa2130356841433188e4d07439cb3e32c25629277b99c8fe5052088e31e2d8"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantOwnerAdminProvisioner.php",
@@ -16844,7 +16844,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a17d35bdd39445b6300995c9e693e510324ecdae5828139a93647407bab6ee8"
+            "source_sha256": "8607f17952846ede1c64bcecaf68effca619a70f4d3bc0a292aec301e746bcae"
         },
         {
             "path": "server/app/modules/official/ops/src/Infrastructure/ThinkPhpOpsTaskDispatcher.php",
@@ -21428,7 +21428,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b35b38a72f0da289b17201a103ad7833fb29cce843e090a4bd352870bc01bb3"
+            "source_sha256": "ed62b57b98e1d8d37974a040929402bbf7fce9634dbf188538703c47cf1d844e"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",
@@ -21834,7 +21834,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "decb1ea6f27992a4df754830b52770cea1b26d969765ac325b5745cd40546e81"
+            "source_sha256": "1cae290adbafb682a411977b55617b5503131794881bc1827b26ad61775e9cd5"
         },
         {
             "path": "server/app/platform/services/plugin/PluginCatalogSyncService.php",
@@ -21862,7 +21862,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bb19cf15d449b0d45b828feada7ebb5339cea8cd9e6b8cc0bc4e9293b71ee72a"
+            "source_sha256": "b0f36650d94e693bb5ada3bcdad6ba1219a358e5f543834d0fe811a49cfbebd5"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -21904,7 +21904,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "338663bebe3ad7b26b2fe7ede432487c4f98c1f6358f6bb7348ee03dc78f3d24"
+            "source_sha256": "909e4e9547fc7cf3894b5798b4c7780a53b4dc14b00f3b10b25d7496f6e57073"
         },
         {
             "path": "server/app/platform/services/provider/PlatformProviderQualificationService.php",
@@ -22100,7 +22100,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d962ed476ff55c7639cca149f7747f43910b2b0becbb5226f95db6d9a4c431f5"
+            "source_sha256": "0285ac4618424f5a66ac6fe8a75ee47c9afa2f30a2cdc0142773ff230e9fcc42"
         },
         {
             "path": "server/app/platform/value/ops/PairedBackupManifest.php",
