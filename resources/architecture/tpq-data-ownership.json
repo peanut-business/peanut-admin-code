@@ -15,6 +15,51 @@
     "shared": "Immutable or product-wide reference data is shared by design."
   },
   "access_contracts": {
+    "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository": {
+      "source": "application",
+      "path": "server/app/modules/peanut/artifact_revision/src/Persistence/ThinkPhpArtifactRevisionRepository.php",
+      "sha256": "2016dd26f656021d9f4e1a3cdebadfe551f8c466765862b6657dc7e29ea45127",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["artifact", "lockOrCreateArtifact", "createPendingRevision", "revision", "revisionById", "finalizeRevision"],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "私有制品聚合仓储显式scopeTenant；创建先读取并锁定同租户聚合，写入沿用该tenantId，版本CAS与不可变父系保持。公开用例核AuthorizedOperationContext目标并拥有幂等事务；不授权直接从外部调用仓储。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
+        {"source": "php-core", "path": "kernel/src/Tenancy/TenantScope.php", "sha256": "b352bd2402502861929da57b591a86bf399e4fad80506d0a370be09ec77918d9"},
+        {"source": "application", "path": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionService.php", "sha256": "ea20b0109a1b20e30b2450e40ea47fa5056633be1ea599c5a08611c5a77e2c7f"}
+      ]
+    },
+    "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository": {
+      "source": "application",
+      "path": "server/app/modules/peanut/entitlement_quota/src/Persistence/ThinkPhpEntitlementQuotaRepository.php",
+      "sha256": "0310ff0236d2dd8ed257b2e3f4dbcc6158158c92aa5e9723a969b952f4870b8c",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["grant", "lockOrCreatePolicyRevision", "policyRevision", "policyRevisionById", "usageWindow", "lockOrCreateUsageWindow", "livePendingAmount", "createReservation", "reservation", "settleReservation", "usageWindowById"],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "私有配额仓储所有查询与状态更新显式TenantScope，创建前从同租户策略/窗口取回身份，账本沿用范围内预约。写操作要求调用方已有事务；过期预约仅作用于指定租户窗口。金额校验和锁/CAS不是HTTP授权替代。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
+        {"source": "php-core", "path": "kernel/src/Tenancy/TenantScope.php", "sha256": "b352bd2402502861929da57b591a86bf399e4fad80506d0a370be09ec77918d9"},
+        {"source": "application", "path": "server/app/modules/peanut/entitlement_quota/src/Application/EntitlementQuotaService.php", "sha256": "736163dbe053d3170ebc2afafa367e33e67656041d5da14ccf0d6a79bca84bf3"}
+      ]
+    },
+    "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository": {
+      "source": "application",
+      "path": "server/app/modules/peanut/workflow/src/Persistence/ThinkPhpWorkflowRepository.php",
+      "sha256": "180a589824c52ada20960cf157afaa5aa1bc6244aeed1c60a133653ba9425266",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["definition", "saveDraft", "publishDefinition", "retireDefinition", "definitionVersion", "createInstance", "instance", "pendingWorkItems", "createWorkItems", "nextRound", "completeWorkItem", "cancelPendingWorkItems", "completedDecisions", "transitionInstance", "nextEventSequence", "appendEvent", "transitionTraversalCount", "definitions", "versions", "workItems", "events"],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "私有工作流仓储查询/更新显式TenantScope。createInstance/createWorkItems/appendEvent不独立认证任意tenantId，依赖WorkflowRuntime先校验可信上下文、同租户定义/实例和业务授权再传身份，并参加其幂等事务；该调用方属于本次有效登记边界，不授权公开直接写模型。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
+        {"source": "php-core", "path": "kernel/src/Tenancy/TenantScope.php", "sha256": "b352bd2402502861929da57b591a86bf399e4fad80506d0a370be09ec77918d9"},
+        {"source": "application", "path": "server/app/modules/peanut/workflow/src/Application/WorkflowRuntime.php", "sha256": "38269b7d2045c0f03d377167ea2cea1cee7f7e3777399a329881f154fe404c52"}
+      ]
+    },
     "PeanutAdmin\\Kernel\\Idempotency\\IdempotencyService": {
       "source": "php-core",
       "path": "kernel/src/Idempotency/IdempotencyService.php",
@@ -62,6 +107,18 @@
     }
   },
   "model_owners": [
+    {"model": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\Model\\ArtifactRecord", "table": "pa_artifact", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
+    {"model": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\Model\\ArtifactRevisionRecord", "table": "pa_artifact_revision", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
+    {"model": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\Model\\EntitlementGrantRecord", "table": "pa_entitlement_grant", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"model": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\Model\\EntitlementPolicyRevisionRecord", "table": "pa_entitlement_policy_revision", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"model": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\Model\\EntitlementReservationRecord", "table": "pa_entitlement_reservation", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"model": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\Model\\EntitlementUsageLedgerRecord", "table": "pa_entitlement_usage_ledger", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"model": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\Model\\EntitlementUsageWindowRecord", "table": "pa_entitlement_usage_window", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"model": "PeanutAdmin\\Modules\\Workflow\\Persistence\\Model\\WorkflowDefinitionRecord", "table": "pa_workflow_definition", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"model": "PeanutAdmin\\Modules\\Workflow\\Persistence\\Model\\WorkflowDefinitionVersionRecord", "table": "pa_workflow_definition_version", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"model": "PeanutAdmin\\Modules\\Workflow\\Persistence\\Model\\WorkflowInstanceRecord", "table": "pa_workflow_instance", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"model": "PeanutAdmin\\Modules\\Workflow\\Persistence\\Model\\WorkflowWorkItemRecord", "table": "pa_workflow_work_item", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"model": "PeanutAdmin\\Modules\\Workflow\\Persistence\\Model\\WorkflowEventRecord", "table": "pa_workflow_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
     {"model": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\Model\\TaskJobRecord", "table": "pa_task_job", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
     {"model": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\Model\\TaskJobAttemptRecord", "table": "pa_task_job_attempt", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
     {"model": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\Model\\TaskJobEventRecord", "table": "pa_task_job_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Task\\Job\\Persistence\\TaskJobStore"},
@@ -115,6 +172,18 @@
     {"model": "app\\common\\model\\provider\\ProviderQualificationEvidence", "table": "pa_provider_qualification_evidence", "owner": "instance"}
   ],
   "tenant_tables": [
+    {"table": "pa_artifact", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
+    {"table": "pa_artifact_revision", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository"},
+    {"table": "pa_entitlement_grant", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"table": "pa_entitlement_policy_revision", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"table": "pa_entitlement_usage_window", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"table": "pa_entitlement_reservation", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"table": "pa_entitlement_usage_ledger", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\EntitlementQuota\\Persistence\\ThinkPhpEntitlementQuotaRepository"},
+    {"table": "pa_workflow_definition", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"table": "pa_workflow_definition_version", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"table": "pa_workflow_instance", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"table": "pa_workflow_work_item", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
+    {"table": "pa_workflow_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository"},
     {"table": "pa_operation_log", "owner": "tenant-orm", "access_entry": "app\\common\\model\\log\\OperationLog"},
     {"table": "pa_jobs", "owner": "tenant-orm", "access_entry": "app\\common\\model\\dept\\Jobs"},
     {"table": "pa_dict_type", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Model\\DictType"},
@@ -168,10 +237,10 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 51,
-    "tenant_models": 42,
+    "concrete_models": 63,
+    "tenant_models": 54,
     "non_tenant_models": 9,
-    "tenant_tables": 51,
+    "tenant_tables": 63,
     "tenant_tables_without_model": 8
   }
 }
