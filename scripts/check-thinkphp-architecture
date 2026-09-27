@@ -20,6 +20,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REGISTER = ROOT / "resources/architecture/tpq-issue-register.json"
 OWNERSHIP = ROOT / "resources/architecture/tpq-data-ownership.json"
+PHP_CORE_ROOT: Path | None = None
+PHP_CORE_COMMIT: str | None = None
 
 RULE_OWNERS = {
     "global_scope_bypass": ("TPQ07", "Sol"),
@@ -632,14 +634,16 @@ def concrete_models() -> set[str]:
     return models
 
 
-def composer_model_path(model: str) -> Path | None:
-    """Resolve current Composer PSR-4 bytes without loading PHP or guessing app paths."""
-    manifest = json.loads((ROOT / "server/composer.json").read_text(encoding="utf-8"))
+def composer_model_path(model: str, source_root: Path | None = None, composer_root: Path | None = None) -> Path | None:
+    """Resolve exact Composer mappings in the explicit source, without autoloading PHP."""
+    source_root = source_root or ROOT
+    composer_root = composer_root or ROOT / "server"
+    manifest = json.loads((composer_root / "composer.json").read_text(encoding="utf-8"))
     mappings = manifest.get("autoload", {}).get("psr-4", {})
     if not isinstance(mappings, dict):
         raise ValueError("MODEL_SOURCE_MAPPING_INVALID")
     prefixes = sorted((prefix for prefix in mappings if model.startswith(prefix)), key=len, reverse=True)
-    root = ROOT.resolve()
+    root = source_root.resolve()
     for prefix in prefixes:
         suffix = model[len(prefix):].replace("\\", "/") + ".php"
         paths = mappings[prefix]
@@ -651,13 +655,13 @@ def composer_model_path(model: str) -> Path | None:
         for mapping in paths:
             if Path(mapping).is_absolute():
                 raise ValueError("MODEL_SOURCE_OUTSIDE_ROOT: " + model)
-            candidate = ROOT / "server" / mapping / suffix
+            candidate = composer_root / mapping / suffix
             resolved = candidate.resolve()
             if not resolved.is_relative_to(root):
                 raise ValueError("MODEL_SOURCE_OUTSIDE_ROOT: " + model)
             # Match native namespace/path case on macOS as well as Linux.
             cursor = root
-            for part in candidate.relative_to(ROOT).parts:
+            for part in candidate.relative_to(source_root).parts:
                 if part in {".", ".."} or not cursor.is_dir() or part not in {item.name for item in cursor.iterdir()}:
                     break
                 cursor = cursor / part
@@ -681,12 +685,12 @@ def php_structure(source: str) -> str:
     return masked
 
 
-def declared_type(path: Path) -> str:
+def declared_type(path: Path, source_root: Path | None = None) -> str:
     source = php_structure(path.read_text(encoding="utf-8"))
     namespaces = re.findall(r"\bnamespace\s+([A-Za-z_][A-Za-z0-9_\\]*)\s*;", source)
     types = re.findall(r"\b(?:class|interface|enum)\s+([A-Za-z_][A-Za-z0-9_]*)\b", source)
     if len(namespaces) != 1 or len(types) != 1:
-        raise ValueError("SOURCE_TYPE_DECLARATION_UNSUPPORTED: " + relative(path))
+        raise ValueError("SOURCE_TYPE_DECLARATION_UNSUPPORTED: " + path.relative_to(source_root or ROOT).as_posix())
     return namespaces[0] + "\\" + types[0]
 
 
@@ -755,6 +759,74 @@ def module_table_inventory() -> tuple[dict[str, str], dict[str, str]]:
     return tables, modules
 
 
+def review_source_root(source: str) -> Path:
+    if source == "application":
+        return ROOT
+    if source == "php-core":
+        if PHP_CORE_ROOT is None:
+            raise ValueError("CORE_SOURCE_REQUIRED: select an immutable PHP Core snapshot")
+        return PHP_CORE_ROOT
+    raise ValueError("ACCESS_SOURCE_INVALID")
+
+
+def reviewed_source(item: dict) -> tuple[Path, Path]:
+    """Bind a reviewed access path to its exact bytes, not an enduring allowlist."""
+    root = review_source_root(item.get("source"))
+    name, digest = item.get("path"), item.get("sha256")
+    if not isinstance(name, str) or not name or Path(name).is_absolute() or any(p in {"", ".", ".."} for p in name.split("/")):
+        raise ValueError("REVIEW_PATH_INVALID")
+    allowed = name.startswith("server/app/") if item["source"] == "application" else name.startswith("kernel/src/")
+    if not allowed or not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("REVIEW_PATH_OR_DIGEST_INVALID")
+    cursor = root
+    for part in Path(name).parts:
+        if not cursor.is_dir() or part not in {p.name for p in cursor.iterdir()}:
+            raise ValueError("REVIEW_PATH_MISSING: " + name)
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ValueError("REVIEW_PATH_SYMLINK: " + name)
+    if not cursor.is_file() or hashlib.sha256(cursor.read_bytes()).hexdigest() != digest:
+        raise ValueError("SOURCE_REVIEW_STALE: " + name)
+    return cursor, root
+
+
+def access_contract_errors(contracts: dict) -> list[str]:
+    errors = []
+    for entry, contract in contracts.items():
+        try:
+            if not isinstance(entry, str) or not isinstance(contract, dict):
+                raise ValueError("ACCESS_CONTRACT_INVALID")
+            path, root = reviewed_source(contract)
+            composer_root = root if contract["source"] == "php-core" else root / "server"
+            if composer_model_path(entry, root, composer_root) != path or declared_type(path, root) != entry:
+                raise ValueError("ACCESS_ENTRY_IDENTITY_MISMATCH")
+            if contract["source"] == "application" and entry in declared_module_exports():
+                raise ValueError("ACCESS_PERSISTENCE_EXPORTED: registration does not make an internal store public")
+            if contract.get("scope") not in {"explicit-tenant-column", "explicit-edition-tenant"}:
+                raise ValueError("ACCESS_SCOPE_INVALID")
+            if not isinstance(contract.get("reason"), str) or not contract["reason"].strip():
+                raise ValueError("ACCESS_REASON_REQUIRED")
+            roles = []
+            for key in ("tenant_operations", "other_operations", "pending_operations"):
+                methods = contract.get(key)
+                if not isinstance(methods, list) or any(not isinstance(m, str) or re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", m) is None for m in methods):
+                    raise ValueError("ACCESS_METHOD_ROLES_INVALID")
+                roles.extend(methods)
+            if not contract["tenant_operations"] or len(roles) != len(set(roles)):
+                raise ValueError("ACCESS_METHOD_ROLES_INVALID")
+            public = set(re.findall(r"\bpublic\s+(?:static\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", php_structure(path.read_text(encoding="utf-8")))) - {"__construct"}
+            if public != set(roles):
+                raise ValueError("ACCESS_METHOD_COVERAGE: " + repr(sorted(public ^ set(roles))))
+            support = contract.get("support_sources")
+            if not isinstance(support, list) or any(not isinstance(item, dict) for item in support):
+                raise ValueError("ACCESS_SUPPORT_SOURCES_INVALID")
+            for item in support:
+                reviewed_source(item)
+        except (OSError, ValueError) as exc:
+            errors.append(f"access_contract[{entry}]: {exc}")
+    return errors
+
+
 def read_ownership() -> dict:
     value = json.loads(OWNERSHIP.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -769,6 +841,8 @@ def read_ownership() -> dict:
                 raise ValueError(f"OWNERSHIP_ROW_INVALID: {field}[{index}]")
     if not isinstance(value.get("counts", {}), dict):
         raise ValueError("OWNERSHIP_COUNTS_INVALID")
+    if not isinstance(value.get("access_contracts", {}), dict):
+        raise ValueError("ACCESS_CONTRACTS_MUST_BE_OBJECT")
     return value
 
 
@@ -781,6 +855,8 @@ def ownership_errors() -> list[str]:
     errors: list[str] = []
     model_rows = ownership.get("model_owners", [])
     table_rows = ownership.get("tenant_tables", [])
+    contracts = ownership.get("access_contracts", {})
+    errors.extend(access_contract_errors(contracts))
     model_names = [str(item.get("model", "")) for item in model_rows]
     table_names = [str(item.get("table", "")) for item in table_rows]
     if len(model_names) != len(set(model_names)):
@@ -850,7 +926,22 @@ def ownership_errors() -> list[str]:
                 modules = [key for root, key in module_roots.items() if source_path.startswith(root + "/")]
                 if len(modules) == 1 and table_owners.get(item["table"]) != modules[0]:
                     errors.append(f"model_owners[{index}] {model} module table owner mismatch: source={modules[0]} table={table_owners.get(item['table'])}")
-                if expected is None or base != "app\\common\\model\\" + expected:
+                if item["owner"] == "tenant-gateway":
+                    entry = item.get("access_entry")
+                    contract = contracts.get(entry) if isinstance(entry, str) else None
+                    if not isinstance(contract, dict):
+                        errors.append(f"model_owners[{index}] ACCESS_REVIEW_REQUIRED: {model}")
+                    else:
+                        expected_base = {"explicit-tenant-column": "PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel", "explicit-edition-tenant": "PeanutAdmin\\Kernel\\Persistence\\Model\\EditionTenantModel"}.get(contract.get("scope"))
+                        if base != expected_base:
+                            errors.append(f"model_owners[{index}] {model} must extend {expected_base}; actual={base}")
+                        entry_path, _ = reviewed_source(contract)
+                        entry_modules = [key for root, key in module_roots.items() if relative(entry_path).startswith(root + "/")] if contract["source"] == "application" else []
+                        if len(modules) != 1 or entry_modules != modules:
+                            errors.append(f"model_owners[{index}] ACCESS_MODULE_OWNER_MISMATCH: {model}")
+                        if not any(row.get("table") == table and row.get("owner") == "tenant-gateway" and row.get("access_entry") == entry for row in table_rows):
+                            errors.append(f"model_owners[{index}] ACCESS_TABLE_ENTRY_MISMATCH: {model}")
+                elif expected is None or base != "app\\common\\model\\" + expected:
                     errors.append(f"model_owners[{index}] {model} must extend {expected}; actual={base}")
             except (OSError, ValueError) as exc:
                 errors.append(f"model_owners[{index}] {model}: {exc}")
@@ -868,10 +959,17 @@ def ownership_errors() -> list[str]:
         if item.get("owner") == "tenant-gateway":
             entry = item["access_entry"]
             try:
-                entry_path = composer_model_path(entry)
+                contract = contracts.get(entry)
+                if isinstance(contract, dict):
+                    entry_path, entry_root = reviewed_source(contract)
+                    entry_modules = [key for root, key in module_roots.items() if relative(entry_path).startswith(root + "/")] if contract["source"] == "application" else []
+                    if entry_modules and entry_modules != [table_owners.get(item["table"])]:
+                        errors.append(f"tenant_tables[{index}] ACCESS_MODULE_OWNER_MISMATCH: {entry}")
+                else:
+                    entry_path, entry_root = composer_model_path(entry), ROOT
                 if entry_path is None:
                     errors.append(f"tenant_tables[{index}] access_entry has no exact application source (external sources require separate verification): {entry}")
-                elif declared_type(entry_path) != entry:
+                elif declared_type(entry_path, entry_root) != entry:
                     errors.append(f"tenant_tables[{index}] access_entry declaration mismatch: {entry}")
             except (OSError, ValueError) as exc:
                 errors.append(f"tenant_tables[{index}] access_entry invalid: {exc}")
@@ -879,10 +977,10 @@ def ownership_errors() -> list[str]:
     counts = ownership.get("counts", {})
     calculated = {
         "concrete_models": len(model_rows),
-        "tenant_models": sum(item.get("owner") == "tenant-orm" for item in model_rows),
-        "non_tenant_models": sum(item.get("owner") != "tenant-orm" for item in model_rows),
+        "tenant_models": sum(item.get("owner") in {"tenant-orm", "tenant-gateway"} for item in model_rows),
+        "non_tenant_models": sum(item.get("owner") not in {"tenant-orm", "tenant-gateway"} for item in model_rows),
         "tenant_tables": len(table_rows),
-        "tenant_tables_without_model": sum(item.get("owner") == "tenant-gateway" for item in table_rows),
+        "tenant_tables_without_model": sum(not any(model.get("table") == item.get("table") for model in model_rows) for item in table_rows),
     }
     if counts != calculated:
         errors.append(f"ownership counts mismatch expected={calculated!r} actual={counts!r}")
@@ -935,22 +1033,17 @@ def refresh_register(register: dict, findings: list[dict]) -> None:
 
 
 @contextmanager
-def ownership_source_snapshot(commit: str):
-    """Use an exact local Git object, without switching any worktree or reading history.
-
-    Only application PHP, schema sources and Composer mappings are materialized.
-    The ownership registration remains the caller's B checkout, not the A snapshot.
-    """
-    global ROOT
+def git_source_snapshot(repository: Path, commit: str, paths: tuple[str, ...], required: str):
+    """Materialize only selected immutable source blobs in the caller's temporary area."""
     if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
         raise ValueError("SOURCE_REF_MUST_BE_EXACT_COMMIT")
-    original = ROOT
-    observed = subprocess.run(["git", "--no-replace-objects", "rev-parse", "--verify", commit + "^{commit}"], cwd=original,
+    repository = repository.resolve()
+    observed = subprocess.run(["git", "--no-replace-objects", "rev-parse", "--verify", commit + "^{commit}"], cwd=repository,
                               capture_output=True, text=True, check=True, timeout=20).stdout.strip()
     if observed != commit:
         raise ValueError("SOURCE_REF_IDENTITY_MISMATCH")
-    tree = subprocess.run(["git", "--no-replace-objects", "ls-tree", "-rz", commit, "server/app", "server/database", "server/composer.json"],
-                          cwd=original, capture_output=True, check=True, timeout=20).stdout
+    tree = subprocess.run(["git", "--no-replace-objects", "ls-tree", "-rz", commit, *paths],
+                          cwd=repository, capture_output=True, check=True, timeout=20).stdout
     expected: dict[str, str] = {}
     for record in tree.split(b"\0"):
         if not record:
@@ -960,20 +1053,20 @@ def ownership_source_snapshot(commit: str):
         if mode not in {"100644", "100755"} or kind != "blob":
             raise ValueError("SOURCE_TREE_NON_REGULAR_ENTRY: " + name)
         expected[name] = identity
-    if not expected or "server/composer.json" not in expected:
+    if not expected or required not in expected:
         raise ValueError("SOURCE_TREE_INCOMPLETE")
-    parent = original / ".local/tmp/tpq-current-source"
+    parent = ROOT / ".local/tmp/tpq-current-source"
     parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=parent) as temporary:
         target = Path(temporary)
-        archive = subprocess.run(["git", "--no-replace-objects", "archive", "--format=tar", commit, "server/app", "server/database", "server/composer.json"],
-                                 cwd=original, capture_output=True, check=True, timeout=60).stdout
+        archive = subprocess.run(["git", "--no-replace-objects", "archive", "--format=tar", commit, *paths],
+                                 cwd=repository, capture_output=True, check=True, timeout=60).stdout
         with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as stream:
             members = stream.getmembers()
             seen: set[str] = set()
             for member in members:
                 path = Path(member.name)
-                allowed = member.name == "server/composer.json" or member.name in {"server", "server/app", "server/database"} or member.name.startswith(("server/app/", "server/database/"))
+                allowed = any(member.name == prefix or member.name.startswith(prefix + "/") or (member.isdir() and prefix.startswith(member.name + "/")) for prefix in paths)
                 if not allowed or path.is_absolute() or ".." in path.parts or member.name in seen:
                     raise ValueError("SOURCE_ARCHIVE_PATH_INVALID")
                 if not member.isdir() and not member.isfile():
@@ -997,6 +1090,14 @@ def ownership_source_snapshot(commit: str):
                         raise ValueError("SOURCE_ARCHIVE_BLOB_MISMATCH: " + member.name)
                     with destination.open("xb") as output:
                         output.write(content)
+        yield target
+
+
+@contextmanager
+def ownership_source_snapshot(commit: str):
+    global ROOT
+    original = ROOT
+    with git_source_snapshot(original, commit, ("server/app", "server/database", "server/composer.json"), "server/composer.json") as target:
         ROOT = target
         try:
             yield
@@ -1004,10 +1105,30 @@ def ownership_source_snapshot(commit: str):
             ROOT = original
 
 
+@contextmanager
+def php_core_snapshot(directory: str, commit: str):
+    global PHP_CORE_ROOT, PHP_CORE_COMMIT
+    repository = Path(directory).resolve()
+    top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=repository, capture_output=True, text=True, check=True, timeout=20).stdout.strip()
+    if Path(top).resolve() != repository:
+        raise ValueError("CORE_GIT_ROOT_REQUIRED")
+    previous = PHP_CORE_ROOT, PHP_CORE_COMMIT
+    with git_source_snapshot(repository, commit, ("composer.json", "kernel/src"), "composer.json") as target:
+        manifest = json.loads((target / "composer.json").read_text(encoding="utf-8"))
+        if not isinstance(manifest, dict) or manifest.get("name") != "peanut-admin/core":
+            raise ValueError("CORE_PACKAGE_IDENTITY_MISMATCH")
+        PHP_CORE_ROOT, PHP_CORE_COMMIT = target, commit
+        try:
+            yield
+        finally:
+            PHP_CORE_ROOT, PHP_CORE_COMMIT = previous
+
+
 def current_ownership_report(source_commit: str | None) -> dict:
     """An independent registration audit, never an assertion of business acceptance."""
     report = {
         "source_commit": source_commit,
+        "php_core_commit": PHP_CORE_COMMIT,
         "ownership_sha256": hashlib.sha256(OWNERSHIP.read_bytes()).hexdigest(),
         "historical_register_read": False,
         "business_scan": "not_run",
@@ -1044,20 +1165,23 @@ def current_ownership_report(source_commit: str | None) -> dict:
                                "classification": "not_registered_not_approved"})
         report["model_candidates"] = candidates
         report["missing_table_owners"] = {table: table_owners.get(table) for table in report["missing_tenant_tables"]}
+        report["needs_decision"] = [{"entry": entry, "operations": contract.get("pending_operations", []), "reason": contract.get("reason"), "classification": "not_authorized_by_tenant_registration"} for entry, contract in ownership.get("access_contracts", {}).items() if isinstance(contract, dict) and contract.get("pending_operations")]
         report["scope"] = "source declarations and registered access-entry identity; not runtime authorization or live schema"
     except (OSError, ValueError) as exc:
         errors = [str(exc)]
     report["registration_errors"] = errors
     report["registration_error_count"] = len(errors)
-    report["status"] = "registration_failed" if errors else "ownership_passed"
+    report["status"] = "registration_failed" if errors else ("decision_required" if report.get("needs_decision") else "ownership_passed")
     return report
 
 
 def run_ownership_audit(args) -> int:
     try:
-        context = ownership_source_snapshot(args.source_ref) if args.source_ref else nullcontext()
-        with context:
-            report = current_ownership_report(args.source_ref)
+        core = php_core_snapshot(args.php_core_root, args.php_core_ref) if args.php_core_root else nullcontext()
+        with core:
+            context = ownership_source_snapshot(args.source_ref) if args.source_ref else nullcontext()
+            with context:
+                report = current_ownership_report(args.source_ref)
     except (OSError, ValueError, subprocess.SubprocessError, tarfile.TarError) as exc:
         report = {"status": "configuration_failed", "registration_errors": [str(exc)],
                   "historical_register_read": False, "business_scan": "not_run", "finding_count": None}
@@ -1075,6 +1199,8 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="emit the complete current hit report as JSON")
     parser.add_argument("--ownership-only", action="store_true", help="audit current ownership only; never read or update historical issues")
     parser.add_argument("--source-ref", help="exact local 40-character source commit for --ownership-only; registration stays in this checkout")
+    parser.add_argument("--php-core-root", help="explicit PHP Core Git root; read-only, paired with --php-core-ref")
+    parser.add_argument("--php-core-ref", help="exact local PHP Core commit for the ownership-only audit")
     parser.add_argument(
         "--refresh-register",
         action="store_true",
@@ -1086,7 +1212,7 @@ def main() -> int:
         help="also fail while registered findings remain open or pending verification",
     )
     args = parser.parse_args()
-    if (args.source_ref and not args.ownership_only) or (args.ownership_only and (args.refresh_register or args.strict)):
+    if ((args.source_ref or args.php_core_root or args.php_core_ref) and not args.ownership_only) or (bool(args.php_core_root) != bool(args.php_core_ref)) or (args.ownership_only and (args.refresh_register or args.strict)):
         error = "ownership-only/source-ref cannot be combined with historical issue operations"
         if args.json:
             print(json.dumps({"status": "configuration_failed", "registration_errors": [error], "finding_count": None}))
