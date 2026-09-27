@@ -43,6 +43,16 @@ final readonly class MenuCatalogSynchronizer
             ->whereIn('module_key', $moduleKeys)->where('status', 'active')->count();
     }
 
+    /** 定向目录同步时保留非目标模块的活动菜单键，不返回用户权限或菜单私有数据。
+     * @param list<string> $moduleKeys
+     * @return list<string>
+     */
+    public function activeKeysOutsideModules(array $moduleKeys): array
+    {
+        return array_map('strval', Db::name('menu_definition')->where('status', 'active')
+            ->whereNotIn('module_key', $moduleKeys)->order('key')->column('key'));
+    }
+
     /** @param array<string, mixed> $menu */
     private function definition(array $menu): \PeanutAdmin\Kernel\Menu\MenuDefinition
     {

@@ -9,6 +9,7 @@ use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleRegistryCompiler;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
 /** A compiled deployment registry whose manifests must match active installation records. */
 final readonly class DeployedTenantModuleRegistry
@@ -18,6 +19,7 @@ final readonly class DeployedTenantModuleRegistry
 
     public function __construct(
         private CompiledModuleRegistry $compiled,
+        private TenantModuleStateQueries $installationStates = new TenantModuleStateQueries(),
     ) {
         if ($compiled->modules === []) {
             throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'No deployed Module manifest is registered.');
@@ -87,8 +89,7 @@ final readonly class DeployedTenantModuleRegistry
     {
         $manifest = $this->manifests[$moduleKey]
             ?? throw new ModuleException('MODULE_NOT_INSTALLED', "Unknown module: {$moduleKey}");
-        $installation = \think\facade\Db::name('module_installation')->where('module_key', $moduleKey)
-            ->field('installed_version,manifest_schema_version,manifest_digest,status')->find();
+        $installation = $this->installationStates->installationIdentity($moduleKey);
         if ($installation === null) {
             throw new ModuleException('MODULE_NOT_INSTALLED', "Module {$moduleKey} is not installed.");
         }

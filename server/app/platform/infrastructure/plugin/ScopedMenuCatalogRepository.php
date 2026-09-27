@@ -6,7 +6,7 @@ namespace app\platform\infrastructure\plugin;
 
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Menu\MenuDefinition;
-use think\facade\Db;
+use PeanutAdmin\Modules\Identity\Menu\MenuCatalogSynchronizer;
 
 /** Preserves active menus outside a targeted module:sync/apply scope. */
 final readonly class ScopedMenuCatalogRepository implements MenuCatalogRepository
@@ -24,11 +24,7 @@ final readonly class ScopedMenuCatalogRepository implements MenuCatalogRepositor
 
     public function retireMissing(array $activeKeys): void
     {
-        $preserved = array_map('strval', Db::name('menu_definition')
-            ->where('status', 'active')
-            ->whereNotIn('module_key', $this->moduleKeys)
-            ->order('key')
-            ->column('key'));
+        $preserved = (new MenuCatalogSynchronizer($this->inner))->activeKeysOutsideModules($this->moduleKeys);
         $keys = array_values(array_unique([...$activeKeys, ...$preserved]));
         sort($keys, SORT_STRING);
         $this->inner->retireMissing($keys);

@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e34320367239f1a23fdd6752b33f8507b464d0a9d175d1cdd870f632686d9b69"
+            "source_sha256": "68ed8d830fd3c144416ef6c7e10b841025a7a5b9680d0236e82a097fd614deda"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2369,7 +2369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a082b0d5bc827c263dcf20d5870bde1ed8e4df82d6ebef646c9a29df871b543c"
+            "source_sha256": "b03173fe0abff9cc037f75d17d1aeb380b117343f5c500b6eba3aa41aabf349e"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -10415,7 +10415,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2a6344ab61db04e9efbfc7c2ccd3358e783bf5a730c323edb5f4f1a739e91088"
+            "source_sha256": "6f5dca35b106a38213eecadd3eef9ee8e1997a284ac10e5c326d255c19da88e9"
         },
         {
             "path": "server/app/modules/official/identity/src/Authorization/CorePermissionCatalog.php",
@@ -10793,7 +10793,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e4a305f915ab22b67bdb52cac5db5d3745866d4595745353c8572c2a38361171"
+            "source_sha256": "2e9a104bebb3d58497e177639020f8fdebf5c17b3c6c4ab114b0787fb2c94068"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantOwnerAdminProvisioner.php",
@@ -11283,7 +11283,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1bd0db218260c15c9d7b33d21b004fb1993a948a0b994b9430d9de5abadec48b"
+            "source_sha256": "987c47a563a8c123e6c22b9f631ba7ad3e757cd6b41fbbf747d7372cb40983c8"
         },
         {
             "path": "server/app/modules/official/identity/src/Menu/ThinkPhpMenuCatalogRepository.php",
@@ -21232,7 +21232,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3ea9eead972f7ffc9e965b8a6bef612397566704a103061c8317eebb6d1763da"
+            "source_sha256": "51ae9b942705c21bf50b9f518b64c2a05af249db52f4ad431690b35101c6912e"
         },
         {
             "path": "server/app/platform/infrastructure/module/DeploymentModuleInstaller.php",
@@ -21246,7 +21246,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06418b415d5e1c695de29edc27a9d5731eb5280223e431935ecaeb782895b2aa"
+            "source_sha256": "2e8b5d63075295e0e0dab1c4d886123bcba1c3ef19fcbb5e67f9afb8888da9f6"
         },
         {
             "path": "server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php",
@@ -21428,7 +21428,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa60634122187481828ff99be1718325d386ad06650619e441f08d5a75b986b6"
+            "source_sha256": "6bc1fd0aabb499283ed2b5761597538739ebfe4716960f524387a6c4cf9890c4"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/VerifiedPluginPackage.php",
@@ -21540,7 +21540,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f28d6647eb7368c6dc38940209927a84263cf9fa8f151f3165cbc24b4511e5e3"
+            "source_sha256": "08ea2e677bf4c6f1940531509e576312b51716290b40c6e54b0f79cb521c8749"
         },
         {
             "path": "server/app/platform/query/PlatformControlPlaneQueryService.php",
@@ -21666,7 +21666,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1229d0d0ddf00d2e3ce61e4e0234d7dce3e421ab66c9b15a2352daf6b5e02d86"
+            "source_sha256": "244a4f515f0df34548f6d4385fc0437a612c29837c4839c97e702d58e78617d2"
         },
         {
             "path": "server/app/platform/services/module/PlatformTenantModuleService.php",
@@ -26770,6 +26770,32 @@
         {
             "path": "server/tests/Unit/DeployedModuleRegistryTest.php",
             "target": "server/tests/Unit/DeployedModuleRegistryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/DeploymentCatalogReadBoundaryTest.php",
+            "target": "server/tests/Unit/DeploymentCatalogReadBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/DeploymentCatalogRegistrationTest.php",
+            "target": "server/tests/Unit/DeploymentCatalogRegistrationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

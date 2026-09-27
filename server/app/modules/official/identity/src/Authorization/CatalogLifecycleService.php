@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Authorization;
 
 use PeanutAdmin\Kernel\Module\ManifestDocument;
+use PeanutAdmin\Kernel\Module\ModuleException;
 use think\facade\Db;
 
 /**
@@ -14,6 +15,47 @@ use think\facade\Db;
  */
 final readonly class CatalogLifecycleService
 {
+    /**
+     * 已授权部署清单的首次登记；重复只接受相同且活动的身份，不能借重装覆盖版本或复活停用项。
+     * 目录应用仍由宿主编排；本方法参与其外层事务，不开放任意字段更新或表选择。
+     * @return array{key:string,version:string,schema:int,digest:string,status:string}
+     */
+    public function registerDeployedManifest(ManifestDocument $manifest): array
+    {
+        $identity = [
+            'key' => (string) $manifest->data['key'],
+            'version' => (string) $manifest->data['version'],
+            'schema' => (int) $manifest->data['schema_version'],
+            'digest' => $manifest->digest,
+            'status' => 'active',
+        ];
+        $now = $this->now();
+        return Db::transaction(function () use ($identity, $now): array {
+            Db::name('module_installation')->duplicate(['module_key'])->insert([
+                'module_key' => $identity['key'],
+                'installed_version' => $identity['version'],
+                'manifest_schema_version' => $identity['schema'],
+                'manifest_digest' => $identity['digest'],
+                'installed_at' => $now,
+                'activated_at' => $now,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $current = Db::name('module_installation')->where('module_key', $identity['key'])
+                ->field('installed_version,manifest_schema_version,manifest_digest,status')->lock(true)->find();
+            if ($current === null) {
+                throw new ModuleException('MODULE_INSTALLATION_FAILED', "Module installation record was not created: {$identity['key']}");
+            }
+            if ((string) ($current['installed_version'] ?? '') !== $identity['version']
+                || (int) ($current['manifest_schema_version'] ?? 0) !== $identity['schema']
+                || !hash_equals($identity['digest'], (string) ($current['manifest_digest'] ?? ''))
+                || (string) ($current['status'] ?? '') !== $identity['status']) {
+                throw new ModuleException('MODULE_INSTALLATION_MISMATCH', "Installed Module identity differs from the deployment registry: {$identity['key']}");
+            }
+            return $identity;
+        });
+    }
+
     /** @param array<string, ManifestDocument> $manifests */
     public function retireMissing(array $manifests): void
     {

@@ -48,7 +48,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
 
     public function installedModules(): array
     {
-        $keys = Db::name('module_installation')->where('status', 'active')->order('module_key')->column('module_key');
+        $keys = $this->tenantStates->activeInstallationKeys();
         return array_map(
             fn(mixed $moduleKey): ModuleQualification => $this->installedModule((string) $moduleKey),
             $keys,
@@ -117,8 +117,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
     private function activeFoundations(): array
     {
         $compiledKeys = array_fill_keys($this->registry->compiled()->moduleKeys(), true);
-        $rows = Db::name('module_installation')->where('status', 'active')
-            ->field('module_key,revision,activated_at,created_at,updated_at')->select()->toArray();
+        $rows = $this->tenantStates->activeInstallationMetadata();
         $foundations = [];
         foreach ($rows as $row) {
             $moduleKey = (string) ($row['module_key'] ?? '');

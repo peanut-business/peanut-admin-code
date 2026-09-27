@@ -8,7 +8,7 @@ use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
-use think\facade\Db;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 
 /** Enforces manifest-owned core protection and explicit business dependencies. */
 final class ModuleLifecyclePolicy
@@ -49,6 +49,7 @@ final class ModuleLifecyclePolicy
     public static function activeBusinessDependents(
         PluginLockResolver $resolver,
         array $moduleKeys,
+        TenantModuleStateQueries $installationStates = new TenantModuleStateQueries(),
     ): array {
         $targets = array_fill_keys($moduleKeys, true);
         $dependents = [];
@@ -63,8 +64,7 @@ final class ModuleLifecyclePolicy
                     if (!is_string($dependencyKey) || !isset($targets[$dependencyKey])) {
                         continue;
                     }
-                    if (Db::name('module_installation')->where('module_key', $dependentKey)
-                        ->where('status', 'active')->count() !== 0) {
+                    if ($installationStates->activeInstallationCount([$dependentKey]) !== 0) {
                         $dependents[] = $dependentKey . '->' . $dependencyKey;
                     }
                 }

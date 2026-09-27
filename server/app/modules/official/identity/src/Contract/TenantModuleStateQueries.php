@@ -39,6 +39,34 @@ final readonly class TenantModuleStateQueries
             ->where('tm.status', 'enabled')->whereIn('tm.module_key', $moduleKeys)->count();
     }
 
+    /**
+     * 固定部署身份投影；宿主保留缺失、停用与清单不匹配的原错误顺序，不由此授予运行权限。
+     * @return array{installed_version:mixed,manifest_schema_version:mixed,manifest_digest:mixed,status:mixed}|null
+     */
+    public function installationIdentity(string $moduleKey, bool $lock = false): ?array
+    {
+        $query = Db::name('module_installation')->where('module_key', $moduleKey);
+        if ($lock) {
+            $query->lock(true);
+        }
+        return $query->field('installed_version,manifest_schema_version,manifest_digest,status')->find();
+    }
+
+    /** 已安装活动目录，不表示当前调用者或某租户获准使用。 @return list<string> */
+    public function activeInstallationKeys(): array
+    {
+        return array_values(array_map('strval', Db::name('module_installation')->where('status', 'active')->order('module_key')->column('module_key')));
+    }
+
+    /** 必需基础模块状态需要的固定元数据；不携带配置或内部错误正文。
+     * @return list<array{module_key:mixed,revision:mixed,activated_at:mixed,created_at:mixed,updated_at:mixed}>
+     */
+    public function activeInstallationMetadata(): array
+    {
+        return Db::name('module_installation')->where('status', 'active')
+            ->field('module_key,revision,activated_at,created_at,updated_at')->select()->toArray();
+    }
+
     public function tenantIsActive(int $tenantId): bool
     {
         return $tenantId > 0
