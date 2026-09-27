@@ -6,9 +6,11 @@ from __future__ import annotations
 import argparse
 from contextlib import contextmanager, nullcontext
 from datetime import date
+from functools import lru_cache
 import hashlib
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -18,6 +20,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+CHECKER_ROOT = ROOT
 REGISTER = ROOT / "resources/architecture/tpq-issue-register.json"
 OWNERSHIP = ROOT / "resources/architecture/tpq-data-ownership.json"
 PHP_CORE_ROOT: Path | None = None
@@ -595,17 +598,319 @@ def kernel_schema_sql() -> list[str]:
     return [definitions[name] for name in sorted(referenced)]
 
 
-def schema_coverage_gaps() -> list[str]:
-    """Discovered module PHP migrations are not covered by the SQL/Kernel parser.
+# Reuse the project's locked nikic/php-parser, as check-module-boundaries.php does.
+# The only executed PHP is this inspector and the trusted quality autoloader.
+# Audited source is input to ParserFactory, never required, evaluated or invoked.
+PHP_AST_INSPECTOR = r'''
+require $argv[1];
+if (Composer\InstalledVersions::getReference('nikic/php-parser') !== $argv[2]) {
+    throw new RuntimeException('TPQ_PHP_PARSER_LOCK_MISMATCH');
+}
+try {
+    $parser = (new PhpParser\ParserFactory())->createForHostVersion();
+    $nodes = $parser->parse(stream_get_contents(STDIN));
+    $traverser = new PhpParser\NodeTraverser(new PhpParser\NodeVisitor\NameResolver());
+    echo json_encode(['ast' => $traverser->traverse($nodes ?? [])], JSON_THROW_ON_ERROR);
+} catch (Throwable $error) {
+    echo json_encode(['error' => $error->getMessage()], JSON_THROW_ON_ERROR);
+    exit(2);
+}
+'''
 
-    Report them explicitly instead of treating an unparsed source as zero tables.
-    This does not execute migrations or infer their Tenant/instance ownership.
-    """
-    # Walk native directory names: literal glob segments can match different
-    # case on macOS and mistake src/Database/Migrations classes for migrations.
-    return sorted({relative(path) for module in (ROOT / "server/app/modules").glob("*/*")
-                   if module.is_dir() for path in module.rglob("*.php")
-                   if path.is_file() and path.parts[-3:-1] == ("database", "migrations")})
+
+@lru_cache(maxsize=128)
+def _native_php_ast(source: str, binary: str, autoload: str, parser_ref: str) -> list[dict]:
+    """Cache syntax only by exact input bytes and the selected locked parser."""
+    result = subprocess.run([binary, '-r', PHP_AST_INSPECTOR, autoload, parser_ref],
+                            input=source, text=True, capture_output=True, timeout=20)
+    if result.returncode:
+        raise ValueError('PHP_AST_PARSE_FAILED: ' + (result.stdout or result.stderr)[-700:])
+    value = json.loads(result.stdout)
+    if not isinstance(value, dict) or not isinstance(value.get('ast'), list):
+        raise ValueError('PHP_AST_RESULT_INVALID')
+    return value['ast']
+
+
+def parse_schema_php(source: str) -> list[dict]:
+    binary = os.environ.get('TPQ_PHP_BINARY', 'php')
+    autoload = Path(os.environ.get('TPQ_PHP_PARSER_AUTOLOAD',
+                                  str(CHECKER_ROOT / 'tools/quality/vendor/autoload.php')))
+    if not autoload.is_file():
+        raise ValueError('PHP_AST_PARSER_UNAVAILABLE: use the existing quality dependency installation')
+    lock = json.loads((CHECKER_ROOT / 'tools/quality/composer.lock').read_text(encoding='utf-8'))
+    packages = lock.get('packages', []) + lock.get('packages-dev', [])
+    selected = [row for row in packages if row.get('name') == 'nikic/php-parser']
+    if len(selected) != 1 or not selected[0].get('source', {}).get('reference'):
+        raise ValueError('PHP_AST_PARSER_LOCK_MISSING')
+    return _native_php_ast(source, binary, str(autoload.resolve()), selected[0]['source']['reference'])
+
+
+def _ast_is(node, kind: str) -> bool:
+    return isinstance(node, dict) and node.get('nodeType') == kind
+
+
+def _ast_name(node) -> str | None:
+    if isinstance(node, dict) and node.get('nodeType') in {'Identifier', 'Name', 'Name_FullyQualified'}:
+        return node.get('name')
+    return None
+
+
+def _ast_require(condition: bool, reason: str) -> None:
+    if not condition:
+        raise ValueError('PHP_SCHEMA_UNSUPPORTED: ' + reason)
+
+
+def _ast_variable(node, name: str) -> bool:
+    return _ast_is(node, 'Expr_Variable') and node.get('name') == name
+
+
+def _ast_arguments(node: dict) -> list[dict]:
+    args = node.get('args', [])
+    _ast_require(all(_ast_is(arg, 'Arg') and not any(arg.get(key) for key in ('name', 'byRef', 'unpack'))
+                     for arg in args), 'named, unpacked or indirect arguments')
+    return [arg['value'] for arg in args]
+
+
+def _ast_class(nodes: list[dict]) -> dict:
+    classes = []
+    for node in nodes:
+        kind = node.get('nodeType')
+        if kind == 'Stmt_Namespace':
+            classes.append(_ast_class(node['stmts']))
+        elif kind == 'Stmt_Class':
+            classes.append(node)
+        elif kind == 'Stmt_Declare':
+            _ast_require(node.get('stmts') is None and all(
+                _ast_name(item.get('key')) == 'strict_types' and item.get('value', {}).get('value') == 1
+                for item in node.get('declares', [])), 'executable declare')
+        elif kind not in {'Stmt_Use', 'Stmt_GroupUse', 'Stmt_Nop'}:
+            raise ValueError('PHP_SCHEMA_UNSUPPORTED: executable or multiple top-level declarations')
+    _ast_require(len(classes) == 1 and not classes[0].get('attrGroups'), 'one unambiguous class required')
+    return classes[0]
+
+
+def _ast_method(cls: dict, name: str, static: bool, parameters: int) -> dict:
+    methods = [item for item in cls['stmts'] if _ast_is(item, 'Stmt_ClassMethod') and _ast_name(item.get('name')) == name]
+    _ast_require(len(methods) == 1, 'missing or duplicate method ' + name)
+    method = methods[0]
+    flags = method.get('flags', 0)
+    # PhpParser Modifiers: PUBLIC=1, PROTECTED=2, PRIVATE=4, STATIC=8.
+    _ast_require(flags & 7 == 1 and bool(flags & 8) == static and not method.get('byRef')
+                 and not method.get('attrGroups') and len(method['params']) == parameters
+                 and isinstance(method.get('stmts'), list), 'method signature ' + name)
+    return method
+
+
+def _ast_return(method: dict) -> dict:
+    stmts = [item for item in method['stmts'] if not _ast_is(item, 'Stmt_Nop')]
+    _ast_require(len(stmts) == 1 and _ast_is(stmts[0], 'Stmt_Return'), 'complete single-return Schema method')
+    return stmts[0]['expr']
+
+
+def _ast_reject_unknown(node: dict) -> bool:
+    return (_ast_is(node, 'Expr_Throw') and _ast_is(node.get('expr'), 'Expr_New')
+            and _ast_name(node['expr'].get('class')) == 'InvalidArgumentException')
+
+
+def _ast_constant(node: dict, name: str) -> bool:
+    return (_ast_is(node, 'Expr_ClassConstFetch') and _ast_name(node.get('class')) == 'self'
+            and _ast_name(node.get('name')) == name)
+
+
+def _schema_literals(cls: dict) -> tuple[dict[str, dict], list[str]]:
+    """Recognize two declarative Schema shapes, not a PHP expression evaluator."""
+    _ast_require(cls.get('extends') is None and not cls.get('implements'), 'inherited Schema behavior')
+    method = _ast_method(cls, 'createSql', True, 1)
+    parameter = method['params'][0]
+    _ast_require(_ast_name(parameter.get('type')) == 'string' and not parameter.get('default')
+                 and not parameter.get('byRef') and not parameter.get('variadic'), 'Schema table parameter')
+    variable = parameter['var']['name']
+    expression = _ast_return(method)
+    values: dict[str, dict] = {}
+    constant = None
+    if _ast_is(expression, 'Expr_BinaryOp_Coalesce'):
+        fetch = expression['left']
+        _ast_require(_ast_is(fetch, 'Expr_ArrayDimFetch') and _ast_variable(fetch.get('dim'), variable)
+                     and _ast_is(fetch.get('var'), 'Expr_ClassConstFetch')
+                     and _ast_name(fetch['var'].get('class')) == 'self'
+                     and _ast_reject_unknown(expression['right']), 'literal Schema map dispatch')
+        constant = _ast_name(fetch['var'].get('name'))
+        entries = [item for member in cls['stmts'] if _ast_is(member, 'Stmt_ClassConst')
+                   for item in member['consts'] if _ast_name(item.get('name')) == constant]
+        _ast_require(len(entries) == 1 and _ast_is(entries[0]['value'], 'Expr_Array'), 'Schema map constant')
+        pairs = []
+        for item in entries[0]['value']['items']:
+            _ast_require(_ast_is(item, 'ArrayItem') and not item.get('byRef') and not item.get('unpack'), 'Schema map item')
+            pairs.append((item.get('key'), item['value']))
+    elif _ast_is(expression, 'Expr_Match'):
+        _ast_require(_ast_variable(expression.get('cond'), variable), 'Schema match selector')
+        defaults = [arm for arm in expression['arms'] if arm.get('conds') is None]
+        _ast_require(len(defaults) == 1 and _ast_reject_unknown(defaults[0]['body']), 'Schema match default')
+        pairs = []
+        for arm in expression['arms']:
+            if arm.get('conds') is not None:
+                _ast_require(len(arm['conds']) == 1, 'ambiguous Schema match arm')
+                pairs.append((arm['conds'][0], arm['body']))
+    else:
+        raise ValueError('PHP_SCHEMA_UNSUPPORTED: dynamic createSql body')
+    for key, value in pairs:
+        _ast_require(_ast_is(key, 'Scalar_String') and _ast_is(value, 'Scalar_String'), 'nonliteral Schema declaration')
+        name = key['value']
+        _ast_require(re.fullmatch(r'[a-z][a-z0-9_]*', name) is not None and name not in values, 'duplicate or invalid table name')
+        values[name] = value
+    _ast_require(bool(values), 'empty Schema declaration')
+    names_expression = _ast_return(_ast_method(cls, 'tableNames', True, 0))
+    if (_ast_is(names_expression, 'Expr_FuncCall') and _ast_name(names_expression.get('name')) == 'array_keys'
+            and constant is not None):
+        args = _ast_arguments(names_expression)
+        _ast_require(len(args) == 1 and _ast_constant(args[0], constant), 'tableNames must reference the createSql map')
+        names = list(values)
+    else:
+        _ast_require(_ast_is(names_expression, 'Expr_Array'), 'dynamic tableNames')
+        names = []
+        for item in names_expression['items']:
+            _ast_require(_ast_is(item, 'ArrayItem') and item.get('key') is None and not item.get('byRef')
+                         and not item.get('unpack') and _ast_is(item.get('value'), 'Scalar_String'), 'tableNames literal list')
+            names.append(item['value']['value'])
+    _ast_require(len(names) == len(set(names)) and set(names) == set(values), 'tableNames and createSql declarations disagree')
+    return values, names
+
+
+def _sql_tenant_column(table: str, sql: str) -> bool:
+    """Check literal CREATE structure/columns, not server SQL grammar or execution."""
+    head = re.match(r'\s*CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`' + re.escape(table) + r'`\s*\(', sql, re.I)
+    _ast_require(head is not None, 'SQL declaration does not match table ' + table)
+    depth, quote, cursor, start = 1, None, head.end(), head.end()
+    columns = []
+    while cursor < len(sql) and depth:
+        character = sql[cursor]
+        if quote:
+            if character == '\\':
+                cursor += 2
+                continue
+            if character == quote:
+                if cursor + 1 < len(sql) and sql[cursor + 1] == quote:
+                    cursor += 2
+                    continue
+                quote = None
+        elif character in "'\"`":
+            quote = character
+        elif character == '(':
+            depth += 1
+        elif character == ')':
+            depth -= 1
+            if depth == 0:
+                columns.append(sql[start:cursor])
+        elif character == ',' and depth == 1:
+            columns.append(sql[start:cursor])
+            start = cursor + 1
+        cursor += 1
+    _ast_require(depth == 0 and quote is None and bool(columns) and all(item.strip() for item in columns)
+                 and re.fullmatch(r'\s*ENGINE\s*=\s*[A-Za-z0-9_]+[^;]*;?\s*', sql[cursor:], re.I) is not None,
+                 'incomplete or multiple SQL declarations for ' + table)
+    return any(re.match(r'\s*`tenant_id`\s+[A-Za-z]', column) for column in columns)
+
+
+def _schema_reference(call: dict, method: str) -> tuple[str, list[dict]]:
+    _ast_require(_ast_is(call, 'Expr_StaticCall') and _ast_name(call.get('name')) == method
+                 and _ast_is(call.get('class'), 'Name_FullyQualified'), 'unresolved native Schema reference')
+    return _ast_name(call['class']), _ast_arguments(call)
+
+
+def _migration_execute(statement: dict) -> dict:
+    _ast_require(_ast_is(statement, 'Stmt_Expression'), 'additional migration statement')
+    call = statement['expr']
+    native = (_ast_is(call, 'Expr_MethodCall') and _ast_variable(call.get('var'), 'this'))
+    native = native or (_ast_is(call, 'Expr_StaticCall') and _ast_name(call.get('class')) == 'think\\facade\\Db')
+    _ast_require(native and _ast_name(call.get('name')) == 'execute', 'non-native migration execution')
+    args = _ast_arguments(call)
+    _ast_require(len(args) == 1, 'migration execute arguments')
+    return args[0]
+
+
+def _migration_references(cls: dict) -> list[tuple[str, str | None, int]]:
+    _ast_require(_ast_name(cls.get('extends')) == 'think\\migration\\Migrator' and not cls.get('implements'), 'native Migrator class required')
+    _ast_require(all(_ast_is(item, 'Stmt_ClassMethod') and _ast_name(item.get('name')) in {'up', 'down'}
+                     for item in cls['stmts']), 'additional migration members')
+    up = _ast_method(cls, 'up', False, 0)
+    references = []
+    for statement in up['stmts']:
+        if _ast_is(statement, 'Stmt_Nop'):
+            continue
+        line = statement.get('attributes', {}).get('startLine')
+        if _ast_is(statement, 'Stmt_Expression'):
+            name, args = _schema_reference(_migration_execute(statement), 'createSql')
+            _ast_require(len(args) == 1 and _ast_is(args[0], 'Scalar_String'), 'literal table name required')
+            references.append((name, args[0]['value'], line))
+            continue
+        _ast_require(_ast_is(statement, 'Stmt_Foreach') and not statement.get('byRef')
+                     and statement.get('keyVar') is None and _ast_is(statement.get('valueVar'), 'Expr_Variable'), 'unknown migration control flow')
+        variable = statement['valueVar']['name']
+        name, args = _schema_reference(statement['expr'], 'tableNames')
+        _ast_require(not args and len(statement['stmts']) == 1, 'tableNames adoption loop')
+        guard = statement['stmts'][0]
+        _ast_require(_ast_is(guard, 'Stmt_If') and not guard.get('elseifs') and guard.get('else') is None
+                     and len(guard['stmts']) == 1 and _ast_is(guard.get('cond'), 'Expr_BooleanNot'), 'hasTable adoption guard')
+        check = guard['cond']['expr']
+        _ast_require(_ast_is(check, 'Expr_MethodCall') and _ast_variable(check.get('var'), 'this')
+                     and _ast_name(check.get('name')) == 'hasTable', 'native hasTable check')
+        check_args = _ast_arguments(check)
+        _ast_require(len(check_args) == 1 and _ast_variable(check_args[0], variable), 'same adoption table identity')
+        created_name, created_args = _schema_reference(_migration_execute(guard['stmts'][0]), 'createSql')
+        _ast_require(created_name == name and len(created_args) == 1 and _ast_variable(created_args[0], variable), 'same Schema and table in adoption')
+        references.append((name, None, line))
+    _ast_require(bool(references), 'empty or unrecognized up method')
+    # Rollback is deliberately not a forward schema source, but unknown rollback
+    # programs are not silently described as covered migration bodies.
+    down = _ast_method(cls, 'down', False, 0)
+    for statement in down['stmts']:
+        if _ast_is(statement, 'Stmt_Nop'):
+            continue
+        name, args = _schema_reference(_migration_execute(statement), 'dropSql')
+        _ast_require(len(args) == 1 and _ast_is(args[0], 'Scalar_String')
+                     and any(name == owner and args[0]['value'] == table for owner, table, _ in references),
+                     'unknown rollback reference')
+    return references
+
+
+def module_php_schema_inventory() -> dict:
+    """Recognize complete native up() shapes; unsupported bodies remain gaps."""
+    paths = sorted({path for module in (ROOT / 'server/app/modules').glob('*/*') if module.is_dir()
+                    for path in module.rglob('*.php') if path.is_file()
+                    and path.parts[-3:-1] == ('database', 'migrations')})
+    records, gaps = [], {}
+    for path in paths:
+        try:
+            source = path.read_text(encoding='utf-8')
+            references = _migration_references(_ast_class(parse_schema_php(source)))
+            pending = []
+            for name, selected, line in references:
+                schema_path = composer_model_path(name)
+                _ast_require(schema_path is not None, 'Schema has no exact Composer source: ' + name)
+                schema_source = schema_path.read_text(encoding='utf-8')
+                schema = _ast_class(parse_schema_php(schema_source))
+                _ast_require(_ast_name(schema.get('namespacedName')) == name, 'Schema class/path mismatch')
+                values, names = _schema_literals(schema)
+                tables = names if selected is None else [selected]
+                _ast_require(all(table in values for table in tables), 'referenced table missing from Schema')
+                for table in tables:
+                    sql = values[table]['value']
+                    pending.append({'migration': relative(path), 'migration_line': line,
+                                    'migration_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                                    'schema_class': name, 'schema_path': relative(schema_path),
+                                    'schema_sha256': hashlib.sha256(schema_source.encode()).hexdigest(),
+                                    'schema_line': values[table].get('attributes', {}).get('startLine'),
+                                    'table': table, 'tenant_column': _sql_tenant_column(table, sql),
+                                    'sql_sha256': hashlib.sha256(sql.encode()).hexdigest(),
+                                    'shape': 'guarded-schema-adoption' if selected is None else 'literal-schema-create'})
+            records.extend(pending)
+        except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
+            gaps[relative(path)] = str(exc)
+    return {'migration_count': len(paths), 'records': records, 'gaps': gaps}
+
+
+def schema_coverage_gaps() -> list[str]:
+    return sorted(module_php_schema_inventory()['gaps'])
 
 
 def schema_tenant_tables() -> set[str]:
@@ -619,6 +924,7 @@ def schema_tenant_tables() -> set[str]:
     )
     sources = [path.read_text(encoding="utf-8") for path in paths if path.is_file()]
     sources.extend(kernel_schema_sql())
+    tables.update(row['table'] for row in module_php_schema_inventory()['records'] if row['tenant_column'])
     for source in sources:
         for match in pattern.finditer(source):
             if re.search(r"`tenant_id`", match.group(2)):
@@ -1151,10 +1457,14 @@ def current_ownership_report(source_commit: str | None) -> dict:
     try:
         ownership = read_ownership()
         errors = ownership_errors()
-        gaps = schema_coverage_gaps()
+        migrations = module_php_schema_inventory()
+        gaps = sorted(migrations['gaps'])
         report["coverage_gaps"] = gaps
+        report["coverage_gap_reasons"] = migrations['gaps']
         report["coverage_complete"] = not gaps
-        report["coverage_scope"] = "discovered SQL and canonical KernelSchema sources; module PHP migration bodies are not evaluated"
+        report["module_php_migration_count"] = migrations['migration_count']
+        report["module_php_schema_sources"] = migrations['records']
+        report["coverage_scope"] = "SQL CREATE declarations, canonical KernelSchema references and recognized module PHP up() Schema references; not live schema, rollback or SQL server grammar validation"
         models = concrete_models()
         tables = schema_tenant_tables()
         registered_models = {row["model"] for row in ownership.get("model_owners", [])}
