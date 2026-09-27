@@ -204,12 +204,14 @@ SQL);
         (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_member WHERE tenant_id={$tenantId} AND status='active'")->fetchColumn() === 1,
         'provision did not establish the single active first owner',
     );
+    // Creation, candidate creation and activation are distinct audited actions in one request.
+    foreach (['tenant.created', 'tenant.owner-candidate.created', 'tenant.owner-candidate.activated'] as $event) {
+        $audit = $pdo->prepare("SELECT COUNT(*) FROM pa_platform_audit_event WHERE request_id='pm01-http-provision' AND event_type=?");
+        $audit->execute([$event]);
+        lifecycleExpect((int) $audit->fetchColumn() === 1, 'owner provisioning platform audit is missing or duplicated: ' . $event);
+    }
     lifecycleExpect(
-        (int) $pdo->query("SELECT COUNT(*) FROM pa_platform_audit_event WHERE request_id='pm01-http-provision'")->fetchColumn() === 1,
-        'owner provisioning platform audit is missing',
-    );
-    lifecycleExpect(
-        (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId} AND request_id='pm01-http-provision:owner-activation'")->fetchColumn() === 1,
+        (int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_audit_event WHERE tenant_id={$tenantId} AND request_id='pm01-http-provision' AND event_type='tenant.owner-candidate.activated'")->fetchColumn() === 1,
         'owner activation Tenant audit is missing',
     );
     lifecycleExpect(
