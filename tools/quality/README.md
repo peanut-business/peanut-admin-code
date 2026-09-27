@@ -26,9 +26,11 @@ node scripts/format-source.mjs --check --root="<Web Core Git根>"
 node --test scripts/tests/format-configuration-test.mjs
 ```
 
-格式入口只调用锁定原生Prettier，支持Git已登记的JS/TS/Vue与样式源码；指定文件必须在所选仓内，空范围、缺配置、错版本及工具失败均失败。生成JSON/清单、API生成输出、锁文件、历史发行、第三方和故意无效fixture仍由原生成器或其原始字节负责，不以手工格式化改变摘要。PHP另用下节原生入口。新文件先按规则暂存后检查；本入口不自行提交、安装依赖或修改Git配置。
+格式入口只调用锁定原生Prettier，支持Git已登记的JS/TS/Vue与样式源码，以及明确自有的package.json、composer.json、tsconfig系列、模块根module.json和VS Code配置；指定文件必须在所选仓内，空范围、缺配置、错版本及工具失败均失败。生成JSON/清单、API生成输出、锁文件、历史发行、第三方和故意无效fixture仍由原生成器或其原始字节负责，不以手工格式化改变摘要。PHP另用下节原生入口。新文件先按规则暂存后检查；本入口不自行提交、安装依赖或修改Git配置。
 
 以Code根打开VS Code时，仓内设置为上述前端语言选择Prettier并启用保存格式化，且明确使用本目录安装版本；须已安装相应扩展，不能据设置文件声称用户编辑器已经启用。PHP自动格式化不猜测扩展，按下节命令执行。其他编辑器也必须读取仓内配置。配置测试只证明规则发现和合成样例的幂等性，不证明全仓已格式化。首次统一应先做全范围只读基线，再将纯格式归一化独立提交；以后检查受影响文件，不把全仓格式变更混入每个业务提交。统一格式减少无意义差异，不消除同一业务逻辑的并发冲突。Git hooks与远程CI是否实际执行另按真实配置记录。
+
+JSON按配置角色纳入，不按扩展名盲扫所有机器数据。模块声明格式变化后由原工具重建受影响插件摘要、插件锁及应用清单，不手改摘要；package/Composer只允许格式差异，不升级版本或重写原生依赖锁。可运行 `node --test scripts/tests/format-json-policy-test.mjs` 验证自有配置与生成字节的边界，实际源码仍须走 `format-source.mjs --check`。
 
 ## PHP 格式
 

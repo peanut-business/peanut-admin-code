@@ -3080,7 +3080,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d8118b542f2429501b18c6765f3bf98ffde7cbe3984387e45d21e57c2d44c12d"
+            "source_sha256": "f2507db7d8673e1d2ce535b74f4f341730c43d8c529cb50f08894d02f4b95db4"
         },
         {
             "path": "scripts/freeze-core-release",
@@ -3764,6 +3764,20 @@
                 "full"
             ],
             "source_sha256": "20947ac652add82d101d08f0727054c96162ce4c9579bd9cddba0933ff6704fc"
+        },
+        {
+            "path": "scripts/tests/format-json-policy-test.mjs",
+            "target": "scripts/tests/format-json-policy-test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "414fb9cafe7bdc0c6560878209837481511733ce25ea9af15cbb397d73b1ded4"
         },
         {
             "path": "scripts/tests/freeze-core-native-types-test.py",
@@ -27919,7 +27933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d7af4ea2f2853b77328e116248b95d5ae758fb31373279db3fed1e6b820e27f5"
+            "source_sha256": "c8f09ad44d353b216d4da6796c7219ec59c7066c355ee60c8836cfcb4393f6d2"
         },
         {
             "path": "tools/quality/composer.json",

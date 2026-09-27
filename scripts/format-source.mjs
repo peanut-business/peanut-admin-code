@@ -1,7 +1,14 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
+import {
+  basename,
+  dirname,
+  extname,
+  isAbsolute,
+  relative,
+  resolve,
+} from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const codeRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,12 +39,23 @@ const protectedParts = new Set([
   '.output',
 ]);
 
+function isAuthoredJsonConfiguration(path) {
+  const name = basename(path);
+  return (
+    name === 'package.json' ||
+    name === 'composer.json' ||
+    /^tsconfig(?:\.[a-zA-Z0-9-]+)*\.json$/.test(name) ||
+    /^server\/app\/modules\/[^/]+\/[^/]+\/module\.json$/.test(path) ||
+    /^\.vscode\/(?:settings|extensions|launch|tasks)\.json$/.test(path)
+  );
+}
+
 export function isFormattingSource(path) {
   return (
     !path.startsWith('scaffold/') &&
     !path.startsWith('output/') &&
     !path.split('/').some((part) => protectedParts.has(part)) &&
-    sourceExtensions.has(extname(path))
+    (sourceExtensions.has(extname(path)) || isAuthoredJsonConfiguration(path))
   );
 }
 

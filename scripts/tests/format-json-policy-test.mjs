@@ -48,10 +48,14 @@ for (const path of [
 }
 
 test('JSON formatting retains values and is idempotent', () => {
-  const source = '{"autoload":{"psr-4":{"Example\\\\":"src/"}},"enabled":false,"n":0,"empty":null,"list":["x",2]}';
+  const source =
+    '{"autoload":{"psr-4":{"Example\\\\":"src/"}},"enabled":false,"n":0,"empty":null,"list":["x",2]}';
   const formatted = prettier.format(source, { ...policy, parser: 'json' });
   assert.deepEqual(JSON.parse(formatted), JSON.parse(source));
-  assert.equal(prettier.format(formatted, { ...policy, parser: 'json' }), formatted);
+  assert.equal(
+    prettier.format(formatted, { ...policy, parser: 'json' }),
+    formatted
+  );
   assert.equal(formatted.includes('\r'), false);
   assert.equal(formatted.includes('\t'), false);
   assert.match(formatted, /\n  "autoload":/);
