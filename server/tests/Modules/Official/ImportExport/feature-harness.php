@@ -27,6 +27,7 @@ use think\facade\Db;
 $root = dirname(__DIR__, 4);
 require_once defined('PHPUNIT_COMPOSER_INSTALL') ? PHPUNIT_COMPOSER_INSTALL : $root . '/vendor/autoload.php';
 require_once $root . '/tests/Support/ThinkPhpTestConnection.php';
+require_once $root . '/tests/Support/RegisteredMysqlTestResource.php';
 
 function check(mixed $expected, mixed $actual, string $label): void
 {
@@ -130,19 +131,11 @@ final class HarnessFiles implements FileMediaGateway
     }
 }
 
-$host = getenv('IMPORT_EXPORT_MYSQL_HOST') ?: '127.0.0.1';
-$port = getenv('IMPORT_EXPORT_MYSQL_PORT') ?: '33431';
-$database = getenv('IMPORT_EXPORT_MYSQL_DATABASE') ?: 'peanut_import_export_test';
-$user = getenv('IMPORT_EXPORT_MYSQL_USER') ?: 'root';
-$password = getenv('IMPORT_EXPORT_MYSQL_PASSWORD') ?: 'import-export-test';
-if (preg_match('/^[a-z][a-z0-9_]{2,62}$/D', $database) !== 1) {
-    throw new RuntimeException('Unsafe test database.');
-}
-$run = static function (TenantPersistenceMode $mode) use ($host, $port, $database, $user, $password): void {
-    $pdo = new PDO("mysql:host={$host};port={$port};charset=utf8mb4", $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false]);
-    $pdo->exec("DROP DATABASE IF EXISTS `{$database}`");
-    $pdo->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
-    $pdo->exec("USE `{$database}`");
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
+$ownedDatabase = null;
+$run = static function (TenantPersistenceMode $mode) use ($database, &$ownedDatabase): void {
+    [$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
+    $ownedDatabase = [$pdo, $createdDatabase];
     $pdo->exec('CREATE TABLE pa_tenant (id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB');
     $pdo->exec('CREATE TABLE pa_tenant_member (id BIGINT UNSIGNED NOT NULL, tenant_id BIGINT UNSIGNED NOT NULL, account_id BIGINT UNSIGNED NOT NULL, status VARCHAR(16) NOT NULL, PRIMARY KEY (id), UNIQUE KEY uk_member_tenant (tenant_id,id)) ENGINE=InnoDB');
     $pdo->exec("INSERT INTO pa_tenant VALUES (101),(202)");
@@ -234,9 +227,11 @@ SQL)->fetchColumn();
     }
     $events = array_map(static function (array $row): string {
         $metadata = json_decode((string) $row['metadata_json'], true, 32, JSON_THROW_ON_ERROR);
-        return (string) $row['event_type'] . ':' . implode(',', array_keys($metadata));
+        $keys = array_keys($metadata);
+        sort($keys);
+        return (string) $row['event_type'] . ':' . implode(',', $keys);
     }, $pdo->query('SELECT event_type, metadata_json FROM pa_tenant_audit_event ORDER BY id')->fetchAll());
-    check(['tenant.import_export.started:direction,provider_key,revision,attempt', 'tenant.import_export.progress:direction,provider_key,revision,processed_rows,accepted_rows,rejected_rows', 'tenant.import_export.succeeded:direction,provider_key,revision,processed_rows,accepted_rows,rejected_rows', 'tenant.import_export.started:direction,provider_key,revision,attempt', 'tenant.import_export.succeeded:direction,provider_key,revision,processed_rows,accepted_rows,rejected_rows'], $events, 'redacted lifecycle audit');
+    check(['tenant.import_export.started:attempt,direction,provider_key,revision', 'tenant.import_export.progress:accepted_rows,direction,processed_rows,provider_key,rejected_rows,revision', 'tenant.import_export.succeeded:accepted_rows,direction,processed_rows,provider_key,rejected_rows,revision', 'tenant.import_export.started:attempt,direction,provider_key,revision', 'tenant.import_export.succeeded:accepted_rows,direction,processed_rows,provider_key,rejected_rows,revision'], $events, 'redacted lifecycle audit');
 
     problem('IMPORT_EXPORT_SCHEMA_MISMATCH', fn() => $provider->schema()->normalizeImportRow(["\xC3\x28"], ['Name'], ['Name' => 'name']), 'invalid UTF-8 import cell');
     problem('IMPORT_EXPORT_SCHEMA_MISMATCH', fn() => $provider->schema()->normalizeImportRow(['Alice', "\xC3\x28"], ['Name', 'Ignored'], ['Name' => 'name']), 'invalid UTF-8 unmapped import cell');
@@ -284,14 +279,17 @@ SQL)->fetchColumn();
         );
         check($expiredBeforeMismatch, (int) $pdo->query("SELECT COUNT(*) FROM pa_import_export_operation WHERE status = 'expired'")->fetchColumn(), 'schema mismatch expires no records');
     }
-
-    foreach (array_reverse(Schema::tableNames()) as $table) {
-        $pdo->exec(Schema::dropSql($table));
-    } $pdo->exec('DROP TABLE pa_tenant_member, pa_tenant');
-    $pdo->exec("DROP DATABASE `{$database}`");
-    fwrite(STDOUT, "import-export {$mode->value} PASS (migration, permission, idempotency, CSV, row errors, concurrency, retention)\n");
 };
 
 foreach ([TenantPersistenceMode::TenantScoped, TenantPersistenceMode::InstanceScoped] as $mode) {
-    $run($mode);
+    try {
+        $run($mode);
+    } finally {
+        if ($ownedDatabase !== null) {
+            [$pdo, $createdDatabase] = $ownedDatabase;
+            RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
+            $ownedDatabase = null;
+        }
+    }
+    fwrite(STDOUT, "import-export {$mode->value} PASS (migration, permission, idempotency, CSV, row errors, concurrency, retention)\n");
 }
