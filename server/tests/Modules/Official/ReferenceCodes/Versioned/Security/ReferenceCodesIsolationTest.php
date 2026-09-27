@@ -83,7 +83,11 @@ final class ReferenceCodesIsolationTest extends ReferenceCodesDatabaseTestCase
     public function testRetiredOrDigestMismatchedSetIsNotFound(): void
     {
         [$definition, $repository, $alpha] = $this->twoTenants('security-set');
-        $repository->synchronize(new ReferenceCodeSetRegistry(), new DateTimeImmutable(self::NOW));
+        $unselected = $repository->synchronize(new ReferenceCodeSetRegistry(), new DateTimeImmutable(self::NOW));
+        self::assertSame(0, $unselected['retired'], 'An unselected module does not retire definitions.');
+        $retiredModule = new ReferenceCodeSetRegistry();
+        $retiredModule->registerModule($definition->moduleKey, []);
+        self::assertSame(1, $repository->synchronize($retiredModule, new DateTimeImmutable(self::NOW))['retired']);
         $this->expectReferenceCodeError('REFERENCE_CODE_SET_NOT_FOUND', 404, fn() => $this->query($repository)->list(
             $definition,
             $alpha['context'],
