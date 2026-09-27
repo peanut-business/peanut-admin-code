@@ -185,6 +185,23 @@
   },
   "model_owners": [
     {
+      "model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeSetRecord",
+      "table": "pa_reference_code_set",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "按module_key与set_key唯一保存的部署定义目录，包含可变摘要、修订及生命周期，不是租户条目值，也非不可变共享数据。公开目录协作只同步已选模块声明，Store的synchronize保留锁与事务；目录登记不批准同类中仍存在缺陷的snapshot，不批准Entry或EntryVersion的访问。EntryVersion无tenant_id但沿entry_id属于租户条目，不可复用本实例登记。",
+        "model_source": {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeSetRecord.php", "sha256": "f1d16d34e55853d3bcdd477b5e4fb693ed5dc6b5cdaec49b51497a94197bbda5"},
+        "schema_source": {"source": "application", "path": "server/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql", "sha256": "01809393f85e3945fc8832830ac45c5b17c542019b28ae30d3ebba2c990d01be"},
+        "access_sources": [
+          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php", "sha256": "26543736b208670a3d66554e3cae27983a750ede5952cfd2898f545f39f2d38e"},
+          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Service\\ReferenceCodeCatalogService", "source": "application", "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodeCatalogService.php", "sha256": "f14db56ac8b8c3dbcc578745fd24f87ac1875d04132dddca0c7311fb8020cd6b"},
+          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Definition\\ReferenceCodeSetRegistry", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Definition/ReferenceCodeSetRegistry.php", "sha256": "9bdda89e582d9eef60e55f66eeebd444d79ac9942cdc0dacc14b954c8d618b24"},
+          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider", "source": "application", "path": "server/app/modules/official/reference_codes/src/ModuleProvider.php", "sha256": "263291aa6f5c6f9f66d1760e76dc68209a4a7da121ce5fdd2d5a8878e1ff1ea7"}
+        ]
+      }
+    },
+    {
       "model": "PeanutAdmin\\Modules\\Settings\\Model\\DeploymentSettingValue",
       "table": "pa_setting_deployment_value",
       "owner": "instance",
@@ -373,9 +390,9 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 78,
+    "concrete_models": 79,
     "tenant_models": 67,
-    "non_tenant_models": 11,
+    "non_tenant_models": 12,
     "tenant_tables": 74,
     "tenant_tables_without_model": 6
   }

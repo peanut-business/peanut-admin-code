@@ -335,6 +335,44 @@ class ReviewedModulesTest(unittest.TestCase):
         self.save()
         self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
 
+    def test_reference_code_set_is_a_deployment_catalog_not_tenant_values(self):
+        model = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeSetRecord'
+        row = next(row for row in self.registry['model_owners'] if row['model'] == model)
+        path = checker.composer_model_path(model)
+        tables = checker.schema_tenant_tables()
+        owners, roots = checker.module_table_inventory()
+        self.assertEqual('instance', row['owner'])
+        self.assertEqual('pa_reference_code_set', row['table'])
+        self.assertEqual('official.reference-codes', owners[row['table']])
+        self.assertNotIn(row['table'], tables)
+        self.assertNotIn(model, checker.declared_module_exports())
+        self.assertEqual([], checker.instance_model_review_errors(row, path, tables, roots))
+        report = self.report()
+        self.assertNotIn(model, report['missing_models'])
+        self.assertEqual('not_run', report['business_scan'])
+        self.assertIsNone(report['finding_count'])
+
+    def test_reference_version_without_tenant_column_cannot_borrow_catalog_review(self):
+        catalog = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_reference_code_set')
+        item = copy.deepcopy(catalog)
+        item['model'] = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryVersionRecord'
+        item['table'] = 'pa_reference_code_entry_version'
+        path = checker.composer_model_path(item['model'])
+        import hashlib
+        item['instance_review']['model_source'] = {
+            'source': 'application', 'path': checker.relative(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        _, roots = checker.module_table_inventory()
+        self.assertTrue(any('INSTANCE_SCHEMA_TENANT_PARENT' in error for error in
+                            checker.instance_model_review_errors(item, path, checker.schema_tenant_tables(), roots)))
+
+    def test_changed_reference_catalog_source_does_not_keep_instance_review_valid(self):
+        row = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_reference_code_set')
+        source = next(source for source in row['instance_review']['access_sources'] if source['entry'].endswith('ReferenceCodeCatalogService'))
+        source['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']
