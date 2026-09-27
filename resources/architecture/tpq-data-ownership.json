@@ -56,7 +56,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "application",
@@ -73,7 +73,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
         },
         "method_results": {
           "appendTenantEvent": "void",
@@ -130,7 +130,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "application",
@@ -190,7 +190,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "application",
@@ -227,7 +227,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "application",
@@ -249,7 +249,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
         },
         "method_results": {
           "lists": "array",
@@ -295,7 +295,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "application",
@@ -345,7 +345,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "php-core",
@@ -355,7 +355,7 @@
         {
           "source": "application",
           "path": "server/app/adminapi/services/dept/DeptApplicationService.php",
-          "sha256": "1e32b41d0e88ea8eaf5f6349f620982dada1624dc1901ecf59878b3479a2a1af"
+          "sha256": "15506cdc083fae46c04502a3dda1b2d2b1cabd31d93e86b423f0411e1e94497d"
         },
         {
           "source": "application",
@@ -367,7 +367,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
         },
         "method_results": {
           "list": "array",
@@ -406,7 +406,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "php-core",
@@ -448,7 +448,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
         },
         "method_results": {
           "list": "array",
@@ -490,7 +490,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "php-core",
@@ -527,7 +527,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
         },
         "method_results": {
           "createAdministrator": "array",
@@ -566,7 +566,7 @@
         {
           "source": "application",
           "path": "server/app/modules/official/identity/src/ModuleProvider.php",
-          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+          "sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
           "source": "php-core",
@@ -623,7 +623,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
         },
         "method_results": {
           "get": "array",
@@ -1790,7 +1790,7 @@
       "owner": "instance",
       "instance_review": {
         "classification": "deployment-instance",
-        "reason": "本实例已安装模块与编译声明版本/摘要/状态登记，不是租户模块开通。租户是否启用由独立TenantModule及生命周期合同决定。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "reason": "本实例已安装模块与编译声明版本/摘要/状态登记，不是租户模块开通。新部署登记由既有CatalogLifecycleService接收宿主已选清单，保留相同活动身份的重复语义、冲突拒绝及宿主外层事务；固定身份/活动元数据由TenantModuleStateQueries返回，不返回可写ORM或租户配置。租户开通与人员权限仍由原合同判断。本次仅复核新增入口和调用链的来源，不授权安装、停用或清理，不改变数据归属。",
         "model_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/src/Module/Model/ModuleInstallation.php",
@@ -1803,6 +1803,18 @@
           "declaration_sha256": "0ca04bfe98a251eba8cf4441e463645639903834d996786e01886f8307d5dfe1"
         },
         "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/CatalogLifecycleService.php",
+            "sha256": "6f5dca35b106a38213eecadd3eef9ee8e1997a284ac10e5c326d255c19da88e9",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\CatalogLifecycleService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Contract/TenantModuleStateQueries.php",
+            "sha256": "2e9a104bebb3d58497e177639020f8fdebf5c17b3c6c4ab114b0787fb2c94068",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries"
+          },
           {
             "source": "application",
             "path": "server/app/modules/official/identity/src/Module/Persistence/ThinkPhpModuleRuntimeRepository.php",
@@ -1830,7 +1842,7 @@
       "owner": "instance",
       "instance_review": {
         "classification": "deployment-instance",
-        "reason": "部署菜单定义；scope为平台/租户展示域而非数据拥有租户，所需permission_id指向部署权限定义。菜单可见及调用权限仍按当前人员授权计算。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "reason": "部署菜单定义；scope为平台/租户展示域而非数据拥有租户，所需permission_id指向部署权限定义。MenuCatalogSynchronizer新增固定的非目标模块活动菜单键投影，ScopedMenuCatalogRepository仍合并去重后交原仓储，不复活已退休菜单。菜单可见及调用权限仍按当前人员授权计算。本次仅复核新增读取和宿主调用链，不改变实例级数据归属，也不授权目录生命周期操作。",
         "model_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/src/Persistence/Model/MenuDefinition.php",
@@ -1852,7 +1864,7 @@
           {
             "source": "application",
             "path": "server/app/modules/official/identity/src/Menu/MenuCatalogSynchronizer.php",
-            "sha256": "1bd0db218260c15c9d7b33d21b004fb1993a948a0b994b9430d9de5abadec48b",
+            "sha256": "987c47a563a8c123e6c22b9f631ba7ad3e757cd6b41fbbf747d7372cb40983c8",
             "entry": "PeanutAdmin\\Modules\\Identity\\Menu\\MenuCatalogSynchronizer"
           }
         ]

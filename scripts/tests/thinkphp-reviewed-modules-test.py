@@ -1,6 +1,6 @@
 """Exercise reviewed module registrations against explicit immutable sources.
 
-This inspects real source declarations and mutates only a temporary registration.
+This inspects real source declarations and mutates only isolated source/registration fixtures.
 It neither executes application PHP nor reads historical exception records.
 """
 from __future__ import annotations
@@ -229,7 +229,7 @@ class ReviewedModulesTest(unittest.TestCase):
         self.assertTrue({'createMachine', 'rotateMachine', 'enqueueDelivery', 'claimDelivery', 'deliveryRecords'}.issubset(contract['tenant_operations']))
         report = self.report()
         self.assertFalse(any(item['entry'] == entry for item in report['needs_decision']))
-        self.assertNotEqual('ownership_passed', report['status'])
+        self.assertFalse(report['needs_decision'])
         self.assertEqual('not_run', report['business_scan'])
         self.assertIsNone(report['finding_count'])
 
@@ -636,7 +636,7 @@ class ReviewedModulesTest(unittest.TestCase):
         report = self.report()
         self.assertEqual([], report['missing_models'])
         self.assertEqual([], report['missing_tenant_tables'])
-        self.assertNotEqual('ownership_passed', report['status'])
+        self.assertFalse(report['needs_decision'])
         self.assertEqual('not_run', report['business_scan'])
 
     def test_identity_source_grant_is_not_an_ordinary_global_scope(self):
@@ -694,6 +694,125 @@ class ReviewedModulesTest(unittest.TestCase):
         contract = self.registry['access_contracts'][entry]
         contract['other_operations'].remove('purgeExpiredDeliveryData')
         self.assertTrue(any('ACCESS_METHOD_COVERAGE' in error for error in checker.access_contract_errors({entry: contract})))
+
+    def test_identity_delta_catalog_owners_match_existing_private_models(self):
+        owners, _ = checker.module_table_inventory()
+        for table in ('pa_module_installation', 'pa_menu_definition'):
+            row = next(row for row in self.registry['model_owners'] if row['table'] == table)
+            self.assertEqual('official.identity', owners.get(table))
+            self.assertEqual('instance', row['owner'])
+            path = checker.composer_model_path(row['model'])
+            self.assertEqual(table, checker.source_model_table(path))
+            self.assertEqual((row['model'], 'think\\Model'), checker.model_header(path))
+            self.assertNotIn(row['model'], checker.declared_module_exports())
+
+    def test_identity_delta_owner_removal_is_not_hidden_by_registration(self):
+        # Only mutate the immutable-source fixture's one manifest, never A/B source.
+        path = checker.ROOT / 'server/app/modules/official/identity/module.json'
+        original = path.read_bytes()
+        try:
+            for table in ('pa_module_installation', 'pa_menu_definition'):
+                manifest = json.loads(original)
+                self.assertIn(table, manifest['database']['owned_tables'])
+                manifest['database']['owned_tables'].remove(table)
+                path.write_text(json.dumps(manifest), encoding='utf-8')
+                owners, _ = checker.module_table_inventory()
+                self.assertIsNone(owners.get(table))
+                self.assertTrue(any(row['table'] == table for row in self.registry['model_owners']))
+        finally:
+            path.write_bytes(original)
+        owners, _ = checker.module_table_inventory()
+        self.assertEqual(['official.identity', 'official.identity'],
+                         [owners.get(table) for table in ('pa_module_installation', 'pa_menu_definition')])
+
+    def test_identity_delta_catalog_entries_bind_new_method_sources(self):
+        prefix = 'PeanutAdmin\\Modules\\Identity\\'
+        expected = {
+            'pa_module_installation': {
+                prefix + 'Authorization\\CatalogLifecycleService': {'registerDeployedManifest'},
+                prefix + 'Contract\\TenantModuleStateQueries': {'installationIdentity', 'activeInstallationKeys', 'activeInstallationMetadata'},
+            },
+            'pa_menu_definition': {prefix + 'Menu\\MenuCatalogSynchronizer': {'activeKeysOutsideModules'}},
+        }
+        for table, entries in expected.items():
+            row = next(row for row in self.registry['model_owners'] if row['table'] == table)
+            sources = {source['entry']: source for source in row['instance_review']['access_sources']}
+            for entry, methods in entries.items():
+                with self.subTest(entry=entry):
+                    path, _ = checker.reviewed_source(sources[entry])
+                    self.assertEqual(path, checker.composer_model_path(entry))
+                    declaration = checker._ast_class(checker.parse_schema_php(path.read_text()))
+                    self.assertEqual(entry, checker._ast_name(declaration.get('namespacedName')))
+                    declared = {checker._ast_name(node.get('name')): node for node in declaration['stmts']
+                                if checker._ast_is(node, 'Stmt_ClassMethod')}
+                    for method in methods:
+                        self.assertIn(method, declared)
+                        result = declared[method]['returnType']
+                        if checker._ast_is(result, 'NullableType'):
+                            result = result['type']
+                        self.assertEqual('array', checker._ast_name(result))
+                    self.assertIn(entry, checker.declared_module_exports())
+
+    def test_identity_delta_changed_support_evidence_is_current(self):
+        changed = {'server/app/modules/official/identity/module.json',
+                   'server/app/modules/official/identity/src/ModuleProvider.php',
+                   'server/app/adminapi/services/dept/DeptApplicationService.php'}
+        seen = set()
+        for contract in self.registry['access_contracts'].values():
+            proofs = list(contract.get('support_sources', []))
+            manifest = contract.get('public_use_case', {}).get('manifest_source')
+            if manifest:
+                proofs.append(manifest)
+            for proof in proofs:
+                if proof['path'] in changed:
+                    checker.reviewed_source(proof)
+                    seen.add(proof['path'])
+        self.assertEqual(changed, seen)
+
+    def test_identity_delta_old_source_evidence_stays_rejected(self):
+        old = {
+            'server/app/modules/official/identity/module.json': '8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1',
+            'server/app/modules/official/identity/src/ModuleProvider.php': 'a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f',
+            'server/app/adminapi/services/dept/DeptApplicationService.php': '1e32b41d0e88ea8eaf5f6349f620982dada1624dc1901ecf59878b3479a2a1af',
+            'server/app/modules/official/identity/src/Menu/MenuCatalogSynchronizer.php': '1bd0db218260c15c9d7b33d21b004fb1993a948a0b994b9430d9de5abadec48b',
+        }
+        for path, digest in old.items():
+            with self.subTest(path=path), self.assertRaisesRegex(ValueError, 'SOURCE_REVIEW_STALE'):
+                checker.reviewed_source({'source': 'application', 'path': path, 'sha256': digest})
+
+    def test_identity_delta_provider_bindings_do_not_publish_policy_storage(self):
+        path = checker.ROOT / 'server/app/modules/official/identity/src/ModuleProvider.php'
+        declaration = checker._ast_class(checker.parse_schema_php(path.read_text()))
+        method = checker._ast_method(declaration, 'bindings', False, 0)
+        returned = checker._ast_return(method)
+        self.assertTrue(checker._ast_is(returned, 'Expr_Array'))
+        bindings = {}
+        for item in returned['items']:
+            self.assertTrue(checker._ast_is(item['key'], 'Expr_ClassConstFetch'))
+            self.assertTrue(checker._ast_is(item['value'], 'Expr_ClassConstFetch'))
+            bindings[checker._ast_name(item['key']['class'])] = checker._ast_name(item['value']['class'])
+        catalog = 'PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog'
+        repository = 'PeanutAdmin\\Modules\\Identity\\DataPermission\\Policy\\ThinkPhpPolicyRepository'
+        self.assertEqual(catalog, bindings.get('PeanutAdmin\\DataPermission\\Catalog\\ResourceOperationCatalog'))
+        self.assertEqual(repository, bindings.get('PeanutAdmin\\DataPermission\\Policy\\PolicyRepository'))
+        exports = checker.declared_module_exports()
+        self.assertIn(catalog, exports)
+        self.assertNotIn(repository, exports)
+        self.assertNotIn('PeanutAdmin\\Modules\\Identity\\DataPermission\\Model\\DataPermissionPolicyRecord', exports)
+
+    def test_identity_delta_new_access_fingerprints_and_case_are_required(self):
+        row = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_module_installation')
+        sources = {Path(source['path']).name: source for source in row['instance_review']['access_sources']}
+        for name in ('CatalogLifecycleService.php', 'TenantModuleStateQueries.php'):
+            source = copy.deepcopy(sources[name])
+            checker.reviewed_source(source)
+            source['sha256'] = '0' * 64
+            with self.assertRaisesRegex(ValueError, 'SOURCE_REVIEW_STALE'):
+                checker.reviewed_source(source)
+            source = copy.deepcopy(sources[name])
+            source['path'] = source['path'].replace(name, name.lower())
+            with self.assertRaisesRegex(ValueError, 'REVIEW_PATH_MISSING'):
+                checker.reviewed_source(source)
 
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
