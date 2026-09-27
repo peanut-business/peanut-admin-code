@@ -8,10 +8,10 @@ import {
   createNuxtSsrForwardHeaders,
 } from '@peanut-admin/nuxt';
 
-interface ApiResponse<T = unknown> {
+interface ApiResponse {
   code: number;
-  msg: string;
-  data: T;
+  msg?: string;
+  data: unknown;
 }
 
 type FetchMethod =
@@ -46,16 +46,18 @@ const isFetchMethod = (value: unknown): value is FetchMethod => {
 const isFetchRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+// Validate the envelope, not the endpoint-specific payload represented by data.
 const isApiResponse = (value: unknown): value is ApiResponse =>
-  typeof value === 'object' &&
-  value !== null &&
-  'code' in value &&
+  isFetchRecord(value) &&
+  typeof value.code === 'number' &&
+  Number.isSafeInteger(value.code) &&
+  (value.msg === undefined || typeof value.msg === 'string') &&
   'data' in value;
 
-const decodeApiResponse = <T>(
+const decodeApiResponse = (
   response: unknown,
   _request: ClientTransportRequest
-): ClientDecodeResult<T> => {
+): ClientDecodeResult => {
   if (!isApiResponse(response)) {
     return {
       kind: 'business',
@@ -63,8 +65,7 @@ const decodeApiResponse = <T>(
       message: '响应格式无效',
     };
   }
-  if (response.code === 20000)
-    return { kind: 'success', data: response.data as T };
+  if (response.code === 20000) return { kind: 'success', data: response.data };
   if (response.code === 40100) {
     return {
       kind: 'unauthorized',
