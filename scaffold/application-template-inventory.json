@@ -755,7 +755,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "703ea6d972d943ad3f3a9ba7038b916eeb0fcd169a50de2369e4909146d38a7a"
+            "source_sha256": "a153fc073d4618e8878d528f759d1e9d82703ae04e52d6858a49931a81582721"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -4896,7 +4896,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfac2015b06b0f523aa8b5ee57dc4b3bcc9f65f480bf2809fa00c2b5d97dfb6e"
+            "source_sha256": "6f82d1325e46e0658f92f0f711f25bad316ffbae2f10cfc8feb78d60ef221494"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -26805,6 +26805,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/GeneratorElementPlusViewTest.php",
+            "target": "server/tests/Unit/GeneratorElementPlusViewTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/GeneratorRuntimeAssemblyTest.php",
             "target": "server/tests/Unit/GeneratorRuntimeAssemblyTest.php",
             "classification": "excluded",
@@ -27695,6 +27708,19 @@
             "owner": "template-source-only",
             "transform": "copy",
             "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/fixtures/generator-element-plus-inputs.php",
+            "target": "server/tests/fixtures/generator-element-plus-inputs.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",

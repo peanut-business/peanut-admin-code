@@ -92,16 +92,16 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringContainsString('v-loading="loading"', $view);
         self::assertStringContainsString('v-if="error"', $view);
         self::assertStringContainsString('<template #empty>', $view);
-        self::assertStringContainsString('list.clear()', $view);
         self::assertStringNotContainsString(' as any', $view);
         self::assertStringNotContainsString(' as unknown as ', $view);
         self::assertStringNotContainsString('@ts-ignore', $view);
         if ($recycle) {
+            self::assertStringContainsString('list.clear()', $view);
             self::assertStringContainsString('useAsyncAction(', $view);
             self::assertStringContainsString('v-if="actionError"', $view);
             self::assertStringContainsString(':disabled="actionLoading"', $view);
             self::assertStringContainsString("result.status !== 'completed'", $view);
-            self::assertStringContainsString('result.data.data.failed.length', $view);
+            self::assertStringContainsString('response.data.failed.length !== 0', $view);
         }
     }
 

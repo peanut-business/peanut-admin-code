@@ -1143,91 +1143,148 @@ TS, $c + [
         $visible = array_values(array_filter($c['columns'], static fn(array $column): bool => in_array($column['name'], $c['listFields'], true)));
         $columns = '';
         foreach (array_slice($visible, 0, 8) as $column) {
-            $columns .= "    { title: '{$column['comment']}', dataIndex: '{$column['name']}' },\n";
+            $columns .= "    { label: '{$column['comment']}', prop: '{$column['name']}' },\n";
         }
         $recycleToggle = $c['softDelete'] ? self::replace(<<<'VUE'
-      <a-button v-permission="['{{permissionPrefix}}.recycle.list']" @click="toggleRecycle">
-        {{ showRecycle ? '返回普通列表' : '回收站' }}
-      </a-button>
+    <ElButton
+      v-permission="['{{permissionPrefix}}.recycle.list']"
+      :disabled="actionLoading"
+      @click="toggleRecycle"
+    >
+      {{ showRecycle ? '返回普通列表' : '回收站' }}
+    </ElButton>
+    <ElAlert v-if="actionError" :title="actionError" type="error" :closable="false" />
 VUE, $c) : '';
         $actionSlot = $c['softDelete'] ? self::replace(<<<'VUE'
-      <template #actions="{ record }">
-        <a-space v-if="showRecycle">
-          <a-button v-permission="['{{permissionPrefix}}.restore']" type="text" @click="handleRestore(record)">恢复</a-button>
-          <a-popconfirm content="永久删除后不可恢复，确定继续？" @ok="handlePurge(record)">
-            <a-button v-permission="['{{permissionPrefix}}.purge']" type="text" status="danger">永久删除</a-button>
-          </a-popconfirm>
-        </a-space>
-      </template>
+      <ElTableColumn v-if="showRecycle" label="操作" :width="180">
+        <template #default="{ row }">
+          <ElButton
+            v-permission="['{{permissionPrefix}}.restore']"
+            link
+            type="primary"
+            :disabled="actionLoading"
+            @click="handleRestore(row)"
+          >恢复</ElButton>
+          <ElPopconfirm title="永久删除后不可恢复，确定继续？" @confirm="handlePurge(row)">
+            <template #reference>
+              <ElButton
+                v-permission="['{{permissionPrefix}}.purge']"
+                link
+                type="danger"
+                :disabled="actionLoading"
+              >永久删除</ElButton>
+            </template>
+          </ElPopconfirm>
+        </template>
+      </ElTableColumn>
 VUE, $c) : '';
         $apiImports = $c['softDelete']
             ? "get{$c['entity']}List, get{$c['entity']}RecycleList, restore{$c['entity']}, purge{$c['entity']}, type {$c['entity']}ListRecord"
             : "get{$c['entity']}List, type {$c['entity']}ListRecord";
-        $uiImports = $c['softDelete'] ? 'Message, type TableColumnData' : 'type TableColumnData';
-        $softState = $c['softDelete'] ? "  const showRecycle = ref(false);\n" : '';
+        $uiImports = 'ElAlert, ElButton, ElCard, ElPagination, ElTable, ElTableColumn, vLoading'
+            . ($c['softDelete'] ? ', ElMessage, ElPopconfirm' : '');
+        $asyncImports = $c['softDelete'] ? 'useAsyncList, useAsyncAction' : 'useAsyncList';
+        $filterType = $c['softDelete'] ? '{ recycle: boolean }' : 'Record<string, never>';
+        $initialFilters = $c['softDelete'] ? '{ recycle: false }' : '{}';
+        $filterParameter = $c['softDelete'] ? ', filters' : '';
         $fetchCall = $c['softDelete']
-            ? "(showRecycle.value ? get{$c['entity']}RecycleList : get{$c['entity']}List)"
+            ? "(filters.recycle ? get{$c['entity']}RecycleList : get{$c['entity']}List)"
             : "get{$c['entity']}List";
+        $disabledPagination = $c['softDelete'] ? ' :disabled="actionLoading"' : '';
         $softHandlers = $c['softDelete'] ? self::replace(<<<'TS'
 
+  const showRecycle = computed(() => list.filters.value.recycle);
+  const action = useAsyncAction(() => '操作失败，请重试');
+  const { loading: actionLoading, error: actionError } = action;
   const toggleRecycle = () => {
-    showRecycle.value = !showRecycle.value;
-    fetchData(1);
+    if (actionLoading.value) return;
+    action.cancel();
+    list.clear();
+    list.filters.value.recycle = !showRecycle.value;
+    void fetchData(1);
   };
   const handleRestore = async (record: {{entity}}ListRecord) => {
-    await restore{{entity}}([record.{{primary}}]);
-    Message.success('恢复成功');
-    await fetchData(pagination.current);
+    const result = await action.run(async () => {
+      const response = await restore{{entity}}([record.{{primary}}]);
+      if (response.data.failed.length !== 0) throw new Error('RESTORE_INCOMPLETE');
+    });
+    if (result.status !== 'completed') return;
+    ElMessage.success('恢复成功');
+    await fetchData(pagination.page);
   };
   const handlePurge = async (record: {{entity}}ListRecord) => {
-    await purge{{entity}}([record.{{primary}}]);
-    Message.success('永久删除成功');
-    await fetchData(pagination.current);
+    const result = await action.run(async () => {
+      const response = await purge{{entity}}([record.{{primary}}]);
+      if (response.data.failed.length !== 0) throw new Error('PURGE_INCOMPLETE');
+    });
+    if (result.status !== 'completed') return;
+    ElMessage.success('永久删除成功');
+    await fetchData(pagination.page);
   };
 TS, $c) : '';
-        if ($c['softDelete']) {
-            $columns .= "    { title: '操作', slotName: 'actions', width: 180 },\n";
-        }
         return self::replace(<<<'VUE'
 <template>
-  <a-card class="general-card" title="{{title}}">
-{{recycleToggle}}    <a-table row-key="{{primary}}" :loading="loading" :columns="columns" :data="records"
-      :pagination="pagination" @page-change="fetchData">
-{{actionSlot}}    </a-table>
-  </a-card>
+  <ElCard class="general-card" header="{{title}}">
+{{recycleToggle}}    <ElAlert v-if="error" :title="error" type="error" :closable="false" />
+    <ElButton v-if="error" :disabled="loading" @click="fetchData(pagination.page)">重新加载</ElButton>
+    <ElTable v-loading="loading" row-key="{{primary}}" :data="records">
+      <ElTableColumn
+        v-for="column in columns"
+        :key="column.prop"
+        :prop="column.prop"
+        :label="column.label"
+      />
+{{actionSlot}}      <template #empty>
+        <span role="status">{{ loading ? '正在加载…' : error ? '加载失败' : '暂无数据' }}</span>
+      </template>
+    </ElTable>
+    <ElPagination
+      :current-page="pagination.page"
+      :page-size="pagination.pageSize"
+      :total="pagination.total"{{disabledPagination}}
+      layout="total, prev, pager, next"
+      @current-change="fetchData"
+    />
+  </ElCard>
 </template>
 
-<script lang="ts" setup>
-  import { reactive, ref } from 'vue';
-  import { {{uiImports}} } from '@arco-design/web-vue';
+<script setup lang="ts">
+  import { computed } from 'vue';
+  import { {{uiImports}} } from 'element-plus';
+  import { {{asyncImports}} } from '@peanut-admin/vue';
   import { {{apiImports}} } from './api';
 
-  const loading = ref(false);
-{{softState}}  const records = ref<{{entity}}ListRecord[]>([]);
-  const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
-  const columns: TableColumnData[] = [
+  interface ListColumn {
+    label: string;
+    prop: keyof {{entity}}ListRecord;
+  }
+  const columns: ListColumn[] = [
 {{tableColumns}}  ];
-
-  const fetchData = async (page = 1) => {
-    loading.value = true;
-    try {
-      const response = await {{fetchCall}}({ page_no: page, page_size: pagination.pageSize });
-      records.value = response.data.lists;
-      pagination.total = response.data.count;
-      pagination.current = page;
-    } finally {
-      loading.value = false;
-    }
-  };
-{{softHandlers}}  fetchData();
+  // The public composable isolates late requests and disposes its scope; no page-local request engine.
+  const list = useAsyncList<{{entity}}ListRecord, {{filterType}}>({
+    initialFilters: {{initialFilters}},
+    initialPageSize: 15,
+    load: async ({ page, pageSize{{filterParameter}} }) => {
+      const response = await {{fetchCall}}({ page_no: page, page_size: pageSize });
+      return { items: response.data.lists, total: response.data.count, page, pageSize };
+    },
+    errorMessage: () => '列表加载失败，请重试',
+  });
+  const { items, pagination, loading, error, load: fetchData } = list;
+  const records = computed(() => [...items.value]);
+{{softHandlers}}  void fetchData();
 </script>
 VUE, $c + compact(
             'recycleToggle',
             'actionSlot',
             'apiImports',
             'uiImports',
-            'softState',
+            'asyncImports',
+            'filterType',
+            'initialFilters',
+            'filterParameter',
             'fetchCall',
+            'disabledPagination',
             'softHandlers',
         ) + ['tableColumns' => $columns]);
     }
