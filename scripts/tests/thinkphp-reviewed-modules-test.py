@@ -192,6 +192,69 @@ class ReviewedModulesTest(unittest.TestCase):
         self.save()
         self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
 
+    def test_integration_five_models_match_native_schema_and_private_owner(self):
+        expected = {
+            'IntegrationMachineIdentityRecord': 'pa_integration_machine_identity',
+            'IntegrationWebhookEndpointRecord': 'pa_integration_webhook_endpoint',
+            'IntegrationWebhookDeliveryRecord': 'pa_integration_webhook_delivery',
+            'IntegrationWebhookAttemptRecord': 'pa_integration_webhook_attempt',
+            'IntegrationSecurityEventRecord': 'pa_integration_security_event',
+        }
+        entry = 'PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository'
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tables = {row['table']: row for row in self.registry['tenant_tables']}
+        native, _ = checker.module_table_inventory()
+        declarations = checker.module_php_schema_inventory()
+        self.assertFalse(declarations['gaps'])
+        parsed_tables = {row['table'] for row in declarations['records']}
+        self.assertNotIn(entry, checker.declared_module_exports())
+        self.assertNotIn('PeanutAdmin\\Modules\\Integration\\Contract\\IntegrationSecurityRepository', checker.declared_module_exports())
+        for name, table in expected.items():
+            with self.subTest(model=name):
+                model = 'PeanutAdmin\\Modules\\Integration\\Model\\' + name
+                self.assertEqual(table, models[model]['table'])
+                self.assertEqual('tenant-gateway', models[model]['owner'])
+                self.assertEqual(entry, models[model]['access_entry'])
+                self.assertEqual(entry, tables[table]['access_entry'])
+                self.assertEqual('official.integration', native[table])
+                self.assertIn(table, parsed_tables)
+                self.assertEqual((model, 'PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel'), checker.model_header(checker.composer_model_path(model)))
+
+    def test_integration_authentication_and_system_methods_are_not_tenant_authority(self):
+        entry = 'PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository'
+        contract = self.registry['access_contracts'][entry]
+        self.assertEqual([], checker.access_contract_errors({entry: contract}))
+        self.assertEqual({'machineByDigest', 'touchMachine'}, set(contract['other_operations']))
+        self.assertEqual(['purgeExpiredDeliveryData'], contract['pending_operations'])
+        self.assertTrue({'createMachine', 'rotateMachine', 'enqueueDelivery', 'claimDelivery', 'deliveryRecords'}.issubset(contract['tenant_operations']))
+        report = self.report()
+        self.assertTrue(any(item['entry'] == entry and item['operations'] == ['purgeExpiredDeliveryData'] for item in report['needs_decision']))
+        self.assertNotEqual('ownership_passed', report['status'])
+        self.assertEqual('not_run', report['business_scan'])
+        self.assertIsNone(report['finding_count'])
+
+    def test_integration_scope_review_includes_actual_identity_and_transaction_callers(self):
+        entry = 'PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository'
+        paths = {Path(item['path']).name for item in self.registry['access_contracts'][entry]['support_sources']}
+        self.assertTrue({'MachineIdentityService.php', 'MachineScopeGrantPolicy.php', 'IntegrationAdminApplicationService.php',
+                         'WebhookService.php', 'WebhookDeliveryLogService.php', 'TrustedWebhookPublisher.php',
+                         'WebhookDispatcher.php', 'Schema.php', 'ModuleProvider.php', 'TenantModel.php'}.issubset(paths))
+
+    def test_integration_authentication_caller_drift_invalidates_scope_review(self):
+        entry = 'PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository'
+        caller = next(item for item in self.registry['access_contracts'][entry]['support_sources']
+                      if item['path'].endswith('/Application/MachineIdentityService.php'))
+        caller['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
+    def test_integration_explicit_tenant_data_is_not_global_orm_scope(self):
+        row = next(item for item in self.registry['model_owners'] if item['table'] == 'pa_integration_machine_identity')
+        row['owner'] = 'tenant-orm'
+        self.save()
+        self.assertTrue(any('must extend TenantOwnedModel' in error and 'IntegrationMachineIdentityRecord' in error
+                            for error in checker.ownership_errors()))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

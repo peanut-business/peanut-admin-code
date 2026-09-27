@@ -15,6 +15,29 @@
     "shared": "Immutable or product-wide reference data is shared by design."
   },
   "access_contracts": {
+    "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository": {
+      "source": "application",
+      "path": "server/app/modules/official/integration/src/Infrastructure/Persistence/ThinkPhpIntegrationSecurityRepository.php",
+      "sha256": "40f6738c23bd1ff24b91b6645d6adf34261ce187dd67858934b7b89bac76f8f1",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["createMachine", "machines", "rotateMachine", "revokeMachine", "createEndpoint", "endpoints", "rotateEndpointSecret", "disableEndpoint", "activeEndpointKeysForEvent", "enqueueDelivery", "claimDelivery", "completeDelivery", "failDelivery", "deliveryRecords", "deliveryAttemptRecords"],
+      "other_operations": ["machineByDigest", "touchMachine"],
+      "pending_operations": ["purgeExpiredDeliveryData"],
+      "reason": "后台动作经固定权限/资源/操作用例，租户读取及联表按同一tenant_id；仅主键更新前先在同租户事务内锁定该唯一记录。发布入口拥有入队事务，派发回执沿原租户、尝试次数及租约摘要核验。machineByDigest/touchMachine仅属机器凭证认证链，校验状态/期限/Scope后触达，不由租户登记授权；purgeExpiredDeliveryData跨租户清理载荷及终态证据，已有测试消费者但系统权限入口待A核定，不授权执行或删除。公开导出不包含私有仓储；此登记不证明HTTP、并发锁或真实投递资格。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Application/IntegrationAdminApplicationService.php", "sha256": "55fea003674500371e6a132111306eb6f076f234e2d67a8878320934da797dd2"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Application/MachineIdentityService.php", "sha256": "74cba64eb17a75b0f645cbcdbc7430f5ee86a9703be17d91c80fd9d547ca2d6a"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Application/MachineScopeGrantPolicy.php", "sha256": "068ffb4bf8f5c3b34e3b2538525970a69b785ec1da7ea827c9dd8f07a98490ce"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Application/WebhookService.php", "sha256": "35372da24f3627dda6d5277ae1c3b44cbbbe414e7b9909185bb4bf44be3e182d"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Application/WebhookDeliveryLogService.php", "sha256": "e9934af35566e8a32781e311df247a80f41ebe5392b88f01d6f40c69bcd58eea"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Webhook/TrustedWebhookPublisher.php", "sha256": "bf2121404e55ee3e3783053107028012e504519ba3bfb6970391ecc0e7adb569"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Webhook/TrustedWebhookEvent.php", "sha256": "eb9b59db1e9c918106e85c8ff200fa9f21af735cf54996053ba26bc5b6d313f9"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Webhook/WebhookDispatcher.php", "sha256": "56d6f18dc561ff1fc32a199f41a79cbea98cd9b01d74ac5ab4054ff04111f9d4"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/ModuleProvider.php", "sha256": "49320d550ff0799c826b3e0130337faa04f5f6e3a01b9b082e3d7187abaab06f"},
+        {"source": "application", "path": "server/app/modules/official/integration/src/Database/Schema.php", "sha256": "e392ef2f5dc14061e3f861d86cbaef5b66c7b21e75c4ea21b03ce61d82e5fede"}
+      ]
+    },
     "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore": {
       "source": "application",
       "path": "server/app/modules/official/notification/src/Delivery/Persistence/NotificationStore.php",
@@ -124,6 +147,11 @@
     }
   },
   "model_owners": [
+    {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationMachineIdentityRecord", "table": "pa_integration_machine_identity", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationWebhookEndpointRecord", "table": "pa_integration_webhook_endpoint", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationWebhookDeliveryRecord", "table": "pa_integration_webhook_delivery", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationWebhookAttemptRecord", "table": "pa_integration_webhook_attempt", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationSecurityEventRecord", "table": "pa_integration_security_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
     {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationTemplateRecord", "table": "pa_notification_template", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
     {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationMessageRecord", "table": "pa_notification_message", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
     {"model": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\NotificationAttachmentRecord", "table": "pa_notification_attachment", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
@@ -195,6 +223,11 @@
     {"model": "app\\common\\model\\provider\\ProviderQualificationEvidence", "table": "pa_provider_qualification_evidence", "owner": "instance"}
   ],
   "tenant_tables": [
+    {"table": "pa_integration_machine_identity", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"table": "pa_integration_webhook_endpoint", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"table": "pa_integration_webhook_delivery", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"table": "pa_integration_webhook_attempt", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
+    {"table": "pa_integration_security_event", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
     {"table": "pa_notification_template", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
     {"table": "pa_notification_message", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
     {"table": "pa_notification_attachment", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore"},
@@ -266,10 +299,10 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 69,
-    "tenant_models": 60,
+    "concrete_models": 74,
+    "tenant_models": 65,
     "non_tenant_models": 9,
-    "tenant_tables": 69,
+    "tenant_tables": 74,
     "tenant_tables_without_model": 8
   }
 }
