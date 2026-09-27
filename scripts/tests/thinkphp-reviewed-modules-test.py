@@ -373,6 +373,44 @@ class ReviewedModulesTest(unittest.TestCase):
         self.save()
         self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
 
+    def test_identity_authorization_catalogs_have_native_instance_provenance(self):
+        expected = {
+            'ProtectedResourceRecord': 'pa_protected_resource', 'TargetTypeRecord': 'pa_target_type',
+            'ResourceOperationRecord': 'pa_resource_operation',
+            'ResourceOperationTargetTypeRecord': 'pa_resource_operation_target_type',
+            'ResourceOperationPermissionRecord': 'pa_resource_operation_permission',
+            'DataConditionDefinitionRecord': 'pa_data_condition_definition',
+            'ResourceOperationConditionRecord': 'pa_resource_operation_condition',
+        }
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tables = checker.schema_tenant_tables()
+        owners, roots = checker.module_table_inventory()
+        for name, table in expected.items():
+            with self.subTest(model=name):
+                model = 'PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\' + name
+                item = models[model]
+                self.assertEqual((table, 'instance'), (item['table'], item['owner']))
+                self.assertEqual('official.identity', owners[table])
+                self.assertNotIn(model, checker.declared_module_exports())
+                self.assertEqual([], checker.instance_model_review_errors(item, checker.composer_model_path(model), tables, roots))
+                self.assertEqual('PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema', item['instance_review']['schema_source']['entry'])
+                self.assertTrue(item['instance_review']['schema_source']['migration_sources'])
+
+    def test_changed_native_catalog_migration_requires_reverification(self):
+        item = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_protected_resource')
+        item['instance_review']['schema_source']['migration_sources'][0]['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('INSTANCE_SCHEMA_TRACE' in error for error in checker.ownership_errors()))
+
+    def test_authorization_catalog_metadata_does_not_imply_tenant_grants(self):
+        item = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_data_condition_definition')
+        item['owner'] = 'tenant-orm'
+        self.save()
+        self.assertTrue(any('must extend TenantOwnedModel' in error for error in checker.ownership_errors()))
+        report = self.report()
+        self.assertEqual('not_run', report['business_scan'])
+        self.assertIsNone(report['finding_count'])
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

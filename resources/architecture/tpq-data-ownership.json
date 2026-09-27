@@ -185,6 +185,328 @@
   },
   "model_owners": [
     {
+      "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\ProtectedResourceRecord",
+      "table": "pa_protected_resource",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "资源定义目录；ownership描述被保护资源类型，不是此目录行的租户身份。 依据原生Schema、真实迁移引用与目录读写链确认部署级数据归属；未授权生命周期、跨租户修订失效或公开直接模型访问。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Model/ProtectedResourceRecord.php",
+          "sha256": "36232d2473d9e4f6c40f4af3f2fae74eb39f7595c9853a3d3eba25867527f9e5"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
+          "sha256": "16e426c0a88a4590ef7a638f38283743ba2506637244e25b6184678b823df63b",
+          "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010201_create_pa_protected_resource.php",
+              "sha256": "cfc1dfd7021cd8126ec4c8422b13b454cd2ef53be883865e99c6ffe04ed38527"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\TargetTypeRecord",
+      "table": "pa_target_type",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "目标类型目录，记录解析/查询提供者标识，不是某租户的目标集合。 依据原生Schema、真实迁移引用与目录读写链确认部署级数据归属；未授权生命周期、跨租户修订失效或公开直接模型访问。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Model/TargetTypeRecord.php",
+          "sha256": "d95806f650d496d43d86ee3ab27e52e82e123efc3c50bb707f6b0ef5d874e866"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
+          "sha256": "16e426c0a88a4590ef7a638f38283743ba2506637244e25b6184678b823df63b",
+          "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010202_create_pa_target_type.php",
+              "sha256": "d350597edaa5264638b5b42c55e4b3243bf6fe3bc2e5050680d4801a65ea5a56"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\ResourceOperationRecord",
+      "table": "pa_resource_operation",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "资源与操作定义关系，引用部署资源目录，不保存人员或租户授权。 依据原生Schema、真实迁移引用与目录读写链确认部署级数据归属；未授权生命周期、跨租户修订失效或公开直接模型访问。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Model/ResourceOperationRecord.php",
+          "sha256": "a3d5114c64b3c12b60e752261ad36b659b406bd9a32be7ac32c2ade3be6b3152"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
+          "sha256": "16e426c0a88a4590ef7a638f38283743ba2506637244e25b6184678b823df63b",
+          "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010203_create_pa_resource_operation.php",
+              "sha256": "9d8d835f7c7fdb3b5e8daf79551df3f27856e72b2de842c499d6dd503a1a83bd"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\ResourceOperationTargetTypeRecord",
+      "table": "pa_resource_operation_target_type",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "操作与目标类型目录关系，引用定义及权限键目录，不是已授权的实际目标。 依据原生Schema、真实迁移引用与目录读写链确认部署级数据归属；未授权生命周期、跨租户修订失效或公开直接模型访问。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Model/ResourceOperationTargetTypeRecord.php",
+          "sha256": "722a328082d03e395a7446d780f1165b67461568cb0140de0ed178324312fa7e"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
+          "sha256": "16e426c0a88a4590ef7a638f38283743ba2506637244e25b6184678b823df63b",
+          "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010204_create_pa_resource_operation_target_type.php",
+              "sha256": "35a72756586b4ca6a66de380ae80c88eb8fc575b22e5632063649fdbe88c56a2"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\ResourceOperationPermissionRecord",
+      "table": "pa_resource_operation_permission",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "操作要求的权限目录关系；权限要求不等于给人员授予权限。 依据原生Schema、真实迁移引用与目录读写链确认部署级数据归属；未授权生命周期、跨租户修订失效或公开直接模型访问。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Model/ResourceOperationPermissionRecord.php",
+          "sha256": "62606597291ae5e880345735f5e96afc68f81ffd57a1ac2a8002d7cd79d59fd2"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
+          "sha256": "16e426c0a88a4590ef7a638f38283743ba2506637244e25b6184678b823df63b",
+          "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010205_create_pa_resource_operation_permission.php",
+              "sha256": "7b05aaaee48fb5bfb7efa2bee37e42eec95fe7ee48a504289f82bbfb48995884"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\DataConditionDefinitionRecord",
+      "table": "pa_data_condition_definition",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "条件类型及配置模式目录，不是租户的DataPermissionPolicy或Condition实例。 依据原生Schema、真实迁移引用与目录读写链确认部署级数据归属；未授权生命周期、跨租户修订失效或公开直接模型访问。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Model/DataConditionDefinitionRecord.php",
+          "sha256": "01cf542f079965e8258f487750fcfdd0fafde8a3d0d5232df13fcddf99b5f67e"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
+          "sha256": "16e426c0a88a4590ef7a638f38283743ba2506637244e25b6184678b823df63b",
+          "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010206_create_pa_data_condition_definition.php",
+              "sha256": "1d947538ad7a7b4b80bd8ade57beeb1d758e74a3db1d35ad982dc533ac07608f"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\ResourceOperationConditionRecord",
+      "table": "pa_resource_operation_condition",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "操作允许的条件类型目录关系，不是人员范围计算或租户策略实例。 依据原生Schema、真实迁移引用与目录读写链确认部署级数据归属；未授权生命周期、跨租户修订失效或公开直接模型访问。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Model/ResourceOperationConditionRecord.php",
+          "sha256": "79c36022b1a89efd535ead9e53445f3daeebe4a88d48f34b8897e06113797c15"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
+          "sha256": "16e426c0a88a4590ef7a638f38283743ba2506637244e25b6184678b823df63b",
+          "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\Schema\\AuthorizationSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010207_create_pa_resource_operation_condition.php",
+              "sha256": "58321e8ceccfbd199d80c64bcd915834666770435b1f7cc9e009227189ecc9a1"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
       "model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeSetRecord",
       "table": "pa_reference_code_set",
       "owner": "instance",
@@ -390,9 +712,9 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 79,
+    "concrete_models": 86,
     "tenant_models": 67,
-    "non_tenant_models": 12,
+    "non_tenant_models": 19,
     "tenant_tables": 74,
     "tenant_tables_without_model": 6
   }

@@ -178,6 +178,63 @@ class InstanceRegistrationTest(unittest.TestCase):
             self.item['instance_review'][key] = 'not-evidence'
             self.assertTrue(self.errors())
 
+    def native_schema_proof(self):
+        schema = self.module_root + '/src/Schema.php'
+        self.write(schema, '''<?php
+namespace Fixture;
+use InvalidArgumentException;
+final class Schema {
+ private const CREATE_SQL = ['pa_catalog' => 'CREATE TABLE `pa_catalog` (`id` BIGINT) ENGINE=InnoDB'];
+ public static function tableNames(): array { return array_keys(self::CREATE_SQL); }
+ public static function createSql(string $table): string { return self::CREATE_SQL[$table] ?? throw new InvalidArgumentException('Unknown table'); }
+ public static function dropSql(string $table): string { return "DROP TABLE `{$table}`"; }
+}
+''')
+        migration = 'server/database/kernel-migrations/catalog.php'
+        self.write(migration, '''<?php
+use Fixture\\Schema;
+use think\\migration\\Migrator;
+final class CreateCatalog extends Migrator {
+ public function up(): void { $this->execute(Schema::createSql('pa_catalog')); }
+ public function down(): void { $this->execute(Schema::dropSql('pa_catalog')); }
+}
+''')
+        self.item['instance_review']['schema_source'] = dict(self.proof(schema), entry='Fixture\\Schema', migration_sources=[
+            {'path': migration, 'sha256': hashlib.sha256((self.root / migration).read_bytes()).hexdigest()},
+        ])
+        return schema, migration
+
+    def test_native_php_schema_requires_an_actual_migration_trace(self):
+        self.native_schema_proof()
+        self.assertEqual([], self.errors())
+
+    def test_nowdoc_schema_type_identity_uses_the_native_parser(self):
+        schema, _ = self.native_schema_proof()
+        text = (self.root / schema).read_text().replace("'CREATE TABLE `pa_catalog` (`id` BIGINT) ENGINE=InnoDB'", "<<<'SQL'\nCREATE TABLE `pa_catalog` (`id` BIGINT) ENGINE=InnoDB\nSQL\n")
+        self.write(schema, text)
+        self.item['instance_review']['schema_source']['sha256'] = hashlib.sha256((self.root / schema).read_bytes()).hexdigest()
+        self.assertEqual([], self.errors())
+
+    def test_orphan_schema_is_not_a_native_instance_proof(self):
+        _, migration = self.native_schema_proof()
+        (self.root / migration).unlink()
+        self.assertTrue(self.errors())
+
+    def test_modified_native_reference_invalidates_instance_proof(self):
+        _, migration = self.native_schema_proof()
+        self.write(migration, (self.root / migration).read_text() + '\n// changed source\n')
+        self.assertTrue(self.errors())
+
+    def test_schema_reference_digest_is_not_optional(self):
+        self.native_schema_proof()
+        self.item['instance_review']['schema_source']['migration_sources'] = []
+        self.assertTrue(self.errors())
+
+    def test_native_schema_class_must_match_its_declared_reference(self):
+        self.native_schema_proof()
+        self.item['instance_review']['schema_source']['entry'] = 'Fixture\\OtherSchema'
+        self.assertTrue(self.errors())
+
     def test_symlink_model_evidence_is_not_followed(self):
         target = self.root / self.path
         target.unlink()

@@ -235,6 +235,67 @@ final class Adopt extends Migrator {
         self.assert_gap()
 
 
+class HostMigrationCoverageTest(MigrationCoverageTest):
+    # Host cases share the same source-only fixture, not a second PHP parser.
+    def setUp(self):
+        super().setUp()
+        (self.root / self.migration).unlink()
+        self.migration = 'server/database/kernel-migrations/create.php'
+        self.write(self.migration, self.literal_migration())
+
+    def inventory(self):
+        return checker.host_php_schema_inventory()
+
+    def test_host_class_constant_reference_is_exactly_resolved(self):
+        text = self.literal_migration().replace('extends Migrator {', "extends Migrator { protected const TABLE = 'pa_one';")
+        text = text.replace("createSql('pa_one')", 'createSql(self::TABLE)').replace("dropSql('pa_one')", 'dropSql(self::TABLE)')
+        self.write(self.migration, text)
+        self.assertEqual({}, self.inventory()['gaps'])
+        self.assertEqual(['pa_one'], [row['table'] for row in self.inventory()['records']])
+
+    def test_host_dynamic_constant_cannot_be_evaluated(self):
+        text = self.literal_migration().replace('extends Migrator {', "extends Migrator { protected const TABLE = OTHER_TABLE;")
+        self.write(self.migration, text.replace("createSql('pa_one')", 'createSql(self::TABLE)'))
+        self.assert_gap()
+
+    def test_host_alter_program_remains_an_explicit_gap(self):
+        self.write(self.migration, self.literal_migration().replace("NativeSchema::createSql('pa_one')", '"ALTER TABLE `pa_one` ADD COLUMN `tenant_id` BIGINT"'))
+        self.assert_gap()
+
+    def test_native_schema_map_guard_return_shape_is_recognized(self):
+        text = self.map_schema().replace('return self::CREATE_SQL[$table] ?? throw new InvalidArgumentException("Unknown: {$table}");', '$sql = self::CREATE_SQL[$table] ?? null; if ($sql === null) { throw new InvalidArgumentException("Unknown: {$table}"); } return $sql;')
+        self.write(self.schema, text)
+        self.assertEqual({}, self.inventory()['gaps'])
+
+    def test_guarded_map_wrong_return_or_extra_statement_is_incomplete(self):
+        source = self.map_schema().replace('return self::CREATE_SQL[$table] ?? throw new InvalidArgumentException("Unknown: {$table}");', '$sql = self::CREATE_SQL[$table] ?? null; if ($sql === null) { throw new InvalidArgumentException("Unknown: {$table}"); } return $other;')
+        self.write(self.schema, source)
+        self.assert_gap()
+        self.write(self.schema, source.replace('return $other;', 'dynamicChange(); return $sql;'))
+        self.assert_gap()
+
+    def test_host_canonical_schema_is_not_required_or_guessed_from_vendor(self):
+        (self.root / self.schema).unlink()
+        self.schema = 'server/database/schema/Schema.php'
+        self.write(self.schema, self.map_schema())
+        self.write('server/composer.json', json.dumps({'autoload': {'psr-4': {}}}))
+        self.assertEqual({}, self.inventory()['gaps'])
+        self.assertEqual(self.schema, self.inventory()['records'][0]['schema_path'])
+
+    def test_host_canonical_filename_case_is_exact(self):
+        (self.root / self.schema).unlink()
+        self.write('server/database/schema/schema.php', self.map_schema())
+        self.write('server/composer.json', json.dumps({'autoload': {'psr-4': {}}}))
+        self.assert_gap()
+
+    def test_application_migration_root_is_also_inspected(self):
+        (self.root / self.migration).unlink()
+        self.migration = 'server/database/migrations/create.php'
+        self.write(self.migration, self.literal_migration())
+        self.assertEqual({}, self.inventory()['gaps'])
+        self.assertEqual(1, self.inventory()['migration_count'])
+
+
 class ActualMigrationCoverageTest(unittest.TestCase):
     def test_selected_source_resolves_the_six_native_migrations(self):
         with checker.ownership_source_snapshot(OPTIONS.source_ref):
@@ -247,6 +308,27 @@ class ActualMigrationCoverageTest(unittest.TestCase):
             self.assertEqual(expected, {row['table'] for row in result['records']})
             self.assertTrue(all(row['tenant_column'] for row in result['records']))
             self.assertTrue(all(row['schema_sha256'] and row['migration_sha256'] for row in result['records']))
+
+
+class ActualHostMigrationCoverageTest(unittest.TestCase):
+    def test_host_sources_are_not_silently_omitted_from_the_module_count(self):
+        with checker.ownership_source_snapshot(OPTIONS.source_ref):
+            host = checker.host_php_schema_inventory()
+            self.assertEqual(35, host['migration_count'])
+            self.assertEqual(31, len(host['records']))
+            expected = {
+                '20260716010111_add_pa_tenant_member_department_foreign_key.php',
+                '20260716010403_add_auth_event_ip_index.php',
+                '20260716010404_add_zero_or_one_cardinality.php',
+                '20260718010101_generalize_pa_tenant_clients.php',
+            }
+            self.assertEqual(expected, {Path(path).name for path in host['gaps']})
+            self.assertTrue({'pa_protected_resource', 'pa_target_type', 'pa_resource_operation',
+                             'pa_resource_operation_target_type', 'pa_resource_operation_permission',
+                             'pa_data_condition_definition', 'pa_resource_operation_condition'}
+                            .issubset({row['table'] for row in host['records']}))
+            self.assertEqual(6, checker.module_php_schema_inventory()['migration_count'])
+            self.assertTrue(set(host['gaps']).issubset(checker.schema_coverage_gaps()))
 
 
 if __name__ == '__main__':
