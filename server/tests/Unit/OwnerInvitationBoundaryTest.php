@@ -3,8 +3,6 @@
 declare(strict_types=1);
 
 use app\common\services\audit\AuditContractHost;
-use app\platform\context\PlatformOperatorContext;
-use app\platform\services\PlatformOperatorSessionService;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Kernel\Authorization\AuthorizationException;
@@ -14,7 +12,6 @@ use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
-use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Modules\Identity\Invitation\OneTimeInvitationToken;
 use PeanutAdmin\Modules\Identity\Invitation\OwnerInvitationDelivery;
@@ -39,8 +36,8 @@ final class OwnerInvitationBoundaryTest extends TestCase
     private PDO $database;
     private TenantOwnerInvitationAdminService $admin;
     private TenantOwnerInvitationPublicService $public;
-    private PlatformOperatorContext $context;
-    private PlatformOperatorSessionService $sessions;
+    private PlatformContext $context;
+    private PlatformAuthorizationEvaluator $authorization;
     private AuditContractHost $audit;
     private array $permissions = ['platform.tenant.create', 'platform.tenant.provision-owner'];
     private array $provisioned = [];
@@ -73,8 +70,8 @@ final class OwnerInvitationBoundaryTest extends TestCase
         $repository = $this->createStub(PlatformAuthorizationRepository::class);
         $repository->method('revision')->willReturnCallback(fn(int $id): string => hash('sha256', implode(',', $this->permissions)));
         $repository->method('permissions')->willReturnCallback(fn(int $id): EffectivePermissionSet => new EffectivePermissionSet($this->permissions));
-        $this->sessions = new PlatformOperatorSessionService((new ReflectionClass(PlatformAuthService::class))->newInstanceWithoutConstructor(), new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()), $repository);
-        $this->context = PlatformOperatorContext::fromValidatedPlatformSession(PlatformContext::fromValidatedSession(new ValidatedPlatformSession(1, 'fixture-session', 101, 11, 'platform-web', new DateTimeImmutable('2031-01-01T00:00:00Z')), 'owner-invitation-test'));
+        $this->authorization = new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache());
+        $this->context = PlatformContext::fromValidatedSession(new ValidatedPlatformSession(1, 'fixture-session', 101, 11, 'platform-web', new DateTimeImmutable('2031-01-01T00:00:00Z')), 'owner-invitation-test');
         $this->audit = new AuditContractHost(null);
         $this->admin = $this->adminWith(new UnavailableOwnerInvitationDeliveryPort(), OwnerInvitationRuntimePolicy::fromEnvironment('development'));
         $bootstrap = $this->createStub(TenantOwnerAdminProvisioner::class);
@@ -90,7 +87,7 @@ final class OwnerInvitationBoundaryTest extends TestCase
 
     private function adminWith(OwnerInvitationDeliveryPort $delivery, OwnerInvitationRuntimePolicy $policy): TenantOwnerInvitationAdminService
     {
-        return new TenantOwnerInvitationAdminService((new ReflectionClass(PlatformTenantAdminService::class))->newInstanceWithoutConstructor(), $this->sessions, $delivery, $policy, $this->audit);
+        return new TenantOwnerInvitationAdminService((new ReflectionClass(PlatformTenantAdminService::class))->newInstanceWithoutConstructor(), $this->authorization, $delivery, $policy, $this->audit);
     }
 
     private function invite(int $tenant = 1, string $email = 'new@example.test'): array
@@ -116,6 +113,32 @@ final class OwnerInvitationBoundaryTest extends TestCase
             self::assertContains($type, $manifest['contracts']['exports']);
         }
         self::assertFileDoesNotExist(dirname(__DIR__, 2) . '/app/platform/invitation/TenantOwnerInvitationAdminService.php');
+    }
+
+    public function testAllInvitationActionsRequireTheCoreContextRatherThanTheHttpWrapper(): void
+    {
+        $class = new ReflectionClass($this->admin);
+        foreach (['provision', 'invite', 'invitations', 'resend', 'revoke'] as $method) {
+            self::assertSame(PlatformContext::class, $class->getMethod($method)->getParameters()[0]->getType()->getName());
+        }
+        self::assertSame($this->authorization, $class->getProperty('authorization')->getValue($this->admin));
+        self::assertStringNotContainsString('PlatformOperatorSessionService', file_get_contents($class->getFileName()));
+        $controller = file_get_contents(dirname(__DIR__, 2) . '/app/platform/controller/PlatformTenantInvitationController.php');
+        self::assertSame(5, substr_count($controller, '$this->platformContext->core,'));
+    }
+
+    public function testProvisionRequiresBothOriginalPermissionsBeforeTenantCreation(): void
+    {
+        foreach ([[], ['platform.tenant.create'], ['platform.tenant.provision-owner']] as $allowed) {
+            $this->permissions = $allowed;
+            try {
+                $this->admin->provision($this->context, 'new-tenant', 'New tenant', 'new@example.test', 'Owner', 24);
+                self::fail('An incomplete permission set issued an owner invitation.');
+            } catch (AuthorizationException) {
+                self::assertSame(3, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant')->fetchColumn());
+                self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_owner_invitation')->fetchColumn());
+            }
+        }
     }
 
     public function testIssuanceStoresOnlyHashAndInspectionDoesNotExposeEmailOrToken(): void
@@ -257,11 +280,11 @@ final class OwnerInvitationBoundaryTest extends TestCase
         $second = $this->invite();
         $this->database->exec("UPDATE pa_tenant_owner_invitation SET expires_at='2000-01-01 00:00:00.000' WHERE id=" . $second['id']);
         $firstPage = $this->admin->invitations($this->context, 1, new PageRequest(1, 1));
-        $secondPage = $this->admin->invitations($this->context, 1, new PageRequest(2,1));
-        self::assertSame(2,$firstPage['total']);
-        self::assertSame('expired',$firstPage['items'][0]['status']);
-        self::assertSame('revoked',$secondPage['items'][0]['status']);
-        self::assertArrayNotHasKey('token_hash',$firstPage['items'][0]);
-        self::assertSame(0,$this->admin->invitations($this->context,2,new PageRequest())['total']);
+        $secondPage = $this->admin->invitations($this->context, 1, new PageRequest(2, 1));
+        self::assertSame(2, $firstPage['total']);
+        self::assertSame('expired', $firstPage['items'][0]['status']);
+        self::assertSame('revoked', $secondPage['items'][0]['status']);
+        self::assertArrayNotHasKey('token_hash', $firstPage['items'][0]);
+        self::assertSame(0, $this->admin->invitations($this->context, 2, new PageRequest())['total']);
     }
 }

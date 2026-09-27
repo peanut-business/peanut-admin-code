@@ -657,7 +657,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d2d5b7d872f5e3a0c6491f64cf40c59d135abf784552642be2781744d0de5c11"
+            "source_sha256": "1800e632217199f97fc0129c8115f9ee98d6ad03b46797f7d2f4676a8bfde468"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "343ea48a9ba2a3863c727512be7d810ac9465e542f3b7e2ed4d35f00e85a6f57"
+            "source_sha256": "e98a06975ccc2a07c0b99885e2bc5f6e6e1e95891f4c9154e74a8ce410c3ea8b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "31ee6dc7b5d56ac0297199d410b1847eab89c3b606e092c351001b5f75c400d3"
+            "source_sha256": "35c5cc3a167ead90e58e16f069f76daa97a8963ffa146d41949fb6b1974b14a8"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -11102,7 +11102,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "685afad52b3ed04c6a7aaf26965b032b2a3532243c6c46eb571e82fb32c10b53"
+            "source_sha256": "a3ca53b343d8e70d933b7054053059d4f415d0863b05befc722740b7354e2ca5"
         },
         {
             "path": "server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationException.php",
@@ -20911,7 +20911,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b126c9a0c89e1edbe4a4d69fa9f270eb7a1a4afc74c072d8c65f9cae4b38f729"
+            "source_sha256": "106e22849226fcf6d0d101d85300e2d2fb493e6d6dd8d5136ec8454abfb8849a"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantModuleController.php",

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Invitation;
 
 use app\common\services\audit\AuditContractHost;
-use app\platform\context\PlatformOperatorContext;
-use app\platform\services\PlatformOperatorSessionService;
+use PeanutAdmin\Kernel\Context\PlatformContext;
+use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
@@ -24,7 +24,7 @@ final class TenantOwnerInvitationAdminService
 
     public function __construct(
         private readonly PlatformTenantAdminService $tenants,
-        private readonly PlatformOperatorSessionService $sessions,
+        private readonly PlatformAuthorizationEvaluator $authorization,
         private readonly OwnerInvitationDeliveryPort $delivery,
         private readonly OwnerInvitationRuntimePolicy $runtimePolicy,
         private readonly AuditContractHost $audit,
@@ -32,15 +32,15 @@ final class TenantOwnerInvitationAdminService
 
     /** @return array<string,mixed> */
     public function provision(
-        PlatformOperatorContext $context,
+        PlatformContext $context,
         string $tenantCode,
         string $tenantName,
         string $ownerEmail,
         string $ownerDisplayName,
         int $expiresInHours,
     ): array {
-        $this->sessions->assertAllowed($context, self::CREATE_PERMISSION);
-        $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
+        $this->authorization->assertAllowed($context, self::CREATE_PERMISSION);
+        $this->authorization->assertAllowed($context, self::INVITE_PERMISSION);
         $this->runtimePolicy->assertIssuanceAllowed($this->delivery);
         $email = EmailAddress::fromString($ownerEmail)->value();
         $token = OneTimeInvitationToken::issue();
@@ -56,7 +56,7 @@ final class TenantOwnerInvitationAdminService
             $expiresAt
         ): array {
             $tenant = $this->tenants->createTenant(
-                $context->core,
+                $context,
                 $tenantCode,
                 $tenantName,
                 $tenantName,
@@ -70,14 +70,14 @@ final class TenantOwnerInvitationAdminService
                 $ownerDisplayName,
                 $token,
                 $expiresAt,
-                $context->core->operatorId,
+                $context->operatorId,
             );
             $this->audit->recordPlatform(
                 'tenant.owner-invitation.created',
                 self::INVITE_PERMISSION,
-                $context->core->requestId,
-                $context->core->operatorId,
-                $context->core->accountId,
+                $context->requestId,
+                $context->operatorId,
+                $context->accountId,
                 ['tenant_id' => $tenantId, 'invitation_id' => $invitation['id']],
                 AuditOutcome::Success,
                 null,
@@ -95,13 +95,13 @@ final class TenantOwnerInvitationAdminService
 
     /** @return array<string,mixed> */
     public function invite(
-        PlatformOperatorContext $context,
+        PlatformContext $context,
         int $tenantId,
         string $ownerEmail,
         string $ownerDisplayName,
         int $expiresInHours,
     ): array {
-        $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
+        $this->authorization->assertAllowed($context, self::INVITE_PERMISSION);
         $this->runtimePolicy->assertIssuanceAllowed($this->delivery);
         $email = EmailAddress::fromString($ownerEmail)->value();
         $token = OneTimeInvitationToken::issue();
@@ -138,14 +138,14 @@ final class TenantOwnerInvitationAdminService
                 $ownerDisplayName,
                 $token,
                 $expiresAt,
-                $context->core->operatorId,
+                $context->operatorId,
             );
             $this->audit->recordPlatform(
                 'tenant.owner-invitation.created',
                 self::INVITE_PERMISSION,
-                $context->core->requestId,
-                $context->core->operatorId,
-                $context->core->accountId,
+                $context->requestId,
+                $context->operatorId,
+                $context->accountId,
                 ['tenant_id' => $tenantId, 'invitation_id' => $invitation['id']],
                 AuditOutcome::Success,
                 null,
@@ -163,11 +163,11 @@ final class TenantOwnerInvitationAdminService
 
     /** @return array{items:list<array<string,mixed>>,total:int} */
     public function invitations(
-        PlatformOperatorContext $context,
+        PlatformContext $context,
         int $tenantId,
         PageRequest $page,
     ): array {
-        $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
+        $this->authorization->assertAllowed($context, self::INVITE_PERMISSION);
         $query = Db::name('tenant_owner_invitation')->where('tenant_id', $tenantId);
         $items = (clone $query)
             ->field('id,tenant_id,email_normalized AS email,display_name,delivery_status,delivery_provider,delivery_attempts,delivery_error_code,generation,expires_at,accepted_at,revoked_at,accepted_account_id,accepted_member_id,invited_by_operator_id,revoked_by_operator_id,created_at,updated_at')
@@ -182,11 +182,11 @@ final class TenantOwnerInvitationAdminService
 
     /** @return array<string,mixed> */
     public function resend(
-        PlatformOperatorContext $context,
+        PlatformContext $context,
         int $invitationId,
         int $expiresInHours,
     ): array {
-        $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
+        $this->authorization->assertAllowed($context, self::INVITE_PERMISSION);
         $this->runtimePolicy->assertIssuanceAllowed($this->delivery);
         $token = OneTimeInvitationToken::issue();
         $expiresAt = $this->expiry($expiresInHours);
@@ -222,9 +222,9 @@ final class TenantOwnerInvitationAdminService
             $this->audit->recordPlatform(
                 'tenant.owner-invitation.resent',
                 self::INVITE_PERMISSION,
-                $context->core->requestId,
-                $context->core->operatorId,
-                $context->core->accountId,
+                $context->requestId,
+                $context->operatorId,
+                $context->accountId,
                 ['tenant_id' => (int) $invitation['tenant_id'], 'invitation_id' => $invitationId],
                 AuditOutcome::Success,
                 null,
@@ -248,9 +248,9 @@ final class TenantOwnerInvitationAdminService
     }
 
     /** @return array{id:int,tenant_id:int,status:string} */
-    public function revoke(PlatformOperatorContext $context, int $invitationId): array
+    public function revoke(PlatformContext $context, int $invitationId): array
     {
-        $this->sessions->assertAllowed($context, self::INVITE_PERMISSION);
+        $this->authorization->assertAllowed($context, self::INVITE_PERMISSION);
 
         return Db::transaction(function () use ($context, $invitationId): array {
             $invitation = $this->lockInvitationById($invitationId);
@@ -265,15 +265,15 @@ final class TenantOwnerInvitationAdminService
             Db::name('tenant_owner_invitation')->where('id', $invitationId)->where('status', 'pending')->update([
                 'status' => 'revoked',
                 'revoked_at' => $now,
-                'revoked_by_operator_id' => $context->core->operatorId,
+                'revoked_by_operator_id' => $context->operatorId,
                 'updated_at' => $now,
             ]);
             $this->audit->recordPlatform(
                 'tenant.owner-invitation.revoked',
                 self::INVITE_PERMISSION,
-                $context->core->requestId,
-                $context->core->operatorId,
-                $context->core->accountId,
+                $context->requestId,
+                $context->operatorId,
+                $context->accountId,
                 ['tenant_id' => (int) $invitation['tenant_id'], 'invitation_id' => $invitationId],
                 AuditOutcome::Success,
                 null,
