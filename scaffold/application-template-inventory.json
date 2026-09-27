@@ -2607,7 +2607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0edafc06d47ba0ad5a2680d4fd550441ea47b1b70618bd67962f6284ef87d1ca"
+            "source_sha256": "efd2157159087816b6c3a12e8eee6783548eba7e138c49225e60fcce2b860f3d"
         },
         {
             "path": "resources/architecture/tpq-issue-register.json",
@@ -2891,7 +2891,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c9c4f54b26fe802c829aef749ec10f8c7c1f35e18494d8a0afca50757e4ff2ef"
+            "source_sha256": "0f94d99b7e1f08ca0318fdd0b2b82f2444c2b1e6d9d09da041a286396b8e3e10"
         },
         {
             "path": "scripts/ci-change-classifier",
@@ -4045,6 +4045,20 @@
             "source_sha256": "afe42f80a1b3fff942a564484c1ce3b5f091d1d77a48cdf6f8b7a8ae4c485ae6"
         },
         {
+            "path": "scripts/tests/thinkphp-alter-coverage-test.py",
+            "target": "scripts/tests/thinkphp-alter-coverage-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ca7c01afc6daa4efdc349bce323f597a6a21e110ec17340e55c4daf0a0e62f8b"
+        },
+        {
             "path": "scripts/tests/thinkphp-current-ownership-test.py",
             "target": "scripts/tests/thinkphp-current-ownership-test.py",
             "classification": "managed",
@@ -4057,6 +4071,48 @@
                 "full"
             ],
             "source_sha256": "c01d1df9b4d73d95e4ca5fe808faa0913c1f97ae6e44afa6dd87d71e8e11ec80"
+        },
+        {
+            "path": "scripts/tests/thinkphp-instance-registration-test.py",
+            "target": "scripts/tests/thinkphp-instance-registration-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "278f1ddd1a8e978e13e7e13fd13d386ad1f2d647ef26c8837838c87c2eb21751"
+        },
+        {
+            "path": "scripts/tests/thinkphp-migration-coverage-test.py",
+            "target": "scripts/tests/thinkphp-migration-coverage-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9a6f701868c207fd19b5d8688c95288b904672ba099419ed8d2a8fa0a39efcee"
+        },
+        {
+            "path": "scripts/tests/thinkphp-named-tenancy-test.py",
+            "target": "scripts/tests/thinkphp-named-tenancy-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d205c7805dd0bebe9f617460061a841fab58633efc41b8cfb41f6059fe831be1"
         },
         {
             "path": "scripts/tests/thinkphp-ownership-registration-test.py",
@@ -4073,6 +4129,48 @@
             "source_sha256": "27752ae45473c225029d0cd28d1a6ef24faebeceb08710591b31b3a776d8f584"
         },
         {
+            "path": "scripts/tests/thinkphp-parent-ownership-test.py",
+            "target": "scripts/tests/thinkphp-parent-ownership-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "dc0bdf5224b503b8ab50b78b9f04e3c8dfd29ae181ee5306a287f82af7e96375"
+        },
+        {
+            "path": "scripts/tests/thinkphp-parent-runtime-test.php",
+            "target": "scripts/tests/thinkphp-parent-runtime-test.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5c6740eadf5fd83d449e7591eb1166d69766e5241213326f1569f75da72433da"
+        },
+        {
+            "path": "scripts/tests/thinkphp-parent-runtime-test.py",
+            "target": "scripts/tests/thinkphp-parent-runtime-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0d997d0a0048b9ee2fc6cb45a4f500a86930db45cf524950a303cdbd5b9b8771"
+        },
+        {
             "path": "scripts/tests/thinkphp-reviewed-modules-test.py",
             "target": "scripts/tests/thinkphp-reviewed-modules-test.py",
             "classification": "managed",
@@ -4084,7 +4182,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c234688282087940f5a752b4947a8ebfafffc2e58069f9fa6bd1a5bf0d9d4e13"
+            "source_sha256": "ee030a2a036c9a79c7c8a37de62519dd5b0a23242b7c026db365c518d826f30d"
         },
         {
             "path": "scripts/tests/thinkphp-scoped-access-test.py",
@@ -4113,6 +4211,20 @@
                 "full"
             ],
             "source_sha256": "a5673077d9e1d620589901877aca7e0a93a0392c9f6395913bcd9b3c2394d5ce"
+        },
+        {
+            "path": "scripts/tests/thinkphp-usecase-registration-test.py",
+            "target": "scripts/tests/thinkphp-usecase-registration-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c7caa88470c68ea5656d2986cd0c8c2396443f0502b09af4e8486c9a8d7e4149"
         },
         {
             "path": "scripts/tests/uniapp-request-boundary-test.mjs",
