@@ -411,6 +411,53 @@ class ReviewedModulesTest(unittest.TestCase):
         self.assertEqual('not_run', report['business_scan'])
         self.assertIsNone(report['finding_count'])
 
+    def test_reference_entry_uses_its_private_scoped_store(self):
+        model = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryRecord'
+        entry = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore'
+        row = next(item for item in self.registry['model_owners'] if item['model'] == model)
+        table = next(item for item in self.registry['tenant_tables'] if item['table'] == 'pa_reference_code_entry')
+        self.assertEqual(('pa_reference_code_entry', 'tenant-gateway', entry), (row['table'], row['owner'], row['access_entry']))
+        self.assertEqual(entry, table['access_entry'])
+        self.assertEqual((model, 'PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel'), checker.model_header(checker.composer_model_path(model)))
+        self.assertNotIn(entry, checker.declared_module_exports())
+        self.assertEqual([], checker.access_contract_errors({entry: self.registry['access_contracts'][entry]}))
+        self.assertNotIn(model, self.report()['missing_models'])
+
+    def test_reference_revalidated_snapshot_pins_both_membership_boundaries(self):
+        entry = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore'
+        contract = self.registry['access_contracts'][entry]
+        self.assertEqual({'create', 'replace', 'retire', 'snapshot'}, set(contract['tenant_operations']))
+        self.assertEqual({'atomically', 'synchronize', 'assertCurrentDefinition', 'definitionSummaries'}, set(contract['other_operations']))
+        self.assertFalse(contract['pending_operations'])
+        paths = {Path(item['path']).name for item in contract['support_sources']}
+        self.assertTrue({'AdminDirectoryQuery.php', 'TenantMemberDirectory.php', 'ThinkPhpTenantMemberDirectory.php',
+                         'ModuleProvider.php', 'ReferenceCodesHttpApplicationService.php', 'ReferenceCodeAdminService.php',
+                         'ReferenceCodeQuery.php'}.issubset(paths))
+        source, _ = checker.reviewed_source(contract)
+        self.assertIn('function memberBelongsToTenant(', checker.php_structure(source.read_text()))
+        self.assertIn('PeanutAdmin\\Modules\\Identity\\Contract\\AdminDirectoryQuery', checker.declared_module_exports())
+
+    def test_reference_membership_dependency_drift_is_not_auto_approved(self):
+        entry = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore'
+        contract = self.registry['access_contracts'][entry]
+        proof = next(item for item in contract['support_sources'] if item['path'].endswith('/AdminDirectoryQuery.php'))
+        proof['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
+    def test_reference_tenant_entry_is_not_automatic_global_scope(self):
+        row = next(item for item in self.registry['model_owners'] if item['table'] == 'pa_reference_code_entry')
+        row['owner'] = 'tenant-orm'
+        self.save()
+        self.assertTrue(any('must extend TenantOwnedModel' in error and 'ReferenceCodeEntryRecord' in error
+                            for error in checker.ownership_errors()))
+
+    def test_reference_snapshot_cannot_disappear_from_method_roles(self):
+        entry = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore'
+        contract = self.registry['access_contracts'][entry]
+        contract['tenant_operations'].remove('snapshot')
+        self.assertTrue(any('ACCESS_METHOD_COVERAGE' in error for error in checker.access_contract_errors({entry: contract})))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

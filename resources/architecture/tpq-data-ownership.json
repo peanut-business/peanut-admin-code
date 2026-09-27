@@ -15,6 +15,27 @@
     "shared": "Immutable or product-wide reference data is shared by design."
   },
   "access_contracts": {
+    "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore": {
+      "source": "application",
+      "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php",
+      "sha256": "0e0fcaa92967afbe910b2dd14056e04d2699a871ba1a01aae4ae1599a0803790",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": ["create", "replace", "retire", "snapshot"],
+      "other_operations": ["atomically", "synchronize", "assertCurrentDefinition", "definitionSummaries"],
+      "pending_operations": [],
+      "reason": "租户条目按可信TenantContext、set_id和code读取；修改前核活动读取者/写入者的账号与授权修订，事务内锁同租户条目并核预期修订。A已恢复历史署名关系查询，历史作者只经Identity公开目录核同租户存在，不强加当前活动状态；空显示名仍可用，非法或缺失成员拒绝。HTTP入口另核当前执行身份、模块与固定权限，再处理幂等。目录同步/事务辅助不是租户授权；本登记不证明业务扫描、分页性能或数据库资格，不将无tenant_id的历史版本模型归为共享/实例数据。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
+        {"source": "application", "path": "server/app/modules/official/identity/src/Contract/AdminDirectoryQuery.php", "sha256": "700697f97f99c69d035991f99a5237c0c9bf7d349388515ea290a02805118fd5"},
+        {"source": "application", "path": "server/app/modules/official/identity/src/Contract/TenantMemberDirectory.php", "sha256": "9690b17d69036a03842b67dcc0782e19e9b306be1e427b68b10a82f95d9d949c"},
+        {"source": "application", "path": "server/app/modules/official/identity/src/Membership/Query/ThinkPhpTenantMemberDirectory.php", "sha256": "c7537eb12985558c1ebdde43d97b9dd8e7298ff99036afd17873a993a69639bf"},
+        {"source": "application", "path": "server/app/modules/official/reference_codes/src/ModuleProvider.php", "sha256": "ee78d1774f273c70914e740909e47d423746b49c1c6a4879b212e8cfb0bfdd10"},
+        {"source": "application", "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodesHttpApplicationService.php", "sha256": "8443efb882f8cf0ee2b99703cf8a4b86a5990fff8fb55a3122255635487b6130"},
+        {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Application/ReferenceCodeAdminService.php", "sha256": "4bec30658cdb751affab594b0006418d62ed48790a786890b9bf4bb1360764cd"},
+        {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Application/ReferenceCodeQuery.php", "sha256": "f7438616742e71b1edc511cba176a9d0c3ddfcc6ff656876184c61da852ecca5"},
+        {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Database/Schema.php", "sha256": "5788d85ceee1eabd58657a39f949724367051be94b91e220aa3b958bffa2202d"}
+      ]
+    },
     "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService": {
       "source": "application",
       "path": "server/app/modules/official/settings/src/Application/SettingAdminService.php",
@@ -184,6 +205,7 @@
     }
   },
   "model_owners": [
+    {"model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryRecord", "table": "pa_reference_code_entry", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore"},
     {
       "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\ProtectedResourceRecord",
       "table": "pa_protected_resource",
@@ -512,14 +534,14 @@
       "owner": "instance",
       "instance_review": {
         "classification": "deployment-instance",
-        "reason": "按module_key与set_key唯一保存的部署定义目录，包含可变摘要、修订及生命周期，不是租户条目值，也非不可变共享数据。公开目录协作只同步已选模块声明，Store的synchronize保留锁与事务；目录登记不批准同类中仍存在缺陷的snapshot，不批准Entry或EntryVersion的访问。EntryVersion无tenant_id但沿entry_id属于租户条目，不可复用本实例登记。",
+        "reason": "按module_key与set_key唯一保存的部署定义目录，包含可变摘要、修订及生命周期，不是租户条目值，也非不可变共享数据。公开目录协作只同步已选模块声明，Store的synchronize保留锁与事务；本记录只核目录归属；Entry访问由独立租户入口登记核对，EntryVersion的间接租户归属仍需单独核验。EntryVersion无tenant_id但沿entry_id属于租户条目，不可复用本实例登记。",
         "model_source": {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeSetRecord.php", "sha256": "f1d16d34e55853d3bcdd477b5e4fb693ed5dc6b5cdaec49b51497a94197bbda5"},
         "schema_source": {"source": "application", "path": "server/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql", "sha256": "01809393f85e3945fc8832830ac45c5b17c542019b28ae30d3ebba2c990d01be"},
         "access_sources": [
-          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php", "sha256": "26543736b208670a3d66554e3cae27983a750ede5952cfd2898f545f39f2d38e"},
+          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php", "sha256": "0e0fcaa92967afbe910b2dd14056e04d2699a871ba1a01aae4ae1599a0803790"},
           {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Service\\ReferenceCodeCatalogService", "source": "application", "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodeCatalogService.php", "sha256": "f14db56ac8b8c3dbcc578745fd24f87ac1875d04132dddca0c7311fb8020cd6b"},
           {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Definition\\ReferenceCodeSetRegistry", "source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Definition/ReferenceCodeSetRegistry.php", "sha256": "9bdda89e582d9eef60e55f66eeebd444d79ac9942cdc0dacc14b954c8d618b24"},
-          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider", "source": "application", "path": "server/app/modules/official/reference_codes/src/ModuleProvider.php", "sha256": "263291aa6f5c6f9f66d1760e76dc68209a4a7da121ce5fdd2d5a8878e1ff1ea7"}
+          {"entry": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider", "source": "application", "path": "server/app/modules/official/reference_codes/src/ModuleProvider.php", "sha256": "ee78d1774f273c70914e740909e47d423746b49c1c6a4879b212e8cfb0bfdd10"}
         ]
       }
     },
@@ -636,6 +658,7 @@
     {"model": "app\\common\\model\\provider\\ProviderQualificationEvidence", "table": "pa_provider_qualification_evidence", "owner": "instance"}
   ],
   "tenant_tables": [
+    {"table": "pa_reference_code_entry", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore"},
     {"table": "pa_integration_machine_identity", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
     {"table": "pa_integration_webhook_endpoint", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
     {"table": "pa_integration_webhook_delivery", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
@@ -712,10 +735,10 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 86,
-    "tenant_models": 67,
+    "concrete_models": 87,
+    "tenant_models": 68,
     "non_tenant_models": 19,
-    "tenant_tables": 74,
+    "tenant_tables": 75,
     "tenant_tables_without_model": 6
   }
 }
