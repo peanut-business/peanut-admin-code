@@ -11,6 +11,8 @@ use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
+use Closure;
 use PDO;
 use RuntimeException;
 use think\db\PDOConnection;
@@ -23,10 +25,12 @@ final class InstallationExecutionHost
 {
     private const MODES = ['guided', 'automatic'];
 
+    /** @param Closure(CompiledModuleRegistry):ModuleRuntimeRepository $moduleRuntimeFactory */
     public function __construct(
         private readonly string $serverRoot,
         private readonly ModuleCatalogApplier $catalogs,
         private readonly \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery $tenantDirectory,
+        private readonly Closure $moduleRuntimeFactory,
     ) {
         require_once $serverRoot . '/database/install.php';
     }
@@ -342,15 +346,18 @@ final class InstallationExecutionHost
             ];
         }
         $profile = (new ProductTenantModuleProfileService(
-            new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository(
-                $this->definitionRegistry(),
-                true,
-            ),
+            $this->runtimeForProfile($this->definitionRegistry()),
             new ThinkPhpModuleGovernanceProvider($this->serverRoot, $config, $this->catalogs),
             app(\app\common\services\audit\AuditContractHost::class),
             $this->tenantDirectory,
         ))->applyInstallationSelection($moduleKeys, $tenantBootstrap['code']);
         return ['operations' => $operations, 'profile' => $profile];
+    }
+
+    /** Resolve after lifecycle reconciliation, never retain an earlier compiled registry. */
+    private function runtimeForProfile(CompiledModuleRegistry $registry): ModuleRuntimeRepository
+    {
+        return ($this->moduleRuntimeFactory)($registry);
     }
 
     /** @param list<string> $moduleKeys @return array<string,int> */

@@ -204,6 +204,7 @@ class AppService extends Service
                 dirname(__DIR__),
                 $this->app->make(ModuleCatalogApplier::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+                fn(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository => $this->installationModuleRuntime($registry),
             ),
         );
         $this->app->bind(AuditContractHost::class, fn(): AuditContractHost => new AuditContractHost(
@@ -213,6 +214,12 @@ class AppService extends Service
         $this->app->bind(OperationLogService::class, fn(): OperationLogService => new OperationLogService(
             $this->app->make(AuditContractHost::class),
         ));
+    }
+
+    /** Composition-only construction; keep the original installation availability locks and late registry. */
+    private function installationModuleRuntime(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository
+    {
+        return new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository($registry, true);
     }
 
     private function registerAuthentication(): void
