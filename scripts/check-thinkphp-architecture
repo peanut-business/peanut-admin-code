@@ -595,6 +595,19 @@ def kernel_schema_sql() -> list[str]:
     return [definitions[name] for name in sorted(referenced)]
 
 
+def schema_coverage_gaps() -> list[str]:
+    """Discovered module PHP migrations are not covered by the SQL/Kernel parser.
+
+    Report them explicitly instead of treating an unparsed source as zero tables.
+    This does not execute migrations or infer their Tenant/instance ownership.
+    """
+    # Walk native directory names: literal glob segments can match different
+    # case on macOS and mistake src/Database/Migrations classes for migrations.
+    return sorted({relative(path) for module in (ROOT / "server/app/modules").glob("*/*")
+                   if module.is_dir() for path in module.rglob("*.php")
+                   if path.is_file() and path.parts[-3:-1] == ("database", "migrations")})
+
+
 def schema_tenant_tables() -> set[str]:
     paths = [ROOT / "server/database/init.sql"]
     paths.extend(sorted((ROOT / "server/database/migrations").glob("*.sql")))
@@ -857,6 +870,7 @@ def ownership_errors() -> list[str]:
     table_rows = ownership.get("tenant_tables", [])
     contracts = ownership.get("access_contracts", {})
     errors.extend(access_contract_errors(contracts))
+    errors.extend("SCHEMA_COVERAGE_INCOMPLETE: " + path for path in schema_coverage_gaps())
     model_names = [str(item.get("model", "")) for item in model_rows]
     table_names = [str(item.get("table", "")) for item in table_rows]
     if len(model_names) != len(set(model_names)):
@@ -1137,6 +1151,10 @@ def current_ownership_report(source_commit: str | None) -> dict:
     try:
         ownership = read_ownership()
         errors = ownership_errors()
+        gaps = schema_coverage_gaps()
+        report["coverage_gaps"] = gaps
+        report["coverage_complete"] = not gaps
+        report["coverage_scope"] = "discovered SQL and canonical KernelSchema sources; module PHP migration bodies are not evaluated"
         models = concrete_models()
         tables = schema_tenant_tables()
         registered_models = {row["model"] for row in ownership.get("model_owners", [])}
@@ -1171,7 +1189,9 @@ def current_ownership_report(source_commit: str | None) -> dict:
         errors = [str(exc)]
     report["registration_errors"] = errors
     report["registration_error_count"] = len(errors)
-    report["status"] = "registration_failed" if errors else ("decision_required" if report.get("needs_decision") else "ownership_passed")
+    report["status"] = ("check_incomplete" if report.get("coverage_gaps") else
+                        "registration_failed" if errors else
+                        "decision_required" if report.get("needs_decision") else "ownership_passed")
     return report
 
 

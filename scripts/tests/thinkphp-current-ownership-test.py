@@ -162,6 +162,36 @@ class CurrentOwnershipTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'KERNEL_SCHEMA'):
             checker.schema_tenant_tables()
 
+    def test_unparsed_module_php_migration_prevents_complete_coverage_claim(self):
+        path = 'server/app/modules/fixture/example/database/migrations/adopt.php'
+        self.write(path, '<?php\nSchema::createSql("pa_hidden");\n')
+        code, report = self.invoke('--ownership-only', '--json')
+        self.assertEqual(2, code)
+        self.assertEqual('check_incomplete', report['status'])
+        self.assertFalse(report['coverage_complete'])
+        self.assertEqual([path], report['coverage_gaps'])
+        self.assertNotIn('pa_hidden', report['missing_tenant_tables'])
+        self.assertIsNone(report['finding_count'])
+
+    def test_nested_module_php_migration_is_not_silently_skipped(self):
+        path = 'server/app/modules/fixture/example/access/database/migrations/adopt.php'
+        self.write(path, '<?php\nSchema::createSql("pa_hidden");\n')
+        code, report = self.invoke('--ownership-only', '--json')
+        self.assertEqual(2, code)
+        self.assertIn(path, report['coverage_gaps'])
+
+    def test_type_directory_case_is_not_mistaken_for_a_migration_directory(self):
+        self.write('server/app/modules/fixture/example/src/Database/Migrations/OwnedMigration.php', '<?php\nclass OwnedMigration {}\n')
+        code, report = self.invoke('--ownership-only', '--json')
+        self.assertEqual(0, code)
+        self.assertEqual([], report['coverage_gaps'])
+
+    def test_supported_sql_fixture_retains_complete_source_coverage(self):
+        code, report = self.invoke('--ownership-only', '--json')
+        self.assertEqual(0, code)
+        self.assertTrue(report['coverage_complete'])
+        self.assertEqual([], report['coverage_gaps'])
+
     def test_registered_table_must_match_actual_model_table(self):
         self.registry['model_owners'][0]['table'] = 'pa_other'
         self.save_registry()

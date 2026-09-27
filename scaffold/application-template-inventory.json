@@ -2594,7 +2594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "76b885c350e1f67a52096e36160b8e4ae86a5ae310b1c541795eecb6011e3f0a"
+            "source_sha256": "0edafc06d47ba0ad5a2680d4fd550441ea47b1b70618bd67962f6284ef87d1ca"
         },
         {
             "path": "resources/architecture/tpq-issue-register.json",
@@ -2878,7 +2878,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "687a19eca99903925c612c736ead06116d241babbcba3cfef7fbd063456833ab"
+            "source_sha256": "c9c4f54b26fe802c829aef749ec10f8c7c1f35e18494d8a0afca50757e4ff2ef"
         },
         {
             "path": "scripts/ci-change-classifier",
@@ -4043,7 +4043,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "105b6fad701087bbe5bf485a17b02898a115925ae1bc002a488e947d44fb0c8a"
+            "source_sha256": "c01d1df9b4d73d95e4ca5fe808faa0913c1f97ae6e44afa6dd87d71e8e11ec80"
         },
         {
             "path": "scripts/tests/thinkphp-ownership-registration-test.py",
@@ -4058,6 +4058,20 @@
                 "full"
             ],
             "source_sha256": "27752ae45473c225029d0cd28d1a6ef24faebeceb08710591b31b3a776d8f584"
+        },
+        {
+            "path": "scripts/tests/thinkphp-reviewed-modules-test.py",
+            "target": "scripts/tests/thinkphp-reviewed-modules-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c234688282087940f5a752b4947a8ebfafffc2e58069f9fa6bd1a5bf0d9d4e13"
         },
         {
             "path": "scripts/tests/thinkphp-scoped-access-test.py",
