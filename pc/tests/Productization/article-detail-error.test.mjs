@@ -27,11 +27,43 @@ const page = readFileSync(
   new URL('../../pages/information/detail/[id].vue', import.meta.url),
   'utf8'
 );
-const expression = page.match(/const article = ref\(\n([\s\S]*?),\n\)/)?.[1];
-assert.ok(
-  expression,
-  'detail load expression changed; review the real page before updating the probe'
+const sfc = require('vue/compiler-sfc');
+const parsed = sfc.parse(page, { filename: 'article-detail.vue' });
+assert.deepEqual(parsed.errors, []);
+assert.ok(parsed.descriptor.scriptSetup, 'Real script setup must be present');
+const script = ts.createSourceFile(
+  'article-detail.ts',
+  parsed.descriptor.scriptSetup.content,
+  ts.ScriptTarget.Latest,
+  true
 );
+const expressions = [];
+for (const statement of script.statements) {
+  if (!ts.isVariableStatement(statement)) continue;
+  for (const declaration of statement.declarationList.declarations) {
+    if (
+      !ts.isIdentifier(declaration.name) ||
+      declaration.name.text !== 'article'
+    )
+      continue;
+    const initializer = declaration.initializer;
+    assert.ok(
+      initializer &&
+        ts.isCallExpression(initializer) &&
+        ts.isIdentifier(initializer.expression) &&
+        initializer.expression.text === 'ref' &&
+        initializer.arguments.length === 1,
+      'Review the real article initializer before changing this probe'
+    );
+    expressions.push(initializer.arguments[0].getText(script));
+  }
+}
+assert.equal(
+  expressions.length,
+  1,
+  'Exactly one top-level article initializer is required'
+);
+const [expression] = expressions;
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const evaluate = new AsyncFunction(
   'getArticleDetail',

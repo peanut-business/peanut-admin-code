@@ -1152,7 +1152,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc82929ab36f8d90f90442e692c667db45a1ac3cd8d9c628b86394e3a740632e"
+            "source_sha256": "eafe8468017c4eb8d955e59f79e42822577f9a3068996e925bbc244bc51f1448"
         },
         {
             "path": "pc/generated/brand.json",
@@ -1581,7 +1581,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd3fe24ec4832677071e6660b2c095c23ddab94abaa37d0c9ca0572a3e360e13"
+            "source_sha256": "5f5c9ad463b6fdfba6175c07565b9f8cab648a267fb2e637d8a7fe351ae8307d"
         },
         {
             "path": "pc/tests/Productization/article-module-capability.test.mjs",
@@ -1621,6 +1621,19 @@
                 "full"
             ],
             "source_sha256": "40bc08d7a7c3b486e17751fc954eb1f1317b1db17e19fb4b97f6d5094a5f3afe"
+        },
+        {
+            "path": "pc/tests/request-response.test.mjs",
+            "target": "pc/tests/request-response.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "cc2c38bf7b0e7e3b103a529620add21f8919a6e650e673e30efb5ec2e832bda4"
         },
         {
             "path": "pc/tsconfig.json",
