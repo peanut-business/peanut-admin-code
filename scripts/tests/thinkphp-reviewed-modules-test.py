@@ -434,7 +434,8 @@ class ReviewedModulesTest(unittest.TestCase):
                          'ModuleProvider.php', 'ReferenceCodesHttpApplicationService.php', 'ReferenceCodeAdminService.php',
                          'ReferenceCodeQuery.php'}.issubset(paths))
         source, _ = checker.reviewed_source(contract)
-        self.assertIn('function memberBelongsToTenant(', checker.php_structure(source.read_text()))
+        self.assertIn('function assertMemberReferences(', checker.php_structure(source.read_text()))
+        self.assertIn('function referenceMemberId(', checker.php_structure(source.read_text()))
         self.assertIn('PeanutAdmin\\Modules\\Identity\\Contract\\AdminDirectoryQuery', checker.declared_module_exports())
 
     def test_reference_membership_dependency_drift_is_not_auto_approved(self):
