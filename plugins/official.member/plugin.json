@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "139063bcfbe957f6ff9b30e0c61fab65e3b0697a57f4fa4510330095d0cb582e"
+        "sha256": "98a6da2c2728d4d8a785b129d01998241714064006de5bfc18c871a0467298a4"
     },
     "trust": {
         "channel": "bundled",
@@ -76,14 +76,14 @@
         {
             "name": "peanut-business/official-member",
             "version": "1.0.0",
-            "sha256": "37be317711e8e7a9488b97f3fbbf8f049c74a17249931fba57c5d2e8cddff6c1"
+            "sha256": "c72d5023050d3575db0589d7239acc30d6b863dd2ad162bd2eadb73e4bc9a05a"
         }
     ],
     "npm": [
         {
             "name": "@peanut-admin/official-member",
             "version": "1.0.0",
-            "integrity": "sha256-xbesbnxoGnuXgVtn6lxE0zLuZL6g9kRzEKn2pX259E4="
+            "integrity": "sha256-zHsf6gXl1/S7Cea8g7qaC2885bO5087E6/6YksGxisc="
         }
     ],
     "frontend": [

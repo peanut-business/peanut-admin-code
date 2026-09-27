@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "84a70b67b10f17f49ee57e2abd335cc3288e844bf70016a52a2c59fd6457536c"
+        "sha256": "6fdd3a6702efc5fb5c6d1ac43bbe121f4f82f9e0de2ab6750350088edb548307"
     },
     "trust": {
         "channel": "bundled",
@@ -68,7 +68,7 @@
         {
             "name": "peanut-business/workflow",
             "version": "4.0.0-dev",
-            "sha256": "ffc1fd2b67651b85e5d1a450cde5e13ad3da9c8f4296220d9c7ca59cacb96090"
+            "sha256": "36e541ed0bdad3af10076009636a44878e1cc7e654dd1d39e65dada59d9bbd93"
         }
     ],
     "npm": [],

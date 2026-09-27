@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "2b68737433a398dbb7e2e6658cbd726e826d979c4d813f5890674b9d5bfe92a7"
+        "sha256": "808e2769c9b6e8cfc8500cd525e7c1bebc5aa84b89f110a38fe22ddb5e8ad195"
     },
     "trust": {
         "channel": "bundled",
@@ -72,7 +72,7 @@
         {
             "name": "peanut-business/official-article",
             "version": "1.0.0",
-            "sha256": "1af63108b852b68db4f00529f54c624b8168160d28b1a69e11055342a91e3d0a"
+            "sha256": "0e321c21b52b494fae25932bd7ab02e77dcbca577e118978af8d385ffea7f061"
         }
     ],
     "npm": [
