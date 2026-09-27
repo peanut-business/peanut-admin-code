@@ -934,13 +934,143 @@ def _native_schema_path(name: str) -> Path | None:
     return cursor if cursor.is_file() else None
 
 
+def _sql_alter_structure(sql: str) -> tuple[str, list[dict]]:
+    """Recognize bounded literal ALTER declarations, not arbitrary SQL or execution.
+
+    Each complete clause is recorded. Unknown expressions and changes to the
+    Tenant identity column stay unsupported; ALTER is never a CREATE record.
+    """
+    token = re.compile(r"\s+|`[a-z][a-z0-9_]*`|'(?:''|[^'\\])*'|[A-Za-z_][A-Za-z0-9_]*|[0-9]+|[(),;=]")
+    tokens, position = [], 0
+    while position < len(sql):
+        match = token.match(sql, position)
+        _ast_require(match is not None, 'unsupported ALTER token')
+        value = match.group()
+        if not value.isspace():
+            tokens.append(value if value.startswith(('`', "'")) else value.upper())
+        position = match.end()
+    if tokens and tokens[-1] == ';':
+        tokens.pop()
+    identifier = lambda value: re.fullmatch(r'`[a-z][a-z0-9_]*`', value) is not None
+    literal = lambda value: value.startswith("'") and value.endswith("'")
+    _ast_require(len(tokens) > 3 and tokens[:2] == ['ALTER', 'TABLE'] and identifier(tokens[2]), 'literal ALTER table')
+    table = tokens[2][1:-1]
+    clauses, clause, depth = [], [], 0
+    for value in tokens[3:]:
+        depth += int(value == '(') - int(value == ')')
+        _ast_require(depth >= 0 and value != ';', 'incomplete or multiple ALTER statements')
+        if value == ',' and depth == 0:
+            _ast_require(bool(clause), 'empty ALTER clause')
+            clauses.append(clause)
+            clause = []
+        else:
+            clause.append(value)
+    _ast_require(depth == 0 and bool(clause), 'incomplete ALTER clause')
+    clauses.append(clause)
+
+    def columns(values):
+        _ast_require(len(values) >= 3 and values[0] == '(' and values[-1] == ')', 'literal column list')
+        body = values[1:-1]
+        _ast_require(len(body) % 2 == 1 and all(identifier(value) if index % 2 == 0 else value == ','
+                     for index, value in enumerate(body)), 'complete column list')
+        return [value[1:-1] for value in body[::2]]
+
+    effects = []
+    for part in clauses:
+        if len(part) == 3 and part[:2] in (['DROP', 'INDEX'], ['DROP', 'CHECK'], ['DROP', 'COLUMN']) and identifier(part[2]):
+            kind = {'INDEX': 'drop_index', 'CHECK': 'drop_check', 'COLUMN': 'drop_column'}[part[1]]
+            _ast_require(not (kind == 'drop_column' and part[2] == '`tenant_id`'), 'Tenant identity alteration requires separate analysis')
+            effects.append({'kind': kind, 'column' if kind == 'drop_column' else 'name': part[2][1:-1]})
+        elif len(part) == 4 and part[:3] == ['DROP', 'FOREIGN', 'KEY'] and identifier(part[3]):
+            effects.append({'kind': 'drop_foreign_key', 'name': part[3][1:-1]})
+        elif len(part) > 3 and part[:2] in (['ADD', 'KEY'], ['ADD', 'INDEX']) and identifier(part[2]):
+            effects.append({'kind': 'add_index', 'name': part[2][1:-1], 'columns': columns(part[3:])})
+        elif len(part) > 8 and part[:2] == ['ADD', 'CONSTRAINT'] and identifier(part[2]) and part[3:5] == ['FOREIGN', 'KEY']:
+            _ast_require(part.count('REFERENCES') == 1, 'one foreign-key reference')
+            split = part.index('REFERENCES')
+            _ast_require(split + 1 < len(part) and identifier(part[split + 1]) and part[-3:] == ['ON', 'DELETE', 'RESTRICT'], 'literal restrictive foreign key')
+            local, remote = columns(part[5:split]), columns(part[split + 2:-3])
+            _ast_require(len(local) == len(remote), 'foreign-key arity')
+            effects.append({'kind': 'add_foreign_key', 'name': part[2][1:-1], 'columns': local,
+                            'references_table': part[split + 1][1:-1], 'references_columns': remote, 'on_delete': 'RESTRICT'})
+        elif len(part) > 6 and part[:2] == ['ADD', 'CONSTRAINT'] and identifier(part[2]) and part[3:5] == ['CHECK', '('] and part[-1] == ')':
+            expression = part[5:-1]
+            valid = False
+            if len(expression) >= 5 and identifier(expression[0]) and expression[1:3] == ['IN', '('] and expression[-1] == ')':
+                values = expression[3:-1]
+                valid = len(values) % 2 == 1 and all(literal(value) if i % 2 == 0 else value == ',' for i, value in enumerate(values))
+            elif len(expression) == 3 and identifier(expression[0]) and expression[1] == '=' and literal(expression[2]):
+                valid = True
+            elif len(expression) == 8 and expression[:2] == ['REGEXP_LIKE', '('] and expression[-1] == ')':
+                valid = identifier(expression[2]) and expression[3] == expression[5] == ',' and literal(expression[4]) and literal(expression[6])
+            _ast_require(valid, 'unrecognized CHECK expression')
+            effects.append({'kind': 'add_check', 'name': part[2][1:-1], 'expression': ' '.join(expression)})
+        elif len(part) == 5 and part[:2] == ['ALTER', 'COLUMN'] and identifier(part[2]) and part[3:] == ['DROP', 'DEFAULT']:
+            _ast_require(part[2] != '`tenant_id`', 'Tenant identity alteration requires separate analysis')
+            effects.append({'kind': 'drop_default', 'column': part[2][1:-1]})
+        elif (len(part) == 13 and part[:2] == ['ADD', 'COLUMN'] and identifier(part[2]) and part[3:5] == ['VARCHAR', '(']
+              and part[5].isdigit() and part[6:10] == [')', 'NOT', 'NULL', 'DEFAULT']
+              and literal(part[10]) and part[11] == 'AFTER' and identifier(part[12])):
+            _ast_require(part[2] != '`tenant_id`' and 0 < int(part[5]) <= 65535, 'bounded non-Tenant column declaration')
+            effects.append({'kind': 'add_column', 'column': part[2][1:-1], 'type': 'VARCHAR', 'length': int(part[5]),
+                            'nullable': False, 'default': part[10][1:-1].replace("''", "'"), 'after': part[12][1:-1]})
+        else:
+            raise ValueError('PHP_SCHEMA_UNSUPPORTED: unrecognized complete ALTER clause')
+    return table, effects
+
+
+def _migration_alterations(cls: dict, path: Path, source: str) -> list[dict]:
+    """A second complete native shape, not a fallback that skips unknown code."""
+    _ast_require(_ast_name(cls.get('extends')) == 'think\\migration\\Migrator' and not cls.get('implements')
+                 and all(_ast_is(item, 'Stmt_ClassMethod') and _ast_name(item.get('name')) in {'up', 'down'}
+                         for item in cls['stmts']), 'literal native alteration class')
+    rows = []
+    for direction in ('up', 'down'):
+        method = _ast_method(cls, direction, False, 0)
+        statements = [item for item in method['stmts'] if not _ast_is(item, 'Stmt_Nop')]
+        _ast_require(bool(statements) or direction == 'down', 'empty forward alteration')
+        for statement in statements:
+            value = _migration_execute(statement)
+            proof = {}
+            if not _ast_is(value, 'Scalar_String'):
+                _ast_require(_ast_is(value, 'Expr_StaticCall') and not _ast_arguments(value), 'literal no-argument Schema helper')
+                name, member = _ast_name(value.get('class')), _ast_name(value.get('name'))
+                _ast_require(isinstance(name, str) and isinstance(member, str), 'exact Schema helper identity')
+                schema_path = _native_schema_path(name)
+                _ast_require(schema_path is not None, 'unresolved helper source')
+                schema_source = schema_path.read_text(encoding='utf-8')
+                schema = _ast_class(parse_schema_php(schema_source))
+                _ast_require(_ast_name(schema.get('namespacedName')) == name and schema.get('extends') is None
+                             and not schema.get('implements') and not any(_ast_is(item, 'Stmt_TraitUse') for item in schema['stmts']), 'helper class/path mismatch')
+                helper = _ast_method(schema, member, True, 0)
+                _ast_require(_ast_name(helper.get('returnType')) == 'string', 'helper string return required')
+                value = _ast_return(helper)
+                _ast_require(_ast_is(value, 'Scalar_String'), 'nonliteral helper result')
+                proof = {'schema_class': name, 'schema_path': relative(schema_path), 'schema_method': member,
+                         'schema_sha256': hashlib.sha256(schema_source.encode()).hexdigest(),
+                         'schema_line': value.get('attributes', {}).get('startLine')}
+            sql = value['value']
+            table, effects = _sql_alter_structure(sql)
+            rows.append({'migration': relative(path), 'migration_line': statement.get('attributes', {}).get('startLine'),
+                         'migration_sha256': hashlib.sha256(source.encode()).hexdigest(), 'direction': direction,
+                         'operation': 'ALTER', 'table': table, 'effects': effects, 'sql': sql,
+                         'sql_sha256': hashlib.sha256(sql.encode()).hexdigest(), **proof})
+    return rows
+
+
 def _php_schema_inventory(paths: list[Path]) -> dict:
     """Shared syntax-only declaration reader for module and native host roots."""
-    records, gaps = [], {}
+    records, alterations, gaps = [], [], {}
     for path in paths:
         try:
             source = path.read_text(encoding='utf-8')
-            references = _migration_references(_ast_class(parse_schema_php(source)))
+            cls = _ast_class(parse_schema_php(source))
+            try:
+                references = _migration_references(cls)
+            except ValueError:
+                # The whole up/down program must match this independent shape.
+                alterations.extend(_migration_alterations(cls, path, source))
+                continue
             pending = []
             for name, selected, line in references:
                 schema_path = _native_schema_path(name)
@@ -964,7 +1094,7 @@ def _php_schema_inventory(paths: list[Path]) -> dict:
             records.extend(pending)
         except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as exc:
             gaps[relative(path)] = str(exc)
-    return {'migration_count': len(paths), 'records': records, 'gaps': gaps}
+    return {'migration_count': len(paths), 'records': records, 'alterations': alterations, 'gaps': gaps}
 
 
 def module_php_schema_inventory() -> dict:
@@ -1688,7 +1818,9 @@ def current_ownership_report(source_commit: str | None) -> dict:
         report["module_php_schema_sources"] = migrations['records']
         report["host_php_migration_count"] = host['migration_count']
         report["host_php_schema_sources"] = host['records']
-        report["coverage_scope"] = "SQL CREATE declarations and recognized native module/host PHP up() Schema references; unsupported alterations remain gaps, not live schema, rollback or SQL server grammar validation"
+        report["host_php_alterations"] = host['alterations']
+        report["module_php_alterations"] = migrations['alterations']
+        report["coverage_scope"] = "SQL CREATE declarations, recognized native Schema references and bounded literal ALTER effects (up/down separately); unknown programs remain gaps, not applied schema, rollback correctness or SQL server grammar validation"
         models = concrete_models()
         tables = schema_tenant_tables()
         registered_models = {row["model"] for row in ownership.get("model_owners", [])}

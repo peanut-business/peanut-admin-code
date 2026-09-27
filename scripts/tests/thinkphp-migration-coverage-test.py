@@ -322,7 +322,8 @@ class ActualHostMigrationCoverageTest(unittest.TestCase):
                 '20260716010404_add_zero_or_one_cardinality.php',
                 '20260718010101_generalize_pa_tenant_clients.php',
             }
-            self.assertEqual(expected, {Path(path).name for path in host['gaps']})
+            self.assertEqual({}, host['gaps'])
+            self.assertEqual(expected, {Path(row['migration']).name for row in host['alterations']})
             self.assertTrue({'pa_protected_resource', 'pa_target_type', 'pa_resource_operation',
                              'pa_resource_operation_target_type', 'pa_resource_operation_permission',
                              'pa_data_condition_definition', 'pa_resource_operation_condition'}
