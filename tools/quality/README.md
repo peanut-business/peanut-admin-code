@@ -113,6 +113,8 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 `python3 scripts/check-thinkphp-architecture --json` 在归属登记不一致时返回 `status=registration_failed`、具体 `registration_errors` 和退出码2；此时 `finding_count=null` 表示源码规则扫描尚未执行，不表示零问题。默认文本模式继续输出 `REGISTRATION_ERROR`。修正已迁移类的登记位置不自动批准新增模型的数据范围、补全所有表或关闭历史问题，现行缺项须按对应源与安全合同逐项核实。
 
+固定源码归属检查使用 `python3 scripts/check-thinkphp-architecture --ownership-only --source-ref=<已推送的完整提交SHA> --json`，在当前检查器工作树的登记上核对该提交的原始源码；只读取模型、模块、Schema和Composer声明，不读取或刷新历史问题/例外。快照必须与Git树和原始blob一致，不能用移动分支名、export-ignore或替换对象隐去源码。退出2表示配置或登记未闭合，`business_scan=not_run`、`finding_count=null` 不是业务零问题；受限模型字面量和PHP Schema解析不证明运行授权或真实数据库。对应回归为 `python3 scripts/tests/thinkphp-current-ownership-test.py`；既有历史流程及产品资格分别处理。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

@@ -2594,7 +2594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd3d3485143c7d8e1b77110cc6bbca0b0079e51a9badbcbf756a1420b153779f"
+            "source_sha256": "283cd924e78d089d38ee6490207898d5a02bf8f4c4037a4eb81d20ac62113edf"
         },
         {
             "path": "resources/architecture/tpq-issue-register.json",
@@ -2878,7 +2878,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4bacf97fc67273b470c2b491cfcbd78e02f530e4968ad4ab0ac653264a635921"
+            "source_sha256": "3df0943ee574326f65715498ef4bcea6268db1a44b8497e5d63ceef2f6340c21"
         },
         {
             "path": "scripts/ci-change-classifier",
@@ -4030,6 +4030,20 @@
                 "full"
             ],
             "source_sha256": "afe42f80a1b3fff942a564484c1ce3b5f091d1d77a48cdf6f8b7a8ae4c485ae6"
+        },
+        {
+            "path": "scripts/tests/thinkphp-current-ownership-test.py",
+            "target": "scripts/tests/thinkphp-current-ownership-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0c9075814e475f8f4e61a4fa73a30c21056226382c605f59e416126530033d77"
         },
         {
             "path": "scripts/tests/thinkphp-ownership-registration-test.py",
@@ -27960,7 +27974,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4fc341677351a9dcfceda0b004fad386a6bbd7f579031dc0a37daa132a3e4d1e"
+            "source_sha256": "92649f03d0859215d880b1481227ee32b3582ef1908cfefa27d40cbe4acc1b7e"
         },
         {
             "path": "tools/quality/composer.json",
