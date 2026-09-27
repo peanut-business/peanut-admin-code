@@ -1203,19 +1203,27 @@ VUE, $c) : '';
     list.filters.value.recycle = !showRecycle.value;
     void fetchData(1);
   };
-  const handleRestore = async (record: {{entity}}ListRecord) => {
+  // Element Plus exposes a generic row slot; validate only the key used by this action.
+  const readPrimaryKey = (record: unknown): {{primaryTsType}} => {
+    if (typeof record !== 'object' || record === null || Array.isArray(record)
+      || !('{{primary}}' in record) || typeof record.{{primary}} !== '{{primaryTsType}}') {
+      throw new Error('GENERATED_ROW_PRIMARY_KEY_INVALID');
+    }
+    return record.{{primary}};
+  };
+  const handleRestore = async (record: unknown) => {
     const result = await action.run(async () => {
-      const response = await restore{{entity}}([record.{{primary}}]);
-      if (response.data.failed.length !== 0) throw new Error('RESTORE_INCOMPLETE');
+      const response = await restore{{entity}}([readPrimaryKey(record)]);
+      if (!Array.isArray(response.data.failed) || response.data.failed.length !== 0) throw new Error('RESTORE_INCOMPLETE');
     });
     if (result.status !== 'completed') return;
     ElMessage.success('恢复成功');
     await fetchData(pagination.page);
   };
-  const handlePurge = async (record: {{entity}}ListRecord) => {
+  const handlePurge = async (record: unknown) => {
     const result = await action.run(async () => {
-      const response = await purge{{entity}}([record.{{primary}}]);
-      if (response.data.failed.length !== 0) throw new Error('PURGE_INCOMPLETE');
+      const response = await purge{{entity}}([readPrimaryKey(record)]);
+      if (!Array.isArray(response.data.failed) || response.data.failed.length !== 0) throw new Error('PURGE_INCOMPLETE');
     });
     if (result.status !== 'completed') return;
     ElMessage.success('永久删除成功');

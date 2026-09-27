@@ -77,8 +77,14 @@ final class GeneratorElementPlusViewTest extends TestCase
         self::assertStringContainsString('<template #reference>', $view);
         self::assertStringContainsString('@confirm="handlePurge(row)"', $view);
         self::assertStringNotContainsString('@ok=', $view);
-        self::assertStringContainsString("restore{$entity}([record.{$primary}])", $view);
-        self::assertStringContainsString("purge{$entity}([record.{$primary}])", $view);
+        self::assertStringContainsString("restore{$entity}([readPrimaryKey(record)])", $view);
+        self::assertStringContainsString("purge{$entity}([readPrimaryKey(record)])", $view);
+        $primaryType = $primary === 'uuid' ? 'string' : 'number';
+        self::assertStringContainsString('readPrimaryKey = (record: unknown): ' . $primaryType, $view);
+        self::assertStringContainsString("typeof record.{$primary} !== '{$primaryType}'", $view);
+        self::assertStringContainsString('GENERATED_ROW_PRIMARY_KEY_INVALID', $view);
+        self::assertStringContainsString('handleRestore = async (record: unknown)', $view);
+        self::assertStringContainsString('handlePurge = async (record: unknown)', $view);
         self::assertStringContainsString('get' . $entity . 'RecycleList', $view);
     }
 
@@ -102,6 +108,7 @@ final class GeneratorElementPlusViewTest extends TestCase
             self::assertStringContainsString(':disabled="actionLoading"', $view);
             self::assertStringContainsString("result.status !== 'completed'", $view);
             self::assertStringContainsString('response.data.failed.length !== 0', $view);
+            self::assertStringContainsString('!Array.isArray(response.data.failed)', $view);
         }
     }
 

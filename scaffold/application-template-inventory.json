@@ -4896,7 +4896,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f82d1325e46e0658f92f0f711f25bad316ffbae2f10cfc8feb78d60ef221494"
+            "source_sha256": "c9f42abc7c791e4e8f1a626ff472992b8bf0d682460ea5449e1111841a34d281"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -34298,7 +34298,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbc3a3f751a0995ec43b6eb5ddc98c568d6e641c3662d45aef35c08a6b60e4ae"
+            "source_sha256": "10a6b187f8e6cee21b8c65f6feb5fec80fcd6fe87779cbdaaed9c4f622ea93f8"
+        },
+        {
+            "path": "web/tests/Productization/generated-crud-interactions.spec.mjs",
+            "target": "web/tests/Productization/generated-crud-interactions.spec.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ec9eaed9fc164f8db41a4fab607b68668f8f2fba9f7afdb551954ba57eb4e096"
         },
         {
             "path": "web/tests/Productization/instance-tool-build-boundary.test.mjs",
