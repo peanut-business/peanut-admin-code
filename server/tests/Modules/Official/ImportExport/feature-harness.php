@@ -25,7 +25,7 @@ use PeanutAdmin\Modules\Task\Contract\JobExecution;
 use think\facade\Db;
 
 $root = dirname(__DIR__, 4);
-require_once $root . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL') ? PHPUNIT_COMPOSER_INSTALL : $root . '/vendor/autoload.php';
 require_once $root . '/tests/Support/ThinkPhpTestConnection.php';
 
 function check(mixed $expected, mixed $actual, string $label): void
@@ -148,6 +148,7 @@ $run = static function (TenantPersistenceMode $mode) use ($host, $port, $databas
     $pdo->exec("INSERT INTO pa_tenant VALUES (101),(202)");
     $pdo->exec("INSERT INTO pa_tenant_member VALUES (501,101,111,'active'),(502,202,212,'active')");
     $pdo->exec(KernelSchema::createSql('pa_tenant_audit_event'));
+    $pdo->exec(KernelSchema::createSql('pa_platform_audit_event'));
     foreach (Schema::tableNames() as $table) {
         $pdo->exec(Schema::createSql($table, $mode));
     }
@@ -164,9 +165,18 @@ SQL)->fetchColumn();
     }
 
     $connection = ThinkPhpTestConnection::fromPdo($pdo);
+    $maintenanceContexts = new \app\common\execution\ExecutionContextStore();
+    $maintenanceCurrent = new \app\common\execution\CurrentExecutionContext($maintenanceContexts);
+    $maintenanceAudit = new \app\common\services\audit\AuditContractHost($maintenanceCurrent);
+    $maintenance = static fn(callable $callback): mixed => $maintenanceContexts->run(
+        new \app\common\execution\InstanceExecutionContext('console.import-export:expire', 'import-retention-fixture'),
+        $callback,
+    );
     $repository = new ImportExportStore(
         $mode,
         $mode === TenantPersistenceMode::InstanceScoped ? 101 : null,
+        $maintenanceCurrent,
+        $maintenanceAudit,
     );
     $provider = new HarnessProvider();
     $files = new HarnessFiles();
@@ -258,16 +268,18 @@ SQL)->fetchColumn();
     check('cancelled', $finishRace->status, 'finish/cancel race prefers cancellation');
     check(null, $finishRace->resultFileKey, 'cancelled finish publishes no result');
     $pdo->exec("UPDATE pa_import_export_operation SET retention_until = TIMESTAMPADD(SECOND,-1,UTC_TIMESTAMP(3)) WHERE operation_key = " . $pdo->quote($cancel->operationKey));
-    check(1, $repository->expireDue(), 'retention expiry');
+    check(1, $maintenance(fn() => $repository->expireDue()), 'retention expiry');
     check('expired', $repository->get(101, $cancel->operationKey)->status, 'expired terminal state');
     if ($mode === TenantPersistenceMode::TenantScoped) {
         $expiredBeforeMismatch = (int) $pdo->query("SELECT COUNT(*) FROM pa_import_export_operation WHERE status = 'expired'")->fetchColumn();
         runtimeProblem(
             'TENANT_PERSISTENCE_SCHEMA_MODE_MISMATCH',
-            fn() => (new ImportExportStore(
+            fn() => $maintenance(fn() => (new ImportExportStore(
                 TenantPersistenceMode::InstanceScoped,
                 101,
-            ))->expireDue(),
+                $maintenanceCurrent,
+                $maintenanceAudit,
+            ))->expireDue()),
             'instance repository rejects tenant schema before retention update',
         );
         check($expiredBeforeMismatch, (int) $pdo->query("SELECT COUNT(*) FROM pa_import_export_operation WHERE status = 'expired'")->fetchColumn(), 'schema mismatch expires no records');

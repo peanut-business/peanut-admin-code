@@ -408,7 +408,8 @@ class RechargeAdministrationService
         return json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
     }
 
-    private static function buildListQuery(object $context, array $params)
+    /** 同库只读会员关联；所属订单Scope与JOIN同时限定tenant，保留历史软删会员和INNER JOIN语义。 */
+    private static function buildListQuery(object $context, array $params): \think\db\Query
     {
         $query = RechargeOrder::alias('ro')->where([])
             ->join('member u', 'u.tenant_id = ro.tenant_id AND u.id = ro.user_id')

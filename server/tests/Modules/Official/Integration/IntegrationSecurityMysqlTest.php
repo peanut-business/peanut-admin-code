@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 4) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL') ? PHPUNIT_COMPOSER_INSTALL : dirname(__DIR__, 4) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 4) . '/tests/Support/ThinkPhpTestConnection.php';
 require_once dirname(__DIR__, 4) . '/tests/Support/RegisteredMysqlTestResource.php';
 
@@ -80,7 +80,7 @@ function operation(string $name, int $tenantId, int $accountId, int $memberId, s
 same(INTEGRATION_MYSQL_DATABASE, guardedDatabase($pdo), 'unique database selected');
 ThinkPhpTestConnection::fromPdo($pdo);
 
-$baseTables = ['pa_tenant_session_token', 'pa_tenant_session', 'pa_tenant_audit_event', 'pa_tenant_member', 'pa_account', 'pa_tenant'];
+$baseTables = ['pa_platform_audit_event', 'pa_tenant_session_token', 'pa_tenant_session', 'pa_tenant_audit_event', 'pa_tenant_member', 'pa_account', 'pa_tenant'];
 $drop = [...array_reverse(Schema::tableNames()), ...$baseTables];
 try {
     foreach ($drop as $table) {
@@ -92,6 +92,8 @@ try {
     foreach (Schema::tableNames() as $table) {
         $pdo->exec(Schema::createSql($table));
     }
+    // Only system audit actors are used; no operator/account FK data are inserted.
+    $pdo->exec(KernelSchema::createSql('pa_platform_audit_event'));
 
     $pdo->exec("INSERT INTO pa_tenant(id,code,name,display_name,status,activated_at,created_at,updated_at) VALUES (101,'tenant-a','Tenant A','Tenant A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(102,'tenant-b','Tenant B','Tenant B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
     $pdo->exec("INSERT INTO pa_account(id,display_name,status,created_at,updated_at) VALUES (301,'Actor A','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(302,'Actor B','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000'),(303,'Actor C','active','2026-01-01 00:00:00.000','2026-01-01 00:00:00.000')");
@@ -106,7 +108,9 @@ try {
         $pdo->prepare("INSERT INTO pa_tenant_session_token(session_id,token_type,token_hash,status,expires_at,created_at) VALUES (:id,'refresh',:hash,'active','2030-01-02 00:00:00.000','2026-07-24 10:00:00.000')")->execute(['id' => (int) $pdo->lastInsertId(),'hash' => hash('sha256', 'token-' . $key)]);
     }
 
-    $repository = new ThinkPhpIntegrationSecurityRepository();
+    $maintenanceContexts = new \app\common\execution\ExecutionContextStore();
+    $maintenanceCurrent = new \app\common\execution\CurrentExecutionContext($maintenanceContexts);
+    $repository = new ThinkPhpIntegrationSecurityRepository($maintenanceCurrent, new \app\common\services\audit\AuditContractHost($maintenanceCurrent));
     $scopeCatalog = new MachineScopeCatalog(['data.export.read', 'data.export.write']);
     $scopeResolver = new class implements MachineScopeGrantResolver {
         public function grantableScopes(AuthorizedOperationContext $context): array
@@ -194,7 +198,10 @@ try {
     same(null, $expired['lease_expires_at'], 'expired lease expiry cleared');
     same('WEBHOOK_LEASE_EXPIRED', $expired['last_error_code'], 'expired lease safe code');
     same(1, (int) $pdo->query("SELECT COUNT(*) FROM pa_integration_webhook_attempt a JOIN pa_integration_webhook_delivery d ON d.id=a.delivery_id AND d.tenant_id=a.tenant_id WHERE d.delivery_key='" . $expiredKey . "' AND a.attempt_number=8 AND a.error_code='WEBHOOK_LEASE_EXPIRED'")->fetchColumn(), 'expired lease attempt evidence');
-    $repository->purgeExpiredDeliveryData(new DateTimeImmutable('2031-01-01T00:00:00Z'), new DateTimeImmutable('2031-01-01T00:00:00Z'));
+    $maintenanceContexts->run(
+        new \app\common\execution\InstanceExecutionContext('console.integration:purge-expired', 'integration-retention-fixture'),
+        fn() => $repository->purgeExpiredDeliveryData(new DateTimeImmutable('2031-01-01T00:00:00Z'), new DateTimeImmutable('2031-01-01T00:00:00Z')),
+    );
     same(0, (int) $pdo->query("SELECT COUNT(*) FROM pa_integration_webhook_delivery WHERE delivery_key='" . $expiredKey . "'")->fetchColumn(), 'terminal expired lease row purged');
 
     $sessions = new SessionSecurityService(new TenantSessionAccessService(

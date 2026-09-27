@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 4) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL') ? PHPUNIT_COMPOSER_INSTALL : dirname(__DIR__, 4) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 4) . '/tests/Support/ThinkPhpTestConnection.php';
 
 ThinkPhpTestConnection::fromPdo(new PDO('sqlite::memory:'));
@@ -172,7 +172,7 @@ final class MemoryRepository implements IntegrationSecurityRepository
     {
         $this->failure = [$safeCode, $retryable, $statusCode];
     }
-    public function purgeExpiredDeliveryData(DateTimeImmutable $payloadCutoff, DateTimeImmutable $evidenceCutoff): array
+    public function purgeExpiredDeliveryData(DateTimeImmutable $payloadCutoff, DateTimeImmutable $evidenceCutoff, int $limit = 100): array
     {
         return [];
     }

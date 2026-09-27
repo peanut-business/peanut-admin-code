@@ -671,7 +671,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "570c109f38257b349ed307399e9a244f3f1e1569b24b4dd0b9f1bab7a40f1f1c"
+            "source_sha256": "efb293f873795040c5d6daa6c958af0dd12b3b923d10c6731532a6676d990348"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -797,7 +797,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06a84b358107f91c8962b033f50398fe34cb0f8e84f08c1cc1bd25455f6b059b"
+            "source_sha256": "6ee02bf236158d09d58f05e432a714d7637cdda05fc0dc5ea539b36cdcdacb65"
         },
         {
             "path": "docs/module-layout.md",
@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a049d37082682c2810f0c552afde1780fdbdedcacecc314826a92093b04c9cfd"
+            "source_sha256": "9074f9dd56e1e6430f13ee091c8354e5910db46dc58682d8b06e5ab917b741ff"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2383,7 +2383,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8432dbfc65f5cf54c3b9d7221f1bf2bea9de853e1cc45ff4d906636033bc62c3"
+            "source_sha256": "f37f909deab154da3e7baeee91b228466dea22ffc49bf7bf99a272f0a01559f3"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -2397,7 +2397,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f7f59596319b5fb12403e262b80fd5fe1fd94f286cf3cc3c7aab4e9fd68f06b1"
+            "source_sha256": "efdbf26a230fe00f1b1fa6f9125c85315b81142588ee0e56ed9e18db752ceed3"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -2467,7 +2467,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "439cef779bd1f5541d60ff766b7daf351b2bbfff977db13f9c8ecb4ba7c960bf"
+            "source_sha256": "04a87a7d46cef694d81aab54ab4ea0a65f9d2a9e56f5919f874276c88b6320a9"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -2809,7 +2809,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9b5034b9d6be2ccc03c1d2aeacd32ddbc30749fba2cc4ae9bc7ed3cb21d3d291"
+            "source_sha256": "d27b32a38cad187a49bb7f07a2ea8d4d23ed5e44d2b11055abad839e6c1f816b"
         },
         {
             "path": "scripts/check-openapi",
@@ -12168,6 +12168,20 @@
             "source_sha256": "d91e04d709117c1e0f69a7affe04cf396c1008a0511ff2abce4046b356d908d1"
         },
         {
+            "path": "server/app/modules/official/import_export/src/Console/ExpireOperationsCommand.php",
+            "target": "server/app/modules/official/import_export/src/Console/ExpireOperationsCommand.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9a9d19cfd58926e9574299fafb135afe6e7e24df59139d860a57f76a40e40b9e"
+        },
+        {
             "path": "server/app/modules/official/import_export/src/Contract/ConfigurationTransferCommands.php",
             "target": "server/app/modules/official/import_export/src/Contract/ConfigurationTransferCommands.php",
             "classification": "managed",
@@ -12529,7 +12543,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d77de6f76cca610f29ffe87a9e3ad76184d507c7e34e52c6f71f9e244d12696e"
+            "source_sha256": "d1b4555f69e0a9a373b5e6c9c3d40fc1ad65442606b3e901d68b7086eb9c503c"
         },
         {
             "path": "server/app/modules/official/import_export/src/Engine/Persistence/Model/ImportExportOperationRecord.php",
@@ -12712,7 +12726,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6656d2b97dde67d24ad3f9052181ca38302fe9f331e1a4d4f06a5d21042b2f3a"
+            "source_sha256": "ab89159c882b83bc9fb123ddef8ca1f4a2d4b258575be83b970a0a17e923c5cd"
         },
         {
             "path": "server/app/modules/official/import_export/src/Service/ConfigurationTransferApplicationService.php",
@@ -13163,6 +13177,20 @@
             "source_sha256": "35372da24f3627dda6d5277ae1c3b44cbbbe414e7b9909185bb4bf44be3e182d"
         },
         {
+            "path": "server/app/modules/official/integration/src/Console/PurgeExpiredDeliveriesCommand.php",
+            "target": "server/app/modules/official/integration/src/Console/PurgeExpiredDeliveriesCommand.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f823aa8753349532427ddd2c78d251257c94fe53220cfc16e163e75342933060"
+        },
+        {
             "path": "server/app/modules/official/integration/src/Contract/ExternalBindingQualification.php",
             "target": "server/app/modules/official/integration/src/Contract/ExternalBindingQualification.php",
             "classification": "managed",
@@ -13370,7 +13398,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e62212940dca472d7530d14b9ec07d454cb8f78744ec1eea4f22565c6697fb5"
+            "source_sha256": "3d7b9999584d2e27aad54dbad700d0f8983a67e4f1f90b0cfb84746510c682bc"
         },
         {
             "path": "server/app/modules/official/integration/src/Contract/MachineScopeGrantResolver.php",
@@ -13496,7 +13524,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "40f6738c23bd1ff24b91b6645d6adf34261ce187dd67858934b7b89bac76f8f1"
+            "source_sha256": "61dfc3643087381f2830896ddfe847fc598945592ae59e9ebe8479ea88218516"
         },
         {
             "path": "server/app/modules/official/integration/src/Infrastructure/ThinkPhpExternalTenantAudit.php",
@@ -13622,7 +13650,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "49320d550ff0799c826b3e0130337faa04f5f6e3a01b9b082e3d7187abaab06f"
+            "source_sha256": "6dafb69a34f4fd73b43993978f0104104713563fb457ac6f2a1caa13bdf09095"
         },
         {
             "path": "server/app/modules/official/integration/src/Package.php",
@@ -17236,7 +17264,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ddf4c8bf406d6d2a6730d185ed4860a2235a717cbd62a7ca37660b8dfa3ec413"
+            "source_sha256": "7f280cc588623533a3fd57bd452a5b60cc2c792876d75a5ccda95176e9ac6681"
         },
         {
             "path": "server/app/modules/official/payment/src/Service/RechargeApplicationService.php",
@@ -17292,7 +17320,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "212702c241cbb6e36667d36203d94a5a2746f3dd80f02e9df670112214bfef49"
+            "source_sha256": "cb9d38753303a308af3fb17bfea247740d52ce3438c8aee6c6621563c6ff6ef7"
         },
         {
             "path": "server/app/modules/official/payment/src/Service/RefundEnum.php",
@@ -22212,7 +22240,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e854390030943e0e4f1ea166258b8856ef7860462a6fd9561c2d57acb36b382"
+            "source_sha256": "02f2ff1c33e421297395512cf792c597cf07f4d0633353ed801c1b6f068fa275"
         },
         {
             "path": "server/config/cookie.php",
@@ -27221,6 +27249,19 @@
             ]
         },
         {
+            "path": "server/tests/Unit/PaymentMemberReadAssociationTest.php",
+            "target": "server/tests/Unit/PaymentMemberReadAssociationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/PhpTestRunnerTest.php",
             "target": "server/tests/Unit/PhpTestRunnerTest.php",
             "classification": "excluded",
@@ -27249,6 +27290,19 @@
         {
             "path": "server/tests/Unit/PlatformLifecycleFixtureAssemblyTest.php",
             "target": "server/tests/Unit/PlatformLifecycleFixtureAssemblyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/PlatformRetentionMaintenanceTest.php",
+            "target": "server/tests/Unit/PlatformRetentionMaintenanceTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

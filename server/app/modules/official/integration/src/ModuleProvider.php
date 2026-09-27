@@ -53,6 +53,10 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(CurrentExecutionContext::class),
                 $app->make(AdminDirectoryQuery::class),
             ),
+            ThinkPhpIntegrationSecurityRepository::class => fn(App $app): ThinkPhpIntegrationSecurityRepository => new ThinkPhpIntegrationSecurityRepository(
+                $app->make(CurrentExecutionContext::class),
+                $app->make(\app\common\services\audit\AuditContractHost::class),
+            ),
             IntegrationSecurityRepository::class => ThinkPhpIntegrationSecurityRepository::class,
             HostAddressResolver::class => SystemHostAddressResolver::class,
             WebhookDestinationPolicy::class => fn(App $app): WebhookDestinationPolicy => new WebhookDestinationPolicy(

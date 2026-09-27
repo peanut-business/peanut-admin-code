@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Integration\Infrastructure\Persistence;
 
 use DateTimeImmutable;
+use app\common\execution\CurrentExecutionContext;
+use app\common\execution\InstanceExecutionContext;
+use app\common\services\audit\AuditContractHost;
+use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use DateTimeZone;
 use PeanutAdmin\Modules\Integration\Contract\IntegrationSecurityRepository;
 use PeanutAdmin\IntegrationSecurity\Application\IntegrationSecurityException;
@@ -26,6 +30,11 @@ use think\facade\Db;
 
 final readonly class ThinkPhpIntegrationSecurityRepository implements IntegrationSecurityRepository
 {
+    public function __construct(
+        private ?CurrentExecutionContext $execution = null,
+        private ?AuditContractHost $maintenanceAudit = null,
+    ) {}
+
     public function createMachine(
         TenantContext $context,
         string $identityKey,
@@ -455,20 +464,83 @@ final readonly class ThinkPhpIntegrationSecurityRepository implements Integratio
         });
     }
 
-    /** @return array{payloads_cleared: int, attempts_deleted: int, deliveries_deleted: int} */
-    public function purgeExpiredDeliveryData(DateTimeImmutable $payloadCutoff, DateTimeImmutable $evidenceCutoff): array
+    /**
+     * 平台CLI每次仅处理一批：payload、attempt、delivery各不超过limit，不能包在调用方事务里。
+     * 子证据多于一批时保留父投递；相同截止条件重复调用安全继续，不加载全量历史ID或正文。
+     * @return array{payloads_cleared: int, attempts_deleted: int, deliveries_deleted: int}
+     */
+    public function purgeExpiredDeliveryData(DateTimeImmutable $payloadCutoff, DateTimeImmutable $evidenceCutoff, int $limit = 100): array
     {
-        return Db::transaction(function () use ($payloadCutoff, $evidenceCutoff): array {
-            $payloads = IntegrationWebhookDeliveryRecord::whereNotNull('payload_json')
-                ->where('payload_expires_at', '<=', $this->format($payloadCutoff))
-                ->whereIn('status', ['delivered', 'permanent_failed'])->update(['payload_json' => null]);
-            $deliveryIds = IntegrationWebhookDeliveryRecord::whereIn('status', ['delivered', 'permanent_failed'])
-                ->where('updated_at', '<=', $this->format($evidenceCutoff))->column('id');
-            $attempts = $deliveryIds === [] ? 0 : IntegrationWebhookAttemptRecord::whereIn('delivery_id', $deliveryIds)->delete();
-            $deliveries = $deliveryIds === [] ? 0 : IntegrationWebhookDeliveryRecord::whereIn('id', $deliveryIds)->delete();
-
-            return ['payloads_cleared' => $payloads, 'attempts_deleted' => $attempts, 'deliveries_deleted' => $deliveries];
-        });
+        $context = $this->execution?->current();
+        if (!$context instanceof InstanceExecutionContext
+            || $context->operation() !== 'console.integration:purge-expired'
+            || PHP_SAPI !== 'cli' || $this->maintenanceAudit === null) {
+            throw new \DomainException('PLATFORM_MAINTENANCE_CONTEXT_REQUIRED');
+        }
+        if ($limit < 1 || $limit > 1000) {
+            throw new \InvalidArgumentException('INTEGRATION_RETENTION_BATCH_INVALID');
+        }
+        $connection = Db::connect();
+        $pdo = $connection->getPdo();
+        $pdo = $pdo instanceof \PDO ? $pdo : $connection->connect();
+        if ($pdo->inTransaction()) {
+            throw new \DomainException('MAINTENANCE_OUTER_TRANSACTION_FORBIDDEN');
+        }
+        $metadata = ['payload_cutoff' => $this->format($payloadCutoff), 'evidence_cutoff' => $this->format($evidenceCutoff), 'batch_limit' => $limit];
+        try {
+            return Db::transaction(function () use ($payloadCutoff, $evidenceCutoff, $limit, $context, $metadata): array {
+                $payloadIds = IntegrationWebhookDeliveryRecord::whereNotNull('payload_json')
+                    ->where('payload_expires_at', '<=', $this->format($payloadCutoff))
+                    ->whereIn('status', ['delivered', 'permanent_failed'])->order('id')->limit($limit)->lock(true)->column('id');
+                $payloads = $payloadIds === [] ? 0 : IntegrationWebhookDeliveryRecord::whereIn('id', $payloadIds)->update(['payload_json' => null]);
+                $deliveryIds = IntegrationWebhookDeliveryRecord::whereIn('status', ['delivered', 'permanent_failed'])
+                    ->where('updated_at', '<=', $this->format($evidenceCutoff))->order('id')->limit($limit)->lock(true)->column('id');
+                $attempts = 0;
+                $deliveries = 0;
+                if ($deliveryIds !== []) {
+                    $badLink = IntegrationWebhookAttemptRecord::alias('attempt')
+                        ->join('integration_webhook_delivery parent', 'parent.id = attempt.delivery_id')
+                        ->whereIn('parent.id', $deliveryIds)->whereRaw('attempt.tenant_id <> parent.tenant_id')
+                        ->field('attempt.id')->find();
+                    if ($badLink !== null) {
+                        throw new \RuntimeException('INTEGRATION_RETENTION_PARENT_SCOPE_MISMATCH');
+                    }
+                    $attemptIds = IntegrationWebhookAttemptRecord::whereIn('delivery_id', $deliveryIds)
+                        ->order('id')->limit($limit)->lock(true)->column('id');
+                    $attempts = $attemptIds === [] ? 0 : IntegrationWebhookAttemptRecord::whereIn('id', $attemptIds)->delete();
+                    $remainingParents = IntegrationWebhookAttemptRecord::whereIn('delivery_id', $deliveryIds)
+                        ->group('delivery_id')->column('delivery_id');
+                    $deletable = array_values(array_diff($deliveryIds, $remainingParents));
+                    $deliveries = $deletable === [] ? 0 : IntegrationWebhookDeliveryRecord::whereIn('id', $deletable)->delete();
+                }
+                $result = ['payloads_cleared' => $payloads, 'attempts_deleted' => $attempts, 'deliveries_deleted' => $deliveries];
+                $this->maintenanceAudit->recordPlatform(
+                    'platform.integration.delivery_data_purged',
+                    'integration.purge_expired_delivery_data',
+                    $context->requestId(),
+                    null,
+                    null,
+                    [...$metadata, ...$result],
+                );
+                return $result;
+            });
+        } catch (\Throwable $failure) {
+            try {
+                $this->maintenanceAudit->recordPlatform(
+                    'platform.integration.delivery_purge_failed',
+                    'integration.purge_expired_delivery_data',
+                    $context->requestId(),
+                    null,
+                    null,
+                    [...$metadata, 'payloads_cleared' => 0, 'attempts_deleted' => 0, 'deliveries_deleted' => 0],
+                    AuditOutcome::Error,
+                    'INTEGRATION_RETENTION_FAILED',
+                );
+            } catch (\Throwable) {
+                throw new \RuntimeException('PLATFORM_MAINTENANCE_FAILURE_AUDIT_FAILED', 0, $failure);
+            }
+            throw $failure;
+        }
     }
 
     public function deliveryRecords(int $tenantId, int $page, int $pageSize): IntegrationSecurityPage

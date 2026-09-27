@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\ImportExport\Engine\Persistence;
 
 use DateTimeImmutable;
+use app\common\execution\CurrentExecutionContext;
+use app\common\execution\InstanceExecutionContext;
+use app\common\services\audit\AuditContractHost;
+use PeanutAdmin\Kernel\Audit\AuditOutcome;
+use think\facade\Db;
 use DateTimeZone;
 use JsonException;
 use PeanutAdmin\Modules\ImportExport\Engine\Application\ImportExportException;
@@ -25,6 +30,8 @@ final class ImportExportStore
     public function __construct(
         TenantPersistenceMode $mode = TenantPersistenceMode::TenantScoped,
         ?int $instanceTenantId = null,
+        private readonly ?CurrentExecutionContext $execution = null,
+        private readonly ?AuditContractHost $maintenanceAudit = null,
     ) {
         $this->tenantScope = new TenantColumnScope($mode, $instanceTenantId);
         $this->tenantScope->assertRuntimeConfigured();
@@ -326,22 +333,59 @@ final class ImportExportStore
         return $this->map($this->byId($tenantId, $operationId, true) ?? throw ImportExportException::internal(), $tenantId);
     }
 
+    /** 已授权平台系统维护；每次最多1000条，只清文件引用，审计与更新加入同一事务。 */
     public function expireDue(int $limit = 100): int
     {
-        $this->assertStorageMode();
+        $context = $this->execution?->current();
+        if (!$context instanceof InstanceExecutionContext
+            || $context->operation() !== 'console.import-export:expire'
+            || PHP_SAPI !== 'cli' || $this->maintenanceAudit === null) {
+            throw new \DomainException('PLATFORM_MAINTENANCE_CONTEXT_REQUIRED');
+        }
         if ($limit < 1 || $limit > 1000) {
             throw ImportExportException::invalid();
         }
-        $sample = ImportExportOperationRecord::order('id')->find()?->toArray();
-        if ($sample !== null) {
-            $this->tenantScope->assertStorageRow($sample);
+        $this->assertStorageMode();
+        try {
+            return Db::transaction(function () use ($limit, $context): int {
+                $sample = ImportExportOperationRecord::order('id')->find()?->toArray();
+                if ($sample !== null) {
+                    $this->tenantScope->assertStorageRow($sample);
+                }
+                $ids = ImportExportOperationRecord::whereIn('status', ['succeeded', 'failed', 'cancelled'])
+                    ->where('retention_until', '<=', new Raw('UTC_TIMESTAMP(3)'))
+                    ->order('id')->limit($limit)->lock(true)->column('id');
+                $expired = $ids === [] ? 0 : ImportExportOperationRecord::whereIn('id', $ids)->update([
+                    'status' => 'expired', 'result_file_key' => null, 'error_file_key' => null,
+                    'revision' => new Raw('revision + 1'), 'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
+                ]);
+                $this->maintenanceAudit->recordPlatform(
+                    'platform.import_export.expired',
+                    'import_export.expire',
+                    $context->requestId(),
+                    null,
+                    null,
+                    ['expired' => $expired, 'batch_limit' => $limit],
+                );
+                return $expired;
+            });
+        } catch (Throwable $failure) {
+            try {
+                $this->maintenanceAudit->recordPlatform(
+                    'platform.import_export.expiry_failed',
+                    'import_export.expire',
+                    $context->requestId(),
+                    null,
+                    null,
+                    ['expired' => 0, 'batch_limit' => $limit],
+                    AuditOutcome::Error,
+                    'IMPORT_EXPORT_RETENTION_FAILED',
+                );
+            } catch (Throwable) {
+                throw new \RuntimeException('PLATFORM_MAINTENANCE_FAILURE_AUDIT_FAILED', 0, $failure);
+            }
+            throw $failure;
         }
-
-        return ImportExportOperationRecord::whereIn('status', ['succeeded', 'failed', 'cancelled'])
-            ->where('retention_until', '<=', new Raw('UTC_TIMESTAMP(3)'))->order('id')->limit($limit)->update([
-                'status' => 'expired', 'result_file_key' => null, 'error_file_key' => null,
-                'revision' => new Raw('revision + 1'), 'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
-            ]);
     }
 
     /** @return array<string, mixed>|null */

@@ -383,7 +383,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "29ee9ddaababa9b48b47ff1ee21d74ce1d8944b45acc861915d7cc19d4e270dc"
+                "sha256": "ad7243925ec955052caf698153dc94c878cf432f234e2c23982609f5281e237f"
             },
             "trust": {
                 "channel": "bundled",
@@ -492,7 +492,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "8432dbfc65f5cf54c3b9d7221f1bf2bea9de853e1cc45ff4d906636033bc62c3"
+            "manifest_sha256": "f37f909deab154da3e7baeee91b228466dea22ffc49bf7bf99a272f0a01559f3"
         },
         {
             "key": "official.integration",
@@ -500,7 +500,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "44062c945271dbebf0f2fef2c9bb1f9fb58ea0483ed9ef3e5277af3b1895d01f"
+                "sha256": "fd2652ca4867de47051f1eacb7e4b4cfa2f97ca0fba878caa9edd841d5fc7272"
             },
             "trust": {
                 "channel": "bundled",
@@ -584,7 +584,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "f7f59596319b5fb12403e262b80fd5fe1fd94f286cf3cc3c7aab4e9fd68f06b1"
+            "manifest_sha256": "efdbf26a230fe00f1b1fa6f9125c85315b81142588ee0e56ed9e18db752ceed3"
         },
         {
             "key": "official.member",
@@ -1015,7 +1015,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "a32f2506dbcb75ff094a0d91b0eb8e75b3f2d0d88f6807f08f5d508971d9a6a2"
+                "sha256": "6ee5ffa324fb3d398d0c58208eb5cc6e1621fdf24c5547919fb463b8f8e5d63c"
             },
             "trust": {
                 "channel": "bundled",
@@ -1120,7 +1120,7 @@
                 }
             ],
             "manifest": "plugins/official.payment/plugin.json",
-            "manifest_sha256": "439cef779bd1f5541d60ff766b7daf351b2bbfff977db13f9c8ecb4ba7c960bf"
+            "manifest_sha256": "04a87a7d46cef694d81aab54ab4ea0a65f9d2a9e56f5919f874276c88b6320a9"
         },
         {
             "key": "official.reference-codes",

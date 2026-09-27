@@ -143,7 +143,8 @@ class RefundApplicationService
         return $lists;
     }
 
-    private static function buildBaseQuery(TenantContext $context, array $params, bool $withStatus)
+    /** 只读会员关联；统计与分页共用tenant和会员筛选，不给调用方Member写入能力。 */
+    private static function buildBaseQuery(TenantContext $context, array $params, bool $withStatus): \think\db\Query
     {
         $query = RefundRecord::alias('r')->where([])
             ->join('member u', 'u.tenant_id = r.tenant_id AND u.id = r.user_id');

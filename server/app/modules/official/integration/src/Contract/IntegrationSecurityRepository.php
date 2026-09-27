@@ -39,7 +39,7 @@ interface IntegrationSecurityRepository
     public function completeDelivery(WebhookDelivery $delivery, int $statusCode, int $durationMs, DateTimeImmutable $now): void;
     public function failDelivery(WebhookDelivery $delivery, string $safeCode, bool $retryable, ?int $statusCode, int $durationMs, DateTimeImmutable $now): void;
     /** @return array{payloads_cleared: int, attempts_deleted: int, deliveries_deleted: int} */
-    public function purgeExpiredDeliveryData(DateTimeImmutable $payloadCutoff, DateTimeImmutable $evidenceCutoff): array;
+    public function purgeExpiredDeliveryData(DateTimeImmutable $payloadCutoff, DateTimeImmutable $evidenceCutoff, int $limit = 100): array;
     public function deliveryRecords(int $tenantId, int $page, int $pageSize): IntegrationSecurityPage;
     public function deliveryAttemptRecords(int $tenantId, string $deliveryKey, int $page, int $pageSize): IntegrationSecurityPage;
 

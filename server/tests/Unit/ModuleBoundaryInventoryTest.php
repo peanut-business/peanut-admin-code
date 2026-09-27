@@ -153,6 +153,39 @@ final class ModuleBoundaryInventoryTest extends TestCase
         \moduleBoundaryInventory($this->root, true);
     }
 
+    private function readAssociation(string $condition = 'b.tenant_id = a.tenant_id AND b.id = a.member_id', string $fields = 'a.id,b.name', string $consumer = 'return self::query()->select()->toArray();'): array
+    {
+        $this->write($this->root . '/server/app/modules/fixture/alpha/src/Model/Item.php', '<?php namespace Fixture\\Alpha\\Model; class Item extends \\app\\common\\model\\TenantOwnedModel {}');
+        return $this->source('final class Reader { public function list(): array {' . $consumer . '}
+            private static function query(): \\think\\db\\Query {
+                $query = \\Fixture\\Alpha\\Model\\Item::alias("a")->join("beta b", ' . var_export($condition, true) . ')->field(' . var_export($fields, true) . ');
+                return $query;
+            }}');
+    }
+
+    public function testApprovedOwnScopedReadJoinIsNotAForbiddenPrivateRead(): void
+    {
+        $report = $this->readAssociation();
+        self::assertSame('passed', $report['status']);
+        self::assertCount(1, $report['read_only_associations']);
+        self::assertSame('fixture.beta', $report['read_only_associations'][0]['target_owner']);
+    }
+
+    public function testReadApprovalDoesNotAdmitWrongScopeSensitiveFieldsOrWrites(): void
+    {
+        foreach ([
+            ['b.id = a.member_id', 'a.id,b.name', 'return self::query()->select()->toArray();'],
+            ['b.tenant_id = a.tenant_id OR b.id = a.member_id', 'a.id,b.name', 'return self::query()->select()->toArray();'],
+            ['b.tenant_id = a.tenant_id AND b.id = a.member_id', 'a.id,b.*', 'return self::query()->select()->toArray();'],
+            ['b.tenant_id = a.tenant_id AND b.id = a.member_id', 'a.id,b.password AS name', 'return self::query()->select()->toArray();'],
+            ['b.tenant_id = a.tenant_id AND b.id = a.member_id', 'a.id,b.name', 'self::query()->update(["b.name"=>"changed"]); return [];'],
+            ['b.tenant_id = a.tenant_id AND b.id = a.member_id', 'a.id,b.name', '$q=self::query(); $q->delete(); return [];'],
+            ['b.tenant_id = a.tenant_id AND b.id = a.member_id', 'a.id,b.name', '$q=self::query(); expose($q); return [];'],
+        ] as [$condition, $fields, $consumer]) {
+            self::assertSame('failed', $this->readAssociation($condition, $fields, $consumer)['status']);
+        }
+    }
+
     protected function tearDown(): void
     {
         foreach (array_keys($this->ownedFiles) as $file) {

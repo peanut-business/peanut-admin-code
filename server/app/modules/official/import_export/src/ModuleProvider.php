@@ -46,11 +46,19 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
     public function bindings(): array
     {
         return [
-            ImportExportApplicationService::class => function (App $app): ImportExportApplicationService {
+            \PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore::class => function (App $app): \PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore {
                 $persistence = $app->make(TenantPersistenceConfiguration::class);
+                return new \PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore(
+                    $persistence->mode,
+                    $persistence->instanceTenantId,
+                    $app->make(\app\common\execution\CurrentExecutionContext::class),
+                    $app->make(AuditContractHost::class),
+                );
+            },
+            ImportExportApplicationService::class => function (App $app): ImportExportApplicationService {
                 $tasks = $app->make(TaskJobRuntime::class);
                 return new ImportExportApplicationService(new ImportExportService(
-                    new \PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore($persistence->mode, $persistence->instanceTenantId),
+                    $app->make(\PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore::class),
                     new DataProviderRegistry([new OperationLogExportProvider()]),
                     $tasks->publisher(new ImportExportTaskSubmissionProvider()),
                     $tasks->jobs(),
@@ -74,10 +82,9 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
             ConfigurationTransferCommands::class => ConfigurationTransferApplicationService::class,
             ConfigurationTransferQueries::class => ConfigurationTransferApplicationService::class,
             ImportExportTaskWorkerDefinition::class => function (App $app): ImportExportTaskWorkerDefinition {
-                $persistence = $app->make(TenantPersistenceConfiguration::class);
                 return new ImportExportTaskWorkerDefinition(
                     new ImportExportTaskHandler(new CsvOperationRunner(
-                        new \PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore($persistence->mode, $persistence->instanceTenantId),
+                        $app->make(\PeanutAdmin\Modules\ImportExport\Engine\Persistence\ImportExportStore::class),
                         new DataProviderRegistry([new OperationLogExportProvider()]),
                         $app->make(AppFileMediaGateway::class),
                         $app->make(AuditService::class),

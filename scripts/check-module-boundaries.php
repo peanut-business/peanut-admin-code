@@ -13,6 +13,302 @@ if (!class_exists(ParserFactory::class)) {
     require_once dirname(__DIR__) . '/tools/quality/vendor/autoload.php';
 }
 
+/** @return array{Node,list<Node\Expr\MethodCall>} */
+function moduleBoundaryQueryChain(Node $node): array
+{
+    $calls = [];
+    while ($node instanceof Node\Expr\MethodCall) {
+        $calls[] = $node;
+        $node = $node->var;
+    }
+    return [$node, $calls];
+}
+
+function moduleBoundaryLiteral(Node $node, array $constants = []): ?string
+{
+    if ($node instanceof Node\Scalar\String_) {
+        return $node->value;
+    }
+    if ($node instanceof Node\Scalar\Int_) {
+        return (string) $node->value;
+    }
+    if ($node instanceof Node\Expr\ClassConstFetch && $node->class instanceof Node\Name && $node->name instanceof Node\Identifier) {
+        return $constants[$node->class->toString() . '::' . $node->name->toString()] ?? null;
+    }
+    if ($node instanceof Node\Expr\BinaryOp\Concat) {
+        $left = moduleBoundaryLiteral($node->left, $constants);
+        $right = moduleBoundaryLiteral($node->right, $constants);
+        return $left === null || $right === null ? null : $left . $right;
+    }
+    return null;
+}
+
+/** 静态只承认闭合的私有Query工厂；运行时授权/复杂关系需独立行为验证，不用文件名豁免。 */
+function moduleBoundaryReadAssociations(array $nodes, string $owner, array $modules, array $namespaces, array $tables): array
+{
+    $finder = new \PhpParser\NodeFinder();
+    $approved = [];
+    $parser = (new ParserFactory())->createForHostVersion();
+    $declarations = static function (string $class) use ($owner, $modules, $namespaces, $parser, $finder): array {
+        foreach ($namespaces as $prefix => $moduleOwner) {
+            if ($moduleOwner !== $owner || !str_starts_with($class, $prefix)) {
+                continue;
+            }
+            foreach ($modules[$owner]['sources'] ?? [] as $source) {
+                $file = $source . '/' . str_replace('\\', '/', substr($class, strlen($prefix))) . '.php';
+                if (!is_file($file) || is_link($file)) {
+                    continue;
+                }
+                $tree = $parser->parse((string) file_get_contents($file)) ?? [];
+                $resolver = new NodeTraverser();
+                $resolver->addVisitor(new NameResolver());
+                return array_values(array_filter(
+                    $finder->findInstanceOf($resolver->traverse($tree), Node\Stmt\Class_::class),
+                    static fn($item): bool => isset($item->namespacedName) && $item->namespacedName->toString() === $class,
+                ));
+            }
+        }
+        return [];
+    };
+    $isScopedModel = static function (string $class) use ($declarations): bool {
+        foreach ($declarations($class) as $item) {
+            if ($item->extends?->toString() === 'app\\common\\model\\TenantOwnedModel') {
+                return true;
+            }
+        }
+        return false;
+    };
+    $constants = [];
+    foreach ($finder->findInstanceOf($nodes, Node\Expr\ClassConstFetch::class) as $fetch) {
+        if (!$fetch->class instanceof Node\Name || !$fetch->name instanceof Node\Identifier) {
+            continue;
+        }
+        foreach ($declarations($fetch->class->toString()) as $declaration) {
+            foreach ($declaration->getConstants() as $statement) {
+                foreach ($statement->consts as $constant) {
+                    $value = moduleBoundaryLiteral($constant->value);
+                    if ($value !== null) {
+                        $constants[$fetch->class->toString() . '::' . $constant->name->toString()] = $value;
+                    }
+                }
+            }
+        }
+    }
+    $builders = ['alias','where','whereor','wherein','wherenotin','wherebetween','wherenull','wherenotnull','join','leftjoin','rightjoin','field','fieldraw','order','orderraw','group','page','limit'];
+    $reads = ['count','select','find','findorempty','paginate','sum','column','value','toarray'];
+    foreach ($finder->findInstanceOf($nodes, Node\Stmt\Class_::class) as $class) {
+        foreach ($class->getMethods() as $factory) {
+            if (!$factory->isPrivate() || !$factory->isStatic() || !$factory->returnType instanceof Node\Name
+                || $factory->returnType->toString() !== 'think\\db\\Query') {
+                continue;
+            }
+            $methodName = $factory->name->toString();
+            $queryName = null;
+            $alias = null;
+            $joins = [];
+            $valid = true;
+            foreach ($finder->findInstanceOf($factory->stmts ?? [], Node\Expr\Assign::class) as $assign) {
+                if (!$assign->var instanceof Node\Expr\Variable || !is_string($assign->var->name)) {
+                    continue;
+                }
+                [$root, $chain] = moduleBoundaryQueryChain($assign->expr);
+                if (!$root instanceof Node\Expr\StaticCall || !$root->class instanceof Node\Name
+                    || !$root->name instanceof Node\Identifier || strtolower($root->name->toString()) !== 'alias'
+                    || !$isScopedModel($root->class->toString())) {
+                    continue;
+                }
+                if ($queryName !== null) {
+                    $valid = false;
+                    break;
+                }
+                $queryName = $assign->var->name;
+                $alias = isset($root->args[0]) ? moduleBoundaryLiteral($root->args[0]->value) : null;
+            }
+            if (!$valid || $queryName === null || $alias === null || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $alias) !== 1) {
+                continue;
+            }
+            $returns = $finder->findInstanceOf($factory->stmts ?? [], Node\Stmt\Return_::class);
+            if (count($returns) !== 1 || !$returns[0]->expr instanceof Node\Expr\Variable || $returns[0]->expr->name !== $queryName) {
+                continue;
+            }
+            foreach ($finder->findInstanceOf($factory->stmts ?? [], Node\Expr\MethodCall::class) as $call) {
+                if (!$call->name instanceof Node\Identifier) {
+                    $valid = false;
+                    break;
+                }
+                $name = strtolower($call->name->toString());
+                if (!in_array($name, $builders, true)) {
+                    $valid = false;
+                    break;
+                }
+                if (!in_array($name, ['join','leftjoin','rightjoin'], true)) {
+                    continue;
+                }
+                $table = isset($call->args[0]) ? moduleBoundaryLiteral($call->args[0]->value) : null;
+                $condition = isset($call->args[1]) ? moduleBoundaryLiteral($call->args[1]->value) : null;
+                if ($table === null || $condition === null || preg_match('/^(?:pa_)?([a-z][a-z0-9_]*)\s+([a-z][a-z0-9_]*)$/iD', $table, $parts) !== 1) {
+                    $valid = false;
+                    break;
+                }
+                $logical = $parts[1];
+                $joined = $parts[2];
+                $targetOwner = $tables[$logical] ?? null;
+                if ($targetOwner === null || $targetOwner === $owner) {
+                    continue;
+                }
+                $normalized = str_replace(['`', ' '], '', $condition);
+                $tenantPairs = [strtolower($joined . '.tenant_id=' . $alias . '.tenant_id'), strtolower($alias . '.tenant_id=' . $joined . '.tenant_id')];
+                $terms = preg_split('/\bAND\b/i', $condition) ?: [];
+                $hasTenant = false;
+                foreach ($terms as $term) {
+                    $hasTenant = $hasTenant || in_array(strtolower(str_replace(['`',' '], '', trim($term))), $tenantPairs, true);
+                }
+                if (!$hasTenant || preg_match('/\bOR\b|;|--|\/\*/i', $condition)) {
+                    $valid = false;
+                    break;
+                }
+                $joins[$call->getStartFilePos()] = ['target_owner' => $targetOwner, 'target' => $logical, 'alias' => $joined];
+            }
+            if (!$valid || $joins === []) {
+                continue;
+            }
+            $factoryFields = [];
+            foreach ($finder->findInstanceOf($factory->stmts ?? [], Node\Expr\MethodCall::class) as $call) {
+                if (!$call->name instanceof Node\Identifier || !in_array(strtolower($call->name->toString()), ['field','fieldraw'], true)) {
+                    continue;
+                }
+                $field = isset($call->args[0]) ? moduleBoundaryLiteral($call->args[0]->value, $constants) : null;
+                if ($field === null || trim($field) === '*') {
+                    $valid = false;
+                    break;
+                }
+                $factoryFields[] = $field;
+            }
+            if (!$valid) {
+                continue;
+            }
+            $isFactoryRoot = static fn(Node $root): bool => $root instanceof Node\Expr\StaticCall && $root->class instanceof Node\Name
+                && in_array(strtolower($root->class->toString()), ['self','static'], true)
+                && $root->name instanceof Node\Identifier && $root->name->toString() === $methodName;
+            $consumers = 0;
+            foreach ($class->getMethods() as $method) {
+                $queryVars = $method === $factory ? [$queryName => true] : [];
+                $paginationVars = [];
+                foreach ($finder->findInstanceOf($method->stmts ?? [], Node\Expr\Assign::class) as $assign) {
+                    if (!$assign->var instanceof Node\Expr\Variable || !is_string($assign->var->name)) {
+                        continue;
+                    }
+                    [$root, $chain] = moduleBoundaryQueryChain($assign->expr);
+                    if ($root instanceof Node\Expr\StaticCall && $root->class instanceof Node\Name
+                        && $root->class->toString() === 'app\\common\\support\\PaginationInput') {
+                        $paginationVars[$assign->var->name] = true;
+                    }
+                    if ($isFactoryRoot($root) && array_filter($chain, static fn($call): bool => $call->name instanceof Node\Identifier && in_array(strtolower($call->name->toString()), $reads, true)) === []) {
+                        $queryVars[$assign->var->name] = true;
+                    }
+                }
+                $fields = $method === $factory ? $factoryFields : [];
+                $methodReads = false;
+                $isQuery = static function (Node $node) use ($queryVars, $isFactoryRoot): bool {
+                    [$root] = moduleBoundaryQueryChain($node);
+                    return $isFactoryRoot($root) || ($root instanceof Node\Expr\Variable && is_string($root->name) && isset($queryVars[$root->name]));
+                };
+                foreach ($finder->findInstanceOf($method->stmts ?? [], Node\Expr\MethodCall::class) as $call) {
+                    if (!$isQuery($call)) {
+                        continue;
+                    }
+                    if (!$call->name instanceof Node\Identifier) {
+                        $valid = false;
+                        break;
+                    }
+                    $name = strtolower($call->name->toString());
+                    if (!in_array($name, [...$builders, ...$reads], true)) {
+                        $valid = false;
+                        break;
+                    }
+                    $methodReads = $methodReads || in_array($name, ['select','find','findorempty','paginate'], true);
+                    if (in_array($name, ['field','fieldraw'], true)) {
+                        $field = isset($call->args[0]) ? moduleBoundaryLiteral($call->args[0]->value, $constants) : null;
+                        if ($field === null || trim($field) === '*') {
+                            $valid = false;
+                            break;
+                        }
+                        $fields[] = $field;
+                    }
+                }
+                foreach ($finder->findInstanceOf($method->stmts ?? [], Node\Expr\StaticCall::class) as $call) {
+                    if ($isFactoryRoot($call)) {
+                        ++$consumers;
+                    }
+                }
+                // A Query may be consumed only locally or by the existing bounded PaginationInput adapter.
+                foreach ($finder->find($method->stmts ?? [], static fn(Node $node): bool => $node instanceof Node\Expr\FuncCall || $node instanceof Node\Expr\MethodCall || $node instanceof Node\Expr\StaticCall || $node instanceof Node\Expr\New_) as $call) {
+                    foreach ($call->args as $argument) {
+                        if (!$argument instanceof Node\Arg || !$isQuery($argument->value)) {
+                            continue;
+                        }
+                        [, $chain] = moduleBoundaryQueryChain($argument->value);
+                        $consumed = array_filter($chain, static fn($item): bool => $item->name instanceof Node\Identifier && in_array(strtolower($item->name->toString()), $reads, true)) !== [];
+                        if ($consumed) {
+                            continue;
+                        }
+                        $pagination = $call instanceof Node\Expr\MethodCall && $call->name instanceof Node\Identifier && $call->name->toString() === 'result'
+                            && (($call->var instanceof Node\Expr\Variable && isset($paginationVars[$call->var->name]))
+                                || ($call->var instanceof Node\Expr\StaticCall && $call->var->class instanceof Node\Name && $call->var->class->toString() === 'app\\common\\support\\PaginationInput'));
+                        if (!$pagination) {
+                            $valid = false;
+                            break 2;
+                        }
+                        $methodReads = true;
+                    }
+                }
+                foreach ($finder->findInstanceOf($method->stmts ?? [], Node\Stmt\Return_::class) as $return) {
+                    if ($method === $factory || $return->expr === null || !$isQuery($return->expr)) {
+                        continue;
+                    }
+                    [, $chain] = moduleBoundaryQueryChain($return->expr);
+                    if (array_filter($chain, static fn($item): bool => $item->name instanceof Node\Identifier && in_array(strtolower($item->name->toString()), $reads, true)) === []) {
+                        $valid = false;
+                    }
+                }
+                foreach ($finder->findInstanceOf($method->stmts ?? [], Node\Expr\Assign::class) as $assign) {
+                    if ($assign->expr instanceof Node\Expr\Variable && is_string($assign->expr->name) && isset($queryVars[$assign->expr->name])) {
+                        $valid = false;
+                    }
+                }
+                foreach ($finder->findInstanceOf($method->stmts ?? [], Node\Expr\ClosureUse::class) as $use) {
+                    if (isset($queryVars[$use->var->name])) {
+                        $valid = false;
+                    }
+                }
+                if ($method === $factory) {
+                    $factoryFields = $fields;
+                }
+                if ($methodReads && $fields === [] && $factoryFields === []) {
+                    $valid = false;
+                }
+                foreach ($fields as $field) {
+                    foreach ($joins as $join) {
+                        $joined = preg_quote($join['alias'], '/');
+                        if (preg_match('/\b' . $joined . '\s*\.\s*(?:\*|[A-Za-z0-9_]*(?:password|passwd|secret|credential|token|salt|private_key)[A-Za-z0-9_]*)/i', str_replace('`', '', $field))) {
+                            $valid = false;
+                        }
+                    }
+                }
+                if (!$valid) {
+                    break;
+                }
+            }
+            if ($valid && $consumers > 0) {
+                foreach ($joins as $position => $join) {
+                    $approved[$position] = $join;
+                }
+            }
+        }
+    }
+    return $approved;
+}
+
 /** @return array<string,mixed> */
 function moduleBoundaryInventory(string $root, bool $includeHost = false): array
 {
@@ -96,6 +392,7 @@ function moduleBoundaryInventory(string $root, bool $includeHost = false): array
     $literalTables = 0;
     $hostFiles = 0;
     $compositionReferences = 0;
+    $readAssociations = [];
     $seenFiles = [];
     foreach ($scanGroups as $owner => $module) {
         foreach ($module['sources'] as $directory) {
@@ -120,7 +417,8 @@ function moduleBoundaryInventory(string $root, bool $includeHost = false): array
                 $traverser = new NodeTraverser();
                 $traverser->addVisitor(new NameResolver());
                 $nodes = $traverser->traverse($nodes);
-                $visit = function (Node $node) use (&$visit, $owner, $ownerOf, $modules, $tables, $relative, $composition, &$findings, &$references, &$literalTables, &$compositionReferences): void {
+                $approvedReads = moduleBoundaryReadAssociations($nodes, $owner, $modules, $namespaces, $tables);
+                $visit = function (Node $node) use (&$visit, $owner, $ownerOf, $modules, $tables, $relative, $composition, &$findings, &$references, &$literalTables, &$compositionReferences, $approvedReads, &$readAssociations): void {
                     if ($node instanceof Node\Name\FullyQualified) {
                         $target = $node->toString();
                         $targetOwner = $ownerOf($target);
@@ -145,7 +443,13 @@ function moduleBoundaryInventory(string $root, bool $includeHost = false): array
                             $literalTables++;
                             if ($targetOwner !== null && $targetOwner !== $owner) {
                                 $id = $relative . ':' . $node->getStartFilePos() . ':table:' . $logical;
-                                $findings[$id] = ['code' => 'FOREIGN_MODULE_TABLE', 'path' => $relative, 'line' => $node->getStartLine(), 'owner' => $owner, 'target_owner' => $targetOwner, 'target' => $logical];
+                                $finding = ['code' => 'FOREIGN_MODULE_TABLE', 'path' => $relative, 'line' => $node->getStartLine(), 'owner' => $owner, 'target_owner' => $targetOwner, 'target' => $logical];
+                                if (isset($approvedReads[$node->getStartFilePos()])) {
+                                    $finding['code'] = 'SAME_DATABASE_READ_ASSOCIATION';
+                                    $readAssociations[$id] = $finding;
+                                } else {
+                                    $findings[$id] = $finding;
+                                }
                             }
                         }
                     }
@@ -173,6 +477,7 @@ function moduleBoundaryInventory(string $root, bool $includeHost = false): array
         'host_php_files' => $hostFiles, 'composition_type_references' => $compositionReferences,
         'cross_module_type_references' => $references, 'literal_table_calls' => $literalTables,
         'declared_tables' => count($tables), 'findings' => array_values($findings),
+        'read_only_associations' => array_values($readAssociations),
     ];
 }
 
