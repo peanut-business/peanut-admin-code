@@ -23,6 +23,7 @@ use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegi
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use think\App;
 
@@ -55,6 +56,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(DeployedReferenceCodeSetRegistry::class)->build(),
             ReferenceCodeStore::class => fn(App $app): ReferenceCodeStore => new ReferenceCodeStore(
                 $app->make(TenantMemberDirectory::class),
+                $app->make(AdminDirectoryQuery::class),
             ),
             ReferenceCodeQuery::class => fn(App $app): ReferenceCodeQuery => new ReferenceCodeQuery($app->make(ReferenceCodeStore::class)),
             ReferenceCodeAdminService::class => fn(App $app): ReferenceCodeAdminService => new ReferenceCodeAdminService($app->make(ReferenceCodeStore::class)),

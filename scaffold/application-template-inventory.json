@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "348852e196e4560ca634221957ec06e44e967c584474d4bd22ffae588de64b31"
+            "source_sha256": "d3858f760e9bd3b897a5c5685e204d06f9d126c972b14718339c03d44d2b3bb4"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2481,7 +2481,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "74feb0682c9528bb2235ddebc8a14d18548f5b988cdc793c80e1d455939135eb"
+            "source_sha256": "b49d24cffc6407ecb3077dc5b2a7de9ef576b8d4a7c318bacd3a39bbbfa7a5bc"
         },
         {
             "path": "plugins/official.rich-text/plugin.json",
@@ -17784,7 +17784,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "263291aa6f5c6f9f66d1760e76dc68209a4a7da121ce5fdd2d5a8878e1ff1ea7"
+            "source_sha256": "ee78d1774f273c70914e740909e47d423746b49c1c6a4879b212e8cfb0bfdd10"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/Service/DictDataApplicationService.php",
@@ -18078,7 +18078,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26543736b208670a3d66554e3cae27983a750ede5952cfd2898f545f39f2d38e"
+            "source_sha256": "0e0fcaa92967afbe910b2dd14056e04d2699a871ba1a01aae4ae1599a0803790"
         },
         {
             "path": "server/app/modules/official/rich_text/composer.json",
@@ -27327,6 +27327,19 @@
         {
             "path": "server/tests/Unit/ReferenceCodeCatalogBoundaryTest.php",
             "target": "server/tests/Unit/ReferenceCodeCatalogBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/ReferenceCodeSnapshotBoundaryTest.php",
+            "target": "server/tests/Unit/ReferenceCodeSnapshotBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

@@ -13,6 +13,7 @@ use PeanutAdmin\Modules\ReferenceCodes\Versioned\Definition\ReferenceCodeSetRegi
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\Model\ReferenceCodeEntryRecord;
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\Model\ReferenceCodeEntryVersionRecord;
 use PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\Model\ReferenceCodeSetRecord;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use think\db\Raw;
 use think\db\exception\PDOException;
@@ -20,7 +21,10 @@ use think\facade\Db;
 
 final class ReferenceCodeStore
 {
-    public function __construct(private readonly ?TenantMemberDirectory $members = null) {}
+    public function __construct(
+        private readonly ?TenantMemberDirectory $members = null,
+        private readonly ?AdminDirectoryQuery $memberReferences = null,
+    ) {}
 
     /** @template T
      * @param callable(): T $operation
@@ -308,15 +312,15 @@ final class ReferenceCodeStore
                 if (!is_array($entry)) {
                     throw ReferenceCodeException::internal();
                 }
-                if (!$this->memberBelongsToTenant($context->tenantId, $entry['created_by_member_id'] ?? null)
-                    || !$this->memberBelongsToTenant($context->tenantId, $entry['updated_by_member_id'] ?? null)) {
+                if (!$this->memberBelongsToTenant($context, $entry['created_by_member_id'] ?? null)
+                    || !$this->memberBelongsToTenant($context, $entry['updated_by_member_id'] ?? null)) {
                     throw ReferenceCodeException::internal();
                 }
                 $versions = ReferenceCodeEntryVersionRecord::where('entry_id', (int) $entry['id'])
                     ->order('revision')->select()->toArray();
                 foreach ($versions as $version) {
                     if (!is_array($version)
-                        || !$this->memberBelongsToTenant($context->tenantId, $version['changed_by_member_id'] ?? null)) {
+                        || !$this->memberBelongsToTenant($context, $version['changed_by_member_id'] ?? null)) {
                         throw ReferenceCodeException::internal();
                     }
                 }
@@ -384,6 +388,22 @@ final class ReferenceCodeStore
         }
 
         return $row;
+    }
+
+    /**
+     * 历史署名只核同租户成员关系，不能要求作者至今仍活动；当前读取者由assertTenantActor另验。
+     * 复用Identity公开目录的键集，空显示名仍是有效成员；不公开名字、不缓存跨快照身份。
+     */
+    private function memberBelongsToTenant(TenantContext $context, mixed $memberId): bool
+    {
+        if ((!is_int($memberId)
+                && !(is_string($memberId) && ctype_digit($memberId) && (string) (int) $memberId === $memberId))
+            || (int) $memberId < 1
+            || $this->memberReferences === null) {
+            return false;
+        }
+        $memberId = (int) $memberId;
+        return array_key_exists($memberId, $this->memberReferences->memberDisplayNames($context, [$memberId]));
     }
 
     private function assertTenantActor(TenantContext $context): void

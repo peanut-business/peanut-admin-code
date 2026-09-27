@@ -71,7 +71,14 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
         $this->definition = new ReferenceCodeSetDefinition('fixture.history', 'codes', 'History', 'Fixture definition', 'fixed-fixture-digest');
         $this->asOf = new DateTimeImmutable('2031-01-01T12:00:00.000Z');
         $this->context = TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            1, 'reference-snapshot-session', 101, 501, 601, 'admin-web', new DateTimeImmutable('2031-01-01T00:00:00Z'), 7,
+            1,
+            'reference-snapshot-session',
+            101,
+            501,
+            601,
+            'admin-web',
+            new DateTimeImmutable('2031-01-01T00:00:00Z'),
+            7,
         ), 'reference-snapshot-request');
     }
 
@@ -124,7 +131,7 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
         $id = $field === 'changed_by_member_id' ? 11 : 10;
         $this->database->prepare("UPDATE {$table} SET {$field}=? WHERE id=?")->execute([$value, $id]);
         $this->expectException(ReferenceCodeException::class);
-        $this->expectExceptionMessage('Reference-code data is inconsistent.');
+        $this->expectExceptionMessage('The reference-code operation could not be completed.');
         $this->store->snapshot($this->definition, $this->context, null, $this->asOf);
     }
 
