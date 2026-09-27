@@ -2607,7 +2607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1c034bdc94f7512c3eccb717a052248d50f34188956e9593e55ef32175fc68a7"
+            "source_sha256": "431ef753d465aa401ee33d3bc8850903d33d16947309ceb53cfe545431342caa"
         },
         {
             "path": "resources/architecture/tpq-issue-register.json",

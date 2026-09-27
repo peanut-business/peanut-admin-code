@@ -73,7 +73,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
+          "sha256": "21dca8e696b1c61793443aa918101a3efda22d7348cb38cee77370dfecbb5774"
         },
         "method_results": {
           "appendTenantEvent": "void",
@@ -249,7 +249,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
+          "sha256": "21dca8e696b1c61793443aa918101a3efda22d7348cb38cee77370dfecbb5774"
         },
         "method_results": {
           "lists": "array",
@@ -367,7 +367,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
+          "sha256": "21dca8e696b1c61793443aa918101a3efda22d7348cb38cee77370dfecbb5774"
         },
         "method_results": {
           "list": "array",
@@ -448,7 +448,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
+          "sha256": "21dca8e696b1c61793443aa918101a3efda22d7348cb38cee77370dfecbb5774"
         },
         "method_results": {
           "list": "array",
@@ -527,7 +527,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
+          "sha256": "21dca8e696b1c61793443aa918101a3efda22d7348cb38cee77370dfecbb5774"
         },
         "method_results": {
           "createAdministrator": "array",
@@ -623,7 +623,7 @@
         "manifest_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/module.json",
-          "sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
+          "sha256": "21dca8e696b1c61793443aa918101a3efda22d7348cb38cee77370dfecbb5774"
         },
         "method_results": {
           "get": "array",
