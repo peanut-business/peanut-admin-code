@@ -618,6 +618,50 @@ class ReviewedModulesTest(unittest.TestCase):
         self.assertEqual('not_run', report['business_scan'])
         self.assertIsNone(report['finding_count'])
 
+    def test_identity_remaining_records_keep_distinct_scope_sources(self):
+        prefix = 'PeanutAdmin\\Modules\\Identity\\'
+        mapping = {
+            'Audit\\Model\\TenantAuditEventRecord': ('pa_tenant_audit_event', 'Audit\\AuditService'),
+            'Module\\Model\\TenantModule': ('pa_tenant_module', 'Module\\Persistence\\ThinkPhpModuleRuntimeRepository'),
+            'Persistence\\Model\\TenantEntryBinding': ('pa_tenant_entry_binding', 'Platform\\Application\\TenantEntryBindingAdminService'),
+            'Persistence\\Model\\TenantSession': ('pa_tenant_session', 'Auth\\Persistence\\ThinkPhpTenantAuthRepository'),
+            'Persistence\\Model\\TenantSessionToken': ('pa_tenant_session_token', 'Auth\\Persistence\\ThinkPhpTenantAuthRepository'),
+            'access\\SourceRead\\Model\\SourceReadGrantRecord': ('pa_source_read_grant', 'access\\SourceRead\\SourceReadGrantAdministrationService'),
+        }
+        rows = {row['model']: row for row in self.registry['model_owners']}
+        for suffix, (table, service) in mapping.items():
+            row = rows[prefix + suffix]
+            self.assertEqual(('tenant-gateway', table, prefix + service), (row['owner'], row['table'], row['access_entry']))
+            self.assertEqual([], checker.access_contract_errors({row['access_entry']: self.registry['access_contracts'][row['access_entry']]}))
+        report = self.report()
+        self.assertEqual([], report['missing_models'])
+        self.assertEqual([], report['missing_tenant_tables'])
+        self.assertNotEqual('ownership_passed', report['status'])
+        self.assertEqual('not_run', report['business_scan'])
+
+    def test_identity_source_grant_is_not_an_ordinary_global_scope(self):
+        model = 'PeanutAdmin\\Modules\\Identity\\access\\SourceRead\\Model\\SourceReadGrantRecord'
+        row = next(row for row in self.registry['model_owners'] if row['model'] == model)
+        self.assertEqual('source_tenant_id', row['named_tenant_review']['source_column'])
+        self.assertEqual('recipient_tenant_id', row['named_tenant_review']['recipient_column'])
+        del row['named_tenant_review']
+        self.save()
+        self.assertTrue(any(model in error and 'must extend' in error for error in checker.ownership_errors()))
+
+    def test_identity_session_token_parent_provenance_rejects_foreign_domain(self):
+        row = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_tenant_session_token')
+        self.assertEqual('PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\TenantSession', row['parent_review']['parent_model'])
+        row['parent_review']['parent_model'] = 'PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\PlatformSession'
+        self.save()
+        self.assertTrue(any('PARENT_SCOPED_REGISTRATION_REQUIRED' in error for error in checker.ownership_errors()))
+
+    def test_identity_audit_technical_interface_does_not_remove_public_review(self):
+        entry = 'PeanutAdmin\\Modules\\Identity\\Audit\\AuditService'
+        proof = self.registry['access_contracts'][entry]['public_use_case']
+        self.assertEqual(['PeanutAdmin\\Kernel\\Audit\\AuditWriter'], [row['entry'] for row in proof['interfaces']])
+        proof['interfaces'] = []
+        self.assertTrue(any('PUBLIC_USE_CASE_INTERFACE_REVIEW_REQUIRED' in error for error in checker.access_contract_errors({entry:self.registry['access_contracts'][entry]})))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

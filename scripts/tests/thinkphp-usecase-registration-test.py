@@ -115,6 +115,19 @@ class PublicUseCaseRegistrationTest(unittest.TestCase):
         self.write(self.path, self.source.replace('return [];', 'return allTenants();'))
         self.assertTrue(any('SOURCE_REVIEW_STALE' in e for e in self.errors()))
 
+    def test_individually_bound_technical_interface_keeps_result_surface(self):
+        interface = 'server/app/modules/fixture/example/src/Writer.php'
+        self.write(interface, '<?php namespace Fixture; interface Writer { public function change(): void; }')
+        self.replace_source(self.source.replace('class MemberService {', 'class MemberService implements \\Fixture\\Writer {'))
+        self.contract['public_use_case']['interfaces'] = [{**self.proof(interface), 'entry': 'Fixture\\Writer'}]
+        self.assertEqual([], self.errors())
+        self.contract['public_use_case']['interfaces'][0]['sha256'] = '0' * 64
+        self.assertTrue(self.errors())
+
+    def test_unreviewed_interface_cannot_bypass_default_public_store_rule(self):
+        self.replace_source(self.source.replace('class MemberService {', 'class MemberService implements \\Fixture\\Writer {'))
+        self.assertTrue(self.errors())
+
     def test_reason_and_exact_source_case_are_required(self):
         self.contract['public_use_case']['reason'] = ''
         self.assertTrue(self.errors())

@@ -1347,8 +1347,25 @@ def public_use_case_review(entry: str, contract: dict, path: Path) -> None:
         raise ValueError('PUBLIC_USE_CASE_EXPORT_REQUIRED')
     cls = _ast_class(parse_schema_php(path.read_text(encoding='utf-8')))
     if (_ast_name(cls.get('namespacedName')) != entry or cls.get('extends') is not None
-            or cls.get('implements') or any(_ast_is(node, 'Stmt_TraitUse') for node in cls['stmts'])):
+            or any(_ast_is(node, 'Stmt_TraitUse') for node in cls['stmts'])):
         raise ValueError('PUBLIC_USE_CASE_CLASS_UNSUPPORTED')
+    interfaces = proof.get('interfaces', [])
+    if not isinstance(interfaces, list) or any(not isinstance(row, dict) for row in interfaces):
+        raise ValueError('PUBLIC_USE_CASE_INTERFACE_REVIEW_REQUIRED')
+    known = []
+    for evidence in interfaces:
+        interface_path, root = reviewed_source(evidence)
+        name = evidence.get('entry')
+        composer_root = root if evidence['source'] == 'php-core' else root / 'server'
+        structure = php_structure(interface_path.read_text(encoding='utf-8'))
+        if (not isinstance(name, str) or name in known
+                or composer_model_path(name, root, composer_root) != interface_path
+                or declared_type(interface_path, root) != name
+                or re.search(r'\binterface\s+\w+\s*\{', structure) is None):
+            raise ValueError('PUBLIC_USE_CASE_INTERFACE_IDENTITY')
+        known.append(name)
+    if sorted(known) != sorted(_ast_name(node) for node in cls.get('implements', [])):
+        raise ValueError('PUBLIC_USE_CASE_INTERFACE_REVIEW_REQUIRED')
     results = proof.get('method_results')
     if not isinstance(results, dict) or not results:
         raise ValueError('PUBLIC_USE_CASE_RESULTS_REQUIRED')
@@ -1383,7 +1400,7 @@ def access_contract_errors(contracts: dict) -> list[str]:
                 public_use_case_review(entry, contract, path)
             elif contract["source"] == "application" and entry in declared_module_exports():
                 raise ValueError("ACCESS_PERSISTENCE_EXPORTED: registration does not make an internal store public")
-            if contract.get("scope") not in {"explicit-tenant-column", "explicit-edition-tenant"}:
+            if contract.get("scope") not in {"explicit-tenant-column", "explicit-edition-tenant", "explicit-source-recipient-tenant"}:
                 raise ValueError("ACCESS_SCOPE_INVALID")
             if not isinstance(contract.get("reason"), str) or not contract["reason"].strip():
                 raise ValueError("ACCESS_REASON_REQUIRED")
@@ -1510,6 +1527,55 @@ def initial_schema_declarations(source: str) -> dict[str, str]:
     return declarations
 
 
+def reviewed_table_declaration(schema_source: dict, table: str, module_root: str) -> str:
+    """Reuse exact native declaration provenance; never execute schema/seed code."""
+    if not isinstance(schema_source, dict) or schema_source.get('source') != 'application':
+        raise ValueError('INSTANCE_SCHEMA_SOURCE_REQUIRED')
+    schema_path, _ = reviewed_source(schema_source, native_schema=True)
+    if relative(schema_path) == 'server/database/init.sql':
+        sql = initial_schema_declarations(schema_path.read_text(encoding='utf-8')).get(table)
+        if sql is None or schema_source.get('declaration_sha256') != hashlib.sha256(sql.encode()).hexdigest():
+            raise ValueError('INITIAL_SCHEMA_DECLARATION_MISSING_OR_CHANGED')
+    elif schema_path.suffix == '.sql' and relative(schema_path).startswith(module_root + '/database/migrations/'):
+        declarations = literal_create_declarations(schema_path.read_text(encoding='utf-8'))
+        sql = declarations.get(table)
+    elif schema_path.suffix == '.php' and (relative(schema_path).startswith(module_root + '/') or relative(schema_path).startswith('server/database/schema/')):
+        entry = schema_source.get('entry')
+        host_schema = relative(schema_path).startswith('server/database/schema/')
+        if host_schema:
+            maps = json.loads((ROOT / 'server/composer.json').read_text(encoding='utf-8')).get('autoload', {}).get('classmap', [])
+            if not isinstance(maps, list) or not any(isinstance(row, str) and (row == 'database/schema/' or 'server/' + row == relative(schema_path)) for row in maps):
+                raise ValueError('INSTANCE_SCHEMA_NATIVE_CLASSMAP_REQUIRED')
+        schema_class = _ast_class(parse_schema_php(schema_path.read_text(encoding='utf-8')))
+        if (not isinstance(entry, str) or (_native_schema_path(entry) if host_schema else composer_model_path(entry)) != schema_path
+                or _ast_name(schema_class.get('namespacedName')) != entry):
+            raise ValueError('INSTANCE_SCHEMA_CLASS_IDENTITY')
+        values, _ = _schema_literals(schema_class)
+        sql = values.get(table, {}).get('value')
+        evidence = schema_source.get('migration_sources')
+        if (not isinstance(evidence, list) or not evidence
+                or any(not isinstance(row, dict) or not isinstance(row.get('path'), str)
+                       or not isinstance(row.get('sha256'), str)
+                       or re.fullmatch(r'[0-9a-f]{64}', row['sha256']) is None for row in evidence)):
+            raise ValueError('INSTANCE_SCHEMA_TRACE_REQUIRED')
+        expected = {(row['path'], row['sha256']) for row in evidence}
+        if len(expected) != len(evidence) or sql is None:
+            raise ValueError('INSTANCE_SCHEMA_TRACE_INVALID')
+        actual = {(row['migration'], row['migration_sha256'])
+                  for inventory in (module_php_schema_inventory(), host_php_schema_inventory())
+                  for row in inventory['records']
+                  if row['schema_path'] == relative(schema_path) and row['schema_class'] == entry
+                  and row['schema_sha256'] == schema_source['sha256'] and row['table'] == table
+                  and row['sql_sha256'] == hashlib.sha256(sql.encode()).hexdigest()}
+        if not expected.issubset(actual):
+            raise ValueError('INSTANCE_SCHEMA_TRACE_MISSING_OR_STALE')
+    else:
+        raise ValueError('INSTANCE_SCHEMA_NATIVE_MIGRATION_REQUIRED')
+    if sql is None:
+        raise ValueError('INSTANCE_SCHEMA_TABLE_MISSING')
+    return sql
+
+
 def instance_model_review_errors(item: dict, model_path: Path, tenant_tables: set[str], module_roots: dict[str, str]) -> list[str]:
     """Permit an individually reviewed native instance Model, not all think Models.
 
@@ -1535,51 +1601,7 @@ def instance_model_review_errors(item: dict, model_path: Path, tenant_tables: se
         if len(roots) != 1:
             raise ValueError('INSTANCE_MODULE_OWNER_REQUIRED')
         module_root = roots[0]
-        schema_source = review.get('schema_source')
-        if not isinstance(schema_source, dict) or schema_source.get('source') != 'application':
-            raise ValueError('INSTANCE_SCHEMA_SOURCE_REQUIRED')
-        schema_path, _ = reviewed_source(schema_source, native_schema=True)
-        if relative(schema_path) == 'server/database/init.sql':
-            sql = initial_schema_declarations(schema_path.read_text(encoding='utf-8')).get(item['table'])
-            if sql is None or schema_source.get('declaration_sha256') != hashlib.sha256(sql.encode()).hexdigest():
-                raise ValueError('INITIAL_SCHEMA_DECLARATION_MISSING_OR_CHANGED')
-        elif schema_path.suffix == '.sql' and relative(schema_path).startswith(module_root + '/database/migrations/'):
-            declarations = literal_create_declarations(schema_path.read_text(encoding='utf-8'))
-            sql = declarations.get(item['table'])
-        elif schema_path.suffix == '.php' and (relative(schema_path).startswith(module_root + '/') or relative(schema_path).startswith('server/database/schema/')):
-            entry = schema_source.get('entry')
-            host_schema = relative(schema_path).startswith('server/database/schema/')
-            if host_schema:
-                maps = json.loads((ROOT / 'server/composer.json').read_text(encoding='utf-8')).get('autoload', {}).get('classmap', [])
-                if not isinstance(maps, list) or not any(isinstance(row, str) and (row == 'database/schema/' or 'server/' + row == relative(schema_path)) for row in maps):
-                    raise ValueError('INSTANCE_SCHEMA_NATIVE_CLASSMAP_REQUIRED')
-            schema_class = _ast_class(parse_schema_php(schema_path.read_text(encoding='utf-8')))
-            if (not isinstance(entry, str) or (_native_schema_path(entry) if host_schema else composer_model_path(entry)) != schema_path
-                    or _ast_name(schema_class.get('namespacedName')) != entry):
-                raise ValueError('INSTANCE_SCHEMA_CLASS_IDENTITY')
-            values, _ = _schema_literals(schema_class)
-            sql = values.get(item['table'], {}).get('value')
-            evidence = schema_source.get('migration_sources')
-            if (not isinstance(evidence, list) or not evidence
-                    or any(not isinstance(row, dict) or not isinstance(row.get('path'), str)
-                           or not isinstance(row.get('sha256'), str)
-                           or re.fullmatch(r'[0-9a-f]{64}', row['sha256']) is None for row in evidence)):
-                raise ValueError('INSTANCE_SCHEMA_TRACE_REQUIRED')
-            expected = {(row['path'], row['sha256']) for row in evidence}
-            if len(expected) != len(evidence) or sql is None:
-                raise ValueError('INSTANCE_SCHEMA_TRACE_INVALID')
-            actual = {(row['migration'], row['migration_sha256'])
-                      for inventory in (module_php_schema_inventory(), host_php_schema_inventory())
-                      for row in inventory['records']
-                      if row['schema_path'] == relative(schema_path) and row['schema_class'] == entry
-                      and row['schema_sha256'] == schema_source['sha256'] and row['table'] == item['table']
-                      and row['sql_sha256'] == hashlib.sha256(sql.encode()).hexdigest()}
-            if not expected.issubset(actual):
-                raise ValueError('INSTANCE_SCHEMA_TRACE_MISSING_OR_STALE')
-        else:
-            raise ValueError('INSTANCE_SCHEMA_NATIVE_MIGRATION_REQUIRED')
-        if sql is None:
-            raise ValueError('INSTANCE_SCHEMA_TABLE_MISSING')
+        sql = reviewed_table_declaration(review.get('schema_source'), item['table'], module_root)
         if item['table'] in tenant_tables or _sql_tenant_column(item['table'], sql):
             raise ValueError('INSTANCE_SCHEMA_TENANT_CONTRADICTION')
         references = set(re.findall(r'\bREFERENCES\s+`([^`]+)`', sql, re.I))
@@ -1602,6 +1624,60 @@ def instance_model_review_errors(item: dict, model_path: Path, tenant_tables: se
             seen.add(entry)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return [f"instance_review[{item.get('model')}]: {exc}"]
+    return []
+
+
+def named_tenant_review_errors(item: dict, model_path: Path, ownership: dict, module_roots: dict[str, str]) -> list[str]:
+    """Source grants retain two actual Tenant roles; neither is a global exemption."""
+    try:
+        proof = item.get('named_tenant_review')
+        if (item.get('owner') != 'tenant-gateway' or not isinstance(proof, dict)
+                or proof.get('classification') != 'source-recipient-tenant'
+                or not isinstance(proof.get('reason'), str) or not proof['reason'].strip()
+                or model_header(model_path) != (item['model'], 'think\Model')
+                or source_model_table(model_path) != item['table']):
+            raise ValueError('NAMED_TENANT_REVIEW_REQUIRED')
+        entry = item.get('access_entry')
+        contract = ownership.get('access_contracts', {}).get(entry)
+        if not isinstance(contract, dict) or contract.get('scope') != 'explicit-source-recipient-tenant':
+            raise ValueError('NAMED_TENANT_GATEWAY_REQUIRED')
+        gateway, _ = reviewed_source(contract)
+        roots = [root for root in module_roots if relative(model_path).startswith(root + '/')]
+        if len(roots) != 1 or not relative(gateway).startswith(roots[0] + '/') or item['model'] in declared_module_exports():
+            raise ValueError('NAMED_TENANT_OWNER_MISMATCH')
+        if reviewed_source(proof['model_source'])[0] != model_path:
+            raise ValueError('NAMED_TENANT_MODEL_SOURCE')
+        reader = proof.get('reader_source')
+        if not isinstance(reader, dict) or reader.get('source') != 'application':
+            raise ValueError('NAMED_TENANT_READER_REQUIRED')
+        path, _ = reviewed_source(reader)
+        if (not relative(path).startswith(roots[0] + '/') or composer_model_path(reader.get('entry', '')) != path
+                or declared_type(path) != reader.get('entry')
+                or not any(all(row.get(k) == reader.get(k) for k in ['source','path','sha256']) for row in contract.get('support_sources', []))):
+            raise ValueError('NAMED_TENANT_READER_IDENTITY')
+        columns = [proof.get(key) for key in ['source_column','recipient_column','grantor_column']]
+        if (len(set(columns)) != 3 or any(not isinstance(column, str) or re.fullmatch(r'[a-z][a-z0-9_]*', column) is None for column in columns)):
+            raise ValueError('NAMED_TENANT_COLUMNS_REQUIRED')
+        source, recipient, grantor = columns
+        sql = reviewed_table_declaration(proof.get('schema_source'), item['table'], roots[0])
+        parts = _sql_create_parts(item['table'], sql)
+        if _sql_tenant_column(item['table'], sql):
+            raise ValueError('NAMED_TENANT_DIRECT_COLUMN_CONTRADICTION')
+        def one(pattern):
+            return sum(re.fullmatch(pattern, part, re.I) is not None for part in parts) == 1
+        for column in columns:
+            if not one(r'\s*`'+column+r'`\s+BIGINT\s+UNSIGNED\s+NOT\s+NULL\s*'):
+                raise ValueError('NAMED_TENANT_REQUIRED_ID_MISMATCH')
+        start = r'\s*CONSTRAINT\s+`[a-z][a-z0-9_]*`\s+'
+        for column in [source, recipient]:
+            if not one(start+r'FOREIGN\s+KEY\s*\(\s*`'+column+r'`\s*\)\s+REFERENCES\s+`pa_tenant`\s*\(\s*`id`\s*\)\s+ON\s+DELETE\s+RESTRICT\s*'):
+                raise ValueError('NAMED_TENANT_FOREIGN_KEY_MISMATCH')
+        if not one(start+r'FOREIGN\s+KEY\s*\(\s*`'+source+r'`\s*,\s*`'+grantor+r'`\s*\)\s+REFERENCES\s+`pa_tenant_member`\s*\(\s*`tenant_id`\s*,\s*`id`\s*\)\s+ON\s+DELETE\s+RESTRICT\s*'):
+            raise ValueError('NAMED_TENANT_GRANTOR_SCOPE_MISMATCH')
+        if not one(start+r'CHECK\s*\(\s*`'+source+r'`\s*<>\s*`'+recipient+r'`\s*\)\s*'):
+            raise ValueError('NAMED_TENANT_DISTINCT_ROLES_REQUIRED')
+    except (OSError,ValueError,KeyError,TypeError) as exc:
+        return [f"named_tenant_review[{item.get('model')}]: {exc}"]
     return []
 
 
@@ -1651,15 +1727,8 @@ def parent_model_review_errors(item: dict, model_path: Path, ownership: dict, te
             if not isinstance(evidence, dict) or evidence.get('source') != 'application' or reviewed_source(evidence)[0] != path:
                 raise ValueError('PARENT_EXACT_MODEL_SOURCE_REQUIRED')
         schema_source = proof.get('schema_source')
-        if not isinstance(schema_source, dict) or schema_source.get('source') != 'application':
-            raise ValueError('PARENT_SCHEMA_SOURCE_REQUIRED')
-        schema_path, _ = reviewed_source(schema_source)
-        if not relative(schema_path).startswith(roots[0] + '/database/migrations/') or schema_path.suffix != '.sql':
-            raise ValueError('PARENT_NATIVE_SCHEMA_REQUIRED')
-        declarations = literal_create_declarations(schema_path.read_text(encoding='utf-8'))
-        child_sql, parent_sql = declarations.get(item['table']), declarations.get(parent['table'])
-        if child_sql is None or parent_sql is None:
-            raise ValueError('PARENT_SCHEMA_RECORD_MISSING')
+        child_sql = reviewed_table_declaration(schema_source, item['table'], roots[0])
+        parent_sql = reviewed_table_declaration(proof.get('parent_schema_source', schema_source), parent['table'], roots[0])
         if item['table'] in tenant_tables or _sql_tenant_column(item['table'], child_sql) or not _sql_tenant_column(parent['table'], parent_sql):
             raise ValueError('PARENT_SCHEMA_SCOPE_CONTRADICTION')
         column, parent_column = proof.get('column'), proof.get('parent_column')
@@ -1771,7 +1840,9 @@ def ownership_errors() -> list[str]:
                         errors.append(f"model_owners[{index}] ACCESS_REVIEW_REQUIRED: {model}")
                     else:
                         expected_base = {"explicit-tenant-column": "PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel", "explicit-edition-tenant": "PeanutAdmin\\Kernel\\Persistence\\Model\\EditionTenantModel"}.get(contract.get("scope"))
-                        if 'parent_review' in item:
+                        if 'named_tenant_review' in item:
+                            errors.extend(named_tenant_review_errors(item, model_path, ownership, module_roots))
+                        elif 'parent_review' in item:
                             errors.extend(parent_model_review_errors(item, model_path, ownership, actual_tables, module_roots))
                         elif base != expected_base:
                             errors.append(f"model_owners[{index}] {model} must extend {expected_base}; actual={base}")
@@ -1787,6 +1858,8 @@ def ownership_errors() -> list[str]:
                     errors.append(f"model_owners[{index}] {model} must extend {expected}; actual={base}")
                 if 'instance_review' in item and not (item['owner'] == 'instance' and base == 'think\\Model'):
                     errors.append(f"model_owners[{index}] INSTANCE_REVIEW_NOT_APPLICABLE: {model}")
+                if 'named_tenant_review' in item and not (item['owner'] == 'tenant-gateway' and base == 'think\\Model'):
+                    errors.append(f"model_owners[{index}] NAMED_TENANT_REVIEW_NOT_APPLICABLE: {model}")
                 if 'parent_review' in item and not (item['owner'] == 'tenant-gateway' and base == 'think\\Model'):
                     errors.append(f"model_owners[{index}] PARENT_REVIEW_NOT_APPLICABLE: {model}")
             except (OSError, ValueError) as exc:
