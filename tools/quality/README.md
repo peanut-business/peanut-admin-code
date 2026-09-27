@@ -99,6 +99,10 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 从Code根执行 `node --test scripts/tests/standard-remaining-boundaries-test.mjs`，显式提供 `WEB_CORE_SOURCE_ROOT` 与 `UNIAPP_DEPENDENCY_ROOT`。使用真实路由/装修API/页面脚本、实际Vue和原生DCloud声明；验证原始路由集合、合法PHP空对象表示、嵌套编辑与保存、非法响应、选择器输入及SDK参数。支付渠道仅映射到原生提供者标识，测试SDK为合成回调，不触发支付，后端仍负责确认资金终态。此项不代替模板完整渲染、真实浏览器或终端验收。
 
+## uni-app 页面生命周期与原生入口
+
+运行 `node --test uniapp/tests/*.test.mjs` 核对首页、资讯和个人中心的迟到响应隔离、隐藏/卸载清理、会话替换、加载/失败/重试以及原生页面和精确导入路径。行为测试执行真实SFC脚本、Vue和相关Pinia状态，网络、原生导航及页面生命周期触发使用明确替身；另用 `npm --prefix uniapp run type-check` 和 `npm --prefix uniapp run build:h5` 核完整原生类型/模板构建。记录实际Core来源，锁内包或开发源码映射分别说明；这些检查不等于真机、小程序、浏览器或后端验收。
+
 ## PHP 源码布局与模块边界
 
 从Code根执行 `php scripts/check-source-layout.php --root=<Code根> --root=<PHP Core根> --root=<Web Core根>`，按Git登记的精确路径及Composer映射核生产类型声明和已知类型引用大小写；显式加载的独立升级运行时不冒充PSR-4类型。执行 `php scripts/check-module-boundaries.php` 前按准备步骤安装本目录明确锁定的nikic/php-parser；检查使用当前module.json的公开类型、表归属和模块自己的Composer源码映射，PHP AST只解析不执行业务，检查跨模块静态类型与字面表访问，不维护另一份手工归属清单。重复归属、缺失源码映射和真实违规均失败；语法树不能证明任意拼接SQL、动态类名或运行授权。

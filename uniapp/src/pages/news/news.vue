@@ -1,5 +1,12 @@
 <template>
   <view class="news-page">
+    <view v-if="loadingCategories" class="request-state" role="status"
+      >正在加载分类…</view
+    >
+    <view v-else-if="categoriesError" class="request-state" role="alert">
+      <text>{{ categoriesError }}</text>
+      <button size="mini" @click="loadCategories">重新加载分类</button>
+    </view>
     <view class="tabs">
       <view
         v-for="cate in categories"
@@ -13,6 +20,16 @@
     </view>
 
     <scroll-view scroll-y class="article-list">
+      <view v-if="loadingArticles" class="request-state" role="status"
+        >正在加载资讯…</view
+      >
+      <view v-else-if="articlesError" class="request-state" role="alert">
+        <text>{{ articlesError }}</text>
+        <button size="mini" @click="loadArticles">重新加载资讯</button>
+      </view>
+      <view v-else-if="articles.length === 0" class="request-state"
+        >暂无资讯</view
+      >
       <view
         v-for="item in articles"
         :key="item.id"
@@ -35,7 +52,8 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue';
+  import { onScopeDispose, ref } from 'vue';
+  import { onHide, onShow, onUnload } from '@dcloudio/uni-app';
   import { getArticleCate, getArticleLists } from '@/api/news';
   import type { Article, ArticleCate } from '@/api/news';
   import DecorationTabbar from '@/components/DecorationTabbar.vue';
@@ -44,36 +62,81 @@
   const currentCateId = ref<number>(0);
   const articles = ref<Article[]>([]);
 
-  onMounted(async () => {
+  const loadingCategories = ref(false);
+  const loadingArticles = ref(false);
+  const categoriesError = ref('');
+  const articlesError = ref('');
+  let pageGeneration = 0;
+  let categoryGeneration = 0;
+  let articleGeneration = 0;
+  let disposed = false;
+
+  function invalidateNews() {
+    pageGeneration += 1;
+    categoryGeneration += 1;
+    articleGeneration += 1;
+    loadingCategories.value = false;
+    loadingArticles.value = false;
+  }
+
+  function disposeNews() {
+    disposed = true;
+    invalidateNews();
+  }
+
+  onHide(invalidateNews);
+  onUnload(disposeNews);
+  onScopeDispose(disposeNews);
+  onShow(async () => {
+    if (disposed) return;
+    invalidateNews();
+    const generation = pageGeneration;
     await loadCategories();
-    await loadArticles();
+    if (generation === pageGeneration && !disposed) await loadArticles();
   });
 
   async function loadCategories() {
+    if (disposed) return;
+    const generation = ++categoryGeneration;
+    loadingCategories.value = true;
+    categoriesError.value = '';
     try {
       const list = await getArticleCate();
+      if (generation !== categoryGeneration) return;
       categories.value = [{ id: 0, name: '全部', image: '', sort: 0 }, ...list];
-    } catch (error) {
-      categories.value = [];
-      console.error('Failed to load categories:', error);
+    } catch {
+      if (generation !== categoryGeneration) return;
+      categoriesError.value = '分类加载失败，请重试';
+    } finally {
+      if (generation === categoryGeneration) loadingCategories.value = false;
     }
   }
 
   async function loadArticles() {
+    if (disposed) return;
+    const generation = ++articleGeneration;
+    const categoryId = currentCateId.value;
+    const isCurrent = () =>
+      generation === articleGeneration && categoryId === currentCateId.value;
+    loadingArticles.value = true;
+    articlesError.value = '';
     try {
-      const data = await getArticleLists({
-        cid: currentCateId.value || undefined,
-      });
+      const data = await getArticleLists({ cid: categoryId || undefined });
+      if (!isCurrent()) return;
       articles.value = data.lists;
-    } catch (error) {
-      articles.value = [];
-      console.error('Failed to load articles:', error);
+    } catch {
+      if (!isCurrent()) return;
+      articlesError.value = '资讯加载失败，请重试';
+    } finally {
+      if (isCurrent()) loadingArticles.value = false;
     }
   }
 
   function switchCate(id: number) {
+    if (disposed) return;
     currentCateId.value = id;
-    loadArticles();
+    articles.value = [];
+    return loadArticles();
   }
 
   function goDetail(id: number) {
@@ -82,6 +145,10 @@
 </script>
 
 <style scoped>
+  .request-state {
+    padding: 24rpx;
+    text-align: center;
+  }
   .news-page {
     display: flex;
     flex-direction: column;

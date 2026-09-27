@@ -27974,7 +27974,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "92649f03d0859215d880b1481227ee32b3582ef1908cfefa27d40cbe4acc1b7e"
+            "source_sha256": "b29f1f3d76e1454e054ee6f6a49f6765e82906f4be1e0d853d570c04de424721"
         },
         {
             "path": "tools/quality/composer.json",
@@ -28500,7 +28500,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a1cd7b456538856e893b182e046375307da52b3ad60caf6f4032f97ebfd30364"
+            "source_sha256": "f75053859783ab1edcf3379b2376a40f0cb6fd25c685f2cdd0004bb17601d6bd"
         },
         {
             "path": "uniapp/src/pages/login/login.vue",
@@ -28526,7 +28526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "621376fcab8897360c6b6f81fd0e0b9c7e95dfb0facd17187817b67ee59cc323"
+            "source_sha256": "cf1e68d5a01152145576c446209f881ac4ef5cf4f413471787c5f29cd4eb9681"
         },
         {
             "path": "uniapp/src/pages/news_detail/news_detail.vue",
@@ -28604,7 +28604,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "86f95acd2138db5032060b7ae8ff2187a8e4ce1f77cd47afd86cf6ffe933bd18"
+            "source_sha256": "a2e5fd860fccf9999847ff78e2f493b3c69bb741a78ba64689af4c145d788fea"
         },
         {
             "path": "uniapp/src/pages/user_data/user_data.vue",
@@ -28865,6 +28865,45 @@
                 "full"
             ],
             "source_sha256": "2f57fcb0b9339d9620aa51e4fd5b4273fa4e91543ff1dbb4ecad204a5fd252a3"
+        },
+        {
+            "path": "uniapp/tests/entry-contracts.test.mjs",
+            "target": "uniapp/tests/entry-contracts.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ee3ce4938bc1e82c00bee4dc2333da2ef02eefa6f26204947aca2c65186ad810"
+        },
+        {
+            "path": "uniapp/tests/news-lifecycle.test.mjs",
+            "target": "uniapp/tests/news-lifecycle.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5b10989cdd896b9c9a6b4505049ad3cbd0612791e4333eef799ea07ff19cda34"
+        },
+        {
+            "path": "uniapp/tests/page-lifecycle.test.mjs",
+            "target": "uniapp/tests/page-lifecycle.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f1c3e848d132f9628a417a31f1b5a7994d268969c96677d917114e55f9c676a9"
         },
         {
             "path": "uniapp/tsconfig.json",

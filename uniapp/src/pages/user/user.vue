@@ -1,5 +1,12 @@
 <template>
   <view class="user-page" :style="pageStyle">
+    <view v-if="loading" class="request-state" role="status"
+      >正在加载个人中心…</view
+    >
+    <view v-else-if="error" class="request-state" role="alert">
+      <text>{{ error }}</text>
+      <button size="mini" @click="loadProfile">重新加载</button>
+    </view>
     <view
       class="page-meta"
       :class="metaTextClass"
@@ -119,8 +126,8 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref } from 'vue';
-  import { onShow } from '@dcloudio/uni-app';
+  import { computed, onScopeDispose, ref, watch } from 'vue';
+  import { onHide, onShow, onUnload } from '@dcloudio/uni-app';
   import { getUserCenter } from '@/api/user';
   import { useUserStore } from '@/store/user';
   import { useAppStore } from '@/store/app';
@@ -144,6 +151,34 @@
   const isLoggedIn = computed(() => userStore.isLoggedIn);
   const userInfo = computed(() => userStore.userInfo);
   const decorate = ref<DecorationPage | null>(null);
+  const loading = ref(false);
+  const error = ref('');
+  let generation = 0;
+  let disposed = false;
+
+  function invalidateProfile() {
+    generation += 1;
+    loading.value = false;
+  }
+
+  function disposeProfile() {
+    disposed = true;
+    invalidateProfile();
+  }
+
+  // A logout followed by the same token must still invalidate the old request.
+  watch(
+    () => userStore.token,
+    () => {
+      invalidateProfile();
+      decorate.value = null;
+      error.value = '';
+    },
+    { flush: 'sync' }
+  );
+  onHide(invalidateProfile);
+  onUnload(disposeProfile);
+  onScopeDispose(disposeProfile);
   const theme = computed(() => getDecorationTheme(appStore.config?.theme));
 
   const renderComponents = computed(() =>
@@ -185,16 +220,27 @@
   }));
 
   async function loadProfile() {
+    if (disposed) return;
+    const requestGeneration = ++generation;
+    const sessionToken = userStore.token;
+    const isCurrent = () =>
+      requestGeneration === generation && sessionToken === userStore.token;
+    loading.value = true;
+    error.value = '';
     try {
       const [page, center] = await Promise.all([
         getMobileDecoration(2),
         isLoggedIn.value ? getUserCenter() : Promise.resolve(null),
       ]);
+      if (!isCurrent()) return;
       decorate.value = page;
       applyDecorationPageMeta(page);
       if (center) userStore.setUserInfo(center);
-    } catch (error) {
-      console.error('Failed to load profile decoration:', error);
+    } catch {
+      if (!isCurrent()) return;
+      error.value = '个人中心加载失败，请重试';
+    } finally {
+      if (isCurrent()) loading.value = false;
     }
   }
   onShow(loadProfile);
@@ -223,6 +269,10 @@
 </script>
 
 <style scoped>
+  .request-state {
+    padding: 24rpx;
+    text-align: center;
+  }
   .user-page {
     min-height: 100vh;
     padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
