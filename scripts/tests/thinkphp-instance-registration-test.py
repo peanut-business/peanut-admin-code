@@ -235,6 +235,71 @@ final class CreateCatalog extends Migrator {
         self.item['instance_review']['schema_source']['entry'] = 'Fixture\\OtherSchema'
         self.assertTrue(self.errors())
 
+    def host_schema_proof(self):
+        schema, migration = self.native_schema_proof()
+        host = 'server/database/schema/Schema.php'
+        self.write(host, (self.root / schema).read_text())
+        (self.root / schema).unlink()
+        composer = json.loads((self.root / 'server/composer.json').read_text())
+        composer['autoload']['classmap'] = ['database/schema/']
+        self.write('server/composer.json', json.dumps(composer))
+        self.item['instance_review']['schema_source'].update(self.proof(host))
+        return host, migration
+
+    def test_host_schema_is_bound_to_native_classmap_and_migration(self):
+        self.host_schema_proof()
+        self.assertEqual([], self.errors())
+
+    def test_host_schema_not_registered_in_composer_cannot_supply_proof(self):
+        self.host_schema_proof()
+        data = json.loads((self.root / 'server/composer.json').read_text())
+        del data['autoload']['classmap']
+        self.write('server/composer.json', json.dumps(data))
+        self.assertTrue(self.errors())
+
+    def test_host_schema_cannot_be_read_as_an_ordinary_access_contract(self):
+        host, _ = self.host_schema_proof()
+        with self.assertRaises(ValueError):
+            checker.reviewed_source(self.proof(host))
+
+    def init_proof(self, suffix=''):
+        path = 'server/database/init.sql'
+        sql = 'CREATE TABLE `pa_catalog` (`id` BIGINT, `name` VARCHAR(64)) ENGINE=InnoDB'
+        self.write(path, "SET NAMES utf8mb4;\n" + sql + ";\nINSERT INTO `pa_catalog` VALUES (1, 'seed; CREATE TABLE `fake`');\n" + suffix)
+        self.item['instance_review']['schema_source'] = dict(self.proof(path), declaration_sha256=hashlib.sha256(sql.encode()).hexdigest())
+        return path, sql
+
+    def test_initial_schema_declares_data_without_executing_or_certifying_seed(self):
+        self.init_proof()
+        self.assertEqual([], self.errors())
+
+    def test_initial_schema_ddl_mutation_is_not_ignored(self):
+        self.init_proof('ALTER TABLE `pa_catalog` ADD COLUMN `tenant_id` BIGINT;')
+        self.assertTrue(self.errors())
+
+    def test_initial_schema_dynamic_program_is_not_evaluated_or_skipped(self):
+        self.init_proof("PREPARE dynamic_ddl FROM @sql;")
+        self.assertTrue(self.errors())
+
+    def test_initial_schema_wrong_declaration_digest_fails(self):
+        self.init_proof()
+        self.item['instance_review']['schema_source']['declaration_sha256'] = '0' * 64
+        self.assertTrue(self.errors())
+
+    def test_initial_schema_cannot_use_commented_or_duplicate_create(self):
+        path, sql = self.init_proof()
+        self.write(path, '-- ' + sql + ';\n')
+        self.item['instance_review']['schema_source'].update(self.proof(path))
+        self.assertTrue(self.errors())
+        self.init_proof(sql + ';')
+        self.assertTrue(self.errors())
+
+    def test_initial_temporary_shadow_is_rejected_in_either_statement_order(self):
+        path, sql = self.init_proof()
+        self.write(path, 'CREATE TEMPORARY TABLE `pa_catalog` (`id` INT);\n' + sql + ';')
+        self.item['instance_review']['schema_source'].update(self.proof(path))
+        self.assertTrue(self.errors())
+
     def test_symlink_model_evidence_is_not_followed(self):
         target = self.root / self.path
         target.unlink()

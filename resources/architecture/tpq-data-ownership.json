@@ -520,6 +520,774 @@
   },
   "model_owners": [
     {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Account",
+      "table": "pa_account",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "实例身份账号；不同租户成员引用同一账号，账号字段和安全修订不是租户成员资料。凭证核验、自助范围与平台管理各有独立权限，不授予全局读写。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/Account.php",
+          "sha256": "8db9d6cdc251301225078d31872318cd91e0752de3dc4fceb7d61dbc9f7206ff"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
+              "sha256": "fc613bc8e3407bbbb76106df1033863e80185e38409bd3ae7a424bbcc80d18d8"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpTenantAuthRepository.php",
+            "sha256": "a212213821b218af51757986567ff0f18701f1227a6ddf7e83869da5a516157d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpTenantAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/TenantAuthService.php",
+            "sha256": "6cf57eabc40ccfe24483f0af8870eb4a72e1b4cd2c9437ec9c9563dd16af584a",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\TenantAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php",
+            "sha256": "9e4b7b3d5cdc676d6366597042c31432b38874ac3dbcdb47b64b5cec50975d77",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Membership/Application/MemberAdminService.php",
+            "sha256": "57e3846aaf10f5c911cc89331a19fdb9bbf29d5e1489277a5e0d4dcad606518f",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Credential",
+      "table": "pa_credential",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "账号所属的实例凭证；标识唯一、口令散列、失败锁定与修订均不按任意租户重建。检查的是归属，不批准凭证明文公开、改密或重置授权。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/Credential.php",
+          "sha256": "65f5d0500f67220381b784c806ad7af11f560d933909ae820f0443b8115d5097"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010102_create_pa_credential.php",
+              "sha256": "c070c6cbb40048a03564322ad4680983359ac4b05305a32270e6aa43253cfd81"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpTenantAuthRepository.php",
+            "sha256": "a212213821b218af51757986567ff0f18701f1227a6ddf7e83869da5a516157d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpTenantAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/TenantAuthService.php",
+            "sha256": "6cf57eabc40ccfe24483f0af8870eb4a72e1b4cd2c9437ec9c9563dd16af584a",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\TenantAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php",
+            "sha256": "9e4b7b3d5cdc676d6366597042c31432b38874ac3dbcdb47b64b5cec50975d77",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Membership/Application/MemberAdminService.php",
+            "sha256": "57e3846aaf10f5c911cc89331a19fdb9bbf29d5e1489277a5e0d4dcad606518f",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\AuthSecurityEvent",
+      "table": "pa_auth_security_event",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "实例认证事件；audience记录租户/平台认证域但不是行的tenant_id，登录及改密风险查询围绕账号、标识或IP。事件统计和读取权限未由本登记授予。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/AuthSecurityEvent.php",
+          "sha256": "a89714cbf438a86e7981870484f7af8273cc6220a5bfe09c71dd5a9a679eefc5"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010123_create_pa_auth_security_event.php",
+              "sha256": "28b524bc4f0692390d4fc68b0167c25d06e20fdf945a3623e5f1f18c572fe2cc"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpTenantAuthRepository.php",
+            "sha256": "a212213821b218af51757986567ff0f18701f1227a6ddf7e83869da5a516157d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpTenantAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/TenantAuthService.php",
+            "sha256": "6cf57eabc40ccfe24483f0af8870eb4a72e1b4cd2c9437ec9c9563dd16af584a",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\TenantAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php",
+            "sha256": "9e4b7b3d5cdc676d6366597042c31432b38874ac3dbcdb47b64b5cec50975d77",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\LoginChallenge",
+      "table": "pa_login_challenge",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "账号级短期认证选择挑战；在选择合法租户前产生，客户端/目的/风险上下文和单次有效期由认证用例检查，不是无范围租户数据。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/LoginChallenge.php",
+          "sha256": "eb908f5fd4e83bc859ece9266c05617d4d5a159e923a61e44ea33a278efb5c51"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010118_create_pa_login_challenge.php",
+              "sha256": "2b73c3175c5a975d886558c51495cab8ccb2dd67b2df71ee1dc97f2b8b27c51f"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpTenantAuthRepository.php",
+            "sha256": "a212213821b218af51757986567ff0f18701f1227a6ddf7e83869da5a516157d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpTenantAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/TenantAuthService.php",
+            "sha256": "6cf57eabc40ccfe24483f0af8870eb4a72e1b4cd2c9437ec9c9563dd16af584a",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\TenantAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php",
+            "sha256": "9e4b7b3d5cdc676d6366597042c31432b38874ac3dbcdb47b64b5cec50975d77",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Tenant",
+      "table": "pa_tenant",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "实例租户目录及生命周期状态；每行表示租户本身，不因无tenant_id认作所有人的共享业务数据。平台生命周期、认证选择与模块可用性使用已选身份，仍需各自授权。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/Tenant.php",
+          "sha256": "808d84a88be5ea9e2932706612ddd3f575fab1ba5596f35bbee694e4c0b983e9"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010103_create_pa_tenant.php",
+              "sha256": "74a099f500e5d5ca8de4fd92b16cd5ebd66aa186d625bcf5e4c92b6f555eafbd"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformTenantAdminService.php",
+            "sha256": "4e820b51e1df6725213bb0d2ed8f11bf9813f5b5fd7581310eea8b91bb856d63",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformTenantAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Module/Persistence/ThinkPhpModuleRuntimeRepository.php",
+            "sha256": "a08c49403d58d700bd3e1c3b8bf90ae826f5303c9b3526e09f5d73ba3eceb604",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Module\\Persistence\\ThinkPhpModuleRuntimeRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Membership/Query/ThinkPhpTenantMemberDirectory.php",
+            "sha256": "c7537eb12985558c1ebdde43d97b9dd8e7298ff99036afd17873a993a69639bf",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Membership\\Query\\ThinkPhpTenantMemberDirectory"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Contract/AdminDirectoryQuery.php",
+            "sha256": "700697f97f99c69d035991f99a5237c0c9bf7d349388515ea290a02805118fd5",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Contract\\AdminDirectoryQuery"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Permission",
+      "table": "pa_permission",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "部署权限定义目录，不是成员或租户已获授予的权限；与角色关系的授权记录另行登记。目录变更及平台权限赋予不能由本目录归属批准。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/Permission.php",
+          "sha256": "80ceefcae46c2ae97d1f34e5a0918bf01e6e236446cc60c34a37878c8fc0df42"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010105_create_pa_permission.php",
+              "sha256": "429800103a9b0ea334097a71f309f4058737904344252658fd6b70282927de13"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Persistence/ThinkPhpAuthorizationCatalogRepository.php",
+            "sha256": "bca430d27267aa23b69bbc9e8177a6bb802bee9cd229664b3803b57abda4ec6c",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Persistence\\ThinkPhpAuthorizationCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/ModuleAuthorizationCatalogSynchronizer.php",
+            "sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\ModuleAuthorizationCatalogSynchronizer"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Authorization/Application/RoleAdminService.php",
+            "sha256": "560afc7bc51ba29e418688c13d2a6bdbabf5c74c2a56e0e87a0b6beac797b5a1",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Menu/ThinkPhpMenuCatalogRepository.php",
+            "sha256": "08bb6e846ade9852fc3c028db5d83a8f4f515589b36638c7b027a80ea3e8aa98",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Menu\\ThinkPhpMenuCatalogRepository"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\PlatformOperator",
+      "table": "pa_platform_operator",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "平台操作员身份属于实例控制域，引用实例账号；不能与TenantMember混用，也不能用活动状态代替某项平台操作权限。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/PlatformOperator.php",
+          "sha256": "a780566df5ff09624a0da1dba92292d1afe78c8fd8fb81616a2c4d28d8de2d89"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010104_create_pa_platform_operator.php",
+              "sha256": "5ee442260367692b3ebbf090baf9bbea569701d8ce46f3065f0ea0976b862f9f"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\PlatformOperatorRole",
+      "table": "pa_platform_operator_role",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "平台操作员与平台角色关系；父键均为实例平台身份，赋予/撤销与最后管理员保护属于平台用例，不是租户角色赋予。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/PlatformOperatorRole.php",
+          "sha256": "6b56d66e2b12885ab60c729dc3da1f2cb256b56913651c6b7b3700d5add8c651"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010108_create_pa_platform_operator_role.php",
+              "sha256": "966e274e5f92b2a8a70768b8b8d9e2c9eda1ef5061d16e50f7468eb15453213e"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\PlatformRole",
+      "table": "pa_platform_role",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "平台角色定义和生命周期；与租户Role的tenant_id及权限集合分离，控制域锁/修订/内建保护不等于自动授权。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/PlatformRole.php",
+          "sha256": "0bbd316bb30558f29c356c7b16de90ba24ad1370d51f6ef26de32340107c5cb5"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010106_create_pa_platform_role.php",
+              "sha256": "3246bea2aa291377ea7efac09ee3822ea31154afb776b3af41db91639b497461"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\PlatformRolePermission",
+      "table": "pa_platform_role_permission",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "平台角色到部署Permission的授予关系，原生父键均不属于租户；关系修改仍须平台权限与审计，数据类型声明不替代身份核验。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/PlatformRolePermission.php",
+          "sha256": "927c4f951d6b1586bedc91e91889b7de29453253199fe9bf74e1500c94c341ec"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010107_create_pa_platform_role_permission.php",
+              "sha256": "9834889edfc7dcf7e2e62f6a09cd3e1e60b8a18f5b08df8da5e80c6d2f65eb23"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\PlatformSession",
+      "table": "pa_platform_session",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "平台登录会话绑定实例账号与平台操作员，含其安全修订和有效期；平台认证前缀与租户会话分开，不能作为通用会话凭证。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/PlatformSession.php",
+          "sha256": "696b9701ce42d3b7323a571f367030bedf6e5c6eb59acf2e75ca77882aafebaf"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010121_create_pa_platform_session.php",
+              "sha256": "dbf0c3dcb34715d450c0a0ef71a804d833a1095b96a139721f731dffddc7c6bc"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php",
+            "sha256": "9e4b7b3d5cdc676d6366597042c31432b38874ac3dbcdb47b64b5cec50975d77",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\PlatformSessionToken",
+      "table": "pa_platform_session_token",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "父平台会话的访问/刷新令牌记录；session_id引用平台会话，轮转与重放处理从已验证凭证产生。不得套给父TenantSession的令牌或公开原令牌数据。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/PlatformSessionToken.php",
+          "sha256": "02d15da6903fb590b74972adfbad8e4221a9fc9abc5ad8247a84310440ead149"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010122_create_pa_platform_session_token.php",
+              "sha256": "74b9df6d23d8ea4cd48101c7f08b2b8e9add4c2fdbafae97bec3ff947cd75bc1"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpPlatformAuthRepository.php",
+            "sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\Persistence\\ThinkPhpPlatformAuthRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Auth/PlatformAuthService.php",
+            "sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php",
+            "sha256": "9e4b7b3d5cdc676d6366597042c31432b38874ac3dbcdb47b64b5cec50975d77",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Identity\\SelfService\\AccountSelfService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Audit\\Model\\PlatformAuditEventRecord",
+      "table": "pa_platform_audit_event",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "平台审计事件属于实例控制域；记录平台操作员/账号与目标元数据，不是普通租户日志。审计写入不产生操作权限，诊断字段投影保留自身平台边界。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Audit/Model/PlatformAuditEventRecord.php",
+          "sha256": "3db9eb63c260551330be1b1864a6601576d681dfb45a7e2acbeb35e2660e0c58"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/schema/KernelSchema.php",
+          "sha256": "1f0d9e3ce688b229c30862ee9d10e5b205e83d8ff78437d59da3ff8441cb82c8",
+          "entry": "PeanutAdmin\\Kernel\\Persistence\\Schema\\KernelSchema",
+          "migration_sources": [
+            {
+              "path": "server/database/kernel-migrations/20260716010116_create_pa_platform_audit_event.php",
+              "sha256": "b298f509df0cecfd5eecfcb2b9321f7eb2ef29f37030d2dc6e2f09e88b60b70a"
+            }
+          ]
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
+            "sha256": "17e178939bd99a356fedef6a93ed5f6fe711be0c18807552144ab6044c4bf247",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Audit\\AuditService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Audit/Diagnostic/ThinkPhpPlatformAuditDiagnosticQuery.php",
+            "sha256": "4de266dcd521a295d68bfb1da9fd89a15614041fd88750ca3f4778902028422b",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Audit\\Diagnostic\\ThinkPhpPlatformAuditDiagnosticQuery"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformAccessAdminService.php",
+            "sha256": "23096024ac0be029d0c52d7e8286c7179b4477fcbb1e0a0923c5fbc7eb0dd5ea",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformAccessAdminService"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Platform/Application/PlatformTenantAdminService.php",
+            "sha256": "4e820b51e1df6725213bb0d2ed8f11bf9813f5b5fd7581310eea8b91bb856d63",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformTenantAdminService"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Module\\Model\\ModuleInstallation",
+      "table": "pa_module_installation",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "本实例已安装模块与编译声明版本/摘要/状态登记，不是租户模块开通。租户是否启用由独立TenantModule及生命周期合同决定。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Module/Model/ModuleInstallation.php",
+          "sha256": "c4d3cbed04702706fd1f54042467445f73e606c4178d271ea82f9f8ef4976361"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/init.sql",
+          "sha256": "d8ac671a577f60862065fe3cca3b1d2c61f2d72b41ad6dd353f1cdd43b8d7d70",
+          "declaration_sha256": "0ca04bfe98a251eba8cf4441e463645639903834d996786e01886f8307d5dfe1"
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Module/Persistence/ThinkPhpModuleRuntimeRepository.php",
+            "sha256": "a08c49403d58d700bd3e1c3b8bf90ae826f5303c9b3526e09f5d73ba3eceb604",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Module\\Persistence\\ThinkPhpModuleRuntimeRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Menu/ThinkPhpMenuCatalogRepository.php",
+            "sha256": "08bb6e846ade9852fc3c028db5d83a8f4f515589b36638c7b027a80ea3e8aa98",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Menu\\ThinkPhpMenuCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/DataPermission/Catalog/ThinkPhpResourceOperationCatalog.php",
+            "sha256": "2a7f1e29929fbb06d09cc24294db178eddaae427deb5bff2403e979584b74969",
+            "entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog"
+          }
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\MenuDefinition",
+      "table": "pa_menu_definition",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "部署菜单定义；scope为平台/租户展示域而非数据拥有租户，所需permission_id指向部署权限定义。菜单可见及调用权限仍按当前人员授权计算。 模型、原生声明、迁移来源及实际访问源码已逐项核查；此项只记录源数据归属，不认证所有业务入口。",
+        "model_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/MenuDefinition.php",
+          "sha256": "842435ae7f280c9e44f221127df25ed82049afd82cfe468b7c8c708b5f6cb38f"
+        },
+        "schema_source": {
+          "source": "application",
+          "path": "server/database/init.sql",
+          "sha256": "d8ac671a577f60862065fe3cca3b1d2c61f2d72b41ad6dd353f1cdd43b8d7d70",
+          "declaration_sha256": "f4d6c5105c89cc767f55d579aeb391194b8f14eb61544597a03120d1c4d4e593"
+        },
+        "access_sources": [
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Menu/ThinkPhpMenuCatalogRepository.php",
+            "sha256": "08bb6e846ade9852fc3c028db5d83a8f4f515589b36638c7b027a80ea3e8aa98",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Menu\\ThinkPhpMenuCatalogRepository"
+          },
+          {
+            "source": "application",
+            "path": "server/app/modules/official/identity/src/Menu/MenuCatalogSynchronizer.php",
+            "sha256": "1bd0db218260c15c9d7b33d21b004fb1993a948a0b994b9430d9de5abadec48b",
+            "entry": "PeanutAdmin\\Modules\\Identity\\Menu\\MenuCatalogSynchronizer"
+          }
+        ]
+      }
+    },
+    {
       "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Department",
       "table": "pa_department",
       "owner": "tenant-gateway",
@@ -1176,9 +1944,9 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 98,
+    "concrete_models": 113,
     "tenant_models": 79,
-    "non_tenant_models": 19,
+    "non_tenant_models": 34,
     "tenant_tables": 85,
     "tenant_tables_without_model": 6
   }

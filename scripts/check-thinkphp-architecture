@@ -1299,13 +1299,15 @@ def review_source_root(source: str) -> Path:
     raise ValueError("ACCESS_SOURCE_INVALID")
 
 
-def reviewed_source(item: dict) -> tuple[Path, Path]:
+def reviewed_source(item: dict, *, native_schema: bool = False) -> tuple[Path, Path]:
     """Bind a reviewed access path to its exact bytes, not an enduring allowlist."""
     root = review_source_root(item.get("source"))
     name, digest = item.get("path"), item.get("sha256")
     if not isinstance(name, str) or not name or Path(name).is_absolute() or any(p in {"", ".", ".."} for p in name.split("/")):
         raise ValueError("REVIEW_PATH_INVALID")
     allowed = name.startswith("server/app/") if item["source"] == "application" else name.startswith("kernel/src/")
+    if native_schema and item['source'] == 'application':
+        allowed = allowed or name == 'server/database/init.sql' or re.fullmatch(r'server/database/schema/[A-Za-z_][A-Za-z0-9_]*\.php', name) is not None
     if not allowed or not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
         raise ValueError("REVIEW_PATH_OR_DIGEST_INVALID")
     cursor = root
@@ -1425,7 +1427,7 @@ def read_ownership() -> dict:
     return value
 
 
-def literal_create_declarations(source: str) -> dict[str, str]:
+def literal_sql_statements(source: str) -> list[str]:
     """Split native literal CREATE statements; unsupported SQL is not evidence.
 
     This is a bounded declaration reader, not SQL execution or server validation.
@@ -1467,14 +1469,44 @@ def literal_create_declarations(source: str) -> dict[str, str]:
         raise ValueError('INSTANCE_SCHEMA_INCOMPLETE_LITERAL')
     if ''.join(parts).strip():
         statements.append(''.join(parts).strip())
+    return statements
+
+
+def literal_create_declarations(source: str) -> dict[str, str]:
     declarations = {}
-    for statement in statements:
+    for statement in literal_sql_statements(source):
         match = re.match(r'CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([a-z][a-z0-9_]*)`\s*\(', statement, re.I)
         if match is None or match.group(1) in declarations:
             raise ValueError('INSTANCE_SCHEMA_DECLARATION_INVALID_OR_DUPLICATE')
         table = match.group(1)
         _sql_tenant_column(table, statement)
         declarations[table] = statement
+    return declarations
+
+
+def initial_schema_declarations(source: str) -> dict[str, str]:
+    """Read initial CREATE evidence; seed DML is not executed or certified.
+
+    Unsupported persistent DDL/dynamic statements fail instead of silently
+    interpreting their effects. This is declaration provenance, not applied SQL.
+    """
+    declarations, temporary = {}, set()
+    for statement in literal_sql_statements(source):
+        if re.match(r'CREATE\s+TABLE\b', statement, re.I):
+            rows = literal_create_declarations(statement)
+            if set(rows) & set(declarations):
+                raise ValueError('INITIAL_SCHEMA_DUPLICATE_DECLARATION')
+            declarations.update(rows)
+        elif re.match(r'(?:SET\s+(?:NAMES\b|FOREIGN_KEY_CHECKS\s*=|@[a-z_][a-z0-9_]*\s*=)|INSERT\s+(?:IGNORE\s+)?INTO\b|DELETE\s+FROM\b)', statement, re.I):
+            continue
+        elif re.match(r'(?:CREATE|DROP)\s+TEMPORARY\s+TABLE\s+(?:IF\s+EXISTS\s+)?`[^`]+`', statement, re.I):
+            # Temporary seed helpers must not shadow any declared product table.
+            name = re.search(r'`([^`]+)`', statement)[1]
+            temporary.add(name)
+        else:
+            raise ValueError('INITIAL_SCHEMA_UNSUPPORTED_STATEMENT')
+    if temporary & set(declarations):
+        raise ValueError('INITIAL_SCHEMA_TEMPORARY_SHADOW')
     return declarations
 
 
@@ -1506,14 +1538,23 @@ def instance_model_review_errors(item: dict, model_path: Path, tenant_tables: se
         schema_source = review.get('schema_source')
         if not isinstance(schema_source, dict) or schema_source.get('source') != 'application':
             raise ValueError('INSTANCE_SCHEMA_SOURCE_REQUIRED')
-        schema_path, _ = reviewed_source(schema_source)
-        if schema_path.suffix == '.sql' and relative(schema_path).startswith(module_root + '/database/migrations/'):
+        schema_path, _ = reviewed_source(schema_source, native_schema=True)
+        if relative(schema_path) == 'server/database/init.sql':
+            sql = initial_schema_declarations(schema_path.read_text(encoding='utf-8')).get(item['table'])
+            if sql is None or schema_source.get('declaration_sha256') != hashlib.sha256(sql.encode()).hexdigest():
+                raise ValueError('INITIAL_SCHEMA_DECLARATION_MISSING_OR_CHANGED')
+        elif schema_path.suffix == '.sql' and relative(schema_path).startswith(module_root + '/database/migrations/'):
             declarations = literal_create_declarations(schema_path.read_text(encoding='utf-8'))
             sql = declarations.get(item['table'])
-        elif schema_path.suffix == '.php' and relative(schema_path).startswith(module_root + '/'):
+        elif schema_path.suffix == '.php' and (relative(schema_path).startswith(module_root + '/') or relative(schema_path).startswith('server/database/schema/')):
             entry = schema_source.get('entry')
+            host_schema = relative(schema_path).startswith('server/database/schema/')
+            if host_schema:
+                maps = json.loads((ROOT / 'server/composer.json').read_text(encoding='utf-8')).get('autoload', {}).get('classmap', [])
+                if not isinstance(maps, list) or not any(isinstance(row, str) and (row == 'database/schema/' or 'server/' + row == relative(schema_path)) for row in maps):
+                    raise ValueError('INSTANCE_SCHEMA_NATIVE_CLASSMAP_REQUIRED')
             schema_class = _ast_class(parse_schema_php(schema_path.read_text(encoding='utf-8')))
-            if (not isinstance(entry, str) or composer_model_path(entry) != schema_path
+            if (not isinstance(entry, str) or (_native_schema_path(entry) if host_schema else composer_model_path(entry)) != schema_path
                     or _ast_name(schema_class.get('namespacedName')) != entry):
                 raise ValueError('INSTANCE_SCHEMA_CLASS_IDENTITY')
             values, _ = _schema_literals(schema_class)

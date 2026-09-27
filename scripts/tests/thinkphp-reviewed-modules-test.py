@@ -559,6 +559,65 @@ class ReviewedModulesTest(unittest.TestCase):
         self.save()
         self.assertTrue(any('must extend TenantOwnedModel' in error and model in error for error in checker.ownership_errors()))
 
+    def test_identity_instance_records_bind_real_schema_and_private_models(self):
+        prefix = 'PeanutAdmin\\Modules\\Identity\\'
+        selected = {
+            'Account': 'pa_account', 'Credential': 'pa_credential', 'AuthSecurityEvent': 'pa_auth_security_event',
+            'LoginChallenge': 'pa_login_challenge', 'Tenant': 'pa_tenant', 'Permission': 'pa_permission',
+            'MenuDefinition': 'pa_menu_definition', 'PlatformOperator': 'pa_platform_operator',
+            'PlatformOperatorRole': 'pa_platform_operator_role', 'PlatformRole': 'pa_platform_role',
+            'PlatformRolePermission': 'pa_platform_role_permission', 'PlatformSession': 'pa_platform_session',
+            'PlatformSessionToken': 'pa_platform_session_token',
+        }
+        models = {row['model']: row for row in self.registry['model_owners']}
+        native = {prefix + 'Persistence\\Model\\' + name: table for name, table in selected.items()}
+        native[prefix + 'Module\\Model\\ModuleInstallation'] = 'pa_module_installation'
+        native[prefix + 'Audit\\Model\\PlatformAuditEventRecord'] = 'pa_platform_audit_event'
+        tables = checker.schema_tenant_tables()
+        _, roots = checker.module_table_inventory()
+        for model, table in native.items():
+            with self.subTest(model=model):
+                row = models[model]
+                self.assertEqual(('instance', table), (row['owner'], row['table']))
+                self.assertNotIn(table, tables)
+                self.assertNotIn(model, checker.declared_module_exports())
+                self.assertEqual([], checker.instance_model_review_errors(row, checker.composer_model_path(model), tables, roots))
+        missing = self.report()['missing_models']
+        self.assertTrue(set(native).isdisjoint(missing))
+
+    def test_platform_session_token_is_not_a_tenant_session_token(self):
+        prefix = 'PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\'
+        row = copy.deepcopy(next(row for row in self.registry['model_owners'] if row['model'] == prefix + 'PlatformSessionToken'))
+        row['model'] = prefix + 'TenantSessionToken'
+        row['table'] = 'pa_tenant_session_token'
+        path = checker.composer_model_path(row['model'])
+        import hashlib
+        row['instance_review']['model_source'] = {'source': 'application', 'path': checker.relative(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+        row['instance_review']['schema_source']['migration_sources'] = [
+            {'path': entry['migration'], 'sha256': entry['migration_sha256']}
+            for entry in checker.host_php_schema_inventory()['records'] if entry['table'] == row['table']
+        ]
+        _, roots = checker.module_table_inventory()
+        self.assertTrue(any('INSTANCE_SCHEMA_TENANT_PARENT' in error for error in checker.instance_model_review_errors(row, path, checker.schema_tenant_tables(), roots)))
+
+    def test_identity_initial_catalog_declaration_cannot_be_replaced_by_seed_identity(self):
+        row = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_menu_definition')
+        row['instance_review']['schema_source']['declaration_sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('INITIAL_SCHEMA_DECLARATION_MISSING_OR_CHANGED' in error for error in checker.ownership_errors()))
+
+    def test_identity_undeclared_table_owners_remain_real_registration_errors(self):
+        owners, _ = checker.module_table_inventory()
+        errors = checker.ownership_errors()
+        for table, model in [('pa_module_installation', 'ModuleInstallation'), ('pa_menu_definition', 'MenuDefinition')]:
+            if owners.get(table) is None:
+                self.assertTrue(any(model in error and 'module table owner mismatch' in error for error in errors))
+            else:
+                self.assertEqual('official.identity', owners[table])
+        report = self.report()
+        self.assertEqual('not_run', report['business_scan'])
+        self.assertIsNone(report['finding_count'])
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']
