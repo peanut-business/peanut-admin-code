@@ -512,6 +512,53 @@ class ReviewedModulesTest(unittest.TestCase):
         self.save()
         self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
 
+    def test_identity_scoped_business_entries_keep_models_private(self):
+        prefix = 'PeanutAdmin\\Modules\\Identity\\'
+        expected = {
+            'Persistence\\Model\\Department': ('pa_department', 'Organization\\Application\\DepartmentAdminService'),
+            'Persistence\\Model\\Role': ('pa_role', 'Authorization\\Application\\RoleAdminService'),
+            'Persistence\\Model\\RolePermission': ('pa_role_permission', 'Authorization\\Application\\RoleAdminService'),
+            'Persistence\\Model\\TenantMember': ('pa_tenant_member', 'Membership\\Application\\MemberAdminService'),
+            'Persistence\\Model\\MemberRole': ('pa_member_role', 'Membership\\Application\\MemberAdminService'),
+            'DataPermission\\Model\\DataPermissionPolicyRecord': ('pa_data_permission_policy', 'DataPermission\\Application\\DataPolicyAdminService'),
+            'DataPermission\\Model\\DataPermissionGroupRecord': ('pa_data_permission_group', 'DataPermission\\Application\\DataPolicyAdminService'),
+            'DataPermission\\Model\\DataPermissionConditionRecord': ('pa_data_permission_condition', 'DataPermission\\Application\\DataPolicyAdminService'),
+            'DataPermission\\Model\\DataPermissionTargetSetRecord': ('pa_data_permission_target_set', 'DataPermission\\Application\\DataPolicyAdminService'),
+            'DataPermission\\Model\\DataPermissionTargetRecord': ('pa_data_permission_target', 'DataPermission\\Application\\DataPolicyAdminService'),
+        }
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tables = {row['table']: row for row in self.registry['tenant_tables']}
+        exports = checker.declared_module_exports()
+        for suffix, (table, service) in expected.items():
+            with self.subTest(model=suffix):
+                model, entry = prefix + suffix, prefix + service
+                self.assertEqual(('tenant-gateway', table, entry), (models[model]['owner'], models[model]['table'], models[model]['access_entry']))
+                self.assertEqual(entry, tables[table]['access_entry'])
+                self.assertNotIn(model, exports)
+                self.assertIn(entry, exports)
+                self.assertEqual([], checker.access_contract_errors({entry: self.registry['access_contracts'][entry]}))
+
+    def test_identity_exported_entry_needs_individual_surface_not_directory_exemption(self):
+        entry = 'PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService'
+        contract = self.registry['access_contracts'][entry]
+        self.assertEqual({'list', 'get', 'create', 'update', 'archive', 'replacePermissions'}, set(contract['public_use_case']['method_results']))
+        del contract['public_use_case']
+        self.assertTrue(any('ACCESS_PERSISTENCE_EXPORTED' in error for error in checker.access_contract_errors({entry: contract})))
+
+    def test_identity_public_entry_and_its_assembly_drift_require_review(self):
+        entry = 'PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService'
+        contract = self.registry['access_contracts'][entry]
+        source = next(row for row in contract['support_sources'] if row['path'] == 'server/app/AppService.php')
+        source['sha256'] = '0' * 64
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.access_contract_errors({entry: contract})))
+
+    def test_identity_data_policy_scope_cannot_be_inferred_from_tenant_base_alone(self):
+        model = 'PeanutAdmin\\Modules\\Identity\\DataPermission\\Model\\DataPermissionPolicyRecord'
+        row = next(row for row in self.registry['model_owners'] if row['model'] == model)
+        row['owner'] = 'tenant-orm'
+        self.save()
+        self.assertTrue(any('must extend TenantOwnedModel' in error and model in error for error in checker.ownership_errors()))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

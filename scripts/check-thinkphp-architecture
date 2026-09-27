@@ -1320,6 +1320,53 @@ def reviewed_source(item: dict) -> tuple[Path, Path]:
     return cursor, root
 
 
+def public_use_case_review(entry: str, contract: dict, path: Path) -> None:
+    """Verify an individually reviewed exported business result surface.
+
+    This is not persistence-publication permission or an authorization check.
+    Default stores remain private. Only exact reviewed manifest, class and every
+    public return declaration can support this data-access classification.
+    """
+    proof = contract.get('public_use_case')
+    if (contract.get('source') != 'application' or not isinstance(proof, dict)
+            or not isinstance(proof.get('reason'), str) or not proof['reason'].strip()
+            or entry not in declared_module_exports() or entry in concrete_models()):
+        raise ValueError('PUBLIC_USE_CASE_REVIEW_REQUIRED')
+    manifest_source = proof.get('manifest_source')
+    if not isinstance(manifest_source, dict) or manifest_source.get('source') != 'application':
+        raise ValueError('PUBLIC_USE_CASE_MANIFEST_REQUIRED')
+    manifest, _ = reviewed_source(manifest_source)
+    _, roots = module_table_inventory()
+    owners = [root for root in roots if relative(path).startswith(root + '/')]
+    if len(owners) != 1 or relative(manifest) != owners[0] + '/module.json':
+        raise ValueError('PUBLIC_USE_CASE_MODULE_MISMATCH')
+    declaration = json.loads(manifest.read_text(encoding='utf-8'))
+    if entry not in declaration.get('contracts', {}).get('exports', []):
+        raise ValueError('PUBLIC_USE_CASE_EXPORT_REQUIRED')
+    cls = _ast_class(parse_schema_php(path.read_text(encoding='utf-8')))
+    if (_ast_name(cls.get('namespacedName')) != entry or cls.get('extends') is not None
+            or cls.get('implements') or any(_ast_is(node, 'Stmt_TraitUse') for node in cls['stmts'])):
+        raise ValueError('PUBLIC_USE_CASE_CLASS_UNSUPPORTED')
+    results = proof.get('method_results')
+    if not isinstance(results, dict) or not results:
+        raise ValueError('PUBLIC_USE_CASE_RESULTS_REQUIRED')
+    observed = {}
+    for node in cls['stmts']:
+        if not _ast_is(node, 'Stmt_ClassMethod') or node.get('flags', 0) & 7 not in {0, 1}:
+            continue
+        name = _ast_name(node.get('name'))
+        if name == '__construct':
+            continue
+        result = _ast_name(node.get('returnType'))
+        if (not isinstance(name, str) or name.startswith('__') or name in observed
+                or node.get('byRef') or node.get('flags', 0) & 8 or node.get('stmts') is None
+                or result not in {'array', 'bool', 'int', 'float', 'string', 'void'}):
+            raise ValueError('PUBLIC_USE_CASE_RESULT_UNSUPPORTED')
+        observed[name] = result
+    if observed != results:
+        raise ValueError('PUBLIC_USE_CASE_RESULT_COVERAGE')
+
+
 def access_contract_errors(contracts: dict) -> list[str]:
     errors = []
     for entry, contract in contracts.items():
@@ -1330,7 +1377,9 @@ def access_contract_errors(contracts: dict) -> list[str]:
             composer_root = root if contract["source"] == "php-core" else root / "server"
             if composer_model_path(entry, root, composer_root) != path or declared_type(path, root) != entry:
                 raise ValueError("ACCESS_ENTRY_IDENTITY_MISMATCH")
-            if contract["source"] == "application" and entry in declared_module_exports():
+            if 'public_use_case' in contract:
+                public_use_case_review(entry, contract, path)
+            elif contract["source"] == "application" and entry in declared_module_exports():
                 raise ValueError("ACCESS_PERSISTENCE_EXPORTED: registration does not make an internal store public")
             if contract.get("scope") not in {"explicit-tenant-column", "explicit-edition-tenant"}:
                 raise ValueError("ACCESS_SCOPE_INVALID")

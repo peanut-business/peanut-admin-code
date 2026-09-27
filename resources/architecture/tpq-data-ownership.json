@@ -15,6 +15,320 @@
     "shared": "Immutable or product-wide reference data is shared by design."
   },
   "access_contracts": {
+    "PeanutAdmin\\Modules\\Identity\\Organization\\Application\\DepartmentAdminService": {
+      "source": "application",
+      "path": "server/app/modules/official/identity/src/Organization/Application/DepartmentAdminService.php",
+      "sha256": "e5206f652e05b3c472575d0ab5ad22effd70281719c25270a898748174f5e999",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": [
+        "list",
+        "get",
+        "setStatus",
+        "create",
+        "update",
+        "move",
+        "archive"
+      ],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "部门父子引用、列表计数/页与所有写入显式同租户；写前锁定对象并核修订/循环/深度/归档关系。所属用例返回稳定字段，不返回ORM。宿主add/edit仍有未定义runtime调用，此登记不把该业务缺陷判为通过。 本登记只核数据归属、显式范围与结果边界，不证明直接调用时的人员权限；公开入口的授权完整性另交A核实，不以调用者身份对象或基类充当授权。",
+      "support_sources": [
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
+          "sha256": "17e178939bd99a356fedef6a93ed5f6fe711be0c18807552144ab6044c4bf247"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/ModuleProvider.php",
+          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+        },
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Model/TenantModel.php",
+          "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"
+        },
+        {
+          "source": "application",
+          "path": "server/app/adminapi/services/dept/DeptApplicationService.php",
+          "sha256": "1e32b41d0e88ea8eaf5f6349f620982dada1624dc1901ecf59878b3479a2a1af"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/Department.php",
+          "sha256": "d32c8c57fb9baa5ec5f937886d2c0e078ab1c5017011d8f1898db504bdbd694e"
+        }
+      ],
+      "public_use_case": {
+        "manifest_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/module.json",
+          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+        },
+        "method_results": {
+          "list": "array",
+          "get": "array",
+          "setStatus": "void",
+          "create": "array",
+          "update": "array",
+          "move": "array",
+          "archive": "array"
+        },
+        "reason": "现行module.json已公开的普通业务用例；逐方法核返回声明及实际固定结果，不把私表、模型或仓储公开。源码/清单变化必须重新审阅；数据范围登记不授予业务调用权限。"
+      }
+    },
+    "PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService": {
+      "source": "application",
+      "path": "server/app/modules/official/identity/src/Authorization/Application/RoleAdminService.php",
+      "sha256": "560afc7bc51ba29e418688c13d2a6bdbabf5c74c2a56e0e87a0b6beac797b5a1",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": [
+        "list",
+        "get",
+        "create",
+        "update",
+        "archive",
+        "replacePermissions"
+      ],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "角色与权限关系的读写限定tenant_id和已取得的角色身份，校验修订、内建所有者与可分配权限；关系替换在同一事务完成，返回固定数组。目录Permission不是租户授予记录，不能混归为租户数据。 本登记只核数据归属、显式范围与结果边界，不证明直接调用时的人员权限；公开入口的授权完整性另交A核实，不以调用者身份对象或基类充当授权。",
+      "support_sources": [
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
+          "sha256": "17e178939bd99a356fedef6a93ed5f6fe711be0c18807552144ab6044c4bf247"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/ModuleProvider.php",
+          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+        },
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Model/TenantModel.php",
+          "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"
+        },
+        {
+          "source": "application",
+          "path": "server/app/AppService.php",
+          "sha256": "99dfa20f86b0958fa4580b5ac9ee766760bfc69feadce09de910e0f9617acda5"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/runtime/authorization/RoleAdministrationRuntime.php",
+          "sha256": "6d0d70132f2922fcb1d3f3e4051ecd5514f92047d80695d514fc5c85654a4c0e"
+        },
+        {
+          "source": "application",
+          "path": "server/app/adminapi/services/auth/RoleApplicationService.php",
+          "sha256": "1ac124e6e66d9fc6b80e211c23c7c3bb6dfbb25d68428a8664d895514bffa7b8"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Contract/TenantAuthorizationQuery.php",
+          "sha256": "be366e7b490ca3645d81cb6680316d1782b472f15b8308e27a6bd8ec7be34e55"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/Role.php",
+          "sha256": "aeff996a18b01047098786aca0530d1f1d3e12ebfffff93cd7082ce6392e9959"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/RolePermission.php",
+          "sha256": "b66c802695f2eefdf263eb6331203129a0107e22d237a5cbfebc0d0e109568a7"
+        }
+      ],
+      "public_use_case": {
+        "manifest_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/module.json",
+          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+        },
+        "method_results": {
+          "list": "array",
+          "get": "array",
+          "create": "array",
+          "update": "array",
+          "archive": "array",
+          "replacePermissions": "array"
+        },
+        "reason": "现行module.json已公开的普通业务用例；逐方法核返回声明及实际固定结果，不把私表、模型或仓储公开。源码/清单变化必须重新审阅；数据范围登记不授予业务调用权限。"
+      }
+    },
+    "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService": {
+      "source": "application",
+      "path": "server/app/modules/official/identity/src/Membership/Application/MemberAdminService.php",
+      "sha256": "57e3846aaf10f5c911cc89331a19fdb9bbf29d5e1489277a5e0d4dcad606518f",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": [
+        "createAdministrator",
+        "updateAdministrator",
+        "list",
+        "get",
+        "createPending",
+        "update",
+        "activate",
+        "suspend",
+        "leave",
+        "replaceRoles"
+      ],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "成员与角色联查/更新使用相同tenant_id；新建/复用账号和凭证与租户成员分开，已有密码不得覆盖。部门/角色在同租户核验，写操作锁定身份并检查修订，保护最后活动所有者，组合修改在事务内。不得因成员登记授权实例账号或凭证操作。 本登记只核数据归属、显式范围与结果边界，不证明直接调用时的人员权限；公开入口的授权完整性另交A核实，不以调用者身份对象或基类充当授权。",
+      "support_sources": [
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
+          "sha256": "17e178939bd99a356fedef6a93ed5f6fe711be0c18807552144ab6044c4bf247"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/ModuleProvider.php",
+          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+        },
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Model/TenantModel.php",
+          "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"
+        },
+        {
+          "source": "application",
+          "path": "server/app/AppService.php",
+          "sha256": "99dfa20f86b0958fa4580b5ac9ee766760bfc69feadce09de910e0f9617acda5"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/runtime/org/TenantAdminRuntime.php",
+          "sha256": "9121103bbb9406f7485c4138179090814451ff6d8655e515afb736305c8c345e"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Membership/Query/ThinkPhpTenantMemberDirectory.php",
+          "sha256": "c7537eb12985558c1ebdde43d97b9dd8e7298ff99036afd17873a993a69639bf"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/TenantMember.php",
+          "sha256": "fdfed748d16b94ece10a15fdced3d95203e604b5a78e0bfc97f2922eb0b95625"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Persistence/Model/MemberRole.php",
+          "sha256": "4e2cd088844dbbc210060428907de2481efa49b8ba32852ca15444fe3b9e8aa0"
+        }
+      ],
+      "public_use_case": {
+        "manifest_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/module.json",
+          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+        },
+        "method_results": {
+          "createAdministrator": "array",
+          "updateAdministrator": "array",
+          "list": "array",
+          "get": "array",
+          "createPending": "array",
+          "update": "array",
+          "activate": "array",
+          "suspend": "array",
+          "leave": "array",
+          "replaceRoles": "array"
+        },
+        "reason": "现行module.json已公开的普通业务用例；逐方法核返回声明及实际固定结果，不把私表、模型或仓储公开。源码/清单变化必须重新审阅；数据范围登记不授予业务调用权限。"
+      }
+    },
+    "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService": {
+      "source": "application",
+      "path": "server/app/modules/official/identity/src/DataPermission/Application/DataPolicyAdminService.php",
+      "sha256": "7cfa1d2e627ab929e9b1c3eb24733ab1efcbe70e32b3df00ca3e75735aa33824",
+      "scope": "explicit-tenant-column",
+      "tenant_operations": [
+        "get",
+        "targetCardinality",
+        "replace"
+      ],
+      "other_operations": [],
+      "pending_operations": [],
+      "reason": "五类策略记录及复合外键表达同租户策略/分组/条件/目标集合与目标关系。写入口锁租户角色并核修订，组和目标从受限输入构造；子删除带同租户条件，读取政策主键来自前序同租户查询。公开用例不同于私有PolicyRepository；后者生产绑定未获完整证据，此处不据此断言预览装配通过。 本登记只核数据归属、显式范围与结果边界，不证明直接调用时的人员权限；公开入口的授权完整性另交A核实，不以调用者身份对象或基类充当授权。",
+      "support_sources": [
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
+          "sha256": "17e178939bd99a356fedef6a93ed5f6fe711be0c18807552144ab6044c4bf247"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/ModuleProvider.php",
+          "sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+        },
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Model/TenantModel.php",
+          "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Persistence/Schema/DataPermissionSchema.php",
+          "sha256": "c0739004724709c44a689ec586306e53c64041209f7804514f6b25a430583b0e"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Policy/ThinkPhpPolicyRepository.php",
+          "sha256": "f7ff6fe377883c878da670ea199d301cd905091b015b5d94a471df6dffbbca7a"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Provider/ThinkPhpTargetSetMembershipProvider.php",
+          "sha256": "64d6b24c289b2510cbece8f04254b8f1d9d1ea9d0db7daa931fbb84208b2f3e5"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Application/EffectiveAccessPreviewService.php",
+          "sha256": "5791dfc9c6ef0d3ed2cc55b5ff7348992d7c457e1f104def7fd80a3594d6110a"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Model/DataPermissionPolicyRecord.php",
+          "sha256": "b0b583792181b60545092a9af3914230c555c281a0fcab95672a7b71369d4790"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Model/DataPermissionGroupRecord.php",
+          "sha256": "5129f5f9e3c64ed111ff625d28c9ed322f7d51801cef668bae2dfe63f3aefdcb"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Model/DataPermissionConditionRecord.php",
+          "sha256": "5838449f8817b00c28124b5826f0099086b421aa30289b5f5b0b3305c7fbab64"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Model/DataPermissionTargetSetRecord.php",
+          "sha256": "70ba042f06479d38e5b961dea994b3c3badf153ed5cdb699f657973e8cacd204"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/identity/src/DataPermission/Model/DataPermissionTargetRecord.php",
+          "sha256": "c4b2a89b88cbcb522b61a23ff3f921bc67823b4adb6ffcf2b2885fd997e020e2"
+        }
+      ],
+      "public_use_case": {
+        "manifest_source": {
+          "source": "application",
+          "path": "server/app/modules/official/identity/module.json",
+          "sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+        },
+        "method_results": {
+          "get": "array",
+          "targetCardinality": "string",
+          "replace": "array"
+        },
+        "reason": "现行module.json已公开的普通业务用例；逐方法核返回声明及实际固定结果，不把私表、模型或仓储公开。源码/清单变化必须重新审阅；数据范围登记不授予业务调用权限。"
+      }
+    },
     "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore": {
       "source": "application",
       "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/ReferenceCodeStore.php",
@@ -205,6 +519,66 @@
     }
   },
   "model_owners": [
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Department",
+      "table": "pa_department",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Organization\\Application\\DepartmentAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\Role",
+      "table": "pa_role",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\RolePermission",
+      "table": "pa_role_permission",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\TenantMember",
+      "table": "pa_tenant_member",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\Persistence\\Model\\MemberRole",
+      "table": "pa_member_role",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Model\\DataPermissionPolicyRecord",
+      "table": "pa_data_permission_policy",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Model\\DataPermissionGroupRecord",
+      "table": "pa_data_permission_group",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Model\\DataPermissionConditionRecord",
+      "table": "pa_data_permission_condition",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Model\\DataPermissionTargetSetRecord",
+      "table": "pa_data_permission_target_set",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Model\\DataPermissionTargetRecord",
+      "table": "pa_data_permission_target",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
     {
       "model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryVersionRecord",
       "table": "pa_reference_code_entry_version",
@@ -675,6 +1049,56 @@
     {"model": "app\\common\\model\\provider\\ProviderQualificationEvidence", "table": "pa_provider_qualification_evidence", "owner": "instance"}
   ],
   "tenant_tables": [
+    {
+      "table": "pa_department",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Organization\\Application\\DepartmentAdminService"
+    },
+    {
+      "table": "pa_role",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService"
+    },
+    {
+      "table": "pa_role_permission",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\Application\\RoleAdminService"
+    },
+    {
+      "table": "pa_tenant_member",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService"
+    },
+    {
+      "table": "pa_member_role",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\Membership\\Application\\MemberAdminService"
+    },
+    {
+      "table": "pa_data_permission_policy",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "table": "pa_data_permission_group",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "table": "pa_data_permission_condition",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "table": "pa_data_permission_target_set",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
+    {
+      "table": "pa_data_permission_target",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService"
+    },
     {"table": "pa_reference_code_entry", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore"},
     {"table": "pa_integration_machine_identity", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
     {"table": "pa_integration_webhook_endpoint", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
@@ -752,10 +1176,10 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 88,
-    "tenant_models": 69,
+    "concrete_models": 98,
+    "tenant_models": 79,
     "non_tenant_models": 19,
-    "tenant_tables": 75,
+    "tenant_tables": 85,
     "tenant_tables_without_model": 6
   }
 }
