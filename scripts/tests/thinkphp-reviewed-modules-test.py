@@ -255,6 +255,53 @@ class ReviewedModulesTest(unittest.TestCase):
         self.assertTrue(any('must extend TenantOwnedModel' in error and 'IntegrationMachineIdentityRecord' in error
                             for error in checker.ownership_errors()))
 
+    def test_settings_edition_models_match_owner_access_instead_of_catalog_mutation(self):
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tables = {row['table']: row for row in self.registry['tenant_tables']}
+        native, _ = checker.module_table_inventory()
+        gateway = 'PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService'
+        for name, table in [('TenantSettingValue', 'pa_setting_tenant_value'), ('TargetSettingValue', 'pa_setting_target_value')]:
+            with self.subTest(model=name):
+                model = 'PeanutAdmin\\Modules\\Settings\\Model\\' + name
+                self.assertEqual(table, models[model]['table'])
+                self.assertEqual('tenant-gateway', models[model]['owner'])
+                self.assertEqual(gateway, models[model]['access_entry'])
+                self.assertEqual(gateway, tables[table]['access_entry'])
+                self.assertEqual('official.settings', native[table])
+                self.assertEqual((model, 'PeanutAdmin\\Kernel\\Persistence\\Model\\EditionTenantModel'), checker.model_header(checker.composer_model_path(model)))
+                self.assertIn(table, checker.schema_tenant_tables())
+        self.assertNotIn(gateway, checker.declared_module_exports())
+
+    def test_settings_deployment_and_helper_methods_are_not_tenant_authority(self):
+        entry = 'PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService'
+        contract = self.registry['access_contracts'][entry]
+        self.assertEqual([], checker.access_contract_errors({entry: contract}))
+        self.assertEqual({'replaceTenant', 'unsetTenant', 'replaceTarget', 'unsetTarget'}, set(contract['tenant_operations']))
+        self.assertEqual({'replaceDeployment', 'unsetDeployment', 'prepareStorage', 'assertValidInterval', 'emptyStorage'}, set(contract['other_operations']))
+        self.assertFalse(contract['pending_operations'])
+        resolver = 'PeanutAdmin\\Modules\\Settings\\Application\\SettingResolver'
+        self.assertEqual([], checker.access_contract_errors({resolver: self.registry['access_contracts'][resolver]}))
+        self.assertEqual({'resolveTenant', 'resolveTarget'}, set(self.registry['access_contracts'][resolver]['tenant_operations']))
+        self.assertEqual(['resolveDeployment'], self.registry['access_contracts'][resolver]['other_operations'])
+
+    def test_settings_scope_review_pins_effective_mode_target_and_http_authority(self):
+        entry = 'PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService'
+        support = self.registry['access_contracts'][entry]['support_sources']
+        self.assertTrue({'EditionTenantModel.php', 'TenantColumnScope.php', 'SettingResolver.php',
+                         'TargetSettingWriter.php', 'SettingsHttpApplicationService.php', 'ModuleProvider.php'}
+                        .issubset({Path(item['path']).name for item in support}))
+        caller = next(item for item in support if item['path'].endswith('/SettingsHttpApplicationService.php'))
+        caller['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
+    def test_settings_explicit_edition_scope_is_not_automatic_global_scope(self):
+        model = 'PeanutAdmin\\Modules\\Settings\\Model\\TenantSettingValue'
+        row = next(item for item in self.registry['model_owners'] if item['model'] == model)
+        row['owner'] = 'tenant-orm'
+        self.save()
+        self.assertTrue(any('must extend TenantOwnedModel' in error and model in error for error in checker.ownership_errors()))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

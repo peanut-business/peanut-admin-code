@@ -15,6 +15,43 @@
     "shared": "Immutable or product-wide reference data is shared by design."
   },
   "access_contracts": {
+    "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService": {
+      "source": "application",
+      "path": "server/app/modules/official/settings/src/Application/SettingAdminService.php",
+      "sha256": "cf4cc886211757e6cf2179170bcaf318f1ffe0e4724b19a180576e02712ab8c5",
+      "scope": "explicit-edition-tenant",
+      "tenant_operations": ["replaceTenant", "unsetTenant", "replaceTarget", "unsetTarget"],
+      "other_operations": ["replaceDeployment", "unsetDeployment", "prepareStorage", "assertValidInterval", "emptyStorage"],
+      "pending_operations": [],
+      "reason": "租户/目标写入显式EditionTenantModel与TenantScope，核模式、活动成员及字段归属；目标操作核已授权的模块/资源/动作/单目标和幂等原子合同。读写在现有事务内核定义摘要、锁与预期修订；HTTP入口另核当前人员、租户一致性及固定权限。部署写入与纯存储/时间辅助方法属于其他职责，不获得租户授权，也不据此批准部署级原始模型。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/EditionTenantModel.php", "sha256": "5a1e55a9dacfa01d8c071b19e4a9f456f5029132ae900f5174e6cfa03ded18e8"},
+        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantColumnScope.php", "sha256": "d5a50c48866888f4ae0eece820326ac322705ce64ef1ef4156a898a690b56eff"},
+        {"source": "php-core", "path": "kernel/src/Tenancy/TenantScope.php", "sha256": "b352bd2402502861929da57b591a86bf399e4fad80506d0a370be09ec77918d9"},
+        {"source": "application", "path": "server/app/modules/official/settings/src/Application/SettingResolver.php", "sha256": "eabeba7d1f9bd50e6073b0af379f40e859ecce74d464d46740533edb16b881cb"},
+        {"source": "application", "path": "server/app/modules/official/settings/src/Service/SettingsHttpApplicationService.php", "sha256": "34928b92a868c15b2740f3a95cff11913011b5d4beac0a86e4943a0d89ef2fe3"},
+        {"source": "application", "path": "server/app/modules/official/settings/src/Application/TargetSettingWriter.php", "sha256": "23ea51cc489e1f2572448bddd910f586feb95e1ce3ee100ccb7e79e591cda303"},
+        {"source": "application", "path": "server/app/modules/official/settings/src/ModuleProvider.php", "sha256": "63071f90a3cd7dc791a8eb7f2ff794cb1f8b9e6b528e33d8cfbf3ef0d4e14b4a"},
+        {"source": "application", "path": "server/app/modules/official/settings/src/Database/Schema.php", "sha256": "b75c75af47230385c992f5c83430a11a314a9a42cd70c8bbcdc92c7ec4acd73a"}
+      ]
+    },
+    "PeanutAdmin\\Modules\\Settings\\Application\\SettingResolver": {
+      "source": "application",
+      "path": "server/app/modules/official/settings/src/Application/SettingResolver.php",
+      "sha256": "eabeba7d1f9bd50e6073b0af379f40e859ecce74d464d46740533edb16b881cb",
+      "scope": "explicit-edition-tenant",
+      "tenant_operations": ["resolveTenant", "resolveTarget"],
+      "other_operations": ["resolveDeployment"],
+      "pending_operations": [],
+      "reason": "租户/目标读取核租户存在、Edition存储形态、受限目标与定义摘要；查询使用显式tenant Scope，缓存键区分租户/目标/修订和生效阶段，秘密不进入该缓存。部署读取是独立非租户职责；公开授权及秘密响应脱敏仍由实际调用者负责。",
+      "support_sources": [
+        {"source": "php-core", "path": "kernel/src/Persistence/Model/EditionTenantModel.php", "sha256": "5a1e55a9dacfa01d8c071b19e4a9f456f5029132ae900f5174e6cfa03ded18e8"},
+        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantColumnScope.php", "sha256": "d5a50c48866888f4ae0eece820326ac322705ce64ef1ef4156a898a690b56eff"},
+        {"source": "application", "path": "server/app/modules/official/identity/src/Tenancy/Application/TenantWorkspaceQueryService.php", "sha256": "4b2eadd6e5c625b6a0090d41966bedde1abc7318137faabd970a0e4fe416d727"},
+        {"source": "application", "path": "server/app/modules/official/settings/src/Service/SettingsHttpApplicationService.php", "sha256": "34928b92a868c15b2740f3a95cff11913011b5d4beac0a86e4943a0d89ef2fe3"},
+        {"source": "application", "path": "server/app/modules/official/settings/src/ModuleProvider.php", "sha256": "63071f90a3cd7dc791a8eb7f2ff794cb1f8b9e6b528e33d8cfbf3ef0d4e14b4a"}
+      ]
+    },
     "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository": {
       "source": "application",
       "path": "server/app/modules/official/integration/src/Infrastructure/Persistence/ThinkPhpIntegrationSecurityRepository.php",
@@ -147,6 +184,8 @@
     }
   },
   "model_owners": [
+    {"model": "PeanutAdmin\\Modules\\Settings\\Model\\TenantSettingValue", "table": "pa_setting_tenant_value", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService"},
+    {"model": "PeanutAdmin\\Modules\\Settings\\Model\\TargetSettingValue", "table": "pa_setting_target_value", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService"},
     {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationMachineIdentityRecord", "table": "pa_integration_machine_identity", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
     {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationWebhookEndpointRecord", "table": "pa_integration_webhook_endpoint", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
     {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationWebhookDeliveryRecord", "table": "pa_integration_webhook_delivery", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
@@ -290,8 +329,8 @@
     {"table": "pa_file_derivative", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\File\\Model\\Storage\\FileDerivative"},
     {"table": "pa_transaction_setting", "owner": "tenant-orm", "access_entry": "app\\common\\model\\setting\\TransactionSetting"},
     {"table": "pa_external_channel_binding", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Service\\ExternalChannelBindingService"},
-    {"table": "pa_setting_tenant_value", "owner": "tenant-gateway", "access_entry": "app\\platform\\infrastructure\\plugin\\ModuleCatalogMutationRepository"},
-    {"table": "pa_setting_target_value", "owner": "tenant-gateway", "access_entry": "app\\platform\\infrastructure\\plugin\\ModuleCatalogMutationRepository"},
+    {"table": "pa_setting_tenant_value", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService"},
+    {"table": "pa_setting_target_value", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService"},
     {"table": "pa_refund_log", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\Payment\\Model\\RefundLog"},
     {"table": "pa_oauth_completion_ticket", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\OAuth\\Model\\OAuthCompletionTicket"},
     {"table": "pa_payment_tenant_channel_grant", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Modules\\Payment\\Model\\PaymentTenantChannelGrant"},
@@ -299,10 +338,10 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 74,
-    "tenant_models": 65,
+    "concrete_models": 76,
+    "tenant_models": 67,
     "non_tenant_models": 9,
     "tenant_tables": 74,
-    "tenant_tables_without_model": 8
+    "tenant_tables_without_model": 6
   }
 }
