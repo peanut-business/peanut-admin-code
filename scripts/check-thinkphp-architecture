@@ -419,8 +419,12 @@ def model_owner_bypass_hits(path: Path, text: str) -> list[tuple[str, int, str]]
     for item in ownership.get("model_owners", []):
         table = str(item.get("table", "")).strip()
         model = str(item.get("model", "")).strip()
-        owner_path = "server/" + model.replace("\\", "/") + ".php"
-        if not table or not model or rel == owner_path:
+        if not table or not model:
+            continue
+        owner_path = composer_model_path(model)
+        # Only the exact declared source owns this exemption. A missing or
+        # guessed namespace path must not authorize unrelated table access.
+        if owner_path is not None and rel == relative(owner_path):
             continue
         for match in re.finditer(
             rf"(?<![A-Za-z0-9_]){re.escape(table)}(?![A-Za-z0-9_])",
@@ -568,7 +572,7 @@ def schema_tenant_tables() -> set[str]:
 
 
 def concrete_models() -> set[str]:
-    paths = list((ROOT / "server/app/modules").glob("*/*/src/**/Model/*.php"))
+    paths = list((ROOT / "server/app/modules").glob("*/*/src/**/Model/**/*.php"))
     paths.extend((ROOT / "server/app/common/model").glob("**/*.php"))
     models: set[str] = set()
     for path in paths:
@@ -785,8 +789,18 @@ def main() -> int:
         if rule not in known_rules:
             registration_errors.append(f"issues[{index}] references unknown rule {rule}")
     if registration_errors:
-        for error in registration_errors:
-            print(f"REGISTRATION_ERROR {error}")
+        if args.json:
+            print(json.dumps({
+                "status": "registration_failed",
+                "register": str(REGISTER.relative_to(ROOT)),
+                "registration_error_count": len(registration_errors),
+                "registration_errors": registration_errors,
+                # The source scan was not run; zero would imply a clean scan.
+                "finding_count": None,
+            }, ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            for error in registration_errors:
+                print(f"REGISTRATION_ERROR {error}")
         return 2
 
     findings = current_findings(register)

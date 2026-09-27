@@ -109,6 +109,10 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 旧 TPQ 的模型路径按当前 `server/composer.json` 最长 PSR-4 前缀解析，核精确大小写、路径边界和重复映射；已公开的业务类以 `module.json` 声明识别，不仅凭 `Service` 目录名判为内部。对应正反例执行 `python3 scripts/tests/thinkphp-source-resolution-test.py`。这些修复不自动补齐历史模型/表登记，也不更新旧问题清单的验收状态；CLI 的登记失败与纯规则/框架行为通过须分别记录。
 
+模型发现包含模块 `Model/` 下的嵌套目录；所有者自己的表访问只按当前 Composer 解析得到的精确源文件识别，不按命名空间拼接猜测路径。缺失映射不授予例外，歧义映射仍失败。执行 `python3 scripts/tests/thinkphp-ownership-registration-test.py` 验证嵌套发现、原生映射、自身与其他消费者的区别，以及登记失败时不扫描、不刷新历史问题状态。该测试只使用本工作树临时文件，不执行被扫描的 PHP 或访问数据库。
+
+`python3 scripts/check-thinkphp-architecture --json` 在归属登记不一致时返回 `status=registration_failed`、具体 `registration_errors` 和退出码2；此时 `finding_count=null` 表示源码规则扫描尚未执行，不表示零问题。默认文本模式继续输出 `REGISTRATION_ERROR`。修正已迁移类的登记位置不自动批准新增模型的数据范围、补全所有表或关闭历史问题，现行缺项须按对应源与安全合同逐项核实。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。
