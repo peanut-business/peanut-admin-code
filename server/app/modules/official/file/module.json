@@ -56,8 +56,6 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": [
-      "official.identity"
-    ]
+    "requires": ["official.identity"]
   }
 }

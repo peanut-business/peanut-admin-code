@@ -8,9 +8,7 @@
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-article",
   "web_package": "@peanut-admin/official-article",
-  "dependencies": [
-    {"module_key": "official.file", "version": "^1.0"}
-  ],
+  "dependencies": [{ "module_key": "official.file", "version": "^1.0" }],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Article\\ModuleProvider",
     "migrations": "database/migrations",

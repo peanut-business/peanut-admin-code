@@ -23,7 +23,9 @@
     "owned_tables": ["pa_fixture_delivery_record"]
   },
   "contracts": {
-    "exports": ["PeanutAdmin\\Fixtures\\DeliveryRecord\\Contract\\DeliveryRecordCommands"],
+    "exports": [
+      "PeanutAdmin\\Fixtures\\DeliveryRecord\\Contract\\DeliveryRecordCommands"
+    ],
     "events": []
   },
   "tenant": {

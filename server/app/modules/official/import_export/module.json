@@ -41,10 +41,7 @@
     "entry": "web/src/modules/official-import-export/contribution.ts"
   },
   "database": {
-    "owned_tables": [
-      "pa_import_export_operation",
-      "pa_import_export_row_error"
-    ]
+    "owned_tables": ["pa_import_export_operation", "pa_import_export_row_error"]
   },
   "contracts": {
     "exports": [

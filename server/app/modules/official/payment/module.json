@@ -62,10 +62,6 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": [
-      "official.file",
-      "official.member",
-      "official.settings"
-    ]
+    "requires": ["official.file", "official.member", "official.settings"]
   }
 }

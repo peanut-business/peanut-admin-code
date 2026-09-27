@@ -58,8 +58,6 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": [
-      "official.integration"
-    ]
+    "requires": ["official.integration"]
   }
 }

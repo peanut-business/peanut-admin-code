@@ -9,7 +9,7 @@
   "php_package": "peanut-business/official-reference-codes",
   "web_package": "@peanut-admin/official-reference-codes",
   "dependencies": [
-    {"module_key": "official.identity", "version": "4.0.0-dev"}
+    { "module_key": "official.identity", "version": "4.0.0-dev" }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider",
@@ -18,7 +18,9 @@
     "permissions": "resources/permissions.json",
     "reference_code_sets": "resources/reference-code-sets.json"
   },
-  "frontend": {"entry": "web/src/modules/official-reference-codes/contribution.ts"},
+  "frontend": {
+    "entry": "web/src/modules/official-reference-codes/contribution.ts"
+  },
   "database": {
     "owned_tables": [
       "pa_dict_type",
