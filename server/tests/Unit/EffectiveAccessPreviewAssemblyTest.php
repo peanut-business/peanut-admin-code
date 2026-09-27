@@ -57,13 +57,15 @@ final class EffectiveAccessPreviewAssemblyTest extends TestCase
         self::assertSame(0, $this->databaseAttempts, 'Registering or constructing a service must not query production data.');
     }
 
-    public function testIdentityBindsCoreProtocolsWithoutPublishingItsPrivateRepositories(): void
+    public function testExistingCatalogContractStaysPublicAndPolicyStoragePrivate(): void
     {
         $bindings = (new ModuleProvider())->bindings();
         self::assertSame(ThinkPhpResourceOperationCatalog::class, $bindings[ResourceOperationCatalog::class] ?? null);
         self::assertSame(ThinkPhpPolicyRepository::class, $bindings[PolicyRepository::class] ?? null);
         $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
-        self::assertNotContains(ThinkPhpResourceOperationCatalog::class, $manifest['contracts']['exports']);
+        // The fixed business catalog was already public; binding its Core interface must not revoke that contract.
+        self::assertContains(ThinkPhpResourceOperationCatalog::class, $manifest['contracts']['exports']);
+        self::assertNotContains(\PeanutAdmin\Modules\Identity\DataPermission\Model\DataPermissionPolicyRecord::class, $manifest['contracts']['exports']);
         self::assertNotContains(ThinkPhpPolicyRepository::class, $manifest['contracts']['exports']);
         self::assertSame(0, $this->databaseAttempts);
     }

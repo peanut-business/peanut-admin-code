@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68ed8d830fd3c144416ef6c7e10b841025a7a5b9680d0236e82a097fd614deda"
+            "source_sha256": "9ad848da9d62d04ec3e88cd88849b13529e56c2cd77d96d5b5cd9faa2ad3ce20"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2369,7 +2369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b03173fe0abff9cc037f75d17d1aeb380b117343f5c500b6eba3aa41aabf349e"
+            "source_sha256": "f090bceb2771fd5b4cd82560b9e65354f08565f8dd753bae235726474b3ac4b9"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -11381,7 +11381,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a3998366f3c00d819f545229c9285d4f0ba65789ed3dad039837647de9ae833f"
+            "source_sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
         },
         {
             "path": "server/app/modules/official/identity/src/Organization/Application/DepartmentAdminService.php",
@@ -26809,6 +26809,19 @@
         {
             "path": "server/tests/Unit/DeveloperCenterDocumentationCountTest.php",
             "target": "server/tests/Unit/DeveloperCenterDocumentationCountTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/EffectiveAccessPreviewAssemblyTest.php",
+            "target": "server/tests/Unit/EffectiveAccessPreviewAssemblyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

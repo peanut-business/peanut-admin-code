@@ -15,6 +15,10 @@ use PeanutAdmin\Modules\Identity\Contract\TenantAuditDiagnosticQuery;
 use PeanutAdmin\DataPermission\Constraint\TargetSetConstraintApplier;
 use PeanutAdmin\DataPermission\Scope\ReadScopeAuthority;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\DataPermission\Catalog\ResourceOperationCatalog;
+use PeanutAdmin\DataPermission\Policy\PolicyRepository;
+use PeanutAdmin\Modules\Identity\DataPermission\Catalog\ThinkPhpResourceOperationCatalog;
+use PeanutAdmin\Modules\Identity\DataPermission\Policy\ThinkPhpPolicyRepository;
 use PeanutAdmin\Modules\Identity\Auth\TenantSessionAccessService;
 use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess;
@@ -36,6 +40,8 @@ final class ModuleProvider implements ModuleProviderContract
     {
         return [
             AuditWriter::class => AuditService::class,
+            ResourceOperationCatalog::class => ThinkPhpResourceOperationCatalog::class,
+            PolicyRepository::class => ThinkPhpPolicyRepository::class,
             ModuleAvailability::class => ModuleAvailabilityService::class,
             TargetSetConstraintApplier::class => ThinkPhpTargetSetConstraintApplier::class,
             ReadScopeAuthority::class => ThinkPhpReadScopeAuthority::class,
