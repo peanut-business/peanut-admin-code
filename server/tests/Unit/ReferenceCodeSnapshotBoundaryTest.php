@@ -188,6 +188,22 @@ final class ReferenceCodeSnapshotBoundaryTest extends TestCase
         $this->store->snapshot($this->definition, $this->context, null, $this->asOf);
     }
 
+    public function testRetainedIntegrationFactorySuppliesTheActualIdentityDependencies(): void
+    {
+        // Only its repository factory is invoked. The legacy MySQL setUp/tearDown is never run here.
+        require_once dirname(__DIR__) . '/Modules/Official/ReferenceCodes/Versioned/Integration/Support/ReferenceCodesDatabaseTestCase.php';
+        $fixture = new class ('fixtureFactory') extends \Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Support\ReferenceCodesDatabaseTestCase {
+            public function storeFor(ReferenceCodeSetDefinition $definition): ReferenceCodeStore
+            {
+                return $this->repository($definition);
+            }
+        };
+        $store = $fixture->storeFor($this->definition);
+        $result = (new ReferenceCodeQuery($store))->get($this->definition, $this->context, 'sample-code', $this->asOf);
+        self::assertSame('Earlier', $result->effective['label']);
+        self::assertSame(2, $result->revision);
+    }
+
     public function testOwnerUsesOnlyPublicIdentityContractsAndKeepsBinding(): void
     {
         $source = file_get_contents((new \ReflectionClass(ReferenceCodeStore::class))->getFileName());

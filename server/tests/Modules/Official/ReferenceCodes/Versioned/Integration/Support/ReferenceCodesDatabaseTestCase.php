@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Modules\Official\ReferenceCodes\Versioned\Integration\Support;
 
+use app\common\execution\CurrentExecutionContext;
+use app\common\execution\ExecutionContextStore;
+use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
+use PeanutAdmin\Modules\Identity\Membership\Query\ThinkPhpTenantMemberDirectory;
 use DateTimeImmutable;
 use PDO;
 use PDOException;
@@ -111,7 +115,10 @@ abstract class ReferenceCodesDatabaseTestCase extends TestCase
 
     protected function repository(ReferenceCodeSetDefinition $definition): ReferenceCodeStore
     {
-        $store = new ReferenceCodeStore();
+        $store = new ReferenceCodeStore(
+            new ThinkPhpTenantMemberDirectory(),
+            new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())),
+        );
         $store->synchronize($this->registry($definition), new DateTimeImmutable(self::NOW));
 
         return $store;
@@ -237,14 +244,33 @@ abstract class ReferenceCodesDatabaseTestCase extends TestCase
 CREATE TABLE pa_tenant (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   code VARCHAR(64) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  security_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
   PRIMARY KEY (id),
   UNIQUE KEY uk_tenant_code (code)
 ) ENGINE=InnoDB
 SQL);
         $this->database->exec(<<<'SQL'
+CREATE TABLE pa_account (
+  id BIGINT UNSIGNED NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  display_name VARCHAR(160) NOT NULL,
+  security_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB
+SQL);
+        // All synthetic contexts intentionally use one account with separate memberships.
+        $this->database->exec("INSERT INTO pa_account (id, display_name) VALUES (1, 'Reference fixture')");
+        $this->database->exec(<<<'SQL'
 CREATE TABLE pa_tenant_member (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   tenant_id BIGINT UNSIGNED NOT NULL,
+  account_id BIGINT UNSIGNED NOT NULL DEFAULT 1,
+  display_name VARCHAR(160) NOT NULL DEFAULT 'Reference fixture member',
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  primary_department_id BIGINT UNSIGNED NULL,
+  security_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+  authorization_revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
   PRIMARY KEY (id),
   UNIQUE KEY uk_tenant_member_tenant_id (tenant_id, id),
   CONSTRAINT fk_reference_test_member_tenant FOREIGN KEY (tenant_id) REFERENCES pa_tenant (id) ON DELETE RESTRICT

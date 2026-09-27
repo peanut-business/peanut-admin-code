@@ -16,7 +16,7 @@ final class ReferenceCodeAdminServiceTest extends ReferenceCodesDatabaseTestCase
     public function testSynchronizesDefinitionsIdempotently(): void
     {
         $definition = $this->definition();
-        $repository = new \PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore($this->connection);
+        $repository = new \PeanutAdmin\Modules\ReferenceCodes\Versioned\Persistence\ReferenceCodeStore();
         self::assertSame(
             ['inserted' => 1, 'updated' => 0, 'retired' => 0, 'reactivated' => 0],
             $repository->synchronize($this->registry($definition), new DateTimeImmutable(self::NOW)),
@@ -34,7 +34,11 @@ final class ReferenceCodeAdminServiceTest extends ReferenceCodesDatabaseTestCase
         $id = (int) $this->scalar('SELECT id FROM pa_reference_code_set');
         $changed = $this->definition(name: 'Changed generic codes');
         self::assertSame(1, $repository->synchronize($this->registry($changed), new DateTimeImmutable(self::NOW))['updated']);
-        self::assertSame(1, $repository->synchronize(new ReferenceCodeSetRegistry(), new DateTimeImmutable(self::NOW))['retired']);
+        $unselected = $repository->synchronize(new ReferenceCodeSetRegistry(), new DateTimeImmutable(self::NOW));
+        self::assertSame(0, $unselected['retired'], 'An unselected module must not be retired.');
+        $emptySelection = new ReferenceCodeSetRegistry();
+        $emptySelection->registerModule($definition->moduleKey, []);
+        self::assertSame(1, $repository->synchronize($emptySelection, new DateTimeImmutable(self::NOW))['retired']);
         self::assertSame(1, $repository->synchronize($this->registry($definition), new DateTimeImmutable(self::NOW))['reactivated']);
         self::assertSame($id, (int) $this->scalar('SELECT id FROM pa_reference_code_set'));
         self::assertSame(4, (int) $this->scalar('SELECT revision FROM pa_reference_code_set'));
