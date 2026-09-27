@@ -49,6 +49,7 @@
             "pa_tenant_entry_binding",
             "pa_tenant_member",
             "pa_tenant_module",
+            "pa_tenant_owner_invitation",
             "pa_tenant_session",
             "pa_tenant_session_token"
         ]
@@ -100,6 +101,15 @@
             "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformTenantAdminService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformWorkspaceQueryService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\TenantOwnerAdminService",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\TenantOwnerInvitationAdminService",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\TenantOwnerInvitationPublicService",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\TenantOwnerInvitationException",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\OwnerInvitationDeliveryPort",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\OwnerInvitationDelivery",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\OwnerInvitationDeliveryResult",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\OwnerInvitationRuntimePolicy",
+            "PeanutAdmin\\Modules\\Identity\\Invitation\\UnavailableOwnerInvitationDeliveryPort",
+            "PeanutAdmin\\Modules\\Identity\\Contract\\TenantOwnerAdminProvisioner",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\TenantEntryBindingAdminService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Bootstrap\\BootstrapService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Bootstrap\\PlatformBootstrapResult",

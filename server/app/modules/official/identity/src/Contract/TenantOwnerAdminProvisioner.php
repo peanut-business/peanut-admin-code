@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\platform\contract;
+namespace PeanutAdmin\Modules\Identity\Contract;
 
 interface TenantOwnerAdminProvisioner
 {

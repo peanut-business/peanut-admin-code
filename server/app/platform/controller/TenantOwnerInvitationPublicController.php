@@ -6,7 +6,7 @@ namespace app\platform\controller;
 
 use app\BaseController;
 use app\common\traits\ApiResponseTrait;
-use app\platform\invitation\TenantOwnerInvitationPublicService;
+use PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationPublicService;
 use app\platform\validate\TenantOwnerInvitationValidate;
 use think\App;
 

@@ -6,7 +6,7 @@ namespace app\platform\controller;
 
 use app\common\http\PageResult;
 use app\platform\http\PlatformRequest;
-use app\platform\invitation\TenantOwnerInvitationAdminService;
+use PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationAdminService;
 use app\platform\validate\TenantOwnerInvitationValidate;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 

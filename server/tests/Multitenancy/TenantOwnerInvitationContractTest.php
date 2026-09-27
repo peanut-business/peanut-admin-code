@@ -2,13 +2,15 @@
 
 declare(strict_types=1);
 
-use app\platform\invitation\OneTimeInvitationToken;
-use app\platform\invitation\OwnerInvitationDelivery;
-use app\platform\invitation\OwnerInvitationRuntimePolicy;
-use app\platform\invitation\TenantOwnerInvitationException;
-use app\platform\invitation\UnavailableOwnerInvitationDeliveryPort;
+use PeanutAdmin\Modules\Identity\Invitation\OneTimeInvitationToken;
+use PeanutAdmin\Modules\Identity\Invitation\OwnerInvitationDelivery;
+use PeanutAdmin\Modules\Identity\Invitation\OwnerInvitationRuntimePolicy;
+use PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationException;
+use PeanutAdmin\Modules\Identity\Invitation\UnavailableOwnerInvitationDeliveryPort;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+if (!class_exists(OneTimeInvitationToken::class)) {
+    require dirname(__DIR__, 2) . '/vendor/autoload.php';
+}
 
 function ownerInvitationExpect(bool $condition, string $message): void
 {
@@ -73,13 +75,13 @@ ownerInvitationExpect(
 );
 
 $adminService = (string) file_get_contents(
-    $serverRoot . '/app/platform/invitation/TenantOwnerInvitationAdminService.php',
+    $serverRoot . '/app/modules/official/identity/src/Invitation/TenantOwnerInvitationAdminService.php',
 );
 $publicService = (string) file_get_contents(
-    $serverRoot . '/app/platform/invitation/TenantOwnerInvitationPublicService.php',
+    $serverRoot . '/app/modules/official/identity/src/Invitation/TenantOwnerInvitationPublicService.php',
 );
 $runtimePolicy = (string) file_get_contents(
-    $serverRoot . '/app/platform/invitation/OwnerInvitationRuntimePolicy.php',
+    $serverRoot . '/app/modules/official/identity/src/Invitation/OwnerInvitationRuntimePolicy.php',
 );
 ownerInvitationExpect(str_contains($adminService, "TenantStatus::Provisioning"), 'Tenant is not left provisioning');
 ownerInvitationExpect(str_contains($adminService, "'token_hash' => \$token->hash()"), 'plaintext token may reach persistence');
@@ -87,7 +89,7 @@ ownerInvitationExpect(!str_contains($adminService, 'Log::'), 'invitation service
 ownerInvitationExpect(
     str_contains($adminService, 'lockInvitableTenant')
         && str_contains($adminService, 'TenantStatus::Active->value')
-        && str_contains($adminService, 'activeMemberWithRoleExists'),
+        && str_contains($adminService, "\$this->ownerMemberExists(\$tenantId, ['active'])"),
     'active Tenant owner invitation path is missing',
 );
 ownerInvitationExpect(
@@ -126,13 +128,13 @@ try {
         'production invitation delivery failure is not fail-closed',
     );
 }
-ownerInvitationExpect(str_contains($publicService, 'FOR UPDATE'), 'acceptance lacks a row lock');
+ownerInvitationExpect(str_contains($publicService, '->lock(true)'), 'acceptance lacks a row lock');
 ownerInvitationExpect(
-    str_contains($publicService, 'consumed_token_hash'),
+    str_contains($publicService, "'token_hash' => hash('sha256', random_bytes(32))"),
     'accepted invitation does not invalidate its one-time token',
 );
 ownerInvitationExpect(
-    str_contains($publicService, 'pendingOrActiveMemberWithRoleExists'),
+    str_contains($publicService, "\$this->ownerMemberExists(\$tenantId, ['pending', 'active'])"),
     'acceptance lacks a first-owner concurrency check',
 );
 ownerInvitationExpect(
@@ -140,7 +142,7 @@ ownerInvitationExpect(
     'acceptance can overwrite an existing account password',
 );
 ownerInvitationExpect(
-    str_contains($publicService, 'TenantMemberStatus::Active')
+    str_contains($publicService, "'status' => 'active'")
         && str_contains($publicService, "'core.tenant-owner'"),
     'acceptance does not activate and authorize the owner membership',
 );
@@ -149,10 +151,11 @@ ownerInvitationExpect(
     'acceptance does not append a Core audit event',
 );
 $memberAdmin = (string) file_get_contents(
-    $serverRoot . '/vendor/peanut-admin/core/kernel/src/Membership/Application/MemberAdminService.php',
+    $serverRoot . '/app/modules/official/identity/src/Membership/Application/MemberAdminService.php',
 );
 ownerInvitationExpect(
-    substr_count($memberAdmin, 'assertNotLastActiveOwner') >= 3
+    substr_count($memberAdmin, 'assertOwnerRemovalAllowed') >= 3
+        && substr_count($memberAdmin, 'activeOwnerMemberIdsForUpdate') >= 3
         && str_contains($memberAdmin, 'LAST_ACTIVE_OWNER_REQUIRED'),
     'core final active Owner guard is missing',
 );

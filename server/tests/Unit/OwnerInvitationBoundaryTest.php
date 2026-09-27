@@ -74,28 +74,28 @@ final class OwnerInvitationBoundaryTest extends TestCase
         $repository->method('revision')->willReturnCallback(fn(int $id): string => hash('sha256', implode(',', $this->permissions)));
         $repository->method('permissions')->willReturnCallback(fn(int $id): EffectivePermissionSet => new EffectivePermissionSet($this->permissions));
         $this->sessions = new PlatformOperatorSessionService((new ReflectionClass(PlatformAuthService::class))->newInstanceWithoutConstructor(), new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()), $repository);
-        $this->context = PlatformOperatorContext::fromValidatedPlatformSession(PlatformContext::fromValidatedSession(new ValidatedPlatformSession(1,'fixture-session',101,11,'platform-web',new DateTimeImmutable('2031-01-01T00:00:00Z')),'owner-invitation-test'));
+        $this->context = PlatformOperatorContext::fromValidatedPlatformSession(PlatformContext::fromValidatedSession(new ValidatedPlatformSession(1, 'fixture-session', 101, 11, 'platform-web', new DateTimeImmutable('2031-01-01T00:00:00Z')), 'owner-invitation-test'));
         $this->audit = new AuditContractHost(null);
         $this->admin = $this->adminWith(new UnavailableOwnerInvitationDeliveryPort(), OwnerInvitationRuntimePolicy::fromEnvironment('development'));
         $bootstrap = $this->createStub(TenantOwnerAdminProvisioner::class);
-        $bootstrap->method('provision')->willReturnCallback(function (int $tenant,int $account,int $member,int $role,string $code,string $name): int {
+        $bootstrap->method('provision')->willReturnCallback(function (int $tenant, int $account, int $member, int $role, string $code, string $name): int {
             if ($this->bootstrapFails) {
                 throw new DomainException('FIXTURE_BOOTSTRAP_FAILED');
             }
             $this->provisioned[] = [$tenant,$account,$member,$role,$code,$name];
             return $member;
         });
-        $this->public = new TenantOwnerInvitationPublicService($bootstrap,$this->audit,new PasswordHasher());
+        $this->public = new TenantOwnerInvitationPublicService($bootstrap, $this->audit, new PasswordHasher());
     }
 
     private function adminWith(OwnerInvitationDeliveryPort $delivery, OwnerInvitationRuntimePolicy $policy): TenantOwnerInvitationAdminService
     {
-        return new TenantOwnerInvitationAdminService((new ReflectionClass(PlatformTenantAdminService::class))->newInstanceWithoutConstructor(),$this->sessions,$delivery,$policy,$this->audit);
+        return new TenantOwnerInvitationAdminService((new ReflectionClass(PlatformTenantAdminService::class))->newInstanceWithoutConstructor(), $this->sessions, $delivery, $policy, $this->audit);
     }
 
-    private function invite(int $tenant=1,string $email='new@example.test'): array
+    private function invite(int $tenant = 1, string $email = 'new@example.test'): array
     {
-        return $this->admin->invite($this->context,$tenant,$email,'Invited Owner',24);
+        return $this->admin->invite($this->context, $tenant, $email, 'Invited Owner', 24);
     }
 
     private function rejected(string $code, callable $operation): void
@@ -104,117 +104,117 @@ final class OwnerInvitationBoundaryTest extends TestCase
             $operation();
             self::fail('Expected rejection: ' . $code);
         } catch (TenantOwnerInvitationException $exception) {
-            self::assertSame($code,$exception->errorCode);
+            self::assertSame($code, $exception->errorCode);
         }
     }
 
     public function testManifestOwnsTheWholeInvitationAndPublishesOnlyItsUseAndDeliveryBoundary(): void
     {
-        $manifest=json_decode(file_get_contents(dirname(__DIR__,2).'/app/modules/official/identity/module.json'),true,512,JSON_THROW_ON_ERROR);
-        self::assertContains('pa_tenant_owner_invitation',$manifest['database']['owned_tables']);
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertContains('pa_tenant_owner_invitation', $manifest['database']['owned_tables']);
         foreach ([TenantOwnerInvitationAdminService::class,TenantOwnerInvitationPublicService::class,TenantOwnerInvitationException::class,OwnerInvitationDeliveryPort::class,OwnerInvitationDelivery::class,OwnerInvitationDeliveryResult::class,TenantOwnerAdminProvisioner::class] as $type) {
-            self::assertContains($type,$manifest['contracts']['exports']);
+            self::assertContains($type, $manifest['contracts']['exports']);
         }
-        self::assertFileDoesNotExist(dirname(__DIR__,2).'/app/platform/invitation/TenantOwnerInvitationAdminService.php');
+        self::assertFileDoesNotExist(dirname(__DIR__, 2) . '/app/platform/invitation/TenantOwnerInvitationAdminService.php');
     }
 
     public function testIssuanceStoresOnlyHashAndInspectionDoesNotExposeEmailOrToken(): void
     {
-        $issued=$this->invite();
-        self::assertSame('pending_delivery',$issued['delivery_status']);
-        $row=$this->database->query('SELECT * FROM pa_tenant_owner_invitation')->fetch(PDO::FETCH_ASSOC);
-        self::assertSame(hash('sha256',$issued['accept_token']),$row['token_hash']);
-        self::assertStringNotContainsString($issued['accept_token'],json_encode($row));
-        $view=$this->public->inspect($issued['accept_token']);
-        self::assertSame('pending',$view['status']);
+        $issued = $this->invite();
+        self::assertSame('pending_delivery', $issued['delivery_status']);
+        $row = $this->database->query('SELECT * FROM pa_tenant_owner_invitation')->fetch(PDO::FETCH_ASSOC);
+        self::assertSame(hash('sha256', $issued['accept_token']), $row['token_hash']);
+        self::assertStringNotContainsString($issued['accept_token'], json_encode($row));
+        $view = $this->public->inspect($issued['accept_token']);
+        self::assertSame('pending', $view['status']);
         self::assertTrue($view['requires_password']);
-        self::assertStringNotContainsString('new@example.test',json_encode($view));
-        self::assertArrayNotHasKey('accept_token',$view);
-        self::assertSame('provisioning',$this->database->query('SELECT status FROM pa_tenant WHERE id=1')->fetchColumn());
-        $this->rejected('TENANT_OWNER_INVITATION_PENDING',fn()=>$this->invite());
+        self::assertStringNotContainsString('new@example.test', json_encode($view));
+        self::assertArrayNotHasKey('accept_token', $view);
+        self::assertSame('provisioning', $this->database->query('SELECT status FROM pa_tenant WHERE id=1')->fetchColumn());
+        $this->rejected('TENANT_OWNER_INVITATION_PENDING', fn() => $this->invite());
     }
 
     public function testAcceptCreatesNativeOwnerAndConsumesTokenWithoutActivatingTenant(): void
     {
-        $issued=$this->invite();
-        $result=$this->public->accept($issued['accept_token'],'Fixture!Password2026');
-        self::assertSame('accepted',$result['status']);
-        self::assertSame('provisioning',$result['tenant_status']);
-        $secret=$this->database->query("SELECT secret_hash FROM pa_credential WHERE identifier_normalized='new@example.test'")->fetchColumn();
-        self::assertTrue(password_verify('Fixture!Password2026',$secret));
-        self::assertSame('active',$this->database->query('SELECT status FROM pa_tenant_member WHERE id='.$result['member_id'])->fetchColumn());
-        self::assertCount(1,$this->provisioned);
-        self::assertSame([$result['tenant_id'],$result['account_id'],$result['member_id'],$result['role_id'],'alpha','Invited Owner'],$this->provisioned[0]);
-        self::assertSame(1,(int)$this->database->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
-        $this->rejected('INVITATION_NOT_FOUND',fn()=>$this->public->accept($issued['accept_token'],null));
+        $issued = $this->invite();
+        $result = $this->public->accept($issued['accept_token'], 'Fixture!Password2026');
+        self::assertSame('accepted', $result['status']);
+        self::assertSame('provisioning', $result['tenant_status']);
+        $secret = $this->database->query("SELECT secret_hash FROM pa_credential WHERE identifier_normalized='new@example.test'")->fetchColumn();
+        self::assertTrue(password_verify('Fixture!Password2026', $secret));
+        self::assertSame('active', $this->database->query('SELECT status FROM pa_tenant_member WHERE id=' . $result['member_id'])->fetchColumn());
+        self::assertCount(1, $this->provisioned);
+        self::assertSame([$result['tenant_id'],$result['account_id'],$result['member_id'],$result['role_id'],'alpha','Invited Owner'], $this->provisioned[0]);
+        self::assertSame(1, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
+        $this->rejected('INVITATION_NOT_FOUND', fn() => $this->public->accept($issued['accept_token'], null));
     }
 
     public function testExistingAccountCannotHaveItsPasswordOverwrittenAndReceivesSeparateMembership(): void
     {
-        $secret=password_hash('Original!Password2026',PASSWORD_DEFAULT);
-        $insert=$this->database->prepare("INSERT INTO pa_credential(account_id,kind,identifier_type,identifier_normalized,secret_hash) VALUES(20,'email_password','email','existing@example.test',?)");
+        $secret = password_hash('Original!Password2026', PASSWORD_DEFAULT);
+        $insert = $this->database->prepare("INSERT INTO pa_credential(account_id,kind,identifier_type,identifier_normalized,secret_hash) VALUES(20,'email_password','email','existing@example.test',?)");
         $insert->execute([$secret]);
-        $issued=$this->invite(1,'existing@example.test');
+        $issued = $this->invite(1, 'existing@example.test');
         self::assertFalse($this->public->inspect($issued['accept_token'])['requires_password']);
-        $this->rejected('EXISTING_ACCOUNT_PASSWORD_FORBIDDEN',fn()=>$this->public->accept($issued['accept_token'],'Replacement!Password2026'));
-        $accepted=$this->public->accept($issued['accept_token'],null);
-        self::assertSame(20,$accepted['account_id']);
-        self::assertNotSame(20,$accepted['member_id']);
-        self::assertSame($secret,$this->database->query('SELECT secret_hash FROM pa_credential WHERE account_id=20')->fetchColumn());
-        self::assertSame(2,(int)$this->database->query('SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=20')->fetchColumn());
+        $this->rejected('EXISTING_ACCOUNT_PASSWORD_FORBIDDEN', fn() => $this->public->accept($issued['accept_token'], 'Replacement!Password2026'));
+        $accepted = $this->public->accept($issued['accept_token'], null);
+        self::assertSame(20, $accepted['account_id']);
+        self::assertNotSame(20, $accepted['member_id']);
+        self::assertSame($secret, $this->database->query('SELECT secret_hash FROM pa_credential WHERE account_id=20')->fetchColumn());
+        self::assertSame(2, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=20')->fetchColumn());
     }
 
     public function testResendInvalidatesOldTokenAndRevokePreventsAcceptance(): void
     {
-        $first=$this->invite();
-        $second=$this->admin->resend($this->context,$first['id'],24);
-        self::assertSame(2,$second['generation']);
-        self::assertNotSame($first['accept_token'],$second['accept_token']);
-        $this->rejected('INVITATION_NOT_FOUND',fn()=>$this->public->inspect($first['accept_token']));
-        $this->admin->revoke($this->context,$first['id']);
-        self::assertSame('revoked',$this->public->inspect($second['accept_token'])['status']);
-        $this->rejected('INVITATION_REVOKED',fn()=>$this->public->accept($second['accept_token'],'Fixture!Password2026'));
-        self::assertSame(0,(int)$this->database->query('SELECT COUNT(*) FROM pa_credential')->fetchColumn());
+        $first = $this->invite();
+        $second = $this->admin->resend($this->context, $first['id'], 24);
+        self::assertSame(2, $second['generation']);
+        self::assertNotSame($first['accept_token'], $second['accept_token']);
+        $this->rejected('INVITATION_NOT_FOUND', fn() => $this->public->inspect($first['accept_token']));
+        $this->admin->revoke($this->context, $first['id']);
+        self::assertSame('revoked', $this->public->inspect($second['accept_token'])['status']);
+        $this->rejected('INVITATION_REVOKED', fn() => $this->public->accept($second['accept_token'], 'Fixture!Password2026'));
+        self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_credential')->fetchColumn());
     }
 
     public function testExpiryIsPersistedButNeverCreatesAnOwner(): void
     {
-        $issued=$this->invite();
+        $issued = $this->invite();
         $this->database->exec("UPDATE pa_tenant_owner_invitation SET expires_at='2000-01-01 00:00:00.000'");
-        $this->rejected('INVITATION_EXPIRED',fn()=>$this->public->accept($issued['accept_token'],'Fixture!Password2026'));
-        self::assertSame('expired',$this->database->query('SELECT status FROM pa_tenant_owner_invitation')->fetchColumn());
-        self::assertSame(1,(int)$this->database->query('SELECT COUNT(*) FROM pa_tenant_member')->fetchColumn());
+        $this->rejected('INVITATION_EXPIRED', fn() => $this->public->accept($issued['accept_token'], 'Fixture!Password2026'));
+        self::assertSame('expired', $this->database->query('SELECT status FROM pa_tenant_owner_invitation')->fetchColumn());
+        self::assertSame(1, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_member')->fetchColumn());
     }
 
     public function testAdditionalOwnerRetainsExistingOwnerAndInactiveTenantIsDenied(): void
     {
-        $issued=$this->invite(2);
-        $accepted=$this->public->accept($issued['accept_token'],'Fixture!Password2026');
-        self::assertSame('active',$accepted['tenant_status']);
-        self::assertSame(2,(int)$this->database->query('SELECT COUNT(*) FROM pa_member_role WHERE tenant_id=2')->fetchColumn());
-        $this->rejected('TENANT_OWNER_INVITATION_NOT_ALLOWED',fn()=>$this->invite(3));
+        $issued = $this->invite(2);
+        $accepted = $this->public->accept($issued['accept_token'], 'Fixture!Password2026');
+        self::assertSame('active', $accepted['tenant_status']);
+        self::assertSame(2, (int) $this->database->query('SELECT COUNT(*) FROM pa_member_role WHERE tenant_id=2')->fetchColumn());
+        $this->rejected('TENANT_OWNER_INVITATION_NOT_ALLOWED', fn() => $this->invite(3));
         $this->database->exec("UPDATE pa_tenant_member SET status='inactive' WHERE tenant_id=2");
-        $this->rejected('TENANT_ACTIVE_OWNER_REQUIRED',fn()=>$this->invite(2,'next@example.test'));
+        $this->rejected('TENANT_ACTIVE_OWNER_REQUIRED', fn() => $this->invite(2, 'next@example.test'));
     }
 
     public function testProductionDeliveryFailureDoesNotLeakTokenOrReportSent(): void
     {
-        $provider=$this->createStub(OwnerInvitationDeliveryPort::class);
+        $provider = $this->createStub(OwnerInvitationDeliveryPort::class);
         $provider->method('isConfigured')->willReturn(true);
         $provider->method('deliver')->willThrowException(new RuntimeException('fixture-private-delivery-detail'));
-        $admin=$this->adminWith($provider,OwnerInvitationRuntimePolicy::fromEnvironment('production'));
-        $issued=$admin->invite($this->context,1,'failed@example.test','Owner',24);
-        self::assertSame('failed',$issued['delivery_status']);
-        self::assertArrayNotHasKey('accept_token',$issued);
-        self::assertSame('DELIVERY_PROVIDER_ERROR',$this->database->query('SELECT delivery_error_code FROM pa_tenant_owner_invitation')->fetchColumn());
-        self::assertStringNotContainsString('fixture-private',json_encode($issued));
+        $admin = $this->adminWith($provider, OwnerInvitationRuntimePolicy::fromEnvironment('production'));
+        $issued = $admin->invite($this->context, 1, 'failed@example.test', 'Owner', 24);
+        self::assertSame('failed', $issued['delivery_status']);
+        self::assertArrayNotHasKey('accept_token', $issued);
+        self::assertSame('DELIVERY_PROVIDER_ERROR', $this->database->query('SELECT delivery_error_code FROM pa_tenant_owner_invitation')->fetchColumn());
+        self::assertStringNotContainsString('fixture-private', json_encode($issued));
     }
 
     public function testMissingDeliveryAndRevokedPermissionRejectBeforeIssuance(): void
     {
-        $admin=$this->adminWith(new UnavailableOwnerInvitationDeliveryPort(),OwnerInvitationRuntimePolicy::fromEnvironment('production'));
-        $this->rejected('OWNER_INVITATION_DELIVERY_UNAVAILABLE',fn()=>$admin->invite($this->context,1,'new@example.test','Owner',24));
-        $this->permissions=[];
+        $admin = $this->adminWith(new UnavailableOwnerInvitationDeliveryPort(), OwnerInvitationRuntimePolicy::fromEnvironment('production'));
+        $this->rejected('OWNER_INVITATION_DELIVERY_UNAVAILABLE', fn() => $admin->invite($this->context, 1, 'new@example.test', 'Owner', 24));
+        $this->permissions = [];
         $this->database->exec('DROP TABLE pa_tenant_owner_invitation');
         $this->expectException(AuthorizationException::class);
         $this->invite();
@@ -222,42 +222,42 @@ final class OwnerInvitationBoundaryTest extends TestCase
 
     public function testBootstrapFailureRollsBackNewIdentityRoleAndTokenConsumption(): void
     {
-        $issued=$this->invite();
-        $this->bootstrapFails=true;
+        $issued = $this->invite();
+        $this->bootstrapFails = true;
         try {
-            $this->public->accept($issued['accept_token'],'Fixture!Password2026');
+            $this->public->accept($issued['accept_token'], 'Fixture!Password2026');
             self::fail('Bootstrap failure was ignored.');
         } catch (DomainException $error) {
-            self::assertSame('FIXTURE_BOOTSTRAP_FAILED',$error->getMessage());
+            self::assertSame('FIXTURE_BOOTSTRAP_FAILED', $error->getMessage());
         }
-        self::assertSame(1,(int)$this->database->query('SELECT COUNT(*) FROM pa_account')->fetchColumn());
-        self::assertSame(0,(int)$this->database->query('SELECT COUNT(*) FROM pa_credential')->fetchColumn());
-        self::assertSame(1,(int)$this->database->query('SELECT COUNT(*) FROM pa_tenant_member')->fetchColumn());
-        self::assertSame('pending',$this->public->inspect($issued['accept_token'])['status']);
-        self::assertSame(0,(int)$this->database->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
+        self::assertSame(1, (int) $this->database->query('SELECT COUNT(*) FROM pa_account')->fetchColumn());
+        self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_credential')->fetchColumn());
+        self::assertSame(1, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_member')->fetchColumn());
+        self::assertSame('pending', $this->public->inspect($issued['accept_token'])['status']);
+        self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
     }
 
     public function testAuditFailureRollsBackIdentityAndInvitationTogether(): void
     {
-        $issued=$this->invite();
+        $issued = $this->invite();
         $this->database->exec("CREATE TRIGGER reject_fixture_audit BEFORE INSERT ON pa_tenant_audit_event BEGIN SELECT RAISE(ABORT,'fixture audit failure'); END");
         try {
-            $this->public->accept($issued['accept_token'],'Fixture!Password2026');
+            $this->public->accept($issued['accept_token'], 'Fixture!Password2026');
             self::fail('Audit failure was ignored.');
         } catch (think\db\exception\PDOException) {
-            self::assertSame(0,(int)$this->database->query('SELECT COUNT(*) FROM pa_credential')->fetchColumn());
-            self::assertSame('pending',$this->public->inspect($issued['accept_token'])['status']);
+            self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_credential')->fetchColumn());
+            self::assertSame('pending', $this->public->inspect($issued['accept_token'])['status']);
         }
     }
 
     public function testHistoryPaginationAndExpiredProjectionRemainDatabaseScoped(): void
     {
-        $first=$this->invite();
-        $this->admin->revoke($this->context,$first['id']);
-        $second=$this->invite();
-        $this->database->exec("UPDATE pa_tenant_owner_invitation SET expires_at='2000-01-01 00:00:00.000' WHERE id=".$second['id']);
-        $firstPage=$this->admin->invitations($this->context,1,new PageRequest(1,1));
-        $secondPage=$this->admin->invitations($this->context,1,new PageRequest(2,1));
+        $first = $this->invite();
+        $this->admin->revoke($this->context, $first['id']);
+        $second = $this->invite();
+        $this->database->exec("UPDATE pa_tenant_owner_invitation SET expires_at='2000-01-01 00:00:00.000' WHERE id=" . $second['id']);
+        $firstPage = $this->admin->invitations($this->context, 1, new PageRequest(1, 1));
+        $secondPage = $this->admin->invitations($this->context, 1, new PageRequest(2,1));
         self::assertSame(2,$firstPage['total']);
         self::assertSame('expired',$firstPage['items'][0]['status']);
         self::assertSame('revoked',$secondPage['items'][0]['status']);

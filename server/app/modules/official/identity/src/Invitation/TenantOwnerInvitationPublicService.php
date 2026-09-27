@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace app\platform\invitation;
+namespace PeanutAdmin\Modules\Identity\Invitation;
 
 use app\common\services\audit\AuditContractHost;
-use app\platform\services\ApplicationTenantBootstrapService;
+use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
@@ -19,7 +19,7 @@ final class TenantOwnerInvitationPublicService
     private const OWNER_ROLE = 'core.tenant-owner';
 
     public function __construct(
-        private readonly ApplicationTenantBootstrapService $applicationBootstrap,
+        private readonly TenantOwnerAdminProvisioner $applicationBootstrap,
         private readonly AuditContractHost $audit,
         private readonly PasswordHasher $passwords,
     ) {}
@@ -179,9 +179,11 @@ final class TenantOwnerInvitationPublicService
             }
             $this->applicationBootstrap->provision(
                 $tenantId,
+                $accountId,
                 $memberId,
                 (int) $roleId,
                 (string) $invitation['tenant_code'],
+                (string) $invitation['display_name'],
             );
 
             $now = $this->format($this->now());

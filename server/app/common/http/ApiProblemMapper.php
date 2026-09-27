@@ -9,7 +9,7 @@ use app\common\exception\module\ModuleScaffoldException;
 use app\common\exception\installation\InstallationExecutionException;
 use app\common\exception\http\OutboundHttpException;
 use app\common\exception\storage\StorageProviderException;
-use app\platform\invitation\TenantOwnerInvitationException;
+use PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationException;
 use app\platform\exception\PlatformRefreshCredentialException;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\exception\plugin\PluginPackageException;

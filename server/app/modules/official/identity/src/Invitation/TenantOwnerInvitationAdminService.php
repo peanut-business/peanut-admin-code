@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\platform\invitation;
+namespace PeanutAdmin\Modules\Identity\Invitation;
 
 use app\common\services\audit\AuditContractHost;
 use app\platform\context\PlatformOperatorContext;

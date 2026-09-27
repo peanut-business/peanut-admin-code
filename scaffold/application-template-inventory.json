@@ -657,7 +657,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9135e1a0360f17d7cf4eaf8474fad83bd46b1e396775248ac1f83d5bbff2596d"
+            "source_sha256": "d2d5b7d872f5e3a0c6491f64cf40c59d135abf784552642be2781744d0de5c11"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1635820cb71c4abde1c11b63684ec4e191f8af31dd2d3641dfa81b9ef0d77612"
+            "source_sha256": "9892b010b6122a9d0b18d6c59494c3e85c6f6815d179c6c64cc1d5a702bc3354"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65b945b940d88d988c68c1e4fe84198221476e743d6960be8b4879f27edb82f3"
+            "source_sha256": "24a85ef8c587975d3de3dd81b15a18ee4931b1f2a6f246d3cef7618f9151ab40"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -4169,7 +4169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a4760909f4d8e73eb0bf6f79f9bace37031dd573a41afb9f3a0a0414e72146f"
+            "source_sha256": "6d99e9cda1d4776262eee1280b0a68ff2ebb01233dc35160ac16942031bb21b5"
         },
         {
             "path": "server/app/BaseController.php",
@@ -7013,7 +7013,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d958ef675f60de029ea999b3693610167d145a7a5a833107d2ba29d595b98e5"
+            "source_sha256": "3afcca529bae7d2ea5a8039632ca1cf31b5dfcad204f08f4b57dd02e56ec52be"
         },
         {
             "path": "server/app/common/http/HostApiProblemRenderer.php",
@@ -9954,7 +9954,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4421d6a24e864c3735980ace908f55f085d123b12a21cb2e60bdbd23dccecd16"
+            "source_sha256": "ee6f78189ccb5e6fe699236edff64f441e3a578927943e2e7fe381844af9dd72"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -10713,6 +10713,20 @@
             "source_sha256": "bb4342c7b21c8f0e6e480dd842962b99036181e3c15a0513e98b39eee45c67f2"
         },
         {
+            "path": "server/app/modules/official/identity/src/Contract/TenantOwnerAdminProvisioner.php",
+            "target": "server/app/modules/official/identity/src/Contract/TenantOwnerAdminProvisioner.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f014a1dbca69596a42155b7c5f5597c2afa287c629fee80a3b320de0fbe141be"
+        },
+        {
             "path": "server/app/modules/official/identity/src/Contract/TenantSessionAccess.php",
             "target": "server/app/modules/official/identity/src/Contract/TenantSessionAccess.php",
             "classification": "managed",
@@ -10991,6 +11005,132 @@
                 "full"
             ],
             "source_sha256": "9e4b7b3d5cdc676d6366597042c31432b38874ac3dbcdb47b64b5cec50975d77"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/OneTimeInvitationToken.php",
+            "target": "server/app/modules/official/identity/src/Invitation/OneTimeInvitationToken.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "89782bd30605c2661b881dd2a1220f685c35919f6b06c23a30b2fc94873aa686"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/OwnerInvitationDelivery.php",
+            "target": "server/app/modules/official/identity/src/Invitation/OwnerInvitationDelivery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7aadc5459f02e7b23476b38bdc5a9ddbb28ce08f37b041f6e016a94c62a33235"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/OwnerInvitationDeliveryPort.php",
+            "target": "server/app/modules/official/identity/src/Invitation/OwnerInvitationDeliveryPort.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "53ac560156bcf27fc7cbe0316487e8f48daef344f61e411b6a265c95eafc67d2"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/OwnerInvitationDeliveryResult.php",
+            "target": "server/app/modules/official/identity/src/Invitation/OwnerInvitationDeliveryResult.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6e35b2130365ae3298438a29b627d5e1150ccfc4c6ff4c4e7a0e2105e820dd88"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/OwnerInvitationRuntimePolicy.php",
+            "target": "server/app/modules/official/identity/src/Invitation/OwnerInvitationRuntimePolicy.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "11e8559cbbe9ba2318607bd8de723df058d27dc485ee2fe1f2a499dc96cce3b1"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationAdminService.php",
+            "target": "server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationAdminService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "685afad52b3ed04c6a7aaf26965b032b2a3532243c6c46eb571e82fb32c10b53"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationException.php",
+            "target": "server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationException.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4a9443ae4054b460c6ca130a9ed1b93c862ac629ab60b0c08c08cd8d7650c9d3"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationPublicService.php",
+            "target": "server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationPublicService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c04720b030d17a6f8b316117ee09c0bc2a2db86e01b9ee4b972c8284ddab6ff3"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Invitation/UnavailableOwnerInvitationDeliveryPort.php",
+            "target": "server/app/modules/official/identity/src/Invitation/UnavailableOwnerInvitationDeliveryPort.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "dea602a0f6e7db31a7aa140caf3d207daeda0ba8cb789eded62f0c88bfd10304"
         },
         {
             "path": "server/app/modules/official/identity/src/Membership/Application/MemberAdminService.php",
@@ -20578,20 +20718,6 @@
             "source_sha256": "cb103c23ae60058afb90507cb28d0aca930fb9aaaf34d00fd707f75b9bb0419b"
         },
         {
-            "path": "server/app/platform/contract/TenantOwnerAdminProvisioner.php",
-            "target": "server/app/platform/contract/TenantOwnerAdminProvisioner.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "530d010ec9c849073acf61c932b4e7b854a206c84dcc95b50e9db1c3438e8d60"
-        },
-        {
             "path": "server/app/platform/contract/provider/ProviderQualificationContributor.php",
             "target": "server/app/platform/contract/provider/ProviderQualificationContributor.php",
             "classification": "managed",
@@ -20771,7 +20897,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e49141a8a7abc7f6f25a074620429a0a6ea7b60846f6f914268f490610c765c8"
+            "source_sha256": "b126c9a0c89e1edbe4a4d69fa9f270eb7a1a4afc74c072d8c65f9cae4b38f729"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantModuleController.php",
@@ -20799,7 +20925,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b51e6fd12609decf61ffdf5b5116dec2171203c2e52b05c9d71b8221f329ef7"
+            "source_sha256": "a87be19d0e58ed0240e95a7b69233dc04cbb43f7cdd8519165d044e69b2296e3"
         },
         {
             "path": "server/app/platform/exception/PlatformRefreshCredentialException.php",
@@ -21278,132 +21404,6 @@
             "source_sha256": "8b8e48d6f3a5b6f46e3eb713fdde597514fa62400753cab5114abf753ae6d05a"
         },
         {
-            "path": "server/app/platform/invitation/OneTimeInvitationToken.php",
-            "target": "server/app/platform/invitation/OneTimeInvitationToken.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "eed26afe91af66a9b2dfcbe378929df68d1d17a9b8b5b22dc9b8733429c13f04"
-        },
-        {
-            "path": "server/app/platform/invitation/OwnerInvitationDelivery.php",
-            "target": "server/app/platform/invitation/OwnerInvitationDelivery.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "95c7bb041b9431d103644c1be2b4228fbf461908f0d721af3c9ac8dfe1cd2264"
-        },
-        {
-            "path": "server/app/platform/invitation/OwnerInvitationDeliveryPort.php",
-            "target": "server/app/platform/invitation/OwnerInvitationDeliveryPort.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "1b1bbdbfc8f48acf44013ffd3cb94bc748f81659fea582ea57edf2519e6f1dab"
-        },
-        {
-            "path": "server/app/platform/invitation/OwnerInvitationDeliveryResult.php",
-            "target": "server/app/platform/invitation/OwnerInvitationDeliveryResult.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c483d44070a2cbca455bfa9e0d280efca1e46fdf1e21e1456984197191e10d72"
-        },
-        {
-            "path": "server/app/platform/invitation/OwnerInvitationRuntimePolicy.php",
-            "target": "server/app/platform/invitation/OwnerInvitationRuntimePolicy.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "546437272bf63eb072d453dd8982ba133551ada2574aa031d6fd7cfbca3d7343"
-        },
-        {
-            "path": "server/app/platform/invitation/TenantOwnerInvitationAdminService.php",
-            "target": "server/app/platform/invitation/TenantOwnerInvitationAdminService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9d0371845c9bcd4fafd827ead6b0e6163d87bfa96fa07568937a7e06a7ce159e"
-        },
-        {
-            "path": "server/app/platform/invitation/TenantOwnerInvitationException.php",
-            "target": "server/app/platform/invitation/TenantOwnerInvitationException.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2729a21c4e90a85ed333453c2b58f37db137be8450135d5e23bad7236ba5eaf4"
-        },
-        {
-            "path": "server/app/platform/invitation/TenantOwnerInvitationPublicService.php",
-            "target": "server/app/platform/invitation/TenantOwnerInvitationPublicService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "efd3b08176b2eba968c72234aa84dcb6286a9cedc95747b9fc0f482ce78afa4f"
-        },
-        {
-            "path": "server/app/platform/invitation/UnavailableOwnerInvitationDeliveryPort.php",
-            "target": "server/app/platform/invitation/UnavailableOwnerInvitationDeliveryPort.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5e06a52652e5ec7eba9848a167e9dff4e1c7d32ec6564a7c5b7ec4c8d9892ae2"
-        },
-        {
             "path": "server/app/platform/middleware.php",
             "target": "server/app/platform/middleware.php",
             "classification": "managed",
@@ -21485,7 +21485,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9920758f867874f0a74f6b91eccf78f8ace3b7d492c127bfd0ad4f7feb24cf76"
+            "source_sha256": "187c51fb3f8dd2fe3a9081766fb4182e196363dd14eb08a9e27b0acd6d38e28c"
         },
         {
             "path": "server/app/platform/services/PlatformOperatorSessionService.php",
@@ -21527,7 +21527,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4544e37c15706238d3b5868af29c70e614c953b134c33d77a3866863c4dda693"
+            "source_sha256": "2e9a4e10147fdb17e957b3d825ce4012bb177b9e443bd11157f3b753d60f2b44"
         },
         {
             "path": "server/app/platform/services/developer/DeveloperCenterCatalogService.php",
@@ -27062,6 +27062,19 @@
         {
             "path": "server/tests/Unit/OpsWorkerContractTest.php",
             "target": "server/tests/Unit/OpsWorkerContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/OwnerInvitationBoundaryTest.php",
+            "target": "server/tests/Unit/OwnerInvitationBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

@@ -212,7 +212,7 @@ try {
 } finally {
     $removeTree($temporaryRoot);
 }
-$profile = $read($root . '/server/app/platform/service/module/ProductTenantModuleProfileService.php');
+$profile = $read($root . '/server/app/platform/services/module/ProductTenantModuleProfileService.php');
 $expect(
     str_contains($profile, 'TenantModuleManager')
         && str_contains($profile, 'VerifiedTenantModuleRepository')
@@ -228,10 +228,10 @@ $expect(
     'standalone and demo product profiles are incomplete',
 );
 
-$invitation = $read($root . '/server/app/platform/invitation/TenantOwnerInvitationPublicService.php');
+$invitation = $read($root . '/server/app/modules/official/identity/src/Invitation/TenantOwnerInvitationPublicService.php');
 $expect(
-    str_contains($invitation, 'ApplicationTenantBootstrapService')
-        && str_contains($invitation, "(string)\$invitation['tenant_code']"),
+    str_contains($invitation, 'TenantOwnerAdminProvisioner')
+        && str_contains($invitation, "(string) \$invitation['tenant_code']"),
     'public owner acceptance does not initialize application-owned Tenant defaults',
 );
 

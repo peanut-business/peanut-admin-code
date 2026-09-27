@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services;
 
-use app\platform\contract\TenantOwnerAdminProvisioner;
+use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 
 /** Verifies that Core already provisioned the first owner and initializes application capabilities. */

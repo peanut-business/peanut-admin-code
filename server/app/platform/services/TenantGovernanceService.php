@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services;
 
-use app\platform\contract\TenantOwnerAdminProvisioner;
+use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use app\common\exception\BusinessException;
 use app\platform\identity\PlatformOperatorIdentityPort;
 use DateTimeImmutable;

@@ -20,7 +20,7 @@ use app\platform\infrastructure\ThinkPhpTenantApplicationBootstrapPersistence;
 use app\platform\service\ApplicationTenantBootstrapService;
 use app\platform\service\TenantGovernanceService;
 use app\platform\services\CoreTenantOwnerAdminProvisioner;
-use app\platform\service\TenantOwnerAdminProvisioner;
+use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Context\PlatformContext;

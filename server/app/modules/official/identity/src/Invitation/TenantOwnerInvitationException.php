@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\platform\invitation;
+namespace PeanutAdmin\Modules\Identity\Invitation;
 
 final class TenantOwnerInvitationException extends \DomainException
 {
