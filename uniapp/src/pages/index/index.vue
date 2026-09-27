@@ -1,5 +1,12 @@
 <template>
   <view class="index-page" :style="pageStyle">
+    <view v-if="loading" class="request-state" role="status"
+      >正在加载首页…</view
+    >
+    <view v-else-if="error" class="request-state" role="alert">
+      <text>{{ error }}</text>
+      <button size="mini" @click="loadHome">重新加载</button>
+    </view>
     <view
       class="page-meta"
       :class="metaTextClass"
@@ -148,8 +155,8 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref } from 'vue';
-  import { onShow } from '@dcloudio/uni-app';
+  import { computed, onScopeDispose, ref } from 'vue';
+  import { onHide, onShow, onUnload } from '@dcloudio/uni-app';
   import { getIndexData, type Article } from '@/api/index';
   import { useAppStore } from '@/store/app';
   import DecorationTabbar from '@/components/DecorationTabbar.vue';
@@ -169,6 +176,24 @@
   const appStore = useAppStore();
   const articles = ref<Article[]>([]);
   const decorate = ref<DecorationPage | null>(null);
+  const loading = ref(false);
+  const error = ref('');
+  let generation = 0;
+  let disposed = false;
+
+  function invalidateHome() {
+    generation += 1;
+    loading.value = false;
+  }
+
+  function disposeHome() {
+    disposed = true;
+    invalidateHome();
+  }
+
+  onHide(invalidateHome);
+  onUnload(disposeHome);
+  onScopeDispose(disposeHome);
   const theme = computed(() => getDecorationTheme(appStore.config?.theme));
 
   const renderComponents = computed(() =>
@@ -246,16 +271,23 @@
       : {};
 
   async function loadHome() {
+    if (disposed) return;
+    const requestGeneration = ++generation;
+    loading.value = true;
+    error.value = '';
     try {
       await appStore.loadConfig();
+      if (requestGeneration !== generation) return;
       const data = await getIndexData();
+      if (requestGeneration !== generation) return;
       articles.value = data.article;
       decorate.value = data.decorate;
       applyDecorationPageMeta(decorate.value);
-    } catch (error) {
-      articles.value = [];
-      decorate.value = null;
-      console.error('Failed to load index data:', error);
+    } catch {
+      if (requestGeneration !== generation) return;
+      error.value = '首页加载失败，请重试';
+    } finally {
+      if (requestGeneration === generation) loading.value = false;
     }
   }
 
@@ -270,6 +302,10 @@
 </script>
 
 <style scoped>
+  .request-state {
+    padding: 24rpx;
+    text-align: center;
+  }
   .index-page {
     min-height: 100vh;
     padding-bottom: calc(120rpx + env(safe-area-inset-bottom));
