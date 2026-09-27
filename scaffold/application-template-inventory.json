@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e98a06975ccc2a07c0b99885e2bc5f6e6e1e95891f4c9154e74a8ce410c3ea8b"
+            "source_sha256": "348852e196e4560ca634221957ec06e44e967c584474d4bd22ffae588de64b31"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35c5cc3a167ead90e58e16f069f76daa97a8963ffa146d41949fb6b1974b14a8"
+            "source_sha256": "54920da63e39b4b6937f171261ac19081879c365cd31e17a0d6205b2d1e232df"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -4211,7 +4211,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ec11248c9e9c78a64a57d34bbebdc5e1b50a4610d2a06aa4a346dfe9efd1ea90"
+            "source_sha256": "99dfa20f86b0958fa4580b5ac9ee766760bfc69feadce09de910e0f9617acda5"
         },
         {
             "path": "server/app/BaseController.php",
@@ -8121,7 +8121,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "13c20f646f578605013bd6572134f6fe42c16c9d0c47281d2bdc7c6c20e8f429"
+            "source_sha256": "5f353e8a63bd8fbfa17f74ee91f77e06565640e4bcc70da91f8d82dafbc69f58"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -10752,7 +10752,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bb4342c7b21c8f0e6e480dd842962b99036181e3c15a0513e98b39eee45c67f2"
+            "source_sha256": "e4a305f915ab22b67bdb52cac5db5d3745866d4595745353c8572c2a38361171"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantOwnerAdminProvisioner.php",
@@ -26948,6 +26948,19 @@
         {
             "path": "server/tests/Unit/InstallationDependencyAssemblyTest.php",
             "target": "server/tests/Unit/InstallationDependencyAssemblyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/InstallationModuleHealthBoundaryTest.php",
+            "target": "server/tests/Unit/InstallationModuleHealthBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

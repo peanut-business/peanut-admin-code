@@ -9,6 +9,36 @@ use think\facade\Db;
 /** 固定的租户模块状态投影，不返回配置正文或授权能力；安装清单与必需基础模块仍由原部署登记器决定。 */
 final readonly class TenantModuleStateQueries
 {
+    /**
+     * 已选模块的活动安装记录数；用于受信安装健康核对，不授予运行权限。
+     * 保留数据库集合/计数语义，不把重复输入或重复记录静默判为完整安装。
+     * @param list<string> $moduleKeys
+     */
+    public function activeInstallationCount(array $moduleKeys): int
+    {
+        if ($moduleKeys === []) {
+            return 0;
+        }
+        return (int) Db::name('module_installation')->where('status', 'active')
+            ->whereIn('module_key', $moduleKeys)->count();
+    }
+
+    /**
+     * 指定租户代码上的启用登记数，沿调用方当前连接读取，不提交其事务。
+     * 不附加租户活动状态、生效/到期时间或去重；健康登记不等于当前可用授权。
+     * 数据库负责代码比较，缺失存储继续抛错，不返回假成功或配置正文。
+     * @param list<string> $moduleKeys
+     */
+    public function enabledTenantSelectionCount(string $tenantCode, array $moduleKeys): int
+    {
+        if ($moduleKeys === []) {
+            return 0;
+        }
+        return (int) Db::name('tenant_module')->alias('tm')
+            ->join('tenant t', 't.id=tm.tenant_id')->where('t.code', $tenantCode)
+            ->where('tm.status', 'enabled')->whereIn('tm.module_key', $moduleKeys)->count();
+    }
+
     public function tenantIsActive(int $tenantId): bool
     {
         return $tenantId > 0

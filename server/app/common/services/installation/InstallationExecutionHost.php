@@ -13,6 +13,7 @@ use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use Closure;
 use PDO;
 use RuntimeException;
@@ -33,6 +34,7 @@ final class InstallationExecutionHost
         private readonly \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery $tenantDirectory,
         private readonly Closure $moduleRuntimeFactory,
         private readonly AuditContractHost $audit,
+        private readonly TenantModuleStateQueries $moduleStates,
     ) {
         require_once $serverRoot . '/database/install.php';
     }
@@ -369,12 +371,7 @@ final class InstallationExecutionHost
         $tenantBootstrap = \installationTenantBootstrapContract($this->serverRoot);
         $health = \assertCurrentDatabase($pdo);
         if ($moduleKeys !== []) {
-            $placeholders = implode(',', array_fill(0, count($moduleKeys), '?'));
-            $statement = $pdo->prepare(
-                "SELECT COUNT(*) FROM pa_module_installation WHERE status='active' AND module_key IN ({$placeholders})",
-            );
-            $statement->execute($moduleKeys);
-            if ((int) $statement->fetchColumn() !== count($moduleKeys)) {
+            if ($this->moduleStates->activeInstallationCount($moduleKeys) !== count($moduleKeys)) {
                 throw new RuntimeException('Official Module installation is incomplete.');
             }
             $definitions = $this->definitionRegistry();
@@ -383,13 +380,7 @@ final class InstallationExecutionHost
                 fn(string $moduleKey): bool => !$definitions->isRequiredTenantFoundation($moduleKey),
             ));
             if ($tenantManaged !== []) {
-                $tenantPlaceholders = implode(',', array_fill(0, count($tenantManaged), '?'));
-                $statement = $pdo->prepare(
-                    "SELECT COUNT(*) FROM pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id "
-                    . "WHERE t.code=? AND tm.status='enabled' AND tm.module_key IN ({$tenantPlaceholders})",
-                );
-                $statement->execute([$tenantBootstrap['code'], ...$tenantManaged]);
-                if ((int) $statement->fetchColumn() !== count($tenantManaged)) {
+                if ($this->moduleStates->enabledTenantSelectionCount($tenantBootstrap['code'], $tenantManaged) !== count($tenantManaged)) {
                     throw new RuntimeException('Default Tenant Module selection is incomplete.');
                 }
             }

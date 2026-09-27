@@ -81,9 +81,13 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
     }
 
     #[DataProvider('tenantSelections')]
-    public function testEnabledSelectionCountPreservesTheExactOldJoin(array $unused = [], string $unusedCode = ''): void
+    public function testEnabledSelectionCountPreservesTheExactOldJoin(string $code, array $keys, int $expected): void
     {
-        // Replaced below by the explicit provider signature before this test is executed.
+        $placeholders = implode(',', array_fill(0, count($keys), '?'));
+        $original = $this->database->prepare("SELECT COUNT(*) FROM pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id WHERE t.code=? AND tm.status='enabled' AND tm.module_key IN ({$placeholders})");
+        $original->execute([$code, ...$keys]);
+        self::assertSame($expected, (int) $original->fetchColumn());
+        self::assertSame($expected, $this->states->enabledTenantSelectionCount($code, $keys));
     }
 
     public function testEmptySelectionAvoidsReadingEitherLedger(): void
@@ -102,6 +106,8 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
 
     public function testOwnerReadsUseTheCurrentConnectionAndDoNotCommitTheCallerTransaction(): void
     {
+        // ThinkORM opens its PDO lazily; verify identity after the real owner query initializes it.
+        self::assertSame(1, $this->states->activeInstallationCount(['fixture.active']));
         self::assertSame($this->database, Db::connect()->getPdo());
         try {
             Db::transaction(function (): void {
@@ -125,6 +131,7 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
     #[DataProvider('missingLedgers')]
     public function testMissingStorageDoesNotTurnIntoAnEmptySuccessfulCheck(string $table, string $method, array $arguments): void
     {
+        self::assertTrue(method_exists($this->states, $method));
         $this->database->exec('DROP TABLE ' . $table);
         $this->expectException(Throwable::class);
         $this->states->{$method}(...$arguments);
@@ -146,6 +153,11 @@ final class InstallationModuleHealthBoundaryTest extends TestCase
         self::assertStringContainsString('$this->app->make(\\PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries::class)', $composition);
         $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertContains(TenantModuleStateQueries::class, $manifest['contracts']['exports']);
+        $parameter = (new ReflectionMethod(InstallationExecutionHost::class, '__construct'))->getParameters()[5];
+        self::assertSame('moduleStates', $parameter->getName());
+        self::assertSame(TenantModuleStateQueries::class, (string) $parameter->getType());
+        self::assertFalse($parameter->isOptional());
+        self::assertFalse($parameter->allowsNull());
         self::assertSame('int', (string) (new ReflectionMethod($this->states, 'activeInstallationCount'))->getReturnType());
         self::assertSame('int', (string) (new ReflectionMethod($this->states, 'enabledTenantSelectionCount'))->getReturnType());
     }
