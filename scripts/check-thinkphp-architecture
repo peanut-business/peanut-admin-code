@@ -1165,6 +1165,120 @@ def read_ownership() -> dict:
     return value
 
 
+def literal_create_declarations(source: str) -> dict[str, str]:
+    """Split native literal CREATE statements; unsupported SQL is not evidence.
+
+    This is a bounded declaration reader, not SQL execution or server validation.
+    Quotes are retained, so comments/semicolons inside a literal are not syntax.
+    """
+    statements, parts = [], []
+    quote = None
+    cursor = 0
+    while cursor < len(source):
+        char = source[cursor]
+        if quote:
+            parts.append(char)
+            if char == '\\' and cursor + 1 < len(source):
+                cursor += 1
+                parts.append(source[cursor])
+            elif char == quote:
+                if cursor + 1 < len(source) and source[cursor + 1] == quote:
+                    cursor += 1
+                    parts.append(source[cursor])
+                else:
+                    quote = None
+        elif source.startswith('--', cursor) and (cursor + 2 == len(source) or source[cursor + 2].isspace()):
+            end = source.find('\n', cursor)
+            cursor = len(source) if end < 0 else end
+            parts.append('\n')
+            continue
+        elif source.startswith('/*', cursor) or char == '#':
+            raise ValueError('INSTANCE_SCHEMA_UNSUPPORTED_COMMENT')
+        elif char in "'\"`":
+            quote = char
+            parts.append(char)
+        elif char == ';':
+            statements.append(''.join(parts).strip())
+            parts = []
+        else:
+            parts.append(char)
+        cursor += 1
+    if quote:
+        raise ValueError('INSTANCE_SCHEMA_INCOMPLETE_LITERAL')
+    if ''.join(parts).strip():
+        statements.append(''.join(parts).strip())
+    declarations = {}
+    for statement in statements:
+        match = re.match(r'CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([a-z][a-z0-9_]*)`\s*\(', statement, re.I)
+        if match is None or match.group(1) in declarations:
+            raise ValueError('INSTANCE_SCHEMA_DECLARATION_INVALID_OR_DUPLICATE')
+        table = match.group(1)
+        _sql_tenant_column(table, statement)
+        declarations[table] = statement
+    return declarations
+
+
+def instance_model_review_errors(item: dict, model_path: Path, tenant_tables: set[str], module_roots: dict[str, str]) -> list[str]:
+    """Permit an individually reviewed native instance Model, not all think Models.
+
+    The review describes data ownership only. Caller fingerprints do not grant
+    platform, lifecycle or cross-Tenant operation authority, or prove runtime use.
+    """
+    try:
+        review = item.get('instance_review')
+        if (item.get('owner') != 'instance' or not isinstance(review, dict)
+                or review.get('classification') != 'deployment-instance'
+                or not isinstance(review.get('reason'), str) or not review['reason'].strip()):
+            raise ValueError('INSTANCE_REVIEW_REQUIRED')
+        model_source = review.get('model_source')
+        if not isinstance(model_source, dict) or model_source.get('source') != 'application':
+            raise ValueError('INSTANCE_MODEL_SOURCE_REQUIRED')
+        reviewed_model, _ = reviewed_source(model_source)
+        if (reviewed_model != model_path or model_header(model_path) != (item['model'], 'think\\Model')
+                or composer_model_path(item['model']) != model_path or source_model_table(model_path) != item['table']):
+            raise ValueError('INSTANCE_MODEL_IDENTITY_MISMATCH')
+        if item['model'] in declared_module_exports():
+            raise ValueError('INSTANCE_MODEL_EXPORTED')
+        roots = [root for root in module_roots if relative(model_path).startswith(root + '/')]
+        if len(roots) != 1:
+            raise ValueError('INSTANCE_MODULE_OWNER_REQUIRED')
+        module_root = roots[0]
+        schema_source = review.get('schema_source')
+        if not isinstance(schema_source, dict) or schema_source.get('source') != 'application':
+            raise ValueError('INSTANCE_SCHEMA_SOURCE_REQUIRED')
+        schema_path, _ = reviewed_source(schema_source)
+        if (not relative(schema_path).startswith(module_root + '/database/migrations/')
+                or schema_path.suffix != '.sql'):
+            raise ValueError('INSTANCE_SCHEMA_NATIVE_MIGRATION_REQUIRED')
+        declarations = literal_create_declarations(schema_path.read_text(encoding='utf-8'))
+        sql = declarations.get(item['table'])
+        if sql is None:
+            raise ValueError('INSTANCE_SCHEMA_TABLE_MISSING')
+        if item['table'] in tenant_tables or _sql_tenant_column(item['table'], sql):
+            raise ValueError('INSTANCE_SCHEMA_TENANT_CONTRADICTION')
+        references = set(re.findall(r'\bREFERENCES\s+`([^`]+)`', sql, re.I))
+        if references & tenant_tables:
+            raise ValueError('INSTANCE_SCHEMA_TENANT_PARENT: ' + repr(sorted(references & tenant_tables)))
+        access_sources = review.get('access_sources')
+        if not isinstance(access_sources, list) or not access_sources:
+            raise ValueError('INSTANCE_ACCESS_REVIEW_REQUIRED')
+        seen = set()
+        for evidence in access_sources:
+            if not isinstance(evidence, dict) or evidence.get('source') != 'application':
+                raise ValueError('INSTANCE_ACCESS_SOURCE_INVALID')
+            path, _ = reviewed_source(evidence)
+            entry = evidence.get('entry')
+            if (not isinstance(entry, str) or not entry or entry in seen
+                    or not relative(path).startswith(module_root + '/')
+                    or composer_model_path(entry) != path or declared_type(path) != entry
+                    or entry in concrete_models()):
+                raise ValueError('INSTANCE_ACCESS_IDENTITY_MISMATCH')
+            seen.add(entry)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return [f"instance_review[{item.get('model')}]: {exc}"]
+    return []
+
+
 def ownership_errors() -> list[str]:
     try:
         ownership = read_ownership()
@@ -1261,8 +1375,12 @@ def ownership_errors() -> list[str]:
                             errors.append(f"model_owners[{index}] ACCESS_MODULE_OWNER_MISMATCH: {model}")
                         if not any(row.get("table") == table and row.get("owner") == "tenant-gateway" and row.get("access_entry") == entry for row in table_rows):
                             errors.append(f"model_owners[{index}] ACCESS_TABLE_ENTRY_MISMATCH: {model}")
+                elif item['owner'] == 'instance' and base == 'think\\Model':
+                    errors.extend(instance_model_review_errors(item, model_path, actual_tables, module_roots))
                 elif expected is None or base != "app\\common\\model\\" + expected:
                     errors.append(f"model_owners[{index}] {model} must extend {expected}; actual={base}")
+                if 'instance_review' in item and not (item['owner'] == 'instance' and base == 'think\\Model'):
+                    errors.append(f"model_owners[{index}] INSTANCE_REVIEW_NOT_APPLICABLE: {model}")
             except (OSError, ValueError) as exc:
                 errors.append(f"model_owners[{index}] {model}: {exc}")
     for index, item in enumerate(table_rows, 1):

@@ -302,6 +302,39 @@ class ReviewedModulesTest(unittest.TestCase):
         self.save()
         self.assertTrue(any('must extend TenantOwnedModel' in error and model in error for error in checker.ownership_errors()))
 
+    def test_settings_native_instance_models_have_bound_evidence(self):
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tenant_tables = checker.schema_tenant_tables()
+        _, roots = checker.module_table_inventory()
+        for name, table in [('DeploymentSettingValue', 'pa_setting_deployment_value'), ('SettingDefinitionRecord', 'pa_setting_definition')]:
+            with self.subTest(model=name):
+                model = 'PeanutAdmin\\Modules\\Settings\\Model\\' + name
+                row = models[model]
+                path = checker.composer_model_path(model)
+                self.assertEqual('instance', row['owner'])
+                self.assertEqual(table, row['table'])
+                self.assertEqual((model, 'think\\Model'), checker.model_header(path))
+                self.assertNotIn(table, tenant_tables)
+                self.assertEqual([], checker.instance_model_review_errors(row, path, tenant_tables, roots))
+                self.assertNotIn(model, checker.declared_module_exports())
+        report = self.report()
+        self.assertFalse(any(model in report['missing_models'] for model in models if model.endswith(('DeploymentSettingValue', 'SettingDefinitionRecord'))))
+        self.assertEqual('not_run', report['business_scan'])
+        self.assertIsNone(report['finding_count'])
+
+    def test_removing_native_instance_review_does_not_grant_a_base_class_exemption(self):
+        row = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_setting_deployment_value')
+        del row['instance_review']
+        self.save()
+        self.assertTrue(any('INSTANCE_REVIEW_REQUIRED' in error for error in checker.ownership_errors()))
+
+    def test_changed_instance_catalog_caller_requires_review(self):
+        row = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_setting_definition')
+        evidence = next(item for item in row['instance_review']['access_sources'] if item['entry'].endswith('SettingCatalogService'))
+        evidence['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

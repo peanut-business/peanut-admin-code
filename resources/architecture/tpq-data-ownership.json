@@ -184,6 +184,41 @@
     }
   },
   "model_owners": [
+    {
+      "model": "PeanutAdmin\\Modules\\Settings\\Model\\DeploymentSettingValue",
+      "table": "pa_setting_deployment_value",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "部署设置按唯一definition_id保存，由平台operator身份更新；Schema无租户列及租户父记录外键。SettingAdminService的部署分支核平台操作员并在事务内执行修订条件写，租户与对象分支仍使用独立Edition模型。Resolver和转移服务只沿部署定义读取，目录生命周期保留独立授权责任；本记录仅确认数据归属，不授予替换、导入或清理权限。",
+        "model_source": {"source": "application", "path": "server/app/modules/official/settings/src/Model/DeploymentSettingValue.php", "sha256": "c19b9d5858499203d8f3b9c224ad9fccc799a289f754f406629e5a49e9cb87b2"},
+        "schema_source": {"source": "application", "path": "server/app/modules/official/settings/database/migrations/20260921-adopt-settings-schema.sql", "sha256": "74c07e8118dd83a20791300f2eeb63cff5718033d41dd8f1cba200ed6610255b"},
+        "access_sources": [
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService", "source": "application", "path": "server/app/modules/official/settings/src/Application/SettingAdminService.php", "sha256": "cf4cc886211757e6cf2179170bcaf318f1ffe0e4724b19a180576e02712ab8c5"},
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingResolver", "source": "application", "path": "server/app/modules/official/settings/src/Application/SettingResolver.php", "sha256": "eabeba7d1f9bd50e6073b0af379f40e859ecce74d464d46740533edb16b881cb"},
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Service\\DeploymentSettingsTransferService", "source": "application", "path": "server/app/modules/official/settings/src/Service/DeploymentSettingsTransferService.php", "sha256": "3fa5b3f9d92db6ef0082863a08a71a010f2f3ea9a54b54a761ce889b1458615f"},
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Service\\SettingCatalogService", "source": "application", "path": "server/app/modules/official/settings/src/Service/SettingCatalogService.php", "sha256": "f7ef38f515141cdf8a7e816c8ee1d5cc850e70ba2475cb3fe40e276f3db11925"}
+        ]
+      }
+    },
+    {
+      "model": "PeanutAdmin\\Modules\\Settings\\Model\\SettingDefinitionRecord",
+      "table": "pa_setting_definition",
+      "owner": "instance",
+      "instance_review": {
+        "classification": "deployment-instance",
+        "reason": "部署目录按module_key和setting_key唯一保存定义及修订，不是租户设置值，也非不可变共享字典。Synchronizer只同步已选模块的编译声明并拥有既有事务；公开Catalog仅固定目录字段及生命周期协作，调用者保留授权。定义退休不等于允许删除设置值。原生think Model无实例基类标记，故以模型、原生建表和实际访问源码逐项核归属，不放宽所有原生模型。",
+        "model_source": {"source": "application", "path": "server/app/modules/official/settings/src/Model/SettingDefinitionRecord.php", "sha256": "8d275687d2d3205730070f7c51cb327efea56cf039b4f9873aac4874f1dcd28e"},
+        "schema_source": {"source": "application", "path": "server/app/modules/official/settings/database/migrations/20260921-adopt-settings-schema.sql", "sha256": "74c07e8118dd83a20791300f2eeb63cff5718033d41dd8f1cba200ed6610255b"},
+        "access_sources": [
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Definition\\SettingDefinitionSynchronizer", "source": "application", "path": "server/app/modules/official/settings/src/Definition/SettingDefinitionSynchronizer.php", "sha256": "3ee5a1c4f87c53af76222ba98b77c3946171e08015745e3f34453fbd39cead1c"},
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Service\\SettingCatalogService", "source": "application", "path": "server/app/modules/official/settings/src/Service/SettingCatalogService.php", "sha256": "f7ef38f515141cdf8a7e816c8ee1d5cc850e70ba2475cb3fe40e276f3db11925"},
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService", "source": "application", "path": "server/app/modules/official/settings/src/Application/SettingAdminService.php", "sha256": "cf4cc886211757e6cf2179170bcaf318f1ffe0e4724b19a180576e02712ab8c5"},
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingResolver", "source": "application", "path": "server/app/modules/official/settings/src/Application/SettingResolver.php", "sha256": "eabeba7d1f9bd50e6073b0af379f40e859ecce74d464d46740533edb16b881cb"},
+          {"entry": "PeanutAdmin\\Modules\\Settings\\Service\\DeploymentSettingsTransferService", "source": "application", "path": "server/app/modules/official/settings/src/Service/DeploymentSettingsTransferService.php", "sha256": "3fa5b3f9d92db6ef0082863a08a71a010f2f3ea9a54b54a761ce889b1458615f"}
+        ]
+      }
+    },
     {"model": "PeanutAdmin\\Modules\\Settings\\Model\\TenantSettingValue", "table": "pa_setting_tenant_value", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService"},
     {"model": "PeanutAdmin\\Modules\\Settings\\Model\\TargetSettingValue", "table": "pa_setting_target_value", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Settings\\Application\\SettingAdminService"},
     {"model": "PeanutAdmin\\Modules\\Integration\\Model\\IntegrationMachineIdentityRecord", "table": "pa_integration_machine_identity", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository"},
@@ -338,9 +373,9 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 76,
+    "concrete_models": 78,
     "tenant_models": 67,
-    "non_tenant_models": 9,
+    "non_tenant_models": 11,
     "tenant_tables": 74,
     "tenant_tables_without_model": 6
   }
