@@ -37,6 +37,16 @@ final readonly class AdminDirectoryQuery
     }
 
     /**
+     * Complete active-tenant selection for an already authorized platform qualification overview.
+     * Includes tenants without configured bindings; this metadata is not an access grant.
+     * @return list<int>
+     */
+    public function activeTenantIdsForQualification(): array
+    {
+        return array_map('intval', Tenant::where('status', 'active')->order('id')->column('id'));
+    }
+
+    /**
      * Minimal lifecycle projection for trusted binding resolution; not an authorization grant.
      * A locking read participates in the caller's current transaction and must precede binding locks.
      */

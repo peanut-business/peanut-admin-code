@@ -42,22 +42,4 @@ final class NotificationQualificationContributor extends AbstractTenantBindingQu
         }
         return $subjects;
     }
-
-    protected function configured(string $providerKey, array $config, int $bindingStatus): bool
-    {
-        if ($bindingStatus !== 1) {
-            return false;
-        }
-        $section = $providerKey === 'notification.sms.aliyun' ? 'sms_aliyun' : 'sms_tencent';
-        $provider = $config[$section] ?? [];
-        if (is_string($provider)) {
-            $provider = json_decode($provider, true);
-        }
-        if (!is_array($provider) || (int) ($provider['status'] ?? 0) !== 1) {
-            return false;
-        }
-        return $providerKey === 'notification.sms.aliyun'
-            ? $this->complete($provider, ['access_key_id', 'access_key_secret', 'sign_name'])
-            : $this->complete($provider, ['secret_id', 'secret_key', 'sdk_app_id', 'sign_name', 'region']);
-    }
 }

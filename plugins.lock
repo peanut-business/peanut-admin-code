@@ -305,7 +305,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "f8c7828d04a27dcca89dd10e7617da2f14f652b75e72de9f93874165ff5f93e7"
+                "sha256": "6347c93fb547b6a05c657759473ad9da89f239501dd35e9ba868a9e75392d36d"
             },
             "trust": {
                 "channel": "bundled",
@@ -375,7 +375,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "551e82215ffad8c63171cebcbf3e95767391849f3b203026691684cc312a304c"
+            "manifest_sha256": "476bb2a380fe98871ad030d4e0edd9f0f54f27a8b78c012c77d72274e022c8e8"
         },
         {
             "key": "official.import-export",
@@ -500,7 +500,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "83d7e481df56e1a313a31e6ed45e3d003a357b3e7561ae986032ba7dae36bf9c"
+                "sha256": "e640e38a210f204051cc0399495d6307e9d6b5418cf2325c4a1e189867b8b7e8"
             },
             "trust": {
                 "channel": "bundled",
@@ -584,7 +584,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "235529c615a09a74df205f57a6290996f77d27c66d9ac697425443b6a71990c4"
+            "manifest_sha256": "565193db785ed1415a93ffcc3e915d69701301e52184aa178fdff1a8ac328081"
         },
         {
             "key": "official.member",

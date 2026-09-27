@@ -115,6 +115,21 @@ final class BindingQualificationBoundaryTest extends TestCase
         }
     }
 
+    public function testContributorsUseTheDeclaredOwnerResultsRatherThanReadingBindingSecrets(): void
+    {
+        $this->binding(1, 'oauth.wechat.oa', '{"app_id":"fixture","app_secret":"fixture-secret"}');
+        $directory = new AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore()));
+        $subjects = (new OauthQualificationContributor(self::KEY, $directory, $this->queries))->subjects();
+        $matched = array_values(array_filter($subjects, static fn($subject): bool => $subject->tenantId === 1 && $subject->providerKey === 'oauth.wechat.oa'));
+        self::assertCount(1, $matched);
+        self::assertTrue($matched[0]->configured);
+        self::assertSame($this->queries->forTenants([1], ['oauth.wechat.oa'], self::KEY)[0]->configDigest, $matched[0]->configDigest);
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/platform/infrastructure/provider/AbstractTenantBindingQualificationContributor.php');
+        self::assertStringNotContainsString('config_json', $source);
+        self::assertStringNotContainsString('Db::', $source);
+        self::assertStringContainsString('ExternalBindingQualificationQueries', $source);
+    }
+
     public function testInvalidSelectionsFailBeforeAnyDatabaseRead(): void
     {
         $this->database->exec('DROP TABLE pa_external_channel_binding');

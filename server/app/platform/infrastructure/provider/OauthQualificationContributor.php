@@ -20,15 +20,4 @@ final class OauthQualificationContributor extends AbstractTenantBindingQualifica
             'oauth.wechat.open-pc',
         ]);
     }
-
-    protected function configured(string $providerKey, array $config, int $bindingStatus): bool
-    {
-        if ($bindingStatus !== 1) {
-            return false;
-        }
-        $required = $providerKey === 'wechat.official-account'
-            ? ['app_id', 'app_secret', 'token']
-            : ['app_id', 'app_secret'];
-        return $this->complete($config, $required);
-    }
 }

@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4a1205be12c0203b4786ac31eef370926b2b95863053e9c6a6cb394e9bf49dd2"
+            "source_sha256": "c9d598cc679c76e1d959c2f2b8a601243c7b6f85054a0c5bfc5dca9b84fecd15"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "551e82215ffad8c63171cebcbf3e95767391849f3b203026691684cc312a304c"
+            "source_sha256": "476bb2a380fe98871ad030d4e0edd9f0f54f27a8b78c012c77d72274e022c8e8"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2384,7 +2384,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "235529c615a09a74df205f57a6290996f77d27c66d9ac697425443b6a71990c4"
+            "source_sha256": "565193db785ed1415a93ffcc3e915d69701301e52184aa178fdff1a8ac328081"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -4169,7 +4169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "257bbbdb0742128af29e25f2ee48df6382a31b34dfed61a0d460a361bb7d3fbc"
+            "source_sha256": "ae45f386b84fc985279370d78d85201f8ff38873172e9155c25f10c88ccba79e"
         },
         {
             "path": "server/app/BaseController.php",
@@ -10556,7 +10556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7972f7af14edd70a6436a32045e4aec18d5b2b3fb3daedb9382081fab38b361a"
+            "source_sha256": "91e37f5ca10b3b8cf3995b5a2b1d105a275124160d7a1a50f4f9b7eb85926a89"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/Dto/TenantMemberSummary.php",
@@ -12657,7 +12657,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "05533357ac667b8de6685ef5dd1f855f0a43bdf074368873dcaa9dd1ad67c508"
+            "source_sha256": "c242a7f62a4020c2818cb2d16d38be0a8073cdd196adfe6ad48340a06dafb51e"
         },
         {
             "path": "server/app/modules/official/integration/resources/menus.json",
@@ -12924,6 +12924,34 @@
                 "full"
             ],
             "source_sha256": "35372da24f3627dda6d5277ae1c3b44cbbbe414e7b9909185bb4bf44be3e182d"
+        },
+        {
+            "path": "server/app/modules/official/integration/src/Contract/ExternalBindingQualification.php",
+            "target": "server/app/modules/official/integration/src/Contract/ExternalBindingQualification.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4f8371fff55371d3aa31156049ec4032d90720da8abc89b7d4f4338b20086b33"
+        },
+        {
+            "path": "server/app/modules/official/integration/src/Contract/ExternalBindingQualificationQueries.php",
+            "target": "server/app/modules/official/integration/src/Contract/ExternalBindingQualificationQueries.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b0c4b8fdaef1e67ae3e136b089ba3f4ed06369ddb31947607d1593e8a749141b"
         },
         {
             "path": "server/app/modules/official/integration/src/Contract/ExternalBindingTransfer.php",
@@ -21177,7 +21205,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12a3a50c973be436b27b8072f2e8eb00a30bf41b2a1d3aea6c1a1b028a7ba5ca"
+            "source_sha256": "409c0a5c27c1efe9011d27031e5cf0cabc2adde48158c00ff2679d4fd239db31"
         },
         {
             "path": "server/app/platform/infrastructure/provider/NotificationQualificationContributor.php",
@@ -21191,7 +21219,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3f1c47d6ef8156b6fa983b050df3a3b155a846fe6f82ba2a234dad284440a921"
+            "source_sha256": "c2e7b91615fabe29481eefed75f1b24d27d5a978ae4bf04b63d4579885dfdd49"
         },
         {
             "path": "server/app/platform/infrastructure/provider/OauthQualificationContributor.php",
@@ -21205,7 +21233,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "980d0b1ce35e2483872319779ed3ac57ace38c909ae9a5fce5510502533db424"
+            "source_sha256": "c8d704f00ef747b85d381a670915ce885efe3c3b12cc2cfc40c6f51a4c258a7f"
         },
         {
             "path": "server/app/platform/infrastructure/provider/PaymentQualificationContributor.php",
@@ -21219,7 +21247,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e04b8f1a790102f7bf0412177ce533720918deea37c08b96e697108331e26b70"
+            "source_sha256": "a31b6766e136667a99c965ee967f691474291e6ada118c340bce685a05a6f40f"
         },
         {
             "path": "server/app/platform/infrastructure/provider/StorageQualificationContributor.php",
@@ -26488,6 +26516,19 @@
         {
             "path": "server/tests/Unit/BackendEnumReaderTest.php",
             "target": "server/tests/Unit/BackendEnumReaderTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/BindingQualificationBoundaryTest.php",
+            "target": "server/tests/Unit/BindingQualificationBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

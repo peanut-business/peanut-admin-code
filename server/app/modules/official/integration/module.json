@@ -40,6 +40,8 @@
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantResolutionException",
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalChannelBindings",
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalBindingTransfer",
+            "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalBindingQualification",
+            "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalBindingQualificationQueries",
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalProvider",
             "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalIntegrationBootstrapCommands"
         ],

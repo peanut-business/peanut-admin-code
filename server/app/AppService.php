@@ -480,9 +480,21 @@ class AppService extends Service
             new PlatformProviderQualificationService(
                 $this->app->make(PlatformPermissionChecker::class),
                 [
-                    new PaymentQualificationContributor($this->platformIdentifierHmacKey()),
-                    new NotificationQualificationContributor($this->platformIdentifierHmacKey()),
-                    new OauthQualificationContributor($this->platformIdentifierHmacKey()),
+                    new PaymentQualificationContributor(
+                        $this->platformIdentifierHmacKey(),
+                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
+                    ),
+                    new NotificationQualificationContributor(
+                        $this->platformIdentifierHmacKey(),
+                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
+                    ),
+                    new OauthQualificationContributor(
+                        $this->platformIdentifierHmacKey(),
+                        $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+                        $this->app->make(\PeanutAdmin\Modules\Integration\Contract\ExternalBindingQualificationQueries::class),
+                    ),
                     new StorageQualificationContributor(
                         $this->platformIdentifierHmacKey(),
                         $this->app->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class),
