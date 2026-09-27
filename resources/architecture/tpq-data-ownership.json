@@ -694,24 +694,123 @@
     "PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository": {
       "source": "application",
       "path": "server/app/modules/official/integration/src/Infrastructure/Persistence/ThinkPhpIntegrationSecurityRepository.php",
-      "sha256": "40f6738c23bd1ff24b91b6645d6adf34261ce187dd67858934b7b89bac76f8f1",
+      "sha256": "61dfc3643087381f2830896ddfe847fc598945592ae59e9ebe8479ea88218516",
       "scope": "explicit-tenant-column",
-      "tenant_operations": ["createMachine", "machines", "rotateMachine", "revokeMachine", "createEndpoint", "endpoints", "rotateEndpointSecret", "disableEndpoint", "activeEndpointKeysForEvent", "enqueueDelivery", "claimDelivery", "completeDelivery", "failDelivery", "deliveryRecords", "deliveryAttemptRecords"],
-      "other_operations": ["machineByDigest", "touchMachine"],
-      "pending_operations": ["purgeExpiredDeliveryData"],
-      "reason": "后台动作经固定权限/资源/操作用例，租户读取及联表按同一tenant_id；仅主键更新前先在同租户事务内锁定该唯一记录。发布入口拥有入队事务，派发回执沿原租户、尝试次数及租约摘要核验。machineByDigest/touchMachine仅属机器凭证认证链，校验状态/期限/Scope后触达，不由租户登记授权；purgeExpiredDeliveryData跨租户清理载荷及终态证据，已有测试消费者但系统权限入口待A核定，不授权执行或删除。公开导出不包含私有仓储；此登记不证明HTTP、并发锁或真实投递资格。",
+      "tenant_operations": [
+        "createMachine",
+        "machines",
+        "rotateMachine",
+        "revokeMachine",
+        "createEndpoint",
+        "endpoints",
+        "rotateEndpointSecret",
+        "disableEndpoint",
+        "activeEndpointKeysForEvent",
+        "enqueueDelivery",
+        "claimDelivery",
+        "completeDelivery",
+        "failDelivery",
+        "deliveryRecords",
+        "deliveryAttemptRecords"
+      ],
+      "other_operations": [
+        "machineByDigest",
+        "touchMachine",
+        "purgeExpiredDeliveryData"
+      ],
+      "pending_operations": [],
+      "reason": "租户操作仍按同租户实体、租约/尝试和调用方事务核对；machineByDigest/touchMachine属于机器认证域。已批准的purgeExpiredDeliveryData是独立实例CLI维护，要求console.integration:purge-expired、CLI及审计，拒绝外层事务。载荷、子尝试、父投递各自最多limit（默认100，上限1000）；截止时间/终态保留，子记录租户与父不一致拒绝，子未清完不删父，可按相同截止继续。成功审计与该批同事务，失败回滚并记录零数元数据。该角色不授权普通租户/HTTP调用，本轮未执行业务清理、并发或真实数据库资格。",
       "support_sources": [
-        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Application/IntegrationAdminApplicationService.php", "sha256": "55fea003674500371e6a132111306eb6f076f234e2d67a8878320934da797dd2"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Application/MachineIdentityService.php", "sha256": "74cba64eb17a75b0f645cbcdbc7430f5ee86a9703be17d91c80fd9d547ca2d6a"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Application/MachineScopeGrantPolicy.php", "sha256": "068ffb4bf8f5c3b34e3b2538525970a69b785ec1da7ea827c9dd8f07a98490ce"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Application/WebhookService.php", "sha256": "35372da24f3627dda6d5277ae1c3b44cbbbe414e7b9909185bb4bf44be3e182d"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Application/WebhookDeliveryLogService.php", "sha256": "e9934af35566e8a32781e311df247a80f41ebe5392b88f01d6f40c69bcd58eea"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Webhook/TrustedWebhookPublisher.php", "sha256": "bf2121404e55ee3e3783053107028012e504519ba3bfb6970391ecc0e7adb569"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Webhook/TrustedWebhookEvent.php", "sha256": "eb9b59db1e9c918106e85c8ff200fa9f21af735cf54996053ba26bc5b6d313f9"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Webhook/WebhookDispatcher.php", "sha256": "56d6f18dc561ff1fc32a199f41a79cbea98cd9b01d74ac5ab4054ff04111f9d4"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/ModuleProvider.php", "sha256": "49320d550ff0799c826b3e0130337faa04f5f6e3a01b9b082e3d7187abaab06f"},
-        {"source": "application", "path": "server/app/modules/official/integration/src/Database/Schema.php", "sha256": "e392ef2f5dc14061e3f861d86cbaef5b66c7b21e75c4ea21b03ce61d82e5fede"}
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Model/TenantModel.php",
+          "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Application/IntegrationAdminApplicationService.php",
+          "sha256": "55fea003674500371e6a132111306eb6f076f234e2d67a8878320934da797dd2"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Application/MachineIdentityService.php",
+          "sha256": "74cba64eb17a75b0f645cbcdbc7430f5ee86a9703be17d91c80fd9d547ca2d6a"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Application/MachineScopeGrantPolicy.php",
+          "sha256": "068ffb4bf8f5c3b34e3b2538525970a69b785ec1da7ea827c9dd8f07a98490ce"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Application/WebhookService.php",
+          "sha256": "35372da24f3627dda6d5277ae1c3b44cbbbe414e7b9909185bb4bf44be3e182d"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Application/WebhookDeliveryLogService.php",
+          "sha256": "e9934af35566e8a32781e311df247a80f41ebe5392b88f01d6f40c69bcd58eea"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Webhook/TrustedWebhookPublisher.php",
+          "sha256": "bf2121404e55ee3e3783053107028012e504519ba3bfb6970391ecc0e7adb569"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Webhook/TrustedWebhookEvent.php",
+          "sha256": "eb9b59db1e9c918106e85c8ff200fa9f21af735cf54996053ba26bc5b6d313f9"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Webhook/WebhookDispatcher.php",
+          "sha256": "56d6f18dc561ff1fc32a199f41a79cbea98cd9b01d74ac5ab4054ff04111f9d4"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/ModuleProvider.php",
+          "sha256": "6dafb69a34f4fd73b43993978f0104104713563fb457ac6f2a1caa13bdf09095"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Database/Schema.php",
+          "sha256": "e392ef2f5dc14061e3f861d86cbaef5b66c7b21e75c4ea21b03ce61d82e5fede"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Console/PurgeExpiredDeliveriesCommand.php",
+          "sha256": "f823aa8753349532427ddd2c78d251257c94fe53220cfc16e163e75342933060"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/ContextualCommand.php",
+          "sha256": "c41d9974806db22f9978cc6a77f2b8f2187e68b961b78310eaad43c1402bbdc2"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/CurrentExecutionContext.php",
+          "sha256": "d2769ac5a5c181c17299fcfbe3cd43a332576273bdb1a683084cf0ab9e2940d1"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/ExecutionContextStore.php",
+          "sha256": "510ba5199188919db65924c886e6c67858de91ef11c7a709f24a86b909799833"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/InstanceExecutionContext.php",
+          "sha256": "963c87019d3e0a7028439bbb426205b5973798fe0887f51c3fc6572892df0e1d"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/services/audit/AuditContractHost.php",
+          "sha256": "7fcb05e51d5dde421719ffb21977722783f506c75799851063e48e2dfcf461ca"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/integration/src/Contract/IntegrationSecurityRepository.php",
+          "sha256": "3d7b9999584d2e27aad54dbad700d0f8983a67e4f1f90b0cfb84746510c682bc"
+        }
       ]
     },
     "PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore": {
@@ -809,16 +908,77 @@
     "PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore": {
       "source": "application",
       "path": "server/app/modules/official/import_export/src/Engine/Persistence/ImportExportStore.php",
-      "sha256": "d77de6f76cca610f29ffe87a9e3ad76184d507c7e34e52c6f71f9e244d12696e",
+      "sha256": "d1b4555f69e0a9a373b5e6c9c3d40fc1ad65442606b3e901d68b7086eb9c503c",
       "scope": "explicit-tenant-column",
-      "tenant_operations": ["create", "attachJob", "list", "get", "resultFile", "requestCancel", "beginAttempt", "checkpointProgressOrCancel", "addRowIssue", "rowIssues", "finish"],
-      "other_operations": [],
-      "pending_operations": ["expireDue"],
-      "reason": "租户动作经query/tenantData/scopedRow及TenantColumnScope；expireDue是有界系统级跨租户过期写，本次未找到生产调用方或授权入口，保留待决策，不授权执行。",
+      "tenant_operations": [
+        "create",
+        "attachJob",
+        "list",
+        "get",
+        "resultFile",
+        "requestCancel",
+        "beginAttempt",
+        "checkpointProgressOrCancel",
+        "addRowIssue",
+        "rowIssues",
+        "finish"
+      ],
+      "other_operations": [
+        "expireDue"
+      ],
+      "pending_operations": [],
+      "reason": "租户操作继续沿原显式Tenant列和Edition存储检查。已批准的expireDue属于独立平台实例维护：仅既有ContextualCommand顶层CLI建立的console.import-export:expire实例上下文及已注入审计可进入；默认100、上限1000，锁定到期终态记录后标expired并清结果/错误文件引用，不删除物理文件。成功计数与变更在同一事务，异常记录安全原因及零处理数。该方法不由租户入口取得，既有租户工作器复用存储并不获得系统操作权限；本登记只确认新源码与角色，不执行清理或认证实际部署资格。",
       "support_sources": [
-        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantColumnScope.php", "sha256": "d5a50c48866888f4ae0eece820326ac322705ce64ef1ef4156a898a690b56eff"},
-        {"source": "php-core", "path": "kernel/src/Persistence/Tenancy/TenantPersistenceMode.php", "sha256": "b964354d0e787b0348e36d00a982f5396a5898ebb3008bc7ffa49f0a47f83bbb"},
-        {"source": "php-core", "path": "kernel/src/Persistence/Model/TenantModel.php", "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"}
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Tenancy/TenantColumnScope.php",
+          "sha256": "d5a50c48866888f4ae0eece820326ac322705ce64ef1ef4156a898a690b56eff"
+        },
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Tenancy/TenantPersistenceMode.php",
+          "sha256": "b964354d0e787b0348e36d00a982f5396a5898ebb3008bc7ffa49f0a47f83bbb"
+        },
+        {
+          "source": "php-core",
+          "path": "kernel/src/Persistence/Model/TenantModel.php",
+          "sha256": "f5cc6238bba129046d9a24ba30d2a1e96e5111b2d9d91d21d49b38b4229ffe5b"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/import_export/src/Console/ExpireOperationsCommand.php",
+          "sha256": "9a9d19cfd58926e9574299fafb135afe6e7e24df59139d860a57f76a40e40b9e"
+        },
+        {
+          "source": "application",
+          "path": "server/app/modules/official/import_export/src/ModuleProvider.php",
+          "sha256": "ab89159c882b83bc9fb123ddef8ca1f4a2d4b258575be83b970a0a17e923c5cd"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/ContextualCommand.php",
+          "sha256": "c41d9974806db22f9978cc6a77f2b8f2187e68b961b78310eaad43c1402bbdc2"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/CurrentExecutionContext.php",
+          "sha256": "d2769ac5a5c181c17299fcfbe3cd43a332576273bdb1a683084cf0ab9e2940d1"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/ExecutionContextStore.php",
+          "sha256": "510ba5199188919db65924c886e6c67858de91ef11c7a709f24a86b909799833"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/execution/InstanceExecutionContext.php",
+          "sha256": "963c87019d3e0a7028439bbb426205b5973798fe0887f51c3fc6572892df0e1d"
+        },
+        {
+          "source": "application",
+          "path": "server/app/common/services/audit/AuditContractHost.php",
+          "sha256": "7fcb05e51d5dde421719ffb21977722783f506c75799851063e48e2dfcf461ca"
+        }
       ]
     }
   },

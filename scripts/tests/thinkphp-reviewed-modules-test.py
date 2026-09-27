@@ -224,11 +224,11 @@ class ReviewedModulesTest(unittest.TestCase):
         entry = 'PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository'
         contract = self.registry['access_contracts'][entry]
         self.assertEqual([], checker.access_contract_errors({entry: contract}))
-        self.assertEqual({'machineByDigest', 'touchMachine'}, set(contract['other_operations']))
-        self.assertEqual(['purgeExpiredDeliveryData'], contract['pending_operations'])
+        self.assertEqual({'machineByDigest', 'touchMachine', 'purgeExpiredDeliveryData'}, set(contract['other_operations']))
+        self.assertEqual([], contract['pending_operations'])
         self.assertTrue({'createMachine', 'rotateMachine', 'enqueueDelivery', 'claimDelivery', 'deliveryRecords'}.issubset(contract['tenant_operations']))
         report = self.report()
-        self.assertTrue(any(item['entry'] == entry and item['operations'] == ['purgeExpiredDeliveryData'] for item in report['needs_decision']))
+        self.assertFalse(any(item['entry'] == entry for item in report['needs_decision']))
         self.assertNotEqual('ownership_passed', report['status'])
         self.assertEqual('not_run', report['business_scan'])
         self.assertIsNone(report['finding_count'])
@@ -661,6 +661,39 @@ class ReviewedModulesTest(unittest.TestCase):
         self.assertEqual(['PeanutAdmin\\Kernel\\Audit\\AuditWriter'], [row['entry'] for row in proof['interfaces']])
         proof['interfaces'] = []
         self.assertTrue(any('PUBLIC_USE_CASE_INTERFACE_REVIEW_REQUIRED' in error for error in checker.access_contract_errors({entry:self.registry['access_contracts'][entry]})))
+
+    def test_implemented_retention_is_separate_from_tenant_authority(self):
+        entries = {
+            'PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore': ('expireDue', 'ExpireOperationsCommand.php'),
+            'PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository': ('purgeExpiredDeliveryData', 'PurgeExpiredDeliveriesCommand.php'),
+        }
+        for entry, (method, command) in entries.items():
+            with self.subTest(entry=entry):
+                contract = self.registry['access_contracts'][entry]
+                self.assertNotIn(method, contract['tenant_operations'])
+                self.assertIn(method, contract['other_operations'])
+                self.assertNotIn(method, contract['pending_operations'])
+                self.assertEqual([], checker.access_contract_errors({entry: contract}))
+                sources = {Path(row['path']).name for row in contract['support_sources']}
+                self.assertTrue({command, 'ContextualCommand.php', 'CurrentExecutionContext.php',
+                                 'ExecutionContextStore.php', 'InstanceExecutionContext.php', 'AuditContractHost.php',
+                                 'ModuleProvider.php'}.issubset(sources))
+                path, _ = checker.reviewed_source(contract)
+                self.assertIn('PLATFORM_MAINTENANCE_CONTEXT_REQUIRED', path.read_text())
+                self.assertIn('PHP_SAPI', path.read_text())
+
+    def test_retention_context_source_change_invalidates_review(self):
+        entry = 'PeanutAdmin\\Modules\\ImportExport\\Engine\\Persistence\\ImportExportStore'
+        contract = self.registry['access_contracts'][entry]
+        source = next(row for row in contract['support_sources'] if row['path'].endswith('/ContextualCommand.php'))
+        source['sha256'] = '0' * 64
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.access_contract_errors({entry: contract})))
+
+    def test_retention_method_cannot_disappear_from_all_roles(self):
+        entry = 'PeanutAdmin\\Modules\\Integration\\Infrastructure\\Persistence\\ThinkPhpIntegrationSecurityRepository'
+        contract = self.registry['access_contracts'][entry]
+        contract['other_operations'].remove('purgeExpiredDeliveryData')
+        self.assertTrue(any('ACCESS_METHOD_COVERAGE' in error for error in checker.access_contract_errors({entry: contract})))
 
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
