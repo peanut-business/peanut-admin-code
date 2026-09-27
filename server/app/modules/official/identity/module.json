@@ -100,6 +100,7 @@
             "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformTenantAdminService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\PlatformWorkspaceQueryService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\TenantOwnerAdminService",
+            "PeanutAdmin\\Modules\\Identity\\Platform\\Application\\TenantEntryBindingAdminService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Bootstrap\\BootstrapService",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Bootstrap\\PlatformBootstrapResult",
             "PeanutAdmin\\Modules\\Identity\\Platform\\Bootstrap\\TenantOwnerCandidateResult",

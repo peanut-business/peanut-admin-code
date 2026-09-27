@@ -2274,7 +2274,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c9d598cc679c76e1d959c2f2b8a601243c7b6f85054a0c5bfc5dca9b84fecd15"
+            "source_sha256": "393c1bd6d33c4f31637c9b0565742f36a8240b38a774982f27bd3da843514916"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2356,7 +2356,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "476bb2a380fe98871ad030d4e0edd9f0f54f27a8b78c012c77d72274e022c8e8"
+            "source_sha256": "fc9f8a553b218bf57f27c1a3cf9f5ded35f4295ee2e36f6a810b412cda9c2a20"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -9954,7 +9954,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "50741a1da01d5238906fefba6b279a99973399a6751c4751c4135ce5a1a0f9f9"
+            "source_sha256": "4421d6a24e864c3735980ace908f55f085d123b12a21cb2e60bdbd23dccecd16"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -11509,6 +11509,20 @@
                 "full"
             ],
             "source_sha256": "7f5374f54812f1f000ebb267ec7331bc859f7e791d1bdb886a3026b8625bb2af"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Platform/Application/TenantEntryBindingAdminService.php",
+            "target": "server/app/modules/official/identity/src/Platform/Application/TenantEntryBindingAdminService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eb842e32959bc488a5cd3437e01d2b2af08e65e4c5aea8c1293dd801e762f9c5"
         },
         {
             "path": "server/app/modules/official/identity/src/Platform/Application/TenantOwnerAdminService.php",
@@ -20743,7 +20757,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c6b05f9e8e8aba913a94375dd4e4bb43543bcc00fceec27a415b2ef60eee7bd8"
+            "source_sha256": "a6fb5ffb25ddf5bc1d6dd34c77d1811d80410584addfb0e1b66f151699e6646c"
         },
         {
             "path": "server/app/platform/controller/PlatformTenantInvitationController.php",
@@ -21500,20 +21514,6 @@
                 "full"
             ],
             "source_sha256": "4b8858ac1c7a6a20d95e729fe4a9847e856bda60326361d945478be1351e09bf"
-        },
-        {
-            "path": "server/app/platform/services/TenantEntryBindingAdminService.php",
-            "target": "server/app/platform/services/TenantEntryBindingAdminService.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c9d53941c9188a58af2e79b16d663fbf99577ae2724e35752e45e227792ba44c"
         },
         {
             "path": "server/app/platform/services/TenantGovernanceService.php",
@@ -27309,6 +27309,19 @@
         {
             "path": "server/tests/Unit/TenantBootstrapSettingsBoundaryTest.php",
             "target": "server/tests/Unit/TenantBootstrapSettingsBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/TenantEntryBindingOwnerTest.php",
+            "target": "server/tests/Unit/TenantEntryBindingOwnerTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

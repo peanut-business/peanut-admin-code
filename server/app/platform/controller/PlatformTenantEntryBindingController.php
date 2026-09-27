@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\controller;
 
-use app\platform\services\TenantEntryBindingAdminService;
+use PeanutAdmin\Modules\Identity\Platform\Application\TenantEntryBindingAdminService;
 use app\platform\validate\TenantEntryBindingValidate;
 
 /** @property-read TenantEntryBindingAdminService $entryBindings 当前 App 中声明式解析的控制器依赖。 */
@@ -19,7 +19,7 @@ final class PlatformTenantEntryBindingController extends BasePlatformController
         }
         $tenantId = trim((string) $this->request->get('tenant_id', ''));
         return $this->data($this->entryBindings->lists(
-            $this->platformContext,
+            $this->platformContext->core,
             $tenantId === '' ? null : (int) $tenantId,
         ));
     }
@@ -30,7 +30,7 @@ final class PlatformTenantEntryBindingController extends BasePlatformController
             'enable',
             fn(array $params): array =>
             $this->entryBindings->enable(
-                $this->platformContext,
+                $this->platformContext->core,
                 (int) $params['tenant_id'],
                 (string) $params['host'],
                 (string) $params['client_key'],
@@ -45,7 +45,7 @@ final class PlatformTenantEntryBindingController extends BasePlatformController
             'disable',
             fn(array $params): array =>
             $this->entryBindings->disable(
-                $this->platformContext,
+                $this->platformContext->core,
                 (int) $params['binding_id'],
                 (string) $params['change_reason'],
             ),

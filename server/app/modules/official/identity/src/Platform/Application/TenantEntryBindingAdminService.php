@@ -2,26 +2,27 @@
 
 declare(strict_types=1);
 
-namespace app\platform\services;
+namespace PeanutAdmin\Modules\Identity\Platform\Application;
 
 use app\common\exception\BusinessException;
 use app\common\services\audit\AuditContractHost;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
-use app\platform\context\PlatformOperatorContext;
+use PeanutAdmin\Kernel\Context\PlatformContext;
+use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use think\facade\Db;
 
 final readonly class TenantEntryBindingAdminService
 {
     public function __construct(
-        private PlatformOperatorSessionService $sessions,
+        private PlatformAuthorizationEvaluator $authorization,
         private AuditContractHost $audit,
     ) {}
 
     /** @return list<array<string,mixed>> */
-    public function lists(PlatformOperatorContext $context, ?int $tenantId = null): array
+    public function lists(PlatformContext $context, ?int $tenantId = null): array
     {
-        $this->sessions->assertAllowed($context, 'platform.tenant.read');
+        $this->authorization->assertAllowed($context, 'platform.tenant.read');
         $query = Db::name('tenant_entry_binding')->alias('binding')
             ->join('tenant tenant', 'tenant.id=binding.tenant_id')
             ->field('binding.id,binding.tenant_id,tenant.code AS tenant_code,tenant.name AS tenant_name,binding.host,binding.client_key,binding.status,binding.created_at,binding.updated_at');
@@ -33,13 +34,13 @@ final readonly class TenantEntryBindingAdminService
 
     /** @return array<string,mixed> */
     public function enable(
-        PlatformOperatorContext $context,
+        PlatformContext $context,
         int $tenantId,
         string $host,
         string $clientKey,
         string $changeReason,
     ): array {
-        $this->sessions->assertAllowed($context, 'platform.tenant.update');
+        $this->authorization->assertAllowed($context, 'platform.tenant.update');
         $host = TenantEntryBindingResolver::normalizeHost($host);
         $clientKey = trim($clientKey);
         if (!in_array($clientKey, [
@@ -115,11 +116,11 @@ final readonly class TenantEntryBindingAdminService
 
     /** @return array{id:int,tenant_id:int,status:string} */
     public function disable(
-        PlatformOperatorContext $context,
+        PlatformContext $context,
         int $bindingId,
         string $changeReason,
     ): array {
-        $this->sessions->assertAllowed($context, 'platform.tenant.update');
+        $this->authorization->assertAllowed($context, 'platform.tenant.update');
         if ($bindingId < 1 || trim($changeReason) === '') {
             throw BusinessException::conflict(
                 'TENANT_ENTRY_INPUT_INVALID',
@@ -159,7 +160,7 @@ final readonly class TenantEntryBindingAdminService
 
     /** @param array<string,int|string> $metadata */
     private function audit(
-        PlatformOperatorContext $context,
+        PlatformContext $context,
         string $eventType,
         string $reason,
         array $metadata,
@@ -167,9 +168,9 @@ final readonly class TenantEntryBindingAdminService
         $this->audit->recordPlatform(
             $eventType,
             'platform.tenant.update',
-            $context->core->requestId,
-            $context->core->operatorId,
-            $context->core->accountId,
+            $context->requestId,
+            $context->operatorId,
+            $context->accountId,
             $metadata,
             AuditOutcome::Success,
             trim($reason),
