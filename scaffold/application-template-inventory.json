@@ -34287,6 +34287,20 @@
             "source_sha256": "0e37b44b48856287b5df5a64b4530c91f62e43a3cf1f31059d3ea4614d8128d3"
         },
         {
+            "path": "web/tests/Productization/generated-crud-consumer.test.mjs",
+            "target": "web/tests/Productization/generated-crud-consumer.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fbc3a3f751a0995ec43b6eb5ddc98c568d6e641c3662d45aef35c08a6b60e4ae"
+        },
+        {
             "path": "web/tests/Productization/instance-tool-build-boundary.test.mjs",
             "target": "web/tests/Productization/instance-tool-build-boundary.test.mjs",
             "classification": "managed",
