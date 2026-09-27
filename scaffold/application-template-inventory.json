@@ -3762,7 +3762,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a6791ba1a684f90cf3fae3945b2bc9985ff52b4e8825ea18132e725562b1e9a5"
+            "source_sha256": "4fb29431287063893b7904c372b9a6e2c46d2255b84d977e81d735ee609cdf21"
+        },
+        {
+            "path": "scripts/tests/core-web-installed-consumer.types.ts",
+            "target": "scripts/tests/core-web-installed-consumer.types.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5e40981fee3a4287e05730ef2dccb633aa774951720b42ec5fa80e47f4a7e899"
         },
         {
             "path": "scripts/tests/format-configuration-test.mjs",

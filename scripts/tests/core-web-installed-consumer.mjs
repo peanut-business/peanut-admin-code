@@ -1,6 +1,9 @@
 // Copy this probe into a task-owned native npm consumer; run there after installing Core archives.
 // Public package exports are used, not maintainer source paths. Transport callbacks are synthetic.
 import assert from 'node:assert/strict';
+import { readFileSync, realpathSync } from 'node:fs';
+import { dirname, join, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { createClient } from '@peanut-admin/client';
 import {
@@ -8,6 +11,33 @@ import {
   createNuxtSsrForwardHeaders,
 } from '@peanut-admin/nuxt';
 import { createUniAppClientTransport } from '@peanut-admin/uniapp';
+
+const consumerRoot = realpathSync(dirname(fileURLToPath(import.meta.url)));
+const versionExports = {
+  'vue': 'PEANUT_ADMIN_VUE_VERSION',
+  'ui-vue': 'PEANUT_ADMIN_UI_VUE_VERSION',
+  'testing': 'WEB_TESTING_VERSION',
+};
+
+// The caller fixes archive provenance. This probe additionally rejects source
+// links and imports every installed public entry through native Node ESM.
+for (const suffix of ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing']) {
+  test(`installed ${suffix} exposes a contained native ESM entry`, async () => {
+    const name = `@peanut-admin/${suffix}`;
+    const entry = realpathSync(fileURLToPath(import.meta.resolve(name)));
+    assert.ok(entry.startsWith(consumerRoot + sep));
+    const manifest = JSON.parse(
+      readFileSync(join(dirname(dirname(entry)), 'package.json'), 'utf8')
+    );
+    assert.equal(manifest.name, name);
+    assert.equal(manifest.exports['.'].import, './dist/index.js');
+    const api = await import(name);
+    assert.ok(Object.keys(api).length > 0);
+    if (versionExports[suffix]) {
+      assert.equal(api[versionExports[suffix]], manifest.version);
+    }
+  });
+}
 
 const decoder = (response) =>
   response.denied
