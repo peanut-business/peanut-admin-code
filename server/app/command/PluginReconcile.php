@@ -7,6 +7,7 @@ namespace app\command;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\common\execution\ModuleContextualCommand;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
@@ -103,26 +104,46 @@ final class PluginReconcile extends ModuleContextualCommand
     {
         $keys = array_fill_keys($officialKeys, true);
         $preserved = [];
-        $rows = Db::name('plugin_installation')->alias('pi')
-            ->leftJoin('plugin_module pm', 'pm.plugin_key=pi.plugin_key')
-            ->leftJoin('module_installation mi', 'mi.module_key=pm.module_key')
-            ->where('pi.status', '<>', 'uninstalled')->field('pi.plugin_key,pi.status')
-            ->fieldRaw("COUNT(pm.module_key) member_count,SUM(CASE WHEN mi.status='active' AND mi.last_error_code IS NULL THEN 1 ELSE 0 END) active_count,SUM(CASE WHEN mi.status='maintenance' AND mi.last_error_code IS NULL THEN 1 ELSE 0 END) disabled_count")
-            ->group('pi.plugin_key,pi.status')->order('pi.plugin_key')->select()->toArray();
+        $rows = Db::name('plugin_installation')->where('status', '<>', 'uninstalled')
+            ->field('plugin_key,status')->order('plugin_key')->select()->toArray();
+        $pluginKeys = array_values(array_map(static fn(array $row): string => (string) $row['plugin_key'], $rows));
+        $membersByPlugin = [];
+        $moduleKeys = [];
+        if ($pluginKeys !== []) {
+            foreach (Db::name('plugin_module')->whereIn('plugin_key', $pluginKeys)
+                ->field('plugin_key,module_key')->order('plugin_key')->order('module_key')->select()->toArray() as $member) {
+                $pluginKey = (string) ($member['plugin_key'] ?? '');
+                $moduleKey = (string) ($member['module_key'] ?? '');
+                $membersByPlugin[$pluginKey][] = $moduleKey;
+                $moduleKeys[$moduleKey] = true;
+            }
+        }
+        $states = (new TenantModuleStateQueries())->installationStates(array_keys($moduleKeys));
         foreach ($rows as $row) {
             $key = (string) ($row['plugin_key'] ?? '');
-            $members = (int) ($row['member_count'] ?? 0);
+            $memberKeys = $membersByPlugin[$key] ?? [];
+            $members = count($memberKeys);
             if ((string) ($row['status'] ?? '') !== 'active' || $members < 1 || !isset($locked[$key])) {
                 throw new PluginLifecycleException(
                     'PLUGIN_STATE_INVALID',
                     "Release reconciliation found an invalid or unlocked Plugin installation: {$key}",
                 );
             }
-            if ((int) ($row['active_count'] ?? 0) === $members) {
+            $active = 0;
+            $disabled = 0;
+            foreach ($memberKeys as $moduleKey) {
+                $state = $states[$moduleKey] ?? null;
+                if (($state['status'] ?? null) === 'active' && ($state['last_error_code'] ?? null) === null) {
+                    ++$active;
+                } elseif (($state['status'] ?? null) === 'maintenance' && ($state['last_error_code'] ?? null) === null) {
+                    ++$disabled;
+                }
+            }
+            if ($active === $members) {
                 $keys[$key] = true;
                 continue;
             }
-            if ((int) ($row['disabled_count'] ?? 0) === $members) {
+            if ($disabled === $members) {
                 unset($keys[$key]);
                 $preserved[] = $key;
                 continue;

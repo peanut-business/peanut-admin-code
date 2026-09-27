@@ -9,6 +9,7 @@ use app\platform\infrastructure\plugin\ModuleCatalogApplier;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\value\plugin\PluginDescriptor;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use think\facade\Db;
 
 /** Verifies that a full application release preserves or safely advances every installed Plugin. */
@@ -129,33 +130,29 @@ final readonly class PluginReleaseCompositionGuard
     /** Package updates preserve their complete Bundle scope and the explicit active/disabled state. */
     private function memberState(string $pluginKey): array
     {
-        $rows = Db::name('plugin_module')->alias('member')
-            ->leftJoin('module_installation installation', 'installation.module_key=member.module_key')
-            ->where('member.plugin_key', $pluginKey)
-            ->field('member.module_key,installation.status,installation.last_error_code')
-            ->order('member.module_key')->select()->toArray();
-        if ($rows === []) {
+        $keys = array_values(array_map('strval', Db::name('plugin_module')->where('plugin_key', $pluginKey)
+            ->order('module_key')->column('module_key')));
+        if ($keys === []) {
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_PACKAGE_SCOPE_INVALID',
                 "Installed Plugin has no recorded Module members: {$pluginKey}",
             );
         }
-        $keys = [];
+        $states = (new TenantModuleStateQueries())->installationStates($keys);
         $active = 0;
         $disabled = 0;
-        foreach ($rows as $row) {
-            $keys[] = (string) ($row['module_key'] ?? '');
-            if (($row['status'] ?? null) === 'active' && ($row['last_error_code'] ?? null) === null) {
+        foreach ($keys as $moduleKey) {
+            $state = $states[$moduleKey] ?? null;
+            if (($state['status'] ?? null) === 'active' && ($state['last_error_code'] ?? null) === null) {
                 $active++;
-            } elseif (($row['status'] ?? null) === 'maintenance' && ($row['last_error_code'] ?? null) === null) {
+            } elseif (($state['status'] ?? null) === 'maintenance' && ($state['last_error_code'] ?? null) === null) {
                 $disabled++;
             }
         }
-        sort($keys, SORT_STRING);
-        if ($active === count($rows)) {
+        if ($active === count($keys)) {
             return ['keys' => $keys, 'mode' => 'active'];
         }
-        if ($disabled === count($rows)) {
+        if ($disabled === count($keys)) {
             return ['keys' => $keys, 'mode' => 'disabled'];
         }
         throw new PluginLifecycleException(

@@ -126,6 +126,48 @@ final readonly class ModuleCatalogApplier
     }
 
     /** @param array<string,ManifestDocument> $manifests */
+    public function beginPackageDeployment(array $manifests, bool $upgrade, string $now): void
+    {
+        $this->identityLifecycle->beginPackageDeployment($manifests, $upgrade, $now);
+    }
+
+    /** @param array<string,ManifestDocument> $manifests */
+    public function activatePackageDeployment(array $manifests, bool $upgrade, string $now): void
+    {
+        $this->identityLifecycle->activatePackageDeployment($manifests, $upgrade, $now);
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function markPackageDeploymentFailed(array $moduleKeys, string $errorCode, string $now): void
+    {
+        $this->identityLifecycle->markPackageDeploymentFailed($moduleKeys, $errorCode, $now);
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function retirePackageModules(array $moduleKeys, string $now): void
+    {
+        $this->identityLifecycle->retirePackageModules($moduleKeys, $now);
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function disableActivePackageModules(array $moduleKeys): void
+    {
+        $this->identityLifecycle->disableActivePackageModules($moduleKeys);
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function markPackageModulesForRecovery(array $moduleKeys, string $marker, string $now): void
+    {
+        $this->identityLifecycle->markPackageModulesForRecovery($moduleKeys, $marker, $now);
+    }
+
+    /** @param list<string> $moduleKeys */
+    public function finalizePackageRemoval(array $moduleKeys, bool $purge, string $now): void
+    {
+        $this->identityLifecycle->finalizePackageRemoval($moduleKeys, $purge, $now);
+    }
+
+    /** @param array<string,ManifestDocument> $manifests */
     private function scope(CompiledModuleRegistry $registry, array $manifests): CompiledModuleRegistry
     {
         $keys = array_fill_keys(array_keys($manifests), true);

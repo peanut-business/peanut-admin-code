@@ -510,10 +510,7 @@ final class PluginRuntimeGovernanceService
                 'status' => 'maintenance', 'last_error_code' => $marker,
                 'revision' => Db::raw('revision+1'), 'updated_at' => $now,
             ]);
-            Db::name('module_installation')->whereIn('module_key', $moduleKeys)->update([
-                'status' => 'maintenance', 'last_error_code' => $marker,
-                'revision' => Db::raw('revision+1'), 'updated_at' => $now,
-            ]);
+            $this->catalogs->markPackageModulesForRecovery($moduleKeys, $marker, $now);
         });
     }
 
@@ -522,14 +519,7 @@ final class PluginRuntimeGovernanceService
     {
         $now = gmdate('Y-m-d H:i:s.v');
         Db::transaction(function () use ($packageKey, $moduleKeys, $purge, $now): void {
-            if ($purge) {
-                Db::name('module_installation')->whereIn('module_key', $moduleKeys)->delete();
-            } else {
-                Db::name('module_installation')->whereIn('module_key', $moduleKeys)->update([
-                    'status' => 'maintenance', 'last_error_code' => null,
-                    'revision' => Db::raw('revision+1'), 'updated_at' => $now,
-                ]);
-            }
+            $this->catalogs->finalizePackageRemoval($moduleKeys, $purge, $now);
             Db::name('plugin_installation')->where('plugin_key', $packageKey)->update([
                 'status' => 'uninstalled', 'last_error_code' => null,
                 'revision' => Db::raw('revision+1'), 'uninstalled_at' => $now, 'updated_at' => $now,
@@ -675,7 +665,7 @@ final class PluginRuntimeGovernanceService
         if ($modules === []) {
             return true;
         }
-        return Db::name('module_installation')->whereIn('module_key', $modules)->count() === 0;
+        return count($this->tenantStates->installationStates($modules)) === 0;
     }
 
     /** @return array<string,mixed>|null */

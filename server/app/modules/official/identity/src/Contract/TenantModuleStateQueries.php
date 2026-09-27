@@ -52,6 +52,33 @@ final readonly class TenantModuleStateQueries
         return $query->field('installed_version,manifest_schema_version,manifest_digest,status')->find();
     }
 
+    /**
+     * 固定部署状态投影；只返回生命周期判断所需状态，不公开安装身份、内部查询或可写ORM对象。
+     * 缺失记录保持缺失，由宿主按原业务顺序决定拒绝、清理完成或回退到包状态。
+     * @param list<string> $moduleKeys
+     * @return array<string,array{status:mixed,last_error_code:mixed}>
+     */
+    public function installationStates(array $moduleKeys): array
+    {
+        if ($moduleKeys === []) {
+            return [];
+        }
+        $rows = Db::name('module_installation')->whereIn('module_key', $moduleKeys)
+            ->field('module_key,status,last_error_code')->order('module_key')->select()->toArray();
+        $states = [];
+        foreach ($rows as $row) {
+            $moduleKey = (string) ($row['module_key'] ?? '');
+            if ($moduleKey === '') {
+                continue;
+            }
+            $states[$moduleKey] = [
+                'status' => $row['status'] ?? null,
+                'last_error_code' => $row['last_error_code'] ?? null,
+            ];
+        }
+        return $states;
+    }
+
     /** 已安装活动目录，不表示当前调用者或某租户获准使用。 @return list<string> */
     public function activeInstallationKeys(): array
     {

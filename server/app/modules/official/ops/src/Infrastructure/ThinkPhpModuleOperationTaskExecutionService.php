@@ -6,6 +6,7 @@ namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
 use PeanutAdmin\Modules\Ops\Contract\ModuleTaskExecution;
 use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
 use PeanutAdmin\Modules\Ops\Service\PlatformModuleOperationExecutionService;
 use app\common\services\audit\AuditContractHost;
@@ -489,7 +490,7 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService implements Modu
         if (count($keys) !== count($modules)) {
             return false;
         }
-        return Db::name('module_installation')->whereIn('module_key', $keys)->count() === 0;
+        return count((new TenantModuleStateQueries())->installationStates($keys)) === 0;
     }
 
     /** @param array<string,string> $payload @param array<string,mixed> $execution @return array<string,mixed> */

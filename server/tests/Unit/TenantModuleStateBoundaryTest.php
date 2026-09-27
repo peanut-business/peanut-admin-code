@@ -47,7 +47,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
         $this->database->exec(<<<'SQL'
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT);
             CREATE TABLE pa_tenant_module (id INTEGER PRIMARY KEY, tenant_id INTEGER, module_key TEXT, status TEXT, source TEXT DEFAULT 'fixture', config_revision INTEGER DEFAULT 7, effective_at TEXT, expires_at TEXT, enabled_at TEXT, disabled_at TEXT, disabled_reason TEXT, created_at TEXT, updated_at TEXT, config_json TEXT DEFAULT 'private-fixture-config');
-            CREATE TABLE pa_module_installation (module_key TEXT PRIMARY KEY, installed_version TEXT, manifest_schema_version INTEGER, manifest_digest TEXT, status TEXT, revision INTEGER, activated_at TEXT, created_at TEXT, updated_at TEXT);
+            CREATE TABLE pa_module_installation (module_key TEXT PRIMARY KEY, installed_version TEXT, manifest_schema_version INTEGER, manifest_digest TEXT, status TEXT, revision INTEGER, activated_at TEXT, created_at TEXT, updated_at TEXT, last_error_code TEXT DEFAULT NULL);
             CREATE TABLE pa_plugin_module (plugin_key TEXT, module_key TEXT);
             INSERT INTO pa_tenant VALUES (1,'active'),(2,'closed'),(3,'provisioning');
             INSERT INTO pa_tenant_module (id,tenant_id,module_key,status,effective_at,expires_at) VALUES
@@ -66,8 +66,8 @@ final class TenantModuleStateBoundaryTest extends TestCase
                 'tenant' => ['enableable' => !$foundation], 'lifecycle' => ['protected' => $foundation],
             ]);
             $manifests[] = $manifest;
-            $this->database->prepare('INSERT INTO pa_module_installation VALUES (?,?,?,?,?,?,?,?,?)')->execute([
-                $key, '1.0.0', 1, $manifest->digest, 'active', 9, '2031-01-01 00:00:00.000', '2030-01-01 00:00:00.000', '2031-01-01 00:00:00.000',
+            $this->database->prepare('INSERT INTO pa_module_installation VALUES (?,?,?,?,?,?,?,?,?,?)')->execute([
+                $key, '1.0.0', 1, $manifest->digest, 'active', 9, '2031-01-01 00:00:00.000', '2030-01-01 00:00:00.000', '2031-01-01 00:00:00.000', null,
             ]);
         }
         $compiled = new CompiledModuleRegistry($manifests, [], [], [], hash('sha256', implode('|', array_map(static fn(ManifestDocument $manifest): string => $manifest->digest, $manifests))));
@@ -112,6 +112,16 @@ final class TenantModuleStateBoundaryTest extends TestCase
         self::assertCount(6, $states);
     }
 
+    public function testInstallationStateProjectionIsBoundedAndPreservesMissingRows(): void
+    {
+        $this->database->exec("UPDATE pa_module_installation SET status='maintenance',last_error_code='RECOVERY_REQUIRED' WHERE module_key='fixture.current'");
+        self::assertSame([
+            'fixture.current' => ['status' => 'maintenance', 'last_error_code' => 'RECOVERY_REQUIRED'],
+            'fixture.foundation' => ['status' => 'active', 'last_error_code' => null],
+        ], $this->queries->installationStates(['fixture.foundation', 'fixture.missing', 'fixture.current']));
+        self::assertSame([], $this->queries->installationStates([]));
+    }
+
     public function testInactiveOrMissingTenantCannotReceiveEvenFoundationState(): void
     {
         foreach ([0, 2, 3, 999] as $tenantId) {
@@ -153,6 +163,22 @@ final class TenantModuleStateBoundaryTest extends TestCase
             self::assertStringContainsString('TenantModuleStateQueries $tenantStates', $source);
             self::assertStringNotContainsString("Db::name('tenant_module')", $source);
             self::assertStringContainsString('PLUGIN_TENANT_MODULE_ACTIVE', $source);
+        }
+    }
+
+    public function testAllFormerHostHitsUseIdentityOwnerCapabilitiesInsteadOfThePrivateInstallationTable(): void
+    {
+        $root = dirname(__DIR__, 2) . '/app/';
+        foreach ([
+            'command/PluginReconcile.php',
+            'modules/official/ops/src/Infrastructure/ThinkPhpModuleOperationTaskExecutionService.php',
+            'platform/services/plugin/PlatformModuleRuntimeService.php',
+            'platform/services/plugin/PluginLifecycleService.php',
+            'platform/services/plugin/PluginRuntimeGovernanceService.php',
+            'platform/validation/plugin/PluginReleaseCompositionGuard.php',
+        ] as $file) {
+            $source = file_get_contents($root . $file);
+            self::assertStringNotContainsString('module_installation', $source, $file);
         }
     }
 

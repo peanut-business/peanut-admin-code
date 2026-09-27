@@ -1790,7 +1790,7 @@
       "owner": "instance",
       "instance_review": {
         "classification": "deployment-instance",
-        "reason": "本实例已安装模块与编译声明版本/摘要/状态登记，不是租户模块开通。新部署登记由既有CatalogLifecycleService接收宿主已选清单，保留相同活动身份的重复语义、冲突拒绝及宿主外层事务；固定身份/活动元数据由TenantModuleStateQueries返回，不返回可写ORM或租户配置。租户开通与人员权限仍由原合同判断。本次仅复核新增入口和调用链的来源，不授权安装、停用或清理，不改变数据归属。",
+        "reason": "本实例已安装模块与编译声明版本/摘要/状态登记，不是租户模块开通。CatalogLifecycleService继续作为Identity所有者的固定部署目录入口，并承接已授权Plugin生命周期中的开始部署、激活、失败、停用、恢复标记和卸载收口；宿主保留原事务、锁、错误顺序及Plugin侧记录。TenantModuleStateQueries仅新增固定安装状态投影，不返回可写ORM、任意查询或租户配置。六个既有宿主消费者不再直接访问pa_module_installation；租户开通与人员权限仍由原合同判断，数据归属不变。",
         "model_source": {
           "source": "application",
           "path": "server/app/modules/official/identity/src/Module/Model/ModuleInstallation.php",
@@ -1806,13 +1806,13 @@
           {
             "source": "application",
             "path": "server/app/modules/official/identity/src/Authorization/CatalogLifecycleService.php",
-            "sha256": "6f5dca35b106a38213eecadd3eef9ee8e1997a284ac10e5c326d255c19da88e9",
+            "sha256": "2fe67fd6c52a2cce90c5422b42fd4dbd00b8f0302c2e208bdd26f0d2f3b3004d",
             "entry": "PeanutAdmin\\Modules\\Identity\\Authorization\\CatalogLifecycleService"
           },
           {
             "source": "application",
             "path": "server/app/modules/official/identity/src/Contract/TenantModuleStateQueries.php",
-            "sha256": "2e9a104bebb3d58497e177639020f8fdebf5c17b3c6c4ab114b0787fb2c94068",
+            "sha256": "1daa2130356841433188e4d07439cb3e32c25629277b99c8fe5052088e31e2d8",
             "entry": "PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries"
           },
           {

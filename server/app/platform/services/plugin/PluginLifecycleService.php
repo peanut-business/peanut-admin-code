@@ -179,11 +179,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 static fn(array $row): string => (string) $row['module_key'],
                 $modules,
             ));
-            foreach ($modules as $row) {
-                Db::name('module_installation')->where('module_key', $row['module_key'])->update([
-                    'status' => 'maintenance', 'revision' => Db::raw('revision+1'), 'updated_at' => $now,
-                ]);
-            }
+            $this->catalogs->retirePackageModules(array_values(array_map(
+                static fn(array $row): string => (string) $row['module_key'],
+                $modules,
+            )), $now);
             Db::name('plugin_installation')->where('plugin_key', $pluginKey)->update([
                 'status' => 'uninstalled',
                 'revision' => Db::raw('revision+1'),
@@ -241,26 +240,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 Db::name('plugin_installation')->where('plugin_key', $plugin->key)
                     ->update([...$values, 'revision' => Db::raw('revision+1')]);
             }
-            foreach ($manifests as $manifest) {
-                $moduleKey = (string) $manifest->data['key'];
-                $moduleValues = [
-                    'installed_version' => $manifest->data['version'],
-                    'manifest_schema_version' => $manifest->data['schema_version'],
-                    'manifest_digest' => $manifest->digest,
-                    'status' => $upgrade ? 'upgrading' : 'installing',
-                    'last_error_code' => null, 'updated_at' => $now,
-                ];
-                $moduleExists = Db::name('module_installation')->where('module_key', $moduleKey)->lock(true)->value('module_key');
-                if ($moduleExists === null) {
-                    Db::name('module_installation')->insert([
-                        'module_key' => $moduleKey, ...$moduleValues, 'revision' => 1,
-                        'installed_at' => $now, 'created_at' => $now,
-                    ]);
-                } else {
-                    Db::name('module_installation')->where('module_key', $moduleKey)
-                        ->update([...$moduleValues, 'revision' => Db::raw('revision+1')]);
-                }
-            }
+            $this->catalogs->beginPackageDeployment($manifests, $upgrade, $now);
         });
     }
 
@@ -383,20 +363,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 } else {
                     Db::name('plugin_module')->where('module_key', $moduleKey)->update($catalogValues);
                 }
-                $activatedAt = Db::name('module_installation')->where('module_key', $moduleKey)
-                    ->lock(true)->value('activated_at');
-                Db::name('module_installation')->where('module_key', $moduleKey)->update([
-                    'installed_version' => $manifest->data['version'],
-                    'manifest_schema_version' => $manifest->data['schema_version'],
-                    'manifest_digest' => $manifest->digest,
-                    'status' => 'active',
-                    'revision' => Db::raw('revision+1'),
-                    'activated_at' => $activatedAt ?? $now,
-                    'upgraded_at' => $upgrade ? $now : null,
-                    'last_error_code' => null,
-                    'updated_at' => $now,
-                ]);
             }
+            $this->catalogs->activatePackageDeployment($manifests, $upgrade, $now);
             $parameters = $this->pluginParameters($plugin);
             $activatedAt = Db::name('plugin_installation')->where('plugin_key', $plugin->key)
                 ->lock(true)->value('activated_at');
@@ -422,10 +390,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     'status' => 'failed', 'revision' => Db::raw('revision+1'),
                     'last_error_code' => $errorCode, 'updated_at' => $now,
                 ]);
-                Db::name('module_installation')->whereIn('module_key', array_keys($manifests))->update([
-                    'status' => 'failed', 'revision' => Db::raw('revision+1'),
-                    'last_error_code' => $errorCode, 'updated_at' => $now,
-                ]);
+                $this->catalogs->markPackageDeploymentFailed(array_keys($manifests), $errorCode, $now);
             });
         } catch (\Throwable) {
         }
@@ -585,7 +550,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $moduleKeys = Db::name('plugin_module')->where('plugin_key', $pluginKey)->column('module_key');
         return $moduleKeys !== []
-            && Db::name('module_installation')->whereIn('module_key', $moduleKeys)->where('status', 'active')->count()
+            && $this->tenantStates->activeInstallationCount(array_values(array_map('strval', $moduleKeys)))
                 === count($moduleKeys);
     }
 

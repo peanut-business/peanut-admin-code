@@ -70,12 +70,16 @@ final readonly class PlatformModuleRuntimeService
         }
         $rows = Db::name('plugin_module')->alias('member')
             ->join('plugin_installation plugin', 'plugin.plugin_key=member.plugin_key')
-            ->leftJoin('module_installation installation', 'installation.module_key=member.module_key')
-            ->field('member.module_key,member.module_version,member.manifest_digest,member.plugin_key,plugin.installed_version AS package_version,plugin.status AS package_status,installation.status AS module_status,installation.last_error_code')
+            ->field('member.module_key,member.module_version,member.manifest_digest,member.plugin_key,plugin.installed_version AS package_version,plugin.status AS package_status')
             ->order('member.module_key')->select()->toArray();
+        $states = $this->tenantStates->installationStates(array_values(array_map(
+            static fn(array $row): string => (string) $row['module_key'],
+            $rows,
+        )));
         $enabledCounts = $this->tenantStates->enabledCounts();
         foreach ($rows as $row) {
             $key = (string) $row['module_key'];
+            $state = $states[$key] ?? null;
             $details[$key] ??= [
                 'module_key' => $key,
                 'name' => $key,
@@ -87,9 +91,11 @@ final readonly class PlatformModuleRuntimeService
                 'package_modules' => [$key],
                 'lifecycle_protected' => false,
             ];
-            $details[$key]['status'] = $row['module_status'] ?? ($row['package_status'] === 'uninstalled' ? 'clean' : $row['package_status']);
+            $details[$key]['status'] = $state['status'] ?? ($row['package_status'] === 'uninstalled' ? 'clean' : $row['package_status']);
             $details[$key]['tenant_enabled_count'] = (int) ($enabledCounts[$key] ?? 0);
-            $details[$key]['blockers'] = $row['last_error_code'] === null ? [] : [(string) $row['last_error_code']];
+            $details[$key]['blockers'] = ($state['last_error_code'] ?? null) === null
+                ? []
+                : [(string) $state['last_error_code']];
         }
         foreach ($details as $key => &$detail) {
             $detail['status'] ??= 'locked';
@@ -220,10 +226,7 @@ final readonly class PlatformModuleRuntimeService
                 }
                 Db::transaction(function () use ($moduleKeys): void {
                     $this->catalogs->retire($moduleKeys);
-                    Db::name('module_installation')->whereIn('module_key', $moduleKeys)->where('status', 'active')->update([
-                        'status' => 'maintenance', 'last_error_code' => null,
-                        'revision' => Db::raw('revision+1'), 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
-                    ]);
+                    $this->catalogs->disableActivePackageModules($moduleKeys);
                 });
             });
         } catch (AdvisoryLockUnavailable) {
@@ -280,8 +283,11 @@ final readonly class PlatformModuleRuntimeService
     /** @param list<string> $moduleKeys @return array<string,string> */
     private function moduleStatuses(array $moduleKeys): array
     {
-        return array_map('strval', Db::name('module_installation')->whereIn('module_key', $moduleKeys)
-            ->order('module_key')->column('status', 'module_key'));
+        $statuses = [];
+        foreach ($this->tenantStates->installationStates($moduleKeys) as $moduleKey => $state) {
+            $statuses[$moduleKey] = (string) ($state['status'] ?? '');
+        }
+        return $statuses;
     }
 
 }
