@@ -205,6 +205,23 @@
     }
   },
   "model_owners": [
+    {
+      "model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryVersionRecord",
+      "table": "pa_reference_code_entry_version",
+      "owner": "tenant-gateway",
+      "access_entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore",
+      "parent_review": {
+        "classification": "tenant-through-parent",
+        "parent_model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryRecord",
+        "column": "entry_id",
+        "parent_column": "id",
+        "operations": ["create", "replace", "retire", "snapshot"],
+        "reason": "历史版本通过非空entry_id外键属于已按租户限定的父条目，不是实例或共享数据。写入仅使用同事务内创建或锁定的父条目身份，读取先按TenantContext/set/code取父，再按父id取版本；父记录缺失、移到其他租户或版本关系损坏不得返回其他租户数据。历史署名与当前执行者仍由各自公开身份合同核对；模型和关系源码变化使本证据失效。原生内存夹具验证了父不存在、父跨租户与错链拒绝，但不代表MySQL迁移、并发或全业务资格；N+1及内存分页仍是A的独立问题。",
+        "model_source": {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeEntryVersionRecord.php", "sha256": "0f905162e12466af511e0a36adf6da547ee1fc8146b11b006654d335462f0d8e"},
+        "parent_source": {"source": "application", "path": "server/app/modules/official/reference_codes/src/Versioned/Persistence/Model/ReferenceCodeEntryRecord.php", "sha256": "0aecb08a0122f52a4a391bc8347e7e9126b06abacad119f6c645a0ae29f31ba5"},
+        "schema_source": {"source": "application", "path": "server/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql", "sha256": "01809393f85e3945fc8832830ac45c5b17c542019b28ae30d3ebba2c990d01be"}
+      }
+    },
     {"model": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryRecord", "table": "pa_reference_code_entry", "owner": "tenant-gateway", "access_entry": "PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\ReferenceCodeStore"},
     {
       "model": "PeanutAdmin\\Modules\\Identity\\Authorization\\Model\\ProtectedResourceRecord",
@@ -735,8 +752,8 @@
     {"table": "pa_fixture_delivery_record", "owner": "tenant-orm", "access_entry": "PeanutAdmin\\Fixtures\\DeliveryRecord\\Model\\DeliveryRecord"}
   ],
   "counts": {
-    "concrete_models": 87,
-    "tenant_models": 68,
+    "concrete_models": 88,
+    "tenant_models": 69,
     "non_tenant_models": 19,
     "tenant_tables": 75,
     "tenant_tables_without_model": 6

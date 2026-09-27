@@ -458,6 +458,38 @@ class ReviewedModulesTest(unittest.TestCase):
         contract['tenant_operations'].remove('snapshot')
         self.assertTrue(any('ACCESS_METHOD_COVERAGE' in error for error in checker.access_contract_errors({entry: contract})))
 
+    def test_reference_version_belongs_through_exact_scoped_parent(self):
+        child_name = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryVersionRecord'
+        child = next(row for row in self.registry['model_owners'] if row['model'] == child_name)
+        parent_name = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeEntryRecord'
+        self.assertEqual('tenant-gateway', child['owner'])
+        self.assertEqual(parent_name, child['parent_review']['parent_model'])
+        self.assertEqual(('entry_id', 'id'), (child['parent_review']['column'], child['parent_review']['parent_column']))
+        tables = checker.schema_tenant_tables()
+        self.assertNotIn(child['table'], tables)
+        self.assertFalse(any(row['table'] == child['table'] for row in self.registry['tenant_tables']))
+        _, roots = checker.module_table_inventory()
+        self.assertEqual([], checker.parent_model_review_errors(child, checker.composer_model_path(child_name), self.registry, tables, roots))
+        self.assertNotIn(child_name, self.report()['missing_models'])
+
+    def test_reference_version_relation_cannot_be_repointed_to_deployment_catalog(self):
+        child = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_reference_code_entry_version')
+        child['parent_review']['parent_model'] = 'PeanutAdmin\\Modules\\ReferenceCodes\\Versioned\\Persistence\\Model\\ReferenceCodeSetRecord'
+        self.save()
+        self.assertTrue(any('PARENT_SCOPED_REGISTRATION_REQUIRED' in error for error in checker.ownership_errors()))
+
+    def test_reference_version_cannot_be_counted_as_an_additional_direct_tenant_table(self):
+        child = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_reference_code_entry_version')
+        self.registry['tenant_tables'].append({'table': child['table'], 'owner': 'tenant-gateway', 'access_entry': child['access_entry']})
+        self.save()
+        self.assertTrue(any('PARENT_CHILD_IS_NOT_A_DIRECT_TENANT_TABLE' in error for error in checker.ownership_errors()))
+
+    def test_reference_version_changed_parent_source_invalidates_ownership(self):
+        child = next(row for row in self.registry['model_owners'] if row['table'] == 'pa_reference_code_entry_version')
+        child['parent_review']['parent_source']['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
     def test_workflow_trusted_caller_is_in_the_review_boundary(self):
         entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
         support = self.registry['access_contracts'][entry]['support_sources']

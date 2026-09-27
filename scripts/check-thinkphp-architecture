@@ -805,8 +805,8 @@ def _schema_literals(cls: dict) -> tuple[dict[str, dict], list[str]]:
     return values, names
 
 
-def _sql_tenant_column(table: str, sql: str) -> bool:
-    """Check literal CREATE structure/columns, not server SQL grammar or execution."""
+def _sql_create_parts(table: str, sql: str) -> list[str]:
+    """Read complete literal CREATE clauses, not server SQL grammar or execution."""
     head = re.match(r'\s*CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`' + re.escape(table) + r'`\s*\(', sql, re.I)
     _ast_require(head is not None, 'SQL declaration does not match table ' + table)
     depth, quote, cursor, start = 1, None, head.end(), head.end()
@@ -837,7 +837,11 @@ def _sql_tenant_column(table: str, sql: str) -> bool:
     _ast_require(depth == 0 and quote is None and bool(columns) and all(item.strip() for item in columns)
                  and re.fullmatch(r'\s*ENGINE\s*=\s*[A-Za-z0-9_]+[^;]*;?\s*', sql[cursor:], re.I) is not None,
                  'incomplete or multiple SQL declarations for ' + table)
-    return any(re.match(r'\s*`tenant_id`\s+[A-Za-z]', column) for column in columns)
+    return columns
+
+
+def _sql_tenant_column(table: str, sql: str) -> bool:
+    return any(re.match(r'\s*`tenant_id`\s+[A-Za-z]', column) for column in _sql_create_parts(table, sql))
 
 
 def _schema_reference(call: dict, method: str) -> tuple[str, list[dict]]:
@@ -1511,6 +1515,84 @@ def instance_model_review_errors(item: dict, model_path: Path, tenant_tables: se
     return []
 
 
+def parent_model_review_errors(item: dict, model_path: Path, ownership: dict, tenant_tables: set[str], module_roots: dict[str, str]) -> list[str]:
+    """One explicit same-owner parent relation; no implicit shared/instance fallback.
+
+    Structural and source evidence does not authorize a query. The reviewed
+    gateway must continue acquiring the scoped parent before reading/writing its
+    children. Changing that implementation invalidates its existing contract.
+    """
+    try:
+        proof = item.get('parent_review')
+        if (item.get('owner') != 'tenant-gateway' or not isinstance(proof, dict)
+                or proof.get('classification') != 'tenant-through-parent'
+                or not isinstance(proof.get('reason'), str) or not proof['reason'].strip()):
+            raise ValueError('PARENT_REVIEW_REQUIRED')
+        if model_header(model_path) != (item['model'], 'think\\Model'):
+            raise ValueError('PARENT_CHILD_MODEL_IDENTITY')
+        parent_name = proof.get('parent_model')
+        parents = [row for row in ownership['model_owners'] if row['model'] == parent_name]
+        if (len(parents) != 1 or parent_name == item['model'] or 'parent_review' in parents[0]
+                or parents[0]['owner'] != 'tenant-gateway' or parents[0].get('access_entry') != item['access_entry']
+                or parents[0]['table'] not in tenant_tables):
+            raise ValueError('PARENT_SCOPED_REGISTRATION_REQUIRED')
+        parent = parents[0]
+        parent_path = composer_model_path(parent_name)
+        if parent_path is None or source_model_table(parent_path) != parent['table']:
+            raise ValueError('PARENT_SOURCE_IDENTITY')
+        contract = ownership.get('access_contracts', {}).get(item['access_entry'])
+        if not isinstance(contract, dict) or contract.get('source') != 'application':
+            raise ValueError('PARENT_GATEWAY_REQUIRED')
+        expected_base = {'explicit-tenant-column': 'PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel',
+                         'explicit-edition-tenant': 'PeanutAdmin\\Kernel\\Persistence\\Model\\EditionTenantModel'}.get(contract.get('scope'))
+        if model_header(parent_path) != (parent_name, expected_base):
+            raise ValueError('PARENT_SCOPE_BASE_MISMATCH')
+        operations = proof.get('operations')
+        if (not isinstance(operations, list) or not operations or any(not isinstance(name, str) for name in operations)
+                or len(set(operations)) != len(operations) or set(operations) != set(contract.get('tenant_operations', []))):
+            raise ValueError('PARENT_OPERATION_REVIEW_REQUIRED')
+        roots = [root for root in module_roots if relative(model_path).startswith(root + '/')]
+        if len(roots) != 1 or not relative(parent_path).startswith(roots[0] + '/'):
+            raise ValueError('PARENT_MODULE_OWNER_MISMATCH')
+        if item['model'] in declared_module_exports() or parent_name in declared_module_exports():
+            raise ValueError('PARENT_MODEL_EXPORTED')
+        for key, path in [('model_source', model_path), ('parent_source', parent_path)]:
+            evidence = proof.get(key)
+            if not isinstance(evidence, dict) or evidence.get('source') != 'application' or reviewed_source(evidence)[0] != path:
+                raise ValueError('PARENT_EXACT_MODEL_SOURCE_REQUIRED')
+        schema_source = proof.get('schema_source')
+        if not isinstance(schema_source, dict) or schema_source.get('source') != 'application':
+            raise ValueError('PARENT_SCHEMA_SOURCE_REQUIRED')
+        schema_path, _ = reviewed_source(schema_source)
+        if not relative(schema_path).startswith(roots[0] + '/database/migrations/') or schema_path.suffix != '.sql':
+            raise ValueError('PARENT_NATIVE_SCHEMA_REQUIRED')
+        declarations = literal_create_declarations(schema_path.read_text(encoding='utf-8'))
+        child_sql, parent_sql = declarations.get(item['table']), declarations.get(parent['table'])
+        if child_sql is None or parent_sql is None:
+            raise ValueError('PARENT_SCHEMA_RECORD_MISSING')
+        if item['table'] in tenant_tables or _sql_tenant_column(item['table'], child_sql) or not _sql_tenant_column(parent['table'], parent_sql):
+            raise ValueError('PARENT_SCHEMA_SCOPE_CONTRADICTION')
+        column, parent_column = proof.get('column'), proof.get('parent_column')
+        if any(not isinstance(name, str) or re.fullmatch(r'[a-z][a-z0-9_]*', name) is None for name in (column, parent_column)):
+            raise ValueError('PARENT_COLUMN_IDENTITY')
+        child_parts = _sql_create_parts(item['table'], child_sql)
+        parent_parts = _sql_create_parts(parent['table'], parent_sql)
+        required_column = r'\s*`' + re.escape(column) + r'`\s+BIGINT\s+UNSIGNED\s+NOT\s+NULL\s*'
+        primary = r'\s*PRIMARY\s+KEY\s*\(\s*`' + re.escape(parent_column) + r'`\s*\)\s*'
+        relation = (r'\s*CONSTRAINT\s+`[a-z][a-z0-9_]*`\s+FOREIGN\s+KEY\s*\(\s*`' + re.escape(column)
+                    + r'`\s*\)\s+REFERENCES\s+`' + re.escape(parent['table']) + r'`\s*\(\s*`'
+                    + re.escape(parent_column) + r'`\s*\)\s+ON\s+DELETE\s+RESTRICT\s*')
+        if (sum(re.fullmatch(required_column, part, re.I) is not None for part in child_parts) != 1
+                or sum(re.fullmatch(primary, part, re.I) is not None for part in parent_parts) != 1
+                or sum(re.fullmatch(relation, part, re.I) is not None for part in child_parts) != 1):
+            raise ValueError('PARENT_FOREIGN_KEY_OR_REQUIRED_ID_MISMATCH')
+        if any(row['table'] == item['table'] for row in ownership['tenant_tables']):
+            raise ValueError('PARENT_CHILD_IS_NOT_A_DIRECT_TENANT_TABLE')
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return [f"parent_review[{item.get('model')}]: {exc}"]
+    return []
+
+
 def ownership_errors() -> list[str]:
     try:
         ownership = read_ownership()
@@ -1599,13 +1681,15 @@ def ownership_errors() -> list[str]:
                         errors.append(f"model_owners[{index}] ACCESS_REVIEW_REQUIRED: {model}")
                     else:
                         expected_base = {"explicit-tenant-column": "PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel", "explicit-edition-tenant": "PeanutAdmin\\Kernel\\Persistence\\Model\\EditionTenantModel"}.get(contract.get("scope"))
-                        if base != expected_base:
+                        if 'parent_review' in item:
+                            errors.extend(parent_model_review_errors(item, model_path, ownership, actual_tables, module_roots))
+                        elif base != expected_base:
                             errors.append(f"model_owners[{index}] {model} must extend {expected_base}; actual={base}")
                         entry_path, _ = reviewed_source(contract)
                         entry_modules = [key for root, key in module_roots.items() if relative(entry_path).startswith(root + "/")] if contract["source"] == "application" else []
                         if len(modules) != 1 or entry_modules != modules:
                             errors.append(f"model_owners[{index}] ACCESS_MODULE_OWNER_MISMATCH: {model}")
-                        if not any(row.get("table") == table and row.get("owner") == "tenant-gateway" and row.get("access_entry") == entry for row in table_rows):
+                        if 'parent_review' not in item and not any(row.get("table") == table and row.get("owner") == "tenant-gateway" and row.get("access_entry") == entry for row in table_rows):
                             errors.append(f"model_owners[{index}] ACCESS_TABLE_ENTRY_MISMATCH: {model}")
                 elif item['owner'] == 'instance' and base == 'think\\Model':
                     errors.extend(instance_model_review_errors(item, model_path, actual_tables, module_roots))
@@ -1613,6 +1697,8 @@ def ownership_errors() -> list[str]:
                     errors.append(f"model_owners[{index}] {model} must extend {expected}; actual={base}")
                 if 'instance_review' in item and not (item['owner'] == 'instance' and base == 'think\\Model'):
                     errors.append(f"model_owners[{index}] INSTANCE_REVIEW_NOT_APPLICABLE: {model}")
+                if 'parent_review' in item and not (item['owner'] == 'tenant-gateway' and base == 'think\\Model'):
+                    errors.append(f"model_owners[{index}] PARENT_REVIEW_NOT_APPLICABLE: {model}")
             except (OSError, ValueError) as exc:
                 errors.append(f"model_owners[{index}] {model}: {exc}")
     for index, item in enumerate(table_rows, 1):
