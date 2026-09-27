@@ -186,6 +186,20 @@ final class ModuleBoundaryInventoryTest extends TestCase
         }
     }
 
+    public function testIdentityDeclaresItsNativeCatalogTablesWithoutExportingPersistence(): void
+    {
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 2) . '/app/modules/official/identity/module.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach ([
+            \PeanutAdmin\Modules\Identity\Module\Model\ModuleInstallation::class => 'pa_module_installation',
+            \PeanutAdmin\Modules\Identity\Persistence\Model\MenuDefinition::class => 'pa_menu_definition',
+        ] as $model => $table) {
+            $properties = (new \ReflectionClass($model))->getDefaultProperties();
+            self::assertSame($table, 'pa_' . $properties['name']);
+            self::assertSame(1, count(array_keys($manifest['database']['owned_tables'], $table, true)), $table . ' must have one explicit owner declaration.');
+            self::assertNotContains($model, $manifest['contracts']['exports']);
+        }
+    }
+
     protected function tearDown(): void
     {
         foreach (array_keys($this->ownedFiles) as $file) {

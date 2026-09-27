@@ -7,6 +7,7 @@ namespace app\adminapi\services\dept;
 use PeanutAdmin\Modules\Identity\Organization\Application\DepartmentAdminService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
+use think\facade\Db;
 
 /** Compatibility department tree backed by native pa_department. */
 final class DeptApplicationService
@@ -56,39 +57,43 @@ final class DeptApplicationService
 
     public function add(TenantContext $context, array $params): bool
     {
-        // 写命令传递认证上下文，禁止由请求参数拼接租户或操作者身份。
-        $department = $this->service()->create(
-            $context,
-            self::code($params),
-            (string) $params['name'],
-            (int) $params['pid'] > 0 ? (int) $params['pid'] : null,
-            (int) ($params['sort'] ?? 0),
-        );
-        if ((int) $params['status'] === 0) {
-            $this->runtime->setStatus($department, 0);
-        }
-        return true;
+        // 元数据与状态属于同一个用户动作；失败时连同所属模块的审计/修订一起回滚。
+        return Db::transaction(function () use ($context, $params): bool {
+            $department = $this->departments->create(
+                $context,
+                self::code($params),
+                (string) $params['name'],
+                (int) $params['pid'] > 0 ? (int) $params['pid'] : null,
+                (int) ($params['sort'] ?? 0),
+            );
+            if ((int) $params['status'] === 0) {
+                $this->departments->setStatus($context, (int) $department['id'], (int) $department['revision'], false);
+            }
+            return true;
+        });
     }
 
     public function edit(TenantContext $context, array $params): bool
     {
-        $service = $this->service();
-        $current = $service->get($context->tenantId, (int) $params['id']);
-        $updated = $service->update(
-            $context,
-            (int) $params['id'],
-            (string) $current['code'],
-            (string) $params['name'],
-            (int) ($params['sort'] ?? 0),
-            (int) $current['revision'],
-        );
-        $parent = (int) $params['pid'] > 0 ? (int) $params['pid'] : null;
-        $currentParent = $updated['parent_id'] === null ? null : (int) $updated['parent_id'];
-        if ($parent !== $currentParent) {
-            $updated = $service->move($context, (int) $params['id'], $parent, (int) $updated['revision']);
-        }
-        $this->runtime->setStatus($updated, (int) $params['status']);
-        return true;
+        return Db::transaction(function () use ($context, $params): bool {
+            $service = $this->departments;
+            $current = $service->get($context->tenantId, (int) $params['id']);
+            $updated = $service->update(
+                $context,
+                (int) $params['id'],
+                (string) $current['code'],
+                (string) $params['name'],
+                (int) ($params['sort'] ?? 0),
+                (int) $current['revision'],
+            );
+            $parent = (int) $params['pid'] > 0 ? (int) $params['pid'] : null;
+            $currentParent = $updated['parent_id'] === null ? null : (int) $updated['parent_id'];
+            if ($parent !== $currentParent) {
+                $updated = $service->move($context, (int) $params['id'], $parent, (int) $updated['revision']);
+            }
+            $service->setStatus($context, (int) $params['id'], (int) $updated['revision'], (int) $params['status'] === 1);
+            return true;
+        });
     }
 
     public function delete(TenantContext $context, int $id): bool

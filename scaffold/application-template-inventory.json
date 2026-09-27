@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9074f9dd56e1e6430f13ee091c8354e5910db46dc58682d8b06e5ab917b741ff"
+            "source_sha256": "e34320367239f1a23fdd6752b33f8507b464d0a9d175d1cdd870f632686d9b69"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2369,7 +2369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54920da63e39b4b6937f171261ac19081879c365cd31e17a0d6205b2d1e232df"
+            "source_sha256": "a082b0d5bc827c263dcf20d5870bde1ed8e4df82d6ebef646c9a29df871b543c"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -4854,7 +4854,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1e32b41d0e88ea8eaf5f6349f620982dada1624dc1901ecf59878b3479a2a1af"
+            "source_sha256": "15506cdc083fae46c04502a3dda1b2d2b1cabd31d93e86b423f0411e1e94497d"
         },
         {
             "path": "server/app/adminapi/services/dept/JobsApplicationService.php",
@@ -10037,7 +10037,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f449fd4673fc54a33ef4358f6802a1c9e7658b5c751f0e1caa160994ad0a9e1"
+            "source_sha256": "9c4a8c73e5da9f06642764610ed9547e65e6aedce1afde321e7792e411573981"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -26744,6 +26744,19 @@
         {
             "path": "server/tests/Unit/DemoAccountPolicyBoundaryTest.php",
             "target": "server/tests/Unit/DemoAccountPolicyBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/DepartmentHostStatusBoundaryTest.php",
+            "target": "server/tests/Unit/DepartmentHostStatusBoundaryTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

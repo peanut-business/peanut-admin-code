@@ -27,6 +27,8 @@
       "pa_department",
       "pa_login_challenge",
       "pa_member_role",
+      "pa_menu_definition",
+      "pa_module_installation",
       "pa_permission",
       "pa_platform_audit_event",
       "pa_platform_operator",
