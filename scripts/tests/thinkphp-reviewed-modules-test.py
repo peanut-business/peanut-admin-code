@@ -1,0 +1,211 @@
+"""Exercise reviewed module registrations against explicit immutable sources.
+
+This inspects real source declarations and mutates only a temporary registration.
+It neither executes application PHP nor reads historical exception records.
+"""
+from __future__ import annotations
+
+import argparse
+from contextlib import ExitStack
+import copy
+import importlib.machinery
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+loader = importlib.machinery.SourceFileLoader('tpq_reviewed_modules', str(ROOT / 'scripts/check-thinkphp-architecture'))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+checker = importlib.util.module_from_spec(spec)
+loader.exec_module(checker)
+
+# Independent expectations, deliberately not generated from the registry or scanner.
+EXPECTED = {
+    'ArtifactRevision': ('artifact_revision', 'ThinkPhpArtifactRevisionRepository', {
+        'ArtifactRecord': 'pa_artifact', 'ArtifactRevisionRecord': 'pa_artifact_revision',
+    }),
+    'EntitlementQuota': ('entitlement_quota', 'ThinkPhpEntitlementQuotaRepository', {
+        'EntitlementGrantRecord': 'pa_entitlement_grant',
+        'EntitlementPolicyRevisionRecord': 'pa_entitlement_policy_revision',
+        'EntitlementReservationRecord': 'pa_entitlement_reservation',
+        'EntitlementUsageLedgerRecord': 'pa_entitlement_usage_ledger',
+        'EntitlementUsageWindowRecord': 'pa_entitlement_usage_window',
+    }),
+    'Workflow': ('workflow', 'ThinkPhpWorkflowRepository', {
+        'WorkflowDefinitionRecord': 'pa_workflow_definition',
+        'WorkflowDefinitionVersionRecord': 'pa_workflow_definition_version',
+        'WorkflowInstanceRecord': 'pa_workflow_instance',
+        'WorkflowWorkItemRecord': 'pa_workflow_work_item',
+        'WorkflowEventRecord': 'pa_workflow_event',
+    }),
+}
+OPTIONS = None
+
+
+class ReviewedModulesTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.stack = ExitStack()
+        cls.addClassCleanup(cls.stack.close)
+        cls.original = checker.read_ownership()
+        cls.stack.enter_context(checker.php_core_snapshot(OPTIONS.php_core_root, OPTIONS.php_core_ref))
+        cls.stack.enter_context(checker.ownership_source_snapshot(OPTIONS.source_ref))
+        cls.original_ownership = checker.OWNERSHIP
+        cls.original_history = checker.REGISTER
+        parent = ROOT / '.local/tmp/tpq-reviewed-modules'
+        parent.mkdir(parents=True, exist_ok=True)
+        cls.temp = cls.stack.enter_context(tempfile.TemporaryDirectory(dir=parent))
+        checker.OWNERSHIP = Path(cls.temp) / 'ownership.json'
+        checker.REGISTER = Path(cls.temp) / 'history-not-present.json'
+        cls.addClassCleanup(cls.restore)
+
+    @classmethod
+    def restore(cls):
+        checker.OWNERSHIP = cls.original_ownership
+        checker.REGISTER = cls.original_history
+
+    def setUp(self):
+        self.registry = copy.deepcopy(self.original)
+        self.save()
+
+    def save(self):
+        checker.OWNERSHIP.write_text(json.dumps(self.registry), encoding='utf-8')
+
+    def report(self):
+        return checker.current_ownership_report(OPTIONS.source_ref)
+
+    def test_all_twelve_records_match_native_model_table_and_module(self):
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tables = {row['table']: row for row in self.registry['tenant_tables']}
+        owners, _ = checker.module_table_inventory()
+        for name, (slug, repository, expected) in EXPECTED.items():
+            entry = f'PeanutAdmin\\Modules\\{name}\\Persistence\\{repository}'
+            for model, table in expected.items():
+                with self.subTest(model=model):
+                    fqcn = f'PeanutAdmin\\Modules\\{name}\\Persistence\\Model\\{model}'
+                    self.assertIn(fqcn, models)
+                    self.assertEqual('tenant-gateway', models[fqcn]['owner'])
+                    self.assertEqual(table, models[fqcn]['table'])
+                    self.assertEqual(entry, models[fqcn]['access_entry'])
+                    self.assertEqual(entry, tables[table]['access_entry'])
+                    self.assertEqual('peanut.' + slug.replace('_', '-'), owners[table])
+                    path = checker.composer_model_path(fqcn)
+                    self.assertEqual((fqcn, 'PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel'), checker.model_header(path))
+                    self.assertEqual(table, checker.source_model_table(path))
+
+    def test_gateways_and_scoped_dependencies_match_reviewed_bytes(self):
+        contracts = {f'PeanutAdmin\\Modules\\{name}\\Persistence\\{values[1]}': self.registry['access_contracts'][f'PeanutAdmin\\Modules\\{name}\\Persistence\\{values[1]}'] for name, values in EXPECTED.items()}
+        self.assertEqual([], checker.access_contract_errors(contracts))
+        for contract in contracts.values():
+            self.assertEqual('explicit-tenant-column', contract['scope'])
+            self.assertFalse(contract['pending_operations'])
+            self.assertFalse(contract['other_operations'])
+            self.assertTrue(any(x['path'].endswith('/Tenancy/TenantScope.php') for x in contract['support_sources']))
+
+    def test_registered_modules_do_not_turn_pending_scope_into_a_pass(self):
+        # A synthetic pending classification must remain visible even after all
+        # unrelated real backlog items have eventually been registered.
+        entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
+        contract = self.registry['access_contracts'][entry]
+        contract['tenant_operations'].remove('events')
+        contract['pending_operations'].append('events')
+        self.save()
+        report = self.report()
+        self.assertIn(report['status'], {'registration_failed', 'decision_required', 'check_incomplete'})
+        self.assertEqual('not_run', report['business_scan'])
+        self.assertIsNone(report['finding_count'])
+        self.assertFalse(report['historical_register_read'])
+        self.assertTrue(any(item['entry'] == entry and item['operations'] == ['events'] for item in report['needs_decision']))
+        selected = {f'PeanutAdmin\\Modules\\{name}\\Persistence\\Model\\{model}' for name, (_, _, models) in EXPECTED.items() for model in models}
+        self.assertFalse(selected.intersection(report['missing_models']))
+
+    def test_deleting_one_model_is_a_missing_registration_not_a_pass(self):
+        model = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\Model\\WorkflowEventRecord'
+        self.registry['model_owners'] = [r for r in self.registry['model_owners'] if r['model'] != model]
+        self.save()
+        self.assertIn(model, self.report()['missing_models'])
+
+    def test_foreign_table_assignment_is_rejected(self):
+        row = next(r for r in self.registry['model_owners'] if r['table'] == 'pa_artifact')
+        row['table'] = 'pa_workflow_instance'
+        self.save()
+        self.assertTrue(any('table declaration mismatch' in e for e in checker.ownership_errors()))
+        self.assertTrue(any('module table owner mismatch' in e for e in checker.ownership_errors()))
+
+    def test_foreign_gateway_is_not_a_same_module_access_entry(self):
+        row = next(r for r in self.registry['model_owners'] if r['table'] == 'pa_artifact')
+        row['access_entry'] = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
+        self.save()
+        self.assertTrue(any('ACCESS_MODULE_OWNER' in e for e in checker.ownership_errors()))
+
+    def test_scope_review_digest_tampering_invalidates_registration(self):
+        entry = 'PeanutAdmin\\Modules\\ArtifactRevision\\Persistence\\ThinkPhpArtifactRevisionRepository'
+        self.registry['access_contracts'][entry]['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in e for e in checker.ownership_errors()))
+
+    def test_notification_six_records_have_exact_private_owner_and_table(self):
+        expected = {
+            'NotificationTemplateRecord': 'pa_notification_template',
+            'NotificationMessageRecord': 'pa_notification_message',
+            'NotificationAttachmentRecord': 'pa_notification_attachment',
+            'NotificationOutboxRecord': 'pa_notification_outbox',
+            'NotificationEventRecord': 'pa_notification_event',
+            'SmsRateBucketRecord': 'pa_sms_rate_bucket',
+        }
+        entry = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore'
+        models = {row['model']: row for row in self.registry['model_owners']}
+        tables = {row['table']: row for row in self.registry['tenant_tables']}
+        native, _ = checker.module_table_inventory()
+        self.assertNotIn(entry, checker.declared_module_exports())
+        for name, table in expected.items():
+            with self.subTest(model=name):
+                model = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\Model\\' + name
+                self.assertEqual(table, models[model]['table'])
+                self.assertEqual('tenant-gateway', models[model]['owner'])
+                self.assertEqual(entry, models[model]['access_entry'])
+                self.assertEqual(entry, tables[table]['access_entry'])
+                self.assertEqual('official.notification', native[table])
+                self.assertEqual((model, 'PeanutAdmin\\Kernel\\Persistence\\Model\\TenantModel'), checker.model_header(checker.composer_model_path(model)))
+
+    def test_notification_review_includes_recipient_and_leased_worker_callers(self):
+        entry = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore'
+        contract = self.registry['access_contracts'][entry]
+        self.assertEqual([], checker.access_contract_errors({entry: contract}))
+        paths = {Path(item['path']).name for item in contract['support_sources']}
+        self.assertTrue({'NotificationService.php', 'NotificationInboxService.php', 'SmsTaskHandler.php', 'InboxTaskHandler.php'}.issubset(paths))
+        self.assertFalse(contract['other_operations'])
+        self.assertFalse(contract['pending_operations'])
+
+    def test_notification_explicit_predicates_are_not_automatic_orm_scope(self):
+        row = next(item for item in self.registry['model_owners'] if item['table'] == 'pa_notification_message')
+        row['owner'] = 'tenant-orm'
+        self.save()
+        self.assertTrue(any('must extend TenantOwnedModel' in error and 'NotificationMessageRecord' in error for error in checker.ownership_errors()))
+
+    def test_worker_review_drift_requires_revalidation(self):
+        entry = 'PeanutAdmin\\Modules\\Notification\\Delivery\\Persistence\\NotificationStore'
+        dependency = next(item for item in self.registry['access_contracts'][entry]['support_sources'] if item['path'].endswith('/SmsTaskHandler.php'))
+        dependency['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in error for error in checker.ownership_errors()))
+
+    def test_workflow_trusted_caller_is_in_the_review_boundary(self):
+        entry = 'PeanutAdmin\\Modules\\Workflow\\Persistence\\ThinkPhpWorkflowRepository'
+        support = self.registry['access_contracts'][entry]['support_sources']
+        caller = next(item for item in support if item['path'].endswith('/Application/WorkflowRuntime.php'))
+        checker.reviewed_source(caller)
+        caller['sha256'] = '0' * 64
+        self.save()
+        self.assertTrue(any('SOURCE_REVIEW_STALE' in e for e in checker.ownership_errors()))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source-ref', required=True)
+    parser.add_argument('--php-core-root', required=True)
+    parser.add_argument('--php-core-ref', required=True)
+    OPTIONS, rest = parser.parse_known_args()
+    unittest.main(argv=[__file__, *rest])

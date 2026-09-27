@@ -99,6 +99,10 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 从Code根执行 `node --test scripts/tests/standard-remaining-boundaries-test.mjs`，显式提供 `WEB_CORE_SOURCE_ROOT` 与 `UNIAPP_DEPENDENCY_ROOT`。使用真实路由/装修API/页面脚本、实际Vue和原生DCloud声明；验证原始路由集合、合法PHP空对象表示、嵌套编辑与保存、非法响应、选择器输入及SDK参数。支付渠道仅映射到原生提供者标识，测试SDK为合成回调，不触发支付，后端仍负责确认资金终态。此项不代替模板完整渲染、真实浏览器或终端验收。
 
+## uni-app 页面生命周期与原生入口
+
+运行 `node --test uniapp/tests/*.test.mjs` 核对首页、资讯和个人中心的迟到响应隔离、隐藏/卸载清理、会话替换、加载/失败/重试以及原生页面和精确导入路径。行为测试执行真实SFC脚本、Vue和相关Pinia状态，网络、原生导航及页面生命周期触发使用明确替身；另用 `npm --prefix uniapp run type-check` 和 `npm --prefix uniapp run build:h5` 核完整原生类型/模板构建。记录实际Core来源，锁内包或开发源码映射分别说明；这些检查不等于真机、小程序、浏览器或后端验收。
+
 ## PHP 源码布局与模块边界
 
 从Code根执行 `php scripts/check-source-layout.php --root=<Code根> --root=<PHP Core根> --root=<Web Core根>`，按Git登记的精确路径及Composer映射核生产类型声明和已知类型引用大小写；显式加载的独立升级运行时不冒充PSR-4类型。执行 `php scripts/check-module-boundaries.php` 前按准备步骤安装本目录明确锁定的nikic/php-parser；检查使用当前module.json的公开类型、表归属和模块自己的Composer源码映射，PHP AST只解析不执行业务，检查跨模块静态类型与字面表访问，不维护另一份手工归属清单。重复归属、缺失源码映射和真实违规均失败；语法树不能证明任意拼接SQL、动态类名或运行授权。
@@ -108,6 +112,12 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 增加 `--include-host` 时，同一检查器还读取 `server/composer.json` 的原生 `app\\` 映射，覆盖宿主 PHP；不将模块迁移脚本算作宿主源码，也不重复扫描模块。应用组合根 `server/app/AppService.php` 的类型装配单独计数，但组合根不因此获得任意私表访问豁免；其他宿主发现的未公开类型和私表访问仍须逐项审阅，不能把原模块-only结果称为宿主已经覆盖。检查器保持语法树只读、不执行扫描源码；缺失映射或越出宿主目录不能空集合通过。
 
 旧 TPQ 的模型路径按当前 `server/composer.json` 最长 PSR-4 前缀解析，核精确大小写、路径边界和重复映射；已公开的业务类以 `module.json` 声明识别，不仅凭 `Service` 目录名判为内部。对应正反例执行 `python3 scripts/tests/thinkphp-source-resolution-test.py`。这些修复不自动补齐历史模型/表登记，也不更新旧问题清单的验收状态；CLI 的登记失败与纯规则/框架行为通过须分别记录。
+
+模型发现包含模块 `Model/` 下的嵌套目录；所有者自己的表访问只按当前 Composer 解析得到的精确源文件识别，不按命名空间拼接猜测路径。缺失映射不授予例外，歧义映射仍失败。执行 `python3 scripts/tests/thinkphp-ownership-registration-test.py` 验证嵌套发现、原生映射、自身与其他消费者的区别，以及登记失败时不扫描、不刷新历史问题状态。该测试只使用本工作树临时文件，不执行被扫描的 PHP 或访问数据库。
+
+`python3 scripts/check-thinkphp-architecture --json` 在归属登记不一致时返回 `status=registration_failed`、具体 `registration_errors` 和退出码2；此时 `finding_count=null` 表示源码规则扫描尚未执行，不表示零问题。默认文本模式继续输出 `REGISTRATION_ERROR`。修正已迁移类的登记位置不自动批准新增模型的数据范围、补全所有表或关闭历史问题，现行缺项须按对应源与安全合同逐项核实。
+
+固定源码归属检查使用 `python3 scripts/check-thinkphp-architecture --ownership-only --source-ref=<已推送的完整提交SHA> --json`，在当前检查器工作树的登记上核对该提交的原始源码；只读取模型、模块、Schema和Composer声明，不读取或刷新历史问题/例外。快照必须与Git树和原始blob一致，不能用移动分支名、export-ignore或替换对象隐去源码。退出2表示配置或登记未闭合，`business_scan=not_run`、`finding_count=null` 不是业务零问题；受限模型字面量和PHP Schema解析不证明运行授权或真实数据库。对应回归为 `python3 scripts/tests/thinkphp-current-ownership-test.py`；既有历史流程及产品资格分别处理。
 
 ## 结果范围
 
