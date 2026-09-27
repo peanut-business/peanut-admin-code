@@ -86,12 +86,17 @@ final readonly class LifecycleIdentity implements PlatformOperatorIdentityPort
 
 function lifecycleApplicationBootstrap(): ApplicationTenantBootstrapService
 {
-    $contexts = new ExecutionContextStore();
+    $contexts = \think\Container::getInstance()->make(ExecutionContextStore::class);
     $current = new CurrentExecutionContext($contexts);
+    $policy = new MultiTenantDataScopePolicy($current);
+    // The isolated fixture replaces AppService boot, so it must retain the same native maker injection.
+    \think\Model::maker(static function (\think\Model $model) use ($policy): void {
+        if ($model instanceof \app\common\model\TenantOwnedModel) {
+            $model->setDataScopePolicy($policy);
+        }
+    });
     $directory = new AdminDirectoryQuery($current);
-    $settings = new TenantSettingService(new ThinkPhpTenantSettingsProvider(
-        new MultiTenantDataScopePolicy($current),
-    ));
+    $settings = new TenantSettingService(new ThinkPhpTenantSettingsProvider($policy));
     return new ApplicationTenantBootstrapService(
         new NotificationBootstrapService(),
         new TaskBootstrapService(),
