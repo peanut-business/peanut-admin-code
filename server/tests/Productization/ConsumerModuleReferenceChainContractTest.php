@@ -40,18 +40,27 @@ $execution = referenceChainContractSection($source, 'def run_chain(', 'def parse
 foreach ([
     'extract_installer(installer_package, installer_artifact, author)',
     'extract_installer(installer_package, installer_artifact, consumer)',
-    'sha256(installer_package) != args.installer_sha256',
-    'sha256(installer_manifest) != args.installer_manifest_sha256',
-    'installer_artifact.get("protocol") != "peanut.edition-installer.v1"',
-    'installer_artifact.get("source", {}).get("commit") != args.candidate',
-    'installer_artifact.get("source", {}).get("tree") != candidate_tree',
-    'installer_artifact.get("edition", {}).get("name") != args.edition',
+    'artifact_input = validate_installer_artifact(',
+    '"artifact_input": artifact_input',
     '("installer-archive-sha256", args.installer_sha256)',
     '("installer-manifest-sha256", args.installer_manifest_sha256)',
 ] as $required) {
     referenceChainContractExpect(
         str_contains($execution, $required),
         'fixed installer identity or shared A/B input is not checked: ' . $required,
+    );
+}
+foreach ([
+    'protocol != "peanut.edition-installer.v1"',
+    'protocol != "peanut.internal-edition-candidate.v1"',
+    'installer_artifact.get("scope") != "internal-candidate"',
+    'installer_artifact.get("formal_release", {}).get("eligible") is not False',
+    'archive_file.getmember(expected_member)',
+    'internal Edition candidate Core archive digest differs',
+] as $required) {
+    referenceChainContractExpect(
+        str_contains($source, $required),
+        'formal/internal installer protocol boundary is not checked: ' . $required,
     );
 }
 referenceChainContractExpect(
@@ -67,6 +76,10 @@ foreach (['--installer-package', '--installer-manifest', '--installer-sha256', '
         'a fixed installer input is not required: ' . $option,
     );
 }
+referenceChainContractExpect(
+    str_contains($arguments, 'parser.add_argument("--installer-mode", choices=("formal", "internal-candidate"), default="formal")'),
+    'internal candidates must require an explicit non-default installer mode',
+);
 
 $helper = referenceChainContractSection($source, 'def lifecycle_helper()', 'def helper_action(');
 foreach ([
@@ -215,7 +228,7 @@ fclose($archivePipes[1]);
 fclose($archivePipes[2]);
 referenceChainContractExpect(
     proc_close($archiveProcess) === 0
-        && str_contains((string) $archiveOutput, 'CONSUMER-INSTALLER-ARCHIVE-001 passed (9 cases)'),
+        && str_contains((string) $archiveOutput, 'CONSUMER-INSTALLER-ARCHIVE-001 passed (15 cases)'),
     'fixed installer archive contract failed: ' . $archiveError,
 );
 echo $archiveOutput;

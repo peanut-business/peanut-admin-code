@@ -362,12 +362,14 @@ def extract_installer(package: Path, artifact: dict[str, Any], target: Path) -> 
         fail("Edition installer archive root is invalid")
     if archive.get("sha256") != sha256(package):
         fail("Edition installer archive digest differs from its fixed manifest")
+    expect(not target.exists() and not target.is_symlink(), "Edition installer target already exists")
     stage = target.parent / ("." + target.name + ".extract-" + secrets.token_hex(6))
     stage.mkdir(mode=0o700)
     try:
         with tarfile.open(package, "r:gz") as archive_file:
             members = archive_file.getmembers()
             expect(bool(members), "Edition installer archive is empty")
+            expect(len({member.name for member in members}) == len(members), "Edition installer contains duplicate members")
             for member in members:
                 parts = Path(member.name).parts
                 expect(parts and parts[0] == archive_root and ".." not in parts
@@ -377,13 +379,102 @@ def extract_installer(package: Path, artifact: dict[str, Any], target: Path) -> 
             archive_file.extractall(stage, filter="data")
         extracted = stage / archive_root
         expect(extracted.is_dir() and not extracted.is_symlink(), "Edition installer root is missing")
+        application_manifest = extracted / ".peanut/application-manifest.json"
+        expect(application_manifest.is_file() and not application_manifest.is_symlink()
+               and artifact.get("application", {}).get("manifest_sha256") == sha256(application_manifest),
+               "Edition installer application manifest digest is invalid")
+        marker = extracted / ".peanut/internal-candidate.json"
+        if artifact.get("protocol") == "peanut.internal-edition-candidate.v1":
+            import runpy
+            contract = runpy.run_path(str(ROOT / "scripts/internal_candidate_contract.py"))
+            try:
+                contract["verify"](extracted, artifact)
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                fail("internal Edition candidate integrity failed: " + str(error))
+        else:
+            expect(not marker.exists(), "formal Edition installer contains internal candidate marker")
+        expect(not target.exists() and not target.is_symlink(), "Edition installer target already exists")
         os.replace(extracted, target)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
-    application_manifest = target / ".peanut/application-manifest.json"
-    expect(application_manifest.is_file() and not application_manifest.is_symlink()
-           and artifact.get("application", {}).get("manifest_sha256") == sha256(application_manifest),
-           "Edition installer application manifest digest is invalid")
+
+
+def validate_installer_artifact(
+    args: argparse.Namespace,
+    candidate_tree: str,
+    installer_package: Path,
+    installer_manifest: Path,
+    installer_artifact: dict[str, Any],
+) -> dict[str, Any]:
+    if not re.fullmatch(r"[a-f0-9]{64}", args.installer_sha256) \
+            or not re.fullmatch(r"[a-f0-9]{64}", args.installer_manifest_sha256) \
+            or sha256(installer_package) != args.installer_sha256 \
+            or sha256(installer_manifest) != args.installer_manifest_sha256:
+        fail("fixed Edition installer hashes do not match the lease-bound inputs")
+    protocol = installer_artifact.get("protocol")
+    common_valid = (
+        installer_artifact.get("schema_version") == 1
+        and installer_artifact.get("edition", {}).get("name") == args.edition
+        and installer_artifact.get("source", {}).get("commit") == args.candidate
+        and installer_artifact.get("source", {}).get("tree") == candidate_tree
+        and installer_artifact.get("archive", {}).get("filename") == installer_package.name
+    )
+    if args.installer_mode == "formal":
+        if not common_valid or protocol != "peanut.edition-installer.v1":
+            fail("fixed Edition installer identity does not match candidate/tree/edition")
+    elif args.installer_mode == "internal-candidate":
+        core = installer_artifact.get("core_php_archive", {})
+        core_path = core.get("path_in_archive") if isinstance(core, dict) else None
+        if (
+            not common_valid
+            or protocol != "peanut.internal-edition-candidate.v1"
+            or installer_artifact.get("scope") != "internal-candidate"
+            or installer_artifact.get("status") == "formal-release"
+            or not isinstance(core, dict)
+            or core.get("package") != "peanut-admin/core"
+            or not isinstance(core_path, str)
+            or core_path.startswith("/")
+            or "\\" in core_path
+            or ".." in Path(core_path).parts
+            or not re.fullmatch(r"[a-f0-9]{64}", str(core.get("sha256", "")))
+            or not re.fullmatch(r"[a-f0-9]{40}", str(core.get("sha1", "")))
+            or not re.fullmatch(r"[a-f0-9]{40}", str(core.get("source_reference", "")))
+            or installer_artifact.get("formal_release", {}).get("eligible") is not False
+        ):
+            fail("internal Edition candidate identity does not match candidate/tree/edition")
+        archive_root = installer_artifact.get("archive", {}).get("root")
+        if not isinstance(archive_root, str):
+            fail("internal Edition candidate identity does not match candidate/tree/edition")
+        expected_member = archive_root + "/" + core_path
+        with tarfile.open(installer_package, "r:gz") as archive_file:
+            try:
+                member = archive_file.getmember(expected_member)
+            except KeyError:
+                fail("internal Edition candidate Core archive is missing")
+            expect(member.isfile() and not member.issym() and not member.islnk(),
+                   "internal Edition candidate Core archive is unsafe")
+            stream = archive_file.extractfile(member)
+            expect(stream is not None, "internal Edition candidate Core archive is unreadable")
+            with stream:
+                data = stream.read()
+            expect(hashlib.sha256(data).hexdigest() == core.get("sha256")
+                   and hashlib.sha1(data).hexdigest() == core.get("sha1"),
+                   "internal Edition candidate Core archive digest differs")
+    else:
+        fail("installer mode is invalid")
+    archive = installer_artifact.get("archive", {})
+    application = installer_artifact.get("application", {})
+    return {
+        "mode": args.installer_mode,
+        "protocol": protocol,
+        "archive_path": str(installer_package),
+        "manifest_path": str(installer_manifest),
+        "archive_sha256": args.installer_sha256,
+        "manifest_sha256": args.installer_manifest_sha256,
+        "archive_root": archive.get("root"),
+        "application_manifest_sha256": application.get("manifest_sha256"),
+        "formal_release_eligible": installer_artifact.get("formal_release", {}).get("eligible", args.installer_mode == "formal"),
+    }
 
 
 def install_dependencies(
@@ -1194,20 +1285,13 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         if not path.is_absolute() or not path.is_file() or path.is_symlink():
             fail(f"{label} must name one regular absolute file")
     installer_artifact = read_json(installer_manifest)
-    if not re.fullmatch(r"[a-f0-9]{64}", args.installer_sha256) \
-            or not re.fullmatch(r"[a-f0-9]{64}", args.installer_manifest_sha256) \
-            or sha256(installer_package) != args.installer_sha256 \
-            or sha256(installer_manifest) != args.installer_manifest_sha256:
-        fail("fixed Edition installer hashes do not match the lease-bound inputs")
-    if (
-        installer_artifact.get("schema_version") != 1
-        or installer_artifact.get("protocol") != "peanut.edition-installer.v1"
-        or installer_artifact.get("edition", {}).get("name") != args.edition
-        or installer_artifact.get("source", {}).get("commit") != args.candidate
-        or installer_artifact.get("source", {}).get("tree") != candidate_tree
-        or installer_artifact.get("archive", {}).get("filename") != installer_package.name
-    ):
-        fail("fixed Edition installer identity does not match candidate/tree/edition")
+    artifact_input = validate_installer_artifact(
+        args,
+        candidate_tree,
+        installer_package,
+        installer_manifest,
+        installer_artifact,
+    )
     if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", args.database):
         fail("database name is invalid")
     registered_database(args.database_resource, args.endpoint, args.database)
@@ -1596,6 +1680,8 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             "candidate_tree": candidate_tree,
             "installer_archive_sha256": sha256(installer_package),
             "installer_manifest_sha256": sha256(installer_manifest),
+            "artifact_input": artifact_input,
+            "formal_installer_input": args.installer_mode == "formal",
             "lease": args.lease,
             "database_resource_id": args.database_resource,
             "endpoint_id": args.endpoint,
@@ -1634,7 +1720,8 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "member_authorization_entry": "native_non_root_member_grant_revoke_cross_tenant_denied",
                 "business_data_entry": "module_contract_service",
                 "source_private_fixture_copy": "not_used",
-                "generation_mode": "fixed_edition_installer_package_direct",
+                "generation_mode": ("internal_candidate_backend_package_direct" if args.installer_mode == "internal-candidate"
+                                    else "fixed_edition_installer_package_direct"),
             },
             "snapshots": {
                 "after_update": after_update,
@@ -1671,6 +1758,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--installer-manifest", required=True, help="Absolute external manifest for the fixed installer archive")
     parser.add_argument("--installer-sha256", required=True, help="Lease-bound SHA-256 of the fixed installer archive")
     parser.add_argument("--installer-manifest-sha256", required=True, help="Lease-bound SHA-256 of the external installer manifest")
+    parser.add_argument("--installer-mode", choices=("formal", "internal-candidate"), default="formal")
     parser.add_argument("--edition", choices=("multi-tenant",), default="multi-tenant")
     parser.add_argument("--allow-dependency-network", action="store_true", help="Permit locked package downloads; no dependency updates")
     parser.add_argument("--keep", action="store_true", help="Keep the lease-owned output after success")
