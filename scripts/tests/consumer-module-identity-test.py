@@ -105,7 +105,13 @@ for required in [
 source = (ROOT / "scripts/consumer-module-reference-chain").read_text(encoding="utf-8")
 assert '--identity-context-file' not in source
 assert "identity_context_file" in source and "written_0600" in source
-assert '"member_authorization_entry": "tenant_owner_session_only_non_root_member_not_proven"' in source
+assert '"member_authorization_entry": "native_non_root_member_grant_revoke_cross_tenant_denied"' in source
+assert "native_non_root_member_grant_revoke" in helper
+assert "native_non_root_member_cross_tenant_denied" in helper
+assert "REFERENCE_CHAIN_PERMISSION_DENIED" in helper
+assert "CR21_REFERENCE_MEMBER_NOT_ORDINARY" in helper
+assert "CR21_REFERENCE_MEMBER_REVOKE_NOT_VISIBLE" in helper
+assert "CR21_REFERENCE_MEMBER_B_CROSSTENANT_AUTHORIZATION_LEAK" in helper
 assert "issued_identity = helper_action(" in source
 assert "install_v1 = package_install(" in source
 assert source.index("issued_identity = helper_action(") < source.index("install_v1 = package_install(")
@@ -206,4 +212,4 @@ echo json_encode(['status' => 'passed', 'checks' => $checks, 'scope' => 'generat
     assert result["status"] == "passed"
     print(f"CONSUMER-IDENTITY-NATIVE-001 passed ({len(result['checks'])} checks)")
 
-print("CONSUMER-IDENTITY-CONTRACT-001 passed (12 checks)")
+print("CONSUMER-IDENTITY-CONTRACT-001 passed (18 checks)")

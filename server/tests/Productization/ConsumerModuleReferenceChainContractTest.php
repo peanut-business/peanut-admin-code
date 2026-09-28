@@ -117,7 +117,14 @@ foreach ([
     'CR21_IDENTITY_CONTEXT_TENANT_MISMATCH',
     'native_auth_service_access_tokens_from_private_file',
     'native_provision_accept_activate',
-    'tenant_owner_session_only_non_root_member_not_proven',
+    'native_non_root_member_grant_revoke',
+    'native_non_root_member_cross_tenant_denied',
+    'native_non_root_member_grant_revoke_cross_tenant_denied',
+    'CR21_REFERENCE_MEMBER_NOT_ORDINARY',
+    'CR21_REFERENCE_MEMBER_GRANT_NOT_VISIBLE',
+    'CR21_REFERENCE_MEMBER_REVOKE_NOT_VISIBLE',
+    'CR21_REFERENCE_MEMBER_B_CROSSTENANT_AUTHORIZATION_LEAK',
+    'REFERENCE_CHAIN_PERMISSION_DENIED',
 ] as $required) {
     referenceChainContractExpect(
         str_contains($source, $required),
@@ -185,9 +192,13 @@ referenceChainContractExpect(
 referenceChainContractExpect(
     str_contains($source, '"tenant_fixture_entry": "native_provision_accept_activate"')
         && str_contains($source, '"identity_context_entry": "native_auth_service_access_tokens_from_private_file"')
-        && str_contains($source, '"member_authorization_entry": "tenant_owner_session_only_non_root_member_not_proven"')
+        && str_contains($source, '"member_authorization_entry": "native_non_root_member_grant_revoke_cross_tenant_denied"')
         && str_contains($source, '"business_data_entry": "module_contract_service"'),
     'the summary does not distinguish fixture state from product/service acceptance',
+);
+referenceChainContractExpect(
+    !str_contains($source, 'tenant_owner_session_only_non_root_member_not_proven'),
+    'the reference chain still reports ordinary non-root member authorization as unproven',
 );
 
 // Execute the real archive extractor on owned positive/negative fixture archives.
@@ -262,9 +273,28 @@ fclose($identityPipes[2]);
 referenceChainContractExpect(
     proc_close($identityProcess) === 0
     && str_contains((string) $identityOutput, 'CONSUMER-IDENTITY-NATIVE-001 passed (23 checks)')
-    && str_contains((string) $identityOutput, 'CONSUMER-IDENTITY-CONTRACT-001 passed (12 checks)'),
+    && str_contains((string) $identityOutput, 'CONSUMER-IDENTITY-CONTRACT-001 passed (18 checks)'),
     'reference-chain identity boundary failed: ' . $identityError,
 );
 echo $identityOutput;
+
+// Run an independent native service chain for ordinary non-root member grant/revoke.
+$memberRuntimeProcess = proc_open(
+    ['php', $root . '/server/tests/Productization/ConsumerModuleMemberRuntimeTest.php'],
+    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+    $memberRuntimePipes,
+    $root,
+);
+referenceChainContractExpect(is_resource($memberRuntimeProcess), 'member runtime runner is unavailable');
+$memberRuntimeOutput = stream_get_contents($memberRuntimePipes[1]);
+$memberRuntimeError = stream_get_contents($memberRuntimePipes[2]);
+fclose($memberRuntimePipes[1]);
+fclose($memberRuntimePipes[2]);
+referenceChainContractExpect(
+    proc_close($memberRuntimeProcess) === 0
+    && str_contains((string) $memberRuntimeOutput, 'CONSUMER-MEMBER-RUNTIME-001 passed (7 checks)'),
+    'ordinary member runtime authorization failed: ' . $memberRuntimeError,
+);
+echo $memberRuntimeOutput;
 
 echo "CONSUMER-MODULE-REFERENCE-CHAIN-CONTRACT-001 passed\n";

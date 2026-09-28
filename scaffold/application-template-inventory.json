@@ -3734,7 +3734,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7bc68550e6d1c81f4f344393fc45f9d1bf21fb8f5c25d731c54ce0ec039d1a2d"
+            "source_sha256": "5e76496e80c4fcddc4172ebfc9b2266dcf0d836f7411d1d549f32d229ba79451"
         },
         {
             "path": "scripts/tests/consumer-module-installer-test.py",
@@ -26001,6 +26001,19 @@
         {
             "path": "server/tests/Productization/CombinedUpgradePolicyTest.php",
             "target": "server/tests/Productization/CombinedUpgradePolicyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ConsumerModuleMemberRuntimeTest.php",
+            "target": "server/tests/Productization/ConsumerModuleMemberRuntimeTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

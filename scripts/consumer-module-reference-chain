@@ -770,6 +770,22 @@ $tenantToken = static function (array $bundle, string $tenantCode) use ($require
 $requestId = static function (string $audience): string {
     return 'cr21-' . $audience . '-' . bin2hex(random_bytes(8));
 };
+$expectReferencePermissionDenied = static function (callable $operation, PDO $pdo): void {
+    $before = (int)$pdo->query('SELECT COUNT(*) FROM pa_acme_reference_chain_record')->fetchColumn();
+    try {
+        $operation();
+    } catch (RuntimeException $error) {
+        if ($error->getMessage() !== 'REFERENCE_CHAIN_PERMISSION_DENIED') {
+            throw $error;
+        }
+        $after = (int)$pdo->query('SELECT COUNT(*) FROM pa_acme_reference_chain_record')->fetchColumn();
+        if ($after !== $before) {
+            throw new RuntimeException('CR21_REFERENCE_CHAIN_DENIAL_MUTATED_DATA');
+        }
+        return;
+    }
+    throw new RuntimeException('CR21_REFERENCE_CHAIN_PERMISSION_DENIAL_MISSING');
+};
 $writeIdentityBundle = static function (string $path, array $bundle): void {
     if ($path === '') {
         throw new RuntimeException('CR21_IDENTITY_CONTEXT_OUTPUT_REQUIRED');
@@ -920,21 +936,131 @@ if ($action === 'provision-default') {
     $tenantId = (int)$pdo->query("SELECT id FROM pa_tenant WHERE code='default' AND status='active'")->fetchColumn();
     $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
         ->enableModule($platformContext(), $tenantId, $module, [], 'manual', null, null, 'CR21 formal service enablement');
-    $context = $tenantContext('default');
+    $ownerContext = $tenantContext('default');
     $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
-    $role = $roles->create($context, 'reference-owner', 'Reference Owner', 'CR21 service-owned role');
-    $role = $roles->replacePermissions($tenantContext('default'), (int)$role['id'], ['acme.reference-chain.write'], (int)$role['authorization_revision']);
-    $context = $tenantContext('default');
+    $members = $app->make(app\common\runtime\org\TenantAdminRuntime::class)->members();
+    $authorization = $app->make(app\common\contract\authorization\AdminAuthorizationQuery::class);
+    $tenantAuth = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+    $role = $roles->create($ownerContext, 'reference-member', 'Reference Member', 'CR21 non-root member role');
+    $memberEmail = 'cr21-reference-member-' . bin2hex(random_bytes(4)) . '@example.test';
+    $memberPassword = bin2hex(random_bytes(18)) . 'Aa1!';
+    $member = $members->createAdministrator(
+        $ownerContext,
+        $memberEmail,
+        'CR21 Reference Member',
+        $memberPassword,
+        null,
+        [(int)$role['id']],
+        true,
+    );
+    $memberLogin = $tenantAuth->login(
+        $memberEmail,
+        $memberPassword,
+        'default',
+        '127.0.0.1',
+        'CR21 reference chain member',
+        $requestId('tenant-login-member'),
+    );
+    if (!$memberLogin instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $memberContext = $tenantAuth->context($memberLogin->tokens->access->expose(), $requestId('tenant-member-context'));
+    $memberPrincipal = $authorization->principal($memberContext);
+    if ($memberPrincipal->root || $memberPrincipal->tenantId !== $tenantId
+        || $memberPrincipal->id !== (int)$member['id']
+        || in_array('core.tenant-owner', array_column($memberPrincipal->roles, 'key'), true)) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_NOT_ORDINARY');
+    }
     $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class);
-    $created = $records->create($context, 'tenant-a');
-    echo json_encode($snapshot() + ['service_write' => $created, 'service_read' => $records->list($context), 'role_service' => $role], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-a-denied-before-grant'), $pdo);
+    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['revision']);
+    $grantedPrincipal = $authorization->principal($memberContext);
+    $grantDecision = $authorization->decide($memberContext, $grantedPrincipal, 'acme.reference-chain.write');
+    if ($grantedPrincipal->root || !$grantDecision->allowed || !in_array('acme.reference-chain.write', $role['permission_keys'] ?? [], true)) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_GRANT_NOT_VISIBLE');
+    }
+    $created = $records->create($memberContext, 'tenant-a');
+    $read = $records->list($memberContext);
+    if ((int)($created['tenant_id'] ?? 0) !== $tenantId || count($read['items'] ?? []) !== 1) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_SERVICE_READ_WRITE_INVALID');
+    }
+    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], [], (int)$role['revision']);
+    $revokedPrincipal = $authorization->principal($memberContext);
+    $revokeDecision = $authorization->decide($memberContext, $revokedPrincipal, 'acme.reference-chain.write');
+    if ($revokedPrincipal->root || $revokeDecision->allowed || ($role['permission_keys'] ?? []) !== []) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_REVOKE_NOT_VISIBLE');
+    }
+    $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-a-denied-after-revoke'), $pdo);
+    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['revision']);
+    echo json_encode($snapshot() + [
+        'service_write' => $created,
+        'service_read' => $read,
+        'role_service' => $role,
+        'member_authorization' => [
+            'entry' => 'native_non_root_member_grant_revoke',
+            'member_id' => (int)$member['id'],
+            'account_id' => (int)$memberContext->accountId,
+            'tenant_id' => (int)$memberContext->tenantId,
+            'root' => $memberPrincipal->root,
+            'role_keys' => array_values(array_column($memberPrincipal->roles, 'key')),
+            'before_grant_denied_zero_write' => true,
+            'grant_visible' => true,
+            'service_read_write' => true,
+            'revoke_denied_zero_write' => true,
+        ],
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
 if ($action === 'enable-b') {
     $tenantId = (int)$pdo->query("SELECT id FROM pa_tenant WHERE code='tenant-b' AND status='active'")->fetchColumn();
     $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
         ->enableModule($platformContext(), $tenantId, $module, [], 'manual', null, null, 'CR21 second Tenant enablement');
-    echo json_encode($snapshot(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    $ownerContext = $tenantContext('tenant-b');
+    $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
+    $members = $app->make(app\common\runtime\org\TenantAdminRuntime::class)->members();
+    $authorization = $app->make(app\common\contract\authorization\AdminAuthorizationQuery::class);
+    $tenantAuth = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+    $role = $roles->create($ownerContext, 'reference-member-b', 'Reference Member B', 'CR21 Tenant B no-permission role');
+    $memberEmail = 'cr21-reference-member-b-' . bin2hex(random_bytes(4)) . '@example.test';
+    $memberPassword = bin2hex(random_bytes(18)) . 'Aa1!';
+    $member = $members->createAdministrator(
+        $ownerContext,
+        $memberEmail,
+        'CR21 Reference Member B',
+        $memberPassword,
+        null,
+        [(int)$role['id']],
+        true,
+    );
+    $memberLogin = $tenantAuth->login(
+        $memberEmail,
+        $memberPassword,
+        'tenant-b',
+        '127.0.0.1',
+        'CR21 reference chain member B',
+        $requestId('tenant-login-member-b'),
+    );
+    if (!$memberLogin instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_B_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $memberContext = $tenantAuth->context($memberLogin->tokens->access->expose(), $requestId('tenant-member-b-context'));
+    $principal = $authorization->principal($memberContext);
+    if ($principal->root || $principal->tenantId !== $tenantId
+        || $authorization->decide($memberContext, $principal, 'acme.reference-chain.write')->allowed) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_B_CROSSTENANT_AUTHORIZATION_LEAK');
+    }
+    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class);
+    $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-b-denied'), $pdo);
+    echo json_encode($snapshot() + [
+        'cross_tenant_member_authorization' => [
+            'entry' => 'native_non_root_member_cross_tenant_denied',
+            'member_id' => (int)$member['id'],
+            'tenant_id' => (int)$memberContext->tenantId,
+            'root' => $principal->root,
+            'grant_visible' => false,
+            'denied_zero_write' => true,
+        ],
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
 if ($action === 'disable-tenants') {
@@ -1343,6 +1469,17 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(seeded.get("owned_rows") == 1 and seeded.get("migration_count") == 1
                and len(seeded.get("service_read", {}).get("items", [])) == 1,
                "v1 Module service write/read or migration state is invalid")
+        member_authorization = seeded.get("member_authorization", {})
+        expect(
+            member_authorization.get("entry") == "native_non_root_member_grant_revoke"
+            and member_authorization.get("root") is False
+            and member_authorization.get("role_keys") == ["reference-member"]
+            and member_authorization.get("before_grant_denied_zero_write") is True
+            and member_authorization.get("grant_visible") is True
+            and member_authorization.get("service_read_write") is True
+            and member_authorization.get("revoke_denied_zero_write") is True,
+            "ordinary non-root member grant/revoke runtime was not proven",
+        )
         enabled_b = helper_action(
             helper,
             consumer,
@@ -1354,6 +1491,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(tenant_statuses(enabled_b) == {"default": "enabled", "tenant-b": "enabled"}
                and rbac_counts(enabled_b) == {"default": 1},
                "TenantModule enablement changed Package or RBAC state")
+        cross_tenant_member_authorization = enabled_b.get("cross_tenant_member_authorization", {})
+        expect(
+            cross_tenant_member_authorization.get("entry") == "native_non_root_member_cross_tenant_denied"
+            and cross_tenant_member_authorization.get("root") is False
+            and cross_tenant_member_authorization.get("grant_visible") is False
+            and cross_tenant_member_authorization.get("denied_zero_write") is True,
+            "ordinary non-root member cross-Tenant denial was not proven",
+        )
 
         author_module_v2(backend, frontend)
         check_v2 = run_think(author, author_env, ["module:check", MODULE_KEY], logs / "author.log")
@@ -1486,7 +1631,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "tenant_fixture_entry": "native_provision_accept_activate",
                 "tenant_module_entry": "platform_tenant_admin_service",
                 "rbac_entry": "role_admin_service",
-                "member_authorization_entry": "tenant_owner_session_only_non_root_member_not_proven",
+                "member_authorization_entry": "native_non_root_member_grant_revoke_cross_tenant_denied",
                 "business_data_entry": "module_contract_service",
                 "source_private_fixture_copy": "not_used",
                 "generation_mode": "fixed_edition_installer_package_direct",
