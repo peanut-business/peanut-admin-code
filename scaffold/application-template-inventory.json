@@ -2960,7 +2960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d55bf2be4867b851ed3685066ac46a7242a15ae91f9af56e87514c7ccab020f0"
+            "source_sha256": "7dcf399ef30b3f00e43ea2bff8cb241758cd39dd99d9d2bb24e9e4522970bffd"
         },
         {
             "path": "scripts/ci-summary",
@@ -3430,7 +3430,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "17b9881f66d5236aded5c46b002f3fc635b6b3f49d06b1cc2631e759b7c84c0c"
+            "source_sha256": "523ac4e5d15f8ce0c94e8c6e84681898dbb1310ade88fd6172cd5d34473f6963"
         },
         {
             "path": "scripts/project-codegraph",
@@ -26666,6 +26666,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ProductUpgradeHostResumeFailureTest.php",
+            "target": "server/tests/Productization/ProductUpgradeHostResumeFailureTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/ProviderQualificationContractTest.php",
             "target": "server/tests/Productization/ProviderQualificationContractTest.php",
             "classification": "excluded",
@@ -28487,7 +28500,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f94d3501e8bf6acd20a646a4edfcaaea01c052a7f13b74367dc571f13c12f4e"
+            "source_sha256": "42858654c32da1b3502f92db698619666e8c67df445cef29ad1aabf3dd38c967"
         },
         {
             "path": "tools/quality/composer.json",

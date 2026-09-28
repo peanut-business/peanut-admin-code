@@ -400,6 +400,11 @@ function upgradeHostReject(string $root, array $fixture, string $message): void
     );
 }
 
+// Reuse these concrete file fixtures without rerunning the accepted backup suite.
+if (defined('PEANUT_UPGRADE_HOST_FIXTURE_ONLY') && PEANUT_UPGRADE_HOST_FIXTURE_ONLY) {
+    return;
+}
+
 $temporaryRoot = $root . '/.local/tmp/m4-backup-binding-20260928';
 if (!is_dir($temporaryRoot)) {
     mkdir($temporaryRoot, 0775, true);

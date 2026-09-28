@@ -175,6 +175,12 @@ node --test uniapp/tests/Productization/h5-browser.test.mjs
 
 `node --test uniapp/tests/Productization/decoration-theme.test.mjs` 使用质量工具已锁定的 TypeScript 转译实际 `decoration.ts`，仅以受控页面/Uni API 协作替身验证配置先到、页面尚未建立、页面就绪后应用、同步/异步失败观察及颜色合同；不复制另一套业务实现，也不将替身测试计作原生平台运行。主题 API 在无页面时不调用，页面级配置调用再应用缓存主题；原生失败回调保持可观察。H5 阴影使用应用自有 CSS 渐变，不以第三方 CDN 可用性作为匿名页面运行前提。
 
+## 升级恢复后的旧运行环境失败隔离
+
+`php server/tests/Productization/ProductUpgradeHostResumeFailureTest.php` 实际执行 `scripts/product-upgrade-host resume-old`，以任务内服务状态哨兵注入部分启动、环境/插件/业务状态/健康/运行回执/记录写入失败及TERM中断。检查非零结果、失败后停写、无法确认停写时的人工介入提示、已恢复数据及回执不变；修正失败原因后同计划重试，不重复数据库/文件恢复。已完成操作只返回绑定回执，不再次启动服务；运行中的真实健康状态另由 `recovery-verify` 检查。
+
+测试复用 `ProductUpgradeHostBackupBindingTest.php` 的真实文件fixture，不再次运行其已验收的备份33场景；命令哨兵拒绝未知命令，不调用Docker、MySQL或HTTP。`TMPDIR` 位于本检出 `.local/tmp/m4-resume-failure-20260928/`，缺原生命令前置则失败。该测试证明宿主脚本故障控制与回执顺序，不替代真实服务停写或完整数据库/public/private成对恢复。Linux宿主工具合同不因本机fixture适配而改变。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

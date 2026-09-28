@@ -842,7 +842,8 @@ recover_phase() {
 }
 
 resume_old_phase() {
-  [[ -f "$recovery_record" && ! -L "$recovery_record" ]] \
+  [[ -f "$recovery_record" && ! -L "$recovery_record" \
+    && "$(stat -c '%a %h' "$recovery_record")" == '600 1' ]] \
     || die 'old runtime resume requires durable host recovery evidence'
   jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" '
     .protocol == "peanut.product-upgrade-host-recovery.v1" and .status == "data-runtime-restored"
@@ -851,6 +852,46 @@ resume_old_phase() {
   ' "$recovery_record" >/dev/null || die 'old runtime resume evidence is invalid'
   [[ "$(jq -r '.activation_started' "$state_path")" == false ]] \
     || die 'old runtime resume is forbidden after activation starts'
+  if [[ -e "$resume_old_record" || -L "$resume_old_record" ]]; then
+    [[ -f "$resume_old_record" && ! -L "$resume_old_record" \
+      && "$(stat -c '%a %h' "$resume_old_record")" == '600 1' ]] \
+      || die 'durable old runtime resume record is invalid'
+    jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
+      --arg recovery_sha "sha256:$(sha256sum "$recovery_record" | awk '{print $1}')" \
+      --arg receipt_sha "sha256:$(sha256sum "$current_receipt" | awk '{print $1}')" '
+        .protocol == "peanut.product-upgrade-host-resume-old.v1" and .status == "completed"
+        and .candidate == $candidate and .plan_sha256 == $plan
+        and .recovery_record_sha256 == $recovery_sha and .runtime_receipt_sha256 == $receipt_sha
+        and .payload.recovery.resumed_old_runtime == true and .payload.recovery.verified == true
+      ' "$resume_old_record" >/dev/null || die 'durable old runtime resume record is bound to another runtime'
+    # Replay the completed operation, not its writes. recovery-verify observes live health.
+    emit "$(jq -c '.payload' "$resume_old_record")"
+    return
+  fi
+  resume_old_record_written=0
+  resume_old_failure() {
+    local status=$? stop_status drain_status
+    trap - EXIT INT TERM
+    set +e
+    if (( status != 0 )); then
+      "${compose_current[@]}" stop --timeout 60 nginx cron php pc >/dev/null
+      stop_status=$?
+      (assert_writers_stopped)
+      drain_status=$?
+      # Never leave a receipt for an operation whose final response failed.
+      if (( resume_old_record_written == 1 )); then rm -f -- "$resume_old_record"; fi
+      rm -f -- "${resume_old_record}.tmp-$$"
+      if (( stop_status != 0 || drain_status != 0 )); then
+        printf 'product-upgrade-host: resume failed (exit %s); writer isolation unconfirmed, manual intervention required\n' "$status" >&2
+      else
+        printf 'product-upgrade-host: resume failed (exit %s); application writers stopped, same-plan retry required\n' "$status" >&2
+      fi
+    fi
+    exit "$status"
+  }
+  trap resume_old_failure EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
   "${compose_current[@]}" config >/dev/null
   "${compose_current[@]}" up -d --wait mysql >/dev/null
   "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
@@ -883,7 +924,9 @@ resume_old_phase() {
     '{schema_version:1,protocol:"peanut.product-upgrade-host-resume-old.v1",status:"completed",
       candidate:$candidate,plan_sha256:$plan,recovery_record_sha256:$recovery_sha,
       runtime_receipt_sha256:$receipt_sha,payload:$payload}')"
+  resume_old_record_written=1
   emit "$resume_payload"
+  trap - EXIT INT TERM
 }
 
 recovery_verify_phase() {
