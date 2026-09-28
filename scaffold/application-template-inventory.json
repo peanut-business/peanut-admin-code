@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "4.0.0-dev",
+    "template_version": "4.0.0-dev.1",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -2781,7 +2781,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f2008f6c8ee3d31ac226bbc7e1487df3d7278e0054ad85f5c1caeec56b9937a"
+            "source_sha256": "20d168a932ba7e47c86abdf783416d7774ceb0a4485a30b5925175b58364ce70"
         },
         {
             "path": "scripts/build-scaffold-release",
@@ -3596,7 +3596,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "62988c8508731d9b7985f4b9cdc00e01ac20e0560c69576678f0090fd3bc2682"
+            "source_sha256": "806379a3004216089fc05590e99df3d82b66e63030d29d9f822975edb85c1909"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",

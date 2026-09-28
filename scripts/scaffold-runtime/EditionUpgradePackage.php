@@ -210,6 +210,7 @@ final class EditionUpgradePackage
             || ($release['managed_tree_sha256'] ?? null) !== ($manifest['target']['managed_tree_sha256'] ?? null)) {
             throw new RuntimeException('EDITION_UPGRADE_TARGET_IDENTITY_MISMATCH');
         }
+        $this->assertInternalCoreProjection($targetManifest, $manifest);
 
         $this->assertOwnership($manifest);
         $this->assertMigrationChain($manifest, $targetManifest);
@@ -228,6 +229,70 @@ final class EditionUpgradePackage
                 'manifest_sha256' => 'sha256:' . hash_file('sha256', $manifestPath),
             ],
         ];
+    }
+
+    /** The signed target and upgrade manifest must identify the same projected Core bytes. */
+    private function assertInternalCoreProjection(ScaffoldManifest $target, array $upgrade): void
+    {
+        $projection = $target->data['internal_core_projection'] ?? null;
+        $declared = $upgrade['target']['internal_core_projection'] ?? null;
+        if ($projection === null && $declared === null) {
+            return;
+        }
+        $release = $target->release();
+        $core = is_array($projection) ? ($projection['core'] ?? null) : null;
+        $path = is_array($core) ? ($core['archive_path'] ?? null) : null;
+        if (!is_array($projection) || $projection !== $declared || !is_array($core)
+            || ($upgrade['scope'] ?? null) !== 'internal-upgrade-candidate'
+            || ($upgrade['formal_release_eligible'] ?? null) !== false
+            || ($projection['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
+            || ($projection['scope'] ?? null) !== 'internal-upgrade-target-not-formal-release'
+            || ($projection['source'] ?? null) !== ['commit' => $release['source_commit'], 'tree' => $release['source_tree']]
+            || ($projection['managed_tree_sha256']['projected'] ?? null) !== ($release['managed_tree_sha256'] ?? null)
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($projection['core_inputs_sha256'] ?? '')) !== 1
+            || !is_string($path) || !str_starts_with($path, 'packages/core-php/') || !str_ends_with($path, '.zip')) {
+            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_PROJECTION_INVALID');
+        }
+        ScaffoldManifest::path($path);
+        $files = $target->files();
+        $coreFile = $files[$path] ?? null;
+        $versionFile = $files['release-versions.json'] ?? null;
+        $lockFile = $files['server/composer.lock'] ?? null;
+        if (!is_array($coreFile) || !is_array($versionFile) || !is_array($lockFile)
+            || ($coreFile['template_sha256'] ?? null) !== ($core['archive_sha256'] ?? null)) {
+            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_PROJECTION_FILES_INVALID');
+        }
+        $rows = [];
+        foreach ($files as $name => $file) {
+            $artifact = $target->artifactPath($file);
+            $digest = hash_file('sha256', $artifact);
+            if (!is_string($digest) || !hash_equals((string) $file['template_sha256'], $digest)) {
+                throw new RuntimeException('EDITION_UPGRADE_INTERNAL_TARGET_DIGEST_INVALID: ' . $name);
+            }
+            $rows[] = $name . "\0" . $digest;
+        }
+        sort($rows, SORT_STRING);
+        if (!hash_equals((string) $release['managed_tree_sha256'], hash('sha256', implode("\n", $rows)))) {
+            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_TARGET_TREE_INVALID');
+        }
+        try {
+            $version = json_decode((string) file_get_contents($target->artifactPath($versionFile)), true, 512, JSON_THROW_ON_ERROR);
+            $lock = json_decode((string) file_get_contents($target->artifactPath($lockFile)), true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $exception) {
+            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_DEPENDENCY_INVALID', 0, $exception);
+        }
+        $locked = array_values(array_filter($lock['packages'] ?? [], static fn(mixed $package): bool => is_array($package) && ($package['name'] ?? null) === 'peanut-admin/core'));
+        if (!is_array($version)
+            || ($version['source_product_version'] ?? null) !== ($release['version'] ?? null)
+            || ($version['core_php'] ?? null) !== ($projection['release_versions']['after'] ?? null)
+            || count($locked) !== 1
+            || ($locked[0]['version'] ?? null) !== ($core['resolved_version'] ?? null)
+            || ($locked[0]['source']['reference'] ?? null) !== ($core['source_reference'] ?? null)
+            || ($locked[0]['dist']['reference'] ?? null) !== ($core['source_reference'] ?? null)
+            || ($locked[0]['dist']['url'] ?? null) !== '../' . $path
+            || ($locked[0]['dist']['shasum'] ?? null) !== ($core['archive_sha1'] ?? null)) {
+            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_DEPENDENCY_INVALID');
+        }
     }
 
     /** @return array{name:string,deployment_mode:string,profile_sha256:string,generator_version:int,module_profile:string,tenant_bootstrap:array<string,string>,schema_projection:string} */

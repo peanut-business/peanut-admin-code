@@ -11,7 +11,7 @@ const EDITION_UPGRADE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1
 
 function editionUpgradeUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-edition-upgrades --version=<semver> --minimum-source-version=<semver> --source-commit=<full-sha> --output=<absolute-directory> --signing-key-id=<id> --signing-secret-key-file=<path> [--adoption-source-version=<semver> --adoption-source-commit=<full-sha>] [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/build-edition-upgrades --version=<semver> --minimum-source-version=<semver> --source-commit=<full-sha> --output=<absolute-directory> --signing-key-id=<id> --signing-secret-key-file=<path> [--internal-core-inputs=<absolute-release-core-inputs.json>] [--adoption-source-version=<semver> --adoption-source-commit=<full-sha>] [--check]\n");
     exit(64);
 }
 
@@ -91,7 +91,7 @@ foreach (array_slice($argv, 1) as $argument) {
         $check = true;
         continue;
     }
-    if (preg_match('/^--(version|minimum-source-version|source-commit|output|signing-key-id|signing-secret-key-file|adoption-source-version|adoption-source-commit)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(version|minimum-source-version|source-commit|output|signing-key-id|signing-secret-key-file|internal-core-inputs|adoption-source-version|adoption-source-commit)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         editionUpgradeUsage();
     }
@@ -125,6 +125,9 @@ if ($hasAdoptionVersion !== $hasAdoptionCommit
     || ($hasAdoptionVersion && (preg_match('/^[a-f0-9]{40}$/D', $options['adoption-source-commit']) !== 1
         || Semver::lessThan($options['adoption-source-version'], $options['minimum-source-version'])
         || Semver::greaterThanOrEqualTo($options['adoption-source-version'], $options['version'])))) {
+    editionUpgradeUsage();
+}
+if (isset($options['internal-core-inputs']) && !str_starts_with($options['internal-core-inputs'], '/')) {
     editionUpgradeUsage();
 }
 
@@ -162,19 +165,65 @@ try {
     $artifacts = [];
     foreach (['standalone', 'multi-tenant'] as $edition) {
         $target = $temporary . '/target-' . $edition;
-        editionUpgradeRun([
+        $scaffoldCommand = [
             'php', $root . '/scripts/build-scaffold-release',
             '--version=' . $options['version'],
             '--source-commit=' . $commit,
             '--output=' . $target,
             '--edition=' . $edition,
-        ]);
+        ];
+        if (isset($options['internal-core-inputs'])) {
+            $scaffoldCommand[] = '--internal-core-inputs=' . $options['internal-core-inputs'];
+        }
+        editionUpgradeRun($scaffoldCommand);
         $targetManifestPath = $target . '/scaffold-manifest.json';
         $targetManifest = json_decode((string) file_get_contents($targetManifestPath), true, 512, JSON_THROW_ON_ERROR);
         if (($targetManifest['edition']['name'] ?? null) !== $edition
             || ($targetManifest['release']['source_commit'] ?? null) !== $commit
             || ($targetManifest['release']['source_tree'] ?? null) !== $tree) {
             throw new RuntimeException('EDITION_UPGRADE_TARGET_IDENTITY_INVALID');
+        }
+        $internalProjection = $targetManifest['internal_core_projection'] ?? null;
+        if (isset($options['internal-core-inputs'])) {
+            if (!is_array($internalProjection)
+                || ($internalProjection['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
+                || ($internalProjection['source'] ?? null) !== ['commit' => $commit, 'tree' => $tree]
+                || ($internalProjection['managed_tree_sha256']['projected'] ?? null) !== ($targetManifest['release']['managed_tree_sha256'] ?? null)
+                || ($internalProjection['core_inputs_sha256'] ?? null) !== hash_file('sha256', $options['internal-core-inputs'])) {
+                throw new RuntimeException('EDITION_UPGRADE_INTERNAL_PROJECTION_INVALID');
+            }
+            $corePath = $internalProjection['core']['archive_path'] ?? null;
+            $releaseVersions = json_decode((string) file_get_contents($target . '/files/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+            $lock = json_decode((string) file_get_contents($target . '/files/server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+            $locked = array_values(array_filter($lock['packages'] ?? [], static fn(mixed $package): bool => is_array($package) && ($package['name'] ?? null) === 'peanut-admin/core'));
+            if (!is_string($corePath)
+                || !isset($targetManifest['files']) || !is_array($targetManifest['files'])
+                || ($releaseVersions['core_php'] ?? null) !== ($internalProjection['release_versions']['after'] ?? null)
+                || count($locked) !== 1
+                || ($locked[0]['version'] ?? null) !== ($internalProjection['core']['resolved_version'] ?? null)
+                || ($locked[0]['source']['reference'] ?? null) !== ($internalProjection['core']['source_reference'] ?? null)
+                || ($locked[0]['dist']['reference'] ?? null) !== ($internalProjection['core']['source_reference'] ?? null)
+                || ($locked[0]['dist']['url'] ?? null) !== '../' . $corePath
+                || ($locked[0]['dist']['shasum'] ?? null) !== ($internalProjection['core']['archive_sha1'] ?? null)
+                || hash_file('sha256', $target . '/files/' . $corePath) !== ($internalProjection['core']['archive_sha256'] ?? null)) {
+                throw new RuntimeException('EDITION_UPGRADE_INTERNAL_DEPENDENCY_INVALID');
+            }
+            $managedRows = [];
+            foreach ($targetManifest['files'] as $entry) {
+                $path = $entry['path'] ?? null;
+                $digest = $entry['template_sha256'] ?? null;
+                if (!is_string($path) || !is_string($digest)
+                    || hash_file('sha256', $target . '/files/' . $path) !== $digest) {
+                    throw new RuntimeException('EDITION_UPGRADE_INTERNAL_TARGET_FILE_INVALID');
+                }
+                $managedRows[] = $path . "\0" . $digest;
+            }
+            sort($managedRows, SORT_STRING);
+            if (hash('sha256', implode("\n", $managedRows)) !== $targetManifest['release']['managed_tree_sha256']) {
+                throw new RuntimeException('EDITION_UPGRADE_INTERNAL_TARGET_TREE_INVALID');
+            }
+        } elseif ($internalProjection !== null) {
+            throw new RuntimeException('EDITION_UPGRADE_UNEXPECTED_INTERNAL_PROJECTION');
         }
         $files = [];
         foreach ($targetManifest['files'] ?? [] as $file) {
@@ -282,6 +331,11 @@ try {
             ],
             'signing' => ['algorithm' => 'ed25519', 'authority' => $options['signing-key-id']],
         ];
+        if ($internalProjection !== null) {
+            $manifest['scope'] = 'internal-upgrade-candidate';
+            $manifest['formal_release_eligible'] = false;
+            $manifest['target']['internal_core_projection'] = $internalProjection;
+        }
         if ($adoptionCommit !== null) {
             $manifest['ownership']['adoption'] = [
                 'protocol' => 'peanut.ownership-adoption.v1',
@@ -338,6 +392,10 @@ try {
                 'bytes' => filesize($archive),
             ],
         ];
+        if ($internalProjection !== null) {
+            $artifact['scope'] = 'internal-upgrade-candidate';
+            $artifact['formal_release_eligible'] = false;
+        }
         $external = $filename . '.manifest.json';
         editionUpgradeWrite(
             $temporary . '/' . $external,

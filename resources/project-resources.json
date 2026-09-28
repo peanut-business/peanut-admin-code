@@ -793,6 +793,27 @@
         "fallback": "none",
         "lifecycle": "persistent until an explicit signed-key rotation release",
         "cleanup_responsibility": "Peanut Admin release owner; never delete or replace the private key while a supported Release trusts this key"
+      },
+      {
+        "stable_resource_id": "peanut-admin-m4-p2-internal-signing-key",
+        "purpose": "Sign task-owned internal M4 qualification upgrade artifacts only",
+        "environments": ["development-test", "qualification"],
+        "owner": "productization-20260922",
+        "host": "mac2020.local",
+        "port": null,
+        "database": null,
+        "schema": null,
+        "namespace": "m4-p2-internal-20260929",
+        "service_type": "Ed25519 task signing authority",
+        "version": "Ed25519 / libsodium",
+        "public_key_source": "/Users/xing/.codex/worktrees/peanut-m4-p2-code/peanut-admin-code/.local/evidence/m4-p2-20260929/trusted-public-keys.json; passed to the isolated instance through PEANUT_UPGRADE_TRUSTED_KEYS_JSON",
+        "credential_ref": "/Users/xing/.codex/worktrees/peanut-m4-p2-code/peanut-admin-code/.local/productization/private/m4-p2-internal-ed25519-secret.base64",
+        "data_source": "one locally generated M4-P2 qualification keypair; not a release or published trust key",
+        "freshness_requirement": "bind the task key ID and derived public-key fingerprint to the fixed internal target candidate and its isolated worktree lease before signing",
+        "health_check": "PHP sodium verifies the private file is regular, non-symlink, mode 0600, decodes to 64 bytes and derives the exact public key recorded in task evidence without printing the private key",
+        "fallback": "none; the release signing key and published UPGRADE_TRUSTED_KEYS.json are not substitutes",
+        "lifecycle": "temporary until the M4 internal qualification is completed or abandoned",
+        "cleanup_responsibility": "productization-20260922 removes only this task key after downstream evidence no longer needs it; do not remove the release key"
       }
     ],
     "databases": [

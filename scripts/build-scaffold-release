@@ -11,7 +11,7 @@ const RELEASE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]
 
 function releaseUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--edition=standalone|multi-tenant] [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--edition=standalone|multi-tenant] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--check]\n");
     exit(64);
 }
 
@@ -24,7 +24,7 @@ foreach (array_slice($argv, 1) as $argument) {
         $check = true;
         continue;
     }
-    if (preg_match('/^--(version|source-commit|output|edition)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(version|source-commit|output|edition|internal-core-inputs)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         releaseUsage();
     }
     $options[$matches[1]] = $matches[2];
@@ -40,6 +40,13 @@ if (preg_match(RELEASE_STRICT_SEMVER, $options['version']) !== 1) {
 if (preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1 || !str_starts_with($options['output'], '/')
     || (isset($options['edition']) && !in_array($options['edition'], ['standalone', 'multi-tenant'], true))) {
     releaseUsage();
+}
+if (isset($options['internal-core-inputs'])) {
+    if ($check || !isset($options['edition']) || !str_starts_with($options['internal-core-inputs'], '/')) {
+        releaseUsage();
+    }
+    require_once $root . '/scripts/build-internal-edition-candidate';
+    internalCandidatePath($options['internal-core-inputs'], false, true);
 }
 
 // A normal build can only create the currently declared scaffold template.
@@ -206,6 +213,28 @@ try {
     } else {
         throw new RuntimeException('SCAFFOLD_RELEASE_CREATOR_SIGNATURE_UNSUPPORTED');
     }
+    $internalProjection = null;
+    if (isset($options['internal-core-inputs'])) {
+        if (!$modernCreator || $edition === null
+            || ($manifest['template']['version'] ?? null) !== $options['version']) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_INTERNAL_SOURCE_UNSUPPORTED');
+        }
+        foreach ([
+            '/server/app/platform/exception/plugin/PluginArtifactToolException.php',
+            '/server/app/platform/value/plugin/ModuleFrontendLayout.php',
+            '/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php',
+            '/server/app/platform/exception/plugin/PluginLifecycleException.php',
+            '/server/app/platform/value/plugin/PluginDescriptor.php',
+            '/server/app/platform/infrastructure/plugin/PluginLockResolver.php',
+        ] as $dependency) {
+            require_once $source . $dependency;
+        }
+        $core = internalCandidateCoreInputs($options['internal-core-inputs']);
+        $internalProjection = internalCandidateProjectScaffold(
+            $application, $core, $temporary, $commit, $tree, $options['internal-core-inputs'],
+        );
+        $manifest = internalCandidateReadJson($application . '/.peanut/application-manifest.json');
+    }
     $generationSource = $manifest['generation_source'] ?? null;
     if (($manifest['template']['source_commit'] ?? null) !== $commit || ($manifest['template']['source_tree'] ?? null) !== $tree
         || ($generationSource !== null && (!is_array($generationSource) || ($generationSource['commit'] ?? null) !== $commit || ($generationSource['tree'] ?? null) !== $tree
@@ -264,6 +293,9 @@ try {
     }
     if ($edition !== null) {
         $release['edition'] = $manifest['edition'];
+    }
+    if ($internalProjection !== null) {
+        $release['internal_core_projection'] = $internalProjection;
     }
     $json = json_encode($release, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
     $manifestPath = rtrim($options['output'], '/') . '/scaffold-manifest.json';

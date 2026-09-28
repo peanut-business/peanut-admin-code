@@ -260,6 +260,173 @@ function internalCandidateProjectModules(string $application, string $version): 
     $writer->checkLock();
 }
 
+/** @param array<string,mixed> $core */
+function internalCandidateProjectCore(string $application, array $core, string $temporary): string
+{
+    $coreTarget = $application . '/' . $core['archive_relative'];
+    internalCandidateCopyFile($core['archive_absolute'], $coreTarget);
+    $lockBefore = internalCandidateLockRows($application . '/server/composer.lock');
+    $version = (string) $core['inputs']['core_php']['resolved_version'];
+    internalCandidateProjectComposer($application, $core['package'], $version);
+    internalCandidateProjectModules($application, $version);
+    internalCandidateRun([
+        dirname(__DIR__) . '/scripts/project-composer',
+        'update', 'peanut-admin/core',
+        '--working-dir=' . $application . '/server',
+        '--no-install', '--no-scripts', '--no-interaction', '--no-progress', '--prefer-dist',
+    ], $application, [
+        'COMPOSER_HOME' => $temporary . '/composer-home',
+        'COMPOSER_CACHE_DIR' => getenv('COMPOSER_CACHE_DIR') ?: $temporary . '/composer-cache',
+    ]);
+    $lockAfter = internalCandidateLockRows($application . '/server/composer.lock');
+    if (!hash_equals($lockBefore, $lockAfter)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_THIRD_PARTY_LOCK_CHANGED');
+    }
+    $lockedCore = internalCandidateLockPackage($application . '/server/composer.lock');
+    if (($lockedCore['version'] ?? null) !== $version
+        || ($lockedCore['source']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
+        || ($lockedCore['dist']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
+        || ($lockedCore['dist']['shasum'] ?? null) !== $core['archive_sha1']) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_LOCK_IDENTITY_INVALID');
+    }
+    return $lockAfter;
+}
+
+/**
+ * Seal the explicit upgrade projection into the generated application's own
+ * managed baseline before the scaffold release artifacts are copied out.
+ * @param array<string,mixed> $core
+ * @return array<string,mixed>
+ */
+function internalCandidateProjectScaffold(string $application, array $core, string $temporary, string $commit, string $tree, string $receipt): array
+{
+    $manifestPath = $application . '/.peanut/application-manifest.json';
+    $manifest = internalCandidateReadJson($manifestPath);
+    if (($manifest['generation_source']['commit'] ?? null) !== $commit
+        || ($manifest['generation_source']['tree'] ?? null) !== $tree
+        || !is_array($manifest['files'] ?? null)
+        || !is_string($manifest['digests']['managed_tree_sha256'] ?? null)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_SOURCE_INVALID');
+    }
+    $originalDigest = $manifest['digests']['managed_tree_sha256'];
+    $versionPath = $application . '/release-versions.json';
+    $versions = internalCandidateReadJson($versionPath);
+    $originalPhp = $versions['core_php'] ?? null;
+    if (!defined('RELEASE_APPLICATION_VERSION_TOKEN')
+        || !defined('RELEASE_PRODUCT_TOKEN')
+        || !defined('RELEASE_SLUG_TOKEN')
+        || !defined('RELEASE_PACKAGE_TOKEN')
+        || ($versions['schema_version'] ?? null) !== 3
+        || ($versions['protocol'] ?? null) !== 'peanut.release-versions.v3'
+        || !is_array($originalPhp)
+        || ($originalPhp['package'] ?? null) !== 'peanut-admin/core'
+        || ($versions['instance_version'] ?? null) !== constant('RELEASE_APPLICATION_VERSION_TOKEN')
+        || ($versions['source_product_version'] ?? null) !== ($versions['scaffold_template'] ?? null)
+        || ($versions['scaffold_template'] ?? null) !== ($manifest['template']['version'] ?? null)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_VERSION_INVALID');
+    }
+    $coreIdentity = $core['inputs']['core_php'];
+    if (($coreIdentity['source_reference'] ?? null) === ($originalPhp['source_reference'] ?? null)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_REDUNDANT');
+    }
+    $versions['core_php']['constraint'] = $coreIdentity['resolved_version'];
+    $versions['core_php']['resolved_version'] = $coreIdentity['resolved_version'];
+    $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];
+    internalCandidateWriteJson($versionPath, $versions);
+    internalCandidateProjectCore($application, $core, $temporary);
+
+    $allowed = ['release-versions.json' => true, 'server/composer.json' => true,
+        'server/composer.lock' => true, 'plugins.lock' => true];
+    $changes = [];
+    $managed = [];
+    foreach ($manifest['files'] as &$file) {
+        $path = $file['path'] ?? null;
+        if (!is_string($path) || !is_string($file['sha256'] ?? null)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_FILE_INVALID');
+        }
+        $actual = hash_file('sha256', $application . '/' . $path);
+        if (!is_string($actual)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_FILE_MISSING: ' . $path);
+        }
+        if (!hash_equals($file['sha256'], $actual)) {
+            if (!isset($allowed[$path]) && preg_match('#^server/app/modules/[a-z0-9_-]+/[a-z0-9_-]+/composer\.json$#D', $path) !== 1
+                && preg_match('#^plugins/[a-z0-9._-]+/plugin\.json$#D', $path) !== 1) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_UNEXPECTED: ' . $path);
+            }
+            if (!in_array($file['classification'], ['managed', 'generated-managed'], true)
+                || !is_string($file['baseline_path'] ?? null)) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_UNMANAGED: ' . $path);
+            }
+            $changes[] = ['path' => $path, 'before_sha256' => $file['sha256'], 'after_sha256' => $actual];
+            $baseline = $application . '/' . $file['baseline_path'];
+            if (!is_file($baseline) || is_link($baseline)
+                || hash_file('sha256', $baseline) !== $file['baseline_sha256']) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_BASELINE_INVALID: ' . $path);
+            }
+            if (!copy($application . '/' . $path, $baseline)) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_BASELINE_WRITE_FAILED: ' . $path);
+            }
+            $file['sha256'] = $actual;
+            $file['baseline_sha256'] = $actual;
+        }
+        if (in_array($file['classification'], ['managed', 'generated-managed'], true)) {
+            $managed[] = $file;
+        }
+    }
+    unset($file);
+    $corePath = $core['archive_relative'];
+    $coreBytes = file_get_contents($application . '/' . $corePath);
+    if (!is_string($coreBytes)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_READ_FAILED');
+    }
+    foreach ([constant('RELEASE_PRODUCT_TOKEN'), constant('RELEASE_SLUG_TOKEN'),
+        constant('RELEASE_PACKAGE_TOKEN'), constant('RELEASE_APPLICATION_VERSION_TOKEN')] as $token) {
+        if (str_contains($coreBytes, $token)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_TOKEN_COLLISION');
+        }
+    }
+    foreach ($manifest['files'] as $file) {
+        if ($file['path'] === $corePath) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_PATH_COLLISION');
+        }
+    }
+    $coreBaseline = $manifest['ownership']['baseline_root'] . '/' . $corePath;
+    internalCandidateCopyFile($application . '/' . $corePath, $application . '/' . $coreBaseline);
+    $coreFile = ['path' => $corePath, 'sha256' => $core['archive_sha256'], 'mode' => 0644,
+        'classification' => 'managed', 'owner' => 'host', 'source' => $corePath,
+        'baseline_path' => $coreBaseline, 'baseline_sha256' => $core['archive_sha256']];
+    $manifest['files'][] = $coreFile;
+    $managed[] = $coreFile;
+    usort($manifest['files'], static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+    $rows = array_map(static fn(array $file): string => $file['path'] . "\0" . $file['sha256'], $managed);
+    sort($rows, SORT_STRING);
+    $manifest['digests']['managed_tree_sha256'] = hash('sha256', implode("\n", $rows));
+    internalCandidateWriteJson($manifestPath, $manifest);
+    $receiptDigest = hash_file('sha256', $receipt);
+    if (!is_string($receiptDigest)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_RECEIPT_INVALID');
+    }
+    return [
+        'protocol' => 'peanut.internal-core-scaffold-projection.v1',
+        'scope' => 'internal-upgrade-target-not-formal-release',
+        'source' => ['commit' => $commit, 'tree' => $tree],
+        'core_inputs_sha256' => $receiptDigest,
+        'build_tools_sha256' => [
+            'build_scaffold_release' => hash_file('sha256', __DIR__ . '/build-scaffold-release'),
+            'build_internal_edition_candidate' => hash_file('sha256', __FILE__),
+        ],
+        'core' => ['package' => 'peanut-admin/core', 'resolved_version' => $coreIdentity['resolved_version'],
+            'source_reference' => $coreIdentity['source_reference'], 'archive_path' => $corePath,
+            'archive_sha256' => $core['archive_sha256'], 'archive_sha1' => $core['archive_sha1']],
+        'release_versions' => ['before' => $originalPhp, 'after' => $versions['core_php']],
+        'managed_tree_sha256' => ['source' => $originalDigest, 'projected' => $manifest['digests']['managed_tree_sha256']],
+        'changes' => $changes,
+        'addition' => ['path' => $corePath, 'sha256' => $core['archive_sha256']],
+    ];
+}
+
+function internalCandidateMain(array $argv): void
+{
 $root = dirname(__DIR__);
 require_once $root . '/server/vendor/autoload.php';
 
@@ -347,36 +514,7 @@ try {
     $contractTool = $root . '/scripts/internal_candidate_contract.py';
     $captured = $temporary . '/original-tree.json';
     internalCandidateRun(['python3', $contractTool, 'capture', $application, $captured]);
-    $coreTarget = $application . '/' . $core['archive_relative'];
-    internalCandidateCopyFile($core['archive_absolute'], $coreTarget);
-    $lockBefore = internalCandidateLockRows($application . '/server/composer.lock');
-    internalCandidateProjectComposer($application, $core['package'], (string) $core['inputs']['core_php']['resolved_version']);
-    internalCandidateProjectModules($application, (string) $core['inputs']['core_php']['resolved_version']);
-    internalCandidateRun([
-        $root . '/scripts/project-composer',
-        'update',
-        'peanut-admin/core',
-        '--working-dir=' . $application . '/server',
-        '--no-install',
-        '--no-scripts',
-        '--no-interaction',
-        '--no-progress',
-        '--prefer-dist',
-    ], $application, [
-        'COMPOSER_HOME' => $temporary . '/composer-home',
-        'COMPOSER_CACHE_DIR' => getenv('COMPOSER_CACHE_DIR') ?: $temporary . '/composer-cache',
-    ]);
-    $lockAfter = internalCandidateLockRows($application . '/server/composer.lock');
-    if (!hash_equals($lockBefore, $lockAfter)) {
-        throw new RuntimeException('INTERNAL_CANDIDATE_THIRD_PARTY_LOCK_CHANGED');
-    }
-    $lockedCore = internalCandidateLockPackage($application . '/server/composer.lock');
-    if (($lockedCore['version'] ?? null) !== ($core['inputs']['core_php']['resolved_version'] ?? null)
-        || ($lockedCore['source']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
-        || ($lockedCore['dist']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
-        || ($lockedCore['dist']['shasum'] ?? null) !== $core['archive_sha1']) {
-        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_LOCK_IDENTITY_INVALID');
-    }
+    $lockAfter = internalCandidateProjectCore($application, $core, $temporary);
     $coreDescriptor = [
         'package' => $core['inputs']['core_php']['package'],
         'constraint' => $core['inputs']['core_php']['resolved_version'],
@@ -471,4 +609,9 @@ try {
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
 } finally {
     internalCandidateDelete($temporary);
+}
+}
+
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+    internalCandidateMain($argv);
 }
