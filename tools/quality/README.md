@@ -139,7 +139,7 @@ node --test pc/tests/Productization/ssr-multitenant.test.mjs
 
 ## PC 原生浏览器接管与匿名导航
 
-`pc/tests/Productization/browser-hydration.test.mjs` 单独补真实 Chromium 的 hydration、双 Host 正文、富文本安全、匿名收藏跳转与非法文章 ID。复用输入未变且摘要一致的原生 hybrid 产物，不运行已经通过的 SSR HTTP 套件或重新构建。页面 HTML、脚本及 DOM 来自未修改的应用；仅浏览器 API 请求明确路由到内存合成 HTTP 上游，不代表 PHP/MySQL、真实登录、实际反向代理或完整 M5 通过。
+`pc/tests/Productization/browser-hydration.test.mjs` 单独补真实 Chromium 的 hydration、双 Host 正文、富文本安全、匿名收藏跳转、非法/缺失文章及上游故障与不存在的区别。复用输入未变且摘要一致的原生 hybrid 产物，不运行已经通过的 SSR HTTP 套件或重新构建。页面 HTML、脚本及 DOM 来自未修改的应用；仅浏览器 API 请求明确路由到内存合成 HTTP 上游，不代表 PHP/MySQL、真实登录、实际反向代理或完整 M5 通过。
 
 领取上述 SSR 所有者/gate 的新独占租约，还须包含 `tooling=peanut-pc-browser-qualification`、本次空证据目录和任务临时目录；不能借其他模块浏览器会话。使用资源登记所列固定 Playwright 版本和已存在的 Chromium，开启浏览器 sandbox、仅创建本任务 profile，不隐式下载、连接日常浏览器或修改系统 DNS。浏览器进程局部映射两个合成 Host 到登记的回环端口，禁止访问其他业务主机。
 

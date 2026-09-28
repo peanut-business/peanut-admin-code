@@ -1607,7 +1607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a28272da30b8bedc2045ff0be1899f28625e6b673804265d9fed9852a38db160"
+            "source_sha256": "f709ba8bbe8f5a1dd52ce5e7408c47ef3f838c7d8e6198d86437ff0d88b62fa4"
         },
         {
             "path": "pc/tests/Productization/fixtures/ssr-upstream.mjs",
@@ -28487,7 +28487,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fec27ab350273356d30e08172e72d5f326b621ef984302f4d04054fc271787c0"
+            "source_sha256": "cbecc44c342fd98d72d076c20663d36a74b4977aa49a75b4ca93dd8279df164b"
         },
         {
             "path": "tools/quality/composer.json",

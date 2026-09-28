@@ -188,7 +188,7 @@ test(
         JSON.stringify(
           {
             status:
-              results.length === 5 &&
+              results.length === 7 &&
               pageErrors.length === 0 &&
               hydrationWarnings.length === 0 &&
               dialogs.length === 0 &&
@@ -423,6 +423,49 @@ test(
         assert.equal(response.status(), 404);
         await pages[0].getByText('文章不存在', { exact: true }).waitFor();
         assert.equal(await pages[0].locator('div.prose').count(), 0);
+      }
+    );
+    await check(
+      'missing article renders the browser empty state, not another tenant',
+      async () => {
+        upstream.state.mode = 'missing';
+        try {
+          const response = await pages[1].goto(
+            `http://${hosts[1]}/information/detail/1`
+          );
+          assert.equal(response.status(), 404);
+          await pages[1].getByText('文章不存在', { exact: true }).waitFor();
+          assert.equal(await pages[1].locator('div.prose').count(), 0);
+          assert.ok(
+            !(await pages[1].locator('body').innerText()).includes(
+              'Tenant A article'
+            )
+          );
+        } finally {
+          upstream.state.mode = 'normal';
+        }
+      }
+    );
+    await check(
+      'upstream failure is not a browser article-not-found success',
+      async () => {
+        upstream.state.mode = 'service-failure';
+        try {
+          const response = await pages[1].goto(
+            `http://${hosts[1]}/information/detail/1`
+          );
+          assert.ok(response.status() >= 500 && response.status() < 600);
+          await pages[1].locator('body').waitFor();
+          assert.equal(
+            await pages[1].getByText('文章不存在', { exact: true }).count(),
+            0
+          );
+          assert.equal(await pages[1].locator('div.prose').count(), 0);
+        } finally {
+          upstream.state.mode = 'normal';
+        }
+        await pages[1].goto(`http://${hosts[1]}/information/detail/1`);
+        await assertArticle(pages[1], 'Tenant B', 'Tenant A');
       }
     );
     await check(
