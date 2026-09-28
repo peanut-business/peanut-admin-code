@@ -853,7 +853,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c30e1329638b90e51e29dd740c1573b4de9f0ea8d00b8ccc3a2461b52b095b28"
+            "source_sha256": "c2de4f50ac837ac21b30dc770a3cfa50a3ec9171dcc470c19504b93397d9c97f"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ab99cacdff806890e6ff289fb174ff7f42163d61d253e7c4d0624e0335fa057"
+            "source_sha256": "169c55f331650a5e7edef66d578ef9c3ce9c0c90a7c6d3254bbdaa70ad8277d5"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2383,7 +2383,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f37f909deab154da3e7baeee91b228466dea22ffc49bf7bf99a272f0a01559f3"
+            "source_sha256": "a0eb5f9f85f88e6cbf2b4a199e65e10602c074a2196597914f0fdcf0d7eb1c59"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -2411,7 +2411,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bf1c32d8456a476fb85176f35f020448e20405eb12a9758fa6437aa69feefff1"
+            "source_sha256": "5ae343c1b6acd88a5fcbf6b1b2fc9fc281b0dedc08bb65d05981a448a71ca9d2"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -2425,7 +2425,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c91b9e65d1d824dbd8db1d140772cd7b8dca547732b4769a7425a8589f597270"
+            "source_sha256": "8e8aae9daa60efb26bb66f28eaf9e36d6d6861fca6b49fcbd9886a67e541bcb5"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -2439,7 +2439,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1561f318db7bff8fe8dc1b04ca5b3caa10782de69496fbaf24555fae680485da"
+            "source_sha256": "9ee1777a661fc4885768d51dca7237e5984f58b2456869c6b5b648b97077d97c"
         },
         {
             "path": "plugins/official.ops/plugin.json",
@@ -2453,7 +2453,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "62069db7b6819c335f34f276d1d8b0ee178f67e95db9fb3077da5ce39a4d1ee6"
+            "source_sha256": "ebf169964c81dd319b4dd284ee529661d2c259607dd980130eb4b370cc635c1f"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -2467,7 +2467,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08172c071ebcf001a3b3535df648b74dfc8b7dc9e87631f57966c81a94669d70"
+            "source_sha256": "f97cb7cf131798427594038923b318339917bcca1ead2fd223d45aa9f1e2fdb9"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -2523,7 +2523,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b05675323436c03e89687b02a436643287b9dbb60cd86d821246fa53c2f8054"
+            "source_sha256": "c12321c8072841c14687ee341d94a8beb6877ae8d51b722480d6637a6f362d68"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -2933,7 +2933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a30b32828b7f6361279f7e82dede04a5bd63a82989f4124ce3399ceee8b28e03"
+            "source_sha256": "bc506eb831d40b057ad1121f8c48b0b7391e6ea8dea697ae002463e8de0322a4"
         },
         {
             "path": "scripts/ci-summary",
@@ -12165,7 +12165,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a7bf5ffe3c070dee9ddd33c547a65d1b86cf5264f78e21c2a0e591193d47173"
+            "source_sha256": "c2512b7a2f1fe3ab84f1e7788c6b3ea2910e50c5686f1a90b308e8770a9beca2"
         },
         {
             "path": "server/app/modules/official/import_export/database/migrations/20260826-namespace-permission-keys.sql",
@@ -13916,7 +13916,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c72d5023050d3575db0589d7239acc30d6b863dd2ad162bd2eadb73e4bc9a05a"
+            "source_sha256": "79f22aa6de5fac1e2bd48c4d23f5a8b5a03747b8866ca77fc4cc06d4327c5d01"
         },
         {
             "path": "server/app/modules/official/member/database/migrations/20260826-namespace-permission-keys.sql",
@@ -14560,7 +14560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ca72ae067a84c2d7476c0839cfdb7d0dc5ff6b343d30693068f9cadf1cf4a53"
+            "source_sha256": "c3839952969aa9de04cf21a09eb87d8911166762ce9ea9b2f30e3807597eda5d"
         },
         {
             "path": "server/app/modules/official/notification/database/migrations/20260826-namespace-permission-keys.sql",
@@ -15527,7 +15527,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e411fdb92ccaf406efc4aa5f0d72cc5704c94672f01fa4d9b1a0a9e227cf0622"
+            "source_sha256": "cec936ab3fb6400c112f38f9bbba5d97d965b8e32d2c1352190208bf04816114"
         },
         {
             "path": "server/app/modules/official/oauth/database/migrations/20260826-namespace-permission-keys.sql",
@@ -16214,7 +16214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "efcca54b4087892ce67ca4a20f4eaebcfcf782c3dcdedc44f4422908e93a4364"
+            "source_sha256": "45f4144e5e0a20e6a355a6f59378f12589291099d5a0ea9311592195b573bbae"
         },
         {
             "path": "server/app/modules/official/ops/domain/README.md",
@@ -17040,7 +17040,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e7930a73c88d9f18bc2812e1e47c4158d29f7caf643f8583a5e0b2c4bb418ab1"
+            "source_sha256": "48fb50c3733c25936bdf1f4d2fa7e8629ad902af7e2b4df4801af70cfe7a8b4a"
         },
         {
             "path": "server/app/modules/official/payment/database/migrations/20260826-namespace-permission-keys.sql",
@@ -19145,7 +19145,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ca3c49f02009a5708b68b2bd01761ebbe10769e87e923a5ecea0d510d51304a"
+            "source_sha256": "748bfcb2e8a4983415fcd47a403d9e50f057cff9c888c16aa9729c5c6a7252b1"
         },
         {
             "path": "server/app/modules/official/task/database/migrations/20260826-namespace-permission-keys.sql",
@@ -26233,6 +26233,19 @@
         {
             "path": "server/tests/Productization/ModuleCommandContractTest.php",
             "target": "server/tests/Productization/ModuleCommandContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleCoreDependencyTest.php",
+            "target": "server/tests/Productization/ModuleCoreDependencyTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

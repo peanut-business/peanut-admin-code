@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "require": {
     "php": "^8.3",
-    "peanut-admin/core": "0.1.0-alpha.5",
+    "peanut-admin/core": "dev-dev",
     "peanut-business/official-integration": "^1.0",
     "peanut-business/official-task": "^1.0",
     "peanut-business/official-identity": "4.0.0-dev"

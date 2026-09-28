@@ -232,6 +232,7 @@ while IFS= read -r path; do
       behavior_selected=1
       ;;
     server/app/modules/*|plugins/*|plugins.lock)
+      select_test server/tests/Productization/ModuleCoreDependencyTest.php
       select_test server/tests/Productization/PluginArtifactContractTest.php
       select_test server/tests/Productization/PluginModuleContractTest.php
       select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
@@ -250,6 +251,7 @@ while IFS= read -r path; do
       behavior_selected=1
       ;;
     release-versions.json|server/composer.json|server/composer.lock)
+      select_test server/tests/Productization/ModuleCoreDependencyTest.php
       select_test server/tests/Unit/GeneratedPackageIdentityTest.php
       select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
       behavior_selected=1
@@ -260,6 +262,7 @@ done <"$changed_file"
 if [[ "$mode" == '--broad' || "$behavior_selected" -eq 0 ]]; then
   # An unclassified server-affecting path expands to the stable broad behavior group.
   for test_file in \
+    server/tests/Productization/ModuleCoreDependencyTest.php \
     server/tests/Productization/FreshSchemaBaselineTest.php \
     server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php \
     server/tests/Productization/OAuthChannelHostTest.php \

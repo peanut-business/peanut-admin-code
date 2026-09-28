@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "f8e286bc641a6ad7ef6dc12c8812739a9296629825cf43ddacc011339a645f49"
+        "sha256": "8024aaf14107c65d3cfbddd7c75b537cd3117b1d83280e2589b176d89bf9820e"
     },
     "trust": {
         "channel": "bundled",
@@ -63,7 +63,7 @@
         {
             "name": "peanut-business/fixture-delivery-record",
             "version": "1.0.0",
-            "sha256": "4017401eda6045a315baa05f9e53814e21c37acbc8e0c1520d443edecb4f713b"
+            "sha256": "4b16f3bc042716faf77e9cd099ece25e5cbede064a7ce90a801bb6ac084f5159"
         }
     ],
     "npm": [
