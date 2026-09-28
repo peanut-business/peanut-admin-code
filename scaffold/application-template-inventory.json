@@ -2947,7 +2947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70090d9ffc4aac75012810d21d3f2170a928762405607a61524e0d858720be45"
+            "source_sha256": "d55bf2be4867b851ed3685066ac46a7242a15ae91f9af56e87514c7ccab020f0"
         },
         {
             "path": "scripts/ci-summary",
@@ -3417,7 +3417,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6efbf84dec30051b225963925d20df2ceb5a9b25913ceefde3510684da447758"
+            "source_sha256": "17b9881f66d5236aded5c46b002f3fc635b6b3f49d06b1cc2631e759b7c84c0c"
         },
         {
             "path": "scripts/project-codegraph",
@@ -26629,6 +26629,19 @@
         {
             "path": "server/tests/Productization/PortableReleaseDependencyTest.php",
             "target": "server/tests/Productization/PortableReleaseDependencyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ProductUpgradeHostBackupBindingTest.php",
+            "target": "server/tests/Productization/ProductUpgradeHostBackupBindingTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

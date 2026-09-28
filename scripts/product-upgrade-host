@@ -15,13 +15,20 @@ case "$phase" in
   prepare|migration-preflight|backup|quiesce|migrate|switch|reload-safe|migration-verify|health|activate|recover|resume-old|recovery-verify) ;;
   *) usage ;;
 esac
-declare -A option=()
+instance_root_option=
+package_option=
+plan_option=
+state_option=
 for argument in "$@"; do
   [[ "$argument" =~ ^--(instance-root|package|plan|state)=(/.+)$ ]] || usage
-  [[ -z "${option[${BASH_REMATCH[1]}]:-}" ]] || usage
-  option["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
+  case "${BASH_REMATCH[1]}" in
+    instance-root) [[ -z "$instance_root_option" ]] || usage; instance_root_option="${BASH_REMATCH[2]}" ;;
+    package) [[ -z "$package_option" ]] || usage; package_option="${BASH_REMATCH[2]}" ;;
+    plan) [[ -z "$plan_option" ]] || usage; plan_option="${BASH_REMATCH[2]}" ;;
+    state) [[ -z "$state_option" ]] || usage; state_option="${BASH_REMATCH[2]}" ;;
+  esac
 done
-for required in instance-root package plan state; do [[ -n "${option[$required]:-}" ]] || usage; done
+[[ -n "$instance_root_option" && -n "$package_option" && -n "$plan_option" && -n "$state_option" ]] || usage
 
 for command_name in jq sha256sum tar gzip curl docker; do
   command -v "$command_name" >/dev/null || die "$command_name is required"
@@ -43,10 +50,10 @@ canonical_file() {
   printf '%s' "$resolved"
 }
 
-instance_root="$(canonical_directory "${option[instance-root]}")"
-package_root="$(canonical_directory "${option[package]}")"
-plan_path="$(canonical_file "${option[plan]}")"
-state_path="$(canonical_file "${option[state]}")"
+instance_root="$(canonical_directory "$instance_root_option")"
+package_root="$(canonical_directory "$package_option")"
+plan_path="$(canonical_file "$plan_option")"
+state_path="$(canonical_file "$state_option")"
 [[ "$plan_path" == "$instance_root/.peanut/upgrades/product-plans/"*.json \
   && "$state_path" == "$instance_root/.peanut/upgrades/product-state/"*.json ]] \
   || die 'plan or state is outside the canonical product-upgrade roots'
@@ -381,19 +388,142 @@ start_previous_writers() {
   "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
 }
 
+backup_file_path() {
+  case "$1" in
+    database.sql.gz|php-storage.tar.gz|php-private-storage.tar.gz|manifest.json) printf '%s/%s' "$backup_root" "$1" ;;
+    *) die 'backup checksum references an unknown file' ;;
+  esac
+}
+
+backup_file_sha() {
+  sha256sum "$(backup_file_path "$1")" | awk '{print $1}'
+}
+
+assert_backup_regular_file() {
+  local path
+  path="$(backup_file_path "$1")"
+  [[ -f "$path" && ! -L "$path" && "$(stat -c '%a %h' "$path")" == '600 1' ]] \
+    || die 'bound product-upgrade backup contains a linked or non-regular file'
+}
+
+verify_backup_checksums() {
+  local line digest marker filename count=0
+  local seen_database= seen_public= seen_private= seen_manifest=
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ ^([a-f0-9]{64})([[:space:]][[:space:]\*])(database\.sql\.gz|php-storage\.tar\.gz|php-private-storage\.tar\.gz|manifest\.json)$ ]] \
+      || die 'backup checksum manifest contains an unsafe entry'
+    digest="${BASH_REMATCH[1]}"
+    marker="${BASH_REMATCH[2]}"
+    filename="${BASH_REMATCH[3]}"
+    [[ "$marker" == '  ' || "$marker" == ' *' ]] || die 'backup checksum manifest contains an unsafe entry'
+    case "$filename" in
+      database.sql.gz) [[ -z "$seen_database" ]] || die 'backup checksum manifest contains a duplicate entry'; seen_database="$digest" ;;
+      php-storage.tar.gz) [[ -z "$seen_public" ]] || die 'backup checksum manifest contains a duplicate entry'; seen_public="$digest" ;;
+      php-private-storage.tar.gz) [[ -z "$seen_private" ]] || die 'backup checksum manifest contains a duplicate entry'; seen_private="$digest" ;;
+      manifest.json) [[ -z "$seen_manifest" ]] || die 'backup checksum manifest contains a duplicate entry'; seen_manifest="$digest" ;;
+    esac
+    count=$((count + 1))
+  done <"$backup_root/SHA256SUMS"
+  [[ "$count" == 4 && -n "$seen_database" && -n "$seen_public" && -n "$seen_private" && -n "$seen_manifest" ]] \
+    || die 'backup checksum manifest omits a required artifact'
+  [[ "$seen_database" == "$(backup_file_sha database.sql.gz)" \
+    && "$seen_public" == "$(backup_file_sha php-storage.tar.gz)" \
+    && "$seen_private" == "$(backup_file_sha php-private-storage.tar.gz)" \
+    && "$seen_manifest" == "$(backup_file_sha manifest.json)" ]] \
+    || die 'backup checksum manifest differs from actual backup bytes'
+}
+
+verify_storage_archive() {
+  local archive="$1"
+  LC_ALL=C tar -tvzf "$archive" | awk 'substr($0, 1, 1) != "-" && substr($0, 1, 1) != "d" { exit 1 }' \
+    || die 'storage archive contains links or special files'
+  # Keep names intact, fail closed on escaped/control names, and check duplicates
+  # in one pass. pipefail also rejects a failed or truncated tar listing.
+  LC_ALL=C tar -tzf "$archive" | LC_ALL=C awk '
+    {
+      name = $0
+      if (name == "" || name ~ /^\// || name ~ /\\/ || name ~ /\/\// || name ~ /[[:cntrl:]]/) exit 1
+      while (sub(/^\.\//, "", name)) {}
+      if (name == "") name = "."
+      if (name != ".") sub(/\/+$/, "", name)
+      if (name != "." && name ~ /(^|\/)\.\.?($|\/)/) exit 1
+      if (seen[name]++) exit 1
+    }
+  ' || die 'storage archive contains unsafe, duplicate or ambiguous paths'
+}
+
+assert_backup_state_binding() {
+  local database_sha public_sha private_sha manifest_sha database_name public_storage_volume private_storage_volume
+  database_sha="sha256:$(backup_file_sha database.sql.gz)"
+  public_sha="sha256:$(backup_file_sha php-storage.tar.gz)"
+  private_sha="sha256:$(backup_file_sha php-private-storage.tar.gz)"
+  manifest_sha="sha256:$(backup_file_sha manifest.json)"
+  database_name="$(jq -r '.runtime.database_name' "$backup_root/manifest.json")"
+  public_storage_volume="$(jq -r '.runtime.storage_volumes.public' "$backup_root/manifest.json")"
+  private_storage_volume="$(jq -r '.runtime.storage_volumes.private' "$backup_root/manifest.json")"
+  jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
+    --arg manifest "$manifest_sha" --arg database "$database_sha" \
+    --arg public "$public_sha" --arg private "$private_sha" \
+    --arg database_path "$backup_root/database.sql.gz" \
+    --arg public_path "$backup_root/php-storage.tar.gz" \
+    --arg private_path "$backup_root/php-private-storage.tar.gz" \
+    --arg manifest_path "$backup_root/manifest.json" \
+    --arg package_sha "sha256:$plan_manifest_sha" \
+    --arg database_resource "$(env_value "$backend_env" PEANUT_DATABASE_RESOURCE_ID)" \
+    --arg compose_project "$compose_project" '
+      .evidence.backup.payload.protocol == "peanut.product-upgrade-host-evidence.v1"
+      and .evidence.backup.payload.status == "completed"
+      and .evidence.backup.payload.phase == "backup"
+      and .evidence.backup.payload.candidate == $candidate
+      and .evidence.backup.payload.plan_sha256 == $plan
+      and .evidence.backup.payload.package_manifest_sha256 == $package_sha
+      and .evidence.backup.payload.payload.backup.manifest_path == $manifest_path
+      and .evidence.backup.payload.payload.backup.kind == "database-and-storage-volumes"
+      and .evidence.backup.payload.payload.backup.manifest_sha256 == $manifest
+      and .evidence.backup.payload.payload.backup.database == {path:$database_path,sha256:$database}
+      and .evidence.backup.payload.payload.backup.storage.public == {path:$public_path,sha256:$public}
+      and .evidence.backup.payload.payload.backup.storage.private == {path:$private_path,sha256:$private}
+      and .evidence.backup.payload.payload.resources.database_resource_id == $database_resource
+      and .evidence.backup.payload.payload.resources.compose_project == $compose_project
+    ' "$state_path" >/dev/null || die 'state backup evidence is not bound to the selected backup bytes'
+  [[ "$database_name" == "$(env_value "$backend_env" DB_NAME)" \
+    && "$database_name" =~ ^[A-Za-z0-9_]{1,64}$ \
+    && "$public_storage_volume" == "${compose_project}_php-storage" \
+    && "$private_storage_volume" == "${compose_project}_php-private-storage" ]] \
+    || die 'bound backup runtime identity is invalid'
+}
+
 verify_backup() {
   [[ -d "$backup_root" && ! -L "$backup_root" \
     && -f "$backup_root/database.sql.gz" && -f "$backup_root/php-storage.tar.gz" \
     && -f "$backup_root/php-private-storage.tar.gz" \
-    && -f "$backup_root/manifest.json" && -f "$backup_root/SHA256SUMS" ]] \
+    && -f "$backup_root/manifest.json" && -f "$backup_root/SHA256SUMS" && ! -L "$backup_root/SHA256SUMS" \
+    && "$(stat -c '%a %h' "$backup_root/SHA256SUMS")" == '600 1' \
+    && "$(realpath "$backup_root")" == "$backup_root" ]] \
     || die 'bound product-upgrade backup is incomplete'
-  (cd "$backup_root" && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz \
-    && tar -tzf php-storage.tar.gz >/dev/null \
-    && tar -tzf php-private-storage.tar.gz >/dev/null) \
-    || die 'bound product-upgrade backup failed verification'
+  for backup_file in database.sql.gz php-storage.tar.gz php-private-storage.tar.gz manifest.json; do
+    assert_backup_regular_file "$backup_file"
+  done
+  verify_backup_checksums
+  gzip -t "$backup_root/database.sql.gz" || die 'bound product-upgrade backup failed verification'
+  verify_storage_archive "$backup_root/php-storage.tar.gz"
+  verify_storage_archive "$backup_root/php-private-storage.tar.gz"
+  database_sha="sha256:$(backup_file_sha database.sql.gz)"
+  public_files_sha="sha256:$(backup_file_sha php-storage.tar.gz)"
+  private_files_sha="sha256:$(backup_file_sha php-private-storage.tar.gz)"
   jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
-    '.protocol == "peanut.product-upgrade-backup.v1" and .candidate == $candidate and .plan_sha256 == $plan
-      and (.runtime.quiesced_services | type == "object")' \
+    --arg database_sha "$database_sha" \
+    --arg public_files_sha "$public_files_sha" --arg private_files_sha "$private_files_sha" \
+    '.schema_version == 1 and .protocol == "peanut.product-upgrade-backup.v1" and .candidate == $candidate and .plan_sha256 == $plan
+      and (.runtime.quiesced_services | type == "object")
+      and (.runtime.database_name | type == "string" and test("^[A-Za-z0-9_]{1,64}$"))
+      and (.runtime.storage_volumes.public | type == "string" and length > 0)
+      and (.runtime.storage_volumes.private | type == "string" and length > 0)
+      and (.artifacts | keys == ["database","storage"])
+      and .artifacts.database == {filename:"database.sql.gz",sha256:$database_sha}
+      and (.artifacts.storage | keys == ["private","public"])
+      and .artifacts.storage.public == {filename:"php-storage.tar.gz",sha256:$public_files_sha}
+      and .artifacts.storage.private == {filename:"php-private-storage.tar.gz",sha256:$private_files_sha}' \
     "$backup_root/manifest.json" >/dev/null || die 'backup manifest is bound to another upgrade'
 }
 
@@ -656,11 +786,11 @@ recover_phase() {
     return
   fi
   database_recovery_required="$(jq -r '.database_recovery_required // false' "$state_path")"
-  stop_writers
   recovery_kind=program-only
   backup_manifest_sha=null
   if [[ "$database_recovery_required" == true ]]; then
     verify_backup
+    assert_backup_state_binding
     database_name="$(jq -r '.runtime.database_name' "$backup_root/manifest.json")"
     public_storage_volume="$(jq -r '.runtime.storage_volumes.public' "$backup_root/manifest.json")"
     private_storage_volume="$(jq -r '.runtime.storage_volumes.private' "$backup_root/manifest.json")"
@@ -668,6 +798,9 @@ recover_phase() {
       && "$public_storage_volume" == "${compose_project}_php-storage" \
       && "$private_storage_volume" == "${compose_project}_php-private-storage" ]] \
       || die 'bound backup runtime identity is invalid'
+  fi
+  stop_writers
+  if [[ "$database_recovery_required" == true ]]; then
     "${compose_current[@]}" exec -T mysql sh -c \
       'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -e "DROP DATABASE IF EXISTS \`$1\`; CREATE DATABASE \`$1\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"' \
       sh "$database_name"

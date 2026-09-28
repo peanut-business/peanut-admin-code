@@ -251,6 +251,10 @@ while IFS= read -r path; do
       select_test server/tests/Unit/PhpTestRunnerTest.php
       behavior_selected=1
       ;;
+    scripts/product-upgrade-host)
+      select_test server/tests/Productization/ProductUpgradeHostBackupBindingTest.php
+      behavior_selected=1
+      ;;
     scripts/create-app|scripts/build-application-template-inventory|scaffold/*)
       select_test server/tests/Productization/CreateApplicationTest.php
       behavior_selected=1
