@@ -231,7 +231,12 @@ try {
         }
         $core = internalCandidateCoreInputs($options['internal-core-inputs']);
         $internalProjection = internalCandidateProjectScaffold(
-            $application, $core, $temporary, $commit, $tree, $options['internal-core-inputs'],
+            $application,
+            $core,
+            $temporary,
+            $commit,
+            $tree,
+            $options['internal-core-inputs'],
         );
         $manifest = internalCandidateReadJson($application . '/.peanut/application-manifest.json');
     }
