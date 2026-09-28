@@ -181,6 +181,14 @@ node --test uniapp/tests/Productization/h5-browser.test.mjs
 
 测试复用 `ProductUpgradeHostBackupBindingTest.php` 的真实文件fixture，不再次运行其已验收的备份33场景；命令哨兵拒绝未知命令，不调用Docker、MySQL或HTTP。`TMPDIR` 位于本检出 `.local/tmp/m4-resume-failure-20260928/`，缺原生命令前置则失败。该测试证明宿主脚本故障控制与回执顺序，不替代真实服务停写或完整数据库/public/private成对恢复。Linux宿主工具合同不因本机fixture适配而改变。
 
+## 恢复终态的只读复核
+
+`php server/tests/Productization/ProductUpgradeHostRecoveryVerifyTest.php` 单独执行生产 `recovery-verify` 路径，核终态、恢复/启动记录的候选和计划绑定、运行身份及健康探针。测试使用真实文件和显式只读服务哨兵，拒绝任何启停、导库、回灌或未知命令；不是再次执行备份或 `resume-old` 套件，也不代表真实数据库恢复完成。临时目录限当前检出 `.local/tmp/m4-terminal-verify-20260928/`，保留失败对照，测试完成后清理其自有夹具。
+
+## H5 长文章的滚动末端可达性
+
+`node --test uniapp/tests/Productization/h5-reachability.test.mjs` 只补长内容、固定收藏栏与横竖屏/平板视口的真实几何检查，不重新运行匿名浏览器旧套件。沿用上述 `H5_BROWSER_*` 环境、登记工具和20493回环资源，由调用者领取本次独占租约；输入使用摘要一致的原生H5产物，不能注入样式或修改DOM来制造可达性。浏览器API仅返回显式合成文章，输出几何、命中检查、截图、请求及前后产物摘要。该范围不等于真实设备、认证、OAuth或整个移动端视觉资格。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

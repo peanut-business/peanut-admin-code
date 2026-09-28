@@ -254,6 +254,7 @@ while IFS= read -r path; do
     scripts/product-upgrade-host)
       select_test server/tests/Productization/ProductUpgradeHostBackupBindingTest.php
       select_test server/tests/Productization/ProductUpgradeHostResumeFailureTest.php
+      select_test server/tests/Productization/ProductUpgradeHostRecoveryVerifyTest.php
       behavior_selected=1
       ;;
     scripts/create-app|scripts/build-application-template-inventory|scaffold/*)

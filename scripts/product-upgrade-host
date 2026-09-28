@@ -938,22 +938,62 @@ recovery_verify_phase() {
   done
   recovery_sha="sha256:$(sha256sum "$recovery_record" | awk '{print $1}')"
   receipt_sha="sha256:$(sha256sum "$current_receipt" | awk '{print $1}')"
+  database_recovery_required="$(jq -r '.database_recovery_required' "$state_path")"
+  if [[ "$database_recovery_required" == true ]]; then
+    # Verify the durable binding, not the already-restored backup contents again.
+    expected_backup_manifest_sha="$(jq -er --arg candidate "$candidate" --arg plan "$plan_sha256" \
+      --arg manifest "sha256:$manifest_sha" '
+        .evidence.backup.payload
+        | select(.protocol == "peanut.product-upgrade-host-evidence.v1"
+          and .status == "completed" and .phase == "backup"
+          and .candidate == $candidate and .plan_sha256 == $plan
+          and .package_manifest_sha256 == $manifest)
+        | .payload.backup.manifest_sha256
+        | select(type == "string" and test("^sha256:[a-f0-9]{64}$"))
+      ' "$state_path")" || die 'durable backup state binding is invalid'
+    expected_recovery_kind=database-public-private-storage-and-program
+  else
+    expected_recovery_kind=program-only
+    expected_backup_manifest_sha=null
+  fi
+  expected_database_name="$(env_value "$backend_env" DB_NAME)"
+  expected_database_resource="$(env_value "$backend_env" PEANUT_DATABASE_RESOURCE_ID)"
+  public_storage_volume="${compose_project}_php-storage"
+  private_storage_volume="${compose_project}_php-private-storage"
   jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
-    --arg recovery_sha "$recovery_sha" --arg receipt_sha "$receipt_sha" '
+    --arg kind "$expected_recovery_kind" --arg backup_manifest_sha "$expected_backup_manifest_sha" \
+    --arg database_name "$expected_database_name" --arg database_resource "$expected_database_resource" \
+    --arg public_storage_volume "$public_storage_volume" --arg private_storage_volume "$private_storage_volume" '
+      .schema_version == 1
+      and .protocol == "peanut.product-upgrade-host-recovery.v1"
+      and .status == "data-runtime-restored"
+      and .candidate == $candidate and .plan_sha256 == $plan
+      and .payload.recovery.kind == $kind
+      and .payload.recovery.data_runtime_restored == true
+      and .payload.recovery.writers_stopped == true
+      and .payload.recovery.resume_required == true
+      and (if $backup_manifest_sha == "null" then
+          .payload.recovery.backup_manifest_sha256 == null
+        else
+          .payload.recovery.backup_manifest_sha256 == $backup_manifest_sha
+        end)
+      and .payload.restored_resources.database_name == $database_name
+      and .payload.restored_resources.database_resource_id == $database_resource
+      and .payload.restored_resources.storage_volumes.public == $public_storage_volume
+      and .payload.restored_resources.storage_volumes.private == $private_storage_volume
+      and (.payload.services | type == "object")
+    ' "$recovery_record" >/dev/null || die 'durable recovery record is invalid'
+  jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" \
+    --arg recovery_sha "$recovery_sha" --arg receipt_sha "$receipt_sha" \
+    --arg compose_project "$compose_project" '
       .protocol == "peanut.product-upgrade-host-resume-old.v1" and .status == "completed"
       and .candidate == $candidate and .plan_sha256 == $plan
       and .recovery_record_sha256 == $recovery_sha and .runtime_receipt_sha256 == $receipt_sha
       and .payload.recovery.resumed_old_runtime == true and .payload.recovery.verified == true
+      and .payload.compose_project == $compose_project
+      and .payload.probes == {healthz:true,database_environment:true,plugin_lock:true,installation_status:true,receipt_binding:true}
+      and (.payload.installation_health | type == "object")
     ' "$resume_old_record" >/dev/null || die 'durable old runtime receipt is invalid'
-  expected_database_name="$(jq -r '.payload.restored_resources.database_name' "$recovery_record")"
-  expected_database_resource="$(jq -r '.payload.restored_resources.database_resource_id' "$recovery_record")"
-  public_storage_volume="$(jq -r '.payload.restored_resources.storage_volumes.public' "$recovery_record")"
-  private_storage_volume="$(jq -r '.payload.restored_resources.storage_volumes.private' "$recovery_record")"
-  [[ "$expected_database_name" == "$(env_value "$backend_env" DB_NAME)" \
-    && "$expected_database_resource" == "$(env_value "$backend_env" PEANUT_DATABASE_RESOURCE_ID)" \
-    && "$public_storage_volume" == "${compose_project}_php-storage" \
-    && "$private_storage_volume" == "${compose_project}_php-private-storage" ]] \
-    || die 'recovered database or storage identity changed'
   docker volume inspect "$public_storage_volume" "$private_storage_volume" >/dev/null \
     || die 'recovered storage volumes are unavailable'
   identities="$(service_identities)"
@@ -962,21 +1002,26 @@ recovery_verify_phase() {
   saved_images="$(jq -c '.payload.services | with_entries(.value = .value.image_id)' "$resume_old_record")"
   current_images="$(jq -c 'with_entries(.value = .value.image_id)' <<<"$identities")"
   [[ "$saved_images" == "$current_images" ]] || die 'recovered runtime image identity changed'
-  "${compose_current[@]}" exec -T php php server/database/environment-guard.php --current </dev/null >/dev/null
-  "${compose_current[@]}" exec -T php php server/think plugin:lock --check </dev/null >/dev/null
+  "${compose_current[@]}" exec -T php php server/database/environment-guard.php --current </dev/null >/dev/null \
+    || die 'recovered database_environment verification failed'
+  "${compose_current[@]}" exec -T php php server/think plugin:lock --check </dev/null >/dev/null \
+    || die 'recovered plugin_lock verification failed'
   installation_status="$("${compose_current[@]}" exec -T php php server/database/install.php --status </dev/null)" \
-    || die 'recovered business state verification failed'
+    || die 'recovered installation_status verification failed'
   jq -e --arg edition "$edition" '
     .state == "installed" and (.health.tenant_count | type == "number" and . >= 1)
     and (.health.owner_count | type == "number" and . >= 1)
     and (.health.operator_count | type == "number" and . >= (if $edition == "multi-tenant" then 1 else 0 end))
   ' <<<"$installation_status" >/dev/null || die 'recovered business state verification is incomplete'
+  # Writers have resumed: legitimate new tenants must not invalidate live health.
   php_container="$(jq -r '.php.container_id // empty' <<<"$identities")"
-  runtime_receipt="$(docker exec "$php_container" cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)"
+  runtime_receipt="$(docker exec "$php_container" cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)" \
+    || die 'recovered runtime receipt read failed'
   [[ "$(cat "$current_receipt")" == "$runtime_receipt" ]] \
     || die 'recovered runtime receipt identity changed'
   port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
-  curl -fsS --retry 3 --retry-delay 1 "http://127.0.0.1:$port/healthz" >/dev/null
+  curl -fsS --retry 3 --retry-delay 1 "http://127.0.0.1:$port/healthz" >/dev/null \
+    || die 'recovered healthz verification failed'
   emit "$(jq -n --arg recovery_record_sha "$recovery_sha" --arg resume_record_sha \
     "sha256:$(sha256sum "$resume_old_record" | awk '{print $1}')" \
     --argjson services "$identities" --argjson installation_health "$(jq -c '.health' <<<"$installation_status")" \

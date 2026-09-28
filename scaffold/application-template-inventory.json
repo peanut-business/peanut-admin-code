@@ -2960,7 +2960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7dcf399ef30b3f00e43ea2bff8cb241758cd39dd99d9d2bb24e9e4522970bffd"
+            "source_sha256": "cb9857a0c1621e0a7e97e17854010b75833f059c7c2f630444e71381ccd30caf"
         },
         {
             "path": "scripts/ci-summary",
@@ -3430,7 +3430,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "523ac4e5d15f8ce0c94e8c6e84681898dbb1310ade88fd6172cd5d34473f6963"
+            "source_sha256": "acd4cebb44782b6ddc4097ad86e4a73c914862d77f417ab8ec6692b298f95936"
         },
         {
             "path": "scripts/project-codegraph",
@@ -26666,6 +26666,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ProductUpgradeHostRecoveryVerifyTest.php",
+            "target": "server/tests/Productization/ProductUpgradeHostRecoveryVerifyTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/ProductUpgradeHostResumeFailureTest.php",
             "target": "server/tests/Productization/ProductUpgradeHostResumeFailureTest.php",
             "classification": "excluded",
@@ -28500,7 +28513,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "42858654c32da1b3502f92db698619666e8c67df445cef29ad1aabf3dd38c967"
+            "source_sha256": "bb0f8d942817b3a6e27251c3046a0888f8b3594cda8dba225313f69a64a2de70"
         },
         {
             "path": "tools/quality/composer.json",
@@ -29065,7 +29078,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89372a374e37adfd2f3c9c30fac9088540124b7d92c5af60e84ff221f54201a6"
+            "source_sha256": "90e054480b5e1b801fd802af8d2bc7bb1cce209c2b05749d348240d1a2c21057"
         },
         {
             "path": "uniapp/src/pages/oauth/callback.vue",
@@ -29417,6 +29430,19 @@
                 "full"
             ],
             "source_sha256": "8dd04b82363473219c79ff972244e36f63812e0d860a3101c02c30c38d7d4b62"
+        },
+        {
+            "path": "uniapp/tests/Productization/h5-reachability.test.mjs",
+            "target": "uniapp/tests/Productization/h5-reachability.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "81d1670666568119ebc70eb2eeb24c8b3cecca6cf6cae30a9b6cb18552752264"
         },
         {
             "path": "uniapp/tests/entry-contracts.test.mjs",

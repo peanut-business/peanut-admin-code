@@ -131,6 +131,13 @@
     line-height: 1.8;
     color: #444;
   }
+  /* #ifdef H5 */
+  /* Rich-text authors may supply fixed image dimensions; keep the page readable. */
+  .rich-content :deep(img) {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  /* #endif */
   .action-bar {
     position: fixed;
     bottom: 0;
