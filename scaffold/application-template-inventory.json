@@ -2933,7 +2933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc506eb831d40b057ad1121f8c48b0b7391e6ea8dea697ae002463e8de0322a4"
+            "source_sha256": "70090d9ffc4aac75012810d21d3f2170a928762405607a61524e0d858720be45"
         },
         {
             "path": "scripts/ci-summary",
@@ -21540,7 +21540,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6406655620144ec27821e388185d62a2cd7a6f47cf146838ff69041073aaea83"
+            "source_sha256": "0c1ec278fcb142ff0ca20fc584ef21fdb2e18b626c948b80cb639c92daa34880"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ScopedMenuCatalogRepository.php",
@@ -26311,6 +26311,19 @@
         {
             "path": "server/tests/Productization/ModuleScaffoldLayoutTest.php",
             "target": "server/tests/Productization/ModuleScaffoldLayoutTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ModuleSourcePathIsolationTest.php",
+            "target": "server/tests/Productization/ModuleSourcePathIsolationTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

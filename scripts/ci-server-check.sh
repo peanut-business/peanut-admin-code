@@ -238,6 +238,11 @@ while IFS= read -r path; do
       select_test server/tests/Multitenancy/OfficialCapabilityTenantQualificationTest.php
       behavior_selected=1
       ;;
+    server/app/platform/infrastructure/plugin/PluginPackageSourcePromoter.php)
+      select_test server/tests/Productization/ModuleSourcePathIsolationTest.php
+      select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
+      behavior_selected=1
+      ;;
     server/app/*|server/config/*)
       select_test server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php
       behavior_selected=1
@@ -263,6 +268,7 @@ if [[ "$mode" == '--broad' || "$behavior_selected" -eq 0 ]]; then
   # An unclassified server-affecting path expands to the stable broad behavior group.
   for test_file in \
     server/tests/Productization/ModuleCoreDependencyTest.php \
+    server/tests/Productization/ModuleSourcePathIsolationTest.php \
     server/tests/Productization/FreshSchemaBaselineTest.php \
     server/tests/Productization/ThinkPhpArchitectureBehaviorMatrixTest.php \
     server/tests/Productization/OAuthChannelHostTest.php \

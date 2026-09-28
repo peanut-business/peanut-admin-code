@@ -15,10 +15,10 @@ final class PluginPackageSourcePromoter
     public function __construct(string $serverRoot)
     {
         $this->root = rtrim(dirname($serverRoot), '/');
-        $this->assertPath($this->root);
         if (!is_dir($serverRoot) || realpath($this->root) !== $this->root) {
             throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Use the canonical application root.');
         }
+        $this->assertPath($this->root);
         $this->assertPath($serverRoot);
         $this->state = $this->root . '/.local/module-source-adoption';
         $this->assertPath($this->state);
@@ -187,13 +187,27 @@ final class PluginPackageSourcePromoter
         return ['status' => 'recovered', 'package_key' => $journal['package_key'], 'transaction' => $journal['transaction']];
     }
 
-    /** Refuse symlinks at the root, ancestors, destination and every existing descendant. */
+    /** Prove the canonical root, then inspect only owned paths within that root. */
     private function assertPath(string $path): void
     {
+        if (($path !== $this->root && !str_starts_with($path, $this->root . '/'))
+            || preg_match('#/(?:\.|\.\.)(?:/|$)#D', $path) === 1) {
+            throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package paths must remain inside the application root.');
+        }
+        // Canonical resolution detects root/ancestor aliases without probing
+        // directories outside a consumer's open_basedir. Refresh it so a prior
+        // cached root cannot hide a subsequent alias replacement.
+        clearstatcache(true);
+        if (realpath($this->root) !== $this->root) {
+            throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Use the canonical application root.');
+        }
         $cursor = $path;
-        while ($cursor !== '/' && $cursor !== '.') {
+        while (true) {
             if (is_link($cursor)) {
                 throw new PluginPackageException('MODULE_PACKAGE_PATH_INVALID', 'Package paths cannot contain symlinks.');
+            }
+            if ($cursor === $this->root) {
+                return;
             }
             $cursor = dirname($cursor);
         }
