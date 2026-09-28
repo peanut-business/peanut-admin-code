@@ -2233,6 +2233,20 @@
             "source_sha256": "f9ccb332b126a8868c4877d1d896670e7346ac54a0ee6ea6c962b2fc4392f9e5"
         },
         {
+            "path": "platform/tests/Productization/entry-browser.test.mjs",
+            "target": "platform/tests/Productization/entry-browser.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6b456cf302158a95d1de6d88d0d814aa9e2334ff732f18f0f64c4bfa7b45d235"
+        },
+        {
             "path": "platform/tsconfig.governance-tests.json",
             "target": "platform/tsconfig.governance-tests.json",
             "classification": "managed",
@@ -28513,7 +28527,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bb0f8d942817b3a6e27251c3046a0888f8b3594cda8dba225313f69a64a2de70"
+            "source_sha256": "fbee9487829b4517704a607d9faf36d2d1f2f9706ba27684a5faee12c5873b9d"
         },
         {
             "path": "tools/quality/composer.json",
@@ -34770,6 +34784,20 @@
                 "full"
             ],
             "source_sha256": "0e37b44b48856287b5df5a64b4530c91f62e43a3cf1f31059d3ea4614d8128d3"
+        },
+        {
+            "path": "web/tests/Productization/entry-browser.test.mjs",
+            "target": "web/tests/Productization/entry-browser.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "193c5e36af9af90fdda9a5855ac9b7d3521076179fa675aea2fb6f5a08f72e7a"
         },
         {
             "path": "web/tests/Productization/generated-crud-consumer.test.mjs",

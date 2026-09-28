@@ -189,6 +189,14 @@ node --test uniapp/tests/Productization/h5-browser.test.mjs
 
 `node --test uniapp/tests/Productization/h5-reachability.test.mjs` 只补长内容、固定收藏栏与横竖屏/平板视口的真实几何检查，不重新运行匿名浏览器旧套件。沿用上述 `H5_BROWSER_*` 环境、登记工具和20493回环资源，由调用者领取本次独占租约；输入使用摘要一致的原生H5产物，不能注入样式或修改DOM来制造可达性。浏览器API仅返回显式合成文章，输出几何、命中检查、截图、请求及前后产物摘要。该范围不等于真实设备、认证、OAuth或整个移动端视觉资格。
 
+## 平台与租户管理端的浏览器入口
+
+`node --test platform/tests/Productization/entry-browser.test.mjs` 检查原生平台登录页、401/503错误、等待中的重复提交及失效邀请的只读错误展示；`node --test web/tests/Productization/entry-browser.test.mjs` 检查原生租户管理端的安装状态守卫、空字段、失败登录、重新检查及History路由本地跳转。真实Chromium读取未修改的静态产物；API仅为本任务内存中的状态/拒绝响应，不执行安装、接受邀请或成功认证，也不连接PHP/MySQL。
+
+两者使用 `MANAGEMENT_BROWSER_PROJECT_ROOT`（含dist的对应工程）、`MANAGEMENT_BROWSER_OUTPUT_SHA256`（按测试outputDigest核对）、`MANAGEMENT_BROWSER_PLAYWRIGHT_ROOT`（已安装的登记版本）、`MANAGEMENT_BROWSER_LEASE_ID`、`MANAGEMENT_BROWSER_EVIDENCE_DIR`（本检出下空证据目录）和任务自己的 `TMPDIR`。工具/监听分别为 `peanut-platform-entry-browser` / `peanut-platform-entry-fixture`（20494，owner/gate=`platform-entry-qualification`）和 `peanut-admin-entry-browser` / `peanut-admin-entry-fixture`（20495，owner/gate=`admin-entry-qualification`）。先核当前登记与独占租约，保留sandbox，只允许各自回环Host；没有浏览器或输入/租约不符时失败，禁止静默下载、借用户会话或skip。
+
+同一工作树会被租约独占：实现文件可分owner并行，但不能据端口不同推导两项运行可同时领取租约。测试关闭自身浏览器/服务器，调用者核端口/profile并释放后再开始另一项；不修改租约保护。输出保留每组错误、请求及产物前后摘要，错误请求不等于后端权限证明，测试失败不得用重复提交或修改生产DOM隐藏。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

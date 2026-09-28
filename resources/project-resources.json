@@ -13,6 +13,38 @@
   "resources": {
     "tooling": [
       {
+        "stable_resource_id": "peanut-platform-entry-browser",
+        "purpose": "Platform anonymous entry and failure UI on native assets; synthetic responses only, no successful login, PHP or database",
+        "environments": ["development-test"],
+        "owner": "platform-entry-qualification",
+        "service_type": "Playwright Chromium with an isolated task-owned context",
+        "version": "1.63.0-alpha-2026-08-05",
+        "command": "MANAGEMENT_BROWSER_PLAYWRIGHT_ROOT selects an already installed exact Playwright package",
+        "credential_ref": null,
+        "data_source": "Digest-bound platform dist and local in-memory error responses",
+        "listener_resource_ids": ["peanut-platform-entry-fixture"],
+        "freshness_requirement": "Matching source/build identity, empty port and evidence directory, current exclusive candidate-bound lease",
+        "health_check": "Native browser assertions; reject unexpected external or business requests",
+        "fallback": "none",
+        "cleanup_responsibility": "Test closes its own browser and profile; shared cache untouched"
+      },
+      {
+        "stable_resource_id": "peanut-admin-entry-browser",
+        "purpose": "Admin installation-state and anonymous login routing on native assets; synthetic responses only, no installation or successful login",
+        "environments": ["development-test"],
+        "owner": "admin-entry-qualification",
+        "service_type": "Playwright Chromium with an isolated task-owned context",
+        "version": "1.63.0-alpha-2026-08-05",
+        "command": "MANAGEMENT_BROWSER_PLAYWRIGHT_ROOT selects an already installed exact Playwright package",
+        "credential_ref": null,
+        "data_source": "Digest-bound admin dist and local in-memory installation/brand responses",
+        "listener_resource_ids": ["peanut-admin-entry-fixture"],
+        "freshness_requirement": "Matching source/build identity, empty port and evidence directory, current exclusive candidate-bound lease",
+        "health_check": "Native browser assertions; reject unexpected external or business requests",
+        "fallback": "none",
+        "cleanup_responsibility": "Test closes its own browser and profile; shared cache untouched"
+      },
+      {
         "stable_resource_id": "peanut-h5-browser-qualification",
         "purpose": "Native H5 anonymous UI and failure states with synthetic public HTTP API; no real login, PHP or database",
         "environments": ["development-test"],
@@ -2224,6 +2256,36 @@
       }
     ],
     "local_listeners": [
+      {
+        "stable_resource_id": "peanut-platform-entry-fixture",
+        "environment": "development-test",
+        "owner": "platform-entry-qualification",
+        "host": "127.0.0.1",
+        "port": 20494,
+        "service_type": "Native platform static files and explicit in-memory rejected-login/invitation-inspection responses",
+        "namespace": "platform-entry.localhost",
+        "credential_ref": null,
+        "data_source": "MANAGEMENT_BROWSER_PROJECT_ROOT/dist and isolated synthetic error fixtures; no persistence",
+        "freshness_requirement": "Exclusive lease, exact build digest, empty listener before start",
+        "health_check": "Browser requests; no accepted invitation, install or successful backend authentication",
+        "fallback": "none",
+        "cleanup_responsibility": "Platform entry test closes only its own loopback listener"
+      },
+      {
+        "stable_resource_id": "peanut-admin-entry-fixture",
+        "environment": "development-test",
+        "owner": "admin-entry-qualification",
+        "host": "127.0.0.1",
+        "port": 20495,
+        "service_type": "Native admin static files and explicit in-memory installation/branding responses",
+        "namespace": "admin-entry.localhost",
+        "credential_ref": null,
+        "data_source": "MANAGEMENT_BROWSER_PROJECT_ROOT/dist and synthetic read-only fixtures; no persistence",
+        "freshness_requirement": "Exclusive lease, exact build digest, empty listener before start",
+        "health_check": "Browser requests; reject installation and business writes",
+        "fallback": "none",
+        "cleanup_responsibility": "Admin entry test closes only its own loopback listener"
+      },
       {
         "stable_resource_id": "peanut-h5-browser-fixture",
         "environment": "development-test",
