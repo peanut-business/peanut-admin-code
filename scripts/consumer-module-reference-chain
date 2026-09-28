@@ -673,10 +673,24 @@ def lifecycle_helper() -> str:
     return r'''<?php
 declare(strict_types=1);
 
+// Credentials remain private even on diagnostics or retained failed runs.
+umask(0077);
+ini_set('zend.exception_ignore_args', '1');
+set_exception_handler(static function (Throwable $error): void {
+    fwrite(STDERR, json_encode([
+        'error' => 'CR21_HELPER_FAILED',
+        'exception' => get_class($error),
+        'source' => basename($error->getFile()),
+        'line' => $error->getLine(),
+    ], JSON_THROW_ON_ERROR) . PHP_EOL);
+    exit(1);
+});
+
 require $argv[1] . '/server/bootstrap/environment.php';
 require $argv[1] . '/server/vendor/autoload.php';
 
 $action = $argv[2] ?? '';
+$identityFile = $argv[3] ?? '';
 $app = (new think\App($argv[1] . '/server'))->initialize();
 $pdo = new PDO(
     'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_NAME') . ';charset=utf8mb4',
@@ -707,42 +721,199 @@ $snapshot = static function () use ($pdo, $module, $tableExists): array {
     ];
 };
 
-$platformContext = static function () use ($pdo): PeanutAdmin\Kernel\Context\PlatformContext {
-    $operator = $pdo->query("SELECT id,account_id FROM pa_platform_operator WHERE status='active' ORDER BY id LIMIT 1")->fetch();
-    if (!is_array($operator)) throw new RuntimeException('active Platform operator fixture is unavailable');
-    return PeanutAdmin\Kernel\Context\PlatformContext::fromTrustedAutomation(
-        (int)$operator['account_id'],
-        (int)$operator['id'],
-        'platform-web',
-        'cr21-platform-' . bin2hex(random_bytes(8)),
-        new DateTimeImmutable('now', new DateTimeZone('UTC')),
-    );
+$identityBundle = static function () use ($identityFile): array {
+    clearstatcache(true, $identityFile);
+    if ($identityFile === '') {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_REQUIRED');
+    }
+    if (!is_file($identityFile) || is_link($identityFile) || (fileperms($identityFile) & 0777) !== 0600) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_FILE_INVALID');
+    }
+    $decoded = json_decode((string)file_get_contents($identityFile), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_JSON_INVALID');
+    }
+    return $decoded;
 };
-$tenantContext = static function (string $tenantCode) use ($pdo): PeanutAdmin\Kernel\Auth\TenantContext {
-    $query = $pdo->prepare("SELECT t.id tenant_id,t.authorization_revision,m.account_id,m.id member_id FROM pa_tenant t JOIN pa_tenant_member m ON m.tenant_id=t.id WHERE t.code=? AND t.status='active' AND m.status='active' ORDER BY m.id LIMIT 1");
+$privateKeyValueFile = static function (string $path, string $label): array {
+    clearstatcache(true, $path);
+    if ($path === '' || !is_file($path) || is_link($path) || (fileperms($path) & 0777) !== 0600) {
+        throw new RuntimeException($label . '_FILE_INVALID');
+    }
+    $values = parse_ini_file($path, false, INI_SCANNER_RAW);
+    if (!is_array($values)) {
+        throw new RuntimeException($label . '_FILE_UNREADABLE');
+    }
+    return $values;
+};
+$requiredSecret = static function (array $values, string $key): string {
+    $value = $values[$key] ?? null;
+    if (!is_string($value) || trim($value) === '') {
+        throw new RuntimeException('CR21_SECRET_MISSING:' . $key);
+    }
+    return $value;
+};
+$requiredToken = static function (array $bundle, string $key): string {
+    $token = $bundle[$key] ?? null;
+    if (!is_string($token) || trim($token) === '') {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_TOKEN_MISSING:' . $key);
+    }
+    return $token;
+};
+$tenantToken = static function (array $bundle, string $tenantCode) use ($requiredToken): string {
+    $tokens = $bundle['tenant_access_tokens'] ?? null;
+    if (!is_array($tokens)) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_TENANT_TOKENS_MISSING');
+    }
+    return $requiredToken($tokens, $tenantCode);
+};
+$requestId = static function (string $audience): string {
+    return 'cr21-' . $audience . '-' . bin2hex(random_bytes(8));
+};
+$writeIdentityBundle = static function (string $path, array $bundle): void {
+    if ($path === '') {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_OUTPUT_REQUIRED');
+    }
+    $directory = dirname($path);
+    if (!is_dir($directory) || is_link($path)) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_OUTPUT_INVALID');
+    }
+    $temporary = $path . '.tmp-' . bin2hex(random_bytes(8));
+    try {
+        $json = json_encode($bundle, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $handle = fopen($temporary, 'x');
+        if ($handle === false) {
+            throw new RuntimeException('CR21_IDENTITY_CONTEXT_WRITE_FAILED');
+        }
+        try {
+            if (!chmod($temporary, 0600) || fwrite($handle, $json) !== strlen($json)) {
+                throw new RuntimeException('CR21_IDENTITY_CONTEXT_WRITE_FAILED');
+            }
+        } finally {
+            fclose($handle);
+        }
+        if (!rename($temporary, $path)) {
+            throw new RuntimeException('CR21_IDENTITY_CONTEXT_WRITE_FAILED');
+        }
+    } finally {
+        if (is_file($temporary) && !is_link($temporary)) {
+            unlink($temporary);
+        }
+    }
+};
+$platformContext = static function () use ($app, $identityBundle, $requiredToken, $requestId): PeanutAdmin\Kernel\Context\PlatformContext {
+    $context = $app->make(app\platform\identity\PlatformOperatorIdentityPort::class)
+        ->requireActive($requiredToken($identityBundle(), 'platform_access_token'), $requestId('platform'));
+    return $context->core;
+};
+$tenantContext = static function (string $tenantCode) use ($app, $pdo, $identityBundle, $tenantToken, $requestId): PeanutAdmin\Kernel\Auth\TenantContext {
+    $context = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class)
+        ->context($tenantToken($identityBundle(), $tenantCode), $requestId('tenant'));
+    $query = $pdo->prepare("SELECT id FROM pa_tenant WHERE code=? AND status='active'");
     $query->execute([$tenantCode]);
-    $subject = $query->fetch();
-    if (!is_array($subject)) throw new RuntimeException('active Tenant member fixture is unavailable');
-    return PeanutAdmin\Kernel\Auth\TenantContext::fromValidatedSession(
-        new PeanutAdmin\Kernel\Auth\ValidatedTenantSession(
-            1,
-            'cr21-service-session',
-            (int)$subject['tenant_id'],
-            (int)$subject['account_id'],
-            (int)$subject['member_id'],
-            'admin-web',
-            new DateTimeImmutable('now', new DateTimeZone('UTC')),
-            (int)$subject['authorization_revision'],
-        ),
-        'cr21-tenant-' . bin2hex(random_bytes(8)),
-    );
+    $tenantId = $query->fetchColumn();
+    if ($tenantId === false || (int)$tenantId !== $context->tenantId) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_TENANT_MISMATCH:' . $tenantCode);
+    }
+    return $context;
 };
 
 if ($action === 'fixture') {
-    $tenantA = $pdo->query("SELECT id FROM pa_tenant WHERE code='default' AND status='active'")->fetchColumn();
-    if ($tenantA === false) throw new RuntimeException('default Tenant is unavailable');
-    $pdo->exec("INSERT INTO pa_tenant(code,name,display_name,status,activated_at,created_at,updated_at) VALUES ('tenant-b','Tenant B','Tenant B','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
-    echo json_encode($snapshot(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    echo json_encode($snapshot() + ['tenant_fixture' => 'native_provision_accept_activate'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    exit(0);
+}
+if ($action === 'issue-identities') {
+    $outputIdentityFile = $argv[3] ?? '';
+    $credentialFile = $argv[4] ?? '';
+    $credentials = $privateKeyValueFile($credentialFile, 'CR21_IDENTITY_SEED');
+    foreach (['PLATFORM_INITIAL_EMAIL', 'PLATFORM_INITIAL_PASSWORD', 'ADMIN_INITIAL_EMAIL',
+        'ADMIN_INITIAL_PASSWORD', 'TENANT_B_OWNER_EMAIL', 'TENANT_B_OWNER_PASSWORD'] as $key) {
+        $requiredSecret($credentials, $key);
+    }
+    $platform = $app->make(app\platform\services\PlatformOperatorSessionService::class)
+        ->login(
+            $requiredSecret($credentials, 'PLATFORM_INITIAL_EMAIL'),
+            $requiredSecret($credentials, 'PLATFORM_INITIAL_PASSWORD'),
+            '127.0.0.1',
+            'CR21 reference chain',
+            $requestId('platform-login'),
+        );
+    $tenantAuth = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+    $default = $tenantAuth->login(
+        $requiredSecret($credentials, 'ADMIN_INITIAL_EMAIL'),
+        $requiredSecret($credentials, 'ADMIN_INITIAL_PASSWORD'),
+        'default',
+        '127.0.0.1',
+        'CR21 reference chain',
+        $requestId('tenant-login-default'),
+    );
+    if (!$default instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_DEFAULT_TENANT_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $invitation = $app->make(PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationAdminService::class)
+        ->provision(
+            $platform->context,
+            'tenant-b',
+            'Tenant B',
+            $requiredSecret($credentials, 'TENANT_B_OWNER_EMAIL'),
+            'Tenant B Owner',
+            24,
+        );
+    $acceptToken = $invitation['accept_token'] ?? null;
+    if (!is_string($acceptToken) || $acceptToken === '') {
+        throw new RuntimeException('CR21_TENANT_B_INVITATION_TOKEN_UNAVAILABLE');
+    }
+    $accepted = $app->make(PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationPublicService::class)
+        ->accept($acceptToken, $requiredSecret($credentials, 'TENANT_B_OWNER_PASSWORD'));
+    if (($accepted['status'] ?? null) !== 'accepted'
+        || (int)($accepted['tenant_id'] ?? 0) !== (int)($invitation['tenant_id'] ?? 0)) {
+        throw new RuntimeException('CR21_TENANT_B_ACCEPTANCE_MISMATCH');
+    }
+    // Acceptance creates the owner, but does not activate a provisioning tenant.
+    $tenantRow = $pdo->prepare("SELECT id,revision,status FROM pa_tenant WHERE id=? AND code='tenant-b'");
+    $tenantRow->execute([(int)$accepted['tenant_id']]);
+    $beforeActivation = $tenantRow->fetch();
+    if (!is_array($beforeActivation) || $beforeActivation['status'] !== 'provisioning') {
+        throw new RuntimeException('CR21_TENANT_B_ACTIVATION_BASELINE_INVALID');
+    }
+    $activated = $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
+        ->transitionTenant(
+            $platform->context,
+            (int)$beforeActivation['id'],
+            (int)$beforeActivation['revision'],
+            PeanutAdmin\Modules\Identity\Tenancy\TenantStatus::Active,
+            'CR21 activate accepted synthetic owner',
+        );
+    if (($activated['status'] ?? null) !== 'active') {
+        throw new RuntimeException('CR21_TENANT_B_ACTIVATION_FAILED');
+    }
+    $tenantB = $tenantAuth->login(
+        $requiredSecret($credentials, 'TENANT_B_OWNER_EMAIL'),
+        $requiredSecret($credentials, 'TENANT_B_OWNER_PASSWORD'),
+        'tenant-b',
+        '127.0.0.1',
+        'CR21 reference chain',
+        $requestId('tenant-login-b'),
+    );
+    if (!$tenantB instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_TENANT_B_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $writeIdentityBundle($outputIdentityFile, [
+        'schema_version' => 1,
+        'source' => 'native_auth_services_after_consumer_install',
+        'platform_access_token' => $platform->tokens->access->expose(),
+        'tenant_access_tokens' => [
+            'default' => $default->tokens->access->expose(),
+            'tenant-b' => $tenantB->tokens->access->expose(),
+        ],
+    ]);
+    echo json_encode([
+        'status' => 'issued',
+        'platform_context' => 'native_platform_login',
+        'tenant_contexts' => ['default' => 'native_tenant_login', 'tenant-b' => 'native_invitation_accept_login'],
+        'tenant_b' => 'provisioned_accepted_and_activated',
+        'identity_context_file' => 'written_0600',
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
 if ($action === 'provision-default') {
@@ -752,7 +923,8 @@ if ($action === 'provision-default') {
     $context = $tenantContext('default');
     $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
     $role = $roles->create($context, 'reference-owner', 'Reference Owner', 'CR21 service-owned role');
-    $role = $roles->replacePermissions($context, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['authorization_revision']);
+    $role = $roles->replacePermissions($tenantContext('default'), (int)$role['id'], ['acme.reference-chain.write'], (int)$role['authorization_revision']);
+    $context = $tenantContext('default');
     $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class);
     $created = $records->create($context, 'tenant-a');
     echo json_encode($snapshot() + ['service_write' => $created, 'service_read' => $records->list($context), 'role_service' => $role], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
@@ -959,6 +1131,8 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     cache = output / "cache/composer"
     cache.mkdir(parents=True)
     completed = False
+    identity_context = output / "consumer-identity-context.json"
+    identity_seed_path = consumer / "server/.env.cr21.identity-seed"
     try:
         extract_installer(installer_package, installer_artifact, author)
         extract_installer(installer_package, installer_artifact, consumer)
@@ -1078,31 +1252,67 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(check_v1_package.get("status") == "ready", "module:check did not accept signed v1 package")
 
         installation_path = consumer / "server/.env.cr21.installation"
+        admin_email = "cr21-admin@example.test"
+        admin_password = secrets.token_urlsafe(24)
+        platform_email = "cr21-platform@example.test"
+        platform_password = secrets.token_urlsafe(24)
+        tenant_b_email = "cr21-tenant-b-owner@example.test"
+        tenant_b_password = secrets.token_urlsafe(24)
         installation_credentials = (
-            "ADMIN_INITIAL_EMAIL=cr21-admin@example.test\n"
-            "ADMIN_INITIAL_PASSWORD=cr21-admin-strong-password\n"
+            f"ADMIN_INITIAL_EMAIL={admin_email}\n"
+            f"ADMIN_INITIAL_PASSWORD={admin_password}\n"
         )
         if args.edition == "multi-tenant":
             installation_credentials += (
-                "PLATFORM_INITIAL_EMAIL=cr21-platform@example.test\n"
-                "PLATFORM_INITIAL_PASSWORD=cr21-platform-strong-password\n"
+                f"PLATFORM_INITIAL_EMAIL={platform_email}\n"
+                f"PLATFORM_INITIAL_PASSWORD={platform_password}\n"
             )
         installation_path.write_text(
             installation_credentials,
             encoding="utf-8",
         )
         installation_path.chmod(0o600)
+        identity_seed_path.write_text(
+            (
+                f"ADMIN_INITIAL_EMAIL={admin_email}\n"
+                f"ADMIN_INITIAL_PASSWORD={admin_password}\n"
+                f"PLATFORM_INITIAL_EMAIL={platform_email}\n"
+                f"PLATFORM_INITIAL_PASSWORD={platform_password}\n"
+                f"TENANT_B_OWNER_EMAIL={tenant_b_email}\n"
+                f"TENANT_B_OWNER_PASSWORD={tenant_b_password}\n"
+            ),
+            encoding="utf-8",
+        )
+        identity_seed_path.chmod(0o600)
         install_env = consumer_env | {"PEANUT_INSTALLATION_ENV_FILE": str(installation_path)}
-        installed = json_output(command(
-            [str(PHP), "server/database/install.php"], cwd=consumer, env=install_env, log=logs / "consumer.log"
-        ), "consumer fresh install")
-        installation_path.unlink()
-        expect(installed.get("state") == "installed"
-               and int(installed.get("health", {}).get("installed_table_count", 0)) > 0,
-               "consumer fresh install did not create the canonical schema")
         helper = output / "consumer-lifecycle.php"
         helper.write_text(lifecycle_helper(), encoding="utf-8")
         helper.chmod(0o600)
+        try:
+            installed = json_output(command(
+                [str(PHP), "server/database/install.php"], cwd=consumer, env=install_env, log=logs / "consumer.log"
+            ), "consumer fresh install")
+            expect(installed.get("state") == "installed"
+                   and int(installed.get("health", {}).get("installed_table_count", 0)) > 0,
+                   "consumer fresh install did not create the canonical schema")
+            issued_identity = helper_action(
+                helper,
+                consumer,
+                consumer_env,
+                "issue-identities",
+                logs / "consumer.log",
+                [str(identity_context), str(identity_seed_path)],
+            )
+            expect(
+                issued_identity.get("status") == "issued"
+                and issued_identity.get("identity_context_file") == "written_0600"
+                and not identity_context.is_symlink()
+                and (identity_context.stat().st_mode & 0o777) == 0o600,
+                "native authentication did not produce a private identity context",
+            )
+        finally:
+            installation_path.unlink(missing_ok=True)
+            identity_seed_path.unlink(missing_ok=True)
         install_v1 = package_install(
             consumer, consumer_env, v1_path, v1_sha, logs / "consumer.log"
         )
@@ -1119,14 +1329,28 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         fixture = helper_action(helper, consumer, consumer_env, "fixture", logs / "consumer.log")
         expect(tenant_statuses(fixture) == {} and rbac_counts(fixture) == {} and fixture.get("owned_rows") == 0,
                "synthetic Tenant fixture changed Module, RBAC, or business state")
-        seeded = helper_action(helper, consumer, consumer_env, "provision-default", logs / "consumer.log")
+        seeded = helper_action(
+            helper,
+            consumer,
+            consumer_env,
+            "provision-default",
+            logs / "consumer.log",
+            [str(identity_context)],
+        )
         expect(tenant_statuses(seeded) == {"default": "enabled"},
                "formal service did not preserve Tenant A/B initial Module separation")
         expect(rbac_counts(seeded) == {"default": 1}, "Role service did not establish Tenant A RBAC")
         expect(seeded.get("owned_rows") == 1 and seeded.get("migration_count") == 1
                and len(seeded.get("service_read", {}).get("items", [])) == 1,
                "v1 Module service write/read or migration state is invalid")
-        enabled_b = helper_action(helper, consumer, consumer_env, "enable-b", logs / "consumer.log")
+        enabled_b = helper_action(
+            helper,
+            consumer,
+            consumer_env,
+            "enable-b",
+            logs / "consumer.log",
+            [str(identity_context)],
+        )
         expect(tenant_statuses(enabled_b) == {"default": "enabled", "tenant-b": "enabled"}
                and rbac_counts(enabled_b) == {"default": 1},
                "TenantModule enablement changed Package or RBAC state")
@@ -1156,7 +1380,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             consumer, consumer_env, v2_path, v2_sha, False, logs / "consumer.log"
         )
         expect(updated.get("operation") == "upgraded", "consumer v2 package update failed")
-        after_update = helper_action(helper, consumer, consumer_env, "service-read-default", logs / "consumer.log")
+        after_update = helper_action(
+            helper,
+            consumer,
+            consumer_env,
+            "service-read-default",
+            logs / "consumer.log",
+            [str(identity_context)],
+        )
         expect(after_update.get("plugin", {}).get("installed_version") == "2.0.0"
                and after_update.get("migration_count") == 2 and after_update.get("v2_column") is True,
                "v2 package, migration, and schema identity diverged")
@@ -1166,7 +1397,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                and len(after_update.get("service_read", {}).get("items", [])) == 1,
                "v2 update changed TenantModule/RBAC data or broke the Module service read")
 
-        disabled_tenants = helper_action(helper, consumer, consumer_env, "disable-tenants", logs / "consumer.log")
+        disabled_tenants = helper_action(
+            helper,
+            consumer,
+            consumer_env,
+            "disable-tenants",
+            logs / "consumer.log",
+            [str(identity_context)],
+        )
         expect(set(tenant_statuses(disabled_tenants).values()) == {"disabled"}, "TenantModules were not disabled")
         disabled_package = package_disable(
             consumer, consumer_env, logs / "consumer.log"
@@ -1244,9 +1482,11 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "retire_purge": "passed",
                 "app_owned_preservation": "passed",
                 "runtime_mutation_entry": "generated_application_module_cli",
-                "tenant_fixture_entry": "synthetic_sql_fixture_not_product_entry",
+                "identity_context_entry": "native_auth_service_access_tokens_from_private_file",
+                "tenant_fixture_entry": "native_provision_accept_activate",
                 "tenant_module_entry": "platform_tenant_admin_service",
                 "rbac_entry": "role_admin_service",
+                "member_authorization_entry": "tenant_owner_session_only_non_root_member_not_proven",
                 "business_data_entry": "module_contract_service",
                 "source_private_fixture_copy": "not_used",
                 "generation_mode": "fixed_edition_installer_package_direct",
@@ -1265,6 +1505,9 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         completed = True
         return summary
     finally:
+        # Retain diagnostics, never retained login tokens or seed passwords.
+        identity_context.unlink(missing_ok=True)
+        identity_seed_path.unlink(missing_ok=True)
         if completed and not args.keep:
             shutil.rmtree(output)
 
@@ -1283,7 +1526,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--installer-manifest", required=True, help="Absolute external manifest for the fixed installer archive")
     parser.add_argument("--installer-sha256", required=True, help="Lease-bound SHA-256 of the fixed installer archive")
     parser.add_argument("--installer-manifest-sha256", required=True, help="Lease-bound SHA-256 of the external installer manifest")
-    parser.add_argument("--edition", choices=("standalone", "multi-tenant"), default="standalone")
+    parser.add_argument("--edition", choices=("multi-tenant",), default="multi-tenant")
     parser.add_argument("--allow-dependency-network", action="store_true", help="Permit locked package downloads; no dependency updates")
     parser.add_argument("--keep", action="store_true", help="Keep the lease-owned output after success")
     args = parser.parse_args()

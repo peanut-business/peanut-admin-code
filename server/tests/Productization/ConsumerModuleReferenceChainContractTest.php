@@ -83,12 +83,54 @@ foreach ([
     'PlatformTenantAdminService::class',
     'RoleAdministrationRuntime::class',
     'Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands::class',
+    'PlatformOperatorSessionService::class',
+    'PlatformOperatorIdentityPort::class',
+    'TenantAuthService::class',
+    'TenantOwnerInvitationAdminService::class',
+    'TenantOwnerInvitationPublicService::class',
 ] as $service) {
     referenceChainContractExpect(
         str_contains($helper, $service),
         'the reference chain does not exercise the formal service: ' . $service,
     );
 }
+foreach ([
+    'PlatformContext::fromTrustedAutomation',
+    'new PeanutAdmin\\Kernel\\Auth\\ValidatedTenantSession',
+    "INSERT INTO pa_tenant(code,name,display_name,status",
+] as $forbidden) {
+    referenceChainContractExpect(
+        !str_contains($helper, $forbidden),
+        'the lifecycle helper retained a self-made identity or Tenant fixture: ' . $forbidden,
+    );
+}
+foreach ([
+    'issue-identities',
+    'native_auth_services_after_consumer_install',
+    'native_invitation_accept_login',
+    'CR21_IDENTITY_SEED',
+    '_FILE_INVALID',
+    'CR21_IDENTITY_CONTEXT_OUTPUT_REQUIRED',
+    'CR21_IDENTITY_CONTEXT_REQUIRED',
+    'CR21_IDENTITY_CONTEXT_FILE_INVALID',
+    'CR21_IDENTITY_CONTEXT_TOKEN_MISSING',
+    'CR21_IDENTITY_CONTEXT_TENANT_MISMATCH',
+    'native_auth_service_access_tokens_from_private_file',
+    'native_provision_accept_activate',
+    'tenant_owner_session_only_non_root_member_not_proven',
+] as $required) {
+    referenceChainContractExpect(
+        str_contains($source, $required),
+        'the reference chain does not fail closed around native identity context: ' . $required,
+    );
+}
+referenceChainContractExpect(
+    !str_contains($source, '--identity-context-file')
+        && str_contains($source, 'issued_identity = helper_action(')
+        && str_contains($source, 'identity_seed_path.unlink(missing_ok=True)')
+        && strpos($source, 'issued_identity = helper_action(') < strpos($source, 'install_v1 = package_install('),
+    'the reference chain still requires a pre-existing B token or issues identity after package actions',
+);
 referenceChainContractExpect(
     str_contains($source, 'AdminAuthorizationQuery')
         && str_contains($source, "decide(\$context, \$principal, 'acme.reference-chain.write')"),
@@ -141,7 +183,9 @@ referenceChainContractExpect(
     'Package lifecycle still branches around the public Module CLI',
 );
 referenceChainContractExpect(
-    str_contains($source, '"tenant_fixture_entry": "synthetic_sql_fixture_not_product_entry"')
+    str_contains($source, '"tenant_fixture_entry": "native_provision_accept_activate"')
+        && str_contains($source, '"identity_context_entry": "native_auth_service_access_tokens_from_private_file"')
+        && str_contains($source, '"member_authorization_entry": "tenant_owner_session_only_non_root_member_not_proven"')
         && str_contains($source, '"business_data_entry": "module_contract_service"'),
     'the summary does not distinguish fixture state from product/service acceptance',
 );
@@ -202,5 +246,25 @@ referenceChainContractExpect(
     'reference-chain generated sample service contract failed: ' . $sampleError,
 );
 echo $sampleOutput;
+
+// Generated file handling and native signatures are not real login/MySQL proof.
+$identityProcess = proc_open(
+    ['python3', $root . '/scripts/tests/consumer-module-identity-test.py'],
+    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+    $identityPipes,
+    $root,
+);
+referenceChainContractExpect(is_resource($identityProcess), 'identity contract runner is unavailable');
+$identityOutput = stream_get_contents($identityPipes[1]);
+$identityError = stream_get_contents($identityPipes[2]);
+fclose($identityPipes[1]);
+fclose($identityPipes[2]);
+referenceChainContractExpect(
+    proc_close($identityProcess) === 0
+    && str_contains((string) $identityOutput, 'CONSUMER-IDENTITY-NATIVE-001 passed (23 checks)')
+    && str_contains((string) $identityOutput, 'CONSUMER-IDENTITY-CONTRACT-001 passed (12 checks)'),
+    'reference-chain identity boundary failed: ' . $identityError,
+);
+echo $identityOutput;
 
 echo "CONSUMER-MODULE-REFERENCE-CHAIN-CONTRACT-001 passed\n";
