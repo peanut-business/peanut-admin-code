@@ -51,6 +51,46 @@ def regular_file(root: Path, relative: str) -> Path:
     return path
 
 
+def reject_symlinked_path(root: Path, relative: str = '') -> Path:
+    root = root.absolute()
+    if '..' in root.parts:
+        raise ValueError('non-canonical browser asset root')
+    candidate = root / safe_relative(relative) if relative else root
+    current = Path(candidate.anchor)
+    for part in candidate.parts[1:]:
+        current /= part
+        if current.is_symlink():
+            raise ValueError(f'symlink is not a release input or output: {candidate}')
+    return candidate
+
+
+def reject_nested_paths(parent: Path, child: Path, message: str) -> None:
+    parent = parent.resolve(strict=True)
+    child = child.resolve(strict=False)
+    if child == parent or parent in child.parents:
+        raise ValueError(message)
+
+
+def ensure_new_release_file(path: Path) -> None:
+    parts = path.parts
+    current = Path(parts[0])
+    for index, part in enumerate(parts[1:], start=1):
+        parent = current
+        current = current / part
+        if parent.exists():
+            if not parent.is_dir():
+                raise ValueError(f'browser asset target path conflicts with a file: {path}')
+            for existing in parent.iterdir():
+                if existing.name.casefold() == part.casefold() and existing.name != part:
+                    raise ValueError(f'browser asset target has a case-colliding path: {path}')
+        if current.is_symlink():
+            raise ValueError(f'browser asset target contains a symlink: {path}')
+        if index < len(parts) - 1 and current.exists() and not current.is_dir():
+            raise ValueError(f'browser asset target path conflicts with a file: {path}')
+    if path.exists():
+        raise ValueError(f'browser asset conflicts with managed source: {path}')
+
+
 def allowed_source(relative: str) -> bool:
     parts = PurePosixPath(relative).parts
     # Apply the same exclusions inside the existing upgrade-baseline tree.
@@ -173,13 +213,21 @@ def snapshot(root: Path, target: Path) -> dict:
 def public_assets(build: Path, target: Path) -> dict:
     outputs = {'web/dist': 'admin', 'platform/dist': 'platform',
                'pc/.output/public': 'pc', 'uniapp/dist/build/h5': 'mobile'}
+    build = reject_symlinked_path(build)
+    target = reject_symlinked_path(target)
+    if target.exists() and not target.is_dir():
+        raise ValueError('browser asset target must be a real directory')
+    reject_nested_paths(build, target, 'browser asset target must be outside the build input')
+    planned = {}
+    copies = []
     hashes = {}
     for relative, name in outputs.items():
-        source = build / relative
-        if source.is_symlink() or not source.is_dir():
+        source = reject_symlinked_path(build, relative)
+        if not source.is_dir():
             raise ValueError(f'missing browser build: {relative}')
         if not (source / 'index.html').is_file():
             raise ValueError(f'missing browser entry: {relative}')
+        reject_nested_paths(source, target, 'browser asset target must be outside browser build output')
         count = 0
         for path in sorted(source.rglob('*')):
             asset = path.relative_to(source).as_posix()
@@ -195,15 +243,26 @@ def public_assets(build: Path, target: Path) -> dict:
                 raise ValueError(f'non-public browser asset: {asset}')
             file = regular_file(source, asset)
             dest = target / 'server/public' / name / asset
-            if dest.exists():
-                raise ValueError(f'browser asset conflicts with managed source: {name}/{asset}')
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(file, dest)
-            dest.chmod(0o644)
-            hashes[f'server/public/{name}/{asset}'] = hashlib.sha256(dest.read_bytes()).hexdigest()
+            release_path = f'server/public/{name}/{asset}'
+            components = PurePosixPath(release_path).parts
+            for index in range(1, len(components) + 1):
+                prefix = '/'.join(components[:index])
+                prior = planned.get(prefix.casefold())
+                if prior is not None and prior != prefix:
+                    raise ValueError(f'duplicate or case-colliding browser asset: {release_path}')
+                planned[prefix.casefold()] = prefix
+            ensure_new_release_file(dest)
+            copies.append((file, dest, release_path))
             count += 1
         if count == 0:
             raise ValueError(f'empty browser build: {relative}')
+    # Validate the full four-client set before copying any public asset.
+    for file, dest, release_path in copies:
+        ensure_new_release_file(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(file, dest)
+        dest.chmod(0o644)
+        hashes[release_path] = hashlib.sha256(dest.read_bytes()).hexdigest()
     return hashes
 
 

@@ -197,6 +197,14 @@ node --test uniapp/tests/Productization/h5-browser.test.mjs
 
 同一工作树会被租约独占：实现文件可分owner并行，但不能据端口不同推导两项运行可同时领取租约。测试关闭自身浏览器/服务器，调用者核端口/profile并释放后再开始另一项；不修改租约保护。输出保留每组错误、请求及产物前后摘要，错误请求不等于后端权限证明，测试失败不得用重复提交或修改生产DOM隐藏。
 
+## 非 H5 原生编译产物
+
+微信小程序使用现有 `npm run build:mp-weixin`，App服务/视图使用 `npm run build:custom -- app`；在不同任务目录中编译，不覆盖H5或重装未变化依赖。先核 `peanut-uniapp-native-build-qualification` 的实际工具/来源和本轮工作树租约，使用自有TMPDIR；不启动开发者工具GUI、登录账号、连接设备或上传包。`node --test uniapp/tests/Productization/native-build-output.test.mjs` 要求明确 `NATIVE_SOURCE_ROOT`、`NATIVE_MP_WEIXIN_OUTPUT`、`NATIVE_APP_OUTPUT` 和两产物的 `NATIVE_MP_WEIXIN_SHA256` / `NATIVE_APP_SHA256`。摘要按排序路径、完整stat.mode和原文件字节递归计算。验证真实小程序页面/WXML/WXSS、App路由JSON/服务/视图清单及文件边界；不执行产物代码，也不将构建成功称为真机、权限、网络或后端认证通过。
+
+## 浏览器资产交付边界
+
+`php server/tests/Productization/ReleasePublicAssetsBoundaryTest.php` 调用原生Python文件测试，直接验证 `scripts/package-release-files.py` 的四端公开资产装配。完整输入集合在复制前核验，源/目标及祖先链接、目标冲突、非法依赖/秘密/特殊文件和输入内输出被拒；失败前后检查文件不变。临时夹具限本检出 `.local/tmp/release-public-assets-20260929/` 并自行清理。大小写不敏感文件系统不能构造源侧双文件碰撞时明确输出未执行范围；目标大小写冲突仍实际验证，不以假文件系统冒充覆盖。此检查不运行旧安装/制品套件，不改变版本/发布依赖Gate，也不是正式包发布或独立安装证明。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

@@ -13,6 +13,22 @@
   "resources": {
     "tooling": [
       {
+        "stable_resource_id": "peanut-uniapp-native-build-qualification",
+        "purpose": "Compile fixed UniApp sources for mp-weixin and app without H5 rebuild, device connection, account login or publication",
+        "environments": ["development-test"],
+        "owner": "native-target-qualification",
+        "service_type": "Existing Node and locked DCloud CLI, local file outputs only",
+        "version": "Node 22.23.2; @dcloudio 3.0.0-5010520260709002",
+        "command": "npm run build:mp-weixin; npm run build:custom -- app in distinct task-owned output roots",
+        "credential_ref": null,
+        "data_source": "Current source-matched generated UniApp project and unchanged installed lock dependencies reused for compilation only",
+        "listener_resource_ids": [],
+        "freshness_requirement": "Fixed source and lock hashes, exact native CLI packages, absent target outputs and candidate-bound worktree lease; never use old H5 output as native proof",
+        "health_check": "Native compiler exit and generated target-specific page/entry closure checks",
+        "fallback": "none",
+        "cleanup_responsibility": "Close compiler processes; preserve output and logs as evidence, release own lease; do not modify shared dependencies or developer-tool configuration"
+      },
+      {
         "stable_resource_id": "peanut-platform-entry-browser",
         "purpose": "Platform anonymous entry and failure UI on native assets; synthetic responses only, no successful login, PHP or database",
         "environments": ["development-test"],

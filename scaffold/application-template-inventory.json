@@ -2974,7 +2974,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cb9857a0c1621e0a7e97e17854010b75833f059c7c2f630444e71381ccd30caf"
+            "source_sha256": "1f009c3d3899d1c02c86b2370e4626cdd8cd613badc41e81d2d72c1cc700a2d4"
         },
         {
             "path": "scripts/ci-summary",
@@ -3402,7 +3402,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "df5ada69880113239a18ac59fe2cbe9bb078a0d26f6c2dd99fcd93bb4d4d91a7"
+            "source_sha256": "66eeae7d8ddbbd4da828362e2ad9414adaf15a8dc51839b1ed2bc08de75065d5"
         },
         {
             "path": "scripts/package-release.sh",
@@ -4112,6 +4112,20 @@
                 "full"
             ],
             "source_sha256": "68abdcaa6561488b6cb91dc94af9a62b53582a484b900273df04ba1aad6ae677"
+        },
+        {
+            "path": "scripts/tests/release-public-assets-test.py",
+            "target": "scripts/tests/release-public-assets-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "394a53563eb48fcd816a05ec8fdcd142e742e7708e1f437a102109926e75a674"
         },
         {
             "path": "scripts/tests/run-registered-mysql-tests",
@@ -26719,6 +26733,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ReleasePublicAssetsBoundaryTest.php",
+            "target": "server/tests/Productization/ReleasePublicAssetsBoundaryTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/Scaffold2xUpgradeQualificationTest.php",
             "target": "server/tests/Productization/Scaffold2xUpgradeQualificationTest.php",
             "classification": "excluded",
@@ -28527,7 +28554,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbee9487829b4517704a607d9faf36d2d1f2f9706ba27684a5faee12c5873b9d"
+            "source_sha256": "3857b225d824e01d573a87e28bf668e2c801b0e297a33aadab9da8b8482d2957"
         },
         {
             "path": "tools/quality/composer.json",
@@ -29457,6 +29484,19 @@
                 "full"
             ],
             "source_sha256": "81d1670666568119ebc70eb2eeb24c8b3cecca6cf6cae30a9b6cb18552752264"
+        },
+        {
+            "path": "uniapp/tests/Productization/native-build-output.test.mjs",
+            "target": "uniapp/tests/Productization/native-build-output.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6bc9da74f3c36693d8482fe3c98a374ffa3b6500858c08175efd0deff7aceddd"
         },
         {
             "path": "uniapp/tests/entry-contracts.test.mjs",
