@@ -34,19 +34,39 @@ $path = $root . '/scripts/consumer-module-reference-chain';
 $source = file_get_contents($path);
 referenceChainContractExpect(is_string($source), 'reference-chain source is unavailable');
 
-$creation = referenceChainContractSection($source, 'def create_application(', 'def install_dependencies(');
+// CR21 now consumes one fixed Edition installer for A and B. Source generation
+// is verified by that artifact's provenance, not a removed create_application helper.
+$execution = referenceChainContractSection($source, 'def run_chain(', 'def parse_arguments(');
+foreach ([
+    'extract_installer(installer_package, installer_artifact, author)',
+    'extract_installer(installer_package, installer_artifact, consumer)',
+    'sha256(installer_package) != args.installer_sha256',
+    'sha256(installer_manifest) != args.installer_manifest_sha256',
+    'installer_artifact.get("protocol") != "peanut.edition-installer.v1"',
+    'installer_artifact.get("source", {}).get("commit") != args.candidate',
+    'installer_artifact.get("source", {}).get("tree") != candidate_tree',
+    'installer_artifact.get("edition", {}).get("name") != args.edition',
+    '("installer-archive-sha256", args.installer_sha256)',
+    '("installer-manifest-sha256", args.installer_manifest_sha256)',
+] as $required) {
+    referenceChainContractExpect(
+        str_contains($execution, $required),
+        'fixed installer identity or shared A/B input is not checked: ' . $required,
+    );
+}
 referenceChainContractExpect(
-    str_contains($creation, 'ROOT / "scripts/create-app"'),
-    'application generation must use the public create-app command',
+    !str_contains($execution, 'ApplicationCreator')
+        && !str_contains($execution, 'source_builder')
+        && !str_contains($execution, 'scripts/create-app'),
+    'the fixed installer consumer retained a source-generation substitute',
 );
-referenceChainContractExpect(
-    !str_contains($creation, 'ApplicationCreator') && !str_contains($creation, 'source_builder'),
-    'application generation retained the private ApplicationCreator bypass',
-);
-referenceChainContractExpect(
-    str_contains($source, '--candidate-manifest is required for an explicit development candidate'),
-    'an unsealed development candidate is not rejected explicitly',
-);
+$arguments = referenceChainContractSection($source, 'def parse_arguments(', 'def main(');
+foreach (['--installer-package', '--installer-manifest', '--installer-sha256', '--installer-manifest-sha256'] as $option) {
+    referenceChainContractExpect(
+        str_contains($arguments, 'parser.add_argument("' . $option . '", required=True'),
+        'a fixed installer input is not required: ' . $option,
+    );
+}
 
 $helper = referenceChainContractSection($source, 'def lifecycle_helper()', 'def helper_action(');
 foreach ([
@@ -96,6 +116,25 @@ referenceChainContractExpect(
         && str_contains($source, '"business_data_entry": "module_contract_service"'),
     'the summary does not distinguish fixture state from product/service acceptance',
 );
+
+// Execute the real archive extractor on owned positive/negative fixture archives.
+$archiveProcess = proc_open(
+    ['python3', $root . '/scripts/tests/consumer-module-installer-test.py'],
+    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+    $archivePipes,
+    $root,
+);
+referenceChainContractExpect(is_resource($archiveProcess), 'installer archive runner is unavailable');
+$archiveOutput = stream_get_contents($archivePipes[1]);
+$archiveError = stream_get_contents($archivePipes[2]);
+fclose($archivePipes[1]);
+fclose($archivePipes[2]);
+referenceChainContractExpect(
+    proc_close($archiveProcess) === 0
+        && str_contains((string) $archiveOutput, 'CONSUMER-INSTALLER-ARCHIVE-001 passed (9 cases)'),
+    'fixed installer archive contract failed: ' . $archiveError,
+);
+echo $archiveOutput;
 
 // 真实 Python 资源选择器的正反例；静态源码检查不能代替资源边界行为。
 $resourceProcess = proc_open(

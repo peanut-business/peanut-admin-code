@@ -3723,6 +3723,20 @@
             "source_sha256": "1bd50d493f8b07182c3f17cff7a4fcd0b47c4eec52ff5737c38302906211c209"
         },
         {
+            "path": "scripts/tests/consumer-module-installer-test.py",
+            "target": "scripts/tests/consumer-module-installer-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ed1bc38fe97c6a1bf93d5e89a64a10301d2d52e61bcef6d395301716e1b1d914"
+        },
+        {
             "path": "scripts/tests/consumer-module-resource-test.py",
             "target": "scripts/tests/consumer-module-resource-test.py",
             "classification": "managed",
