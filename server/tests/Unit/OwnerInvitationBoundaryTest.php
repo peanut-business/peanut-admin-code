@@ -187,6 +187,84 @@ final class OwnerInvitationBoundaryTest extends TestCase
         self::assertSame(2, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=20')->fetchColumn());
     }
 
+    /** 原生 MySQL BIGINT 自增值可为字符串；SQLite 仍执行真实 SQL，仅替换返回表示。 */
+    private function stringGeneratedIdentityIds(): object
+    {
+        $connection = new class ($this->database) extends \think\db\connector\Sqlite {
+            public array $stringIdTables = [];
+
+            public function __construct(private readonly PDO $pdo)
+            {
+                parent::__construct(['type' => 'sqlite', 'prefix' => 'pa_']);
+            }
+
+            protected function createPdo($dsn, $username, $password, $params): PDO
+            {
+                return $this->pdo;
+            }
+
+            public function getLastInsID(\think\db\BaseQuery $query, ?string $sequence = null)
+            {
+                $id = parent::getLastInsID($query, $sequence);
+                if (in_array($query->getTable(), ['pa_account', 'pa_tenant_member'], true)) {
+                    $this->stringIdTables[] = $query->getTable();
+                    return (string) $id;
+                }
+                return $id;
+            }
+        };
+        $manager = new SharedPdoDbManager($connection);
+        $connection->setDb($manager);
+        \think\Container::getInstance()->instance(\think\DbManager::class, $manager);
+        return $connection;
+    }
+
+    public function testNewAccountAndMemberStringInsertIdsReachTypedProvisionerAsIntegers(): void
+    {
+        $connection = $this->stringGeneratedIdentityIds();
+        $issued = $this->invite();
+        $accepted = $this->public->accept($issued['accept_token'], 'Fixture!Password2026');
+        self::assertContains('pa_account', $connection->stringIdTables);
+        self::assertContains('pa_tenant_member', $connection->stringIdTables);
+        self::assertIsInt($accepted['account_id']);
+        self::assertIsInt($accepted['member_id']);
+        self::assertSame('accepted', $accepted['status']);
+        self::assertCount(1, $this->provisioned);
+        self::assertSame($accepted['account_id'], $this->provisioned[0][1]);
+        self::assertSame($accepted['member_id'], $this->provisioned[0][2]);
+        self::assertSame(1, (int) $this->database->query('SELECT COUNT(*) FROM pa_member_role WHERE tenant_id=1')->fetchColumn());
+        $this->rejected('INVITATION_NOT_FOUND', fn() => $this->public->accept($issued['accept_token'], null));
+    }
+
+    public function testExistingAccountStringMemberIdPreservesCredentialAndRollback(): void
+    {
+        $connection = $this->stringGeneratedIdentityIds();
+        $secret = password_hash('Original!Password2026', PASSWORD_DEFAULT);
+        $statement = $this->database->prepare("INSERT INTO pa_credential(account_id,kind,identifier_type,identifier_normalized,secret_hash) VALUES(20,'email_password','email','existing@example.test',?)");
+        $statement->execute([$secret]);
+        $issued = $this->invite(1, 'existing@example.test');
+        $this->bootstrapFails = true;
+        try {
+            $this->public->accept($issued['accept_token'], null);
+            self::fail('Bootstrap failure was ignored for a string-generated member ID.');
+        } catch (DomainException $error) {
+            self::assertSame('FIXTURE_BOOTSTRAP_FAILED', $error->getMessage());
+        }
+        self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_member WHERE tenant_id=1')->fetchColumn());
+        self::assertSame('pending', $this->public->inspect($issued['accept_token'])['status']);
+        self::assertSame(0, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_audit_event')->fetchColumn());
+        $this->bootstrapFails = false;
+        $accepted = $this->public->accept($issued['accept_token'], null);
+        self::assertContains('pa_tenant_member', $connection->stringIdTables);
+        self::assertNotContains('pa_account', $connection->stringIdTables);
+        self::assertSame(20, $accepted['account_id']);
+        self::assertIsInt($accepted['member_id']);
+        self::assertSame('accepted', $accepted['status']);
+        self::assertSame($accepted['member_id'], $this->provisioned[0][2]);
+        self::assertSame($secret, $this->database->query('SELECT secret_hash FROM pa_credential WHERE account_id=20')->fetchColumn());
+        self::assertSame(2, (int) $this->database->query('SELECT COUNT(*) FROM pa_tenant_member WHERE account_id=20')->fetchColumn());
+    }
+
     public function testResendInvalidatesOldTokenAndRevokePreventsAcceptance(): void
     {
         $first = $this->invite();

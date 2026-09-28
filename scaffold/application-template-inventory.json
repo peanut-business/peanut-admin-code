@@ -2287,7 +2287,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "169c55f331650a5e7edef66d578ef9c3ce9c0c90a7c6d3254bbdaa70ad8277d5"
+            "source_sha256": "337d231cd78bc9b5caf287baa934bb9e9b7ebb9a8efaba7e7dd031e28c6bb69d"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2369,7 +2369,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81e4776cc6e42afb458ade21ec9f11c6d714fe357dfd926d38ca32a6a310c077"
+            "source_sha256": "d5eef6de17b017c032455c43f078d6d4eda96ea0f5dce097d2b0c59e87e36f1c"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -11325,7 +11325,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c04720b030d17a6f8b316117ee09c0bc2a2db86e01b9ee4b972c8284ddab6ff3"
+            "source_sha256": "b6a82757a8faa3d4c25ddf777c4723e6b981fc4a7f5a9f2173eaffafcfb2acaf"
         },
         {
             "path": "server/app/modules/official/identity/src/Invitation/UnavailableOwnerInvitationDeliveryPort.php",

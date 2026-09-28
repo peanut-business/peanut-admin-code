@@ -103,7 +103,8 @@ final class TenantOwnerInvitationPublicService
                     return ['_error' => 'NEW_ACCOUNT_PASSWORD_REQUIRED'];
                 }
                 $now = $this->format($this->now());
-                $accountId = Db::name('account')->insertGetId([
+                // MySQL BIGINT 自增值可能返回字符串，在进入严格身份合同前归一化。
+                $accountId = (int) Db::name('account')->insertGetId([
                     'display_name' => (string) $invitation['display_name'],
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -140,7 +141,7 @@ final class TenantOwnerInvitationPublicService
             }
             if ($member === null) {
                 $now = $this->format($this->now());
-                $memberId = Db::name('tenant_member')->insertGetId([
+                $memberId = (int) Db::name('tenant_member')->insertGetId([
                     'tenant_id' => $tenantId,
                     'account_id' => $accountId,
                     'display_name' => (string) $invitation['display_name'],
