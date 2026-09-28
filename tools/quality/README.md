@@ -137,6 +137,24 @@ node --test pc/tests/Productization/ssr-multitenant.test.mjs
 
 运行前租约、资源和空端口必须通过；缺构建或前置直接失败，不 skip。结束保留原始上游记录、Node 日志、结果及产物前后摘要，终止本测试自己的进程并关闭上游；调用者随后释放租约。它证明真实 Node SSR HTTP 链和原生产产物不可变，不证明 PHP、数据库、浏览器交互或完整多租户业务。
 
+## PC 原生浏览器接管与匿名导航
+
+`pc/tests/Productization/browser-hydration.test.mjs` 单独补真实 Chromium 的 hydration、双 Host 正文、富文本安全、匿名收藏跳转与非法文章 ID。复用输入未变且摘要一致的原生 hybrid 产物，不运行已经通过的 SSR HTTP 套件或重新构建。页面 HTML、脚本及 DOM 来自未修改的应用；仅浏览器 API 请求明确路由到内存合成 HTTP 上游，不代表 PHP/MySQL、真实登录、实际反向代理或完整 M5 通过。
+
+领取上述 SSR 所有者/gate 的新独占租约，还须包含 `tooling=peanut-pc-browser-qualification`、本次空证据目录和任务临时目录；不能借其他模块浏览器会话。使用资源登记所列固定 Playwright 版本和已存在的 Chromium，开启浏览器 sandbox、仅创建本任务 profile，不隐式下载、连接日常浏览器或修改系统 DNS。浏览器进程局部映射两个合成 Host 到登记的回环端口，禁止访问其他业务主机。
+
+```sh
+PC_SSR_PROJECT_ROOT="<已核验的原生 hybrid PC 工程绝对路径>" \
+PC_SSR_LEASE_ID="<本轮有效租约>" \
+PC_BROWSER_OUTPUT_SHA256="<同一产物按测试 outputDigest 算法核验的摘要>" \
+PC_BROWSER_PLAYWRIGHT_ROOT="<符合登记版本的已安装 playwright 包绝对目录>" \
+PC_BROWSER_EVIDENCE_DIR="$PWD/.local/evidence/<本轮任务空目录>" \
+TMPDIR="$PWD/.local/tmp/<本轮已有任务目录>" \
+node --test pc/tests/Productization/browser-hydration.test.mjs
+```
+
+缺浏览器、来源摘要、租约或端口条件时失败，不 skip 或改用模拟 DOM。输出包含版本、页面错误/警告、请求、截图和产物前后摘要；测试关闭自己的 Chromium、Node与上游，调用者核对 profile/端口后释放本轮租约。后端身份和数据库验证保持独立状态，不因此重跑未知是否已执行的任务。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

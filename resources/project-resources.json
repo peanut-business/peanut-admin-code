@@ -13,6 +13,22 @@
   "resources": {
     "tooling": [
       {
+        "stable_resource_id": "peanut-pc-browser-qualification",
+        "purpose": "Real Chromium hydration and navigation against the fixed native PC build and synthetic loopback API; no PHP or database",
+        "environments": ["development-test"],
+        "owner": "pc-ssr-qualification",
+        "service_type": "Playwright-managed Chromium with task-owned profile",
+        "version": "1.63.0-alpha-2026-08-05",
+        "command": "Explicit PC_BROWSER_PLAYWRIGHT_ROOT points to the existing @playwright/cli 0.1.18 bundled playwright package",
+        "credential_ref": null,
+        "data_source": "Original PC_SSR_PROJECT_ROOT output and explicit in-memory synthetic upstream",
+        "freshness_requirement": "Exact Playwright version and bundled Chromium path; new browser context, active exclusive lease, original output digest; never attach a user browser or reuse rich-text sessions",
+        "listener_resource_ids": ["peanut-pc-ssr-qualification", "peanut-pc-ssr-synthetic-upstream"],
+        "health_check": "Native Chromium version and real page assertions, no DOM/application code replacement",
+        "fallback": "none",
+        "cleanup_responsibility": "The browser test closes its own Chromium, contexts and temporary profiles; shared browser cache remains untouched"
+      },
+      {
         "stable_resource_id": "peanut-admin-pc-static-check-20260923",
         "purpose": "Isolated Nginx check of the generated PC SPA and root routing",
         "environments": ["development-test"],
