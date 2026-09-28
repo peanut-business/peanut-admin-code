@@ -2193,6 +2193,36 @@
     ],
     "local_listeners": [
       {
+        "stable_resource_id": "peanut-pc-ssr-qualification",
+        "environment": "development-test",
+        "owner": "pc-ssr-qualification",
+        "host": "127.0.0.1",
+        "port": 20491,
+        "service_type": "nuxt",
+        "namespace": "unmodified native hybrid build; synthetic public tenants only",
+        "credential_ref": null,
+        "data_source": "explicit PC_SSR_PROJECT_ROOT native Node output",
+        "freshness_requirement": "verify source and output digests, empty port and active exclusive lease",
+        "health_check": "GET /healthz and real SSR HTTP assertions",
+        "fallback": "none",
+        "cleanup_responsibility": "ssr-multitenant.test.mjs terminates its own Node subprocess"
+      },
+      {
+        "stable_resource_id": "peanut-pc-ssr-synthetic-upstream",
+        "environment": "development-test",
+        "owner": "pc-ssr-qualification",
+        "host": "127.0.0.1",
+        "port": 20492,
+        "service_type": "http",
+        "namespace": "in-memory synthetic API responses, no PHP/database/external service",
+        "credential_ref": null,
+        "data_source": "pc/tests/Productization/fixtures/ssr-upstream.mjs",
+        "freshness_requirement": "empty port and same exclusive SSR qualification lease",
+        "health_check": "observed HTTP requests and explicit synthetic response cases",
+        "fallback": "none",
+        "cleanup_responsibility": "ssr-multitenant.test.mjs closes its own in-process HTTP fixture"
+      },
+      {
         "stable_resource_id": "peanut-generated-single-20260925-http",
         "environment": "development-test",
         "owner": "generated-runtime-20260925",

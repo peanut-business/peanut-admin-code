@@ -119,6 +119,24 @@ node tools/quality/node_modules/vitest/vitest.mjs run --config web/vitest.option
 
 固定源码归属检查使用 `python3 scripts/check-thinkphp-architecture --ownership-only --source-ref=<已推送的完整提交SHA> --json`，在当前检查器工作树的登记上核对该提交的原始源码；只读取模型、模块、Schema和Composer声明，不读取或刷新历史问题/例外。快照必须与Git树和原始blob一致，不能用移动分支名、export-ignore或替换对象隐去源码。退出2表示配置或登记未闭合，`business_scan=not_run`、`finding_count=null` 不是业务零问题；受限模型字面量和PHP Schema解析不证明运行授权或真实数据库。对应回归为 `python3 scripts/tests/thinkphp-current-ownership-test.py`；既有历史流程及产品资格分别处理。
 
+## PC 原生 SSR HTTP 隔离
+
+`pc/tests/Productization/ssr-multitenant.test.mjs` 启动明确指定的原生 hybrid Node 构建产物，与独立回环 HTTP 合成上游通信；不修改 Nitro、复制后修改依赖或替换全局 fetch。Node 使用当前工程工具链。先核候选源码、已安装 Core 和 `.output` 身份，再按 `resources/project-resources.json` 领取 `pc-ssr-qualification` 所有者、`pc-ssr-http-qualification` 门槛的独占租约，包含两个登记 listener、其端口、当前 Code worktree 和输出目录。
+
+从 Code 根执行：
+
+```sh
+PC_SSR_PROJECT_ROOT="<已核验的原生 hybrid PC 工程绝对路径>" \
+PC_SSR_LEASE_ID="<本轮有效租约>" \
+PC_SSR_EVIDENCE_DIR="$PWD/.local/evidence/<本轮任务空目录>" \
+TMPDIR="$PWD/.local/tmp/<本轮已有任务目录>" \
+node --test pc/tests/Productization/ssr-multitenant.test.mjs
+```
+
+测试检查交替/并发相同文章 ID 的 Host 隔离、私人 Cookie/Authorization 不转发、富文本 SSR 安全输出、私有路由 CSR/禁缓存/禁索引、未信任 Host 拒绝以及 404/服务故障/配置故障的区别。合成上游按已安装 ThinkPHP 的 forwarded-host 优先合同解释域名，不能把网络连接 Host 等同于租户域名；这不证明真实反向代理可信设置已验收。
+
+运行前租约、资源和空端口必须通过；缺构建或前置直接失败，不 skip。结束保留原始上游记录、Node 日志、结果及产物前后摘要，终止本测试自己的进程并关闭上游；调用者随后释放租约。它证明真实 Node SSR HTTP 链和原生产产物不可变，不证明 PHP、数据库、浏览器交互或完整多租户业务。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。
