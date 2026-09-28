@@ -155,6 +155,26 @@ node --test pc/tests/Productization/browser-hydration.test.mjs
 
 缺浏览器、来源摘要、租约或端口条件时失败，不 skip 或改用模拟 DOM。输出包含版本、页面错误/警告、请求、截图和产物前后摘要；测试关闭自己的 Chromium、Node与上游，调用者核对 profile/端口后释放本轮租约。后端身份和数据库验证保持独立状态，不因此重跑未知是否已执行的任务。
 
+## UniApp H5 原生浏览器与主题生命周期
+
+`uniapp/tests/Productization/h5-browser.test.mjs` 在真实 Chromium 移动视口中运行已核验的 H5 原生静态产物，检查两个 Host 的首页与同 ID 文章、富文本、匿名收藏到登录表单、空字段不提交、非法 ID、首页重试以及公开配置失败/关闭后的 fail-closed 行为。合成 API 只读且与静态服务共用登记回环端口，不替代真实 PHP/MySQL、登录/OAuth、原生 App 或小程序。不得修改产物、DOM、第三方包或全局请求实现来使检查通过。
+
+先核 `peanut-h5-browser-qualification`、`peanut-h5-browser-fixture` 的工具/端口/环境与有效租约。owner/gate 均为 `h5-browser-qualification`，租约包含 tooling、listener、port、当前 worktree、证据目录和 tmpdir；缺前置失败，不 skip。仅使用已安装登记版本的 Playwright/Chromium、新上下文和本任务 profile，保留 sandbox、不外联、不复用日常浏览器。构建可按未变输入复用；源码确有修复时仅原生重建受影响 H5，并保存原始产物与补丁来源。
+
+```sh
+H5_BROWSER_PROJECT_ROOT="<已核验的H5工程根，含dist/build/h5>" \
+H5_BROWSER_OUTPUT_SHA256="<按测试outputDigest算法验证的完整产物摘要>" \
+H5_BROWSER_PLAYWRIGHT_ROOT="<登记版本已安装的playwright包目录>" \
+H5_BROWSER_LEASE_ID="<本轮有效独占租约>" \
+H5_BROWSER_EVIDENCE_DIR="$PWD/.local/evidence/<任务空目录>" \
+TMPDIR="$PWD/.local/tmp/<已有任务目录>" \
+node --test uniapp/tests/Productization/h5-browser.test.mjs
+```
+
+测试记录原生页面异常、只读浏览器异常详情、请求、截图和产物前后摘要；预期503日志与非预期异常分开。测试关闭自己的浏览器/HTTP，调用者核端口、profile并释放租约。截图单独审查仅证明当时可见布局，不能代替运行安全断言。
+
+`node --test uniapp/tests/Productization/decoration-theme.test.mjs` 使用质量工具已锁定的 TypeScript 转译实际 `decoration.ts`，仅以受控页面/Uni API 协作替身验证配置先到、页面尚未建立、页面就绪后应用、同步/异步失败观察及颜色合同；不复制另一套业务实现，也不将替身测试计作原生平台运行。主题 API 在无页面时不调用，页面级配置调用再应用缓存主题；原生失败回调保持可观察。H5 阴影使用应用自有 CSS 渐变，不以第三方 CDN 可用性作为匿名页面运行前提。
+
 ## 结果范围
 
 类型、单元行为、构建、原生包消费与真实 HTTP/数据库/浏览器是不同证据。必要时继续运行各工程原生 build、后端行为、生成器和交付检查；仅记录实际运行的命令、退出码与源码/依赖身份。质量工具成功不表示正式发布、租户隔离或业务升级恢复已经完成。

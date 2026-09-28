@@ -155,12 +155,17 @@ export function getDecorationTheme(value: unknown): DecorationTheme | null {
 
 export function applyDecorationTheme(value: unknown) {
   const theme = getDecorationTheme(value);
-  if (!theme) return;
+  // App launch may load configuration before the first page exists. Page-level
+  // loadConfig calls apply the cached theme once their navigation bar is ready.
+  if (!theme || getCurrentPages().length === 0) return;
   const frontColor = theme.topTextColor === 'black' ? '#000000' : '#ffffff';
   try {
     uni.setNavigationBarColor({
       frontColor,
       backgroundColor: theme.navigationBarColor,
+      // A page can disappear after the check. Handle the native async callback;
+      // synchronous try/catch alone does not observe a rejected uni Promise.
+      fail: (error) => console.warn('Unable to apply navigation theme', error),
     });
   } catch (error) {
     console.warn('Unable to apply navigation theme', error);

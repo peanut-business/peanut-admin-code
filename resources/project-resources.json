@@ -13,6 +13,22 @@
   "resources": {
     "tooling": [
       {
+        "stable_resource_id": "peanut-h5-browser-qualification",
+        "purpose": "Native H5 anonymous UI and failure states with synthetic public HTTP API; no real login, PHP or database",
+        "environments": ["development-test"],
+        "owner": "h5-browser-qualification",
+        "service_type": "Playwright-managed Chromium with an isolated mobile context",
+        "version": "1.63.0-alpha-2026-08-05",
+        "command": "Explicit H5_BROWSER_PLAYWRIGHT_ROOT selects an already installed exact Playwright package",
+        "credential_ref": null,
+        "data_source": "Digest-bound native H5 build; no source rewrite or user browser attachment",
+        "listener_resource_ids": ["peanut-h5-browser-fixture"],
+        "freshness_requirement": "Exact browser package and executable, matching build digest, current exclusive lease and empty output",
+        "health_check": "Real Chromium page assertions",
+        "fallback": "none",
+        "cleanup_responsibility": "Test closes its own browser, contexts and profile; shared cache untouched"
+      },
+      {
         "stable_resource_id": "peanut-pc-browser-qualification",
         "purpose": "Real Chromium hydration and navigation against the fixed native PC build and synthetic loopback API; no PHP or database",
         "environments": ["development-test"],
@@ -2208,6 +2224,21 @@
       }
     ],
     "local_listeners": [
+      {
+        "stable_resource_id": "peanut-h5-browser-fixture",
+        "environment": "development-test",
+        "owner": "h5-browser-qualification",
+        "host": "127.0.0.1",
+        "port": 20493,
+        "service_type": "Read-only static H5 and in-memory public API HTTP fixture",
+        "namespace": "mobile-a.localhost/mobile-b.localhost, same fixed native build",
+        "credential_ref": null,
+        "data_source": "Explicit H5_BROWSER_PROJECT_ROOT/dist/build/h5 and synthetic public documents only",
+        "freshness_requirement": "Source/output identity, empty listener, exclusive candidate-bound lease",
+        "health_check": "Native browser requests; deny all business writes and external hosts",
+        "fallback": "none",
+        "cleanup_responsibility": "h5-browser.test.mjs closes only its own loopback server"
+      },
       {
         "stable_resource_id": "peanut-pc-ssr-qualification",
         "environment": "development-test",

@@ -28487,7 +28487,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cbecc44c342fd98d72d076c20663d36a74b4977aa49a75b4ca93dd8279df164b"
+            "source_sha256": "1f94d3501e8bf6acd20a646a4edfcaaea01c052a7f13b74367dc571f13c12f4e"
         },
         {
             "path": "tools/quality/composer.json",
@@ -28701,7 +28701,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c93868337024d61b87cb1c2fa21b6854aed26de88c734318900371471f551972"
+            "source_sha256": "0f7ed4795f3d831856c7b7b1ea4a1b86bcabb5ecdc7d44554cf87bdcf5e8f852"
         },
         {
             "path": "uniapp/src/api/account.ts",
@@ -29325,7 +29325,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "90eaa18b4c88f8400d7b2a2fbb0bc54332f162e2a45697a81ad944bb72029472"
+            "source_sha256": "8bbd7f1997284b3eb560f2b64be540fe0e1a84067994dc4690245a68c36db57e"
         },
         {
             "path": "uniapp/src/utils/native-payment.ts",
@@ -29378,6 +29378,32 @@
                 "full"
             ],
             "source_sha256": "2f57fcb0b9339d9620aa51e4fd5b4273fa4e91543ff1dbb4ecad204a5fd252a3"
+        },
+        {
+            "path": "uniapp/tests/Productization/decoration-theme.test.mjs",
+            "target": "uniapp/tests/Productization/decoration-theme.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "34a59504bc666b7d452f16475a8cb9a307295672e65dfd603ce48d29db9cc972"
+        },
+        {
+            "path": "uniapp/tests/Productization/h5-browser.test.mjs",
+            "target": "uniapp/tests/Productization/h5-browser.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8dd04b82363473219c79ff972244e36f63812e0d860a3101c02c30c38d7d4b62"
         },
         {
             "path": "uniapp/tests/entry-contracts.test.mjs",
