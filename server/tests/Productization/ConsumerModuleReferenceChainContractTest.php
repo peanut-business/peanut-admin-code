@@ -94,6 +94,35 @@ referenceChainContractExpect(
         && str_contains($source, "decide(\$context, \$principal, 'acme.reference-chain.write')"),
     'the generated Module service does not enforce its formal RBAC permission',
 );
+referenceChainContractExpect(
+    str_contains($source, 'ModuleQualificationQuery')
+        && str_contains($source, "activeTenantModuleKeys(\$tenantId)")
+        && str_contains($source, 'identity_manifest_path')
+        && str_contains($source, 'identity_version')
+        && str_contains($source, "'items' => \$items")
+        && str_contains($source, "'has_more' => count(\$rows) > \$limit")
+        && str_contains($source, "'next_cursor'")
+        && !str_contains($source, "Db::name('tenant_module')"),
+    'the generated Module service does not use the public Module qualification contract',
+);
+foreach ([
+    '20260828010101_create_reference_chain.sql',
+    'CREATE TABLE `pa_acme_reference_chain_record`',
+    'FOREIGN KEY (`tenant_id`) REFERENCES `pa_tenant` (`id`)',
+    '20260828010201_add_revision_note.sql',
+    'ALTER TABLE `pa_acme_reference_chain_record` ADD COLUMN `revision_note`',
+    'seeded.get("owned_rows") == 1 and seeded.get("migration_count") == 1',
+    'len(seeded.get("service_read", {}).get("items", [])) == 1',
+    'after_update.get("migration_count") == 2 and after_update.get("v2_column") is True',
+    'len(after_update.get("service_read", {}).get("items", [])) == 1',
+    'after_retire.get("owned_table") is True and after_retire.get("owned_rows") == 1',
+    'after_purge.get("owned_table") is False and after_purge.get("migration_count") == 0',
+] as $required) {
+    referenceChainContractExpect(
+        str_contains($source, $required),
+        'the reference-chain migration or lifecycle protection is not locked: ' . $required,
+    );
+}
 
 $lifecycle = referenceChainContractSection($source, 'def package_install(', 'def run_chain(');
 foreach ([
@@ -154,5 +183,24 @@ referenceChainContractExpect(
     'reference-chain resource contract failed: ' . $resourceError,
 );
 echo $resourceOutput;
+
+// Run the actual generated PHP sample service against controlled fixtures.
+$sampleProcess = proc_open(
+    ['python3', $root . '/scripts/tests/consumer-module-sample-test.py'],
+    [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+    $samplePipes,
+    $root,
+);
+referenceChainContractExpect(is_resource($sampleProcess), 'sample service runner is unavailable');
+$sampleOutput = stream_get_contents($samplePipes[1]);
+$sampleError = stream_get_contents($samplePipes[2]);
+fclose($samplePipes[1]);
+fclose($samplePipes[2]);
+referenceChainContractExpect(
+    proc_close($sampleProcess) === 0
+    && str_contains((string) $sampleOutput, 'CONSUMER-MODULE-SAMPLE-001 passed (2 cases)'),
+    'reference-chain generated sample service contract failed: ' . $sampleError,
+);
+echo $sampleOutput;
 
 echo "CONSUMER-MODULE-REFERENCE-CHAIN-CONTRACT-001 passed\n";

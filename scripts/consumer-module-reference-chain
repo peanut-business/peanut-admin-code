@@ -431,6 +431,31 @@ def author_module_v1(author: Path) -> tuple[Path, Path]:
     manifest_path = backend / "module.json"
     manifest = read_json(manifest_path)
     manifest["description"] = "CR21 independent consumer reference chain"
+    identity_manifest_path = author / "server/app/modules/official/identity/module.json"
+    if not identity_manifest_path.is_file():
+        fail("official.identity module manifest is unavailable in the author application")
+    identity_manifest = read_json(identity_manifest_path)
+    identity_version = identity_manifest.get("version")
+    if not isinstance(identity_version, str) or identity_version == "":
+        fail("official.identity module manifest has no valid version")
+    raw_dependencies = manifest.get("dependencies", [])
+    if not isinstance(raw_dependencies, list):
+        fail("reference-chain dependencies must be a list")
+    dependencies: list[dict[str, str]] = []
+    identity_seen = False
+    for item in raw_dependencies:
+        if not isinstance(item, dict) or not isinstance(item.get("module_key"), str) or not isinstance(item.get("version"), str):
+            fail("reference-chain dependency entries must declare module_key and version")
+        dependency = {"module_key": item["module_key"], "version": item["version"]}
+        if dependency["module_key"] == "official.identity":
+            if identity_seen:
+                fail("reference-chain dependencies contain duplicate official.identity entries")
+            dependency["version"] = identity_version
+            identity_seen = True
+        dependencies.append(dependency)
+    if not identity_seen:
+        dependencies.append({"module_key": "official.identity", "version": identity_version})
+    manifest["dependencies"] = dependencies
     manifest["database"]["owned_tables"] = ["pa_acme_reference_chain_record"]
     manifest["contracts"]["exports"] = ["Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands"]
     for directory in ["src/Contract", "src/Service"]:
@@ -449,8 +474,8 @@ interface ReferenceChainCommands
     /** @return array{id:int,tenant_id:int,reference:string} */
     public function create(TenantContext $context, string $reference): array;
 
-    /** @return list<array{id:int,tenant_id:int,reference:string}> */
-    public function list(TenantContext $context): array;
+    /** @return array{items:list<array{id:int,tenant_id:int,reference:string}>,has_more:bool,next_cursor:int|null} */
+    public function list(TenantContext $context, int $limit = 50, int $afterId = 0): array;
 }
 """,
         encoding="utf-8",
@@ -463,6 +488,7 @@ namespace Acme\\Modules\\ReferenceChain\\Service;
 
 use Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands;
 use app\\common\\contract\\authorization\\AdminAuthorizationQuery;
+use app\\common\\contract\\module\\ModuleQualificationQuery;
 use PeanutAdmin\\Kernel\\Auth\\TenantContext;
 use RuntimeException;
 use think\\db\\Raw;
@@ -470,7 +496,10 @@ use think\\facade\\Db;
 
 final readonly class ReferenceChainService implements ReferenceChainCommands
 {
-    public function __construct(private AdminAuthorizationQuery $authorization) {}
+    public function __construct(
+        private AdminAuthorizationQuery $authorization,
+        private ModuleQualificationQuery $modules,
+    ) {}
 
     public function create(TenantContext $context, string $reference): array
     {
@@ -481,30 +510,41 @@ final readonly class ReferenceChainService implements ReferenceChainCommands
         $this->assertPermission($context);
         return Db::transaction(function () use ($context, $reference): array {
             $this->assertEnabled($context->tenantId);
-            $id = (int)Db::name('acme_reference_chain_record')->insertGetId([
+            $id = $this->intId(Db::name('acme_reference_chain_record')->insertGetId([
                 'tenant_id' => $context->tenantId,
                 'reference' => $reference,
                 'created_at' => new Raw('UTC_TIMESTAMP(3)'),
-            ]);
+            ]));
             return $this->row($context->tenantId, $id);
         });
     }
 
-    public function list(TenantContext $context): array
+    public function list(TenantContext $context, int $limit = 50, int $afterId = 0): array
     {
+        if ($limit < 1 || $limit > 100) {
+            throw new RuntimeException('REFERENCE_CHAIN_LIST_LIMIT_INVALID');
+        }
+        if ($afterId < 0) {
+            throw new RuntimeException('REFERENCE_CHAIN_CURSOR_INVALID');
+        }
         $this->assertPermission($context);
         $this->assertEnabled($context->tenantId);
-        return array_values(Db::name('acme_reference_chain_record')
+        $rows = Db::name('acme_reference_chain_record')
             ->where('tenant_id', $context->tenantId)
+            ->where('id', '>', $afterId)
             ->field(['id', 'tenant_id', 'reference'])
-            ->order('id')->select()->toArray());
+            ->order('id')->limit($limit + 1)->select()->toArray();
+        $items = array_map(fn(array $row): array => $this->normalizeRow($row), array_slice($rows, 0, $limit));
+        return [
+            'items' => $items,
+            'has_more' => count($rows) > $limit,
+            'next_cursor' => count($rows) > $limit && $items !== [] ? $items[array_key_last($items)]['id'] : null,
+        ];
     }
 
     private function assertEnabled(int $tenantId): void
     {
-        $enabled = Db::name('tenant_module')->where('tenant_id', $tenantId)
-            ->where('module_key', 'acme.reference-chain')->where('status', 'enabled')->find();
-        if ($enabled === null) {
+        if (!in_array('acme.reference-chain', $this->modules->activeTenantModuleKeys($tenantId), true)) {
             throw new RuntimeException('REFERENCE_CHAIN_MODULE_NOT_ENABLED');
         }
     }
@@ -525,7 +565,33 @@ final readonly class ReferenceChainService implements ReferenceChainCommands
         if (!is_array($row)) {
             throw new RuntimeException('REFERENCE_CHAIN_RECORD_NOT_FOUND');
         }
-        return ['id' => (int)$row['id'], 'tenant_id' => (int)$row['tenant_id'], 'reference' => (string)$row['reference']];
+        return $this->normalizeRow($row);
+    }
+
+    /** @param array<string,mixed> $row @return array{id:int,tenant_id:int,reference:string} */
+    private function normalizeRow(array $row): array
+    {
+        return [
+            'id' => $this->intId($row['id'] ?? null),
+            'tenant_id' => $this->intId($row['tenant_id'] ?? null),
+            'reference' => (string)($row['reference'] ?? ''),
+        ];
+    }
+
+    private function intId(mixed $value): int
+    {
+        $text = is_int($value) ? (string)$value : (is_string($value) ? $value : '');
+        if ($text === '' || preg_match('/^[1-9][0-9]*$/', $text) !== 1 || $this->compareUnsigned($text, (string)PHP_INT_MAX) > 0) {
+            throw new RuntimeException('REFERENCE_CHAIN_ID_OUT_OF_RANGE');
+        }
+        return (int)$text;
+    }
+
+    private function compareUnsigned(string $left, string $right): int
+    {
+        $left = ltrim($left, '0') ?: '0';
+        $right = ltrim($right, '0') ?: '0';
+        return strlen($left) <=> strlen($right) ?: strcmp($left, $right);
     }
 }
 """,
@@ -1058,7 +1124,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                "formal service did not preserve Tenant A/B initial Module separation")
         expect(rbac_counts(seeded) == {"default": 1}, "Role service did not establish Tenant A RBAC")
         expect(seeded.get("owned_rows") == 1 and seeded.get("migration_count") == 1
-               and len(seeded.get("service_read", [])) == 1,
+               and len(seeded.get("service_read", {}).get("items", [])) == 1,
                "v1 Module service write/read or migration state is invalid")
         enabled_b = helper_action(helper, consumer, consumer_env, "enable-b", logs / "consumer.log")
         expect(tenant_statuses(enabled_b) == {"default": "enabled", "tenant-b": "enabled"}
@@ -1097,7 +1163,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(tenant_statuses(after_update) == tenant_statuses(enabled_b)
                and rbac_counts(after_update) == rbac_counts(enabled_b)
                and after_update.get("owned_rows") == 1
-               and len(after_update.get("service_read", [])) == 1,
+               and len(after_update.get("service_read", {}).get("items", [])) == 1,
                "v2 update changed TenantModule/RBAC data or broke the Module service read")
 
         disabled_tenants = helper_action(helper, consumer, consumer_env, "disable-tenants", logs / "consumer.log")

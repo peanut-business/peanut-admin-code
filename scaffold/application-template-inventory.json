@@ -3751,6 +3751,20 @@
             "source_sha256": "b4ca25b466c3f7d479c0fd12f059dd98f8e4cc7b7f9eac832bb49772d225a7f7"
         },
         {
+            "path": "scripts/tests/consumer-module-sample-test.py",
+            "target": "scripts/tests/consumer-module-sample-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8f6f42ef01cba39f790af6c14f68f43756873bccff85056c2aa2263111ab6aeb"
+        },
+        {
             "path": "scripts/tests/core-dev-contract-test.py",
             "target": "scripts/tests/core-dev-contract-test.py",
             "classification": "managed",
