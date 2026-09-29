@@ -10,6 +10,7 @@
 deploy/production.env
 /.env
 /.local/
+/.ops/
 **/__pycache__/
 *.py[cod]
 /docs/maintenance/fact-audit-2026-09-09/conversation-coverage.json

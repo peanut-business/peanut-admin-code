@@ -429,7 +429,7 @@ $inventory = [
     'application' => ['version' => $versions->generatedInstanceDefault()],
     'variables' => ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'],
     'untracked_exclusions' => [
-        '.git/**', '.local/**', '.env', 'server/.env', '**/vendor/**', '**/node_modules/**',
+        '.git/**', '.local/**', '.ops/**', '.env', 'server/.env', '**/vendor/**', '**/node_modules/**',
         '**/dist/**', '**/runtime/**', '**/.cache/**', 'server/public/uploads/**',
         'server/public/storage/**', 'output/**', '*.log', '.DS_Store',
     ],

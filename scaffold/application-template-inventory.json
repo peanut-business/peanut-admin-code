@@ -14,6 +14,7 @@
     "untracked_exclusions": [
         ".git/**",
         ".local/**",
+        ".ops/**",
         ".env",
         "server/.env",
         "**/vendor/**",
@@ -40,7 +41,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6ab20611a98979d6708cf1721e413e0bf5f79d5a13d2554783150c515b12f4ea"
+            "source_sha256": "7462f41c9c2b43557dc8cdc5c5c8d3d6ea9e1421e1e863d6bf4a695b40a0c515"
         },
         {
             "path": ".editorconfig",
@@ -189,7 +190,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8160cd3047e923031f988e971ae92e0943561d3c4f29c65b48a526ba2121ba9e"
+            "source_sha256": "942bc519191d9f49ba41983a7e92c2a06c80fcae0f1ccb9ccfcf4d0150c5402a"
         },
         {
             "path": ".prettierrc.cjs",

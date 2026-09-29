@@ -1,6 +1,7 @@
 .git
 .github
 .codegraph
+.ops
 deploy/production.env
 node_modules
 output
@@ -24,6 +25,7 @@ web/node_modules
 **/node_modules
 **/vendor
 **/.local
+**/.ops
 **/.worktrees
 **/.env
 **/.env.*
