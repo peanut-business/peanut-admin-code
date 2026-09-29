@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "4.0.0-dev.5",
+    "template_version": "4.0.0-dev.6",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -867,7 +867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "702298ed3714e9db6aca9485088850413e5d3cbed9fa1acb266a619eef62140a"
+            "source_sha256": "306a65514a1926423a3748845f3fd9605daeeb1e8d59070938bf697b451ceedb"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -3444,7 +3444,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc8775c795f8168e0c8992889abf074f721a1538b9375014ce69b460a724cd09"
+            "source_sha256": "6d4c05efc5ca7d69531caf9ff3725d6afe8b105e63936fedabb260a2818c9d91"
         },
         {
             "path": "scripts/project-codegraph",

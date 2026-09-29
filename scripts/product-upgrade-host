@@ -292,6 +292,14 @@ prepare_phase() {
     --exclude='./server/runtime' --exclude='./server/public/storage' --exclude='./server/private/storage' \
     --exclude='*/node_modules' --exclude='*/vendor' -cf - . \
     | tar -C "$prepared_root" -xf -
+  # The excluded secret and volume paths also contain managed template placeholders.
+  for placeholder in .env.example server/.env.example \
+    server/runtime/.gitkeep server/public/storage/.gitkeep server/private/storage/.gitkeep; do
+    [[ -f "$instance_root/$placeholder" && ! -L "$instance_root/$placeholder" ]] \
+      || die 'managed staging placeholder is unavailable'
+    mkdir -p "$(dirname "$prepared_root/$placeholder")"
+    cp -p "$instance_root/$placeholder" "$prepared_root/$placeholder"
+  done
   [[ -d "$package_root/target/files" && -f "$package_root/target/scaffold-manifest.json" ]] \
     || die 'signed package does not contain a materializable target'
   scaffold_plan="$(jq -r '.scaffold_plan // empty' "$plan_path")"
