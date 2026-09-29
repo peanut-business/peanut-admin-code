@@ -24,14 +24,20 @@ final class A1EditionDockerProjectionTest extends TestCase
         self::assertMatchesRegularExpression('/^pnpm@[0-9]+\\.[0-9]+\\.[0-9]+$/D', $web['packageManager']);
         $firstInstall = $this->position($docker, 'pnpm install --frozen-lockfile');
         self::assertLessThan($firstInstall, $this->position($docker, 'COPY web/package.json web/pnpm-lock.yaml ./'));
-        self::assertLessThan($firstInstall, $this->position($docker, 'COPY packages/core-web/*.tgz'));
+        self::assertLessThan($firstInstall, $this->position($docker, 'RUN --mount=type=bind,source=.,target=/build-context,readonly'));
+        self::assertStringNotContainsString('COPY packages/', $docker);
         $versions = json_decode($this->read('release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertCount(6, $versions['core_web']['packages']);
         foreach ($versions['core_web']['packages'] as $identity) {
-            self::assertMatchesRegularExpression('~^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\\.tgz$~D', $identity['archive']);
-            $archive = $this->repositoryRoot . '/' . $identity['archive'];
-            self::assertFileExists($archive);
-            self::assertSame($identity['sha256'], hash_file('sha256', $archive));
+            if (isset($identity['archive'])) {
+                self::assertMatchesRegularExpression('~^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\\.tgz$~D', $identity['archive']);
+                $archive = $this->repositoryRoot . '/' . $identity['archive'];
+                self::assertFileExists($archive);
+                self::assertSame($identity['sha256'], hash_file('sha256', $archive));
+            } else {
+                self::assertMatchesRegularExpression('~^https://[^ ]+$~D', $identity['resolved']);
+                self::assertStringStartsWith('sha512-', $identity['integrity']);
+            }
         }
 
         $composerInstall = $this->position($docker, 'RUN composer install');

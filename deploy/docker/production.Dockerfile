@@ -5,8 +5,14 @@ ARG PEANUT_SOURCE_TREE
 
 FROM node:22.23.2-bookworm-slim AS client-base
 
-# Client manifests/locks select exact archives; release-versions.json verifies their digests.
-COPY packages/core-web/*.tgz /build/packages/core-web/
+# Development locks may select local Core archives. A formal Edition has registry
+# locks and no local archives; copy development inputs only when they exist.
+RUN --mount=type=bind,source=.,target=/build-context,readonly \
+    if [ -d /build-context/packages/core-web ]; then \
+        mkdir -p /build/packages/core-web; \
+        find /build-context/packages/core-web -maxdepth 1 -type f -name '*.tgz' \
+            -exec cp -t /build/packages/core-web/ {} +; \
+    fi
 
 FROM client-base AS admin-builder
 
@@ -75,7 +81,6 @@ FROM composer:2.10.2 AS composer-deps
 
 WORKDIR /build/server
 COPY server/composer.json server/composer.lock ./
-COPY packages/ /build/packages/
 COPY server/app app
 COPY server/database/schema database/schema
 RUN composer install \

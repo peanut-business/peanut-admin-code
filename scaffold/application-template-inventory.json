@@ -506,7 +506,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "83df838f64f9ac0ad76fcce34abb5ad4d5a36083969ab488fc7c73c50dbad732"
+            "source_sha256": "d6c9c251774049cf95154a42abfdcda179a7bf8d8ea8c184b719ecb434ca00e8"
         },
         {
             "path": "deploy/docker/read-backend-enum.sh",
@@ -825,7 +825,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa6da3f1491466482dd63ba2a0a27a11199aa409ee97754dba3028fad803a010"
+            "source_sha256": "e40737d1ba4bc28adf9463402bfad73e182d3728591e46458083bf8abae11b85"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -842,6 +842,20 @@
             "source_sha256": "405c4558c6036882b411c40b3a8ae4b87bf762dd95b6a4bf92b0b51e5db235ed"
         },
         {
+            "path": "docs/public/installation.md",
+            "target": "docs/public/installation.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0248d555c016d2ec6b04457d052fc94eb408d84d3afb40fd76b17a717c9009c1"
+        },
+        {
             "path": "docs/public/module-development.md",
             "target": "docs/public/module-development.md",
             "classification": "managed",
@@ -853,7 +867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c2de4f50ac837ac21b30dc770a3cfa50a3ec9171dcc470c19504b93397d9c97f"
+            "source_sha256": "9a445c048727856499f8d835de264c8d39745536cb7c31b2a00c062783d2940f"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -867,7 +881,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d663036529732b28378b5d404ef30cc826418a8db364c7f0c0d205e063adf7c8"
+            "source_sha256": "1601cd234db9f0c61567eefb33170b02ed1947b321977604213c1dd814847e7b"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",

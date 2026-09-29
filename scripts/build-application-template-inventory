@@ -93,6 +93,7 @@ function excluded(string $path): bool
             'docs/architecture/events-and-tasks.md',
             'docs/public/README.md',
             'docs/public/release-channels.md',
+            'docs/public/installation.md',
             'docs/public/api-and-sdk.md',
             'docs/public/module-development.md',
         ], true))
