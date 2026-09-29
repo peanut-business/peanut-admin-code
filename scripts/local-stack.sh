@@ -7,6 +7,7 @@ state_dir="$repo_dir/.local"
 orchestration_env="$state_dir/stack.env"
 backend_env="$repo_dir/server/.env"
 preview_backend_env="$repo_dir/server/.env.local-production-preview"
+preview_registry="$repo_dir/.local/application-resource-registry.json"
 if [ "${PEANUT_LOCAL_ENV_FILE+x}" = x ]; then
     case "$PEANUT_LOCAL_ENV_FILE" in /*) ;; *) printf 'local-stack: PEANUT_LOCAL_ENV_FILE must be absolute\n' >&2; exit 1 ;; esac
     orchestration_env=$PEANUT_LOCAL_ENV_FILE
@@ -139,6 +140,7 @@ ensure_env() {
 
     set_env_value "$backend_env" APP_ENV development
     set_env_value "$backend_env" APP_DEBUG true
+    set_env_value "$backend_env" PEANUT_INSTALLATION_SOURCE_MODE development
     set_env_value "$backend_env" PEANUT_DEPLOYMENT_TARGET local-development
     set_env_value "$backend_env" DEPLOYMENT_MODE standalone
     set_env_value "$backend_env" DB_PREFIX pa_
@@ -150,7 +152,7 @@ ensure_env() {
     remove_env_value "$backend_env" ADMIN_INITIAL_PASSWORD
     remove_env_value "$backend_env" PLATFORM_INITIAL_EMAIL
     remove_env_value "$backend_env" PLATFORM_INITIAL_PASSWORD
-    set_env_default "$backend_env" PEANUT_PLUGIN_LOCK ../plugins.lock
+    set_env_value "$backend_env" PEANUT_PLUGIN_LOCK ../plugins.lock
     set_env_default "$backend_env" PEANUT_MODULE_KERNEL_VERSION 1.0.0
     set_env_default "$backend_env" PEANUT_MODULE_TRUSTED_KEYS_JSON '{}'
     printf '%s\n' "$effective_ports" |
@@ -186,6 +188,16 @@ prepare_preview_backend_env() {
         while IFS='=' read -r name value; do set_env_value "$temporary" "$name" "$value"; done
     mv "$temporary" "$preview_backend_env"
     chmod 600 "$preview_backend_env"
+    database_id=$(awk -F= '$1 == "PEANUT_DATABASE_RESOURCE_ID" { print $2; exit }' "$preview_backend_env")
+    [ -n "$database_id" ] || die 'preview database resource ID is missing'
+    mkdir -p "$repo_dir/.local/tmp"
+    projected=$(mktemp "$repo_dir/.local/tmp/application-resource-registry.XXXXXX")
+    "$resource_registry" application-registry --resource-id "$database_id" \
+        --application-registry "$repo_dir/resources/project-resources.json" > "$projected" \
+        || die 'cannot project the selected preview application resource'
+    [ ! -L "$preview_registry" ] || die 'preview application resource registry must not be a symlink'
+    chmod 644 "$projected"
+    mv "$projected" "$preview_registry"
 }
 
 compose_dev() {
@@ -194,6 +206,7 @@ compose_dev() {
 
 compose_prod() {
     env -i PATH="$PATH" HOME="$HOME" PEANUT_SERVER_ENV_FILE="$preview_backend_env" \
+        PEANUT_APPLICATION_RESOURCE_REGISTRY_FILE="$preview_registry" \
         docker compose --env-file "$orchestration_env" --env-file "$preview_backend_env" -f "$prod_compose" "$@"
 }
 

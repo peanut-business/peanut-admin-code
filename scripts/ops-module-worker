@@ -9,7 +9,8 @@ for command_name in git jq ssh; do
 done
 
 project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)"
-registry="$project_root/resources/project-resources.json"
+registry="${PEANUT_RESOURCE_REGISTRY:-$project_root/resources/project-resources.json}"
+[[ "$registry" == /* && ! -L "$registry" ]] || die 'PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file'
 resource_id='peanut-admin-production-module-delivery-worker'
 worker_json="$(jq -ce --arg id "$resource_id" '.. | objects | select(.stable_resource_id? == $id)' "$registry")" \
   || die 'registered Module delivery worker is missing'

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use app\common\value\installation\ServerReleaseIdentity;
 
 require_once dirname(__DIR__) . '/bootstrap/environment.php';
 
@@ -24,7 +25,28 @@ function requiredEnvironment(string $name): string
 /** @return array<string,mixed> */
 function projectResourceRegistry(): array
 {
-    $path = dirname(__DIR__, 2) . '/resources/project-resources.json';
+    $root = dirname(__DIR__, 2);
+    $serverRoot = dirname(__DIR__);
+    $explicitPath = getenv('PEANUT_RESOURCE_REGISTRY');
+    $serverIdentityPath = $serverRoot . '/.peanut/release-identity.json';
+    $serverRegistryPath = $serverRoot . '/resources/project-resources.json';
+    $serverOnly = file_exists($serverIdentityPath) || is_link($serverIdentityPath);
+    if ($serverOnly) {
+        $expectedProjectId = ServerReleaseIdentity::load($serverRoot)->applicationSlug();
+        if ($explicitPath !== false && trim($explicitPath) !== '' && $explicitPath !== $serverRegistryPath) {
+            throw new RuntimeException('server-only APP 不允许读取外部资源登记');
+        }
+        $path = $serverRegistryPath;
+    } else {
+        if (file_exists($serverRegistryPath) || is_link($serverRegistryPath)) {
+            throw new RuntimeException('server 资源登记缺少 release identity');
+        }
+        $expectedProjectId = 'peanut-admin';
+        $path = $explicitPath ?: $root . '/resources/project-resources.json';
+    }
+    if ($path[0] !== '/' || is_link($path)) {
+        throw new RuntimeException('PEANUT_RESOURCE_REGISTRY 必须是绝对路径且不能为符号链接');
+    }
     $raw = file_get_contents($path);
     if (!is_string($raw)) {
         throw new RuntimeException('无法读取项目资源登记');
@@ -37,8 +59,34 @@ function projectResourceRegistry(): array
     if (!is_array($registry)
         || ($registry['schema_version'] ?? null) !== 1
         || !is_string($registry['project_id'] ?? null)
+        || $registry['project_id'] === ''
+        || !in_array($registry['authority']['role'] ?? null, ['application', 'maintainer'], true)
         || !is_array($registry['resources']['databases'] ?? null)) {
         throw new RuntimeException('项目资源登记结构无效');
+    }
+    $manifestPath = $root . '/.peanut/application-manifest.json';
+    if (!$serverOnly && (file_exists($manifestPath) || is_link($manifestPath))) {
+        if (!is_file($manifestPath) || is_link($manifestPath)) {
+            throw new RuntimeException('应用身份清单不可用');
+        }
+        try {
+            $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new RuntimeException('应用身份清单无效', 0, $exception);
+        }
+        $expectedProjectId = $manifest['application']['slug'] ?? null;
+        if (!is_string($expectedProjectId) || $expectedProjectId === '') {
+            throw new RuntimeException('应用身份清单缺少 slug');
+        }
+    }
+    if ($registry['authority']['role'] === 'application') {
+        if (!hash_equals($expectedProjectId, $registry['project_id'])) {
+            throw new RuntimeException('应用资源登记与当前 APP 身份不匹配');
+        }
+    } elseif ($serverOnly || $expectedProjectId !== 'peanut-admin'
+        || $explicitPath === false || trim($explicitPath) === ''
+        || $registry['project_id'] !== 'peanut-admin') {
+        throw new RuntimeException('维护者登记只允许在 Code 维护入口显式使用');
     }
     return $registry;
 }

@@ -6,6 +6,7 @@ namespace app\common\services\installation;
 
 use app\common\exception\installation\InstallationExecutionException;
 use app\common\services\audit\AuditContractHost;
+use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\plugin\PluginLockResolver;
@@ -51,12 +52,42 @@ final class InstallationExecutionHost
             'preflight' => $preflight,
             'official_modules' => $this->officialModules(),
         ];
+        $complete = $this->completionLockPresent();
         if (($preflight['status'] ?? null) !== 'ready') {
             return [
                 ...$base,
                 'state' => 'blocked',
                 'code' => 'INSTALL_PREFLIGHT_BLOCKED',
-                'retryable' => true,
+                'retryable' => !$complete,
+                'health' => null,
+            ];
+        }
+
+        if (!$this->installationMigrationComplete()) {
+            return [
+                ...$base,
+                'state' => 'blocked',
+                'code' => 'INSTALL_STATE_MIGRATION_PENDING',
+                'retryable' => false,
+                'health' => null,
+            ];
+        }
+        if ($this->hasLegacyInstallationState()) {
+            return [
+                ...$base,
+                'state' => 'blocked',
+                'code' => 'INSTALL_STATE_MIGRATION_REQUIRED',
+                'retryable' => false,
+                'health' => null,
+            ];
+        }
+
+        if ($complete && !$this->completionReceiptValid()) {
+            return [
+                ...$base,
+                'state' => 'blocked',
+                'code' => 'INSTALL_COMPLETION_LOCK_INVALID',
+                'retryable' => false,
                 'health' => null,
             ];
         }
@@ -67,15 +98,32 @@ final class InstallationExecutionHost
             return [
                 ...$base,
                 'state' => 'blocked',
-                'code' => 'INSTALL_DATABASE_UNAVAILABLE',
-                'retryable' => true,
+                'code' => $complete ? 'INSTALL_LOCKED_DATABASE_UNAVAILABLE' : 'INSTALL_DATABASE_UNAVAILABLE',
+                'retryable' => !$complete,
                 'health' => null,
             ];
         }
 
         $progress = is_file($this->progressMarker());
-        $complete = is_file($this->completionMarker());
-        if ($progress && !$complete && $database['state'] !== 'uninstalled') {
+        if ($complete) {
+            if ($database['state'] !== 'installed') {
+                return [
+                    ...$base,
+                    'state' => 'blocked',
+                    'code' => 'INSTALL_LOCKED_DATABASE_MISMATCH',
+                    'retryable' => false,
+                    'health' => null,
+                ];
+            }
+            return [
+                ...$base,
+                'state' => 'installed',
+                'code' => 'INSTALL_ALREADY_COMPLETED',
+                'retryable' => false,
+                'health' => $database['health'],
+            ];
+        }
+        if ($progress && $database['state'] !== 'uninstalled') {
             return [
                 ...$base,
                 'state' => 'blocked',
@@ -85,6 +133,15 @@ final class InstallationExecutionHost
             ];
         }
         if ($database['state'] === 'uninstalled') {
+            if ($this->completionLockPresent()) {
+                return [
+                    ...$base,
+                    'state' => 'blocked',
+                    'code' => 'INSTALL_LOCKED_DATABASE_MISMATCH',
+                    'retryable' => false,
+                    'health' => null,
+                ];
+            }
             return [
                 ...$base,
                 'state' => 'uninstalled',
@@ -96,10 +153,10 @@ final class InstallationExecutionHost
         if ($database['state'] === 'installed') {
             return [
                 ...$base,
-                'state' => 'installed',
-                'code' => 'INSTALL_ALREADY_COMPLETED',
+                'state' => 'blocked',
+                'code' => 'INSTALL_COMPLETION_LOCK_MISSING',
                 'retryable' => false,
-                'health' => $database['health'],
+                'health' => null,
             ];
         }
 
@@ -153,6 +210,13 @@ final class InstallationExecutionHost
     {
         $lock = $this->acquireExecutionLock();
         try {
+            if ($this->completionLockPresent()) {
+                throw new InstallationExecutionException(
+                    'INSTALL_ALREADY_COMPLETED',
+                    '安装完成锁已经存在，重复执行已被拒绝。',
+                    409,
+                );
+            }
             $status = $this->status();
             if ($status['state'] === 'installed') {
                 throw new InstallationExecutionException(
@@ -293,7 +357,13 @@ final class InstallationExecutionHost
             }
         }
         // 与独立模块包使用同一依赖/版本规则，且在创建数据库之前完成校验。
-        $modules = (new \app\platform\validation\plugin\ModulePackagePreflight(dirname($this->serverRoot)))
+        $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
+        $packageRoot = (file_exists($serverIdentity) || is_link($serverIdentity))
+            ? $this->serverRoot
+            : (\installationSourceDevelopmentMode($this->serverRoot)
+                ? dirname($this->serverRoot)
+                : $this->serverRoot);
+        $modules = (new \app\platform\validation\plugin\ModulePackagePreflight($packageRoot))
             ->dependencyOrder($definitions, []);
         $credentials = array_intersect_key($input, array_flip([
             'admin_email', 'admin_password', 'platform_email', 'platform_password',
@@ -416,9 +486,13 @@ final class InstallationExecutionHost
 
     private function lockResolver(): PluginLockResolver
     {
+        $lockPath = $this->moduleConfig()['plugin_lock'] ?? null;
+        if (!is_string($lockPath) || trim($lockPath) === '') {
+            throw new RuntimeException('PLUGIN_LOCK_INVALID');
+        }
         return new PluginLockResolver(
             $this->serverRoot,
-            (string) Config::get('modules.plugin_lock', '../plugins.lock'),
+            $lockPath,
         );
     }
 
@@ -485,7 +559,7 @@ final class InstallationExecutionHost
             'official_modules' => $moduleKeys,
             'release' => $versions,
             'baseline_manifest' => [
-                'path' => 'server/runtime/installation/baseline.json',
+                'path' => 'server/private/installation/baseline.json',
                 'sha256' => $baselineSha256,
             ],
             'completed_at' => gmdate(DATE_ATOM),
@@ -499,7 +573,7 @@ final class InstallationExecutionHost
             throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
         }
         return [
-            'path' => 'server/runtime/installation/installed.json',
+            'path' => 'server/private/installation/installed.json',
             'sha256' => $receiptSha256,
             'baseline_manifest' => $payload['baseline_manifest'],
         ];
@@ -509,8 +583,18 @@ final class InstallationExecutionHost
     private function installationBaseline(array $moduleKeys, array $versions): array
     {
         $projectRoot = dirname($this->serverRoot);
+        $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
         $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
-        if (file_exists($applicationManifest) || is_link($applicationManifest)) {
+        if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+            $identity = ServerReleaseIdentity::load($this->serverRoot);
+            $source = [
+                'kind' => 'server-release',
+                'server_release_identity_sha256' => $identity->identitySha256(),
+                'application_manifest_sha256' => $identity->manifestSha256(),
+            ];
+        } elseif (!\installationSourceDevelopmentMode($this->serverRoot)) {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        } elseif (file_exists($applicationManifest) || is_link($applicationManifest)) {
             if (!is_file($applicationManifest) || is_link($applicationManifest)) {
                 throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
             }
@@ -581,16 +665,119 @@ final class InstallationExecutionHost
 
     private function progressMarker(): string
     {
-        return $this->serverRoot . '/runtime/installation/executing.json';
+        return $this->serverRoot . '/private/installation/executing.json';
     }
 
     private function completionMarker(): string
     {
-        return $this->serverRoot . '/runtime/installation/installed.json';
+        return $this->serverRoot . '/private/installation/installed.json';
+    }
+
+    private function completionLockPresent(): bool
+    {
+        $path = $this->completionMarker();
+        return file_exists($path) || is_link($path);
+    }
+
+    private function completionReceiptValid(): bool
+    {
+        $path = $this->completionMarker();
+        if (!is_file($path) || is_link($path)) {
+            return false;
+        }
+        try {
+            $receipt = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            return false;
+        }
+        if (!is_array($receipt)
+            || ($receipt['schema_version'] ?? null) !== 1
+            || ($receipt['protocol'] ?? null) !== 'peanut.installation-receipt.v1'
+            || ($receipt['state'] ?? null) !== 'installed'
+            || !in_array($receipt['deployment_mode'] ?? null, ['standalone', 'multi-tenant'], true)
+            || !is_array($receipt['official_modules'] ?? null)
+            || !is_array($receipt['release'] ?? null)
+            || !is_array($receipt['baseline_manifest'] ?? null)
+            || !is_string($receipt['completed_at'] ?? null)
+            || trim($receipt['completed_at']) === '') {
+            return false;
+        }
+        foreach ($receipt['official_modules'] as $module) {
+            if (!is_string($module) || $module === '') {
+                return false;
+            }
+        }
+        foreach (['source_product_version', 'release_sequence_version', 'scaffold_template'] as $name) {
+            if (!is_string($receipt['release'][$name] ?? null) || $receipt['release'][$name] === '') {
+                return false;
+            }
+        }
+        $baseline = $receipt['baseline_manifest'];
+        $baselinePath = $baseline['path'] ?? null;
+        $baselineSha256 = $baseline['sha256'] ?? null;
+        if (!in_array($baselinePath, [
+            'server/runtime/installation/baseline.json',
+            'server/private/installation/baseline.json',
+        ], true) || !is_string($baselineSha256)
+            || preg_match('/^[a-f0-9]{64}$/D', $baselineSha256) !== 1) {
+            return false;
+        }
+        $file = $this->baselineMarker();
+        return is_file($file) && !is_link($file)
+            && hash_file('sha256', $file) === $baselineSha256;
     }
 
     private function baselineMarker(): string
     {
-        return $this->serverRoot . '/runtime/installation/baseline.json';
+        return $this->serverRoot . '/private/installation/baseline.json';
+    }
+
+    private function hasLegacyInstallationState(): bool
+    {
+        $legacy = $this->serverRoot . '/runtime/installation';
+        foreach (['executing.json', 'installed.json', 'baseline.json'] as $name) {
+            if (file_exists($legacy . '/' . $name) || is_link($legacy . '/' . $name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function installationMigrationComplete(): bool
+    {
+        $path = $this->serverRoot . '/private/installation/migration.json';
+        if (!file_exists($path) && !is_link($path)) {
+            return true;
+        }
+        if (!is_file($path) || is_link($path)) {
+            return false;
+        }
+        try {
+            $record = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            return false;
+        }
+        if (!is_array($record)
+            || ($record['protocol'] ?? null) !== 'peanut.installation-state-migration.v1'
+            || ($record['phase'] ?? null) !== 'complete'
+            || !is_array($record['files'] ?? null)
+            || $record['files'] === []) {
+            return false;
+        }
+        foreach ($record['files'] as $name => $identity) {
+            if (!in_array($name, ['executing.json', 'installed.json', 'baseline.json'], true)
+                || !is_array($identity)
+                || !is_string($identity['sha256'] ?? null)
+                || !is_int($identity['bytes'] ?? null)) {
+                return false;
+            }
+            $file = dirname($path) . '/' . $name;
+            if (!is_file($file) || is_link($file)
+                || filesize($file) !== $identity['bytes']
+                || hash_file('sha256', $file) !== $identity['sha256']) {
+                return false;
+            }
+        }
+        return true;
     }
 }

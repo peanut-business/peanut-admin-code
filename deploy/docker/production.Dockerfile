@@ -125,7 +125,7 @@ RUN if [ -n "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" ]; then \
         printf '%s' "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" | base64 --decode > DEPLOYMENT_RECEIPT.json; \
         chmod 0444 DEPLOYMENT_RECEIPT.json; \
     fi \
-    && mkdir -p server/runtime server/public/storage server/private/storage \
+    && mkdir -p server/runtime server/public/storage server/private/storage server/private/installation \
     && cd server \
     && printf '%s\n' \
         'APP_ENV=production' \
@@ -145,7 +145,7 @@ RUN if [ -n "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" ]; then \
     && cd .. \
     && chmod +x server/think server/database/seed-demo-data.php /usr/local/bin/peanut-php-entrypoint \
     && ln -s /var/www/peanut-admin/server/database/seed-demo-data.php /usr/local/bin/peanut-seed-demo-data \
-    && chown -R www-data:www-data server/runtime server/public/storage server/private/storage
+    && chown -R www-data:www-data server/runtime server/public/storage server/private/storage server/private/installation
 
 EXPOSE 9000
 

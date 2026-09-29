@@ -25,7 +25,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
-REGISTRY_PATH = ROOT / "resources/project-resources.json"
+REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
 P0E_REGISTRY_PATH = ROOT / "resources/p0e-runtime-qualification.json"
 LEASE_TOOL = ROOT / "scripts/project-resource-lease"
 REGISTRY_TOOL = ROOT / "scripts/project-resource-registry"
@@ -55,7 +55,7 @@ def fail(message: str) -> None:
 def operating_system_environment() -> dict[str, str]:
     return {
         key: value
-        for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "SystemRoot", "COMSPEC", "PATHEXT")
+        for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "PEANUT_RESOURCE_REGISTRY", "SystemRoot", "COMSPEC", "PATHEXT")
         if (value := os.environ.get(key))
     }
 
@@ -210,8 +210,14 @@ def validate_fixture() -> tuple[
     dict[str, Any],
     dict[str, Any],
 ]:
+    if not os.environ.get("PEANUT_RESOURCE_REGISTRY"):
+        fail("P0-E requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    if not REGISTRY_PATH.is_absolute() or REGISTRY_PATH.is_symlink():
+        fail("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
     fixture = read_json(FIXTURE_PATH)
     registry = read_json(REGISTRY_PATH)
+    if registry.get("authority", {}).get("role") != "maintainer":
+        fail("P0-E requires the explicit maintainer resource registry")
     p0e_registry = read_json(P0E_REGISTRY_PATH)
     if fixture.get("schema_version") != 1 or fixture.get("gate") != "p0e-runtime-qualification":
         fail("unsupported P0-E fixture")
@@ -978,6 +984,7 @@ class Runner:
         environment = {
             "PEANUT_SERVER_ENV_FILE": str(path),
             "PEANUT_INSTALLATION_ENV_FILE": str(installation_path),
+            "PEANUT_RESOURCE_REGISTRY": str(self.application_registry(project_root, database)),
         }
         try:
             yield environment
@@ -1023,8 +1030,47 @@ class Runner:
             self.remote_mysql(f"REVOKE ALL PRIVILEGES ON `{database}`.* FROM '{escaped_user}'@'%'")
         self.remote_mysql(f"DROP DATABASE IF EXISTS `{database}`")
 
+    def application_registry(self, project_root: Path, database: str) -> Path:
+        if database not in self.plan["databases"].values():
+            fail("P0-E application registry database is outside the fixed plan")
+        maintainer = read_json(REGISTRY_PATH)
+        matches = [item for item in maintainer.get("resources", {}).get("databases", [])
+                   if item.get("stable_resource_id") == RESOURCE_ID]
+        if len(matches) != 1:
+            fail("P0-E maintainer database resource is missing or ambiguous")
+        source = project_root / "resources/project-resources.json"
+        if not source.is_file() or source.is_symlink():
+            fail("P0-E application resource registry is unavailable")
+        application = read_json(source)
+        if not isinstance(application.get("project_id"), str) or not application["project_id"]:
+            fail("P0-E application resource identity is invalid")
+        if application.get("authority", {}).get("role") != "application":
+            fail("P0-E source must be an application-owned resource registry")
+        if not isinstance(application.get("resources"), dict) or not isinstance(application["resources"].get("databases"), list):
+            fail("P0-E application resource shape is invalid")
+        resource = dict(matches[0])
+        resource.pop("credential_ref", None)
+        registry = {
+            "schema_version": 1,
+            "project_id": application["project_id"],
+            "authority": {
+                "owner": resource["owner"],
+                "role": "application",
+                "source": "P0-E fixed plan and explicitly selected maintainer resource",
+                "run_id": self.args.run_id,
+                "database_name": database,
+                "resource_id": RESOURCE_ID,
+            },
+            "resources": {key: ([resource] if key == "databases" else [] if isinstance(value, list) else {"status": "unallocated", "resources": []})
+                          for key, value in application["resources"].items()},
+        }
+        target = self.cache / "application-resource-registry.json"
+        self.write_json(target, registry)
+        target.chmod(0o644)
+        return target
+
     @contextlib.contextmanager
-    def generated_install_bridge(self, project_root: Path) -> Any:
+    def generated_install_bridge(self, project_root: Path, database: str) -> Any:
         if project_root == ROOT:
             yield
             return
@@ -1041,9 +1087,9 @@ class Runner:
             originals.append((target, target.read_bytes(), target.stat().st_mode & 0o777))
         for relative in bridged_files:
             target = project_root / relative
-            source = ROOT / relative
+            source = self.application_registry(project_root, database) if relative == "resources/project-resources.json" else ROOT / relative
             target.write_bytes(source.read_bytes())
-            target.chmod(source.stat().st_mode & 0o777)
+            target.chmod(0o644 if relative == "resources/project-resources.json" else source.stat().st_mode & 0o777)
         try:
             yield
         finally:
@@ -1056,7 +1102,7 @@ class Runner:
 
     def install_current(self, database: str, mode: str, log: Path, project_root: Path = ROOT) -> None:
         self.reset_generated_installation_state(project_root)
-        with self.generated_install_bridge(project_root):
+        with self.generated_install_bridge(project_root, database):
             with self.backend_process_environment(project_root, database, mode) as env:
                 command(["php", "server/database/install.php"], cwd=project_root, env=env, log=log)
         self.assert_up_to_date(database, mode, log, project_root=project_root)
@@ -1095,7 +1141,7 @@ class Runner:
             "$result+=assertCurrentDatabase($pdo);"
             "echo json_encode($result,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT),PHP_EOL;"
         )
-        with self.generated_install_bridge(project_root):
+        with self.generated_install_bridge(project_root, database):
             with self.backend_process_environment(project_root, database, mode) as env:
                 result = command(
                     ["php", "-r", guard_php],
@@ -1537,6 +1583,7 @@ class Runner:
         self.write_json(self.output / "groups/consumer-module-lifecycle.json", summary)
 
     def write_compose_env(self, project_root: Path, database: str, mode: str) -> None:
+        application_registry = self.application_registry(project_root, database)
         self.compose_backend_env = self.write_backend_env(
             project_root,
             database,
@@ -1566,6 +1613,7 @@ class Runner:
             "PEANUT_SOURCE_COMMIT": self.args.candidate,
             "PEANUT_SOURCE_TREE": self.plan["candidate_tree"],
             "PEANUT_SERVER_ENV_FILE": str(self.compose_backend_env),
+            "PEANUT_APPLICATION_RESOURCE_REGISTRY_FILE": str(application_registry),
         }
         temporary = self.compose_env.with_suffix(".tmp")
         temporary.write_text("".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8")
@@ -1583,10 +1631,6 @@ class Runner:
             f"        target: {self.plan['lease_proof_container_path']}\n"
             "        read_only: true\n"
             "      - type: bind\n"
-            f"        source: {ROOT / 'resources/project-resources.json'}\n"
-            "        target: /var/www/peanut-admin/resources/project-resources.json\n"
-            "        read_only: true\n"
-            "      - type: bind\n"
             f"        source: {ROOT / 'server/database/environment-guard.php'}\n"
             "        target: /var/www/peanut-admin/server/database/environment-guard.php\n"
             "        read_only: true\n"
@@ -1595,10 +1639,6 @@ class Runner:
             "      - type: bind\n"
             f"        source: {proof_dir}\n"
             f"        target: {self.plan['lease_proof_container_path']}\n"
-            "        read_only: true\n"
-            "      - type: bind\n"
-            f"        source: {ROOT / 'resources/project-resources.json'}\n"
-            "        target: /var/www/peanut-admin/resources/project-resources.json\n"
             "        read_only: true\n"
             "networks:\n"
             "  default:\n"

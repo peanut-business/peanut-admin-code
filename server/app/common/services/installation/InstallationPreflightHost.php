@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\common\services\installation;
 
+use app\common\value\installation\ServerReleaseIdentity;
 use Closure;
 use RuntimeException;
 use Throwable;
@@ -16,6 +17,7 @@ final class InstallationPreflightHost
     /** @var array<string,string> */
     private const WRITABLE_DIRECTORIES = [
         'runtime' => 'runtime',
+        'installation-state' => 'private',
         'public-storage' => 'public/storage',
         'private-storage' => 'private/storage',
     ];
@@ -134,12 +136,27 @@ final class InstallationPreflightHost
     /** @return array{id:string,status:string,code:string,reason:string,remediation:string} */
     private function installationFilesCheck(): array
     {
+        $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
+        $sourceRoot = dirname($this->serverRoot);
+        $sourceDevelopment = getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
+            && file_exists($sourceRoot . '/.git')
+            && !is_link($sourceRoot . '/.git')
+            && is_file($sourceRoot . '/release-versions.json')
+            && (is_file($sourceRoot . '/.peanut/application-manifest.json')
+                || (is_file($sourceRoot . '/scaffold/application-template-inventory.json')
+                    && is_file($sourceRoot . '/scaffold/edition-profiles.json')));
+        $serverRelease = file_exists($serverIdentity) || is_link($serverIdentity) || !$sourceDevelopment;
         $required = [
             'Composer autoload' => $this->serverRoot . '/vendor/autoload.php',
             '数据库基线' => $this->serverRoot . '/database/init.sql',
             '品牌配置' => $this->serverRoot . '/config/brand.json',
-            '发布身份' => dirname($this->serverRoot) . '/RELEASE_METADATA.json',
-            'Plugin lock' => dirname($this->serverRoot) . '/plugins.lock',
+            'Server 发布身份' => $serverRelease ? $serverIdentity : $sourceRoot . '/RELEASE_METADATA.json',
+            '发布元数据' => $serverRelease
+                ? $this->serverRoot . '/.peanut/RELEASE_METADATA.json'
+                : $sourceRoot . '/RELEASE_METADATA.json',
+            'Plugin lock' => $serverRelease
+                ? $this->serverRoot . '/plugins.lock'
+                : $sourceRoot . '/plugins.lock',
             'Plugin schema' => $this->serverRoot . '/resources/schemas/plugin.schema.json',
         ];
         $missing = [];
@@ -149,6 +166,23 @@ final class InstallationPreflightHost
             }
         }
         if ($missing === []) {
+            if ($serverRelease) {
+                try {
+                    require_once $this->serverRoot . '/vendor/autoload.php';
+                    $identity = ServerReleaseIdentity::load($this->serverRoot);
+                    $expected = $identity->projectedPluginLockSha256();
+                    if (!hash_equals($expected, (string) hash_file('sha256', $this->serverRoot . '/plugins.lock'))) {
+                        throw new RuntimeException('Server Plugin lock differs from release identity.');
+                    }
+                } catch (Throwable) {
+                    return $this->failed(
+                        'installation-files',
+                        'INSTALL_FILES_INVALID',
+                        'Server 发布身份或 Plugin lock 校验失败',
+                        '恢复完整且同一发行身份的 Server 制品后重新运行预检',
+                    );
+                }
+            }
             return $this->passed(
                 'installation-files',
                 'INSTALL_FILES_READY',
@@ -220,7 +254,7 @@ final class InstallationPreflightHost
                     'database-resource',
                     'INSTALL_DATABASE_RESOURCE_INVALID',
                     '数据库资源身份未通过项目登记校验',
-                    '按 resources/project-resources.json 选择环境、资源 ID、consumer 和 endpoint，禁止猜测地址或凭据',
+                    '按本应用 resources/project-resources.json 选择环境、资源 ID、consumer 和 endpoint；维护者仅在显式指定 PEANUT_RESOURCE_REGISTRY 时使用其登记，禁止猜测地址或凭据',
                 ),
                 null,
             ];

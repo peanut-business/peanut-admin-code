@@ -18,11 +18,15 @@ from typing import Any
 
 
 REPO = Path(__file__).resolve().parent.parent
-REGISTRY_PATH = REPO / "resources/project-resources.json"
+REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or REPO / "resources/project-resources.json")
 DAILY_DEVELOPMENT_DATABASE_ID = "peanut-admin-mysql84-development"
 
 
 def registered_expectations() -> tuple[dict[str, Any], dict[str, int], dict[str, str]]:
+    if not os.environ.get("PEANUT_RESOURCE_REGISTRY"):
+        raise ValueError("local maintainer probe requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    if not REGISTRY_PATH.is_absolute() or REGISTRY_PATH.is_symlink():
+        raise ValueError("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
     registry = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
     databases = [
         item

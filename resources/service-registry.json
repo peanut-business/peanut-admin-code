@@ -7,7 +7,7 @@
     "owner": "Peanut Admin maintainers",
     "source": "this versioned file",
     "scope": "内部复用服务的稳定责任、数据归属、依赖和边界",
-    "precedence": "Module 自有表仍以对应 module.json 为直接事实；运行资源仍以 resources/project-resources.json 为事实源；当前执行 authority、writer、预算和恢复点只由唯一私有控制状态拥有；本登记只负责跨 Module 服务边界，不派发任务或维护执行状态",
+    "precedence": "Module 自有表仍以对应 module.json 为直接事实；应用运行资源以其自有 resources/project-resources.json 为事实源，Peanut 维护者环境以显式 PEANUT_RESOURCE_REGISTRY 指向的私有 Project 登记为事实源；当前执行 authority、writer、预算和恢复点只由唯一私有控制状态拥有；本登记只负责跨 Module 服务边界，不派发任务或维护执行状态",
     "update_policy": "服务合同、owner、数据归属、依赖或稳定边界变化时同步更新；实现与执行进度回到现有问题登记、提交回执和唯一私有控制状态"
   },
   "facts_baseline": {

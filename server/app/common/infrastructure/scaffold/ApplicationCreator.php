@@ -1071,6 +1071,7 @@ PHP;
             'schema_version' => 1,
             'project_id' => $parameters['SLUG'],
             'authority' => [
+                'role' => 'application',
                 'owner' => $parameters['PRODUCT_NAME'] . ' maintainers', 'source' => 'this versioned file',
                 'credentials_policy' => 'references only; secrets are never stored in Git',
                 'allocation_status' => 'unallocated; register environment-specific resources before connection or startup',
@@ -1085,7 +1086,7 @@ PHP;
                     'data_source' => 'fresh ephemeral CI database', 'freshness_requirement' => 'new service container per job',
                     'health_check' => 'mysqladmin ping', 'fallback' => 'none', 'cleanup_responsibility' => 'GitHub Actions job teardown',
                 ]],
-                'local_listeners' => [], 'containers' => [], 'optional_services' => [],
+                'local_listeners' => [], 'containers' => [], 'optional_services' => [], 'backups' => [],
                 'external_services' => [],
                 'queues' => ['status' => 'not_registered'], 'object_storage' => ['status' => 'not_registered'],
             ],

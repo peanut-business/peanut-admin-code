@@ -214,7 +214,10 @@ final readonly class DeploymentModuleRequestService implements DeploymentModuleR
     /** @return array<string,mixed> */
     private function deliveryResource(string $deliveryResourceId, string $targetResourceId): array
     {
-        $registryPath = $this->registryPath ?? $this->projectRoot . '/resources/project-resources.json';
+        $registryPath = $this->registryPath ?? (getenv('PEANUT_RESOURCE_REGISTRY') ?: $this->projectRoot . '/resources/project-resources.json');
+        if ($registryPath[0] !== '/' || is_link($registryPath)) {
+            throw new \RuntimeException('OPS_MODULE_RESOURCE_REGISTRY_PATH_INVALID');
+        }
         $registry = json_decode((string) file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
         $resource = $this->resource($registry, $deliveryResourceId);
         $target = $this->resource($registry, $targetResourceId);

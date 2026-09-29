@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -14,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "server/tests/fixtures/consumer-upgrade-qualification/matrix.json"
-REGISTRY = ROOT / "resources/project-resources.json"
+REGISTRY = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
 VERSIONS = ROOT / "release-versions.json"
 RESOURCE_ID = "peanut-admin-consumer-upgrade-mysql84-gate"
 ADMIN_TOOL_ID = "peanut-admin-consumer-upgrade-mysql84-remote-admin-cli"
@@ -31,12 +32,16 @@ class PlanError(RuntimeError):
     pass
 
 def read_json(path: Path) -> dict:
+    if path == REGISTRY and not os.environ.get("PEANUT_RESOURCE_REGISTRY"):
+        raise PlanError("CR03 requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    if path == REGISTRY and (not path.is_absolute() or path.is_symlink()):
+        raise PlanError("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
-        raise PlanError(f"cannot read {path.relative_to(ROOT)}: {error}") from error
+        raise PlanError(f"cannot read {path}: {error}") from error
     if not isinstance(value, dict):
-        raise PlanError(f"{path.relative_to(ROOT)} must have an object root")
+        raise PlanError(f"{path} must have an object root")
     return value
 
 def git(*arguments: str) -> str:

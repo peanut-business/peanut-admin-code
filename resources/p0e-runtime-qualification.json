@@ -5,7 +5,7 @@
   "authority": {
     "owner": "Peanut Admin P0-E qualification owner",
     "source": "this versioned source-only registry",
-    "project_resource_registry": "resources/project-resources.json",
+    "project_resource_registry": "PEANUT_RESOURCE_REGISTRY (explicit private Project resources/project-resources.json)",
     "live_resource_validation": "the registered mac-14 resource must pass the exact remote preflight before mutation",
     "credentials_policy": "references only; secrets are never stored in Git"
   },
@@ -25,7 +25,7 @@
     "runtime_resource_id": "peanut-admin-mysql84-development",
     "administrative_tooling_resource_id": "peanut-admin-mysql84-remote-admin-cli",
     "credential_ref": "mac-14:/Users/xing/.config/peanut-admin/development-db.env",
-    "data_source": "resources/project-resources.json plus the live registered mac-14 resource",
+    "data_source": "explicit private Project resource registry plus the live registered mac-14 resource",
     "freshness_requirement": "after claim and before mutation, both project registries and the live resource must agree on the resource, image, endpoint and version",
     "health_check": "scripts/p0e-runtime-qualification run/resume remote administration preflight",
     "fallback": "none",

@@ -36,6 +36,11 @@ function inventoryGitFiles(string $root): array
 
 function excluded(string $path): bool
 {
+    // Both locations contain instance installation state, never template source.
+    if (str_starts_with($path, 'server/runtime/installation/')
+        || str_starts_with($path, 'server/private/installation/')) {
+        return true;
+    }
     // The public upgrader ships the existing authenticated upgrade runtime.
     if (in_array($path, [
         'scripts/scaffold-runtime/ScaffoldPathGuard.php',
@@ -430,7 +435,7 @@ $inventory = [
     'variables' => ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'],
     'untracked_exclusions' => [
         '.git/**', '.local/**', '.ops/**', '.env', 'server/.env', '**/vendor/**', '**/node_modules/**',
-        '**/dist/**', '**/runtime/**', '**/.cache/**', 'server/public/uploads/**',
+        '**/dist/**', '**/runtime/**', 'server/private/installation/**', '**/.cache/**', 'server/public/uploads/**',
         'server/public/storage/**', 'output/**', '*.log', '.DS_Store',
     ],
     'files' => $entries,

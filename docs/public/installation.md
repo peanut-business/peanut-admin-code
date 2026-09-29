@@ -4,11 +4,13 @@
 
 ## 取得与核对
 
-从项目公布的 GitHub Release 页面选择同一产品版本、同一 Edition（`standalone` 或 `multi-tenant`）的 `peanut-admin-<version>-<edition>.tar.gz` 及同名 `.manifest.json`，同时取得 `SHA256SUMS`、`RELEASE_MANIFEST.json`。以 Release 说明中公布的 SHA-256 核对 `RELEASE_MANIFEST.json`，再核对它列出的附件摘要、`SHA256SUMS` 和 Edition 清单中的版本、来源、文件名、归档摘要。任一身份或摘要不符、依赖尚未公开发布时停止。安装包本身当前使用这些清单和摘要，不要把升级包的 Ed25519 签名说成安装包签名。不要从仓库源码 ZIP 自行拼装缺失的发行附件；本开发候选尚不能提供可执行的正式下载示例。
+从项目公布的 GitHub Release 页面选择同一产品版本、同一 Edition（`standalone` 或 `multi-tenant`）的 `peanut-admin-<version>-<edition>-server.tar.gz`、对应 Edition `.manifest.json`、`SHA256SUMS` 和 `RELEASE_MANIFEST.json`。以 Release 说明中公布的 SHA-256 核对 `RELEASE_MANIFEST.json`，再核对它列出的附件摘要、`SHA256SUMS` 和 Edition 清单 `server_archive` 中的版本、来源、文件名及归档摘要。解压或替换正式目录前，可在隔离位置用可信发行工具源码执行 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<可信渠道提供的SHA-256>`，再核对包内 server 文件清单。任一身份或摘要不符、依赖尚未公开发布时停止。安装包本身当前使用这些清单和摘要，不要把升级包的 Ed25519 签名说成安装包签名。不要从仓库源码 ZIP 自行拼装缺失的发行附件；本开发候选尚不能提供可执行的正式下载示例。
 
-安全提取到独立的实例目录。下文的“产品根目录”是包含 `release-versions.json`、`server/`、`scripts/`、各客户端目录与 `.peanut/application-manifest.json` 的提取后目录，不是 `server/`、维护者 Code 仓库或私有 Project。先核对包内 `README.md`、发行清单、许可证、`server/composer.lock` 和客户端原生锁均齐全。
+安全提取到独立的实例目录。生产包根目录仅有 `server/`；其中 `server/.peanut/release-identity.json` 记录本次发行的应用与文件身份，`server/plugins.lock` 是后端运行投影。先核对外部发行清单、归档摘要、包内身份和 `server/composer.lock`。
 
-按包内锁及对应公开 registry 安装已发布的 Composer、npm 依赖，保留锁定版本；不得以邻仓路径、内部 Core ZIP、未公开 `.tgz`、复制来的 `vendor/` 或无约束更新代替。发行包不附带已安装依赖。包内 `scripts/project-composer` 可在产品根目录执行 `prepare`，然后执行 `scripts/project-composer install --working-dir=server --no-interaction --no-scripts`；客户端使用各自包内锁及包管理器。若该版本锁仍指向内部候选或本地 tarball，停止正式安装，等待固定依赖公开发布并由发行方重建完整包。
+安装器默认只接受 Server 自带且可校验的发行身份；缺失或损坏时拒绝安装。源码工作树仅可在开发入口显式设置 `PEANUT_INSTALLATION_SOURCE_MODE=development` 后按源码身份运行，该设置不得带入生产实例。
+
+按包内 `server/composer.lock` 及公开 registry 安装已发布的 Composer 依赖，保留锁定版本；不得以邻仓路径、内部 Core ZIP、未公开 `.tgz`、复制来的 `vendor/` 或无约束更新代替。发行包不附带已安装依赖。在 `server/` 内执行与该包锁一致的 `composer install --no-interaction --no-scripts`；浏览器资产已在 `server/public/`，无需在生产实例安装客户端构建依赖。若该版本锁仍指向内部候选或本地 tarball，停止正式安装，等待固定依赖公开发布并由发行方重建完整包。
 
 ## 独立实例与首次安装
 
@@ -24,6 +26,10 @@ php server/database/install.php --preflight
 PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/database/install.php
 ```
 
-仅当预检返回 `ready` 才执行下一行安装命令。安装结束后移除这份一次性凭据文件，并按包内入口检查安装状态和运行环境。`php server/database/install.php --status` 可查询状态；普通重复安装会拒绝，`--skip-if-installed` 只跳过已完成的安装，不清库或重置管理员。不要对现有客户库使用首次安装或 `--fresh`。后续升级使用已安装实例可信的 `scripts/upgrade`，见[发行渠道与版本身份](release-channels.md)。
+仅当预检返回 `ready` 才执行下一行安装命令。安装结束后移除这份一次性凭据文件，并按包内入口检查安装状态和运行环境。`php server/database/install.php --status` 可查询状态；普通重复安装会拒绝，`--skip-if-installed` 只跳过已完成的安装，不清库或重置管理员。不要对现有客户库使用首次安装或 `--fresh`。server-only 包未附带生产升级/恢复入口；完整开发源码实例的现有升级入口见[发行渠道与版本身份](release-channels.md)。
+
+`server/private/installation/installed.json` 同时是安装完成回执与物理防重装锁。只要该路径存在，即使数据库被清空、不可达或回执内容损坏，安装入口也拒绝再次初始化；先由资源 owner 核对并恢复原实例，不删除锁来重装。
+
+首次安装的 `executing.json`、`baseline.json`、`installed.json` 和执行锁保存在实例自己的 `server/private/installation/` 持久目录，不属于发行包。旧版本若将这些记录放在 `server/runtime/installation/`，必须先停用旧应用写入者，并在同时挂载旧 runtime 卷与新 installation 卷的可信维护环境中，以拥有两个状态目录的应用进程 UID 显式使用可信维护工具 `scripts/migrate-installation-state --server-root=/absolute/path/to/product-root/server`，核对输出的逐文件 SHA-256 和 `server/private/installation/migration.json`，再准备升级。该维护工具不随 server-only 包分发。迁移先写 `pending` 记录，在目标卷内逐文件核对原字节并原子发布，接着将旧目录改名为 `server/runtime/installation.migrated/` 留作恢复材料，最后把记录标为 `complete`；中断时可按同一记录重试。旧回执中记录的 `server/runtime/installation/` 路径是历史安装时的位置。两边记录不一致、旧执行锁被占用或迁移备份路径冲突时会拒绝，须先人工核对实例，不能重新安装来补回身份。普通安装状态查询不会自动迁移，`pending` 时也会阻断安装。
 
 如果正式 Release 尚未给出该版本的完整附件清单与摘要、已公开固定依赖或明确的目标 Edition 配置，本页只能作为安装合同，不能宣称该版本可正式安装。

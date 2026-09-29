@@ -12,7 +12,7 @@ use RuntimeException;
 /** Canonical, path-free receipt produced by the trusted restore worker. */
 final readonly class RestoreVerificationEvidence
 {
-    public const SCHEMA_VERSION = 2;
+    public const SCHEMA_VERSION = 3;
     public const DEPLOYMENT_RESOURCE_ID = 'peanut-admin-production-restore-verification-deployment';
     public const DATABASE_RESOURCE_ID = 'peanut-admin-production-restore-verification-mysql84';
     public const RUNTIME_RESOURCE_ID = 'peanut-admin-production-restore-verification-containers';
@@ -20,6 +20,7 @@ final readonly class RestoreVerificationEvidence
     public const DATABASE_NAME = 'peanut_admin_restore_verify';
     public const PUBLIC_STORAGE_VOLUME = 'peanut-admin-restore-verify_php-storage';
     public const PRIVATE_STORAGE_VOLUME = 'peanut-admin-restore-verify_php-private-storage';
+    public const INSTALLATION_VOLUME = 'peanut-admin-restore-verify_php-installation';
 
     /** @param array<string,mixed> $data */
     private function __construct(private array $data) {}
@@ -63,7 +64,7 @@ final readonly class RestoreVerificationEvidence
         $target = self::map($data['target']);
         self::exactKeys($target, [
             'deployment_resource_id', 'database_resource_id', 'runtime_resource_id',
-            'compose_project', 'database_name', 'public_storage_volume', 'private_storage_volume',
+            'compose_project', 'database_name', 'public_storage_volume', 'private_storage_volume', 'installation_volume',
         ]);
         if ($target !== [
             'deployment_resource_id' => self::DEPLOYMENT_RESOURCE_ID,
@@ -73,6 +74,7 @@ final readonly class RestoreVerificationEvidence
             'database_name' => self::DATABASE_NAME,
             'public_storage_volume' => self::PUBLIC_STORAGE_VOLUME,
             'private_storage_volume' => self::PRIVATE_STORAGE_VOLUME,
+            'installation_volume' => self::INSTALLATION_VOLUME,
         ]) {
             throw new RuntimeException('OPS_RESTORE_TARGET_INVALID');
         }
@@ -83,6 +85,7 @@ final readonly class RestoreVerificationEvidence
             'account_count', 'tenant_count', 'tenant_member_count',
             'storage_file_count', 'storage_bytes',
             'private_storage_file_count', 'private_storage_bytes',
+            'installation_file_count', 'installation_bytes',
         ]);
         foreach ($verification as $value) {
             if (!is_int($value) || $value < 0) {

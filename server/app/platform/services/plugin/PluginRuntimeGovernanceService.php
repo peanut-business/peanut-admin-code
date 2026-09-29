@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\plugin;
 
+use app\common\value\installation\ServerReleaseIdentity;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\platform\exception\plugin\PluginLifecycleException;
@@ -33,6 +34,7 @@ final class PluginRuntimeGovernanceService
     /** @return array<string,mixed> */
     public function preview(string $moduleOrPackageKey, bool $purge): array
     {
+        $this->assertMutableSourceLock();
         $scope = $this->scope($moduleOrPackageKey);
         if ($scope === null) {
             return [
@@ -64,6 +66,7 @@ final class PluginRuntimeGovernanceService
         array $confirmPlan,
         string $confirmPlanDigest,
     ): array {
+        $this->assertMutableSourceLock();
         $codec = $this->codec();
         if (!hash_equals($codec->digest($confirmPlan), strtolower(trim($confirmPlanDigest)))) {
             throw new PluginLifecycleException('MODULE_UNINSTALL_PLAN_CHANGED', 'Confirmed Module uninstall plan digest differs.');
@@ -204,7 +207,10 @@ final class PluginRuntimeGovernanceService
     /** @return array{package_key:string,package_manifest_digest:string,descriptor:PluginDescriptor,affected_modules:list<array<string,mixed>>}|null */
     private function lockedScope(string $moduleOrPackageKey): ?array
     {
-        $resolver = new PluginLockResolver($this->serverRoot, '../plugins.lock');
+        $resolver = new PluginLockResolver(
+            $this->serverRoot,
+            (string) ($this->moduleConfig['plugin_lock'] ?? 'plugins.lock'),
+        );
         $descriptor = null;
         foreach ($resolver->all() as $plugin) {
             if ($plugin->key === $moduleOrPackageKey || isset($plugin->moduleRoots[$moduleOrPackageKey])) {
@@ -355,7 +361,7 @@ final class PluginRuntimeGovernanceService
         $dependents = ModuleLifecyclePolicy::activeBusinessDependents(
             new PluginLockResolver(
                 $this->serverRoot,
-                (string) ($this->moduleConfig['plugin_lock'] ?? '../plugins.lock'),
+                (string) ($this->moduleConfig['plugin_lock'] ?? 'plugins.lock'),
             ),
             $moduleKeys,
         );
@@ -530,6 +536,7 @@ final class PluginRuntimeGovernanceService
     /** @param array<string,mixed> $plan */
     private function finalizeFilesystem(string $packageKey, array $plan, string $digest, bool $purge): void
     {
+        $this->assertMutableSourceLock();
         $projectRoot = realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot);
         $lockPath = $projectRoot . '/plugins.lock';
         if (is_file($lockPath)) {
@@ -583,6 +590,25 @@ final class PluginRuntimeGovernanceService
             foreach ($this->quarantineDirectories($packageKey) as $directory) {
                 $this->removeTree($directory);
             }
+        }
+    }
+
+    private function assertMutableSourceLock(): void
+    {
+        $identityPath = $this->serverRoot . '/.peanut/release-identity.json';
+        if (file_exists($identityPath) || is_link($identityPath)) {
+            ServerReleaseIdentity::load($this->serverRoot);
+            throw new PluginLifecycleException(
+                'PLUGIN_RELEASE_CHANGE_REQUIRED',
+                'Server Plugin lock is part of the release identity; change Plugins through a new application release.',
+            );
+        }
+        if (getenv('PEANUT_INSTALLATION_SOURCE_MODE') !== 'development'
+            || ($this->moduleConfig['plugin_lock'] ?? null) !== '../plugins.lock') {
+            throw new PluginLifecycleException(
+                'SERVER_RELEASE_IDENTITY_INVALID',
+                'A server release identity is required for deployed Plugin lifecycle operations.',
+            );
         }
     }
 

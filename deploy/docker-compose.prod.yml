@@ -65,9 +65,11 @@ services:
     volumes:
       - ${PEANUT_DEPLOYMENT_RECEIPT_FILE:?set PEANUT_DEPLOYMENT_RECEIPT_FILE for the deployment receipt}:/var/www/peanut-admin/DEPLOYMENT_RECEIPT.json:ro
       - ${PEANUT_SERVER_ENV_FILE:-../server/.env}:/var/www/peanut-admin/server/.env.source:ro
+      - ${PEANUT_APPLICATION_RESOURCE_REGISTRY_FILE:-../resources/project-resources.json}:/var/www/peanut-admin/resources/project-resources.json:ro
       - php-runtime:/var/www/peanut-admin/server/runtime
       - php-storage:/var/www/peanut-admin/server/public/storage
       - php-private-storage:/var/www/peanut-admin/server/private/storage
+      - php-installation:/var/www/peanut-admin/server/private/installation
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/peanut-ready && php-fpm -t"]
       interval: 10s
@@ -140,9 +142,11 @@ services:
     volumes:
       - ${PEANUT_DEPLOYMENT_RECEIPT_FILE:?set PEANUT_DEPLOYMENT_RECEIPT_FILE for the deployment receipt}:/var/www/peanut-admin/DEPLOYMENT_RECEIPT.json:ro
       - ${PEANUT_SERVER_ENV_FILE:-../server/.env}:/var/www/peanut-admin/server/.env.source:ro
+      - ${PEANUT_APPLICATION_RESOURCE_REGISTRY_FILE:-../resources/project-resources.json}:/var/www/peanut-admin/resources/project-resources.json:ro
       - php-runtime:/var/www/peanut-admin/server/runtime
       - php-storage:/var/www/peanut-admin/server/public/storage
       - php-private-storage:/var/www/peanut-admin/server/private/storage
+      - php-installation:/var/www/peanut-admin/server/private/installation
     depends_on:
       php:
         condition: service_healthy
@@ -160,3 +164,4 @@ volumes:
   php-runtime:
   php-storage:
   php-private-storage:
+  php-installation:

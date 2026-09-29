@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -30,9 +31,9 @@ def read_json(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exception:
-        raise ControlError(f"cannot read JSON authority {path.relative_to(ROOT)}: {exception}") from exception
+        raise ControlError(f"cannot read JSON authority {path}: {exception}") from exception
     if not isinstance(value, dict):
-        raise ControlError(f"JSON authority root must be an object: {path.relative_to(ROOT)}")
+        raise ControlError(f"JSON authority root must be an object: {path}")
     return value
 
 
@@ -241,7 +242,13 @@ def preflight(args: argparse.Namespace) -> int:
     metadata = read_json(policy_path(policy, "authorities", "release_metadata"))
     inventory = read_json(policy_path(policy, "authorities", "application_inventory"))
     fixture = read_json(policy_path(policy, "authorities", "qualification_fixture"))
-    resources = read_json(policy_path(policy, "authorities", "project_resources"))
+    registry_path = os.environ.get("PEANUT_RESOURCE_REGISTRY")
+    if not registry_path:
+        raise ControlError("PEANUT_RESOURCE_REGISTRY must point to the verified private Project registry")
+    registry_path = Path(registry_path)
+    if not registry_path.is_absolute() or registry_path.is_symlink():
+        raise ControlError("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
+    resources = read_json(registry_path)
     p0e_resources = read_json(policy_path(policy, "authorities", "p0e_resources"))
 
     metadata_v2 = (

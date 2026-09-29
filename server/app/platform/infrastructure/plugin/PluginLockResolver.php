@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\platform\infrastructure\plugin;
 
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
+use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\value\plugin\PluginDescriptor;
 use app\platform\value\plugin\ModuleFrontendLayout;
@@ -33,7 +34,25 @@ final class PluginLockResolver
         }
         $lockPath = $this->absolutePath($this->lockPath, $this->serverRoot);
         $lock = $this->readJson($lockPath, 'PLUGIN_LOCK_INVALID');
-        $this->assertExactKeys($lock, ['schema_version', 'plugins'], 'PLUGIN_LOCK_INVALID');
+        $serverProjection = ($lock['protocol'] ?? null) === 'peanut.server-plugin-lock.v1';
+        if ($serverProjection) {
+            $expectedPath = realpath($this->serverRoot . '/plugins.lock');
+            if ($expectedPath === false || $lockPath !== $expectedPath) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server Plugin projection path is invalid.');
+            }
+            $this->assertExactKeys($lock, ['schema_version', 'protocol', 'plugins'], 'PLUGIN_LOCK_INVALID');
+            $identity = ServerReleaseIdentity::load($this->serverRoot);
+            $projectedDigest = $identity->projectedPluginLockSha256();
+            if (!hash_equals($projectedDigest, (string) hash_file('sha256', $lockPath))) {
+                throw new PluginLifecycleException('PLUGIN_ARTIFACT_MISMATCH', 'Server Plugin projection differs from release identity.');
+            }
+        } else {
+            $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
+            if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server release requires its backend Plugin projection.');
+            }
+            $this->assertExactKeys($lock, ['schema_version', 'plugins'], 'PLUGIN_LOCK_INVALID');
+        }
         if (($lock['schema_version'] ?? null) !== 1 || !is_array($lock['plugins'] ?? null)
             || !array_is_list($lock['plugins'])) {
             throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'plugins.lock schema is invalid.');
@@ -43,6 +62,7 @@ final class PluginLockResolver
             throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'plugins.lock digest is unavailable.');
         }
         $base = dirname($lockPath);
+        $moduleBase = $serverProjection ? $this->serverRoot : dirname($this->serverRoot);
         $plugins = [];
         foreach ($lock['plugins'] as $entry) {
             if (!is_array($entry)) {
@@ -90,8 +110,11 @@ final class PluginLockResolver
                 ['client_key', 'package', 'version', 'entry', 'sha256'],
                 'frontend',
             );
-            $projectRoot = dirname($this->serverRoot);
-            $moduleRoots = $this->resolveModuleRoots($entry['modules'] ?? null, $projectRoot);
+            if ($serverProjection && ($npm !== [] || $frontend !== [])) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server Plugin projection must contain backend identities only.');
+            }
+            $projectRoot = $moduleBase;
+            $moduleRoots = $this->resolveModuleRoots($entry['modules'] ?? null, $projectRoot, $serverProjection);
             $frontendRoots = $this->frontendRoots($frontend, $moduleRoots, $projectRoot);
             $this->verifyPackageIdentities(
                 $composer,
@@ -454,7 +477,7 @@ final class PluginLockResolver
     }
 
     /** @return array<string,string> */
-    private function resolveModuleRoots(mixed $modules, string $base): array
+    private function resolveModuleRoots(mixed $modules, string $base, bool $serverProjection = false): array
     {
         if (!is_array($modules) || $modules === [] || !array_is_list($modules)) {
             throw new PluginLifecycleException('PLUGIN_MANIFEST_INVALID', 'Plugin modules are invalid.');
@@ -471,7 +494,11 @@ final class PluginLockResolver
             }
             $root = $this->text($module['root'] ?? null);
             $layout = ModuleHostLayoutFactory::pathLayout();
-            if ($root !== rtrim($layout->backendRelativePath(ModuleKey::fromString($key)), '/')) {
+            $expectedRoot = rtrim($layout->backendRelativePath(ModuleKey::fromString($key)), '/');
+            if ($serverProjection) {
+                $expectedRoot = substr($expectedRoot, strlen('server/'));
+            }
+            if ($root !== $expectedRoot) {
                 throw new PluginLifecycleException('PLUGIN_MANIFEST_INVALID', "Module root is not key-derived: {$key}");
             }
             $roots[$key] = $this->absolutePathWithin(

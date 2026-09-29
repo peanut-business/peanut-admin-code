@@ -17,7 +17,7 @@
     "release_metadata": "RELEASE_METADATA.json",
     "application_inventory": "scaffold/application-template-inventory.json",
     "qualification_fixture": "server/tests/fixtures/p0e-runtime-qualification/matrix.json",
-    "project_resources": "resources/project-resources.json",
+    "project_resources_env": "PEANUT_RESOURCE_REGISTRY",
     "p0e_resources": "resources/p0e-runtime-qualification.json"
   },
   "static_validation": {

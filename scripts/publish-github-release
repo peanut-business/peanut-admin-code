@@ -14,8 +14,9 @@ Usage: scripts/publish-github-release <version> --qualification <summary.json> \
 
 Creates the deterministic source archive, legal assets, external manifest and
 release notes from annotated tag v<version>. The Edition directory must contain
-the two installers and, except for an explicit first-edition baseline, two signed
-upgrades, their manifests and checksum files for the same commit/tree. The
+the two development-source installers, two matching server-only archives and,
+except for an explicit first-edition baseline, two signed upgrades, their
+manifests and checksum files for the same commit/tree. The
 qualification summary must be for the exact frozen tag commit/tree. Without
 --prepare-only, publishes the candidate lock and all release assets as one GitHub
 Release after all checks pass.
@@ -182,6 +183,33 @@ for (const edition of ['standalone', 'multi-tenant']) {
         throw new Error(`Edition upgrade signature verification failed: ${archive}`)
       }
     }
+    if (kind === 'installer') {
+      const serverArchive = `peanut-admin-${VERSION}-${edition}-server.tar.gz`
+      const serverPath = `${EDITION_ARTIFACTS}/${serverArchive}`
+      const serverBytes = fs.existsSync(serverPath) ? fs.readFileSync(serverPath) : null
+      if (!serverBytes || manifest.archive?.layout !== 'application-development-source'
+        || manifest.server_archive?.filename !== serverArchive
+        || manifest.server_archive?.root !== `peanut-admin-${VERSION}-${edition}-server`
+        || manifest.server_archive?.layout !== 'server-only'
+        || manifest.server_archive?.sha256 !== digest(serverBytes)
+        || manifest.server_archive?.bytes !== serverBytes.length) {
+        throw new Error(`Edition server artifact identity mismatch: ${serverArchive}`)
+      }
+      cp.execFileSync('python3', [`${process.cwd()}/scripts/package-release-files.py`, 'verify',
+        `--archive=${serverPath}`, `--expected-sha256=${manifest.server_archive.sha256}`])
+      const identityBytes = cp.execFileSync('tar', ['-xOzf', serverPath,
+        `${manifest.server_archive.root}/server/.peanut/release-identity.json`])
+      const releaseIdentity = JSON.parse(identityBytes.toString('utf8'))
+      if (manifest.server_release?.identity_sha256 !== digest(identityBytes)
+        || manifest.server_release?.files_sha256 !== releaseIdentity.files_sha256
+        || manifest.application?.release_files_sha256 !== releaseIdentity.application?.source_files_sha256
+        || releaseIdentity.application?.kind !== 'generated-template'
+        || releaseIdentity.upstream?.commit !== COMMIT) {
+        throw new Error(`Edition server release identity mismatch: ${serverArchive}`)
+      }
+      fs.copyFileSync(serverPath, `${OUTPUT_DIR}/${serverArchive}`)
+      editionFiles.push(serverArchive)
+    }
     fs.copyFileSync(archivePath, `${OUTPUT_DIR}/${archive}`)
     fs.copyFileSync(manifestPath, `${OUTPUT_DIR}/${manifestName}`)
     editionFiles.push(archive, manifestName)
@@ -204,7 +232,14 @@ for (const checksum of checksums) {
     if (!match) throw new Error(`Invalid checksum line in ${checksum}`)
     return [match[2], match[1]]
   })
-  if (listed.length !== 2 || listed.some(([name, sha]) => digest(fs.readFileSync(`${OUTPUT_DIR}/${name}`)) !== sha)) {
+  const expectedCount = checksum === 'SHA256SUMS' ? 4 : 2
+  const expectedNames = checksum === 'SHA256SUMS'
+    ? ['standalone', 'multi-tenant'].flatMap((edition) => [
+      `peanut-admin-${VERSION}-${edition}.tar.gz`, `peanut-admin-${VERSION}-${edition}-server.tar.gz`])
+    : ['standalone', 'multi-tenant'].map((edition) => `peanut-admin-${VERSION}-${edition}-upgrade.tar.gz`)
+  if (listed.length !== expectedCount
+    || JSON.stringify(listed.map(([name]) => name).sort()) !== JSON.stringify(expectedNames.sort())
+    || listed.some(([name, sha]) => digest(fs.readFileSync(`${OUTPUT_DIR}/${name}`)) !== sha)) {
     throw new Error(`Edition checksum coverage mismatch: ${checksum}`)
   }
 }
@@ -275,14 +310,14 @@ const section = (next < 0 ? tail : tail.slice(0, next)).trim()
 const archiveSha = artifacts[`peanut-admin-${VERSION}.tar.gz`].sha256
 const manifestSha = digest(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_MANIFEST.json`))
 const editionNotes = baseline
-  ? `- Standalone installer: \`peanut-admin-${VERSION}-standalone.tar.gz\`\n- Multi-tenant installer: \`peanut-admin-${VERSION}-multi-tenant.tar.gz\`\n- This is the first correct Edition distribution baseline; it intentionally has no upgrade packages. The next release may use this version as its signed same-Edition upgrade source.`
-  : `- Standalone installer and same-Edition upgrade: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant installer and same-Edition upgrade: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\``
+  ? `- Standalone development and server archives: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant development and server archives: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\`\n- This is the first correct Edition distribution baseline; it intentionally has no upgrade packages. The next release may use this version as its signed same-Edition upgrade source.`
+  : `- Standalone development, server and same-Edition upgrade archives: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant development, server and same-Edition upgrade archives: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\``
 const notes = `# Peanut Admin ${VERSION}\n\nImmutable source: annotated tag \`${TAG}\` at commit \`${COMMIT}\`.\n\n${section}\n\n## Artifacts and verification\n\n- Normative deterministic source archive: \`peanut-admin-${VERSION}.tar.gz\`\n  - SHA-256: \`${archiveSha}\`\n${editionNotes}\n- Upgrade trust bootstrap: \`UPGRADE_TRUSTED_KEYS.json\`\n- Candidate lock: \`RELEASE_CANDIDATE_LOCK.json\`\n- External release manifest: \`RELEASE_MANIFEST.json\`\n  - SHA-256: \`${manifestSha}\`\n\n\`RELEASE_CANDIDATE_LOCK.json\` binds the external qualification summary to this exact tag.\n\`RELEASE_MANIFEST.json\` records hashes and sizes for every other attached artifact. GitHub-generated source archives are convenience downloads; the attached deterministic archive is normative.\n`
 fs.writeFileSync(`${OUTPUT_DIR}/release-notes.md`, notes)
 NODE
 
-expected_file_count=19
-[[ "$EDITION_BASELINE" == 0 ]] || expected_file_count=14
+expected_file_count=21
+[[ "$EDITION_BASELINE" == 0 ]] || expected_file_count=16
 [[ "$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" == "$expected_file_count" ]] || {
   printf 'publish-github-release: unexpected output file count\n' >&2
   exit 1
@@ -296,8 +331,10 @@ release_files=(
   RELEASE_CANDIDATE_LOCK.json
   UPGRADE_TRUSTED_KEYS.json
   "peanut-admin-$VERSION-standalone.tar.gz"
+  "peanut-admin-$VERSION-standalone-server.tar.gz"
   "peanut-admin-$VERSION-standalone.tar.gz.manifest.json"
   "peanut-admin-$VERSION-multi-tenant.tar.gz"
+  "peanut-admin-$VERSION-multi-tenant-server.tar.gz"
   "peanut-admin-$VERSION-multi-tenant.tar.gz.manifest.json"
   SHA256SUMS
   RELEASE_MANIFEST.json

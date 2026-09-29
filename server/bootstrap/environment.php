@@ -76,6 +76,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             'RICH_TEXT_COLLABORATION_URL',
             'RICH_TEXT_COLLABORATION_SECRET',
             'PEANUT_INSTALLATION_MODE',
+            'PEANUT_INSTALLATION_SOURCE_MODE',
             'PEANUT_INSTALLATION_SETUP_TOKEN',
             'PEANUT_INSTALLATION_OFFICIAL_MODULES',
         ];

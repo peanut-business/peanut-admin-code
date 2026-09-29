@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use app\common\value\installation\ApplicationReleaseVersions;
+use app\common\value\installation\ServerReleaseIdentity;
 use app\common\value\scaffold\EditionProfile;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
@@ -252,9 +253,15 @@ function installationTenantBootstrapContract(string $serverDir): array
         throw new RuntimeException('DEPLOYMENT_MODE 必须是 standalone 或 multi-tenant');
     }
 
+    $serverIdentity = $serverDir . '/.peanut/release-identity.json';
     $projectRoot = dirname($serverDir);
     $manifestPath = $projectRoot . '/.peanut/application-manifest.json';
-    if (file_exists($manifestPath) || is_link($manifestPath)) {
+    if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+        $identity = ServerReleaseIdentity::load($serverDir);
+        $contract = $identity->tenantBootstrapContract($mode);
+    } elseif (!installationSourceDevelopmentMode($serverDir)) {
+        throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+    } elseif (file_exists($manifestPath) || is_link($manifestPath)) {
         if (!is_file($manifestPath) || is_link($manifestPath)) {
             throw new RuntimeException('INSTALL_EDITION_MANIFEST_INVALID');
         }
@@ -300,6 +307,22 @@ function installationTenantBootstrapContract(string $serverDir): array
         throw new RuntimeException('INSTALL_TENANT_BOOTSTRAP_CONTRACT_INVALID');
     }
     return $contract;
+}
+
+function installationSourceDevelopmentMode(string $serverDir): bool
+{
+    $root = dirname($serverDir);
+    return getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
+        && file_exists($root . '/.git')
+        && !is_link($root . '/.git')
+        && (
+            is_file($root . '/.peanut/application-manifest.json')
+            || (
+                is_file($root . '/scaffold/application-template-inventory.json')
+                && is_file($root . '/scaffold/edition-profiles.json')
+            )
+        )
+        && is_file($root . '/release-versions.json');
 }
 
 function ensureThinkPhpApplication(string $serverDir): App
@@ -551,6 +574,13 @@ function applicationMigrationFiles(string $databaseDir): array
 function applicationReleaseVersions(string $serverDir): array
 {
     loadCoreRuntime($serverDir);
+    $serverIdentity = $serverDir . '/.peanut/release-identity.json';
+    if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+        return ServerReleaseIdentity::load($serverDir)->versions();
+    }
+    if (!installationSourceDevelopmentMode($serverDir)) {
+        throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+    }
     $contract = ApplicationReleaseVersions::load(dirname($serverDir) . '/release-versions.json');
     return [
         'source_product_version' => $contract->sourceProductVersion(),
@@ -682,12 +712,31 @@ function installationDatabaseState(string $serverDir): array
     }
 }
 
+function installationStateBlocksFreshDatabase(string $serverDir): bool
+{
+    foreach ([
+        $serverDir . '/private/installation/installed.json',
+        $serverDir . '/private/installation/migration.json',
+        $serverDir . '/runtime/installation/executing.json',
+        $serverDir . '/runtime/installation/installed.json',
+        $serverDir . '/runtime/installation/baseline.json',
+    ] as $path) {
+        if (file_exists($path) || is_link($path)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * @param array<string,mixed> $input
  * @return array<string,mixed>
  */
 function installFreshDatabase(string $serverDir, array $input): array
 {
+    if (installationStateBlocksFreshDatabase($serverDir)) {
+        throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
+    }
     $databaseDir = $serverDir . '/database';
     loadCoreRuntime($serverDir);
     ensureThinkPhpApplication($serverDir);
@@ -724,6 +773,9 @@ function installFreshDatabase(string $serverDir, array $input): array
     }
 
     try {
+        if (installationStateBlocksFreshDatabase($serverDir)) {
+            throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
+        }
         $files = sqlFiles($databaseDir);
         $expected = expectedTables($files);
         $tableCount = (int) $pdo->query(

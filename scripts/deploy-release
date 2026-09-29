@@ -4,7 +4,8 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
-REGISTRY="$ROOT_DIR/resources/project-resources.json"
+REGISTRY="${PEANUT_RESOURCE_REGISTRY:-$ROOT_DIR/resources/project-resources.json}"
+[[ "$REGISTRY" == /* && ! -L "$REGISTRY" ]] || { printf 'PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file\n' >&2; exit 1; }
 
 TAG=""
 CANDIDATE_COMMIT=""
@@ -708,9 +709,12 @@ archive_sha256=""
 remote_archive="/tmp/peanut-admin-${version}-$$.tar"
 secrets_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-deploy-secrets.env.XXXXXX")"
 remote_secrets="/tmp/peanut-admin-deploy-secrets-$$.env"
+application_registry_input=""
+application_registry_file=""
+remote_application_registry=""
 remote_upgrade_trust=""
 remote_overlay=""
-trap 'rm -f "$archive_file" "$secrets_file"' EXIT
+trap 'rm -f "$archive_file" "$secrets_file" "${application_registry_input:-}" "${application_registry_file:-}"' EXIT
 if [[ "$archive_kind" == edition ]]; then
   cp "$EDITION_PACKAGE" "$archive_file"
 elif [[ "$archive_kind" == upgrade ]]; then
@@ -720,6 +724,23 @@ else
 fi
 archive_sha256="$(shasum -a 256 "$archive_file" | awk '{print $1}')"
 [[ "$archive_sha256" =~ ^[0-9a-f]{64}$ ]] || fail 'cannot calculate release archive SHA-256'
+if [[ "$mode" != update ]]; then
+  mkdir -p "$ROOT_DIR/.local/tmp"
+  umask 077
+  application_registry_file="$(mktemp "$ROOT_DIR/.local/tmp/deploy-application-registry.XXXXXX")"
+  application_registry_input="$(mktemp "$ROOT_DIR/.local/tmp/deploy-application-input.XXXXXX")"
+  if [[ "$archive_kind" == edition ]]; then
+    tar -xOzf "$EDITION_PACKAGE" "$edition_root/resources/project-resources.json" > "$application_registry_input" \
+      || fail 'Edition application resource registry is unavailable'
+  else
+    tar -xOf "$archive_file" resources/project-resources.json > "$application_registry_input" \
+      || fail 'source application resource registry is unavailable'
+  fi
+  "$ROOT_DIR/scripts/project-resource-registry" application-registry \
+    --resource-id "$database_id" --application-registry "$application_registry_input" \
+    > "$application_registry_file" || fail 'cannot project the selected application database resource'
+  remote_application_registry="/tmp/peanut-admin-application-registry-$$.json"
+fi
 encode_remote_arg() {
   [[ -n "$1" ]] && printf '%s' "$1" || printf '__PEANUT_EMPTY__'
 }
@@ -742,6 +763,10 @@ umask 077
 } >"$secrets_file"
 scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$archive_file" "$SSH_ALIAS:$remote_archive" || fail 'cannot transfer immutable release archive'
 scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$secrets_file" "$SSH_ALIAS:$remote_secrets" || fail 'cannot transfer deployment credential payload'
+if [[ -n "$remote_application_registry" ]]; then
+  scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$application_registry_file" "$SSH_ALIAS:$remote_application_registry" \
+    || fail 'cannot transfer selected application resource registry'
+fi
 if [[ -n "$UPGRADE_TRUST_ENV" ]]; then
   remote_upgrade_trust="/tmp/peanut-admin-upgrade-trust-$$.env"
   scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$UPGRADE_TRUST_ENV" "$SSH_ALIAS:$remote_upgrade_trust" \
@@ -758,7 +783,7 @@ fi
 ssh -o BatchMode=yes "${SSH_KEEPALIVE_OPTS[@]}" "$SSH_ALIAS" sudo -n bash -s -- \
   "$DEPLOYMENT_KIND" "$(encode_remote_arg "$TAG")" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" \
   "$(encode_remote_arg "$platform_hosts")" "$(encode_remote_arg "$tenant_admin_hosts")" "$owner_invitation_mode" "$public_scheme" "$(encode_remote_arg "$trusted_hosts")" \
-  "$(encode_remote_arg "$UPGRADE_MANIFEST_SHA256")" "$(encode_remote_arg "$UPGRADE_SIGNATURE_KEY_ID")" "$(encode_remote_arg "$remote_upgrade_trust")" <<'REMOTE_SCRIPT'
+  "$(encode_remote_arg "$UPGRADE_MANIFEST_SHA256")" "$(encode_remote_arg "$UPGRADE_SIGNATURE_KEY_ID")" "$(encode_remote_arg "$remote_upgrade_trust")" "$(encode_remote_arg "$remote_application_registry")" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 decode_remote_arg() {
@@ -796,6 +821,7 @@ trusted_hosts="$(decode_remote_arg "${28:-__PEANUT_EMPTY__}")"
 upgrade_manifest_sha="$(decode_remote_arg "${29:-__PEANUT_EMPTY__}")"
 upgrade_signature_key_id="$(decode_remote_arg "${30:-__PEANUT_EMPTY__}")"
 upgrade_trust="$(decode_remote_arg "${31:-__PEANUT_EMPTY__}")"
+application_registry_input="$(decode_remote_arg "${32:-__PEANUT_EMPTY__}")"
 version="${candidate_product_version:-${tag#v}}"
 migration_target_version="$scaffold_migration_version"
 overlay_commit=""
@@ -806,6 +832,7 @@ cleanup_remote_inputs() {
   sudo -n rm -f -- "$archive" "$secrets"
   [[ -z "$overlay" ]] || sudo -n rm -f -- "$overlay"
   [[ -z "$upgrade_trust" ]] || sudo -n rm -f -- "$upgrade_trust"
+  [[ -z "$application_registry_input" ]] || sudo -n rm -f -- "$application_registry_input"
   exit "$status"
 }
 trap cleanup_remote_inputs EXIT
@@ -957,9 +984,11 @@ if [[ "$mode" == update ]]; then
   [[ "$running_services" == *php* && "$running_services" == *nginx* && "$running_services" == *cron* ]] \
     || fail 'routine update requires the existing application services to be running'
 elif [[ "$mode" == install ]]; then
-  if sudo -n docker volume inspect "${project}_mysql-data" "${project}_php-storage" >/dev/null 2>&1; then
-    fail 'first installation requires absent database and upload volumes; use --update or an explicitly backed-up --fresh'
-  fi
+  for existing_volume in mysql-data php-runtime php-storage php-private-storage php-installation; do
+    if sudo -n docker volume inspect "${project}_${existing_volume}" >/dev/null 2>&1; then
+      fail 'first installation requires absent application volumes; use --update or an explicitly backed-up --fresh'
+    fi
+  done
 fi
 
 [[ -f "$archive" && "$expected_archive_sha" =~ ^[0-9a-f]{64}$ ]] \
@@ -997,6 +1026,20 @@ if [[ "$archive_kind" == upgrade ]]; then
     && -f "$upgrade_artifact_root/target/scaffold-manifest.json" \
     && -f "$application_staging/compose.yaml" ]] \
     || fail 'stable upgrade artifact is missing its entrypoint or target application'
+fi
+if [[ "$mode" != update ]]; then
+  [[ "$application_registry_input" == /tmp/peanut-admin-application-registry-*.json \
+    && -f "$application_registry_input" && ! -L "$application_registry_input" \
+    && -f "$application_staging/resources/project-resources.json" ]] \
+    || fail 'selected application resource registry is unavailable'
+  sudo -n jq -e --arg resource_id "$database_resource" \
+    '.authority.role == "application" and (.resources.databases | length) == 1 and .resources.databases[0].stable_resource_id == $resource_id' \
+    "$application_registry_input" >/dev/null \
+    || fail 'selected application registry does not match the deployment database'
+  # The archive has already passed its immutable hash check. This app-owned runtime
+  # input is installed into staging separately from the signed source identity.
+  sudo -n install -m 0644 "$application_registry_input" "$application_staging/resources/project-resources.json" \
+    || fail 'cannot install selected application resource registry into staging'
 fi
 if [[ "$mode" == update ]]; then
   runtime_environment="$root/.env"
@@ -1361,9 +1404,10 @@ verify_paired_backup() {
   fi
   [[ -d "$backup_dir" && ! -L "$backup_dir" ]] || fail 'the exact paired backup directory is unavailable'
   [[ -f "$backup_dir/database.sql.gz" && -f "$backup_dir/php-storage.tar.gz" \
+    && -f "$backup_dir/php-private-storage.tar.gz" && -f "$backup_dir/php-installation.tar.gz" \
     && -f "$backup_dir/manifest.json" && -f "$backup_dir/SHA256SUMS" ]] \
-    || fail 'the exact paired backup set is not a complete DB/files pair'
-  sudo -n bash -c 'cd "$1" && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz && tar -tzf php-storage.tar.gz >/dev/null' \
+    || fail 'the exact paired backup set is missing a registered volume archive'
+  sudo -n bash -c 'cd "$1" && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz && tar -tzf php-storage.tar.gz >/dev/null && tar -tzf php-private-storage.tar.gz >/dev/null && tar -tzf php-installation.tar.gz >/dev/null' \
     bash "$backup_dir" \
     || fail 'the exact paired backup failed checksum or archive verification'
   backup_manifest_sha="$(sudo -n sha256sum "$backup_dir/manifest.json" | awk '{print $1}')"
@@ -1371,7 +1415,10 @@ verify_paired_backup() {
     || fail 'the exact paired backup manifest SHA-256 differs from the caller binding'
   sudo -n jq -e --arg db "$database_resource" --arg app "$application_resource" --arg backup "$paired_backup_id" \
     '((.database_resource_id == $db and .application_resource_id == $app and (.backup_id == $backup or .id == $backup))
-      or (.backup_reference_key == $backup and .resources.database == $db and .resources.application == $app))' \
+      or (.backup_reference_key == $backup and .resources.database == $db and .resources.application == $app))
+      and .schema_version == 3
+      and .runtime.installation_volume == "peanut-admin_php-installation"
+      and ([.artifacts[].filename] | sort) == ["database.sql.gz", "php-installation.tar.gz", "php-private-storage.tar.gz", "php-storage.tar.gz"]' \
     "$backup_dir/manifest.json" >/dev/null \
     || fail 'paired backup manifest does not match the registered target resources or exact backup id'
   printf 'verified_paired_backup=%s\nverified_paired_backup_directory=%s\nverified_paired_backup_manifest_sha256=%s\n' \
@@ -1428,12 +1475,12 @@ if [[ "$mode" == fresh ]]; then
   preserve_target_environment
   printf 'fresh target: candidate and paired backup are ready; stopping stack and removing only registered Compose volumes\n'
   registered_volumes=(
-    "${project}_mysql-data" "${project}_php-runtime" "${project}_php-storage" "${project}_php-private-storage"
+    "${project}_mysql-data" "${project}_php-runtime" "${project}_php-storage" "${project}_php-private-storage" "${project}_php-installation"
   )
   while IFS= read -r declared_volume; do
     [[ -z "$declared_volume" ]] && continue
     case "$declared_volume" in
-      mysql-data|php-runtime|php-storage|php-private-storage) declared_volume="${project}_$declared_volume" ;;
+      mysql-data|php-runtime|php-storage|php-private-storage|php-installation) declared_volume="${project}_$declared_volume" ;;
     esac
     case " ${registered_volumes[*]} " in
       *" $declared_volume "*) ;;

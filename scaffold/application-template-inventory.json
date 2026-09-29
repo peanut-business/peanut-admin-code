@@ -21,6 +21,7 @@
         "**/node_modules/**",
         "**/dist/**",
         "**/runtime/**",
+        "server/private/installation/**",
         "**/.cache/**",
         "server/public/uploads/**",
         "server/public/storage/**",
@@ -398,7 +399,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc157475bc84d3d1e136a5226a3c17a9b43d26cef270400eda267d71cc44f3f0"
+            "source_sha256": "3825cfe142206f5a3e98380cbc3a6cc300ca8fff869779593e63ac3753708b23"
         },
         {
             "path": "deploy/docker-compose.remote-development.yml",
@@ -507,7 +508,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d6c9c251774049cf95154a42abfdcda179a7bf8d8ea8c184b719ecb434ca00e8"
+            "source_sha256": "54ef95f8fd10fa872e3146cd4a84bf7c182d13f53ee2c3fc2a77563c067588b4"
         },
         {
             "path": "deploy/docker/read-backend-enum.sh",
@@ -616,7 +617,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "47f0ce57ffd877aa778ff4cb23f57c7fc946b733902fd60495130b41aa78efc1"
+            "source_sha256": "fc5ce8e47c5d9db88e4dd45c8fac70cb7c30d4dbcb249db31c38be92376b370b"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -745,6 +746,19 @@
             "source_sha256": "0da3568b5e2458ca454bbd7d2dd66f9271f00ca61b4433034c4074b2df4bdd14"
         },
         {
+            "path": "docs/development/core-release.md",
+            "target": "docs/development/core-release.md",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "docs/development/current-code-lifecycle.md",
             "target": "docs/development/current-code-lifecycle.md",
             "classification": "managed",
@@ -798,7 +812,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6ee02bf236158d09d58f05e432a714d7637cdda05fc0dc5ea539b36cdcdacb65"
+            "source_sha256": "33a7b5c68b2a835367831d8e71fd76ed4a9ae61b525dbb737c2ceb9a5f1aabaa"
         },
         {
             "path": "docs/module-layout.md",
@@ -826,7 +840,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e40737d1ba4bc28adf9463402bfad73e182d3728591e46458083bf8abae11b85"
+            "source_sha256": "40d944447231c5a1271f579dfec02e8dc7caaadc8b4ad5b8972ab2ac89486863"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -854,7 +868,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0248d555c016d2ec6b04457d052fc94eb408d84d3afb40fd76b17a717c9009c1"
+            "source_sha256": "1de6aad02a9ea1435d172348646db05920b282dfad4913423afa31897288db8e"
         },
         {
             "path": "docs/public/module-development.md",
@@ -882,7 +896,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1601cd234db9f0c61567eefb33170b02ed1947b321977604213c1dd814847e7b"
+            "source_sha256": "525151213e2c57ca8ecf3a35632f2a86371b62e788549ec07f7ee653a2c9eda0"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -3315,6 +3329,20 @@
             ]
         },
         {
+            "path": "scripts/migrate-installation-state",
+            "target": "scripts/migrate-installation-state",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "590142881f1cb2fafaed8f6ef66aa5b2873ac3613d6db8be48c105fc67ab8cf3"
+        },
+        {
             "path": "scripts/ops-backup-worker",
             "target": "scripts/ops-backup-worker",
             "classification": "excluded",
@@ -3417,7 +3445,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66eeae7d8ddbbd4da828362e2ad9414adaf15a8dc51839b1ed2bc08de75065d5"
+            "source_sha256": "d38ffb0bbd74d9baf3785b312523d6b79272d66c9521238de60dc7e204914f89"
         },
         {
             "path": "scripts/package-release.sh",
@@ -3431,7 +3459,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2dcdcf402d3e7de84f45f250db14bd0e522a5958d91bdfbfb6d099c0f39be807"
+            "source_sha256": "978a1cf1f4fd99ac822ec91e646bba3f00afcb8bef2c3ccd7fdd56c650b0dff5"
         },
         {
             "path": "scripts/product-upgrade-database",
@@ -3459,7 +3487,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0de334fab5214a8ea4b7d4906c4ab436f7f92c6ac116eaa1d04b749e2fbed785"
+            "source_sha256": "2b0344f9c3fc6535884c14d338493efd67b4ff175301aeb6c961d473ee17f75c"
         },
         {
             "path": "scripts/project-codegraph",
@@ -3528,7 +3556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6a16aec942ea2570a3d50fe6fbd85811631e73df5c070640305ab9b66fea83b4"
+            "source_sha256": "318d3e0bb045a7a0c44e2f56b7eb756ef55363f9f458db919c18a39890c932ce"
         },
         {
             "path": "scripts/publish-github-release",
@@ -4434,7 +4462,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b603342f3d79a057bf0de991fffb2b6c3e7cb65e981b66e725a0566b7b0a32a"
+            "source_sha256": "5c65d6788609b3c9425ddf94eab6929b5b970a9dfe8ba07908ffae1e9a185946"
         },
         {
             "path": "server/.gitignore",
@@ -4448,7 +4476,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9473f6631d338ef3ce299a31a603cd210212e429261f48247791755264f558c3"
+            "source_sha256": "467f5dbb6a68971b869f5b37eb219b3d6c8c28d13bbca8ee8328349614d21197"
         },
         {
             "path": "server/.travis.yml",
@@ -5624,7 +5652,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c2b2a7248b32e39fff99e9d9fc5fe0d6c1e51fb5140313954b1ccf5a7da9d66f"
+            "source_sha256": "dab5c96b3bd444034d38b44aa5f832986b9dd6104ae0e40b5bb9d7d6a3b6b065"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -8428,7 +8456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5f353e8a63bd8fbfa17f74ee91f77e06565640e4bcc70da91f8d82dafbc69f58"
+            "source_sha256": "79736d1fcb3b96f9fa4b1b2dc0c8f6430c42b7e38678259899cef200b1ddc9e6"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -8442,7 +8470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d57204a48e867ee91b3e0b92e470fc3634977db5a999196c61a39f7dd9a280f2"
+            "source_sha256": "effa6660bb27bb648699fb1ebe3d802681ce3c1fce1a84e9ae80e854f7212781"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -8794,6 +8822,20 @@
                 "full"
             ],
             "source_sha256": "8f85a1c648de32d3cd97b3bb8dae1a58606e44a1cd613a3ba9c07acbc558b033"
+        },
+        {
+            "path": "server/app/common/value/installation/ServerReleaseIdentity.php",
+            "target": "server/app/common/value/installation/ServerReleaseIdentity.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1b87bd947c7b931a08c489283eb3ecc70d244561f4503acd44b209bcec8b1e18"
         },
         {
             "path": "server/app/common/value/module/ModulePhpNamespace.php",
@@ -17068,7 +17110,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "030f899e122c1414127e4ae7f6159ab2908ce747a8d675418413598a23a29022"
+            "source_sha256": "2f2cb4c175d264b535a8c025db3d3aec7f7dfa5291b0e1fdbaa73580a44d6ed1"
         },
         {
             "path": "server/app/modules/official/ops/src/Service/PlatformBackupCenterService.php",
@@ -21652,7 +21694,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "14febf671b4f9f621c23117384205dc32cb7dc914670ccdcf8c6fcc3b016d6a6"
+            "source_sha256": "8dafc1406ff0afea8349251690b7f0b9aca55e1a2fa8e5e1ba491da84b4e9b22"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",
@@ -22058,7 +22100,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "909e4e9547fc7cf3894b5798b4c7780a53b4dc14b00f3b10b25d7496f6e57073"
+            "source_sha256": "5991d770c4bbc0513e92b57f1fa769f0ba9ffa92b86630837ad4ea7ba83566d2"
         },
         {
             "path": "server/app/platform/services/provider/PlatformProviderQualificationService.php",
@@ -22268,7 +22310,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "336f6e736abe29e2a5e409abbbe61437017552dd517ba6f950cd2ae5d641a73b"
+            "source_sha256": "9f91ee971e707f71a240b54d89ee6972aeb0911b245d0685aa017a03b9cf47af"
         },
         {
             "path": "server/app/platform/value/ops/PlatformUpgradeTarget.php",
@@ -22296,7 +22338,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d67cd73119876bd14b0a3e8c0a526cdd95c18f1b5b5694c44611091157f59a9"
+            "source_sha256": "f97a3c4e37cdfbe8cbd49e4f18b717d72053731a804590c5c21706c7c5fbf470"
         },
         {
             "path": "server/app/platform/value/plugin/ModuleFrontendLayout.php",
@@ -22380,7 +22422,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b129e8204bdb865d6c375024ebb0025e1b1069fc41b4a7561b2a8b16b4f5f771"
+            "source_sha256": "753ce1d8b5583e956830b756c2e64d8bcf79d5dc6fa31a9e0fda55c81468fd41"
         },
         {
             "path": "server/composer.json",
@@ -22660,7 +22702,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b127e0db086b841700a03f6af35e9392ba2a6e1f8c1165bae4814ccf658e26c3"
+            "source_sha256": "3dabb79f12b687bf7b756550759fecd04ecebb797fbb3a0a392ea7e85192e9e4"
         },
         {
             "path": "server/config/notification.php",
@@ -22814,7 +22856,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e0a9473ce3d527c691d4e590efd10a5da8e33211e617e28b0435201756868ba4"
+            "source_sha256": "a98cfbcb13509fec71d4ae82bfa56f36ff24a74b8ccc7c30f834d4970a6b2faf"
         },
         {
             "path": "server/database/init.sql",
@@ -22842,7 +22884,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f28aff13adbbab03af1dd9ea04fa62fbe5e02df1c7ff4f85485f4747ea8b5d54"
+            "source_sha256": "9dcbd0a0b17904b25b58fc69c71ae65947e3912a49fa1f5515e58418f98d6465"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -23514,6 +23556,34 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "server/docker/conf/crontab",
+            "target": "server/docker/conf/crontab",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ad52bd1def5fe7fc646da9221d7043b86b2cae6704346f47db07e9a156e4003b"
+        },
+        {
+            "path": "server/docker/scripts/schedule.sh",
+            "target": "server/docker/scripts/schedule.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6204998f19fffefbb79d8a1c073feefe95573247f92d22c88414c1a190699fbb"
         },
         {
             "path": "server/extend/.gitignore",

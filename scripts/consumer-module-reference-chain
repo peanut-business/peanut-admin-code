@@ -192,7 +192,12 @@ def lease_fields(lease_id: str) -> tuple[dict[str, str], list[tuple[str, str]]]:
 
 def registered_database(resource_id: str, endpoint_id: str, database: str) -> tuple[str, int]:
     """Use the existing registry as authority; caller strings never grant a database."""
-    registry = read_json(ROOT / "resources/project-resources.json")
+    expect(bool(os.environ.get("PEANUT_RESOURCE_REGISTRY")),
+           "CR21 requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    registry_path = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
+    expect(registry_path.is_absolute() and not registry_path.is_symlink(),
+           "PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
+    registry = read_json(registry_path)
     matches = [item for item in registry.get("resources", {}).get("databases", [])
                if isinstance(item, dict) and item.get("stable_resource_id") == resource_id]
     expect(len(matches) == 1, "database resource is missing or ambiguous")

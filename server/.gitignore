@@ -15,6 +15,7 @@ Thumbs.db
 !/public/storage/.gitkeep
 /private/storage/*
 !/private/storage/.gitkeep
+/private/installation/
 # Test sources remain versioned; only their generated caches/reports are ignored.
 /.phpunit.cache/
 /.phpunit.result.cache
