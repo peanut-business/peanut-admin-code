@@ -3251,7 +3251,8 @@
         "stable_resource_id": "peanut-admin-packagist-registry",
         "purpose": "immutable Composer package publication, metadata refresh and distribution downloads for compatibility gates",
         "environments": [
-          "development"
+          "development",
+          "production"
         ],
         "owner": "Packagist public registry; peanut-business package publisher",
         "host": "repo.packagist.org",
@@ -3262,11 +3263,11 @@
         "namespace": "peanut-admin/core",
         "service_type": "Packagist Composer v2 registry",
         "version": "public HTTPS API",
-        "credential_ref": "operator-authenticated Packagist maintainer session for peanut-admin/core; credentials and session material are never stored in Git",
-        "data_source": "the immutable peanut-business/peanut-admin-core-php release tag refreshed by an authenticated peanut-admin/core maintainer, plus published package metadata and dist references",
-        "freshness_requirement": "before refresh, prove the exact Composer split annotated tag and projection identity; after refresh, resolve the exact version immediately and retain the lockfile content reference",
-        "health_check": "read-only https://repo.packagist.org/p2/peanut-admin/core.json lookup, followed by authenticated peanut-admin/core ownership verification before any refresh",
-        "publication_policy": "manual authenticated refresh only after the matching generated split tag exists; no source repository, moving branch or credential fallback",
+        "credential_ref": "operator-authenticated peanut-admin/core Packagist maintainer session for source and hook configuration; no credentials or session material in Git",
+        "data_source": "annotated vX.Y.Z tag pushed by Git CLI from an accepted peanut-business/peanut-admin-core-php main commit; Packagist GitHub hook indexes that repository and publishes immutable Composer version metadata",
+        "freshness_requirement": "before tag push, verify accepted main commit, package identity, source URL and active GitHub hook; after push, resolve the exact tag from Packagist and compare source repository and commit before locking a product dependency",
+        "health_check": "read-only https://repo.packagist.org/p2/peanut-admin/core.json exact-version lookup and source/reference comparison; Packagist package page must report automatic updates before formal tag push",
+        "publication_policy": "accepted main annotated tag and Git CLI push only; Packagist hook performs indexing; if the hook or exact source verification is missing, stop the formal release without manual upload or source fallback",
         "fallback": "none",
         "cleanup_responsibility": "not applicable"
       },
@@ -3290,6 +3291,30 @@
         "freshness_requirement": "before publication, prove the target version is absent, the publisher token is limited to @peanut-admin/admin with package write and CI 2FA bypass, and the GitHub environment secret was updated without revealing it; after publication retain version, integrity, provenance and tarball identity",
         "health_check": "npm whoami must return xingkoo for token control; gh secret list must show npm-release/NPM_TOKEN; npm view @peanut-admin/admin@<exact-version> verifies publication visibility",
         "publication_policy": "GitHub tag workflow only; direct local npm publish, account-wide package access, organization write access and interactive OTP fallback are forbidden",
+        "fallback": "none",
+        "cleanup_responsibility": "not applicable"
+      },
+      {
+        "stable_resource_id": "peanut-admin-core-web-six-npm-registry",
+        "purpose": "immutable six-package npm publication, trusted-publisher identity and tarball downloads for formal Web Core releases",
+        "environments": [
+          "development",
+          "production"
+        ],
+        "owner": "npm public registry; peanut-business Web Core release owner",
+        "host": "registry.npmjs.org",
+        "control_plane_host": "www.npmjs.com",
+        "port": 443,
+        "database": null,
+        "schema": null,
+        "namespace": "@peanut-admin/client, @peanut-admin/vue, @peanut-admin/ui-vue, @peanut-admin/nuxt, @peanut-admin/uniapp, @peanut-admin/testing",
+        "service_type": "npm registry",
+        "version": "public HTTPS API",
+        "credential_ref": "each of six npm package owners configures a trusted publisher for peanut-business/peanut-admin-core-web release.yml with direct npm publish permission; GitHub Actions uses OIDC, not NPM_TOKEN; no credential values in Git",
+        "data_source": "six immutable packages from the same accepted main annotated vX.Y.Z tag of peanut-business/peanut-admin-core-web, published in dependency order by its GitHub Actions workflow",
+        "freshness_requirement": "before tag push, verify six package names and exact shared version, per-package trusted publisher binding and direct publish permission, and an approved first-package creation path for any absent package; after publication retain each package version, dist.integrity, provenance and tarball identity",
+        "health_check": "read-only registry.npmjs.org metadata for all six exact versions and dist.integrity, plus package-owner verification of each trusted publisher's GitHub organization, repository, release.yml filename and allowed direct publish action",
+        "publication_policy": "accepted main annotated tag and Git CLI push trigger the six-package workflow; partial publication resumes only from the same immutable tag after registry digest comparison; creating absent package identities requires a separately approved first-publication step, with no silent local or token fallback",
         "fallback": "none",
         "cleanup_responsibility": "not applicable"
       },
