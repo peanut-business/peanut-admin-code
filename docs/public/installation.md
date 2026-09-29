@@ -14,7 +14,7 @@
 
 ## 独立实例与首次安装
 
-为本实例单独登记数据库、缓存、队列、存储、外部服务、域名和端口的身份、负责人、地址、凭据引用与健康状态。确认目标数据库为空、资源归本实例使用，并核验实际连接；不能套用别的项目、示例或旧实例资源。根据该包的 `server/.env.example` 配置本实例 `server/.env`，尤其是 `DEPLOYMENT_MODE`、数据库和应用密钥；该文件必须是普通单链接文件且权限为 `0600`。根目录 Compose `.env` 与后端配置用途不同。环境文件仅保存运行配置，**不得写入初始管理员邮箱或密码**。
+为本实例单独登记数据库、缓存、队列、存储、外部服务、域名和端口的身份、负责人、地址、凭据引用与健康状态。确认目标数据库为空、资源归本实例使用，并核验实际连接；不能套用别的项目、示例或旧实例资源。当前第一阶段的 server 包把 APP `resources/project-resources.json` 作为不可变发行投影并纳入发行摘要，因此独立 APP 必须先在自己的开发仓登记目标资源、提交，再生成 server 包；部署后不得直接修改包内登记来绕过身份校验。通用 Peanut 模板包的现场资源分配层尚未交付，不能把未登记模板 server 包描述为可直接安装。根据该包的 `server/.env.example` 配置本实例 `server/.env`，尤其是 `DEPLOYMENT_MODE`、数据库和应用密钥；该文件必须是普通单链接文件且权限为 `0600`。`server/docker/.env` 只负责编排，和后端配置用途不同。环境文件仅保存运行配置，**不得写入初始管理员邮箱或密码**。
 
 自动首次安装所需 `ADMIN_INITIAL_EMAIL` 和强密码 `ADMIN_INITIAL_PASSWORD` 写入单独的临时文件；多租户模式还需不同的 `PLATFORM_INITIAL_EMAIL` 与 `PLATFORM_INITIAL_PASSWORD`。该文件必须是绝对路径、普通单链接文件、权限 `0600`，仅由安装命令的 `PEANUT_INSTALLATION_ENV_FILE` 指定，不复制到 `server/.env` 或产品包。按包内实际配置完成数据库连接和服务发现后，从产品根目录执行：
 
@@ -30,6 +30,6 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/datab
 
 `server/private/installation/installed.json` 同时是安装完成回执与物理防重装锁。只要该路径存在，即使数据库被清空、不可达或回执内容损坏，安装入口也拒绝再次初始化；先由资源 owner 核对并恢复原实例，不删除锁来重装。
 
-首次安装的 `executing.json`、`baseline.json`、`installed.json` 和执行锁保存在实例自己的 `server/private/installation/` 持久目录，不属于发行包。旧版本若将这些记录放在 `server/runtime/installation/`，必须先停用旧应用写入者，并在同时挂载旧 runtime 卷与新 installation 卷的可信维护环境中，以拥有两个状态目录的应用进程 UID 显式使用可信维护工具 `scripts/migrate-installation-state --server-root=/absolute/path/to/product-root/server`，核对输出的逐文件 SHA-256 和 `server/private/installation/migration.json`，再准备升级。该维护工具不随 server-only 包分发。迁移先写 `pending` 记录，在目标卷内逐文件核对原字节并原子发布，接着将旧目录改名为 `server/runtime/installation.migrated/` 留作恢复材料，最后把记录标为 `complete`；中断时可按同一记录重试。旧回执中记录的 `server/runtime/installation/` 路径是历史安装时的位置。两边记录不一致、旧执行锁被占用或迁移备份路径冲突时会拒绝，须先人工核对实例，不能重新安装来补回身份。普通安装状态查询不会自动迁移，`pending` 时也会阻断安装。
+首次安装的 `executing.json`、`baseline.json`、`installed.json` 和执行锁保存在实例自己的 `server/private/installation/` 持久目录，不属于发行包。旧版本若将这些记录放在 `server/runtime/installation/`，必须先停用旧应用写入者，并在同时挂载旧 runtime 卷与新 installation 卷的可信维护环境中，以拥有两个状态目录的应用进程 UID 显式使用可信维护工具 `php scripts/migrate-installation-state --server-root=/absolute/path/to/product-root/server`，核对输出的逐文件 SHA-256 和 `server/private/installation/migration.json`，再准备升级。该维护工具不随 server-only 包分发。迁移先写 `pending` 记录，在目标卷内逐文件核对原字节并原子发布，接着将旧目录改名为 `server/runtime/installation.migrated/` 留作恢复材料，最后把记录标为 `complete`；中断时可按同一记录重试。旧回执中记录的 `server/runtime/installation/` 路径是历史安装时的位置。两边记录不一致、旧执行锁被占用或迁移备份路径冲突时会拒绝，须先人工核对实例，不能重新安装来补回身份。普通安装状态查询不会自动迁移，`pending` 时也会阻断安装。
 
 如果正式 Release 尚未给出该版本的完整附件清单与摘要、已公开固定依赖或明确的目标 Edition 配置，本页只能作为安装合同，不能宣称该版本可正式安装。

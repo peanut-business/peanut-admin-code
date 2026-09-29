@@ -17,7 +17,9 @@ spec.loader.exec_module(pack)
 
 class PackagingFilesTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix='peanut-packaging-test-')
+        tmp_root = ROOT/'.local/tmp'
+        tmp_root.mkdir(parents=True, exist_ok=True)
+        self.tmp = tempfile.TemporaryDirectory(prefix='peanut-packaging-test-', dir=tmp_root)
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.source = self.root/'application'; self.source.mkdir()
@@ -25,19 +27,48 @@ class PackagingFilesTest(unittest.TestCase):
         self.version = '4.0.0-rc.1'
         self.manifest = {
             'schema_version': 2, 'protocol': 'peanut.application-scaffold.v2',
-            'application': {'edition': 'standalone'},
-            'generation_source': {'commit': 'a'*40},
+            'application': {
+                'edition': 'standalone', 'slug': 'packaging-fixture', 'version': self.version,
+                'profile': 'full', 'package_identity': 'packaging-fixture/application',
+                'name': 'Packaging Fixture',
+            },
+            'edition': {
+                'name': 'standalone', 'deployment_mode': 'standalone',
+                'tenant_bootstrap': {}, 'source_sha256': 'e'*64,
+            },
+            'generation_source': {
+                'commit': 'a'*40, 'tree': 'c'*40, 'inventory_sha256': 'd'*64,
+                'edition_profile_sha256': 'e'*64,
+            },
+            'template': {
+                'source_commit': 'a'*40, 'source_tree': 'c'*40,
+                'inventory_sha256': 'd'*64, 'version': self.version,
+            },
             'ownership': {'baseline_root': '.peanut/scaffold-baseline/4.0.0-rc.1/files'},
             'files': []}
-        versions = {'source_product_version': self.version,
-                    'core_php': {'constraint': self.version, 'resolved_version': self.version, 'source_reference': 'b'*40},
-                    'core_web': {'packages': {'@peanut-admin/client': {'version': self.version}}}}
+        versions = {
+            'source_product_version': self.version, 'instance_version': self.version,
+            'scaffold_template': self.version,
+            'core_php': {'constraint': self.version, 'resolved_version': self.version, 'source_reference': 'b'*40},
+            'core_web': {'packages': {'@peanut-admin/client': {'version': self.version}}},
+        }
         self.add('release-versions.json', json.dumps(versions))
         self.add('server/composer.json', json.dumps({'require': {'peanut-admin/core': self.version}, 'repositories': []}))
         self.add('server/composer.lock', json.dumps({'packages': [{'name': 'peanut-admin/core', 'version': self.version, 'source': {'reference':'b'*40}}]}))
-        for file in ('server/database/install.php', 'server/public/index.php', 'scripts/upgrade', 'plugins.lock',
+        self.add('RELEASE_METADATA.json', json.dumps({
+            'source_product_version': self.version, 'instance_version': self.version,
+            'application_identity': 'packaging-fixture/application',
+        }))
+        self.add('resources/project-resources.json', json.dumps({
+            'schema_version': 1, 'project_id': 'packaging-fixture',
+            'authority': {'role': 'application'}, 'resources': {'databases': []},
+        }), classification='app-owned')
+        for legal in ('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json'):
+            self.add(legal, 'fixture legal metadata\n')
+        for file in ('server/database/install.php', 'server/public/index.php', 'scripts/upgrade',
                      'scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 'scripts/release-dependency-locks.mjs'):
             self.add(file, '<?php /* packaging fixture, not an application */\n' if file.endswith('.php') else '{}\n')
+        self.add('plugins.lock', json.dumps({'schema_version': 1, 'plugins': []}))
         self.add('server/app/common/value/runtime/RuntimeNamespace.php', '<?php\n')
         self.add('server/runtime/.gitkeep', '')
         for client in pack.CLIENTS:
@@ -73,26 +104,26 @@ class PackagingFilesTest(unittest.TestCase):
         return build
 
     def test_complete_sources_and_existing_baselines_survive(self):
-        pack.snapshot(self.source,self.out)
+        pack.snapshot(self.source,self.out,True)
         self.assertEqual((self.out/pack.MANIFEST).read_bytes(),(self.source/pack.MANIFEST).read_bytes())
         for entry in self.manifest['files']:
             self.assertEqual((self.out/entry['path']).read_bytes(),(self.source/entry['path']).read_bytes())
-            self.assertEqual((self.out/entry['baseline_path']).read_bytes(),(self.source/entry['baseline_path']).read_bytes())
+            if 'baseline_path' in entry:
+                self.assertEqual((self.out/entry['baseline_path']).read_bytes(),(self.source/entry['baseline_path']).read_bytes())
 
-    def test_unlisted_dependencies_uploads_secrets_and_ssr_runtime_not_copied(self):
-        for name in ('vendor/a.php','web/node_modules/a/index.js','pc/.output/server/node_modules/a/x.js','server/.env','server/public/storage/customer.jpg'):
+    def test_generated_template_rejects_unlisted_runtime_or_dependency_files(self):
+        for name in ('vendor/a.php','web/node_modules/a/index.js','pc/.output/server/node_modules/a/x.js',
+                     'server/.env','server/public/storage/customer.jpg'):
             path=self.source/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('not release source')
-        pack.snapshot(self.source,self.out)
-        self.assertFalse(any(p.name in ('node_modules','vendor') for p in self.out.rglob('*')))
-        self.assertFalse((self.out/'server/.env').exists())
-        self.assertFalse((self.out/'server/public/storage/customer.jpg').exists())
+        with self.assertRaisesRegex(ValueError, 'added or missing source files'):
+            pack.snapshot(self.source,self.out,True)
 
     def test_manifest_cannot_smuggle_dependencies(self):
         for name in ('server/vendor/a.php','web/src/custom/node_modules/a.js'):
             with self.subTest(name=name):
                 self.add(name,'bad');self.save()
                 with self.assertRaisesRegex(ValueError,'installed dependency'):
-                    pack.snapshot(self.source,self.root/('out-'+str(len(self.manifest['files']))))
+                    pack.snapshot(self.source,self.root/('out-'+str(len(self.manifest['files']))),True)
 
     def test_runtime_source_is_not_mistaken_for_runtime_data(self):
         self.assertTrue(pack.allowed_source('server/app/common/value/runtime/RuntimeNamespace.php'))
@@ -105,28 +136,65 @@ class PackagingFilesTest(unittest.TestCase):
             self.assertFalse(pack.allowed_source(path),path)
         self.assertTrue(pack.allowed_source('pc/.env.production'))
 
+    def test_runtime_secrets_data_and_release_outputs_are_never_release_source(self):
+        protected = (
+            'server/docker/mysql/ibdata1', 'server/docker/secrets/mysql-root-password',
+            'server/private/installation/installed.json', 'server/private/resources/instance.json',
+            'server/public/uploads/legacy.jpg', 'updates/u1/recovery/database.sql.gz',
+            'backups/b1/database.sql.gz', '.peanut/application-release.json',
+            'release-manifest.txt', 'server/public/admin/index.html',
+        )
+        for path in protected:
+            with self.subTest(path=path):
+                self.assertFalse(pack.allowed_source(path), path)
+                baseline = '.peanut/scaffold-baseline/4.0.0-rc.1/files/' + path
+                self.assertFalse(pack.allowed_source(baseline), baseline)
+        self.assertTrue(pack.allowed_source('server/docker/mysql/.gitkeep'))
+        self.assertTrue(pack.allowed_source('server/docker/secrets/.gitignore'))
+
+    def test_previous_release_outputs_do_not_pollute_next_app_release(self):
+        import shutil
+        app = self.root/'git-application'
+        shutil.copytree(self.source, app)
+        for name in ('.peanut/application-release.json', 'release-manifest.txt',
+                     'server/public/admin/index.html', 'server/public/platform/index.html',
+                     'server/public/pc/index.html', 'server/public/mobile/index.html'):
+            path=app/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('previous release output')
+        subprocess.run(['git','init','-q'],cwd=app,check=True)
+        subprocess.run(['git','config','user.name','Packaging Test'],cwd=app,check=True)
+        subprocess.run(['git','config','user.email','packaging@example.invalid'],cwd=app,check=True)
+        subprocess.run(['git','add','-A'],cwd=app,check=True)
+        subprocess.run(['git','commit','-qm','app release source'],cwd=app,check=True)
+        target=self.root/'repackaged-source'
+        pack.snapshot(app,target,False)
+        self.assertFalse((target/'.peanut/application-release.json').exists())
+        self.assertFalse((target/'release-manifest.txt').exists())
+        self.assertFalse((target/'server/public/admin/index.html').exists())
+        baseline=self.manifest['files'][0]['baseline_path']
+        self.assertEqual((target/baseline).read_bytes(),(app/baseline).read_bytes())
+
     def test_modified_source_is_rejected(self):
         (self.source/'web/src/page.vue').write_text('changed')
-        with self.assertRaisesRegex(ValueError,'has changed'):pack.snapshot(self.source,self.out)
+        with self.assertRaisesRegex(ValueError,'changed after creation'):pack.snapshot(self.source,self.out,True)
 
     def test_modified_upgrade_baseline_is_rejected(self):
         (self.source/self.manifest['files'][0]['baseline_path']).write_text('changed')
-        with self.assertRaisesRegex(ValueError,'has changed'):pack.snapshot(self.source,self.out)
+        with self.assertRaisesRegex(ValueError,'has changed'):pack.snapshot(self.source,self.out,True)
 
     def test_package_cannot_omit_shared_dependency_readers(self):
         self.manifest['files'] = [x for x in self.manifest['files']
                                   if x['path'] != 'scripts/scaffold-runtime/ReleaseDependencyIdentity.php']
         self.save()
-        with self.assertRaisesRegex(ValueError, 'omits installation'):
-            pack.snapshot(self.source, self.out)
+        with self.assertRaisesRegex(ValueError, 'added or missing source files'):
+            pack.snapshot(self.source, self.out, True)
 
     def test_missing_frontend_source_not_masked_by_package_manifest(self):
         self.manifest['files']=[x for x in self.manifest['files'] if x['path']!='pc/src/page.vue'];self.save()
-        with self.assertRaisesRegex(ValueError,'source is missing'):pack.snapshot(self.source,self.out)
+        with self.assertRaisesRegex(ValueError,'added or missing source files'):pack.snapshot(self.source,self.out,True)
 
     def test_case_collision_is_rejected(self):
         self.add('web/src/Page.vue','collision');self.save()
-        with self.assertRaisesRegex(ValueError,'colliding'):pack.snapshot(self.source,self.out)
+        with self.assertRaisesRegex(ValueError,'colliding|changed after creation'):pack.snapshot(self.source,self.out,True)
 
     def test_path_traversal_is_rejected(self):
         for path in ('../secret','/tmp/secret','web/../secret','web//secret','./web/a','web\\secret'):
@@ -134,13 +202,13 @@ class PackagingFilesTest(unittest.TestCase):
 
     def test_symlink_and_hardlink_are_rejected(self):
         original=self.source/'web/src/page.vue';original.unlink();original.symlink_to(self.source/'pc/src/page.vue')
-        with self.assertRaisesRegex(ValueError,'symlink'):pack.snapshot(self.source,self.out)
+        with self.assertRaisesRegex(ValueError,'symlink'):pack.snapshot(self.source,self.out,True)
         original.unlink();os.link(self.source/'pc/src/page.vue',original)
         with self.assertRaisesRegex(ValueError,'hard-linked'):pack.regular_file(self.source,'web/src/page.vue')
 
     def test_missing_existing_manifest_not_replaced_with_a_new_state_system(self):
         (self.source/pack.MANIFEST).unlink()
-        with self.assertRaises(OSError):pack.snapshot(self.source,self.out)
+        with self.assertRaises(OSError):pack.snapshot(self.source,self.out,True)
 
     def test_local_core_specifier_is_rejected_even_with_a_local_archive(self):
         data=json.loads((self.source/'pc/package.json').read_text())
@@ -157,24 +225,25 @@ class PackagingFilesTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'fixed product'):pack.released_dependencies(self.source)
 
     def test_browser_outputs_keep_four_names_without_shipping_ssr_dependencies(self):
-        build=self.asset_tree();pack.snapshot(self.source,self.out);assets=pack.public_assets(build,self.out)
+        build=self.asset_tree();pack.snapshot(self.source,self.out,True);assets=pack.public_assets(build,self.out)
         self.assertIn('server/public/pc/_nuxt/entry.js',assets)
         self.assertFalse((self.out/'pc/.output').exists())
         self.assertTrue((self.out/'server/public/admin/index.html').exists())
         self.assertFalse(any(p.name=='node_modules' for p in self.out.rglob('*')))
 
     def test_browser_php_and_dependency_folders_are_rejected(self):
-        build=self.asset_tree();pack.snapshot(self.source,self.out)
+        build=self.asset_tree();pack.snapshot(self.source,self.out,True)
         (build/'web/dist/evil.php').write_text('<?php echo 1;')
         with self.assertRaisesRegex(ValueError,'non-public'):pack.public_assets(build,self.out)
 
-    def test_browser_source_collision_is_rejected(self):
-        self.add('server/public/admin/index.html','managed source');self.save();pack.snapshot(self.source,self.out)
-        with self.assertRaisesRegex(ValueError,'conflicts'):pack.public_assets(self.asset_tree(),self.out)
+    def test_browser_release_output_cannot_be_claimed_as_managed_source(self):
+        self.add('server/public/admin/index.html','managed source');self.save()
+        with self.assertRaisesRegex(ValueError,'runtime data in manifest'):
+            pack.snapshot(self.source,self.out,True)
 
     def test_actual_archive_is_reproducible_and_dependency_free(self):
         import tarfile
-        pack.snapshot(self.source,self.out);pack.public_assets(self.asset_tree(),self.out)
+        pack.snapshot(self.source,self.out,True);pack.public_assets(self.asset_tree(),self.out)
         writer=ROOT/'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php'
         php='require $argv[1]; (new app\\common\\infrastructure\\scaffold\\DeterministicEditionArchive())->write($argv[2],"peanut-test",$argv[3]);'
         for name in ('a.tar.gz','b.tar.gz'):
@@ -187,11 +256,11 @@ class PackagingFilesTest(unittest.TestCase):
             self.assertFalse(any('node_modules' in n.split('/') or 'vendor' in n.split('/') for n in names))
 
     def test_assembly_compares_build_to_the_unchanged_source_manifest(self):
-        build=self.root/'compiled';pack.snapshot(self.source,build)
+        build=self.root/'compiled';pack.snapshot(self.source,build,True)
         (build/'web/src/page.vue').write_text('modified by build')
         run=subprocess.run(['python3',str(ROOT/'scripts/package-release-files.py'),'assemble',
                             '--application-root',str(self.source),'--build-root',str(build),
-                            '--target',str(self.out)],text=True,capture_output=True)
+                            '--target',str(self.out),'--generated-template'],text=True,capture_output=True)
         self.assertNotEqual(run.returncode,0)
         self.assertIn('native build changed',run.stderr)
         self.assertFalse((self.out/'release-manifest.txt').exists())

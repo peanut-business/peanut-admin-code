@@ -21,6 +21,17 @@ FORBIDDEN = {'vendor', 'node_modules', '.git', '.local', '.cache', '.nuxt', '.ou
 VERSION = re.compile(r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\Z')
 CLIENT_ENVS = {f'{client}/.env.{suffix}' for client in CLIENTS
                for suffix in ('example', 'development', 'production', 'standalone', 'multi-tenant')}
+RELEASE_OUTPUTS = {'.peanut/application-release.json', 'release-manifest.txt'}
+BROWSER_RELEASE_PREFIXES = tuple(f'server/public/{name}/' for name in ('admin', 'platform', 'pc', 'mobile'))
+PROTECTED_RUNTIME_PREFIXES = (
+    'server/runtime/', 'server/public/storage/', 'server/private/storage/',
+    'server/private/installation/', 'server/private/resources/', 'server/public/uploads/',
+    'server/docker/mysql/', 'server/docker/secrets/', 'updates/', 'backups/',
+)
+PLACEHOLDER_PREFIXES = {
+    'server/runtime/', 'server/public/storage/', 'server/private/storage/',
+    'server/docker/mysql/', 'server/docker/secrets/',
+}
 
 
 def document(root: Path, relative: str) -> dict:
@@ -93,14 +104,23 @@ def ensure_new_release_file(path: Path) -> None:
         raise ValueError(f'browser asset conflicts with managed source: {path}')
 
 
-def allowed_source(relative: str) -> bool:
-    parts = PurePosixPath(relative).parts
-    # Apply the same exclusions inside the existing upgrade-baseline tree.
+def logical_release_path(relative: str) -> str:
     logical = relative
     if relative.startswith('.peanut/scaffold-baseline/') and '/files/' in relative:
         logical = relative.split('/files/', 1)[1]
+    return logical
+
+
+def release_generated_source(relative: str) -> bool:
+    logical = logical_release_path(relative)
+    return logical in RELEASE_OUTPUTS or any(logical.startswith(prefix) for prefix in BROWSER_RELEASE_PREFIXES)
+
+
+def allowed_source(relative: str) -> bool:
+    parts = PurePosixPath(relative).parts
+    logical = logical_release_path(relative)
     name = PurePosixPath(logical).name
-    if logical.startswith('scaffold/'):
+    if logical.startswith('scaffold/') or release_generated_source(logical):
         return False
     if FORBIDDEN.intersection(parts) or name in {'auth.json', '.npmrc', '.DS_Store'}:
         return False
@@ -108,13 +128,9 @@ def allowed_source(relative: str) -> bool:
         return False
     if name.startswith('.env') and name != '.env.example' and logical not in CLIENT_ENVS:
         return False
-    # Installation receipts are instance state, including the legacy runtime
-    # location. The installer creates private/installation on first install.
-    if logical.startswith(('server/runtime/installation/', 'server/private/installation/')):
-        return False
-    for storage in ('server/runtime/', 'server/public/storage/', 'server/private/storage/'):
-        if logical.startswith(storage) and name not in {'.gitkeep', '.gitignore'}:
-            return False
+    for prefix in PROTECTED_RUNTIME_PREFIXES:
+        if logical.startswith(prefix):
+            return prefix in PLACEHOLDER_PREFIXES and name in {'.gitkeep', '.gitignore'}
     return True
 
 
@@ -232,7 +248,7 @@ def application_git(root: Path, manifest: dict, generated_template: bool) -> tup
         if mode not in ('100644', '100755') or stage != '0':
             raise ValueError('application release has a non-regular Git entry')
         blobs[name.decode()] = blob
-    tracked = sorted(blobs)
+    tracked = sorted(name for name in blobs if not release_generated_source(safe_relative(name)))
     if not tracked or any(not allowed_source(safe_relative(name)) for name in tracked):
         raise ValueError('application Git tree contains forbidden release input')
     for name in tracked:
@@ -479,11 +495,20 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         unwanted = server / relative
         if unwanted.exists():
             shutil.rmtree(unwanted)
-    for relative in ('runtime', 'public/storage', 'private/storage'):
+    packaging_helper = server / 'app/common/infrastructure/scaffold/DeterministicEditionArchive.php'
+    if packaging_helper.exists():
+        regular_file(server, 'app/common/infrastructure/scaffold/DeterministicEditionArchive.php')
+        packaging_helper.unlink()
+    for relative in ('runtime', 'public/storage', 'private/storage', 'private/resources',
+                     'public/uploads', 'docker/mysql', 'docker/secrets'):
         protected = server / relative
-        if not protected.is_dir():
+        if not protected.exists():
             continue
+        if not protected.is_dir() or protected.is_symlink():
+            raise ValueError(f'runtime data path is unsafe in server release: {relative}')
         for path in protected.rglob('*'):
+            if path.is_symlink():
+                raise ValueError(f'runtime data cannot enter server release: {relative}')
             if path.is_file():
                 if path.name not in ('.gitkeep', '.gitignore'):
                     raise ValueError(f'runtime data cannot enter server release: {relative}')

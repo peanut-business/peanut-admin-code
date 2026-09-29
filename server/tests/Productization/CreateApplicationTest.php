@@ -150,14 +150,15 @@ function createApplicationFiles(string $root): array
     return $files;
 }
 
-// 所有夹具位于所属 checkout 的临时根；产品仍禁止把应用生成到源码内部。
-$systemTemporary = realpath(sys_get_temp_dir());
-createApplicationExpect(is_string($systemTemporary), 'system temporary directory must resolve');
-$temporaryCursor = DIRECTORY_SEPARATOR;
-foreach (array_filter(explode(DIRECTORY_SEPARATOR, sys_get_temp_dir()), 'strlen') as $segment) {
-    $temporaryCursor = rtrim($temporaryCursor, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $segment;
-    createApplicationExpect(!is_link($temporaryCursor), 'temporary root must not contain a symlink');
+// 所有夹具位于所属 checkout 的忽略目录；不再借 macOS /var -> /private/var
+// 系统临时目录绕过项目的本地执行目录规则。产品仍禁止把应用生成到源码树的受管路径中。
+$systemTemporary = $root . '/.local/tmp';
+if (!is_dir($systemTemporary)) {
+    createApplicationExpect(mkdir($systemTemporary, 0700, true), 'cannot create checkout-local temporary root');
 }
+createApplicationExpect(!is_link($systemTemporary), 'checkout-local temporary root must not be a symlink');
+$resolvedTemporary = realpath($systemTemporary);
+createApplicationExpect(is_string($resolvedTemporary) && $resolvedTemporary === $systemTemporary, 'checkout-local temporary root must resolve exactly');
 $temporary = $systemTemporary . '/peanut-create-app-' . bin2hex(random_bytes(6));
 createApplicationExpect(mkdir($temporary, 0700), 'cannot create task-owned fixture directory');
 $inventoryPath = $root . '/scaffold/application-template-inventory.json';
@@ -563,6 +564,7 @@ try {
         'server/database/environment-guard.php' => false,
         'server/app/common/services/installation/InstallationExecutionHost.php' => false,
         'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => false,
+        'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php' => false,
         'scripts/upgrade' => true,
         'scripts/product-upgrade-host' => true,
         'scripts/product-upgrade-database' => true,
@@ -596,7 +598,11 @@ try {
     );
     $generatedModulesConfig = (string) file_get_contents($first . '/server/config/modules.php');
     createApplicationExpect(!str_contains($generatedModulesConfig, 'fixture.delivery-record'), 'demo Module identity leaked into generated deployment config');
-    createApplicationExpect(str_contains($generatedModulesConfig, "env('PEANUT_PLUGIN_LOCK', '../plugins.lock')"), 'generated deployment must enable its scaffold-owned official Plugin lock');
+    createApplicationExpect(
+        str_contains($generatedModulesConfig, "\$pluginLockDefault = \$sourceDevelopment ? '../plugins.lock' : 'plugins.lock';")
+            && str_contains($generatedModulesConfig, "env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)"),
+        'generated deployment must select the source Plugin lock only in explicit development mode',
+    );
     $releaseMetadata = json_decode((string) file_get_contents($first . '/RELEASE_METADATA.json'), true, 512, JSON_THROW_ON_ERROR);
     $generatedReleaseVersion = in_array(($releaseMetadata['schema_version'] ?? null), [2, 3], true)
         && in_array(($releaseMetadata['protocol'] ?? null), [

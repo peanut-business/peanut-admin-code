@@ -36,6 +36,12 @@ function inventoryGitFiles(string $root): array
 
 function excluded(string $path): bool
 {
+    // Generated APPs must retain the minimal deterministic archive writer used by
+    // their own package-release entry. Other maintainer scaffold implementation
+    // stays source-only.
+    if ($path === 'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php') {
+        return false;
+    }
     // Both locations contain instance installation state, never template source.
     if (str_starts_with($path, 'server/runtime/installation/')
         || str_starts_with($path, 'server/private/installation/')) {
@@ -435,8 +441,12 @@ $inventory = [
     'variables' => ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'],
     'untracked_exclusions' => [
         '.git/**', '.local/**', '.ops/**', '.env', 'server/.env', '**/vendor/**', '**/node_modules/**',
-        '**/dist/**', '**/runtime/**', 'server/private/installation/**', '**/.cache/**', 'server/public/uploads/**',
-        'server/public/storage/**', 'output/**', '*.log', '.DS_Store',
+        '**/dist/**', '**/runtime/**', 'server/private/installation/**', 'server/private/resources/**',
+        'server/public/uploads/**', 'server/public/storage/**', 'server/private/storage/**',
+        'server/docker/mysql/**', 'server/docker/secrets/**', 'updates/**', 'backups/**',
+        '.peanut/application-release.json', 'release-manifest.txt', 'server/public/admin/**',
+        'server/public/platform/**', 'server/public/pc/**', 'server/public/mobile/**',
+        '**/.cache/**', 'output/**', '*.log', '.DS_Store',
     ],
     'files' => $entries,
 ];

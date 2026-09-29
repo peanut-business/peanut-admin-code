@@ -22,9 +22,21 @@
         "**/dist/**",
         "**/runtime/**",
         "server/private/installation/**",
-        "**/.cache/**",
+        "server/private/resources/**",
         "server/public/uploads/**",
         "server/public/storage/**",
+        "server/private/storage/**",
+        "server/docker/mysql/**",
+        "server/docker/secrets/**",
+        "updates/**",
+        "backups/**",
+        ".peanut/application-release.json",
+        "release-manifest.txt",
+        "server/public/admin/**",
+        "server/public/platform/**",
+        "server/public/pc/**",
+        "server/public/mobile/**",
+        "**/.cache/**",
         "output/**",
         "*.log",
         ".DS_Store"
@@ -191,7 +203,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "942bc519191d9f49ba41983a7e92c2a06c80fcae0f1ccb9ccfcf4d0150c5402a"
+            "source_sha256": "4ea6def6604e77758a3731ccb4ca4434df9f155dbcb029712c2c54356d1711c9"
         },
         {
             "path": ".prettierrc.cjs",
@@ -868,7 +880,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1de6aad02a9ea1435d172348646db05920b282dfad4913423afa31897288db8e"
+            "source_sha256": "81f66a7124b1f615053bd04f59e22d51c19fb9b235c4c5b6fd6fef845c76000d"
         },
         {
             "path": "docs/public/module-development.md",
@@ -896,7 +908,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "525151213e2c57ca8ecf3a35632f2a86371b62e788549ec07f7ee653a2c9eda0"
+            "source_sha256": "1e757298cb9d51d2e4fcf90e387174494408d69372ad3134cda747bfe6373284"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -3445,7 +3457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d38ffb0bbd74d9baf3785b312523d6b79272d66c9521238de60dc7e204914f89"
+            "source_sha256": "6e555621abec01fa707db38aa03e2d42b97ac7e4c2fe984b7f99dfd6bf73f7d2"
         },
         {
             "path": "scripts/package-release.sh",
@@ -4112,7 +4124,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a814a9d2cf2084df613820e51171f4f6d0d8dde63b057692da08e440b936d7aa"
+            "source_sha256": "4591ea9436508a5c430611fae676c75404dcb9dfffdf0e5f413635e04f2b60f9"
         },
         {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
@@ -4476,7 +4488,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "467f5dbb6a68971b869f5b37eb219b3d6c8c28d13bbca8ee8328349614d21197"
+            "source_sha256": "aae0cd160296af13d295b910379670b34c423c992d67e4740094c5e74837f556"
         },
         {
             "path": "server/.travis.yml",
@@ -7876,15 +7888,16 @@
         {
             "path": "server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php",
             "target": "server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ]
+            ],
+            "source_sha256": "27dc6d3475ff2fd7a82e7b8a4222bcbec8d8899b4bea4c36ca9f9b38b909a31a"
         },
         {
             "path": "server/app/common/infrastructure/scaffold/EditionProjector.php",

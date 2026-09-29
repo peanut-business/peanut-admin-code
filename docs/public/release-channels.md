@@ -2,7 +2,7 @@
 
 当前源码身份由根目录 `release-versions.json` 的 `source_product_version` 定义。当前值 `4.0.0-dev.14` 是开发候选，不是正式 tag、Release 或已发布公共包；取得源码分支不能替代取得固定发行包。
 
-`scripts/package-release.sh` 从已提交且干净的 APP Git 工作树默认装配完整开发源码包，保留 APP 自有登记、四端源码与 `.peanut/scaffold-baseline` 上游原始字节，供二开和现有源码升级入口使用。`--server-only` 另装配仅含 `server/` 的生产部署包。生产包 `server/.peanut/release-identity.json` 从同一次 APP 清单生成应用、上游来源、版本及实际 server 文件摘要；`server/plugins.lock` 是经原 APP 锁验证后生成的后端运行投影，原锁摘要与逐插件来源/派生摘要分别记录。APP 二开提交由其自己的 Git HEAD 表示。`build-edition-installers` 对同一初始模板生成开发源码和 server 两个包，明确标为 `generated-template`，没有独立 APP 提交。两类包都不含维护者登记、`.local`、Peanut scaffold 历史、实例安装记录或已安装依赖。
+`scripts/package-release.sh` 从已提交且干净的 APP Git 工作树默认装配完整开发源码包，保留 APP 自有登记、四端源码与 `.peanut/scaffold-baseline` 上游原始字节，供二开和现有源码升级入口使用。发行时生成的 `.peanut/application-release.json`、`release-manifest.txt` 和 `server/public/{admin,platform,pc,mobile}` 浏览器成品属于可再生发行输出，不成为下一次 APP 源码输入；原始 scaffold baseline 不因再次发行而改写。`--server-only` 另装配仅含 `server/` 的生产部署包。生产包 `server/.peanut/release-identity.json` 从同一次 APP 清单生成应用、上游来源、版本及实际 server 文件摘要；`server/plugins.lock` 是经原 APP 锁验证后生成的后端运行投影，原锁摘要与逐插件来源/派生摘要分别记录。APP 二开提交由其自己的 Git HEAD 表示。APP 的 `resources/project-resources.json` 是开发仓可编辑资源真值；打包到 server 后成为受发行摘要保护的只读投影。`build-edition-installers` 对同一初始模板生成开发源码和 server 两个包，明确标为 `generated-template`，没有独立 APP 提交。两类包都不含维护者登记、`.local`、Peanut scaffold 历史、实例安装记录、真实 Docker/MySQL 数据、secrets、updates/backups 或已安装依赖。
 
 替换正式目录前，在隔离位置用可信渠道给出的归档摘要运行发行工具源码中的 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<trusted-64-hex>`。核验归档 SHA-256、仅含 server 的路径及包内逐文件清单；不能把同目录临时生成的摘要当作可信来源。当前开发候选的依赖仍未固定为正式发布版本，不能以此宣称已有正式生产包。
 

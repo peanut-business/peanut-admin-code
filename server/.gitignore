@@ -16,6 +16,11 @@ Thumbs.db
 /private/storage/*
 !/private/storage/.gitkeep
 /private/installation/
+/private/resources/
+/docker/mysql/*
+!/docker/mysql/.gitkeep
+/docker/secrets/*
+!/docker/secrets/.gitkeep
 # Test sources remain versioned; only their generated caches/reports are ignored.
 /.phpunit.cache/
 /.phpunit.result.cache
