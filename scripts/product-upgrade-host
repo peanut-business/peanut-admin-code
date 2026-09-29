@@ -301,7 +301,10 @@ prepare_phase() {
   stage_plan="$prepared_root/.peanut/upgrades/plans/$candidate.json"
   mkdir -p "$(dirname "$stage_plan")"
   cp -p "$scaffold_plan" "$stage_plan"
-  php "$package_root/scripts/scaffold-upgrade" apply \
+  installed_autoload="$instance_root/server/vendor/autoload.php"
+  [[ -f "$installed_autoload" && ! -L "$installed_autoload" ]] \
+    || die 'installed Composer autoload is unavailable for signed scaffold materialization'
+  php -d "auto_prepend_file=$installed_autoload" "$package_root/scripts/scaffold-upgrade" apply \
     --project-root="$prepared_root" --plan="$stage_plan" </dev/null >/dev/null \
     || die 'signed scaffold engine could not materialize the prepared target'
   rm -rf -- "$prepared_root/.peanut/upgrades"
