@@ -2829,7 +2829,7 @@
         "schema": "pa_ tables in the registered Q01 allowlist",
         "namespace": "peanut-product-q01-multi",
         "service_type": "Peanut Admin internal-candidate PHP, Nginx and cron Compose runtime",
-        "compose_file": "compose.yaml from the fixed internal N archive",
+        "compose_file": "compose.yaml from the installed internal N7 instance, switched by the signed dev.14 upgrade",
         "compose_project": "peanut-product-q01-multi",
         "services": {
           "php": "peanut-product-q01-multi-php-1",
@@ -2838,10 +2838,9 @@
           "pc_optional": "peanut-product-q01-multi-pc-1"
         },
         "images": {
-          "php": "sha256:d88af835e7798932645fec25ab056a777f7d852e390b1da3d3014762973412d4",
-          "php_base": "sha256:cdab056627c6ea77c43d0f70392b12da68c612d8b774b7564d1fea3d545d3c15",
-          "nginx": "sha256:ba177c9a69a82517f43dfd770591c0292bafa4ed631b04e62dc567fb9c8deaf5",
-          "pc_optional": "sha256:b407277e34d4909bd0b5bb8114404d6f09f06b74f073abdae19098ef3444d7f9"
+          "php": "sha256:a670098fc40ab559b8dcafc975b19811ce2a4946be8d93c5f558af03822c0f51",
+          "nginx": "sha256:b7f81676e1bf57c6fbf653d745cd961ab960d6f940a41a7e740739c9a8d32be0",
+          "pc_optional": "sha256:6d80134df9ba33d014a8b1cf31d9b4ce82feef6bdb13a66835bf53bd99ceb59c"
         },
         "network": "peanut-product-q01-multi_default",
         "volumes": [
@@ -2851,7 +2850,7 @@
           "peanut-product-q01-multi_php-private-storage"
         ],
         "credential_ref": ".local/productization/private/q01-multi.json and q01-multi.env plus task-owned mode-0600 server environment; no values in registry",
-        "data_source": "internal N archive sha256:5744c37e2608064fb3f41c91ad00c22d1f10ffa70481098601a99d57f00a6618 from Code 31e0b193f676811242a5ffd170e1a1a3206c0a02; PHP runtime image adds only the Q01 database registration to the immutable base image (registry sha256:ee7191ceae6ad05a332ff3a1d19f524ecca6c38cc917e4b034eb41649a79a9b8); all base image labels carry source tree 45a84f61a44784900553d7eca89624613cec985d; prior failed N data and volumes preserved in task evidence backup",
+        "data_source": "installed internal N7 archive sha256:cdaab1dd09f184a37b2426d6ac44c836e4670ae1588e98b778b3411eb83fe6b4 from Code d589042cc98d25ce52ef493a96d6eb4b6af740dd; Q01 database-only registry overlay sha256:ee7191ceae6ad05a332ff3a1d19f524ecca6c38cc917e4b034eb41649a79a9b8; upgraded with signed internal dev.14 archive sha256:173d2815fc26c5047372c91b4804341c55e74ebfc52f388800046a2535adb248 from Code bc67ad36663b9942b63d6349b7b2a83fdeacb7f3, source tree 78e269c0ae766aa7999a203526949c752c8421d8; running image IDs and source labels independently observed after native verify; synthetic failed-attempt backups and receipts retained",
         "freshness_requirement": "exact Q01 project, containers, network, volumes, loopback port and synthetic schemas absent before claim-bound creation; image IDs and source labels match; no shared or production mounts",
         "health_check": "Compose labels and image IDs, php/nginx health, loopback GET /healthz, credential-backed exact Q01 schema checks",
         "fallback": "none",
