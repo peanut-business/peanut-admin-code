@@ -2355,7 +2355,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06149d7fc92e35c9849d73410485f27f1c3617399ab04e1a540c412af42a9585"
+            "source_sha256": "e59af7ec8ec84c6901bd369632b8792268fa02dd014edcea3d46a4757d28e8fd"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2521,7 +2521,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "858a0b9a72ce33c867d866d251bd685894b413c68b858399af16a50540c432ca"
+            "source_sha256": "6fcfeec1e73c7125430d2094bdc4929147c7115df4ee2cde4c8067d64110936c"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -4195,6 +4195,20 @@
                 "full"
             ],
             "source_sha256": "ccf0e6b8d9fb84fca177659ea4909c7ee8676cee117fc5c1ddd9a722b760f5d4"
+        },
+        {
+            "path": "scripts/tests/server-docker-layout-test.py",
+            "target": "scripts/tests/server-docker-layout-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c0f7ee57aa33cb0d6941e22ffe73e3f5bea02b0079c0dc876a60ec7df3652438"
         },
         {
             "path": "scripts/tests/source-layout-test.php",
@@ -8848,7 +8862,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b87bd947c7b931a08c489283eb3ecc70d244561f4503acd44b209bcec8b1e18"
+            "source_sha256": "a3ace8212adb4fe8a4c19a060aef717fb0467917975f7745d5ca53be017ce166"
         },
         {
             "path": "server/app/common/value/module/ModulePhpNamespace.php",
@@ -16969,7 +16983,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "475ea4f6eac7e085fbbd0b662dad7fbc22fc1987414dcfacb13effd31809f4cc"
+            "source_sha256": "58d4f9abd2e9e448abc92945dae23f7cfb3aa7d275ebb0b9e48ad38fbd6cd711"
         },
         {
             "path": "server/app/modules/official/ops/src/Infrastructure/Authorization/PlatformOpsPermissionChecker.php",
@@ -17207,7 +17221,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4af3821da983a48f780210fd343322f5c50e9a50dae5bddcfca3ca2a5566f581"
+            "source_sha256": "ba54c7809fd7d0dbdbc1c379bff0e0a6c96074994689516105c0419fa9f2f05e"
         },
         {
             "path": "server/app/modules/official/payment/api/metadata/openapi.php",
@@ -23571,6 +23585,48 @@
             ]
         },
         {
+            "path": "server/docker/Dockerfile",
+            "target": "server/docker/Dockerfile",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f0f28a52d949949dd8511b84d6f208e45a8a03806c872353a68347b2e44a9aa4"
+        },
+        {
+            "path": "server/docker/compose.local.yaml",
+            "target": "server/docker/compose.local.yaml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "426d6bbf0faf2eb0bcf3f027a2990436572f36b5f1457129597273741733ee52"
+        },
+        {
+            "path": "server/docker/compose.yaml",
+            "target": "server/docker/compose.yaml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ed8657e7d8ca08f49ceb4a2e9737cbf4fecaaeca07bd333424eb066d6166217f"
+        },
+        {
             "path": "server/docker/conf/crontab",
             "target": "server/docker/conf/crontab",
             "classification": "managed",
@@ -23585,6 +23641,76 @@
             "source_sha256": "ad52bd1def5fe7fc646da9221d7043b86b2cae6704346f47db07e9a156e4003b"
         },
         {
+            "path": "server/docker/conf/mysql.cnf",
+            "target": "server/docker/conf/mysql.cnf",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "24a84ed39c82c71ceb36ff36367162f2f0c58125152766b0436f75310a6e7f31"
+        },
+        {
+            "path": "server/docker/conf/nginx.conf",
+            "target": "server/docker/conf/nginx.conf",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9cb798bd1aec4e526d0815cbd555d48aceed0353c7a2884b9c61d0d7d5b81aa9"
+        },
+        {
+            "path": "server/docker/conf/php-fpm.conf",
+            "target": "server/docker/conf/php-fpm.conf",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1e40a3c87290a7e28d713813552ed38d29910f4b3ae0be7dd7e01c1cd4fc2583"
+        },
+        {
+            "path": "server/docker/conf/php.ini",
+            "target": "server/docker/conf/php.ini",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b3b2cb729c29203895b5570385463c90d0b4918f84e3a0a6f343fb0b91bd7b87"
+        },
+        {
+            "path": "server/docker/scripts/php-entrypoint.sh",
+            "target": "server/docker/scripts/php-entrypoint.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "79247f8d218223e270272d73d447bd008c61d4d389c52e71d9e359f2013d6496"
+        },
+        {
             "path": "server/docker/scripts/schedule.sh",
             "target": "server/docker/scripts/schedule.sh",
             "classification": "managed",
@@ -23597,6 +23723,34 @@
                 "full"
             ],
             "source_sha256": "6204998f19fffefbb79d8a1c073feefe95573247f92d22c88414c1a190699fbb"
+        },
+        {
+            "path": "server/docker/scripts/start.sh",
+            "target": "server/docker/scripts/start.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e219339391055ee01b8186e44d634a5bd86b9aa7a37f5c99aeab7b8362299366"
+        },
+        {
+            "path": "server/docker/scripts/stop.sh",
+            "target": "server/docker/scripts/stop.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7f8b6685c91655a995eacc62c548892a10c421f2f8ee40078650fd6b59e26b0e"
         },
         {
             "path": "server/extend/.gitignore",
@@ -23820,6 +23974,20 @@
                 "full"
             ],
             "source_sha256": "7a33b9bf217e8e3810b9171f49fb0b8db14a9b7bc09c56f4fae02b17f20eb7cf"
+        },
+        {
+            "path": "server/public/install/index.html",
+            "target": "server/public/install/index.html",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "27f66debbe79ec406870c118f99fe0df36f9c7e14525ea9d1b7b9da72177acd4"
         },
         {
             "path": "server/public/robots.txt",
@@ -26859,6 +27027,19 @@
         {
             "path": "server/tests/Productization/ScaffoldUpgradeRunnerTest.php",
             "target": "server/tests/Productization/ScaffoldUpgradeRunnerTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ServerReleaseRuntimeIdentityTest.php",
+            "target": "server/tests/Productization/ServerReleaseRuntimeIdentityTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
