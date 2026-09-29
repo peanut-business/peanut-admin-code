@@ -643,9 +643,14 @@ final class ScaffoldUpgradeRunner
             $targetContent = $this->renderCurrentVersionArtifact($to, $after, $targetParameters, $versionContract);
             $targetDigest = hash('sha256', $targetContent);
             if ($before === null) {
-                $actions[] = $current['present']
-                    ? $this->action($path, $after, 'conflict', 'new_path_already_exists', true, $current, $targetDigest)
-                    : $this->action($path, $after, 'create', 'new_managed_file', false, $current, $targetDigest);
+                if (!$current['present']) {
+                    $actions[] = $this->action($path, $after, 'create', 'new_managed_file', false, $current, $targetDigest);
+                } elseif ($this->renderedContentMatches($root, $path, $current, $targetContent)
+                    && ($current['mode'] ?? null) === ($after['mode'] ?? null)) {
+                    $actions[] = $this->action($path, $after, 'preserve', 'existing_matches_target', false, $current, $targetDigest);
+                } else {
+                    $actions[] = $this->action($path, $after, 'conflict', 'new_path_already_exists', true, $current, $targetDigest);
+                }
                 continue;
             }
             $oldContent = $this->renderArtifact($from, $before, $fromParameters);

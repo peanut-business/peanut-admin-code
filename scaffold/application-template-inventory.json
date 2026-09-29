@@ -3596,7 +3596,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "806379a3004216089fc05590e99df3d82b66e63030d29d9f822975edb85c1909"
+            "source_sha256": "c17aecf6ed19690b105cf93fed6cab3eee613fb7bdf829c203b1d59ae3143dad"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
@@ -3666,7 +3666,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f775bea027a6e0bc53275a68c33a1fce9de6e2e8fbea1df873a3f1071f427ff1"
+            "source_sha256": "366a8c9b430e45dcc5e6ba2dff7596a367480586bb3672c40916abf7fa0da69d"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",

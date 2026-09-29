@@ -562,7 +562,8 @@ final class EditionUpgradePackage
                     'product_name' => '__PEANUT_BASELINE_PRODUCT_NAME__',
                     'slug' => '__PEANUT_BASELINE_SLUG__',
                     'package_identity' => '__PEANUT_BASELINE_PACKAGE_IDENTITY__',
-                    'application_version' => '__PEANUT_BASELINE_APPLICATION_VERSION__',
+                    // Keep this runtime token from being substituted in the PHP release artifact.
+                    'application_version' => '__PEANUT_BASELINE_' . 'APPLICATION_VERSION__',
                 ],
             ],
             'files' => $files,
