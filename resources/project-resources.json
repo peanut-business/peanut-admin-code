@@ -2799,6 +2799,46 @@
         "cleanup_responsibility": "scripts/local-stack.sh prod-down"
       },
       {
+        "stable_resource_id": "peanut-admin-product-m4-q01-multi-application-containers",
+        "purpose": "internal nonproduction M4 multi-tenant installation, business, upgrade and paired recovery with synthetic data only",
+        "environment": "development-test",
+        "owner": "productization-20260922",
+        "host": "127.0.0.1",
+        "port": 20344,
+        "database": "peanut-admin-product-q01-multi-mysql84; synthetic q01 A/B/restore schemas only",
+        "schema": "pa_ tables in the registered Q01 allowlist",
+        "namespace": "peanut-product-q01-multi",
+        "service_type": "Peanut Admin internal-candidate PHP, Nginx and cron Compose runtime",
+        "compose_file": "compose.yaml from the fixed internal N archive",
+        "compose_project": "peanut-product-q01-multi",
+        "services": {
+          "php": "peanut-product-q01-multi-php-1",
+          "nginx": "peanut-product-q01-multi-nginx-1",
+          "cron": "peanut-product-q01-multi-cron-1",
+          "pc_optional": "peanut-product-q01-multi-pc-1"
+        },
+        "images": {
+          "php": "sha256:3e5b9a72be1f576593dca61f221ac75bd90752695c90dbf34e51f0d31ca39a3b",
+          "nginx": "sha256:5ddbd7f6823a3b8cbab39dde47757c6a86893ccc20b1186b0b8c6d425ff96348",
+          "pc_optional": "sha256:8e3d34c8d46c28a7ec3306182bc17d9933e8ca97c0b0241070f20258e8b8a14e"
+        },
+        "network": "peanut-product-q01-multi_default",
+        "volumes": [
+          "peanut-product-q01-multi_mysql-data",
+          "peanut-product-q01-multi_php-runtime",
+          "peanut-product-q01-multi_php-storage",
+          "peanut-product-q01-multi_php-private-storage"
+        ],
+        "credential_ref": ".local/productization/private/q01-multi.json and q01-multi.env plus task-owned mode-0600 server environment; no values in registry",
+        "data_source": "internal N archive sha256:18aa3b400068d04609134138fb44fbf47a40bbff8e08245834a26128a1bb3599; PHP build uses the one-line Core ZIP COPY repair integrated in Code 7731965d",
+        "freshness_requirement": "exact Q01 project, containers, network, volumes, loopback port and synthetic schemas absent before claim-bound creation; image IDs and source labels match; no shared or production mounts",
+        "health_check": "Compose labels and image IDs, php/nginx health, loopback GET /healthz, credential-backed exact Q01 schema checks",
+        "fallback": "none",
+        "lease_gate": "productization-package-qualification",
+        "cleanup_responsibility": "productization-20260922 removes only this lease-owned synthetic Compose runtime and credentials after successful evidence capture; preserve exact failed candidate resources for diagnosis",
+        "backup_responsibility": "before upgrade switch, checksum the paired synthetic database dump plus public and private storage snapshots"
+      },
+      {
         "stable_resource_id": "peanut-admin-production-application-containers",
         "purpose": "production PHP, Nginx and cron application runtimes",
         "environment": "production",
