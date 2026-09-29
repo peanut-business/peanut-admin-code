@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Peanut Admin 安装</title><style>
+body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:48px auto;padding:0 20px;line-height:1.5}
+fieldset{border:1px solid #ddd;border-radius:10px;padding:20px}label{display:block;margin:12px 0 4px}
+input{width:100%;box-sizing:border-box;padding:10px}button{margin-top:18px;padding:10px 18px}
+pre{white-space:pre-wrap;background:#f6f6f6;padding:14px;border-radius:8px}.warn{color:#8a4b00}
+</style></head><body>
+<h1>Peanut Admin 首次安装</h1>
+<p class="warn">当前页面只消费已由 APP owner 登记并写入 server/.env 的数据库资源。浏览器现场生成数据库配置尚未通过产品 Gate 时，预检会保持阻断，不会猜测地址、账号或秘密。</p>
+<fieldset><legend>安装身份</legend>
+<label>Setup Token</label><input id="token" autocomplete="off">
+<label>管理员邮箱</label><input id="adminEmail" type="email">
+<label>管理员密码</label><input id="adminPassword" type="password" autocomplete="new-password">
+<label>平台管理员邮箱（多租户）</label><input id="platformEmail" type="email">
+<label>平台管理员密码（多租户）</label><input id="platformPassword" type="password" autocomplete="new-password">
+<button id="install" type="button">执行安装</button></fieldset>
+<h2>当前状态</h2><pre id="status">读取中…</pre>
+<script>
+const status=document.getElementById('status')
+async function refresh(){try{const r=await fetch('/installapi/status',{credentials:'same-origin'});status.textContent=JSON.stringify(await r.json(),null,2)}catch(e){status.textContent=String(e)}}
+document.getElementById('install').addEventListener('click',async()=>{
+ const body={admin_email:adminEmail.value,admin_password:adminPassword.value,platform_email:platformEmail.value,platform_password:platformPassword.value}
+ const r=await fetch('/installapi/execute',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token.value},body:JSON.stringify(body)})
+ status.textContent=JSON.stringify(await r.json(),null,2);await refresh()
+})
+refresh()
+</script></body></html>
