@@ -1,8 +1,10 @@
 # 发行渠道与版本身份
 
-当前源码身份由根目录 `release-versions.json` 的 `source_product_version` 定义。当前值 `4.0.0-dev.2` 是开发候选，不是正式 tag、Release 或已发布公共包；取得源码分支不能替代取得固定发行包。
+当前源码身份由根目录 `release-versions.json` 的 `source_product_version` 定义。当前值 `4.0.0-dev.3` 是开发候选，不是正式 tag、Release 或已发布公共包；取得源码分支不能替代取得固定发行包。
 
 当前候选的 PHP Core 由 Composer 锁到 `peanut-admin/core` 的明确 Git 提交。Web Core 的六个拆分包由候选发行材料中的本地 `.tgz` 和 SHA-256 固定；截至本候选，它们尚未发布到公共 npm registry。不要把本地候选包描述成已经公开发布，也不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。
+
+本地非生产验证可以使用候选包内锁定的 Core ZIP。正式交付和生产安装必须从已发布渠道取得相应版本，并核对发行身份与依赖锁；不能把内部候选自带的 Core ZIP 当作正式发布版本。Composer 下载已发布版本时也可能使用 ZIP 分发格式，判定依据是发布来源与版本身份，不是文件扩展名。
 
 正式使用路径是：
 
