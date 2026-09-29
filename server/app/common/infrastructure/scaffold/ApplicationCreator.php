@@ -124,10 +124,13 @@ final class ApplicationCreator
             if ($adoption !== null && !$adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
-            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
+            // Edition projection can rewrite Module/frontend bytes. Build the Plugin
+            // manifests and canonical lock only after those final release bytes exist,
+            // otherwise the generated lock is stale immediately after projection.
             if ($this->projectEdition) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
             }
+            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
             if ($adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
