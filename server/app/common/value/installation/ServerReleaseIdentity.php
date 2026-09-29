@@ -172,6 +172,31 @@ final readonly class ServerReleaseIdentity
         return new self($value, hash('sha256', $bytes));
     }
 
+    /** @return array<string,mixed> */
+    public function applicationIdentity(): array
+    {
+        return $this->document['application'];
+    }
+
+    /** @return array<string,mixed> */
+    public function templateIdentity(): array
+    {
+        return $this->document['template'];
+    }
+
+    /** @return array{commit:string,tree:string} */
+    public function runtimeSourceIdentity(): array
+    {
+        $application = $this->document['application'];
+        if (($application['kind'] ?? null) === 'application') {
+            return ['commit' => $application['commit'], 'tree' => $application['tree']];
+        }
+        return [
+            'commit' => $this->document['upstream']['commit'],
+            'tree' => $this->document['upstream']['tree'],
+        ];
+    }
+
     public function versions(): array
     {
         return $this->document['versions'];

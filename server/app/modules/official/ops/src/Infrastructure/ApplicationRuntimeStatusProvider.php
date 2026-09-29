@@ -6,6 +6,7 @@ namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
 use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeReadinessService;
 use app\common\value\installation\ApplicationReleaseVersions;
+use app\common\value\installation\ServerReleaseIdentity;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusSnapshot;
 use PeanutAdmin\Modules\Ops\Domain\Status\RuntimeStatusProvider;
@@ -142,6 +143,24 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     /** @return array{commit:string,tree:string,release_key:?string,built_at:string,repository_clean:bool} */
     private function runtimeIdentity(): array
     {
+        if ($this->serverReleaseAvailable()) {
+            $identity = ServerReleaseIdentity::load($this->projectRoot . '/server');
+            $source = $identity->runtimeSourceIdentity();
+            $versions = $identity->versions();
+            $releaseVersion = (string) ($versions['release_sequence_version'] ?? '');
+            return [
+                'commit' => $this->commit($source['commit']),
+                'tree' => $this->commit($source['tree']),
+                // A server release identity binds the version and source bytes but
+                // does not by itself prove that an immutable public Git tag exists.
+                'release_key' => preg_match('/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', $releaseVersion) === 1
+                    ? 'v' . $releaseVersion
+                    : null,
+                'built_at' => $this->builtAt($this->projectRoot . '/server/.peanut/release-identity.json'),
+                'repository_clean' => true,
+            ];
+        }
+
         $metadata = $this->releaseMetadata();
         if (file_exists($this->projectRoot . '/.git')) {
             $commit = $this->git(['rev-parse', 'HEAD']);
@@ -297,6 +316,12 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             && preg_match('/^[a-f0-9]{40}$/D', (string) $overlay['commit']) === 1
             && preg_match('/^[a-f0-9]{64}$/D', (string) $overlay['archive_sha256']) === 1
             && preg_match('/^[a-f0-9]{64}$/D', (string) $overlay['metadata_sha256']) === 1;
+    }
+
+    private function serverReleaseAvailable(): bool
+    {
+        $path = $this->projectRoot . '/server/.peanut/release-identity.json';
+        return file_exists($path) || is_link($path);
     }
 
     private function deploymentReceiptPath(): string
@@ -470,6 +495,16 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     /** Resolve the same scaffold/overlay migration target used by deployment. */
     private function migrationTargetVersion(): string
     {
+        if ($this->serverReleaseAvailable()) {
+            $identity = ServerReleaseIdentity::load($this->projectRoot . '/server');
+            $versions = $identity->versions();
+            $base = (string) ($versions['scaffold_template'] ?? '');
+            if ($base === '') {
+                throw new \RuntimeException('OPS_MIGRATION_TARGET_INVALID');
+            }
+            return $base;
+        }
+
         $versions = ApplicationReleaseVersions::load($this->projectRoot . '/release-versions.json');
         $base = $versions->scaffoldTemplate();
         $overlayPath = $this->projectRoot . '/DEMO_PATCH_METADATA.json';

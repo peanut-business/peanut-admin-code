@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Ops\Service;
 use PeanutAdmin\Modules\Ops\Infrastructure\PairedBackupProvider;
 use app\platform\value\ops\PlatformUpgradeTarget;
 use app\common\value\installation\ApplicationReleaseVersions;
+use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
 use app\platform\exception\plugin\PluginLifecycleException;
@@ -211,6 +212,45 @@ final readonly class PlatformUpgradeReadinessService
     /** Read the current application's stable identity, product release and adopted scaffold provenance. */
     private function sourceIdentity(): ?array
     {
+        $serverIdentityPath = $this->projectRoot . '/server/.peanut/release-identity.json';
+        if (file_exists($serverIdentityPath) || is_link($serverIdentityPath)) {
+            try {
+                $identity = ServerReleaseIdentity::load($this->projectRoot . '/server');
+            } catch (RuntimeException $exception) {
+                throw new RuntimeException('UPGRADE_SOURCE_SERVER_RELEASE_INVALID', 0, $exception);
+            }
+            $application = $identity->applicationIdentity();
+            $template = $identity->templateIdentity();
+            $versions = $identity->versions();
+            $applicationVersion = $application['version'] ?? null;
+            $productRelease = $versions['release_sequence_version'] ?? null;
+            $slug = $application['slug'] ?? null;
+            $packageIdentity = $application['package_identity'] ?? null;
+            if (!is_string($applicationVersion) || preg_match(self::VERSION, $applicationVersion) !== 1
+                || !is_string($productRelease) || preg_match(self::VERSION, $productRelease) !== 1
+                || !is_string($slug) || strlen($slug) > 63 || preg_match(self::SLUG, $slug) !== 1
+                || !is_string($packageIdentity) || strlen($packageIdentity) > 120
+                || preg_match(self::PACKAGE_IDENTITY, $packageIdentity) !== 1
+                || !is_string($template['version'] ?? null) || preg_match(self::VERSION, $template['version']) !== 1
+                || !$this->isCommit($template['source_commit'] ?? null)
+                || !$this->isCommit($template['source_tree'] ?? null)
+                || !$this->isSha256($template['inventory_sha256'] ?? null)
+            ) {
+                throw new RuntimeException('UPGRADE_SOURCE_SERVER_RELEASE_INVALID');
+            }
+            return [
+                'application_version' => $applicationVersion,
+                'product_release' => $productRelease,
+                'slug' => $slug,
+                'package_identity' => $packageIdentity,
+                'template_version' => $template['version'],
+                'template_source_commit' => $template['source_commit'],
+                'template_source_tree' => $template['source_tree'],
+                'template_inventory_sha256' => $template['inventory_sha256'],
+                'application_manifest_sha256' => $identity->manifestSha256(),
+            ];
+        }
+
         $path = $this->projectRoot . '/.peanut/application-manifest.json';
         if (!is_file($path) || is_link($path)) {
             return null;
