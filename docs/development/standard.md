@@ -146,23 +146,9 @@ function readInstallationState(value: unknown): InstallationState {
 
 维护者负责固定产品、包、模块、API/事件及迁移身份，先完成所选组合验证，再按授权发布可取得的Core和产品；内部开发候选不冒充正式版本。Composer与npm按各自版本语义验证，不手改锁摘要、不覆写既有版本/tag。公开使用说明不授予发包、生产或客户数据操作权限，也不把完整产品资格附加成每次纯规范整理的任务。
 
-PHP Core 与 Web Core 的正式发行统一从各自仓库已经验收的 `main` 当前提交开始：发行负责人在该提交创建不可复用的注释式 `vX.Y.Z` tag，并用 Git CLI 推送该 tag。tag 推送自动触发所属仓库的发行工作流；工作流必须核对 tag 指向当前 `main`、版本及包身份，并对固定提交执行包级资格检查。PHP Core 由指向当前仓库的 Packagist GitHub hook 自动索引 tag，工作流核对 Packagist 上的版本、源码仓和提交；Web Core 由 GitHub Actions 使用 npm 可信发布者按依赖顺序发布六个同版包，逐包核对公开登记的摘要。部分成功时明确记录已发布项；保持 `main` 在该固定提交，才可从相同 tag 续跑，若 `main` 已前进则停止并由发行负责人复核固定 tag、提交与包摘要后决定恢复路径，不自动放宽工作流门禁。发行负责人在发 tag 前完成 Packagist 来源与 hook、六包 npm 发布归属与可信发布者绑定；尚不存在的 npm 包须先经单独批准完成首次创建，不能把待创建包当作已经绑定。缺失绑定或资格失败时停止对应发行，不改用本地压缩包冒充正式版。网页手动上传不是常规发行路径；这项规则不替代正式 tag、`main`、账户绑定与具体版本的发行授权。产品的正式依赖锁与组装只在两个 Core 的目标公开版本实际可获取后进行。
+PHP Core 与 Web Core 的发行操作以各自仓库已验收的远端 `main` 当前提交为准。发行前独立完成所需的 `dev` → `main` 源码集成、Packagist hook 或六包 npm 可信发布者设置；真正触发发行时只创建并推送不可复用的注释式 tag，不同时合并或推送 `main`。工作流核对固定源码并自动完成 Packagist/npm 发行，最后以 Action、公开包身份及 GitHub Release 三方结果判断完成。Web 多包部分成功后的续跑、远端 `main` 变动的停止线、精确命令与本次演练证据统一见[Core 独立发行](core-release.md)。缺少渠道绑定或资格时停止对应发行，不用手动上传或本地压缩包冒充自动发行。
 
-Core 发行操作只推送 tag，不在打 tag 时合并或推送 `main`。在对应 Core 仓库执行前，确认远端 `main` 已是本次验收的源码，包含 `.github/workflows/release.yml`，PHP Composer 身份或 Web 六包版本与目标 tag 相符，发行渠道前置条件已满足。随后执行以下命令（将示例版本换成批准的正式版本），并核对远端 `main` 未在操作期间变化：
-
-```bash
-git fetch origin main --tags
-git cat-file -e origin/main:.github/workflows/release.yml
-test -z "$(git ls-remote origin refs/tags/vX.Y.Z)"
-test "$(git rev-parse origin/main)" = "$(git ls-remote origin refs/heads/main | cut -f1)"
-git tag -a vX.Y.Z origin/main -m "Core release vX.Y.Z"
-test "$(git rev-parse origin/main)" = "$(git ls-remote origin refs/heads/main | cut -f1)"
-git push origin refs/tags/vX.Y.Z
-```
-
-其中任何检查失败即停止；若目标 tag 已存在或远端 `main` 与刚验收的提交不同，不改写 tag。推送后以同一 tag 的 GitHub Actions 运行记录及 Packagist/npm 的公开版本、源码提交和包摘要确认发行结果；工作流失败不能视为发行完成。`dev` 进入 `main` 是发行前独立的源码集成工作，不属于上述 tag 触发动作。
-
-经单独授权的发行演练使用 `vX.Y.Z-rc.N` 注释 tag，按同一 `main` 提交和渠道核对流程执行；Web 六包清单、内部依赖及运行版本统一为 `X.Y.Z-rc.N`，npm 只更新 `rc` dist-tag，不占用 `latest`。演练版本不进入正式产品依赖锁；公开登记过的包名和版本即使后续弃用，也不得复用或声称可彻底撤销。正式发行仍使用上述三段稳定版本流程。
+正式版 tag 为 `vX.Y.Z`；经单独授权的演练用 `vX.Y.Z-rc.N`，Web 六包与内部依赖保持同一 `X.Y.Z-rc.N`，npm 预发行使用 `rc` dist-tag。首次建包可能遗留指向演练版的 `latest`，须核对并清理后才可将无版本安装视为正式渠道。公开版本不可复用；演练版本不进入正式产品锁。两个 Core 的目标稳定版本真实可取得后，才进入产品依赖锁、组装和独立验收。
 
 ## 10. 规范、知识和 AI
 

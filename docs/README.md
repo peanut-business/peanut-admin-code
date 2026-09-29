@@ -9,6 +9,7 @@
 - [开发者中心与文档](development/developer-center-and-documentation.md)
 - [PHP / ThinkPHP 开发规范](development/php-thinkphp-guidelines.md)
 - [当前代码导读](development/current-code-lifecycle.md)
+- [Core 独立发行：main tag 自动触发](development/core-release.md)
 - [质量工具与检查命令](../tools/quality/README.md)
 
 ## 架构与交付
