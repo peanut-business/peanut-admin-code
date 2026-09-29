@@ -32,10 +32,19 @@ function installerRemoveTemporaryDirectory(string $path): void
     rmdir($path);
 }
 
-$fixture = sys_get_temp_dir() . '/peanut-install-preflight-' . bin2hex(random_bytes(6));
+$checkoutRoot = dirname(__DIR__, 3);
+$temporaryRoot = $checkoutRoot . '/.local/tmp';
+if (!is_dir($temporaryRoot)) {
+    installerExpect(mkdir($temporaryRoot, 0700, true), 'unable to create checkout-local temporary root');
+}
+installerExpect(!is_link($temporaryRoot), 'checkout-local temporary root must not be a symlink');
+$fixture = $temporaryRoot . '/peanut-install-preflight-' . bin2hex(random_bytes(6));
 $temporary = $fixture . '/server';
 foreach (['vendor', 'database', 'config', 'runtime', 'public/storage', 'private/storage'] as $directory) {
     installerExpect(mkdir($temporary . '/' . $directory, 0775, true), 'unable to create preflight fixture directory');
+}
+foreach (['.git', '.peanut'] as $directory) {
+    installerExpect(mkdir($fixture . '/' . $directory, 0775, true), 'unable to create source-mode fixture directory');
 }
 installerExpect(mkdir($temporary . '/resources/schemas', 0775, true), 'unable to create Plugin schema fixture directory');
 foreach (['vendor/autoload.php', 'database/init.sql', 'config/brand.json', 'resources/schemas/plugin.schema.json'] as $file) {
@@ -44,6 +53,10 @@ foreach (['vendor/autoload.php', 'database/init.sql', 'config/brand.json', 'reso
 foreach (['RELEASE_METADATA.json', 'plugins.lock'] as $file) {
     installerExpect(file_put_contents($fixture . '/' . $file, "fixture\n") !== false, 'unable to create release fixture file');
 }
+installerExpect(file_put_contents($fixture . '/release-versions.json', "{}\n") !== false, 'unable to create release versions fixture');
+installerExpect(file_put_contents($fixture . '/.peanut/application-manifest.json', "{}\n") !== false, 'unable to create application identity fixture');
+$priorSourceMode = getenv('PEANUT_INSTALLATION_SOURCE_MODE');
+putenv('PEANUT_INSTALLATION_SOURCE_MODE=development');
 
 $resourceIdentity = [
     'environment' => 'production',
@@ -67,7 +80,7 @@ try {
     $ready = $host->inspect();
     installerExpect($ready['status'] === 'ready', 'valid preflight fixture must be ready');
     installerExpect($ready['code'] === 'INSTALL_PREFLIGHT_READY', 'ready preflight code changed');
-    installerExpect(count($ready['checks']) === 7, 'preflight check set changed');
+    installerExpect(count($ready['checks']) === 8, 'preflight check set changed');
     installerExpect($ready['resource'] === array_intersect_key(
         $resourceIdentity,
         array_flip(['environment', 'deployment_target', 'resource_id', 'endpoint_id', 'consumer']),
@@ -114,6 +127,9 @@ try {
         installerExpect(!str_contains($hostSource, $mutation), 'preflight host must stay read-only: ' . $mutation);
     }
 } finally {
+    $priorSourceMode === false
+        ? putenv('PEANUT_INSTALLATION_SOURCE_MODE')
+        : putenv('PEANUT_INSTALLATION_SOURCE_MODE=' . $priorSourceMode);
     installerRemoveTemporaryDirectory($fixture);
 }
 

@@ -4,7 +4,7 @@
     "inputs": [
         {
             "path": "release-versions.json",
-            "sha256": "a721ef5ed2626f8488eb48a1cb57838c9c7d70d4efbf61f569832474a89870dc"
+            "sha256": "283fe216d132bcc2c7073266db7a745aee6da3676317dd10018ef97459392664"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
@@ -16,7 +16,7 @@
         },
         {
             "path": "server/app/api/metadata/application/installation.php",
-            "sha256": "c2b2a7248b32e39fff99e9d9fc5fe0d6c1e51fb5140313954b1ccf5a7da9d66f"
+            "sha256": "9edf4fc71ecd8cbe6defd798ee77634476ba46fe921d51f5840d5cd9a3ec0cd7"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -128,7 +128,7 @@
         },
         {
             "path": "server/route/app.php",
-            "sha256": "2169dd39ac67b4330dc33c6866955285d78fa683c32870fd8f28906b299e189a"
+            "sha256": "94176503df8b919c0af97765eea7047dda5ccab588e6456f5543646e31d2ae49"
         },
         {
             "path": "server/route/platform.php",
@@ -156,35 +156,35 @@
         ]
     },
     "summary": {
-        "route_count": 336,
-        "generated_api_operations": 336,
+        "route_count": 338,
+        "generated_api_operations": 338,
         "route_only_operations": 0,
-        "complete_operations": 336,
+        "complete_operations": 338,
         "partial_operations": 0,
-        "runtime_routes": 336,
-        "documented_operations": 336,
+        "runtime_routes": 338,
+        "documented_operations": 338,
         "undocumented_routes": 0,
-        "automatic_route_metadata": 336,
+        "automatic_route_metadata": 338,
         "requires_owner_contract": 0,
         "owners": 15,
         "runtime_inventory": {
-            "total": 336,
+            "total": 338,
             "methods": {
                 "DELETE": 4,
-                "GET": 151,
-                "POST": 178,
+                "GET": 152,
+                "POST": 179,
                 "PUT": 3
             },
             "applications": {
                 "adminapi": 229,
                 "api": 47,
-                "installation": 2,
+                "installation": 4,
                 "platform": 58
             },
             "owners": {
                 "application:adminapi": 91,
                 "application:api": 18,
-                "application:installation": 2,
+                "application:installation": 4,
                 "application:platform": 58,
                 "module:official.article": 21,
                 "module:official.file": 14,
@@ -204,7 +204,7 @@
     "owners": {
         "application:adminapi": 91,
         "application:api": 18,
-        "application:installation": 2,
+        "application:installation": 4,
         "application:platform": 58,
         "module:official.article": 21,
         "module:official.file": 14,
@@ -9168,6 +9168,50 @@
         },
         {
             "method": "GET",
+            "path": "/installapi/configuration",
+            "runtime_path": "/installapi/configuration",
+            "application": "installation",
+            "owner": {
+                "type": "application",
+                "key": "installation"
+            },
+            "controller": "app\\installation\\controller\\InstallationController",
+            "action": "configuration",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                503
+            ],
+            "middleware": [],
+            "source": {
+                "file": "server/route/app.php",
+                "line": 10
+            },
+            "documented": true,
+            "openapi_operation_id": "getInstallationConfiguration",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
             "path": "/installapi/status",
             "runtime_path": "/installapi/status",
             "application": "installation",
@@ -9188,7 +9232,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 10
+                "line": 12
             },
             "documented": true,
             "openapi_operation_id": "getInstallationStatus",
@@ -19016,7 +19060,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 15
+                "line": 17
             },
             "documented": true,
             "openapi_operation_id": "userLogin",
@@ -19058,7 +19102,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 16
+                "line": 18
             },
             "documented": true,
             "openapi_operation_id": "adminLogout",
@@ -20462,6 +20506,54 @@
         },
         {
             "method": "POST",
+            "path": "/installapi/configure",
+            "runtime_path": "/installapi/configure",
+            "application": "installation",
+            "owner": {
+                "type": "application",
+                "key": "installation"
+            },
+            "controller": "app\\installation\\controller\\InstallationController",
+            "action": "configure",
+            "auth": {
+                "mode": "installation_setup",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                409,
+                422,
+                503
+            ],
+            "middleware": [],
+            "source": {
+                "file": "server/route/app.php",
+                "line": 11
+            },
+            "documented": true,
+            "openapi_operation_id": "configureInstallation",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
             "path": "/installapi/execute",
             "runtime_path": "/installapi/execute",
             "application": "installation",
@@ -20486,7 +20578,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 11
+                "line": 13
             },
             "documented": true,
             "openapi_operation_id": "executeGuidedInstallation",

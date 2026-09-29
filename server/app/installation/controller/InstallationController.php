@@ -7,15 +7,35 @@ namespace app\installation\controller;
 use app\BaseController;
 use app\common\traits\ApiResponseTrait;
 use app\common\services\installation\InstallationExecutionHost;
+use app\common\services\installation\InstallationConfigurationHost;
+use think\facade\Config;
 use think\App;
 
 final class InstallationController extends BaseController
 {
     use ApiResponseTrait;
 
-    public function __construct(App $app, private readonly InstallationExecutionHost $host)
-    {
+    public function __construct(
+        App $app,
+        private readonly InstallationExecutionHost $host,
+        private readonly InstallationConfigurationHost $configuration,
+    ) {
         parent::__construct($app);
+    }
+
+    public function configuration()
+    {
+        return $this->data($this->configuration->status());
+    }
+
+    public function configure()
+    {
+        $this->assertSameOrigin();
+        return $this->data($this->configuration->configure(
+            $this->setupToken(),
+            (string) Config::get('peanut.installation.setup_token', ''),
+            $this->request->post(),
+        ));
     }
 
     public function status()
@@ -25,6 +45,12 @@ final class InstallationController extends BaseController
 
     public function execute()
     {
+        $this->assertSameOrigin();
+        return $this->data($this->host->executeGuided($this->setupToken(), $this->request->post()));
+    }
+
+    private function assertSameOrigin(): void
+    {
         if (!$this->sameOriginRequest()) {
             throw \app\common\http\ApiProblem::fromEnvelope(
                 '安装请求来源无效。',
@@ -32,11 +58,14 @@ final class InstallationController extends BaseController
                 40300,
             );
         }
+    }
+
+    private function setupToken(): string
+    {
         $authorization = trim((string) $this->request->header('Authorization', ''));
-        $token = str_starts_with($authorization, 'Bearer ')
+        return str_starts_with($authorization, 'Bearer ')
             ? trim(substr($authorization, strlen('Bearer ')))
             : '';
-        return $this->data($this->host->executeGuided($token, $this->request->post()));
     }
 
     private function sameOriginRequest(): bool

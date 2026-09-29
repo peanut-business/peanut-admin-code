@@ -6,7 +6,7 @@
     },
     "info": {
         "title": "Peanut Admin HTTP API",
-        "version": "4.0.0-dev",
+        "version": "4.0.0-dev.14",
         "description": "Application HTTP contract for the identity, Tenant, article, file and notification entry points. Runtime authorization and Tenant binding remain enforced by the server middleware.",
         "x-peanut-contract-generator": {
             "name": "scripts/generate-api-contracts.php",
@@ -222,7 +222,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 15
+                        "line": 17
                     }
                 },
                 "x-peanut-permissions": []
@@ -3545,7 +3545,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 16
+                        "line": 18
                     }
                 },
                 "x-peanut-permissions": []
@@ -15839,6 +15839,163 @@
                 ]
             }
         },
+        "/installapi/configuration": {
+            "get": {
+                "tags": [
+                    "Installation"
+                ],
+                "operationId": "getInstallationConfiguration",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/InstallationConfigurationStatus"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "description": "只读首次实例配置状态；不会写配置、数据库或安装身份。",
+                "security": [],
+                "x-peanut-route": {
+                    "application": "installation",
+                    "owner": {
+                        "type": "application",
+                        "key": "installation"
+                    },
+                    "controller": "app\\installation\\controller\\InstallationController",
+                    "action": "configuration",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/app.php",
+                        "line": 10
+                    }
+                },
+                "x-peanut-permissions": []
+            }
+        },
+        "/installapi/configure": {
+            "post": {
+                "tags": [
+                    "Installation"
+                ],
+                "operationId": "configureInstallation",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/InstallationConfigureResult"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InstallationConfigureRequest"
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "INSTALL_REQUEST_ORIGIN_INVALID",
+                    "INSTALL_SETUP_TOKEN_INVALID",
+                    "INSTALL_CONFIGURATION_INPUT_INVALID",
+                    "INSTALL_CONFIGURATION_TARGET_INVALID",
+                    "INSTALL_CONFIGURATION_DATABASE_INVALID",
+                    "INSTALL_CONFIGURATION_HOSTS_REQUIRED",
+                    "INSTALL_CONFIGURATION_HOSTS_INVALID",
+                    "INSTALL_CONFIGURATION_STATE_UNAVAILABLE",
+                    "INSTALL_CONFIGURATION_IN_PROGRESS",
+                    "INSTALL_CONFIGURATION_ALREADY_PRESENT"
+                ],
+                "description": "仅同源首次配置；Authorization Bearer 使用一次性 setup token。生成受保护实例 registry 与 server/.env，不修改发行 identity。",
+                "security": [
+                    {
+                        "installationSetupToken": []
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "installation",
+                    "owner": {
+                        "type": "application",
+                        "key": "installation"
+                    },
+                    "controller": "app\\installation\\controller\\InstallationController",
+                    "action": "configure",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/app.php",
+                        "line": 11
+                    }
+                },
+                "x-peanut-permissions": []
+            }
+        },
         "/installapi/status": {
             "get": {
                 "tags": [
@@ -15894,7 +16051,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 10
+                        "line": 12
                     }
                 },
                 "x-peanut-permissions": []
@@ -15968,6 +16125,12 @@
                     "INSTALL_ALREADY_COMPLETED",
                     "INSTALL_PREFLIGHT_BLOCKED",
                     "INSTALL_DATABASE_UNAVAILABLE",
+                    "INSTALL_COMPLETION_LOCK_INVALID",
+                    "INSTALL_COMPLETION_LOCK_MISSING",
+                    "INSTALL_LOCKED_DATABASE_UNAVAILABLE",
+                    "INSTALL_LOCKED_DATABASE_MISMATCH",
+                    "INSTALL_STATE_MIGRATION_PENDING",
+                    "INSTALL_STATE_MIGRATION_REQUIRED",
                     "INSTALL_PARTIAL_STATE_REQUIRES_REBUILD",
                     "INSTALL_EXECUTION_FAILED",
                     "INSTALL_STATE_UNAVAILABLE",
@@ -15993,7 +16156,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 11
+                        "line": 13
                     }
                 },
                 "x-peanut-permissions": []
@@ -36083,6 +36246,144 @@
                     },
                     "ready": {
                         "type": "boolean"
+                    }
+                }
+            },
+            "InstallationApplicationIdentity": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "slug",
+                    "edition",
+                    "version",
+                    "package_identity",
+                    "name"
+                ],
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "edition": {
+                        "type": "string",
+                        "enum": [
+                            "standalone",
+                            "multi-tenant"
+                        ]
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "package_identity": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "InstallationConfigurationStatus": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "state",
+                    "code",
+                    "configured",
+                    "application"
+                ],
+                "properties": {
+                    "state": {
+                        "type": "string",
+                        "enum": [
+                            "unconfigured",
+                            "configured",
+                            "blocked",
+                            "installed"
+                        ]
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "configured": {
+                        "type": "boolean"
+                    },
+                    "application": {
+                        "$ref": "#/components/schemas/InstallationApplicationIdentity"
+                    },
+                    "deployment_targets": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "InstallationConfigureRequest": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "deployment_target"
+                ],
+                "properties": {
+                    "deployment_target": {
+                        "type": "string",
+                        "enum": [
+                            "local-production-preview",
+                            "production",
+                            "production-candidate"
+                        ]
+                    },
+                    "database_name": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_]{1,64}$"
+                    },
+                    "platform_hosts": {
+                        "type": "string"
+                    },
+                    "tenant_admin_hosts": {
+                        "type": "string"
+                    }
+                },
+                "description": "数据库业务账号和应用密钥由安装配置器生成；多租户部署必须提供 Platform/Tenant Admin Host。"
+            },
+            "InstallationConfigureResult": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "state",
+                    "code",
+                    "restart_required",
+                    "application",
+                    "deployment_target",
+                    "database_resource_id",
+                    "database_name"
+                ],
+                "properties": {
+                    "state": {
+                        "type": "string",
+                        "enum": [
+                            "configured"
+                        ]
+                    },
+                    "code": {
+                        "type": "string",
+                        "enum": [
+                            "INSTALL_CONFIGURATION_COMPLETED"
+                        ]
+                    },
+                    "restart_required": {
+                        "type": "boolean"
+                    },
+                    "application": {
+                        "$ref": "#/components/schemas/InstallationApplicationIdentity"
+                    },
+                    "deployment_target": {
+                        "type": "string"
+                    },
+                    "database_resource_id": {
+                        "type": "string"
+                    },
+                    "database_name": {
+                        "type": "string"
                     }
                 }
             },

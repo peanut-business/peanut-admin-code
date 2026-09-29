@@ -17,6 +17,52 @@ $officialModule = [
     ],
 ];
 $schemas = [
+    'InstallationApplicationIdentity' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'required' => ['slug', 'edition', 'version', 'package_identity', 'name'],
+        'properties' => [
+            'slug' => ['type' => 'string'],
+            'edition' => ['type' => 'string', 'enum' => ['standalone', 'multi-tenant']],
+            'version' => ['type' => 'string'],
+            'package_identity' => ['type' => 'string'],
+            'name' => ['type' => 'string'],
+        ],
+    ],
+    'InstallationConfigurationStatus' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'required' => ['state', 'code', 'configured', 'application'],
+        'properties' => [
+            'state' => ['type' => 'string', 'enum' => ['unconfigured', 'configured', 'blocked', 'installed']],
+            'code' => ['type' => 'string'],
+            'configured' => ['type' => 'boolean'],
+            'application' => $ref('InstallationApplicationIdentity'),
+            'deployment_targets' => ['type' => 'array', 'items' => ['type' => 'string']],
+        ],
+    ],
+    'InstallationConfigureRequest' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'required' => ['deployment_target'],
+        'properties' => [
+            'deployment_target' => ['type' => 'string', 'enum' => ['local-production-preview', 'production', 'production-candidate']],
+            'database_name' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_]{1,64}$'],
+            'platform_hosts' => ['type' => 'string'],
+            'tenant_admin_hosts' => ['type' => 'string'],
+        ],
+        'description' => '数据库业务账号和应用密钥由安装配置器生成；多租户部署必须提供 Platform/Tenant Admin Host。',
+    ],
+    'InstallationConfigureResult' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'required' => ['state', 'code', 'restart_required', 'application', 'deployment_target', 'database_resource_id', 'database_name'],
+        'properties' => [
+            'state' => ['type' => 'string', 'enum' => ['configured']],
+            'code' => ['type' => 'string', 'enum' => ['INSTALL_CONFIGURATION_COMPLETED']],
+            'restart_required' => ['type' => 'boolean'],
+            'application' => $ref('InstallationApplicationIdentity'),
+            'deployment_target' => ['type' => 'string'],
+            'database_resource_id' => ['type' => 'string'],
+            'database_name' => ['type' => 'string'],
+        ],
+    ],
     'InstallationStatus' => [
         'type' => 'object', 'additionalProperties' => false,
         'required' => ['mode', 'deployment_mode', 'tenant_bootstrap', 'preflight', 'official_modules', 'state', 'code', 'retryable', 'health'],
@@ -81,6 +127,26 @@ $schemas = [
 ];
 
 $paths = [
+    '/installapi/configuration' => ['get' => $operation(
+        'getInstallationConfiguration',
+        'Installation',
+        ['200' => $success($ref('InstallationConfigurationStatus')), '503' => $error],
+        description: '只读首次实例配置状态；不会写配置、数据库或安装身份。',
+    )],
+    '/installapi/configure' => ['post' => $operation(
+        'configureInstallation',
+        'Installation',
+        ['200' => $success($ref('InstallationConfigureResult')), '403' => $error, '409' => $error, '422' => $error, '503' => $error],
+        requestBody: $jsonBody($ref('InstallationConfigureRequest')),
+        errors: [
+            'INSTALL_REQUEST_ORIGIN_INVALID', 'INSTALL_SETUP_TOKEN_INVALID',
+            'INSTALL_CONFIGURATION_INPUT_INVALID', 'INSTALL_CONFIGURATION_TARGET_INVALID',
+            'INSTALL_CONFIGURATION_DATABASE_INVALID', 'INSTALL_CONFIGURATION_HOSTS_REQUIRED',
+            'INSTALL_CONFIGURATION_HOSTS_INVALID', 'INSTALL_CONFIGURATION_STATE_UNAVAILABLE',
+            'INSTALL_CONFIGURATION_IN_PROGRESS', 'INSTALL_CONFIGURATION_ALREADY_PRESENT',
+        ],
+        description: '仅同源首次配置；Authorization Bearer 使用一次性 setup token。生成受保护实例 registry 与 server/.env，不修改发行 identity。',
+    )],
     '/installapi/status' => ['get' => $operation(
         'getInstallationStatus',
         'Installation',

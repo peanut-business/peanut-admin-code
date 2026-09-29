@@ -2761,6 +2761,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/installapi/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 只读首次实例配置状态；不会写配置、数据库或安装身份。 */
+        get: operations["getInstallationConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/configure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 仅同源首次配置；Authorization Bearer 使用一次性 setup token。生成受保护实例 registry 与 server/.env，不修改发行 identity。 */
+        post: operations["configureInstallation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/installapi/status": {
         parameters: {
             query?: never;
@@ -6829,6 +6863,41 @@ export interface components {
             ready?: boolean;
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        InstallationApplicationIdentity: {
+            slug: string;
+            /** @enum {string} */
+            edition: "standalone" | "multi-tenant";
+            version: string;
+            package_identity: string;
+            name: string;
+        };
+        InstallationConfigurationStatus: {
+            /** @enum {string} */
+            state: "unconfigured" | "configured" | "blocked" | "installed";
+            code: string;
+            configured: boolean;
+            application: components["schemas"]["InstallationApplicationIdentity"];
+            deployment_targets?: string[];
+        };
+        /** @description 数据库业务账号和应用密钥由安装配置器生成；多租户部署必须提供 Platform/Tenant Admin Host。 */
+        InstallationConfigureRequest: {
+            /** @enum {string} */
+            deployment_target: "local-production-preview" | "production" | "production-candidate";
+            database_name?: string;
+            platform_hosts?: string;
+            tenant_admin_hosts?: string;
+        };
+        InstallationConfigureResult: {
+            /** @enum {string} */
+            state: "configured";
+            /** @enum {string} */
+            code: "INSTALL_CONFIGURATION_COMPLETED";
+            restart_required: boolean;
+            application: components["schemas"]["InstallationApplicationIdentity"];
+            deployment_target: string;
+            database_resource_id: string;
+            database_name: string;
         };
         InstallationStatus: {
             /** @enum {string} */
@@ -14808,6 +14877,65 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getInstallationConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationConfigurationStatus"];
+                    };
+                };
+            };
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    configureInstallation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstallationConfigureRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationConfigureResult"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     getInstallationStatus: {

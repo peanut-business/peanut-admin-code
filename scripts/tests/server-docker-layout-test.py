@@ -23,6 +23,11 @@ local = read('compose.local.yaml')
 assert '127.0.0.1:${MYSQL_HOST_PORT:-21306}:3306' in local
 start = read('scripts/start.sh')
 assert '--no-build' in start and 'compose build' not in start
+assert 'install-token' in start and 'server/.env is not configured' not in start
+assert 'private/resources' in start
+entrypoint = read('scripts/php-entrypoint.sh')
+assert '.env.bootstrap' in entrypoint and '.env.installing' in entrypoint
+assert 'provision-database.php' in entrypoint and 'PEANUT_INSTALLATION_SETUP_TOKEN' in entrypoint
 assert 'php server/think crontab' not in read('scripts/php-entrypoint.sh')
 assert read('scripts/schedule.sh').rstrip().endswith('exit 0')
 for line in read('conf/crontab').splitlines():

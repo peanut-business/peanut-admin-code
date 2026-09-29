@@ -7,6 +7,8 @@ use app\installation\controller\InstallationController;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) === 'installation') {
+    Route::get('configuration', [InstallationController::class, 'configuration']);
+    Route::post('configure', [InstallationController::class, 'configure']);
     Route::get('status', [InstallationController::class, 'status']);
     Route::post('execute', [InstallationController::class, 'execute']);
 }

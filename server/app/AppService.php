@@ -32,6 +32,7 @@ use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
 use app\common\enum\instance\DeploymentMode;
 use app\common\infrastructure\idempotency\ThinkPhpIdempotentCommandExecutor;
 use app\common\services\installation\InstallationExecutionHost;
+use app\common\services\installation\InstallationConfigurationHost;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use app\common\security\ApplicationPasswordPolicy;
 use app\common\composition\CoreServiceOverrides;
@@ -198,6 +199,10 @@ class AppService extends Service
             $this->app,
             $this->app->make(CurrentExecutionContext::class),
         ));
+        $this->app->bind(
+            InstallationConfigurationHost::class,
+            fn(): InstallationConfigurationHost => new InstallationConfigurationHost(dirname(__DIR__)),
+        );
         $this->app->bind(
             InstallationExecutionHost::class,
             fn(): InstallationExecutionHost => new InstallationExecutionHost(

@@ -810,7 +810,7 @@ function accessMetadata(array $endpoint, ?string $exception): array
         };
     } elseif (str_ends_with($controller, '\\LoginController') && $action === 'login') {
         $mode = 'tenant_host';
-    } elseif (str_ends_with($controller, '\\InstallationController') && $action === 'execute') {
+    } elseif (str_ends_with($controller, '\\InstallationController') && in_array($action, ['configure', 'execute'], true)) {
         $mode = 'installation_setup';
     }
 

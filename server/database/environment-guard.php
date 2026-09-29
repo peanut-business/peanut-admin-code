@@ -30,13 +30,21 @@ function projectResourceRegistry(): array
     $explicitPath = getenv('PEANUT_RESOURCE_REGISTRY');
     $serverIdentityPath = $serverRoot . '/.peanut/release-identity.json';
     $serverRegistryPath = $serverRoot . '/resources/project-resources.json';
+    $instanceRegistryPath = $serverRoot . '/private/resources/project-resources.json';
     $serverOnly = file_exists($serverIdentityPath) || is_link($serverIdentityPath);
     if ($serverOnly) {
         $expectedProjectId = ServerReleaseIdentity::load($serverRoot)->applicationSlug();
-        if ($explicitPath !== false && trim($explicitPath) !== '' && $explicitPath !== $serverRegistryPath) {
-            throw new RuntimeException('server-only APP 不允许读取外部资源登记');
+        if ($explicitPath !== false && trim($explicitPath) !== '') {
+            throw new RuntimeException('server-only APP 不允许通过环境变量读取外部资源登记');
         }
-        $path = $serverRegistryPath;
+        if (file_exists($instanceRegistryPath) || is_link($instanceRegistryPath)) {
+            if (!is_file($instanceRegistryPath) || is_link($instanceRegistryPath)) {
+                throw new RuntimeException('实例资源登记不可用');
+            }
+            $path = $instanceRegistryPath;
+        } else {
+            $path = $serverRegistryPath;
+        }
     } else {
         if (file_exists($serverRegistryPath) || is_link($serverRegistryPath)) {
             throw new RuntimeException('server 资源登记缺少 release identity');
