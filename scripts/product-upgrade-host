@@ -86,7 +86,8 @@ jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" --arg phase "$phase
   and (.database_recovery_required | type == "boolean")
   and (.migration_completed | type == "boolean")
   and (.activation_started | type == "boolean")
-  and (.evidence | type == "object")
+  # PHP encodes the initial empty evidence map as []; populated phases use an object.
+  and (.evidence | type == "object" or (type == "array" and length == 0))
 ' "$state_path" >/dev/null || die 'product-upgrade state binding or active phase is invalid'
 
 package_manifest="$package_root/upgrade-manifest.json"
