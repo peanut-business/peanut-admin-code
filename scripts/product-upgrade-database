@@ -105,6 +105,14 @@ function upgradeDatabaseReconcile(string $root): array
     $exitCode = proc_close($process);
     $result = is_string($stdout) ? json_decode(trim($stdout), true) : null;
     if ($exitCode !== 0 || !is_array($result) || isset($result['error'])) {
+        fwrite(STDERR, sprintf(
+            "PRODUCT_UPGRADE_MODULE_RECONCILE_DIAGNOSTIC:exit=%d;stdout_bytes=%d;stdout_sha256=%s;json_error=%s;result_type=%s\n",
+            $exitCode,
+            is_string($stdout) ? strlen($stdout) : 0,
+            is_string($stdout) ? hash('sha256', $stdout) : 'none',
+            json_last_error_msg(),
+            get_debug_type($result),
+        ));
         $error = is_array($result) ? ($result['error'] ?? null) : null;
         $code = is_string($error) && preg_match('/^[A-Z][A-Z0-9_]{0,95}$/D', $error) === 1
             ? $error : 'UNKNOWN';
