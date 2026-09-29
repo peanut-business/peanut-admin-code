@@ -717,14 +717,17 @@ health_phase() {
   [[ "$php_container" =~ ^[a-f0-9]{64}$ ]] || die 'running PHP service identity is unavailable'
   runtime_receipt="$(docker exec "$php_container" cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)"
   [[ "$(cat "$current_receipt")" == "$runtime_receipt" ]] || die 'host and PHP runtime receipts differ'
+  prepared_images="$(prepared_payload | jq -c '.prepared_target.images')"
   jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" --arg commit "$source_commit" --arg tree "$source_tree" \
+    --argjson activated "$activated" --argjson prepared_images "$prepared_images" \
     --arg php "$(jq -r '.php.image_id' <<<"$identities")" \
     --arg nginx "$(jq -r '.nginx.image_id' <<<"$identities")" \
     --arg pc "$(jq -r '.pc.image_id' <<<"$identities")" '
     .protocol == "peanut.product-upgrade-runtime-receipt.v1"
     and .upgrade_package.candidate == $candidate and .upgrade_package.plan_sha256 == $plan
     and .release.commit == $commit and .release.tree == $tree
-    and .images == {php:$php,nginx:$nginx,pc:$pc}
+    and .images == $prepared_images and .images.php == $php
+    and (if $activated then .images.nginx == $nginx and .images.pc == $pc else true end)
   ' "$current_receipt" >/dev/null || die 'runtime receipt or image binding differs from the upgrade plan'
   runtime_digest="$(printf '%s\n%s\n' "$(sha256sum "$current_receipt")" "$(jq -S . <<<"$identities")" | sha256sum | awk '{print "sha256:" $1}')"
   emit "$(jq -n --arg candidate "$candidate" --arg commit "$source_commit" --arg tree "$source_tree" \
