@@ -132,6 +132,26 @@
         "cleanup_responsibility": "productization-20260922 removes only its own labelled tooling container/image after evidence capture"
       },
       {
+        "stable_resource_id": "peanut-admin-product-linux-host-buildx",
+        "purpose": "Task-owned Linux upgrade host with the digest-pinned Docker Buildx CLI plugin for isolated product qualification",
+        "environments": ["development-test", "qualification"],
+        "owner": "productization-20260922",
+        "host": "Docker Desktop local engine",
+        "port": null,
+        "database": null,
+        "schema": null,
+        "namespace": "peanut-product-linux-host:20260929-buildx; image sha256:eeaccb907de96ef2ccb407d9171d5831fe64afc4fb03af6c5846eb979f68b92a",
+        "service_type": "Task-owned extension of peanut-admin-product-linux-host with Docker Buildx CLI plugin",
+        "version": "base image sha256:c4660283f6233de33b72ad103ecc1832a492be02205acf54b68f2d5749dfe9ec; docker:29.8.0-cli@sha256:eccaacfeed644c7de222ff047483568cb988dde95476fbaaf10ea2d04921bb66; Buildx 0.37.0",
+        "credential_ref": "none; local Docker socket is a privileged tool connection, no remote credentials",
+        "data_source": "task-owned .local/tmp/m4-plan-repair-20260929/linux-host-buildx/Dockerfile sha256:193391e568ebe3dcc179d36b03ca8115df374b755b94470b1c9ec16928f1f18f, exact P0 base and pinned Docker CLI upstream",
+        "freshness_requirement": "verify image ID and Docker/Buildx/Compose versions before use; exact task-owned mounts and active exclusive lease",
+        "health_check": "Docker CLI/Buildx/Compose versions and shared engine identity",
+        "fallback": "none",
+        "lifecycle": "retain for this M4 qualification while needed; no published or production use",
+        "cleanup_responsibility": "productization-20260922 removes only this task-owned image/container after evidence capture and qualification"
+      },
+      {
         "stable_resource_id": "peanut-admin-product-docker29",
         "purpose": "Isolated product candidate image, database and recovery qualification",
         "environments": ["development-test", "qualification"],

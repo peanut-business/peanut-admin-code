@@ -102,12 +102,13 @@ function upgradeDatabaseReconcile(string $root): array
     }
     $stdout = stream_get_contents($pipes[1]);
     fclose($pipes[1]);
-    if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
-    }
-    $result = json_decode(trim($stdout), true, 128, JSON_THROW_ON_ERROR);
-    if (!is_array($result) || isset($result['error'])) {
-        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
+    $exitCode = proc_close($process);
+    $result = is_string($stdout) ? json_decode(trim($stdout), true) : null;
+    if ($exitCode !== 0 || !is_array($result) || isset($result['error'])) {
+        $error = is_array($result) ? ($result['error'] ?? null) : null;
+        $code = is_string($error) && preg_match('/^[A-Z][A-Z0-9_]{0,95}$/D', $error) === 1
+            ? $error : 'UNKNOWN';
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED:' . $code);
     }
     return $result;
 }

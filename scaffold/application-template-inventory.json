@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "4.0.0-dev.6",
+    "template_version": "4.0.0-dev.7",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -867,7 +867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "306a65514a1926423a3748845f3fd9605daeeb1e8d59070938bf697b451ceedb"
+            "source_sha256": "95aa28bec33f0153223805bad8e2761bc6924e4e47e9c5e0e5d77561ef15fc11"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -3430,7 +3430,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b5aad6bd5a164517038b747da1e60bc92e8860120ba9c023835464b7a3ae3ab"
+            "source_sha256": "cfdb84b91431b72d9f19b707f0cc97818db23ba927429b161997891c0b44e441"
         },
         {
             "path": "scripts/product-upgrade-host",
@@ -3444,7 +3444,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6d4c05efc5ca7d69531caf9ff3725d6afe8b105e63936fedabb260a2818c9d91"
+            "source_sha256": "bdadade9cb2f6b0573d23b39366d444e0015d0ece88f883d34def9bde1521eea"
         },
         {
             "path": "scripts/project-codegraph",
@@ -6267,7 +6267,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70644d5fd4f54c09cc4d4c04e0fedb3b8f938663d327222e2fa4a47cfce1a162"
+            "source_sha256": "e227a2727af2970ccb69647405172ceccfc6c203088765e64db6049e47aa9b9a"
         },
         {
             "path": "server/app/command/PluginMake.php",

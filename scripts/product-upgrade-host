@@ -343,7 +343,7 @@ prepare_phase() {
     "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$receipt_b64" docker compose "${compose_environment[@]}" \
     -p "$compose_project" -f "$prepared_root/compose.yaml" --profile bundled-db)
   "${compose_target[@]}" config >/dev/null
-  "${compose_target[@]}" build pc php nginx
+  "${compose_target[@]}" build pc php nginx >&2
   php_id="$(docker image inspect --format '{{.Id}}' "$php_image")"
   nginx_id="$(docker image inspect --format '{{.Id}}' "$nginx_image")"
   pc_id="$(docker image inspect --format '{{.Id}}' "$pc_image")"

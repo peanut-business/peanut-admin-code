@@ -24,11 +24,13 @@ final class PluginLock extends ContextualCommand
     protected function handle(Input $input, Output $output): int
     {
         try {
-            $this->assertSourceAuthoringAccess();
             $write = (bool) $input->getOption('write');
             $check = (bool) $input->getOption('check');
             if ($write === $check) {
                 throw new PluginArtifactToolException('Specify exactly one of --write or --check.');
+            }
+            if ($write) {
+                $this->assertSourceAuthoringAccess();
             }
             $writer = new PluginArtifactWriter(dirname(__DIR__, 2));
             $result = $write ? $writer->writeLock() : $writer->checkLock();
