@@ -2818,10 +2818,9 @@
           "pc_optional": "peanut-product-q01-multi-pc-1"
         },
         "images": {
-          "php": "sha256:8581171c50e72013d9a17d384f6e373002f2fc64a260581dcf75c9fb38f7937e",
-          "php_base": "sha256:3e5b9a72be1f576593dca61f221ac75bd90752695c90dbf34e51f0d31ca39a3b",
-          "nginx": "sha256:5ddbd7f6823a3b8cbab39dde47757c6a86893ccc20b1186b0b8c6d425ff96348",
-          "pc_optional": "sha256:8e3d34c8d46c28a7ec3306182bc17d9933e8ca97c0b0241070f20258e8b8a14e"
+          "php": "sha256:cdab056627c6ea77c43d0f70392b12da68c612d8b774b7564d1fea3d545d3c15",
+          "nginx": "sha256:ba177c9a69a82517f43dfd770591c0292bafa4ed631b04e62dc567fb9c8deaf5",
+          "pc_optional": "sha256:b407277e34d4909bd0b5bb8114404d6f09f06b74f073abdae19098ef3444d7f9"
         },
         "network": "peanut-product-q01-multi_default",
         "volumes": [
@@ -2831,7 +2830,7 @@
           "peanut-product-q01-multi_php-private-storage"
         ],
         "credential_ref": ".local/productization/private/q01-multi.json and q01-multi.env plus task-owned mode-0600 server environment; no values in registry",
-        "data_source": "internal N archive sha256:18aa3b400068d04609134138fb44fbf47a40bbff8e08245834a26128a1bb3599; PHP base uses the one-line Core ZIP COPY repair in Code 7731965d; task PHP runtime adds only instance-owned Q01 database registration sha256:ee7191ceae6ad05a332ff3a1d19f524ecca6c38cc917e4b034eb41649a79a9b8",
+        "data_source": "internal N archive sha256:5744c37e2608064fb3f41c91ad00c22d1f10ffa70481098601a99d57f00a6618 from Code 31e0b193f676811242a5ffd170e1a1a3206c0a02; PHP, Nginx and PC image labels carry the same source commit and tree 45a84f61a44784900553d7eca89624613cec985d; prior failed N data and volumes preserved in task evidence backup",
         "freshness_requirement": "exact Q01 project, containers, network, volumes, loopback port and synthetic schemas absent before claim-bound creation; image IDs and source labels match; no shared or production mounts",
         "health_check": "Compose labels and image IDs, php/nginx health, loopback GET /healthz, credential-backed exact Q01 schema checks",
         "fallback": "none",
