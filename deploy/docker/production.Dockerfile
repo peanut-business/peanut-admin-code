@@ -75,6 +75,7 @@ FROM composer:2.10.2 AS composer-deps
 
 WORKDIR /build/server
 COPY server/composer.json server/composer.lock ./
+COPY packages/ /build/packages/
 COPY server/app app
 COPY server/database/schema database/schema
 RUN composer install \

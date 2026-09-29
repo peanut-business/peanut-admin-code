@@ -506,7 +506,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24779b05233dabb0bd504c5a1c5838324529d684e43fa1a9daab69071f146b51"
+            "source_sha256": "83df838f64f9ac0ad76fcce34abb5ad4d5a36083969ab488fc7c73c50dbad732"
         },
         {
             "path": "deploy/docker/read-backend-enum.sh",
@@ -867,7 +867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ad93b733d84b52ee6ccea57e9cc7f3372ab131d5951bff0ef581e2d7d4e65479"
+            "source_sha256": "88b2bb433eacdcc1a0380b450e46cd78003d7a68a797094423e4fad2c3a4cded"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
