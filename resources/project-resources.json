@@ -814,6 +814,27 @@
         "fallback": "none; the release signing key and published UPGRADE_TRUSTED_KEYS.json are not substitutes",
         "lifecycle": "temporary until the M4 internal qualification is completed or abandoned",
         "cleanup_responsibility": "productization-20260922 removes only this task key after downstream evidence no longer needs it; do not remove the release key"
+      },
+      {
+        "stable_resource_id": "peanut-admin-m4-r1-internal-signing-key",
+        "purpose": "Sign the new 4.0.0-dev.2 internal M4 target after the Docker build repair",
+        "environments": ["development-test", "qualification"],
+        "owner": "productization-20260922",
+        "host": "mac2020.local",
+        "port": null,
+        "database": null,
+        "schema": null,
+        "namespace": "m4-r1-internal-20260929",
+        "service_type": "Ed25519 task signing authority",
+        "version": "Ed25519 / libsodium",
+        "public_key_source": "/Users/xing/Documents/peanut/peanut-admin-code/.local/evidence/m4-r1-target-20260929/trusted-public-keys.json; passed only to the isolated qualification instance",
+        "credential_ref": "/Users/xing/Documents/peanut/peanut-admin-code/.local/productization/private/m4-r1-internal-ed25519-secret.base64",
+        "data_source": "new task-local M4-R1 qualification keypair; not a release or published trust key",
+        "freshness_requirement": "bind the new key ID and derived public-key fingerprint to the committed 4.0.0-dev.2 target and a new exclusive lease before signing",
+        "health_check": "PHP sodium verifies the private file is regular, non-symlink, mode 0600, decodes to 64 bytes and derives the public key recorded in task evidence without printing the private key",
+        "fallback": "none; neither the old M4-P2 key nor the release signing key may substitute",
+        "lifecycle": "temporary until this M4-R1 qualification is completed or abandoned",
+        "cleanup_responsibility": "productization-20260922 removes only this task key after downstream evidence no longer needs it; do not remove the release key or M4-P2 evidence"
       }
     ],
     "databases": [
