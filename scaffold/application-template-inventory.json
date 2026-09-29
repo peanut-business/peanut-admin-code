@@ -23753,6 +23753,34 @@
             "source_sha256": "7f8b6685c91655a995eacc62c548892a10c421f2f8ee40078650fd6b59e26b0e"
         },
         {
+            "path": "server/docker/scripts/update-plan.php",
+            "target": "server/docker/scripts/update-plan.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c835156be6a65d1d377ab08479968ce753d43717704491fc8b7a818ad7810a80"
+        },
+        {
+            "path": "server/docker/scripts/update.sh",
+            "target": "server/docker/scripts/update.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "338b442a94531b36a436408945ab5e820bd06ff312070128ea6c95e9a160ee32"
+        },
+        {
             "path": "server/extend/.gitignore",
             "target": "server/extend/.gitignore",
             "classification": "managed",
@@ -27040,6 +27068,19 @@
         {
             "path": "server/tests/Productization/ServerReleaseRuntimeIdentityTest.php",
             "target": "server/tests/Productization/ServerReleaseRuntimeIdentityTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ServerUpdatePlanTest.php",
+            "target": "server/tests/Productization/ServerUpdatePlanTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
