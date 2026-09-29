@@ -88,7 +88,7 @@ function upgradeDatabaseFiles(string $package, array $plan): array
 }
 
 /** @return array<string,mixed> */
-function upgradeDatabaseReconcile(string $root): array
+function upgradeDatabaseReconcile(string $root, array $childEnvironment): array
 {
     $pipes = [];
     $process = proc_open(
@@ -96,6 +96,7 @@ function upgradeDatabaseReconcile(string $root): array
         [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => STDERR],
         $pipes,
         $root . '/server',
+        $childEnvironment,
     );
     if (!is_resource($process)) {
         throw new RuntimeException('PRODUCT_UPGRADE_MODULE_RECONCILE_FAILED');
@@ -113,11 +114,6 @@ function upgradeDatabaseReconcile(string $root): array
             json_last_error_msg(),
             get_debug_type($result),
         ));
-        if (is_string($stdout) && $stdout !== '') {
-            fwrite(STDERR, 'PRODUCT_UPGRADE_MODULE_RECONCILE_OUTPUT:'
-                . json_encode(substr($stdout, 0, 1024), JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES)
-                . PHP_EOL);
-        }
         $error = is_array($result) ? ($result['error'] ?? null) : null;
         $code = is_string($error) && preg_match('/^[A-Z][A-Z0-9_]{0,95}$/D', $error) === 1
             ? $error : 'UNKNOWN';
@@ -144,6 +140,11 @@ if ($actualOptions !== ['application-root', 'package', 'plan']) {
 }
 
 try {
+    // The backend guard loads managed values into this process; the child must load its own file.
+    $childEnvironment = getenv();
+    if (!is_array($childEnvironment)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_ENVIRONMENT_INVALID');
+    }
     $root = realpath($options['application-root']);
     if (!is_string($root) || !is_dir($root) || is_link($root)) {
         throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_APPLICATION_INVALID');
@@ -177,7 +178,7 @@ try {
     $statuses = $runner->statuses($ids);
     $module = null;
     if ($operation === 'apply') {
-        $module = upgradeDatabaseReconcile($root);
+        $module = upgradeDatabaseReconcile($root, $childEnvironment);
         $statuses = $runner->statuses($ids);
     }
     if ($operation === 'verify') {
