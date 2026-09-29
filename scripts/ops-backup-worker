@@ -178,7 +178,8 @@ release_key="$(jq -r 'if .protocol == "peanut.deployment-receipt.v1" then .relea
 
 mysql_mount="$(sudo -n docker volume inspect peanut-admin_mysql-data --format '{{.Mountpoint}}')"
 storage_mount="$(sudo -n docker volume inspect peanut-admin_php-storage --format '{{.Mountpoint}}')"
-source_bytes="$(( $(sudo -n du -sb "$mysql_mount" | awk '{print $1}') + $(sudo -n du -sb "$storage_mount" | awk '{print $1}') ))"
+private_storage_mount="$(sudo -n docker volume inspect peanut-admin_php-private-storage --format '{{.Mountpoint}}')"
+source_bytes="$(( $(sudo -n du -sb "$mysql_mount" | awk '{print $1}') + $(sudo -n du -sb "$storage_mount" | awk '{print $1}') + $(sudo -n du -sb "$private_storage_mount" | awk '{print $1}') ))"
 required_bytes="$(( source_bytes * 2 + 1073741824 ))"
 available_bytes="$(df -PB1 "$project_root" | awk 'NR==2 {print $4}')"
 available_inodes="$(df -Pi "$project_root" | awk 'NR==2 {print $4}')"
@@ -216,12 +217,15 @@ failure_code='OPS_BACKUP_DATABASE_FAILED'
 
 failure_code='OPS_BACKUP_FILES_FAILED'
 sudo -n tar --one-file-system --numeric-owner -C "$storage_mount" -czf "$backup_dir/php-storage.tar.gz" .
+sudo -n tar --one-file-system --numeric-owner -C "$private_storage_mount" -czf "$backup_dir/php-private-storage.tar.gz" .
 completed_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
 
 database_bytes="$(sudo -n stat -c %s "$backup_dir/database.sql.gz")"
 files_bytes="$(sudo -n stat -c %s "$backup_dir/php-storage.tar.gz")"
+private_files_bytes="$(sudo -n stat -c %s "$backup_dir/php-private-storage.tar.gz")"
 database_sha="$(sudo -n sha256sum "$backup_dir/database.sql.gz" | awk '{print $1}')"
 files_sha="$(sudo -n sha256sum "$backup_dir/php-storage.tar.gz" | awk '{print $1}')"
+private_files_sha="$(sudo -n sha256sum "$backup_dir/php-private-storage.tar.gz" | awk '{print $1}')"
 
 failure_code='OPS_BACKUP_MANIFEST_INVALID'
 jq -c -n \
@@ -234,18 +238,19 @@ jq -c -n \
   --argjson images "$image_json" \
   --argjson database_bytes "$database_bytes" --arg database_sha "$database_sha" \
   --argjson files_bytes "$files_bytes" --arg files_sha "$files_sha" \
-  '{schema_version:1,backup_reference_key:$backup_reference_key,provider_key:$provider_key,
+  --argjson private_files_bytes "$private_files_bytes" --arg private_files_sha "$private_files_sha" \
+  '{schema_version:2,backup_reference_key:$backup_reference_key,provider_key:$provider_key,
     source:{commit:$commit,tree:$tree,release_key:(if $release_key=="" then null else $release_key end)},
     resources:{deployment:"peanut-admin-production-deployment",database:"peanut-admin-production-bundled-mysql84",application:"peanut-admin-production-application-containers",backup:"peanut-admin-production-backups"},
-    runtime:{compose_project:"peanut-admin",compose_file:"compose.yaml",compose_profile:"bundled-db",database_name:"peanut_admin",storage_volume:"peanut-admin_php-storage",images:$images},
+    runtime:{compose_project:"peanut-admin",compose_file:"compose.yaml",compose_profile:"bundled-db",database_name:"peanut_admin",public_storage_volume:"peanut-admin_php-storage",private_storage_volume:"peanut-admin_php-private-storage",images:$images},
     consistency_window:{mode:"application-write-quiescence",started_at:$started_at,completed_at:$completed_at},
     capacity_preflight:{source_bytes:$source_bytes,required_bytes:$required_bytes,available_bytes:$available_bytes,available_inodes:$available_inodes},
-    artifacts:[{kind:"database",filename:"database.sql.gz",bytes:$database_bytes,sha256:$database_sha},{kind:"files",filename:"php-storage.tar.gz",bytes:$files_bytes,sha256:$files_sha}],
+    artifacts:[{kind:"database",filename:"database.sql.gz",bytes:$database_bytes,sha256:$database_sha},{kind:"public_files",filename:"php-storage.tar.gz",bytes:$files_bytes,sha256:$files_sha},{kind:"private_files",filename:"php-private-storage.tar.gz",bytes:$private_files_bytes,sha256:$private_files_sha}],
     responsibility:{retention_owner:"peanut.production-deployment",cleanup_owner:"peanut.production-deployment",restore_owner:"peanut.production-recovery"}}' \
   | sudo -n tee "$backup_dir/manifest.json" >/dev/null
 
 failure_code='OPS_BACKUP_INTEGRITY_FAILED'
-sudo -n bash -c 'cd "$1" && sha256sum database.sql.gz php-storage.tar.gz manifest.json > SHA256SUMS && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz && tar -tzf php-storage.tar.gz >/dev/null' bash "$backup_dir"
+sudo -n bash -c 'cd "$1" && sha256sum database.sql.gz php-storage.tar.gz php-private-storage.tar.gz manifest.json > SHA256SUMS && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz && tar -tzf php-storage.tar.gz >/dev/null && tar -tzf php-private-storage.tar.gz >/dev/null' bash "$backup_dir"
 resume_stack
 curl -fsS http://127.0.0.1:18092/healthz >/dev/null
 

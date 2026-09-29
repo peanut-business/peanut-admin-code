@@ -9,16 +9,17 @@ use DateTimeImmutable;
 use InvalidArgumentException;
 
 /**
- * Versioned, path-free contract for one verified database/files backup pair.
+ * Versioned, path-free contract for one verified database and two storage archives.
  *
  * Artifact bytes remain owned by a trusted deployment adapter. This value
  * object accepts only their safe identity and integrity projection.
  */
 final readonly class PairedBackupManifest
 {
-    public const SCHEMA_VERSION = 1;
+    public const SCHEMA_VERSION = 2;
     public const DATABASE_ARTIFACT = 'database.sql.gz';
-    public const FILES_ARTIFACT = 'php-storage.tar.gz';
+    public const PUBLIC_FILES_ARTIFACT = 'php-storage.tar.gz';
+    public const PRIVATE_FILES_ARTIFACT = 'php-private-storage.tar.gz';
     private const CAPACITY_HEADROOM_BYTES = 1073741824;
 
     /** @param array<string, mixed> $manifest */
@@ -86,14 +87,19 @@ final readonly class PairedBackupManifest
             'compose_file',
             'compose_profile',
             'database_name',
-            'storage_volume',
+            'public_storage_volume',
+            'private_storage_volume',
             'images',
         ]);
         self::stableKey($runtime['compose_project'] ?? null, 64);
         self::basename($runtime['compose_file'] ?? null);
         self::stableKey($runtime['compose_profile'] ?? null, 64);
         self::databaseName($runtime['database_name'] ?? null);
-        self::storageVolume($runtime['storage_volume'] ?? null);
+        self::storageVolume($runtime['public_storage_volume'] ?? null);
+        self::storageVolume($runtime['private_storage_volume'] ?? null);
+        if ($runtime['public_storage_volume'] === $runtime['private_storage_volume']) {
+            self::invalid();
+        }
         $images = self::images($runtime['images'] ?? null);
 
         $window = self::map($manifest['consistency_window'] ?? null);
@@ -148,7 +154,8 @@ final readonly class PairedBackupManifest
                 'compose_file' => $runtime['compose_file'],
                 'compose_profile' => $runtime['compose_profile'],
                 'database_name' => $runtime['database_name'],
-                'storage_volume' => $runtime['storage_volume'],
+                'public_storage_volume' => $runtime['public_storage_volume'],
+                'private_storage_volume' => $runtime['private_storage_volume'],
                 'images' => $images,
             ],
             'consistency_window' => [
@@ -223,12 +230,13 @@ final readonly class PairedBackupManifest
     /** @return list<array{kind:string,filename:string,bytes:int,sha256:string}> */
     private static function artifacts(mixed $value): array
     {
-        if (!is_array($value) || !array_is_list($value) || count($value) !== 2) {
+        if (!is_array($value) || !array_is_list($value) || count($value) !== 3) {
             self::invalid();
         }
         $expected = [
             ['kind' => 'database', 'filename' => self::DATABASE_ARTIFACT],
-            ['kind' => 'files', 'filename' => self::FILES_ARTIFACT],
+            ['kind' => 'public_files', 'filename' => self::PUBLIC_FILES_ARTIFACT],
+            ['kind' => 'private_files', 'filename' => self::PRIVATE_FILES_ARTIFACT],
         ];
         $normalized = [];
         foreach ($value as $index => $artifact) {

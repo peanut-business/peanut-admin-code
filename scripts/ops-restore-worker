@@ -159,6 +159,7 @@ failure_code='OPS_RESTORE_ARTIFACT_INVALID'
   sudo -n sha256sum -c SHA256SUMS >/dev/null
   sudo -n gzip -t database.sql.gz
   sudo -n tar -tzf php-storage.tar.gz >/dev/null
+  sudo -n tar -tzf php-private-storage.tar.gz >/dev/null
 )
 sudo -n cat "$backup_dir/manifest.json" \
   | "${think[@]}" verify-manifest --task-key "$task_key" --revision "$execution_revision" >/dev/null
@@ -166,7 +167,7 @@ jq -e \
   --arg reference "$backup_reference_key" \
   --arg commit "$source_commit" \
   --arg tree "$source_tree" \
-  '.schema_version == 1
+  '.schema_version == 2
    and .backup_reference_key == $reference
    and .provider_key == "peanut.paired-db-files"
    and .source.commit == $commit
@@ -176,14 +177,21 @@ jq -e \
    and .resources.application == "peanut-admin-production-application-containers"
    and .resources.backup == "peanut-admin-production-backups"
    and .runtime.database_name == "peanut_admin"
-   and .runtime.storage_volume == "peanut-admin_php-storage"
-   and ([.artifacts[].filename] | sort) == ["database.sql.gz", "php-storage.tar.gz"]' \
+   and .runtime.public_storage_volume == "peanut-admin_php-storage"
+   and .runtime.private_storage_volume == "peanut-admin_php-private-storage"
+   and ([.artifacts[].filename] | sort) == ["database.sql.gz", "php-private-storage.tar.gz", "php-storage.tar.gz"]' \
   "$backup_dir/manifest.json" >/dev/null
+for artifact in database.sql.gz php-storage.tar.gz php-private-storage.tar.gz; do
+  expected_sha="$(jq -r --arg filename "$artifact" '.artifacts[] | select(.filename == $filename) | .sha256' "$backup_dir/manifest.json")"
+  actual_sha="$(sudo -n sha256sum "$backup_dir/$artifact" | awk '{print $1}')"
+  [[ "$actual_sha" == "$expected_sha" ]] || false
+done
 
 target_root='/www/docker/peanut-admin/restore-verification'
 target_container='peanut-admin-restore-verify-mysql-1'
 target_mysql_volume='peanut-admin-restore-verify_mysql-data'
 target_storage_volume='peanut-admin-restore-verify_php-storage'
+target_private_storage_volume='peanut-admin-restore-verify_php-private-storage'
 target_network='peanut-admin-restore-verify_default'
 target_database='peanut_admin_restore_verify'
 
@@ -197,8 +205,8 @@ protected_runtime_identity() {
       --format 'container={{.Name}} id={{.Id}} image={{.Image}} status={{.State.Status}}'
   done
   for volume in \
-    peanut-admin_mysql-data peanut-admin_php-storage \
-    peanut-admin-candidate_mysql-data peanut-admin-candidate_php-storage; do
+    peanut-admin_mysql-data peanut-admin_php-storage peanut-admin_php-private-storage \
+    peanut-admin-candidate_mysql-data peanut-admin-candidate_php-storage peanut-admin-candidate_php-private-storage; do
     sudo -n docker volume inspect "$volume" --format 'volume={{.Name}} mount={{.Mountpoint}}'
   done
 }
@@ -212,6 +220,7 @@ failure_code='OPS_RESTORE_TARGET_NOT_EMPTY'
 ! sudo -n docker container inspect "$target_container" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_mysql_volume" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_storage_volume" >/dev/null 2>&1 || false
+! sudo -n docker volume inspect "$target_private_storage_volume" >/dev/null 2>&1 || false
 ! sudo -n docker network inspect "$target_network" >/dev/null 2>&1 || false
 
 mysql_image="$(jq -r '.runtime.images[] | select(.role == "mysql") | .digest' "$backup_dir/manifest.json")"
@@ -226,6 +235,7 @@ sudo -n chmod 0600 "$target_root/mysql-root-password"
 sudo -n docker network create --internal "$target_network" >/dev/null
 sudo -n docker volume create "$target_mysql_volume" >/dev/null
 sudo -n docker volume create "$target_storage_volume" >/dev/null
+sudo -n docker volume create "$target_private_storage_volume" >/dev/null
 
 failure_code='OPS_RESTORE_DATABASE_FAILED'
 sudo -n docker run -d \
@@ -258,6 +268,10 @@ sudo -n gzip -dc "$backup_dir/php-storage.tar.gz" \
   | sudo -n docker run --rm --network none -i \
       --mount "source=$target_storage_volume,target=/restore" \
       --entrypoint tar "$php_image" -xf - -C /restore
+sudo -n gzip -dc "$backup_dir/php-private-storage.tar.gz" \
+  | sudo -n docker run --rm --network none -i \
+      --mount "source=$target_private_storage_volume,target=/restore" \
+      --entrypoint tar "$php_image" -xf - -C /restore
 
 mysql_scalar() {
   sudo -n docker exec "$target_container" sh -c \
@@ -287,6 +301,13 @@ storage_metrics="$(sudo -n docker run --rm --network none \
 storage_file_count="$(sed -n '1p' <<<"$storage_metrics" | tr -d '[:space:]')"
 storage_bytes="$(sed -n '2p' <<<"$storage_metrics" | tr -d '[:space:]')"
 [[ "$storage_file_count" =~ ^[0-9]+$ && "$storage_bytes" =~ ^[0-9]+$ ]] || false
+private_storage_metrics="$(sudo -n docker run --rm --network none \
+  --mount "source=$target_private_storage_volume,target=/restore,readonly" \
+  --entrypoint sh "$php_image" -c \
+  'find /restore -type f | wc -l; du -sb /restore | cut -f1')"
+private_storage_file_count="$(sed -n '1p' <<<"$private_storage_metrics" | tr -d '[:space:]')"
+private_storage_bytes="$(sed -n '2p' <<<"$private_storage_metrics" | tr -d '[:space:]')"
+[[ "$private_storage_file_count" =~ ^[0-9]+$ && "$private_storage_bytes" =~ ^[0-9]+$ ]] || false
 
 failure_code='OPS_RESTORE_ISOLATION_VIOLATION'
 published_port_count="$(sudo -n docker inspect "$target_container" \
@@ -297,13 +318,14 @@ verified_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
 
 failure_code='OPS_RESTORE_CLEANUP_FAILED'
 sudo -n docker rm -f "$target_container" >/dev/null
-sudo -n docker volume rm "$target_mysql_volume" "$target_storage_volume" >/dev/null
+sudo -n docker volume rm "$target_mysql_volume" "$target_storage_volume" "$target_private_storage_volume" >/dev/null
 sudo -n docker network rm "$target_network" >/dev/null
 sudo -n rm -rf -- "$target_root"
 [[ ! -e "$target_root" ]] || false
 ! sudo -n docker container inspect "$target_container" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_mysql_volume" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_storage_volume" >/dev/null 2>&1 || false
+! sudo -n docker volume inspect "$target_private_storage_volume" >/dev/null 2>&1 || false
 ! sudo -n docker network inspect "$target_network" >/dev/null 2>&1 || false
 
 protected_after_sha256="$(protected_runtime_identity | sort | sha256sum | awk '{print $1}')"
@@ -323,22 +345,26 @@ evidence_json="$(jq -c -n \
   --argjson tenant_member_count "$tenant_member_count" \
   --argjson storage_file_count "$storage_file_count" \
   --argjson storage_bytes "$storage_bytes" \
+  --argjson private_storage_file_count "$private_storage_file_count" \
+  --argjson private_storage_bytes "$private_storage_bytes" \
   --argjson published_port_count "$published_port_count" \
   --arg protected_before_sha256 "$protected_before_sha256" \
   --arg protected_after_sha256 "$protected_after_sha256" \
   --arg verified_at "$verified_at" \
-  '{schema_version:1,backup_reference_key:$backup_reference_key,
+  '{schema_version:2,backup_reference_key:$backup_reference_key,
     provider_key:"peanut.paired-db-files",target_key:"isolated-new-target",
     manifest_sha256:$manifest_sha256,source:{commit:$source_commit,tree:$source_tree},
     target:{deployment_resource_id:"peanut-admin-production-restore-verification-deployment",
       database_resource_id:"peanut-admin-production-restore-verification-mysql84",
       runtime_resource_id:"peanut-admin-production-restore-verification-containers",
       compose_project:"peanut-admin-restore-verify",database_name:"peanut_admin_restore_verify",
-      storage_volume:"peanut-admin-restore-verify_php-storage"},
+      public_storage_volume:"peanut-admin-restore-verify_php-storage",
+      private_storage_volume:"peanut-admin-restore-verify_php-private-storage"},
     verification:{table_count:$table_count,schema_migration_count:$schema_migration_count,
       critical_table_count:$critical_table_count,account_count:$account_count,
       tenant_count:$tenant_count,tenant_member_count:$tenant_member_count,
-      storage_file_count:$storage_file_count,storage_bytes:$storage_bytes},
+      storage_file_count:$storage_file_count,storage_bytes:$storage_bytes,
+      private_storage_file_count:$private_storage_file_count,private_storage_bytes:$private_storage_bytes},
     isolation:{published_port_count:$published_port_count,
       protected_runtime_before_sha256:$protected_before_sha256,
       protected_runtime_after_sha256:$protected_after_sha256},

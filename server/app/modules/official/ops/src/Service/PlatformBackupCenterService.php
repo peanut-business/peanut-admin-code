@@ -6,6 +6,7 @@ namespace PeanutAdmin\Modules\Ops\Service;
 
 use PeanutAdmin\Modules\Ops\Infrastructure\PairedBackupProvider;
 use app\platform\value\ops\PairedBackupManifest;
+use app\platform\value\ops\RestoreVerificationEvidence;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Context\PlatformContext;
@@ -112,14 +113,21 @@ final readonly class PlatformBackupCenterService
     private function latestRestoreVerified(): ?array
     {
         $row = Db::name('ops_restore_evidence')
-            ->field('backup_reference_key,target_key,evidence_sha256,table_count,schema_migration_count,account_count,tenant_count,tenant_member_count,storage_file_count,verified_at')
+            ->field('backup_reference_key,target_key,evidence_sha256,table_count,schema_migration_count,account_count,tenant_count,tenant_member_count,storage_file_count,verified_at,evidence_json')
             ->order('verified_at', 'desc')->order('id', 'desc')->find();
         if (!is_array($row)) {
             return null;
         }
-        if ((string) $row['target_key'] !== PairedBackupProvider::RESTORE_TARGET_KEY
-            || preg_match('/^[a-f0-9]{64}$/D', (string) $row['evidence_sha256']) !== 1
-        ) {
+        try {
+            $evidence = RestoreVerificationEvidence::fromJson((string) $row['evidence_json']);
+            $data = $evidence->toArray();
+            if ((string) $row['target_key'] !== PairedBackupProvider::RESTORE_TARGET_KEY
+                || !hash_equals(hash('sha256', $evidence->canonicalJson()), (string) $row['evidence_sha256'])
+                || !hash_equals($data['backup_reference_key'], (string) $row['backup_reference_key'])
+            ) {
+                throw new \RuntimeException('OPS_RESTORE_EVIDENCE_INVALID');
+            }
+        } catch (Throwable) {
             throw OpsConsoleException::taskUnavailable();
         }
         return [
@@ -133,6 +141,7 @@ final readonly class PlatformBackupCenterService
             'account_count' => (int) $row['account_count'],
             'tenant_member_count' => (int) $row['tenant_member_count'],
             'file_count' => (int) $row['storage_file_count'],
+            'private_file_count' => $data['verification']['private_storage_file_count'],
         ];
     }
 

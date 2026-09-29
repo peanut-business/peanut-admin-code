@@ -2903,7 +2903,7 @@
         },
         "fallback": "none",
         "cleanup_responsibility": "Peanut Admin production deployment owner; no automatic cleanup and destructive cleanup requires an explicit gate",
-        "backup_responsibility": "Peanut Admin production deployment owner archives peanut-admin_php-storage in the same quiesced window as the bundled database dump",
+        "backup_responsibility": "Peanut Admin production deployment owner archives peanut-admin_php-storage and peanut-admin_php-private-storage in the same quiesced window as the bundled database dump",
         "ssr": {
           "service": "pc",
           "internal_port": 3000,
@@ -3045,7 +3045,7 @@
       },
       {
         "stable_resource_id": "peanut-admin-production-restore-verification-containers",
-        "purpose": "single-use isolated MySQL runtime and paired DB/file volumes for restore verification",
+        "purpose": "single-use isolated MySQL runtime and database, public-storage and private-storage volumes for restore verification",
         "environment": "production-restore-verification",
         "owner": "Peanut Admin production recovery owner; scripts/ops-restore-worker",
         "host_resource_id": "peanut-admin-production-restore-verification-deployment",
@@ -3068,13 +3068,14 @@
         "data_source": "verified production backup pair selected by the claimed restore task",
         "persistent_volumes": [
           "peanut-admin-restore-verify_mysql-data",
-          "peanut-admin-restore-verify_php-storage"
+          "peanut-admin-restore-verify_php-storage",
+          "peanut-admin-restore-verify_php-private-storage"
         ],
         "freshness_requirement": "all fixed names and the deployment root must be absent before allocation; image IDs come from the verified manifest; no host port or production/candidate network attachment is permitted",
-        "health_check": "docker inspect fixed container/volumes/network, assert zero published ports, query restored representative data, inspect restored file counts, then prove protected production/candidate resource identity is unchanged",
+        "health_check": "docker inspect fixed container/three volumes/network, assert zero published ports, query restored representative data, inspect public and private restored file counts, then prove protected production/candidate resource identity is unchanged",
         "fallback": "none",
         "lifecycle": "single Gate; remove on successful verification, retain on failure",
-        "cleanup_responsibility": "scripts/ops-restore-worker removes only peanut-admin-restore-verify-mysql-1, the two registered volumes, the registered internal network and the fixed target root after success",
+        "cleanup_responsibility": "scripts/ops-restore-worker removes only peanut-admin-restore-verify-mysql-1, the three registered volumes, the registered internal network and the fixed target root after success; the Peanut Admin production recovery owner retains failed resources for explicit disposition",
         "backup_responsibility": "not applicable; disposable verification resources"
       },
       {
@@ -3584,17 +3585,17 @@
         "data_source": "one immutable paired artifact under /www/docker/peanut-admin/backups resolved by backup_reference_key",
         "qualification_registry_path": "/www/docker/peanut-admin/restore-verification-registry.json",
         "qualification_environment_path": "/www/docker/peanut-admin/.ops/qualification-worker.env",
-        "freshness_requirement": "immediately before each Gate, prove the fixed root, container, two volumes, internal network, qualification registry file and candidate-tagged worker image are absent; capture the observed production and production-candidate protected identities and require the same identities after the Gate",
+        "freshness_requirement": "immediately before each Gate, prove the fixed root, container, three volumes, internal network, qualification registry file and candidate-tagged worker image are absent; capture the observed production and production-candidate protected identities including both storage volumes and require the same identities after the Gate",
         "preflight_checks": {
           "isolation": "the target root, container, volumes and network must be absent; Docker network is internal and the container has zero published ports",
           "source": "manifest, SHA256SUMS, gzip and tar checks pass and the canonical manifest SHA-256 matches pa_ops_backup_evidence",
           "worker_image": "build the exact lease candidate with target php and an OCI revision label; the mode-0600 one-link qualification_environment_path supplies PEANUT_OPS_WORKER_IMAGE, PEANUT_OPS_WORKER_CANDIDATE and the registered qualification registry path before a task CLI starts",
-          "protected_targets": "production and production-candidate container IDs, images, running states and volume mount identities are hashed before and after the Gate and must be identical",
+          "protected_targets": "production and production-candidate container IDs, images, running states and database/public/private volume mount identities are hashed before and after the Gate and must be identical",
           "failure_policy": "do not clean or reuse failed target resources; stop and retain the exact path, container, volumes and network for explicit diagnosis"
         },
         "health_check": {
           "ssh": "ssh -o BatchMode=yes oracle3 'test -d /www/docker/peanut-admin && sudo -n docker info >/dev/null'",
-          "absence": "ssh -o BatchMode=yes oracle3 'sudo -n test ! -e /www/docker/peanut-admin/restore-verification && ! sudo -n docker inspect peanut-admin-restore-verify-mysql-1 >/dev/null 2>&1 && ! sudo -n docker volume inspect peanut-admin-restore-verify_mysql-data peanut-admin-restore-verify_php-storage >/dev/null 2>&1 && ! sudo -n docker network inspect peanut-admin-restore-verify_default >/dev/null 2>&1'",
+          "absence": "ssh -o BatchMode=yes oracle3 'sudo -n test ! -e /www/docker/peanut-admin/restore-verification && ! sudo -n docker inspect peanut-admin-restore-verify-mysql-1 >/dev/null 2>&1 && ! sudo -n docker volume inspect peanut-admin-restore-verify_mysql-data peanut-admin-restore-verify_php-storage peanut-admin-restore-verify_php-private-storage >/dev/null 2>&1 && ! sudo -n docker network inspect peanut-admin-restore-verify_default >/dev/null 2>&1'",
           "success": "pa_ops_restore_evidence row plus absence of the fixed target and unchanged protected-runtime SHA-256"
         },
         "fallback": "none",
@@ -3802,7 +3803,7 @@
     "backups": [
       {
         "stable_resource_id": "peanut-admin-production-backups",
-        "purpose": "paired pre-release bundled MySQL and php-storage backups captured in one application write-quiescence window",
+        "purpose": "pre-release bundled MySQL, public storage and private storage backups captured in one application write-quiescence window",
         "environments": [
           "production"
         ],
@@ -3819,7 +3820,7 @@
         "service_type": "host-filesystem paired backup sets",
         "version": "mysqldump 8.4.11; GNU tar 1.34; gzip 1.10; sha256sum 8.32",
         "credential_ref": "oracle3:/www/docker/peanut-admin/server/.env; DB_ROOT_PASS is translated to MYSQL_ROOT_PASSWORD only for peanut-admin-mysql-1 and is never written to backup artifacts or Git",
-        "data_source": "logical dump of peanut_admin plus archive of Docker volume peanut-admin_php-storage",
+        "data_source": "logical dump of peanut_admin plus archives of Docker volumes peanut-admin_php-storage and peanut-admin_php-private-storage",
         "allocation_state": "registered target; the backups directory was absent on 2026-08-15 and is created with mode 0700 only by an authorized backup gate",
         "execution_context": "all backup_method and integrity_check commands execute on oracle3 under /www/docker/peanut-admin; no artifact is streamed to or retained on the operator workstation",
         "product_contract": {
@@ -3829,8 +3830,8 @@
           "restore_handler_key": "peanut.restore.verify",
           "restore_target_key": "isolated-new-target",
           "maximum_attempts": 1,
-          "manifest_schema_version": 1,
-          "manifest_contract": "server/app/platform/service/ops/PairedBackupManifest.php",
+          "manifest_schema_version": 2,
+          "manifest_contract": "server/app/platform/value/ops/PairedBackupManifest.php",
           "security_boundary": "client input is limited to the registered provider key, opaque backup reference and registered logical restore target; host, database, path, command, credential and retry count remain deployment-owned"
         },
         "backup_id_format": "YYYYmmddTHHMMSSZ-<source_commit_12>",
@@ -3838,10 +3839,11 @@
           "directory": "/www/docker/peanut-admin/backups/<backup_id>",
           "database_dump": "database.sql.gz",
           "php_storage_archive": "php-storage.tar.gz",
+          "php_private_storage_archive": "php-private-storage.tar.gz",
           "manifest": "manifest.json",
           "checksums": "SHA256SUMS"
         },
-        "capacity_requirement": "immediately before backup, available bytes at the target must exceed twice the current mysql-data and php-storage source bytes plus 1 GiB, with sufficient inode headroom",
+        "capacity_requirement": "immediately before backup, available bytes at the target must exceed twice the current mysql-data, php-storage and php-private-storage source bytes plus 1 GiB, with sufficient inode headroom",
         "write_quiescence": {
           "stop": "ssh -o BatchMode=yes oracle3 'cd /www/docker/peanut-admin && sudo -n docker compose -f compose.yaml --profile bundled-db stop --timeout 60 nginx cron php'",
           "verify": "ssh -o BatchMode=yes oracle3 'cd /www/docker/peanut-admin && test \"$(sudo -n docker compose -f compose.yaml --profile bundled-db ps --status running --services | sort)\" = mysql'",
@@ -3852,29 +3854,30 @@
           "prepare": "install -d -m 0700 /www/docker/peanut-admin/backups/<backup_id> before entering the write-quiescence window",
           "database_dump": "cd /www/docker/peanut-admin && sudo -n docker compose -f compose.yaml --profile bundled-db exec -T mysql sh -c 'MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" exec mysqldump --single-transaction --quick --routines --events --triggers --hex-blob --set-gtid-purged=OFF -uroot peanut_admin' | gzip -9 > /www/docker/peanut-admin/backups/<backup_id>/database.sql.gz",
           "php_storage_archive": "sudo -n tar --one-file-system --numeric-owner -C /var/lib/docker/volumes/peanut-admin_php-storage/_data -czf - . > /www/docker/peanut-admin/backups/<backup_id>/php-storage.tar.gz",
-          "checksum_file": "after manifest.json is complete, run sha256sum database.sql.gz php-storage.tar.gz manifest.json > SHA256SUMS from the exact backup directory",
-          "ordering": "prepare target; quiesce and verify application writers; dump database; archive php-storage; write manifest and checksums; verify artifacts; resume services; run origin and public health checks"
+          "php_private_storage_archive": "sudo -n tar --one-file-system --numeric-owner -C /var/lib/docker/volumes/peanut-admin_php-private-storage/_data -czf - . > /www/docker/peanut-admin/backups/<backup_id>/php-private-storage.tar.gz",
+          "checksum_file": "after manifest.json is complete, run sha256sum database.sql.gz php-storage.tar.gz php-private-storage.tar.gz manifest.json > SHA256SUMS from the exact backup directory",
+          "ordering": "prepare target; quiesce and verify application writers; dump database; archive both storage volumes; write manifest and checksums; verify artifacts; resume services; run origin and public health checks"
         },
         "manifest_required_fields": [
           "backup_id and UTC start/completion timestamps",
           "source commit and tree",
           "deployment, database, application and backup stable resource IDs",
           "Compose project, file and profile",
-          "database name and php-storage volume name",
+          "database name and public/private storage volume names",
           "PHP, Nginx and MySQL image references and digests",
           "artifact filenames, byte sizes and SHA-256 digests"
         ],
-        "integrity_check": "from the exact backup directory, run sha256sum -c SHA256SUMS, gzip -t database.sql.gz, and tar -tzf php-storage.tar.gz >/dev/null; SHA256SUMS covers database.sql.gz, php-storage.tar.gz and manifest.json",
+        "integrity_check": "from the exact backup directory, run sha256sum -c SHA256SUMS, gzip -t database.sql.gz, tar -tzf php-storage.tar.gz >/dev/null, and tar -tzf php-private-storage.tar.gz >/dev/null; SHA256SUMS covers database.sql.gz, both storage archives and manifest.json",
         "restore_check": {
-          "artifact_precondition": "the exact paired directory must pass all checksum, gzip and tar checks and its manifest resource IDs must match this production deployment",
-          "policy": "production restore is never part of a routine release and requires an explicit recovery gate; database.sql.gz and php-storage.tar.gz must be restored as one pair",
-          "post_restore": "PC32 verification runs only against peanut-admin-production-restore-verification-deployment: validate schema migration and representative Account/Tenant/TenantMember rows, restore the paired file volume, assert zero listeners and unchanged active targets, then remove only the successful isolated target; production recovery remains a separate explicitly authorized action"
+          "artifact_precondition": "the exact database/public/private directory must pass all checksum, gzip and tar checks and its manifest resource IDs must match this production deployment",
+          "policy": "production restore is never part of a routine release and requires an explicit recovery gate; database.sql.gz and both storage archives must be restored together",
+          "post_restore": "PC32 verification runs only against peanut-admin-production-restore-verification-deployment: validate schema migration and representative Account/Tenant/TenantMember rows, restore both file volumes, assert zero listeners and unchanged active targets including private storage, then remove only the successful isolated target; production recovery remains a separate explicitly authorized action"
         },
-        "freshness_requirement": "each production update uses a new backup ID from the exact pre-update source commit; all four artifacts and checks must complete before the application write-quiescence window ends",
+        "freshness_requirement": "each production update uses a new backup ID from the exact pre-update source commit; the database, two storage archives, manifest, checksums and checks must complete before the application write-quiescence window ends",
         "health_check": {
           "capacity": "ssh -o BatchMode=yes oracle3 'df -Pk /www/docker/peanut-admin && df -Pi /www/docker/peanut-admin'",
           "tools": "ssh -o BatchMode=yes oracle3 'command -v tar gzip sha256sum && cd /www/docker/peanut-admin && sudo -n docker compose -f compose.yaml --profile bundled-db exec -T mysql mysqldump --version'",
-          "source_bindings": "ssh -o BatchMode=yes oracle3 'sudo -n docker volume inspect peanut-admin_mysql-data peanut-admin_php-storage'"
+          "source_bindings": "ssh -o BatchMode=yes oracle3 'sudo -n docker volume inspect peanut-admin_mysql-data peanut-admin_php-storage peanut-admin_php-private-storage'"
         },
         "fallback": "none",
         "lifecycle": "persistent until explicit cleanup approval",
