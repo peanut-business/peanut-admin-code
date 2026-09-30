@@ -350,6 +350,11 @@ def public_assets(build: Path, target: Path) -> dict:
                 if FORBIDDEN.intersection(path.relative_to(source).parts):
                     raise ValueError('browser build contains an installed dependency/cache')
                 continue
+            # Vite's manifest is server/build-tool metadata. It is intentionally
+            # generated for build consumers, but it is not a browser-public asset.
+            # Keep the exception exact so arbitrary hidden output still fails closed.
+            if asset == '.vite/manifest.json':
+                continue
             if not allowed_source(asset) or PurePosixPath(asset).parts[0] in {'storage', 'private', 'server', 'scripts'} \
                     or any(x.startswith('.') for x in PurePosixPath(asset).parts) \
                     or re.search(r'\.(?:php[0-9]*|phtml|phar|cgi|pl|py|sh)(?:\.|$)', asset, re.I):
