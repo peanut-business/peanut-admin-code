@@ -249,14 +249,17 @@ class PackagingFilesTest(unittest.TestCase):
 
     def test_vite_manifest_is_excluded_but_other_hidden_browser_assets_are_rejected(self):
         build=self.asset_tree();pack.snapshot(self.source,self.out,True)
-        metadata=build/'web/dist/.vite/manifest.json';metadata.parent.mkdir();metadata.write_text('{}')
+        metadata=build/'web/dist/.vite';metadata.mkdir()
+        for name in ('manifest.json','manifest.json.gz','manifest.json.br'):
+            (metadata/name).write_text('{}')
         assets=pack.public_assets(build,self.out)
-        self.assertNotIn('server/public/admin/.vite/manifest.json',assets)
-        self.assertFalse((self.out/'server/public/admin/.vite/manifest.json').exists())
+        for name in ('manifest.json','manifest.json.gz','manifest.json.br'):
+            self.assertNotIn('server/public/admin/.vite/'+name,assets)
+            self.assertFalse((self.out/'server/public/admin/.vite'/name).exists())
 
         hidden_out=self.root/'hidden-output'
-        (build/'web/dist/.secret.json').write_text('{}')
-        with self.assertRaisesRegex(ValueError,r'non-public browser asset: \.secret\.json'):
+        (metadata/'other.json.gz').write_text('{}')
+        with self.assertRaisesRegex(ValueError,r'non-public browser asset: \.vite/other\.json\.gz'):
             pack.public_assets(build,hidden_out)
 
     def test_browser_php_and_dependency_folders_are_rejected(self):
