@@ -144,7 +144,7 @@ $tmpRoot = $projectRoot . '/.local/tmp';
 if (!is_dir($tmpRoot) && !mkdir($tmpRoot, 0700, true) && !is_dir($tmpRoot)) {
     throw new RuntimeException('cannot create checkout-local temporary root');
 }
-    $root = $tmpRoot . '/server-update-plan-' . bin2hex(random_bytes(6));
+$root = $tmpRoot . '/server-update-plan-' . bin2hex(random_bytes(6));
 mkdir($root, 0700);
 
 try {
@@ -156,8 +156,10 @@ try {
     } finally {
         umask($previousUmask);
     }
-    updatePlanExpect((fileperms($durablePath) & 0777) === 0600,
-        'durable private file must remain 0600 under permissive caller umask');
+    updatePlanExpect(
+        (fileperms($durablePath) & 0777) === 0600,
+        'durable private file must remain 0600 under permissive caller umask',
+    );
     $currentFiles = [
         'server/app/a.txt' => "old\n",
         'server/app/remove.txt' => "remove\n",
@@ -204,23 +206,31 @@ try {
     );
     $trafficPermit = $applyInstance . '/server/runtime/upgrade/.traffic-ready';
     $initialTraffic = PeanutServerUpdatePlan::initializeTraffic($applyInstance . '/server');
-    updatePlanExpect(($initialTraffic['status'] ?? null) === 'open' && is_file($trafficPermit),
-        'fresh known instance may initialize persistent public traffic permission');
+    updatePlanExpect(
+        ($initialTraffic['status'] ?? null) === 'open' && is_file($trafficPermit),
+        'fresh known instance may initialize persistent public traffic permission',
+    );
     $beginJournal = PeanutServerUpdatePlan::begin($applyInstance . '/server', $applyWorkspace);
     updatePlanExpect(($beginJournal['status'] ?? null) === 'applying', 'begin must publish an applying journal');
-    updatePlanExpect(!file_exists($trafficPermit) && !is_link($trafficPermit),
-        'begin must revoke public traffic permission before program mutation');
+    updatePlanExpect(
+        !file_exists($trafficPermit) && !is_link($trafficPermit),
+        'begin must revoke public traffic permission before program mutation',
+    );
     updatePlanExpect(is_file($applyInstance . '/server/runtime/upgrade/maintenance.json'), 'begin must persist maintenance before file apply');
     $activeTraffic = PeanutServerUpdatePlan::initializeTraffic($applyInstance . '/server');
-    updatePlanExpect(($activeTraffic['status'] ?? null) === 'closed' && !file_exists($trafficPermit),
-        'PHP startup during active update must not restore public permission');
+    updatePlanExpect(
+        ($activeTraffic['status'] ?? null) === 'closed' && !file_exists($trafficPermit),
+        'PHP startup during active update must not restore public permission',
+    );
     $markerPath = $applyInstance . '/server/runtime/upgrade/maintenance.json';
     $activeMarkerBytes = (string) file_get_contents($markerPath);
     unlink($markerPath);
     symlink('missing-maintenance-target', $markerPath);
     $danglingTraffic = PeanutServerUpdatePlan::initializeTraffic($applyInstance . '/server');
-    updatePlanExpect(($danglingTraffic['status'] ?? null) === 'closed' && !file_exists($trafficPermit),
-        'dangling maintenance link must not restore public permission');
+    updatePlanExpect(
+        ($danglingTraffic['status'] ?? null) === 'closed' && !file_exists($trafficPermit),
+        'dangling maintenance link must not restore public permission',
+    );
     unlink($markerPath);
     upgradePlanFixtureFile($markerPath, $activeMarkerBytes, 0600);
     updatePlanExpect((string) file_get_contents($applyInstance . '/server/app/a.txt') === "old\n", 'begin must not change program files');
@@ -290,17 +300,25 @@ try {
     $terminalPointer['status'] = 'completed';
     upgradePlanFixtureJson($applyInstance . '/server/runtime/upgrade/current-update.json', $terminalPointer);
     $terminalTraffic = PeanutServerUpdatePlan::initializeTraffic($applyInstance . '/server');
-    updatePlanExpect(($terminalTraffic['status'] ?? null) === 'closed' && !file_exists($trafficPermit),
-        'restart must keep a terminal pointer closed until its completion is reconciled');
+    updatePlanExpect(
+        ($terminalTraffic['status'] ?? null) === 'closed' && !file_exists($trafficPermit),
+        'restart must keep a terminal pointer closed until its completion is reconciled',
+    );
     $terminalResume = PeanutServerUpdatePlan::begin($applyInstance . '/server', $applyWorkspace);
-    updatePlanExpect(($terminalResume['next_action'] ?? null) === 'verify_activate',
-        'terminal pointer without maintenance must recreate its own verification window');
-    updatePlanExpect(is_file($applyInstance . '/server/runtime/upgrade/maintenance.json'),
-        'terminal pointer resume must restore maintenance before private verification');
+    updatePlanExpect(
+        ($terminalResume['next_action'] ?? null) === 'verify_activate',
+        'terminal pointer without maintenance must recreate its own verification window',
+    );
+    updatePlanExpect(
+        is_file($applyInstance . '/server/runtime/upgrade/maintenance.json'),
+        'terminal pointer resume must restore maintenance before private verification',
+    );
     updatePlanSealFixture($applyInstance . '/server', $applyWorkspace, 'target');
     PeanutServerUpdatePlan::activate($applyInstance . '/server', $applyWorkspace);
-    updatePlanExpect(!file_exists($applyInstance . '/server/runtime/upgrade/current-update.json') && is_file($trafficPermit),
-        'terminal pointer resume must release the pointer and preserve verified public permission');
+    updatePlanExpect(
+        !file_exists($applyInstance . '/server/runtime/upgrade/current-update.json') && is_file($trafficPermit),
+        'terminal pointer resume must release the pointer and preserve verified public permission',
+    );
     upgradePlanFixtureFile($applyInstance . '/server/runtime/upgrade/maintenance.json', $pendingMaintenance, 0600);
     $completedPointer = json_decode($pendingPointer, true, 512, JSON_THROW_ON_ERROR);
     $completedPointer['status'] = 'applied';
@@ -331,23 +349,29 @@ try {
         PeanutServerUpdatePlan::verifyRuntime($applyInstance . '/server', $applyWorkspace, 'target');
         throw new RuntimeException('fixture unexpectedly has native runtime health');
     } catch (Throwable $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'vendor/autoload.php'),
-            'completed pointer must reach native verifier before fixture dependency stops it');
+        updatePlanExpect(
+            str_contains($exception->getMessage(), 'vendor/autoload.php'),
+            'completed pointer must reach native verifier before fixture dependency stops it',
+        );
     } finally {
         restore_error_handler();
     }
     $completedPointer['status'] = 'completed';
     upgradePlanFixtureJson($applyInstance . '/server/runtime/upgrade/current-update.json', $completedPointer);
     $resumeCompletedPointer = PeanutServerUpdatePlan::begin($applyInstance . '/server', $applyWorkspace);
-    updatePlanExpect(($resumeCompletedPointer['next_action'] ?? null) === 'verify_activate',
-        'completed pointer with maintenance must also resume');
+    updatePlanExpect(
+        ($resumeCompletedPointer['next_action'] ?? null) === 'verify_activate',
+        'completed pointer with maintenance must also resume',
+    );
     set_error_handler(static fn(): bool => true);
     try {
         PeanutServerUpdatePlan::verifyRuntime($applyInstance . '/server', $applyWorkspace, 'target');
         throw new RuntimeException('fixture unexpectedly has native runtime health');
     } catch (Throwable $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'vendor/autoload.php'),
-            'completed pointer must reach native verifier before fixture dependency stops it');
+        updatePlanExpect(
+            str_contains($exception->getMessage(), 'vendor/autoload.php'),
+            'completed pointer must reach native verifier before fixture dependency stops it',
+        );
     } finally {
         restore_error_handler();
     }
@@ -485,8 +509,10 @@ try {
     updatePlanSealFixture($interruptedInstance . '/server', $interruptedWorkspace, 'source');
     PeanutServerUpdatePlan::finishRecovery($interruptedInstance . '/server', $interruptedWorkspace);
     updatePlanExpect(!file_exists($interruptedInstance . '/server/runtime/upgrade/maintenance.json'), 'recovery finish must clear maintenance marker');
-    updatePlanExpect(is_file($interruptedInstance . '/server/runtime/upgrade/.traffic-ready'),
-        'verified recovery finish must restore public permission');
+    updatePlanExpect(
+        is_file($interruptedInstance . '/server/runtime/upgrade/.traffic-ready'),
+        'verified recovery finish must restore public permission',
+    );
 
     $unsafeTrafficInstance = $root . '/unsafe-traffic-instance';
     updatePlanWriteServer($unsafeTrafficInstance, '1.0.0', $currentFiles);
@@ -498,11 +524,15 @@ try {
         PeanutServerUpdatePlan::initializeTraffic($unsafeTrafficInstance . '/server');
         throw new RuntimeException('symbolic traffic state was accepted');
     } catch (RuntimeException $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'traffic initialization state'),
-            'unknown traffic initialization state must fail closed');
+        updatePlanExpect(
+            str_contains($exception->getMessage(), 'traffic initialization state'),
+            'unknown traffic initialization state must fail closed',
+        );
     }
-    updatePlanExpect(!file_exists($unsafeTrafficInstance . '/server/runtime/upgrade/.traffic-ready'),
-        'unknown traffic initialization state must revoke old permission');
+    updatePlanExpect(
+        !file_exists($unsafeTrafficInstance . '/server/runtime/upgrade/.traffic-ready'),
+        'unknown traffic initialization state must revoke old permission',
+    );
 
     $invalidStartupInstance = $root . '/invalid-startup-identity';
     updatePlanWriteServer($invalidStartupInstance, '1.0.0', $currentFiles);
@@ -512,8 +542,10 @@ try {
         PeanutServerUpdatePlan::initializeTraffic($invalidStartupInstance . '/server');
         throw new RuntimeException('invalid startup release identity was accepted');
     } catch (JsonException) {
-        updatePlanExpect(!file_exists($invalidStartupInstance . '/server/runtime/upgrade/.traffic-ready'),
-            'invalid startup identity must revoke an earlier public permission before failing');
+        updatePlanExpect(
+            !file_exists($invalidStartupInstance . '/server/runtime/upgrade/.traffic-ready'),
+            'invalid startup identity must revoke an earlier public permission before failing',
+        );
     }
 
     $migrationInstance = $root . '/migration-instance';
@@ -568,19 +600,29 @@ try {
         'server/docker/conf/nginx.conf' => "new-conf\n",
     ]);
     $environmentWorkspace = updatePlanWorkspace($root);
-    $environmentPlan = PeanutServerUpdatePlan::build($environmentInstance . '/server', $environmentArchive,
-        (string) hash_file('sha256', $environmentArchive), $environmentWorkspace);
-    updatePlanExpect(($environmentPlan['requirements']['runtime_environment_changed'] ?? null) === true,
-        'changed runtime environment must retain its plan flag');
+    $environmentPlan = PeanutServerUpdatePlan::build(
+        $environmentInstance . '/server',
+        $environmentArchive,
+        (string) hash_file('sha256', $environmentArchive),
+        $environmentWorkspace,
+    );
+    updatePlanExpect(
+        ($environmentPlan['requirements']['runtime_environment_changed'] ?? null) === true,
+        'changed runtime environment must retain its plan flag',
+    );
     try {
         PeanutServerUpdatePlan::begin($environmentInstance . '/server', $environmentWorkspace);
         throw new RuntimeException('unprepared runtime environment was accepted');
     } catch (RuntimeException $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'runtime environment preparation gate is not implemented'),
-            'runtime environment gate must fail before stop');
+        updatePlanExpect(
+            str_contains($exception->getMessage(), 'runtime environment preparation gate is not implemented'),
+            'runtime environment gate must fail before stop',
+        );
     }
-    updatePlanExpect(!file_exists($environmentInstance . '/server/runtime/upgrade/maintenance.json'),
-        'runtime environment gate must not start maintenance');
+    updatePlanExpect(
+        !file_exists($environmentInstance . '/server/runtime/upgrade/maintenance.json'),
+        'runtime environment gate must not start maintenance',
+    );
     $environmentModeInstance = $root . '/environment-mode-instance';
     updatePlanWriteServer($environmentModeInstance, '1.0.0', $currentFiles + [
         'server/docker/conf/nginx.conf' => "old-conf\n",
@@ -589,16 +631,24 @@ try {
         'server/docker/conf/nginx.conf' => "old-conf\n",
     ], null, ['server/docker/conf/nginx.conf' => 0755]);
     $environmentModeWorkspace = updatePlanWorkspace($root);
-    $environmentModePlan = PeanutServerUpdatePlan::build($environmentModeInstance . '/server', $environmentModeArchive,
-        (string) hash_file('sha256', $environmentModeArchive), $environmentModeWorkspace);
-    updatePlanExpect(($environmentModePlan['requirements']['runtime_environment_changed'] ?? null) === true,
-        'runtime config mode change must not be classified as unchanged');
+    $environmentModePlan = PeanutServerUpdatePlan::build(
+        $environmentModeInstance . '/server',
+        $environmentModeArchive,
+        (string) hash_file('sha256', $environmentModeArchive),
+        $environmentModeWorkspace,
+    );
+    updatePlanExpect(
+        ($environmentModePlan['requirements']['runtime_environment_changed'] ?? null) === true,
+        'runtime config mode change must not be classified as unchanged',
+    );
     try {
         PeanutServerUpdatePlan::begin($environmentModeInstance . '/server', $environmentModeWorkspace);
         throw new RuntimeException('runtime config mode change was accepted');
     } catch (RuntimeException $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'runtime environment preparation gate is not implemented'),
-            'mode-only runtime environment change must fail before stop');
+        updatePlanExpect(
+            str_contains($exception->getMessage(), 'runtime environment preparation gate is not implemented'),
+            'mode-only runtime environment change must fail before stop',
+        );
     }
 
     $collisionInstance = $root . '/collision-instance';
