@@ -173,6 +173,23 @@ createApplicationExpect(
     array_filter(array_keys($inventoryByPath), static fn(string $path): bool => str_starts_with($path, 'output/')) === [],
     'source qualification evidence must not participate in application template identity',
 );
+$releaseVersions = json_decode((string) file_get_contents($root . '/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+$declaredCoreWebArchives = [];
+foreach (($releaseVersions['core_web']['packages'] ?? []) as $identity) {
+    if (is_array($identity) && is_string($identity['archive'] ?? null)) {
+        $declaredCoreWebArchives[] = $identity['archive'];
+    }
+}
+$inventoryCoreWebArchives = array_values(array_filter(
+    array_keys($inventoryByPath),
+    static fn(string $path): bool => str_starts_with($path, 'packages/core-web/') && str_ends_with($path, '.tgz'),
+));
+sort($declaredCoreWebArchives, SORT_STRING);
+sort($inventoryCoreWebArchives, SORT_STRING);
+createApplicationExpect(
+    $inventoryCoreWebArchives === $declaredCoreWebArchives,
+    'generated application inventory must contain exactly the Core Web archives declared by release-versions.json',
+);
 foreach ([
     'README.md' => 'readme',
     'CHANGELOG.md' => 'changelog',

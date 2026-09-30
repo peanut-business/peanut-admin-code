@@ -8,7 +8,33 @@ $output = $root . '/scaffold/application-template-inventory.json';
 require_once $root . '/server/app/common/value/scaffold/VersionContract.php';
 $versions = \app\common\value\scaffold\VersionContract::load($root . '/release-versions.json');
 
-function inventoryGitFiles(string $root): array
+/** @return array<string,true> */
+function declaredCoreWebArchives(\app\common\value\scaffold\VersionContract $versions): array
+{
+    $packages = $versions->coreWebIdentity()['packages'] ?? null;
+    if (!is_array($packages)) {
+        throw new RuntimeException('application inventory Core Web package identity is invalid');
+    }
+    $archives = [];
+    foreach ($packages as $package => $identity) {
+        if (!is_string($package) || !is_array($identity)) {
+            throw new RuntimeException('application inventory Core Web package identity is invalid');
+        }
+        $archive = $identity['archive'] ?? null;
+        if ($archive === null) {
+            continue;
+        }
+        if (!is_string($archive)
+            || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\\.tgz$#D', $archive) !== 1
+            || isset($archives[$archive])) {
+            throw new RuntimeException('application inventory Core Web archive identity is invalid: ' . $package);
+        }
+        $archives[$archive] = true;
+    }
+    return $archives;
+}
+
+function inventoryGitFiles(string $root, array $declaredCoreWebArchives): array
 {
     $command = ['git', '-C', $root, '-c', 'core.quotepath=false', 'ls-files', '--cached', '--others', '--exclude-standard'];
     $pipes = [];
@@ -29,6 +55,11 @@ function inventoryGitFiles(string $root): array
         && $path !== 'SECURITY.md' // Generated applications receive their own declared security template.
         && $path !== 'AGENTS.md' // The generated entry is public; never distribute the maintainer entry.
         && !str_starts_with($path, 'output/')
+        // Local Core Web archives are development inputs only while the active
+        // release identity explicitly declares that exact archive. Registry-backed
+        // product candidates must not inherit stale local tarballs into APP baselines.
+        && (!str_starts_with($path, 'packages/core-web/') || !str_ends_with($path, '.tgz')
+            || isset($declaredCoreWebArchives[$path]))
         && (file_exists($root . '/' . $path) || is_link($root . '/' . $path))));
     sort($files, SORT_STRING);
     return $files;
@@ -404,7 +435,8 @@ function sourceDigest(string $absolute, string $path, string $transform): string
 }
 
 $entries = [];
-foreach (inventoryGitFiles($root) as $path) {
+$coreWebArchives = declaredCoreWebArchives($versions);
+foreach (inventoryGitFiles($root, $coreWebArchives) as $path) {
     $absolute = $root . '/' . $path;
     $templatePrefix = 'server/resources/scaffold-application/';
     $isApplicationTemplate = str_starts_with($path, $templatePrefix) && str_ends_with($path, '.stub');

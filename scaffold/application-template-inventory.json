@@ -908,21 +908,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0be9fce19765bcfa38d9abe3511e04f1a4ca45772a39baa7ade0eaf88a9b9146"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
-            "target": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "53be959861a597374a068d6ae999635d9ba8700534ade858b782fa3dfd1594b2"
+            "source_sha256": "2851b0d541250012d245e94e7d49d4f152d38eb990233622cdb5e04a269aa6a4"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.1.tgz",
@@ -939,20 +925,6 @@
             "source_sha256": "f1220b210e47d7777ff84eb6f3e62031dee1a54f1483f0d6de4a105cb79bbde5"
         },
         {
-            "path": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.0.tgz",
-            "target": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.0.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e88d678afbc54045a1a42f597085ae50c8149a89a6f035d88b68af1e90a15452"
-        },
-        {
             "path": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.1.tgz",
             "target": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.1.tgz",
             "classification": "managed",
@@ -965,20 +937,6 @@
                 "full"
             ],
             "source_sha256": "c8027c201d81df291692d3c299a3f6e683c7a0594581e5b4416417f3ac7a4f10"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-testing-4.0.0-dev.0.tgz",
-            "target": "packages/core-web/peanut-admin-testing-4.0.0-dev.0.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "10ad9c9ba82e22ab9df3176972cb7858fdc30e145a8a411a7dd0f37f33a2e6d6"
         },
         {
             "path": "packages/core-web/peanut-admin-testing-4.0.0-dev.1.tgz",
@@ -995,20 +953,6 @@
             "source_sha256": "f61692fc3a03c61042d0e68ae29a957fdd5615e95384244822ed3ff823a286e4"
         },
         {
-            "path": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
-            "target": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.0.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "431a557157b968f5e2e7569fc01505d8b083be5d0e5507ab80ebaf43e06d7aac"
-        },
-        {
             "path": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.1.tgz",
             "target": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.1.tgz",
             "classification": "managed",
@@ -1023,20 +967,6 @@
             "source_sha256": "892d23223cadf108afad0ec9796c0fbfa8a8942c6c66d50e24b642a6c75cd206"
         },
         {
-            "path": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.0.tgz",
-            "target": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.0.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4a5a686701599f2af0edcbeb95c5ee58a6fac461164afcbe404ec19b54a95e95"
-        },
-        {
             "path": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.1.tgz",
             "target": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.1.tgz",
             "classification": "managed",
@@ -1049,20 +979,6 @@
                 "full"
             ],
             "source_sha256": "a138bcb36878e11f27adce6a93ea3134eaebb84a173d741f245d761a259f67c8"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
-            "target": "packages/core-web/peanut-admin-vue-4.0.0-dev.0.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b1a533b40d55e53aa5979b07b4f5e26d98d934c46f3247832a1e0ca0968e4265"
         },
         {
             "path": "packages/core-web/peanut-admin-vue-4.0.0-dev.1.tgz",
