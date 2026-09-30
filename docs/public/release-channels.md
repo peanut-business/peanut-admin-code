@@ -8,6 +8,8 @@
 
 当前候选的 PHP Core 由 Composer 锁到 `peanut-admin/core` 的明确 Git 提交。Web Core 的六个拆分包由候选发行材料中的本地 `.tgz` 和 SHA-256 固定；公共渠道已有单独的 `4.0.0-rc.N` 发行演练，但这些预发行版没有进入本候选的正式产品锁，不等于正式稳定版已发布。不要把本地候选包描述成公共发行包，也不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。正式包的取得、完整性核对、依赖与首次安装步骤见[安装指南](installation.md)。
 
+产品 GitHub Release 的发布入口是单一脚本 `scripts/publish-github-release`。默认稳定模式只接受不带 `v` 前缀的 `X.Y.Z`，要求存在注释式 tag `vX.Y.Z`，通过 candidate、tag、qualification、`main`、固定依赖和清单绑定检查后，创建正式 GitHub Release 并使用 `--latest`。公开预发行通道不是第二发布器，必须显式传入 `--prerelease`，版本只接受严格 `X.Y.Z-<prerelease>`（例如 `4.0.0-rc.1`），要求注释式 tag `vX.Y.Z-<prerelease>`，通过同一组 Gate 后创建 GitHub prerelease，且不得标记为 latest。稳定模式拒绝预发行版本；预发行模式拒绝稳定版本和非法 SemVer 预发行标识。没有明确授权时，不创建 `main`、tag、GitHub Release 或公开包。
+
 本地非生产验证可以使用候选包内锁定的 Core ZIP。正式交付和生产安装必须从已发布渠道取得相应版本，并核对发行身份与依赖锁；不能把内部候选自带的 Core ZIP 当作正式发布版本。Composer 下载已发布版本时也可能使用 ZIP 分发格式，判定依据是发布来源与版本身份，不是文件扩展名。
 
 正式使用路径是：

@@ -12,7 +12,7 @@ const toolRoot = fileURLToPath(new URL('..', import.meta.url))
 
 const options = {
   tag: '', candidate: '', qualification: '', remote: '', writeLock: '', requireMain: false,
-  staticOnly: false, editionManifests: [], releaseEvidence: '',
+  staticOnly: false, editionManifests: [], releaseEvidence: '', prerelease: false,
 }
 const args = process.argv.slice(2)
 for (let index = 0; index < args.length;) {
@@ -28,16 +28,23 @@ for (let index = 0; index < args.length;) {
     index += 1
     continue
   }
+  if (argument === '--prerelease') {
+    options.prerelease = true
+    index += 1
+    continue
+  }
   if (argument === '--help' || argument === '-h') {
     console.log(`Usage:
   scripts/check-release-consistency --candidate <full-commit> --qualification <summary.json> [--require-main]
   scripts/check-release-consistency --tag vX.Y.Z [--qualification <summary.json>] [--remote origin]
-      [--write-lock <absolute-file>]
+      [--write-lock <absolute-file>] [--prerelease]
   scripts/check-release-consistency --static-only [--edition-manifest <absolute-file>]...
       [--release-evidence <absolute-file>]
 
 The candidate mode is the pre-tag release preflight. The tag mode verifies the
-immutable release identity. --require-main is the final-release gate and
+immutable release identity. Stable tag mode accepts only vX.Y.Z. Prerelease tag
+mode must be explicit with --prerelease and accepts only strict
+vX.Y.Z-<prerelease>. --require-main is the final-release gate and
 requires the candidate to be the current origin/main commit. --write-lock
 requires qualification evidence and creates an external, non-self-referential
 candidate lock. --static-only without evidence is the development check: it
@@ -72,13 +79,24 @@ if (!options.staticOnly && (options.editionManifests.length || options.releaseEv
   console.error('check-release-consistency: Edition and release evidence inputs are only valid with --static-only')
   process.exit(64)
 }
+if (options.prerelease && !options.tag) {
+  console.error('check-release-consistency: --prerelease is only valid with --tag')
+  process.exit(64)
+}
 for (const path of [...options.editionManifests, ...(options.releaseEvidence ? [options.releaseEvidence] : [])]) {
   if (!isAbsolute(path)) {
     console.error('check-release-consistency: static evidence paths must be absolute')
     process.exit(64)
   }
 }
-if (options.tag && !/^v\d+\.\d+\.\d+$/.test(options.tag)) {
+const stableTagPattern = /^v\d+\.\d+\.\d+$/
+const prereleaseIdentifier = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+const prereleaseTagPattern = new RegExp(`^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-${prereleaseIdentifier}(?:\\.${prereleaseIdentifier})*$`)
+if (options.tag && options.prerelease && !prereleaseTagPattern.test(options.tag)) {
+  console.error('check-release-consistency: --prerelease tag must be strict annotated semver such as v2.1.4-rc.1')
+  process.exit(64)
+}
+if (options.tag && !options.prerelease && !stableTagPattern.test(options.tag)) {
   console.error('check-release-consistency: --tag must be an annotated stable tag such as v2.1.4')
   process.exit(64)
 }
@@ -257,6 +275,9 @@ try {
 
 const expectedTag = `v${version}`
 const strictSemver = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+const stableReleaseVersion = /^\d+\.\d+\.\d+$/
+const prereleaseReleaseVersion = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*$/
+const expectedReleaseVersion = options.prerelease ? prereleaseReleaseVersion : stableReleaseVersion
 const historicalV1 = options.tag && versionContract?.schema_version === 1
   && versionContract?.protocol === 'peanut.release-versions.v1'
 const currentV2 = versionContract?.schema_version === 2
@@ -277,7 +298,7 @@ const metadataReleaseVersion = metadataCurrent
   ? (metadataInstanceVersion ?? metadataSourceVersion ?? '')
   : (metadata?.version ?? '')
 if (versionContract && ((!historicalV1 && !currentContract)
-  || !/^\d+\.\d+\.\d+$/.test(contractProductVersion ?? '')
+  || !expectedReleaseVersion.test(contractProductVersion ?? '')
   || contractProductVersion !== (currentContract ? metadataSourceVersion : metadataReleaseVersion)
   || versionContract.scaffold_template !== inventory?.template_version
   || (currentContract && versionContract.generated_instance_default !== inventory?.application?.version)
@@ -315,7 +336,7 @@ if (currentV3) {
     }
   } catch (error) { failures.push(error.message) }
 }
-if (!/^\d+\.\d+\.\d+$/.test(version)) failures.push(`metadata version is invalid: ${version || 'missing'}`)
+if (!expectedReleaseVersion.test(version)) failures.push(`metadata version is invalid for ${options.prerelease ? 'prerelease' : 'stable'} mode: ${version || 'missing'}`)
 if (metadata && metadata.expected_tag !== expectedTag) failures.push(`metadata expected_tag does not match ${expectedTag}`)
 if (options.tag && options.tag !== expectedTag) failures.push(`tag ${options.tag} does not match embedded version ${version}`)
 for (const [path, expected] of Object.entries({

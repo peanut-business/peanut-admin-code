@@ -10,7 +10,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/publish-github-release <version> --qualification <summary.json> \
   --edition-artifacts <absolute-dir> [--edition-baseline] \
-  [--prepare-only] [--output <absolute-dir>]
+  [--prerelease] [--prepare-only] [--output <absolute-dir>]
 
 Creates the deterministic source archive, legal assets, external manifest and
 release notes from annotated tag v<version>. The Edition directory must contain
@@ -19,7 +19,10 @@ except for an explicit first-edition baseline, two signed upgrades, their
 manifests and checksum files for the same commit/tree. The
 qualification summary must be for the exact frozen tag commit/tree. Without
 --prepare-only, publishes the candidate lock and all release assets as one GitHub
-Release after all checks pass.
+Release after all checks pass. Stable mode is the default and accepts only
+X.Y.Z, creates a formal GitHub Release and marks it latest. Prerelease mode must
+be explicitly enabled with --prerelease, accepts only X.Y.Z-<prerelease>, creates
+a GitHub prerelease and never marks it latest.
 EOF
 }
 
@@ -35,9 +38,11 @@ OUTPUT_DIR=''
 QUALIFICATION_FILE=''
 EDITION_ARTIFACTS=''
 EDITION_BASELINE=0
+PRERELEASE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --prepare-only) PREPARE_ONLY=1; shift ;;
+    --prerelease) PRERELEASE=1; shift ;;
     --output) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; OUTPUT_DIR="$2"; shift 2 ;;
     --qualification) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; QUALIFICATION_FILE="$2"; shift 2 ;;
     --edition-artifacts) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; EDITION_ARTIFACTS="$2"; shift 2 ;;
@@ -56,10 +61,27 @@ done
   exit 2
 }
 
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-  printf 'publish-github-release: version must be stable semver without a v prefix\n' >&2
+STABLE_SEMVER='^[0-9]+\.[0-9]+\.[0-9]+$'
+PRERELEASE_SEMVER='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)$'
+if [[ "$PRERELEASE" == 1 ]]; then
+  [[ "$VERSION" =~ $PRERELEASE_SEMVER ]] || {
+    printf 'publish-github-release: prerelease version must be strict semver X.Y.Z-<prerelease> without a v prefix\n' >&2
+    exit 2
+  }
+else
+  [[ "$VERSION" =~ $STABLE_SEMVER ]] || {
+    printf 'publish-github-release: version must be stable semver without a v prefix\n' >&2
+    exit 2
+  }
+fi
+if [[ "$PRERELEASE" == 1 && "$VERSION" =~ $STABLE_SEMVER ]]; then
+  printf 'publish-github-release: --prerelease requires a prerelease semver version\n' >&2
   exit 2
-}
+fi
+if [[ "$PRERELEASE" != 1 && "$VERSION" == *-* ]]; then
+  printf 'publish-github-release: stable mode does not accept prerelease versions\n' >&2
+  exit 2
+fi
 TAG="v$VERSION"
 if [[ -z "$OUTPUT_DIR" ]]; then
   OUTPUT_DIR="$(mktemp -d "/private/tmp/peanut-admin-$VERSION-release.XXXXXX")"
@@ -89,8 +111,12 @@ COMMIT="$(git rev-parse "$TAG^{commit}")"
   printf 'publish-github-release: missing release consistency gate\n' >&2
   exit 1
 }
-"$ROOT_DIR/scripts/check-release-consistency" --tag "$TAG" --qualification "$QUALIFICATION_FILE" \
-  --remote origin --write-lock "$OUTPUT_DIR/RELEASE_CANDIDATE_LOCK.json"
+release_check=("$ROOT_DIR/scripts/check-release-consistency" --tag "$TAG" --qualification "$QUALIFICATION_FILE" \
+  --remote origin --write-lock "$OUTPUT_DIR/RELEASE_CANDIDATE_LOCK.json")
+if [[ "$PRERELEASE" == 1 ]]; then
+  release_check+=(--prerelease)
+fi
+"${release_check[@]}"
 
 if [[ "$PREPARE_ONLY" != 1 ]]; then
   [[ "$COMMIT" == "$(git rev-parse origin/main^{commit})" ]] || {
@@ -357,10 +383,17 @@ fi
 
 release_paths=()
 for file in "${release_files[@]}"; do release_paths+=("$OUTPUT_DIR/$file"); done
+release_flags=(
+  --repo "$REPOSITORY"
+  --verify-tag
+  --title "Peanut Admin v$VERSION"
+  --notes-file "$OUTPUT_DIR/release-notes.md"
+)
+if [[ "$PRERELEASE" == 1 ]]; then
+  release_flags+=(--prerelease)
+else
+  release_flags+=(--latest)
+fi
 gh release create "$TAG" "${release_paths[@]}" \
-  --repo "$REPOSITORY" \
-  --verify-tag \
-  --title "Peanut Admin v$VERSION" \
-  --notes-file "$OUTPUT_DIR/release-notes.md" \
-  --latest
+  "${release_flags[@]}"
 printf 'published=%s\nartifacts=%s\n' "$TAG" "$OUTPUT_DIR"
