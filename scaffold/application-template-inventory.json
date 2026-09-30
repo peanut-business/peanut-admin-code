@@ -908,7 +908,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1e757298cb9d51d2e4fcf90e387174494408d69372ad3134cda747bfe6373284"
+            "source_sha256": "844507bf0effd84138b5cd9309308d2024bfc7af956cea20ed003ac33cb4a646"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -3457,7 +3457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6e555621abec01fa707db38aa03e2d42b97ac7e4c2fe984b7f99dfd6bf73f7d2"
+            "source_sha256": "2aa4887b0ed2516cc9f9df3b35d0c8ee32597066954803fbae5f8eb655966929"
         },
         {
             "path": "scripts/package-release.sh",
@@ -4124,7 +4124,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4591ea9436508a5c430611fae676c75404dcb9dfffdf0e5f413635e04f2b60f9"
+            "source_sha256": "7e3ff9cb5280ea414326ab17b73c752e4e1e9c9c617ff521c2bdc14011877962"
         },
         {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
@@ -4153,6 +4153,20 @@
                 "full"
             ],
             "source_sha256": "e5ca47a646b5abe614919e5c4e772f4b167419dffe74e3004f72af7acb36bf21"
+        },
+        {
+            "path": "scripts/tests/publish_github_release_channel_test.py",
+            "target": "scripts/tests/publish_github_release_channel_test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "970fccf971757eab11a8cf49a9727b11229702479b88f63518f43193dea9e301"
         },
         {
             "path": "scripts/tests/release-dependency-locks-test.mjs",
@@ -16507,7 +16521,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d8de9fb4061c877007710248e4c417306d489fece58682b11f6536707f78421b"
+            "source_sha256": "7d3e6e8240175ec46891cf514b059efa1e0380d09e588980c41240fee90f214a"
         },
         {
             "path": "server/app/modules/official/ops/src/Contract/ModuleTaskExecution.php",
@@ -23739,6 +23753,20 @@
             "source_sha256": "ede55d9be4f30bda73afc0bce0826ec9e7d033ee50817036e2aafc3286fcaa80"
         },
         {
+            "path": "server/docker/scripts/recover.sh",
+            "target": "server/docker/scripts/recover.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "25ed1059f98957daf40a94cee6d882e367e8be9ecc8bb5c0b7891cca9275ace4"
+        },
+        {
             "path": "server/docker/scripts/schedule.sh",
             "target": "server/docker/scripts/schedule.sh",
             "classification": "managed",
@@ -23792,7 +23820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c835156be6a65d1d377ab08479968ce753d43717704491fc8b7a818ad7810a80"
+            "source_sha256": "07443da9e0e134251e047057a64ed138f4ef77034822667fa5bceadc9c716ae4"
         },
         {
             "path": "server/docker/scripts/update.sh",
@@ -23806,7 +23834,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "338b442a94531b36a436408945ab5e820bd06ff312070128ea6c95e9a160ee32"
+            "source_sha256": "9bb25c5e9c2722d3d0368b04f7142dfaeead3b868045e1e9c7f77ca9f5e5f3aa"
         },
         {
             "path": "server/extend/.gitignore",
