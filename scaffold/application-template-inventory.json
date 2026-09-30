@@ -908,7 +908,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "844507bf0effd84138b5cd9309308d2024bfc7af956cea20ed003ac33cb4a646"
+            "source_sha256": "a9544e9ea7f3aa68e5dc80b80b1eb1d4c784b0bc1668ad62e19ef3a9ca4b5a7d"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -3474,6 +3474,19 @@
             "source_sha256": "978a1cf1f4fd99ac822ec91e646bba3f00afcb8bef2c3ccd7fdd56c650b0dff5"
         },
         {
+            "path": "scripts/prepare-product-release-candidate",
+            "target": "scripts/prepare-product-release-candidate",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/product-upgrade-database",
             "target": "scripts/product-upgrade-database",
             "classification": "managed",
@@ -4153,6 +4166,19 @@
                 "full"
             ],
             "source_sha256": "e5ca47a646b5abe614919e5c4e772f4b167419dffe74e3004f72af7acb36bf21"
+        },
+        {
+            "path": "scripts/tests/prepare_product_release_candidate_test.py",
+            "target": "scripts/tests/prepare_product_release_candidate_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "scripts/tests/publish_github_release_channel_test.py",

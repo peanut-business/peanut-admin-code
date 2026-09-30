@@ -228,6 +228,13 @@ foreach (['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/
         "instance customization must remain app-owned: {$customPath}",
     );
 }
+// Preparing the upstream product release is not a generated application's packaging responsibility.
+foreach (['scripts/prepare-product-release-candidate', 'scripts/tests/prepare_product_release_candidate_test.py'] as $maintainerPath) {
+    createApplicationExpect(
+        ($inventoryByPath[$maintainerPath]['classification'] ?? null) === 'excluded',
+        'upstream release preparation must stay maintainer-only: ' . $maintainerPath,
+    );
+}
 // Deployment test fixtures contain maintainer-only target selectors and must not enter apps or upgrade baselines.
 foreach ($inventory['files'] as $entry) {
     if (str_starts_with((string) $entry['path'], 'deploy/tests/')) {

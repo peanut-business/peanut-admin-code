@@ -46,4 +46,24 @@ php /srv/my-app/scripts/upgrade plan \
 一旦开始开放目标写入，工具拒绝用旧备份自动回灌数据库，避免删除已经确认的新业务数据；此时先核现场，再制定数据恢复方案。
 代码恢复与数据库恢复分别判断，不承诺所有 DDL 可逆；未知结果不能用简单重跑冒充幂等。
 
+## 维护者：准备固定公开依赖的产品候选
+
+`scripts/prepare-product-release-candidate` 只用于 Peanut 上游源码仓的隔离发行工作树，不随生成 APP 交付，也不是 APP 自己制包、首次安装或线上更新的入口。APP 继续使用前述 `scripts/package-release.sh`。
+
+执行前固定一个尚未使用的产品版本、PHP Core 和 Web Core 的公开精确版本及各自完整 Git 提交。先运行 `--dry-run` 核对输入与将调用的原生命令；移除该选项才会准备候选：
+
+```sh
+python3 scripts/prepare-product-release-candidate \
+  --version="${PRODUCT_VERSION:?set an unused product prerelease version}" \
+  --core-php-version="${CORE_PHP_VERSION:?set a published exact version}" \
+  --core-php-reference="${CORE_PHP_COMMIT:?set the verified full commit}" \
+  --core-web-version="${CORE_WEB_VERSION:?set a published exact version}" \
+  --core-web-reference="${CORE_WEB_COMMIT:?set the verified full commit}" \
+  --dry-run
+```
+
+实际准备使用原生 Composer、npm 和 pnpm 更新声明及锁，随后核对 PHP 来源、六个 npm 包的公开仓库/`gitHead`/完整性及原生锁。pnpm 未记录 tarball URL 时，不自行拼接下载地址；发行身份使用官方 registry 实际返回的地址。缺来源字段、锁不一致、仍含本地依赖或命令失败时停止；正常可捕获的执行失败会恢复该工具负责的版本文件和锁文件原字节。异常终止或并发修改仍须保留现场并检查，不能把这一恢复视为运行实例的灾备机制。
+
+产品候选版本与生成 APP 的初始版本分别记录，不改写 APP 上游基线。准备结果保留 `technical_qualification.result=pending`；原生冻结安装、四端构建、真实完整包、安装/更新及对应发行资格仍须分别验证。`--dry-run` 不联网验证版本存在；候选准备成功也不创建 tag、发布 Release 或取得部署授权。
+
 具体可用渠道以该发行包的清单为准。开发分支、维护者工作树、私有 Project、临时 Core 压缩包和 CI 产物都不自动成为正式发布渠道。
