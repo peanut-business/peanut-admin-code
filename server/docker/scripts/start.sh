@@ -6,7 +6,7 @@ SERVER_DIR=$(CDPATH= cd -- "$DOCKER_DIR/.." && pwd -P)
 file_links() { stat -f '%l' "$1" 2>/dev/null || stat -c '%h' "$1"; }
 file_mode() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
 [ -f "$DOCKER_DIR/.env" ] && [ ! -L "$DOCKER_DIR/.env" ] && [ "$(file_links "$DOCKER_DIR/.env")" = 1 ] || {
-    echo "server/docker/.env is required; create it from the released orchestration template" >&2
+    echo "server/docker/.env is required; run python3 server/docker/scripts/configure-runtime.py --php-image=<prepared-immutable-image> for a new instance" >&2
     exit 1
 }
 umask 077
@@ -27,7 +27,7 @@ for path in "$SERVER_DIR/private/installation/installed.json" \
     fi
 done
 
-if [ -e "$SERVER_DIR/.env" ]; then
+if [ -e "$SERVER_DIR/.env" ] || [ -L "$SERVER_DIR/.env" ]; then
     [ -f "$SERVER_DIR/.env" ] && [ ! -L "$SERVER_DIR/.env" ] && [ "$(file_links "$SERVER_DIR/.env")" = 1 ] || { echo "server/.env is unsafe" >&2; exit 1; }
     mode=$(file_mode "$SERVER_DIR/.env")
     [ "$mode" = "600" ] || { echo "server/.env must have mode 0600" >&2; exit 1; }
@@ -37,6 +37,20 @@ printf '%s' "$php_image" | grep -Eq '^(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9
     echo "PHP_IMAGE must be a prepared immutable image ID" >&2
     exit 1
 }
+# Reject an unknown existing database before preparing or replacing any dependency.
+installed="$SERVER_DIR/private/installation/installed.json"
+root_secret="$DOCKER_DIR/secrets/mysql-root-password"
+if [ ! -f "$root_secret" ] && {
+    [ -e "$installed" ] || [ -L "$installed" ] || {
+        [ -d "$DOCKER_DIR/mysql" ] && [ -n "$(find "$DOCKER_DIR/mysql" ! -path "$DOCKER_DIR/mysql" -print -quit)" ];
+    };
+}; then
+    echo "existing instance or MySQL data has no root secret; refusing to generate a replacement" >&2
+    exit 1
+fi
+if [ -f "$root_secret" ]; then
+    [ "$(file_mode "$root_secret")" = 600 ] || { echo "MySQL root secret must have mode 0600" >&2; exit 1; }
+fi
 mkdir -p "$SERVER_DIR/runtime"
 "$SCRIPT_DIR/prepare-vendor.sh" start "$SERVER_DIR" "$php_image"
 

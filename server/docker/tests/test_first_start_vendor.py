@@ -113,6 +113,7 @@ sys.exit(0)
         self.assertTrue(any(p.name.startswith("vendor-stage-") for p in (self.server / "runtime").iterdir()))
 
     def test_installed_damaged_vendor_cannot_be_renamed(self):
+        write(self.server / "docker/secrets/mysql-root-password", b"synthetic-existing-secret", 0o600)
         write(self.server / "private/installation/installed.json", b"original")
         write(self.server / "vendor/broken.php", b"old bytes")
         result = self.run_start()
@@ -120,6 +121,24 @@ sys.exit(0)
         self.assertIn("maintenance", result.stderr)
         self.assertEqual((self.server / "vendor/broken.php").read_bytes(), b"old bytes")
         self.assertEqual(self.commands(), [])
+
+    def test_existing_database_without_root_secret_stops_before_dependency_work(self):
+        write(self.server / "docker/mysql/ibdata1", b"existing-db")
+        write(self.server / "vendor/broken.php", b"old bytes")
+        result = self.run_start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no root secret", result.stderr)
+        self.assertEqual(self.commands(), [])
+        self.assertEqual((self.server / "vendor/broken.php").read_bytes(), b"old bytes")
+        self.assertFalse((self.server / "runtime").exists())
+
+    def test_dangling_backend_environment_stops_before_dependency_work(self):
+        (self.server / ".env").symlink_to("missing-backend-environment")
+        result = self.run_start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("server/.env is unsafe", result.stderr)
+        self.assertEqual(self.commands(), [])
+        self.assertTrue((self.server / ".env").is_symlink())
 
     def test_protected_and_linked_paths_are_rejected(self):
         extra = [{"path": "server/private/installation/secret.json", "sha256": "0" * 64, "mode": 0o644}]
