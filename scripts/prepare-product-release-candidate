@@ -2,8 +2,10 @@
 """Prepare a product prerelease candidate from public registry Core packages.
 
 The script intentionally derives Composer/npm identities from native manifests
-and lockfiles after running the package managers.  It does not accept tarball
-URLs, SRI values, or lock provenance as command-line strings.
+and lockfiles after running the package managers. Loose tarball/SRI strings are
+not accepted. A coordinator-bound, read-only Web Core package evidence file may
+supply the same registry metadata when direct npm metadata reads are unavailable;
+native npm/pnpm lock generation and lock-vs-registry verification still run.
 """
 from __future__ import annotations
 
@@ -292,7 +294,57 @@ def official_web_repository(value: Any) -> bool:
             and parsed.path in ("/peanut-business/peanut-admin-core-web", "/peanut-business/peanut-admin-core-web.git"))
 
 
-def read_core_web(expected_version: str, expected_reference: str) -> dict[str, Any]:
+def read_web_package_evidence(path: Path, expected_sha256: str, expected_version: str,
+                              expected_reference: str) -> dict[str, dict[str, str]]:
+    if (not path.is_absolute() or path.is_symlink() or not path.is_file()
+            or path.resolve() != path):
+        fail("Web Core package evidence must be an absolute real regular file")
+    if path.stat().st_mode & 0o222:
+        fail("Web Core package evidence must be read-only")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+        fail("Web Core package evidence SHA-256 must be lowercase hex")
+    raw = path.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != expected_sha256:
+        fail("Web Core package evidence bytes changed from the coordinator binding")
+    try:
+        data = json.loads(raw)
+    except ValueError as error:
+        fail(f"Web Core package evidence is invalid JSON: {error}")
+    required = {"schema_version", "protocol", "repository", "tag", "version", "source_reference",
+                "release_id", "action_run", "packages"}
+    if (not isinstance(data, dict) or set(data) != required
+            or data.get("schema_version") != 1
+            or data.get("protocol") != "peanut.web-core-package-evidence.v1"
+            or data.get("repository") != "peanut-business/peanut-admin-core-web"
+            or data.get("tag") != f"v{expected_version}" or data.get("version") != expected_version
+            or data.get("source_reference") != expected_reference
+            or not isinstance(data.get("release_id"), int) or data["release_id"] < 1
+            or not isinstance(data.get("action_run"), int) or data["action_run"] < 1):
+        fail("Web Core package evidence identity differs")
+    records = data.get("packages")
+    if not isinstance(records, dict) or set(records) != set(CORE_WEB_PACKAGES):
+        fail("Web Core package evidence package set differs")
+    registry: dict[str, dict[str, str]] = {}
+    for name in CORE_WEB_PACKAGES:
+        item = records.get(name)
+        if not isinstance(item, dict) or set(item) != {
+                "version", "repository", "source_reference", "gitHead", "tarball", "integrity"}:
+            fail(f"Web Core package evidence record shape differs: {name}")
+        repository = item.get("repository")
+        tarball = item.get("tarball")
+        integrity = item.get("integrity")
+        validate_integrity(integrity, f"evidence:{name}")
+        if (item.get("version") != expected_version or item.get("source_reference") != expected_reference
+                or item.get("gitHead") != expected_reference or not official_web_repository(repository)
+                or not registry_tarball(tarball)):
+            fail(f"Web Core package evidence metadata differs: {name}")
+        registry[name] = {"version": expected_version, "resolved": tarball, "integrity": integrity,
+                          "repository": repository, "gitHead": expected_reference}
+    return registry
+
+
+def read_core_web(expected_version: str, expected_reference: str,
+                  registry_packages: dict[str, dict[str, str]] | None = None) -> dict[str, Any]:
     packages: dict[str, dict[str, str]] = {}
     for name in CORE_WEB_PACKAGES:
         observations = []
@@ -304,7 +356,8 @@ def read_core_web(expected_version: str, expected_reference: str) -> dict[str, A
                 if client == "web"
                 else npm_lock_package(client, name, expected_version)
             )
-        registry = npm_registry_package(name, expected_version)
+        registry = (registry_packages[name] if registry_packages is not None
+                    else npm_registry_package(name, expected_version))
         if not official_web_repository(registry.get("repository")):
             fail(f"npm registry repository is missing or wrong for {name}")
         if registry.get("gitHead") != expected_reference:
@@ -412,7 +465,8 @@ def check_inputs(product_version: str) -> None:
 
 
 def prepare(product_version: str, core_php_version: str, core_php_reference: str,
-            core_web_version: str, core_web_reference: str) -> None:
+            core_web_version: str, core_web_reference: str,
+            core_web_package_evidence: tuple[Path, str] | None = None) -> None:
     check_inputs(product_version)
     # Native package managers may fail after writing a lock. Restore every owned input byte on failure.
     originals = {path: (ROOT / path).read_bytes() if (ROOT / path).exists() else None for path in PREPARED_FILES}
@@ -423,7 +477,11 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
             update_package_version(ROOT / path, product_version)
         run_native_lock_updates(False)
         core_php = read_core_php(core_php_version, core_php_reference)
-        core_web = read_core_web(core_web_version, core_web_reference)
+        registry_packages = (read_web_package_evidence(
+            core_web_package_evidence[0], core_web_package_evidence[1],
+            core_web_version, core_web_reference,
+        ) if core_web_package_evidence is not None else None)
+        core_web = read_core_web(core_web_version, core_web_reference, registry_packages)
         update_release_versions(product_version, core_php, core_web)
         update_release_metadata(product_version, core_php, core_web)
     except BaseException:
@@ -443,6 +501,8 @@ def main() -> None:
     parser.add_argument("--core-php-reference", required=True)
     parser.add_argument("--core-web-version", required=True)
     parser.add_argument("--core-web-reference", required=True)
+    parser.add_argument("--core-web-package-evidence", type=Path)
+    parser.add_argument("--core-web-package-evidence-sha256")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -455,6 +515,19 @@ def main() -> None:
         fail("Core PHP source reference must be a full lowercase SHA")
     if not re.fullmatch(r"[0-9a-f]{40}", args.core_web_reference):
         fail("Core Web source reference must be a full lowercase SHA")
+    if (args.core_web_package_evidence is None) != (args.core_web_package_evidence_sha256 is None):
+        fail("Web Core package evidence path and SHA-256 must be supplied together")
+    core_web_package_evidence = None
+    if args.core_web_package_evidence is not None:
+        if not re.fullmatch(r"[0-9a-f]{64}", args.core_web_package_evidence_sha256):
+            fail("Web Core package evidence SHA-256 must be lowercase hex")
+        read_web_package_evidence(
+            args.core_web_package_evidence,
+            args.core_web_package_evidence_sha256,
+            core_web_version,
+            args.core_web_reference,
+        )
+        core_web_package_evidence = (args.core_web_package_evidence, args.core_web_package_evidence_sha256)
 
     check_inputs(product_version)
     if args.dry_run:
@@ -466,7 +539,7 @@ def main() -> None:
 
     preflight_tools()
     prepare(product_version, core_php_version, args.core_php_reference,
-            core_web_version, args.core_web_reference)
+            core_web_version, args.core_web_reference, core_web_package_evidence)
 
 
 if __name__ == "__main__":

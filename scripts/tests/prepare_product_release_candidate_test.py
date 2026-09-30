@@ -35,6 +35,7 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         candidate.ROOT = self.root
         self.addCleanup(lambda: setattr(candidate, "ROOT", self.old_root))
         self.addCleanup(lambda: setattr(candidate, "npm_registry_package", self.old_registry))
+        self.evidence_counter = 0
         for directory in ["server", "web", "platform", "pc", "uniapp"]:
             (self.root / directory).mkdir(parents=True)
 
@@ -117,6 +118,119 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 lock["packages"][f"node_modules/{name}"]["resolved"] = self.registry[name]["resolved"]
             self.write_json(f"{client}/package-lock.json", lock)
 
+    def write_web_evidence(self, mutate=None) -> tuple[Path, str]:
+        self.evidence_counter += 1
+        reference = "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
+        packages = {
+            name: {
+                "version": row["version"],
+                "repository": row["repository"],
+                "source_reference": reference,
+                "gitHead": row["gitHead"],
+                "tarball": row["resolved"],
+                "integrity": row["integrity"],
+            }
+            for name, row in self.registry.items()
+        }
+        value = {
+            "schema_version": 1,
+            "protocol": "peanut.web-core-package-evidence.v1",
+            "repository": "peanut-business/peanut-admin-core-web",
+            "tag": "v4.0.0-rc.4",
+            "version": "4.0.0-rc.4",
+            "source_reference": reference,
+            "release_id": 399110962,
+            "action_run": 36565142424,
+            "packages": packages,
+        }
+        if mutate is not None:
+            mutate(value)
+        path = self.root / f"web-package-evidence-{self.evidence_counter}.json"
+        path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+        path.chmod(0o444)
+        return path, hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def test_bound_web_evidence_supplies_registry_metadata_without_npm_view(self) -> None:
+        self.write_native_locks()
+        path, evidence_sha = self.write_web_evidence()
+        registry = candidate.read_web_package_evidence(
+            path, evidence_sha, "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
+        )
+        with patch.object(candidate, "npm_registry_package", side_effect=AssertionError("npm view must not run")):
+            result = candidate.read_core_web(
+                "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c", registry
+            )
+        self.assertEqual(set(result["packages"]), set(candidate.CORE_WEB_PACKAGES))
+        self.assertEqual(
+            result["packages"]["@peanut-admin/client"]["resolved"],
+            self.registry["@peanut-admin/client"]["resolved"],
+        )
+
+    def test_bound_web_evidence_rejects_relative_and_linked_paths(self) -> None:
+        self.write_native_locks()
+        path, evidence_sha = self.write_web_evidence()
+        with self.assertRaisesRegex(SystemExit, "absolute real regular file"):
+            candidate.read_web_package_evidence(
+                Path(path.name), evidence_sha, "4.0.0-rc.4",
+                "e7e00110b999d5f91ecf7b5861415810a5fcb14c",
+            )
+        linked = self.root / "web-package-evidence-link.json"
+        linked.symlink_to(path)
+        with self.assertRaisesRegex(SystemExit, "absolute real regular file"):
+            candidate.read_web_package_evidence(
+                linked, evidence_sha, "4.0.0-rc.4",
+                "e7e00110b999d5f91ecf7b5861415810a5fcb14c",
+            )
+
+    def test_bound_web_evidence_rejects_writable_hash_package_source_and_integrity_changes(self) -> None:
+        self.write_native_locks()
+        path, evidence_sha = self.write_web_evidence()
+        path.chmod(0o644)
+        with self.assertRaisesRegex(SystemExit, "read-only"):
+            candidate.read_web_package_evidence(
+                path, evidence_sha, "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
+            )
+
+        path, evidence_sha = self.write_web_evidence()
+        with self.assertRaisesRegex(SystemExit, "bytes changed"):
+            candidate.read_web_package_evidence(
+                path, "0" * 64, "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
+            )
+
+        mutations = [
+            ("package set differs", lambda value: value["packages"].pop("@peanut-admin/testing")),
+            ("package set differs", lambda value: value["packages"].__setitem__(
+                "@peanut-admin/extra", dict(value["packages"]["@peanut-admin/testing"]))),
+            ("metadata differs", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
+                "source_reference", "0" * 40)),
+            ("metadata differs", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
+                "repository", "git+https://github.com/other/core-web.git")),
+            ("integrity", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
+                "integrity", "sha512-invalid")),
+        ]
+        for expected, mutation in mutations:
+            with self.subTest(expected=expected):
+                path, evidence_sha = self.write_web_evidence(mutation)
+                with self.assertRaisesRegex(SystemExit, expected):
+                    candidate.read_web_package_evidence(
+                        path, evidence_sha, "4.0.0-rc.4",
+                        "e7e00110b999d5f91ecf7b5861415810a5fcb14c",
+                    )
+
+    def test_bound_web_evidence_still_rejects_native_lock_disagreement(self) -> None:
+        self.write_native_locks()
+        path, evidence_sha = self.write_web_evidence()
+        registry = candidate.read_web_package_evidence(
+            path, evidence_sha, "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
+        )
+        lock = candidate.read_json(self.root / "platform/package-lock.json")
+        lock["packages"]["node_modules/@peanut-admin/vue"]["integrity"] = sri("different")
+        self.write_json("platform/package-lock.json", lock)
+        with self.assertRaisesRegex(SystemExit, "native locks disagree"):
+            candidate.read_core_web(
+                "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c", registry
+            )
+
     def test_reads_registry_identity_from_native_locks(self) -> None:
         self.write_native_locks()
         core_php = candidate.read_core_php("4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a")
@@ -126,6 +240,27 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         self.assertEqual(core_web["source_reference"], "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
         self.assertEqual(core_web["packages"]["@peanut-admin/client"]["version"], "4.0.0-rc.4")
         self.assertTrue(core_web["packages"]["@peanut-admin/ui-vue"]["resolved"].startswith("https://registry.npmjs.org/"))
+
+    def test_prepare_uses_bound_evidence_after_native_lock_generation(self) -> None:
+        self.write_manifests()
+        self.write_native_locks()
+        path, evidence_sha = self.write_web_evidence()
+        with patch.object(candidate, "run_native_lock_updates", return_value=None), \
+                patch.object(candidate, "npm_registry_package", side_effect=AssertionError("npm view must not run")):
+            candidate.prepare(
+                "4.0.0-rc.5",
+                "4.0.0-rc.3",
+                "752476a811a5d16ea816d5206e3c03814a81fe6a",
+                "4.0.0-rc.4",
+                "e7e00110b999d5f91ecf7b5861415810a5fcb14c",
+                (path, evidence_sha),
+            )
+        versions = candidate.read_json(self.root / "release-versions.json")
+        self.assertEqual(versions["source_product_version"], "4.0.0-rc.5")
+        self.assertEqual(
+            versions["core_web"]["packages"]["@peanut-admin/client"]["resolved"],
+            self.registry["@peanut-admin/client"]["resolved"],
+        )
 
     def test_rejects_native_lock_disagreement(self) -> None:
         self.write_native_locks()

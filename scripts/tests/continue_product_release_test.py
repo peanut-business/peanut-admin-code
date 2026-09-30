@@ -65,6 +65,7 @@ class ContinuationTest(unittest.TestCase):
         self.publisher_unknown_once = False
         self.deps_fail = False
         self.evidence_counter = 0
+        self.prepare_argv: list[str] | None = None
 
     def repo(self, name: str, remote: str) -> Path:
         path = self.root / name
@@ -171,6 +172,7 @@ class ContinuationTest(unittest.TestCase):
             return self.original_command(argv, cwd=cwd, phase=phase)
         self.calls.append(phase)
         if phase == "prepare":
+            self.prepare_argv = list(argv)
             write_json(self.candidate / "release-versions.json", {"schema_version": 3, "source_product_version": "4.0.0-rc.10"})
         elif phase == "tool-dependencies":
             if self.deps_fail:
@@ -243,6 +245,19 @@ class ContinuationTest(unittest.TestCase):
         git(self.candidate, "add", ".")
         git(self.candidate, "commit", "-qm", "final product")
         return git(self.candidate, "rev-parse", "HEAD")
+
+    def test_prepare_stage_passes_bound_web_evidence_path_and_sha(self) -> None:
+        path = self.web_package_evidence()
+        evidence_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(release.Stop, "inventory"):
+            self.run_flow("--apply", "--core-web-package-evidence", str(path))
+        self.assertIsNotNone(self.prepare_argv)
+        self.assertIn(f"--core-web-package-evidence={path}", self.prepare_argv)
+        self.assertIn(f"--core-web-package-evidence-sha256={evidence_sha}", self.prepare_argv)
+        self.assertEqual(self.state()["inputs"]["core_web_package_evidence"], {
+            "path": str(path),
+            "sha256": evidence_sha,
+        })
 
     def test_command_persists_real_0600_logs_and_terminal_attempts(self) -> None:
         state_path = self.root / "command-receipt" / "phase-state.json"

@@ -618,6 +618,11 @@ def main() -> None:
                    f"--version={args.product_version}", f"--core-php-version={args.core_php_version}",
                    f"--core-php-reference={args.core_php_reference}", f"--core-web-version={args.core_web_version}",
                    f"--core-web-reference={args.core_web_reference}"]
+            if web_package_evidence is not None:
+                cmd.extend([
+                    f"--core-web-package-evidence={web_package_evidence[0]}",
+                    f"--core-web-package-evidence-sha256={web_package_evidence[1]}",
+                ])
             command(cmd, cwd=args.candidate, phase="prepare")
             diff_sha, paths = source_diff(args.candidate, args.source_commit)
             if not paths or not paths.issubset({"server/composer.json", "server/composer.lock", "web/package.json", "web/pnpm-lock.yaml",
