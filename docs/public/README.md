@@ -7,4 +7,4 @@
 - [API 合同与 SDK](api-and-sdk.md)
 - [模块开发与交付](module-development.md)
 
-完整开发源码包保留 APP 根目录的说明、许可证、第三方告知、固定依赖锁、生成的 SDK 类型及现有升级工具。server-only 生产包只含 `server/`，其发行身份、许可证及第三方告知在 `server/.peanut/`，依赖锁在 `server/composer.lock`；升级/恢复入口另行交付。以各包自身的发行清单判断版本，阅读旧发行包自带的旧文档不构成漂移。
+完整开发源码包保留 APP 根目录的说明、许可证、第三方告知、固定依赖锁、生成的 SDK 类型及现有升级工具。server-only 包只含 `server/`，其发行身份、许可证及第三方告知在 `server/.peanut/`，依赖锁在 `server/composer.lock`，首次启动、更新和恢复入口在 `server/docker/scripts/`。以各包自身的发行清单判断版本，阅读旧发行包自带的旧文档不构成漂移。

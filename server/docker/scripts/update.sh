@@ -5,6 +5,24 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 DOCKER_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)
 SERVER_DIR=$(CDPATH= cd -- "$DOCKER_DIR/.." && pwd -P)
 
+docker() {
+    python3 - "$@" <<'PY'
+import hashlib, shutil, subprocess, sys
+binary = shutil.which('docker')
+if binary is None: raise SystemExit('docker CLI is unavailable')
+args = sys.argv[1:]
+limit = 650 if args and args[0] == 'run' else (120 if args and args[0] == 'compose' else 30)
+try:
+    result = subprocess.run([binary, *args], stdout=sys.stdout.buffer, stderr=subprocess.PIPE, timeout=limit)
+except subprocess.TimeoutExpired:
+    print(f'docker command timed out after {limit}s', file=sys.stderr)
+    raise SystemExit(124)
+if result.returncode:
+    print(f'docker command exit={result.returncode}; stderr_sha256={hashlib.sha256(result.stderr).hexdigest()}; stderr_bytes={len(result.stderr)}', file=sys.stderr)
+raise SystemExit(result.returncode)
+PY
+}
+
 usage() {
     printf '%s\n' "Usage:" >&2
     printf '%s\n' "  server/docker/scripts/update.sh plan --archive=/absolute/server.tar.gz --expected-sha256=<trusted-64-hex> --workspace=/absolute/update-workspace" >&2
@@ -43,14 +61,22 @@ workspace_real=$(CDPATH= cd -- "$workspace" && pwd -P)
 [ -f "$DOCKER_DIR/.env" ] && [ ! -L "$DOCKER_DIR/.env" ] || { echo "server/docker/.env is unavailable" >&2; exit 1; }
 
 php_image=$(sed -n 's/^PHP_IMAGE=//p' "$DOCKER_DIR/.env" | tail -n 1)
-printf '%s' "$php_image" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._/@:-]{0,255}$' || {
-    echo "PHP_IMAGE is missing or unsafe" >&2
+printf '%s' "$php_image" | grep -Eq '^(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})$' || {
+    echo "PHP_IMAGE must select a prepared immutable image" >&2
     exit 1
 }
 
-docker image inspect "$php_image" >/dev/null
+for image_key in PHP_IMAGE NGINX_IMAGE MYSQL_IMAGE; do
+    image=$(sed -n "s/^$image_key=//p" "$DOCKER_DIR/.env" | tail -n 1)
+    printf '%s' "$image" | grep -Eq '^(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})$' || {
+        echo "$image_key must select a prepared immutable image" >&2
+        exit 1
+    }
+    docker image inspect "$image" >/dev/null
+done
 
 trusted_tool="$workspace/.trusted-update-plan.php"
+tool_dir="$workspace/.trusted-tools"
 if [ "$command" = plan ]; then
     [ ! -e "$trusted_tool" ] && [ ! -L "$trusted_tool" ] || {
         echo "update workspace already contains a trusted tool" >&2
@@ -58,12 +84,77 @@ if [ "$command" = plan ]; then
     }
     cp "$SCRIPT_DIR/update-plan.php" "$trusted_tool"
     chmod 0600 "$trusted_tool"
+    [ ! -e "$tool_dir" ] && [ ! -L "$tool_dir" ] || { echo "update workspace already contains trusted runtime tools" >&2; exit 1; }
+    mkdir -m 0700 "$tool_dir"
+    cp "$SCRIPT_DIR/prepare-vendor.sh" "$SCRIPT_DIR/vendor-state.py" \
+        "$SCRIPT_DIR/update-preparation.py" "$SCRIPT_DIR/update-recovery.py" \
+        "$SCRIPT_DIR/update-database.php" "$tool_dir/"
+    chmod 0700 "$tool_dir/prepare-vendor.sh"
+    python3 - "$workspace" <<'PY'
+import hashlib, json, os, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+names = ['.trusted-update-plan.php'] + [str(path.relative_to(root)) for path in sorted((root / '.trusted-tools').iterdir())]
+rows = {}
+for name in names:
+    path = root / name
+    if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1: raise SystemExit('trusted tool has unsafe type')
+    rows[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+path = root / '.trusted-tools/manifest.json'
+with path.open('x') as output:
+    os.fchmod(output.fileno(), 0o600)
+    json.dump({'protocol':'peanut.server-update-tools.v1','files':rows}, output, sort_keys=True)
+    output.flush(); os.fsync(output.fileno())
+PY
 else
     [ -f "$trusted_tool" ] && [ ! -L "$trusted_tool" ] || {
         echo "planned trusted update tool is unavailable" >&2
         exit 1
     }
+    [ -d "$tool_dir" ] && [ ! -L "$tool_dir" ] || { echo "trusted runtime tools are unavailable" >&2; exit 1; }
 fi
+
+verify_trusted_tools() {
+    python3 - "$workspace" <<'PY'
+import hashlib, json, pathlib, sys
+root = pathlib.Path(sys.argv[1]); manifest = root / '.trusted-tools/manifest.json'
+if manifest.is_symlink() or not manifest.is_file() or manifest.stat().st_nlink != 1 or manifest.stat().st_mode & 0o777 != 0o600: raise SystemExit('trusted tool manifest is unsafe')
+data = json.loads(manifest.read_text())
+expected = {'.trusted-update-plan.php', '.trusted-tools/prepare-vendor.sh', '.trusted-tools/vendor-state.py', '.trusted-tools/update-preparation.py', '.trusted-tools/update-recovery.py', '.trusted-tools/update-database.php'}
+if data.get('protocol') != 'peanut.server-update-tools.v1' or set(data.get('files', {})) != expected: raise SystemExit('trusted tool manifest is incomplete')
+for name, digest in data['files'].items():
+    path = root / name
+    if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1 or hashlib.sha256(path.read_bytes()).hexdigest() != digest: raise SystemExit('trusted tool bytes changed')
+plan = root / 'plan.json'
+if plan.is_file() and json.loads(plan.read_text()).get('tools_sha256') != hashlib.sha256(manifest.read_bytes()).hexdigest(): raise SystemExit('trusted tools differ from update plan')
+PY
+}
+verify_trusted_tools
+
+prepare_dependencies() {
+    if [ -f "$workspace/preparation.json" ]; then
+        python3 "$tool_dir/update-preparation.py" check --server "$SERVER_DIR" --workspace "$workspace"
+        return
+    fi
+    target="$workspace/prepared/server"
+    if ! cmp -s "$SERVER_DIR/composer.lock" "$target/composer.lock" \
+        || ! cmp -s "$SERVER_DIR/composer.json" "$target/composer.json" \
+        || ! python3 "$tool_dir/vendor-state.py" check --server "$SERVER_DIR" >/dev/null 2>&1; then
+        "$tool_dir/prepare-vendor.sh" prepared "$target" "$php_image"
+    fi
+    python3 "$tool_dir/update-preparation.py" record --server "$SERVER_DIR" --workspace "$workspace"
+}
+
+run_database() {
+    phase=$1
+    mysql_container=$(compose ps -q mysql)
+    [ -n "$mysql_container" ] || { echo "mysql container is unavailable for native migration" >&2; return 1; }
+    docker run --rm --network "container:$mysql_container" \
+        --mount "type=bind,src=$SERVER_DIR,dst=/instance-server,readonly" \
+        --mount "type=bind,src=$SERVER_DIR/runtime,dst=/instance-server/runtime" \
+        --mount "type=bind,src=$workspace,dst=/workspace" \
+        --mount "type=bind,src=$tool_dir/update-database.php,dst=/tool/update-database.php,readonly" \
+        --entrypoint php "$php_image" /tool/update-database.php "$phase" /instance-server /workspace
+}
 
 run_update_tool() {
     phase=$1
@@ -141,7 +232,8 @@ run_private_verifier() {
     php_container=$(compose ps -q php)
     [ -n "$php_container" ] || { echo "php container is unavailable for private verification" >&2; return 1; }
     docker run --rm --network "container:$php_container" \
-        --mount "type=bind,src=$SERVER_DIR,dst=/instance-server" \
+        --mount "type=bind,src=$SERVER_DIR,dst=/instance-server,readonly" \
+        --mount "type=bind,src=$SERVER_DIR/runtime,dst=/instance-server/runtime" \
         --mount "type=bind,src=$trusted_tool,dst=/tool/update-plan.php,readonly" \
         --mount "type=bind,src=$workspace,dst=/workspace" \
         --env PEANUT_SERVER_ENV_FILE=/instance-server/.env \
@@ -162,6 +254,19 @@ compose config --quiet
 
 case "$command" in
     apply)
+        prepare_dependencies
+        if [ -f "$workspace/dependency-switch.json" ]; then
+            switch_status=$(python3 - "$workspace/dependency-switch.json" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1])).get('status', 'invalid'))
+PY
+)
+            if [ "$switch_status" = started ]; then
+                run_update_tool assert-recoverable
+                compose stop --timeout 60 nginx php
+                python3 "$tool_dir/update-preparation.py" switch --server "$SERVER_DIR" --workspace "$workspace"
+            fi
+        fi
         if run_update_tool begin; then
             next_action=apply
         else
@@ -169,12 +274,26 @@ case "$command" in
             case "$begin_code" in
                 10) exit 0 ;;
                 11) next_action=verify_activate ;;
+                12) next_action=migrate ;;
                 *) exit "$begin_code" ;;
             esac
         fi
         if [ "$next_action" = apply ]; then
-            compose stop nginx php
+            compose stop --timeout 60 nginx php
+            if [ ! -f "$workspace/backup.json" ]; then
+                python3 "$tool_dir/update-recovery.py" backup --server "$SERVER_DIR" --workspace "$workspace"
+            else
+                python3 "$tool_dir/update-recovery.py" verify --server "$SERVER_DIR" --workspace "$workspace"
+            fi
+            python3 "$tool_dir/update-preparation.py" switch --server "$SERVER_DIR" --workspace "$workspace"
             run_update_tool apply
+            run_database migrate
+            run_database verify
+        fi
+        if [ "$next_action" = migrate ]; then
+            compose stop --timeout 60 nginx php
+            run_database migrate
+            run_database verify
         fi
         compose up -d --no-build php nginx
         require_maintenance_marker
@@ -184,8 +303,12 @@ case "$command" in
         ;;
     recover)
         run_update_tool assert-recoverable
-        compose stop nginx php
+        compose stop --timeout 60 nginx php
+        if [ -f "$workspace/backup.json" ]; then
+            python3 "$tool_dir/update-recovery.py" restore --server "$SERVER_DIR" --workspace "$workspace"
+        fi
         run_update_tool recover
+        python3 "$tool_dir/update-preparation.py" recover --server "$SERVER_DIR" --workspace "$workspace"
         compose up -d --no-build php nginx
         require_maintenance_marker
         verify_runtime verify-recovered
