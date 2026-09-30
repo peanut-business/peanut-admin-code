@@ -6,7 +6,7 @@
 
 替换正式目录前，在隔离位置用可信渠道给出的归档摘要运行发行工具源码中的 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<trusted-64-hex>`。核验归档 SHA-256、仅含 server 的路径及包内逐文件清单；不能把同目录临时生成的摘要当作可信来源。当前开发候选的依赖仍未固定为正式发布版本，不能以此宣称已有正式生产包。
 
-当前候选的 PHP Core 由 Composer 锁到 `peanut-admin/core` 的明确 Git 提交。Web Core 的六个拆分包由候选发行材料中的本地 `.tgz` 和 SHA-256 固定；公共渠道已有单独的 `4.0.0-rc.N` 发行演练，但这些预发行版没有进入本候选的正式产品锁，不等于正式稳定版已发布。不要把本地候选包描述成公共发行包，也不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。正式包的取得、完整性核对、依赖与首次安装步骤见[安装指南](installation.md)。
+当前开发候选的 PHP Core 由 Composer 锁到 `peanut-admin/core` 的明确 Git 提交，Web Core 六包由候选本地 `.tgz` 和 SHA-256 固定；这不是公共发行包。第一阶段公开产品预发行可在严格核验 Action、Release、Packagist/npm 精确版本、源提交和六包完整性后使用相应的公开 Core 预发行精确版本。稳定正式产品仍要求正式稳定 Core 版本和独立资格。不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。正式包的取得、完整性核对、依赖与首次安装步骤见[安装指南](installation.md)。
 
 产品 GitHub Release 的发布入口是单一脚本 `scripts/publish-github-release`。默认稳定模式只接受不带 `v` 前缀的 `X.Y.Z`，要求存在注释式 tag `vX.Y.Z`，通过 candidate、tag、qualification、`main`、固定依赖和清单绑定检查后，创建正式 GitHub Release 并使用 `--latest`。公开预发行通道不是第二发布器，必须显式传入 `--prerelease`，版本只接受严格 `X.Y.Z-<prerelease>`（例如 `4.0.0-rc.1`），要求注释式 tag `vX.Y.Z-<prerelease>`，通过同一组 Gate 后创建 GitHub prerelease，且不得标记为 latest。稳定模式拒绝预发行版本；预发行模式拒绝稳定版本和非法 SemVer 预发行标识。没有明确授权时，不创建 `main`、tag、GitHub Release 或公开包。
 
@@ -57,6 +57,8 @@ php /srv/my-app/scripts/upgrade plan \
 ## 维护者：准备固定公开依赖的产品候选
 
 `scripts/prepare-product-release-candidate` 只用于 Peanut 上游源码仓的隔离发行工作树，不随生成 APP 交付，也不是 APP 自己制包、首次安装或线上更新的入口。APP 继续使用前述 `scripts/package-release.sh`。
+
+跨仓第一阶段可按[Core 续作入口](../development/core-release.md#第一阶段跨仓续作入口)使用 `scripts/continue-product-release`：默认只读计划；`--apply` 才建立任务输出根的阶段状态并调用现有工具。候选依次完成公开 Core 身份核验、原生锁和候选工具依赖准备、库存生成；维护者审核并提交源码封存，工具从该真实提交生成脚手架/P0-E 来源投影，再审核作最终产品提交。双 Edition 制品与资格都绑定最终 commit/tree，发布仍调用唯一原发布器及原资格门禁。外部发布结果不明时，只对原意图与本地完整附件逐件匹配远端附件 SHA-256 后接受；缺摘要或身份不符即停止人工核对，不重发。APP 消费已公开 P1 包，不依赖此维护者编排或私有 Project。
 
 执行前固定一个尚未使用的产品版本、PHP Core 和 Web Core 的公开精确版本及各自完整 Git 提交。先运行 `--dry-run` 核对输入与将调用的原生命令；移除该选项才会准备候选：
 

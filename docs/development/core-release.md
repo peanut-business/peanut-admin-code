@@ -4,7 +4,7 @@
 
 ## 本次验证结果与适用范围
 
-2026-09-29 的独立演练使用 SemVer 预发行号，而非 npm 不接受的第四个数字段：Git tag 为 `vX.Y.Z-rc.N`，Web 六包版本为 `X.Y.Z-rc.N`。公开演练版本不可复用，也不进入正式产品锁。
+2026-09-29 的独立演练使用 SemVer 预发行号，而非 npm 不接受的第四个数字段：Git tag 为 `vX.Y.Z-rc.N`，Web 六包版本为 `X.Y.Z-rc.N`。已公开的演练版本不可覆盖或重新发布。第一阶段经逐包来源、摘要、Action、Release 和产品资格核验后，可以将精确公开预发行 Core 版本锁入明确标记的产品预发行；稳定正式产品仍要求另行批准的稳定 Core 版本。
 
 | 渠道 | tag 与固定提交 | 自动结果 |
 | --- | --- | --- |
@@ -64,3 +64,22 @@ Web 六包发行不是原子事务。若任务失败，先读该 Action 的失�
 4. PHP `rc.3` 自动发行成功。Web `rc.3` [两次运行](https://github.com/peanut-business/peanut-admin-core-web/actions/runs/36563916223) 验证了同 tag 摘要匹配后的续发，也暴露两分钟 registry 等待不足；公开的部分 `rc.3` 包保留原样。Web `rc.4` 将等待延长后自动发行成功。
 
 真实产品发行时重新核对实时工作流与渠道状态，不把本次演练结果当成未来版本的资格证明。
+
+### 第一阶段跨仓续作入口
+
+`scripts/continue-product-release` 是薄编排：PHP 与 Web Core 的实际发行仍由各仓 `release.yml` 完成；产品依赖更新、Edition 制品及产品发布仍分别使用 `prepare-product-release-candidate`、`build-edition-installers` / `build-edition-upgrades`（内部调用 `package-release.sh`）和 `publish-github-release`。先在独立 Code worktree 固定来源，运行：
+
+```bash
+python3 scripts/continue-product-release \
+  --source=/absolute/clean/code --candidate=/absolute/isolated/code-worktree \
+  --source-commit=<40-hex-code-commit> \
+  --core-php-root=/absolute/clean/php-core --core-php-version=4.0.0-rc.N --core-php-reference=<40-hex> \
+  --core-web-root=/absolute/clean/web-core --core-web-version=4.0.0-rc.N --core-web-reference=<40-hex> \
+  --product-version=4.0.0-rc.N --output=/absolute/task-output --baseline
+```
+
+默认仅输出计划，不建立状态或访问公开渠道。确认批准且来源固定后，原命令加 `--apply`；若确需新 Core tag，仅对相应仓再加 `--approve-core-tag=php` 或 `--approve-core-tag=web`。新 tag 前要求该仓 HEAD 与远端当前 `main` 一致、推送地址正确、该精确 main 提交的 `ci.yml` 手动资格成功、版本清单与 workflow 存在且 tag 不冲突；工具只推送注释 tag，不把源码合入 main。随后每次运行都重新核远端注释 tag、同提交成功的 `release.yml` Action、GitHub Release 的稳定/预发行属性、Packagist 精确来源或六个 npm 精确版本/仓库/`gitHead`/integrity。稳定 Core 也可供已批准的产品预发行复用。任一缺失即停在该 Core 阶段；已有同版本包绝不重新 tag。远端流程尚在运行、部分包公开、公开元数据缺 `gitHead` 等都保持等待/失败状态，检查并等待正规来源证明，不填写“成功”绕过。
+
+两个 Core 均核实后，工具才在隔离候选树调用原生锁准备。主控核 12 个版本/锁文件及 CHANGELOG、法律材料后，以同一命令加 `--apply --generate-inventory` 继续：它在该候选运行 `scripts/project-composer prepare` 与 `install --working-dir=server --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist`，仅为库存/脚手架生成器准备按锁的候选工具依赖；再运行 `php scripts/build-application-template-inventory` 和 `--check`。这不是 APP 冷安装资格。主控审阅完整库存 diff 并在隔离树提交源码封存，再加 `--seal-source-commit=<真实提交>`；工具从该提交调用 `php scripts/build-scaffold-release --version=<产品版本> --source-commit=<封存提交> --output=<候选树/scaffold/releases/v版本>`，按真实 manifest 更新 P0-E 目标来源字段。主控审阅该增量并作第二个真实提交，再加 `--prepared-commit=<最终提交> --build`；这才是构建/资格绑定的产品提交与树。阶段摘要拒绝混入其它源码变化或软链接。首个 Edition 基线使用 `--baseline`；后续版本移除它，补 `--minimum-source-version=<semver> --signing-key-id=<id> --signing-secret-key-file=/absolute/key`。资格完成后补 `--qualification=/absolute/real-summary.json`；现有一致性检查必须以 `--candidate <最终提交> --qualification <文件> --prerelease` 退出 0，包含全部 groups/cleanup。确认产品注释 tag、当前 main 及公开发布授权后才加 `--publish`，发布器自身重跑原门禁。
+
+`<output>/phase-state.json` 以原子替换记录固定输入摘要、阶段命令/返回码、0600 原始日志摘要、公开包及本地文件摘要、失败或等待阶段。重入先复核已成功材料和 Core 公开身份，摘要变化或输入变化拒绝；输出文件锁阻止并发。发布前固定本地意图；若外部结果未知，仅在原输出附件齐全，且远端 Release 的注释 tag、渠道、每个附件名称/大小/SHA-256 与原意图一致时接收，缺 digest 必须人工核对，不重发覆盖。正常完成的 Core 不因后续产品失败撤销。Web 同 tag 部分公开时先核原 tag/当前 main/公开包摘要，仅由 Core 仓受控运行 `gh run rerun <精确失败run_id> --repo peanut-business/peanut-admin-core-web`，本工具不自动 rerun；等待 Action 与六包/Release 三门齐备。状态与离线测试不能代替公开渠道、真实原生冻结安装、四端构建、完整产品资格或发布授权。
