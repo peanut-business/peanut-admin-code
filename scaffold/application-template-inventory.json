@@ -908,7 +908,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9544e9ea7f3aa68e5dc80b80b1eb1d4c784b0bc1668ad62e19ef3a9ca4b5a7d"
+            "source_sha256": "63c5810fd72e84d0a3faa8a6b5ff4c493e6bc0d1a191ba32ac9cff8ae2ef57dc"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -4249,6 +4249,20 @@
                 "full"
             ],
             "source_sha256": "f282e5bc3377a6f777be562b73bd8b922c26ba2906ef23d31f452e829a44ceb8"
+        },
+        {
+            "path": "scripts/tests/server-update-orchestration-test.py",
+            "target": "scripts/tests/server-update-orchestration-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f23f0be4a6cb5b54d5667a06fd6c920d25cad20e84f195fc8b33f5b5421fae3f"
         },
         {
             "path": "scripts/tests/source-layout-test.php",
@@ -23678,7 +23692,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed8657e7d8ca08f49ceb4a2e9737cbf4fecaaeca07bd333424eb066d6166217f"
+            "source_sha256": "89a55580906e966d7366e5b497359e87619141b074ba0724180030d705016ad0"
         },
         {
             "path": "server/docker/conf/crontab",
@@ -23720,7 +23734,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9cb798bd1aec4e526d0815cbd555d48aceed0353c7a2884b9c61d0d7d5b81aa9"
+            "source_sha256": "dc945c22c5bbcba636dc0f1bdd652ad842ed2d4bde82ee4dd76a263274078338"
         },
         {
             "path": "server/docker/conf/php-fpm.conf",
@@ -23762,7 +23776,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1c2725d7e85b3f429967230a6009b0db30a7a65faaa9e9c6df4d1550d4bdd119"
+            "source_sha256": "360f70493f7eeb601c6fac1359e8e17775db6de39bcbfb5360ddf004bc9554f4"
         },
         {
             "path": "server/docker/scripts/provision-database.php",
@@ -23846,7 +23860,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07443da9e0e134251e047057a64ed138f4ef77034822667fa5bceadc9c716ae4"
+            "source_sha256": "56ce96da1e700194402b8472ff8e46e0ab93a351108ef977e48afaa866a0c2d0"
         },
         {
             "path": "server/docker/scripts/update.sh",
@@ -23860,7 +23874,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9bb25c5e9c2722d3d0368b04f7142dfaeead3b868045e1e9c7f77ca9f5e5f3aa"
+            "source_sha256": "c9ed74610cb8b2475c1a843c4808d2de4efd63b517739094c1711d6ad2769200"
         },
         {
             "path": "server/extend/.gitignore",
