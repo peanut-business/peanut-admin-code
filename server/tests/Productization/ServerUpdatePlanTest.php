@@ -265,7 +265,7 @@ try {
     upgradePlanFixtureFile($applyInstance . '/server/.env', "DB_NAME=keep\n", 0600);
     upgradePlanFixtureFile($applyInstance . '/server/app/local-custom.txt', "custom\n", 0600);
     upgradePlanFixtureFile($applyInstance . '/server/public/storage/upload.txt', "upload\n", 0600);
-    upgradePlanFixtureFile($applyInstance . '/server/docker/secrets/mysql-root-password', "secret\n", 0600);
+    upgradePlanFixtureFile($applyInstance . '/server/docker/.env', "MYSQL_ROOT_PASSWORD=secret\n", 0600);
     $applyArchive = updatePlanArchive(
         $root,
         '1.1.0',
@@ -320,7 +320,7 @@ try {
     updatePlanExpect((string) file_get_contents($applyInstance . '/server/.env') === "DB_NAME=keep\n", 'server .env must be preserved');
     updatePlanExpect((string) file_get_contents($applyInstance . '/server/app/local-custom.txt') === "custom\n", 'unknown files must be preserved');
     updatePlanExpect((string) file_get_contents($applyInstance . '/server/public/storage/upload.txt') === "upload\n", 'public storage must be preserved');
-    updatePlanExpect((string) file_get_contents($applyInstance . '/server/docker/secrets/mysql-root-password') === "secret\n", 'docker secrets must be preserved');
+    updatePlanExpect((string) file_get_contents($applyInstance . '/server/docker/.env') === "MYSQL_ROOT_PASSWORD=secret\n", 'private Docker environment must be preserved');
     updatePlanExpect(is_file($applyWorkspace . '/backups/server/app/a.txt'), 'replace backup must include affected old file');
     updatePlanExpect(is_file($applyWorkspace . '/backups/server/app/remove.txt'), 'delete backup must include affected old file');
     updatePlanExpect(!is_file($applyWorkspace . '/backups/server/docker/conf/nginx.conf'), 'unchanged version conf needs no backup');

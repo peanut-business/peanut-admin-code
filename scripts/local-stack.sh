@@ -144,7 +144,6 @@ ensure_env() {
     set_env_value "$backend_env" PEANUT_DEPLOYMENT_TARGET local-development
     set_env_value "$backend_env" DEPLOYMENT_MODE standalone
     set_env_value "$backend_env" DB_PREFIX pa_
-    clear_env_value "$backend_env" DB_ROOT_PASS
     grep -q '^JWT_SECRET=..' "$backend_env" || set_env_value "$backend_env" JWT_SECRET "$(make_secret 32)"
     grep -q '^TENANT_IDENTIFIER_HMAC_KEY=..' "$backend_env" || set_env_value "$backend_env" TENANT_IDENTIFIER_HMAC_KEY "$(make_secret 32)"
     grep -q '^PLATFORM_IDENTIFIER_HMAC_KEY=..' "$backend_env" || set_env_value "$backend_env" PLATFORM_IDENTIFIER_HMAC_KEY "$(make_secret 32)"

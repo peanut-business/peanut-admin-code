@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Create a new instance's non-secret Compose settings; never rewrite an instance."""
+"""Create a new instance's private Compose settings; never rewrite an instance."""
 import argparse
 import ipaddress
 import json
 import os
 from pathlib import Path
 import re
+import secrets
 import sys
 
 IMAGE = re.compile(r"(?:sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})\Z")
@@ -52,9 +53,11 @@ def configure(docker_root, php_image, project=None, http_bind=None, http_port=No
     installed = docker_root.parent / "private/installation"
     if installed.is_symlink() or (installed.exists() and any(installed.iterdir())):
         raise ValueError("installation state already exists; refuse initial configuration")
-    order = ("COMPOSE_PROJECT_NAME", "HTTP_BIND", "HTTP_PORT", "MYSQL_HOST_PORT", "PHP_IMAGE", "NGINX_IMAGE", "MYSQL_IMAGE", "TZ")
-    payload = "# Generated from the public template. Contains no account or database secrets.\n"
+    order = ("COMPOSE_PROJECT_NAME", "HTTP_BIND", "HTTP_PORT", "MYSQL_HOST_PORT", "PHP_IMAGE", "NGINX_IMAGE", "MYSQL_IMAGE")
+    payload = "# Generated from the public template. Private Docker orchestration configuration.\n"
     payload += "".join(key + "=" + str(values[key]) + "\n" for key in order)
+    payload += "MYSQL_ROOT_PASSWORD=" + secrets.token_hex(32) + "\n"
+    payload += "TZ=" + str(values["TZ"]) + "\n"
     target = docker_root / ".env"
     descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:

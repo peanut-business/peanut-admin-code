@@ -9,7 +9,7 @@ def read(path: str) -> str:
     return (DOCKER / path).read_text()
 
 compose = read('compose.yaml')
-service_block = compose.split('\nsecrets:\n', 1)[0]
+service_block = compose
 services = re.findall(r'^  ([a-z][a-z0-9-]*):\n', service_block, re.M)
 assert services == ['php', 'nginx', 'mysql'], services
 assert 'build:' not in compose
@@ -17,7 +17,9 @@ assert './mysql:/var/lib/mysql' in compose
 assert '../:/var/www/peanut-admin/server' in compose
 assert '../public:/var/www/peanut-admin/server/public:ro' in compose
 assert '\n  cron:' not in compose and '\n  redis:' not in compose
-assert 'MYSQL_ROOT_PASSWORD_FILE' in compose
+assert 'MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:' in compose
+assert 'MYSQL_ROOT_PASSWORD' + '_FILE' not in compose
+assert '/run/secrets/mysql-root-password' not in compose
 
 local = read('compose.local.yaml')
 assert '127.0.0.1:${MYSQL_HOST_PORT:-21306}:3306' in local

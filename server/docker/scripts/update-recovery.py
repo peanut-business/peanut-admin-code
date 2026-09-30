@@ -214,7 +214,7 @@ def snapshot_paths(server):
 
 def db_probe(server, database):
     output = compose(server / "docker", "exec", "-T", "mysql", "sh", "-c",
-                     'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" exec mysql -N -B -uroot --database="$1" -e "SELECT @@server_uuid,DATABASE(),@@character_set_database,@@collation_database,(SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE())"',
+                     'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -N -B -uroot --database="$1" -e "SELECT @@server_uuid,DATABASE(),@@character_set_database,@@collation_database,(SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE())"',
                      "sh", database)
     parts = output.split("\t")
     if len(parts) != 5 or not re.fullmatch(r"[a-fA-F0-9-]{36}", parts[0]) or parts[1] != database \
@@ -260,7 +260,7 @@ def backup(args):
     with raw.open("xb") as output:
         os.fchmod(output.fileno(), 0o600)
         compose(docker_dir, "exec", "-T", "mysql", "sh", "-c",
-                'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" exec mysqldump --single-transaction --routines --triggers --events --hex-blob --databases --add-drop-database -uroot -- "$1"',
+                'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --routines --triggers --events --hex-blob --databases --add-drop-database -uroot -- "$1"',
                 "sh", identity["database"], output=output, timeout=600)
         output.flush()
         os.fsync(output.fileno())
@@ -381,7 +381,7 @@ def restore(args):
             os.fsync(target.fileno())
         with raw.open("rb") as statement:
             compose(docker_dir, "exec", "-T", "mysql", "sh", "-c",
-                    'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" exec mysql -uroot',
+                    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot',
                     input_file=statement, timeout=600)
     finally:
         raw.unlink(missing_ok=True)

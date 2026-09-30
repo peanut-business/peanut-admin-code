@@ -9,6 +9,7 @@ file_mode() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
     echo "server/docker/.env is required; run python3 server/docker/scripts/configure-runtime.py --php-image=<prepared-immutable-image> for a new instance" >&2
     exit 1
 }
+[ "$(file_mode "$DOCKER_DIR/.env")" = 600 ] || { echo "server/docker/.env must have mode 0600" >&2; exit 1; }
 umask 077
 for path in "$SERVER_DIR/public" "$SERVER_DIR/private" "$SERVER_DIR/docker" \
     "$DOCKER_DIR/mysql" "$DOCKER_DIR/secrets" "$SERVER_DIR/runtime" \
@@ -19,7 +20,7 @@ for path in "$SERVER_DIR/public" "$SERVER_DIR/private" "$SERVER_DIR/docker" \
     }
 done
 for path in "$SERVER_DIR/private/installation/installed.json" \
-    "$DOCKER_DIR/secrets/mysql-root-password" "$DOCKER_DIR/secrets/install-token"; do
+    "$DOCKER_DIR/secrets/install-token"; do
     if [ -e "$path" ] || [ -L "$path" ]; then
         [ -f "$path" ] && [ ! -L "$path" ] && [ "$(file_links "$path")" = 1 ] || {
             echo "protected state file is unsafe: $path" >&2; exit 1;
@@ -37,20 +38,43 @@ printf '%s' "$php_image" | grep -Eq '^(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9
     echo "PHP_IMAGE must be a prepared immutable image ID" >&2
     exit 1
 }
-# Reject an unknown existing database before preparing or replacing any dependency.
+# Canonical Docker root credential lives only in server/docker/.env. Older
+# packages stored the same value in docker/secrets/mysql-root-password; consume
+# that legacy file once, atomically migrate it, then remove it.
 installed="$SERVER_DIR/private/installation/installed.json"
-root_secret="$DOCKER_DIR/secrets/mysql-root-password"
-if [ ! -f "$root_secret" ] && {
-    [ -e "$installed" ] || [ -L "$installed" ] || {
-        [ -d "$DOCKER_DIR/mysql" ] && [ -n "$(find "$DOCKER_DIR/mysql" ! -path "$DOCKER_DIR/mysql" -print -quit)" ];
-    };
-}; then
-    echo "existing instance or MySQL data has no root secret; refusing to generate a replacement" >&2
+legacy_root_secret="$DOCKER_DIR/secrets/mysql-root-password"
+root_count=$(awk -F= '$1 == "MYSQL_ROOT_PASSWORD" { count++ } END { print count + 0 }' "$DOCKER_DIR/.env")
+[ "$root_count" -le 1 ] || { echo "server/docker/.env contains duplicate MYSQL_ROOT_PASSWORD" >&2; exit 1; }
+if [ -e "$legacy_root_secret" ] || [ -L "$legacy_root_secret" ]; then
+    [ -f "$legacy_root_secret" ] && [ ! -L "$legacy_root_secret" ] && [ "$(file_links "$legacy_root_secret")" = 1 ] \
+        && [ "$(file_mode "$legacy_root_secret")" = 600 ] || {
+        echo "legacy MySQL root credential file is unsafe" >&2; exit 1;
+    }
+    legacy_password=$(tr -d '\r\n' < "$legacy_root_secret")
+    [ -n "$legacy_password" ] || { echo "legacy MySQL root credential is empty" >&2; exit 1; }
+    if [ "$root_count" -eq 1 ]; then
+        canonical_password=$(awk -F= '$1 == "MYSQL_ROOT_PASSWORD" { sub(/^[^=]*=/, ""); print; exit }' "$DOCKER_DIR/.env")
+        [ "$canonical_password" = "$legacy_password" ] || { echo "canonical and legacy MySQL root credentials conflict" >&2; exit 1; }
+    else
+        temporary="$DOCKER_DIR/.env.root-migration.$$"
+        trap 'rm -f "$temporary"' EXIT HUP INT TERM
+        cat "$DOCKER_DIR/.env" > "$temporary"
+        printf 'MYSQL_ROOT_PASSWORD=%s\n' "$legacy_password" >> "$temporary"
+        chmod 600 "$temporary"
+        mv "$temporary" "$DOCKER_DIR/.env"
+        trap - EXIT HUP INT TERM
+        root_count=1
+    fi
+    rm -f "$legacy_root_secret"
+    unset legacy_password canonical_password
+fi
+[ "$root_count" -eq 1 ] || {
+    echo "server/docker/.env is missing MYSQL_ROOT_PASSWORD; refusing to invent a credential for existing or new data" >&2
     exit 1
-fi
-if [ -f "$root_secret" ]; then
-    [ "$(file_mode "$root_secret")" = 600 ] || { echo "MySQL root secret must have mode 0600" >&2; exit 1; }
-fi
+}
+root_password=$(awk -F= '$1 == "MYSQL_ROOT_PASSWORD" { sub(/^[^=]*=/, ""); print; exit }' "$DOCKER_DIR/.env")
+[ -n "$root_password" ] || { echo "server/docker/.env contains an empty MYSQL_ROOT_PASSWORD" >&2; exit 1; }
+unset root_password
 mkdir -p "$SERVER_DIR/runtime"
 "$SCRIPT_DIR/prepare-vendor.sh" start "$SERVER_DIR" "$php_image"
 
@@ -58,20 +82,6 @@ mkdir -p "$DOCKER_DIR/mysql" "$DOCKER_DIR/secrets" \
     "$SERVER_DIR/public/storage" "$SERVER_DIR/private/storage" \
     "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources"
 installed="$SERVER_DIR/private/installation/installed.json"
-root_secret="$DOCKER_DIR/secrets/mysql-root-password"
-if [ ! -f "$root_secret" ]; then
-    if [ -e "$installed" ] || [ -L "$installed" ] \
-        || [ -n "$(find "$DOCKER_DIR/mysql" ! -path "$DOCKER_DIR/mysql" -print -quit)" ]; then
-        echo "existing instance or MySQL data has no root secret; refusing to generate a replacement" >&2
-        exit 1
-    fi
-    command -v openssl >/dev/null 2>&1 || { echo "openssl is required to generate the MySQL bootstrap secret" >&2; exit 1; }
-    temporary="$root_secret.tmp-$$"
-    openssl rand -hex 32 > "$temporary"
-    chmod 600 "$temporary"
-    mv "$temporary" "$root_secret"
-fi
-[ "$(file_mode "$root_secret")" = 600 ] || { echo "MySQL root secret must have mode 0600" >&2; exit 1; }
 
 token="$DOCKER_DIR/secrets/install-token"
 if [ ! -e "$installed" ]; then

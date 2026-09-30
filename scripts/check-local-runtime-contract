@@ -55,7 +55,6 @@ DB_PORT=20183
 DB_NAME=peanut_admin_development
 DB_USER=peanut_admin_development
 DB_PASS=contract-only-placeholder
-DB_ROOT_PASS=contract-only-root-placeholder
 DB_PREFIX=pa_
 JWT_SECRET=contract-only-jwt-placeholder
 TENANT_IDENTIFIER_HMAC_KEY=contract-only-tenant-placeholder

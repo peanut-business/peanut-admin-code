@@ -62,7 +62,7 @@ if [ -e "$state" ]; then
         echo 'permission state is not root-only' >&2; exit 1;
     }
 fi
-for path in docker/secrets/mysql-root-password docker/secrets/install-token; do
+for path in docker/secrets/install-token; do
     if [ -e "$path" ] || [ -L "$path" ]; then
         [ -f "$path" ] && [ ! -L "$path" ] && [ "$(stat -c %h "$path")" = 1 ] &&
             [ "$(stat -c %u "$path")" -ne "$app_uid" ] &&

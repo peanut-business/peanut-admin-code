@@ -5,27 +5,28 @@ declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli' || count($argv) !== 3
     || !str_starts_with($argv[1], '--server-root=/')
-    || !str_starts_with($argv[2], '--root-secret=/')) {
-    fwrite(STDERR, "Usage: php provision-database.php --server-root=/absolute/server --root-secret=/absolute/mysql-root-secret\n");
+    || !str_starts_with($argv[2], '--docker-env=/')) {
+    fwrite(STDERR, "Usage: php provision-database.php --server-root=/absolute/server --docker-env=/absolute/server/docker/.env\n");
     exit(64);
 }
 
 try {
     $serverRoot = substr($argv[1], strlen('--server-root='));
-    $secretPath = substr($argv[2], strlen('--root-secret='));
+    $dockerEnvPath = substr($argv[2], strlen('--docker-env='));
     if (realpath($serverRoot) !== $serverRoot || !is_dir($serverRoot) || is_link($serverRoot)) {
         throw new RuntimeException('server root is invalid');
     }
-    if (!is_file($secretPath) || is_link($secretPath)) {
-        throw new RuntimeException('MySQL root secret is unavailable');
+    if ($dockerEnvPath !== $serverRoot . '/docker/.env' || !is_file($dockerEnvPath) || is_link($dockerEnvPath)) {
+        throw new RuntimeException('Docker environment is unavailable');
     }
-    $secretStat = lstat($secretPath);
-    if (!is_array($secretStat) || ($secretStat['nlink'] ?? 0) !== 1) {
-        throw new RuntimeException('MySQL root secret is unsafe');
+    $dockerEnvStat = lstat($dockerEnvPath);
+    if (!is_array($dockerEnvStat) || ($dockerEnvStat['nlink'] ?? 0) !== 1 || ($dockerEnvStat['mode'] & 0777) !== 0600) {
+        throw new RuntimeException('Docker environment must be one regular mode-0600 file');
     }
-    $rootPassword = trim((string) file_get_contents($secretPath));
-    if (preg_match('/^[a-f0-9]{64}$/D', $rootPassword) !== 1) {
-        throw new RuntimeException('MySQL root secret has an invalid format');
+    $dockerEnvironment = parse_ini_file($dockerEnvPath, false, INI_SCANNER_RAW);
+    $rootPassword = is_array($dockerEnvironment) ? ($dockerEnvironment['MYSQL_ROOT_PASSWORD'] ?? null) : null;
+    if (!is_string($rootPassword) || $rootPassword === '' || preg_match('/[\r\n\x00]/', $rootPassword) === 1) {
+        throw new RuntimeException('Docker environment is missing MYSQL_ROOT_PASSWORD');
     }
 
     $envPath = $serverRoot . '/.env';

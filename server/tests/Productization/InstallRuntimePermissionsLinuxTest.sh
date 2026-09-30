@@ -19,8 +19,9 @@ mkdir -p "$fixture/server/docker/secrets" "$fixture/server/private/installation"
     "$fixture/server/runtime/upgrade" "$fixture/server/public/storage"
 chmod 0700 "$fixture/server/docker/secrets"
 printf 'synthetic-token\n' > "$fixture/server/docker/secrets/install-token"
-printf 'synthetic-root-secret\n' > "$fixture/server/docker/secrets/mysql-root-password"
 chmod 0600 "$fixture/server/docker/secrets/"*
+printf 'MYSQL_ROOT_PASSWORD=synthetic-root-secret\n' > "$fixture/server/docker/.env"
+chmod 0600 "$fixture/server/docker/.env"
 printf 'managed-code\n' > "$fixture/server/index.php"
 chmod 0644 "$fixture/server/index.php"
 chmod 0755 "$fixture/server"
@@ -34,7 +35,7 @@ PEANUT_TEST_ROOT="$fixture/server" setpriv --reuid="$app_uid" --regid="$app_gid"
 PEANUT_TEST_ROOT="$fixture/server" setpriv --reuid="$app_uid" --regid="$app_gid" --clear-groups sh -ec '
   cd "$PEANUT_TEST_ROOT"
   (umask 077; printf "ok\n" > private/storage/new-file)
-  ! cat docker/secrets/mysql-root-password >/dev/null 2>&1
+  ! cat docker/.env >/dev/null 2>&1
   ! cat docker/secrets/install-token >/dev/null 2>&1
   ! printf tampered > index.php 2>/dev/null
   ! rm index.php 2>/dev/null

@@ -33,7 +33,7 @@ class FirstStartVendorTest(unittest.TestCase):
             target = self.server / "docker/scripts" / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(SCRIPTS / name, target)
-        write(self.server / "docker/.env", f"PHP_IMAGE={IMAGE}\nNGINX_IMAGE=sha256:{'b'*64}\nMYSQL_IMAGE=sha256:{'c'*64}\n".encode(), 0o600)
+        write(self.server / "docker/.env", f"PHP_IMAGE={IMAGE}\nNGINX_IMAGE=sha256:{'b'*64}\nMYSQL_IMAGE=sha256:{'c'*64}\nMYSQL_ROOT_PASSWORD={'d'*64}\n".encode(), 0o600)
         write(self.server / "composer.json", b'{"name":"fixture/app"}\n')
         write(self.server / "composer.lock", b'{"content-hash":"' + b"0" * 32 + b'","packages":[]}\n')
         write(self.server / "think", b'<?php echo "fixture";\n', 0o755)
@@ -88,6 +88,7 @@ sys.exit(0)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.server / "vendor/.peanut-complete.json").is_file())
         self.assertTrue((self.server / "docker/secrets/install-token").is_file())
+        self.assertFalse((self.server / "docker/secrets/mysql-root-password").exists())
         calls = self.commands()
         self.assertEqual(sum(c[0] == "run" for c in calls), 1)
         self.assertEqual(sum(c[0] == "compose" and "up" in c for c in calls), 1)
@@ -113,7 +114,6 @@ sys.exit(0)
         self.assertTrue(any(p.name.startswith("vendor-stage-") for p in (self.server / "runtime").iterdir()))
 
     def test_installed_damaged_vendor_cannot_be_renamed(self):
-        write(self.server / "docker/secrets/mysql-root-password", b"synthetic-existing-secret", 0o600)
         write(self.server / "private/installation/installed.json", b"original")
         write(self.server / "vendor/broken.php", b"old bytes")
         result = self.run_start()
@@ -122,12 +122,14 @@ sys.exit(0)
         self.assertEqual((self.server / "vendor/broken.php").read_bytes(), b"old bytes")
         self.assertEqual(self.commands(), [])
 
-    def test_existing_database_without_root_secret_stops_before_dependency_work(self):
+    def test_existing_database_without_root_password_stops_before_dependency_work(self):
+        env = self.server / "docker/.env"
+        env.write_text("\n".join(line for line in env.read_text().splitlines() if not line.startswith("MYSQL_ROOT_PASSWORD=")) + "\n")
         write(self.server / "docker/mysql/ibdata1", b"existing-db")
         write(self.server / "vendor/broken.php", b"old bytes")
         result = self.run_start()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("no root secret", result.stderr)
+        self.assertIn("missing MYSQL_ROOT_PASSWORD", result.stderr)
         self.assertEqual(self.commands(), [])
         self.assertEqual((self.server / "vendor/broken.php").read_bytes(), b"old bytes")
         self.assertFalse((self.server / "runtime").exists())
@@ -153,7 +155,7 @@ sys.exit(0)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("protected directory", result.stderr)
 
-    def test_dangling_install_lock_and_missing_root_secret_fail_closed(self):
+    def test_dangling_install_lock_and_missing_root_password_fail_closed(self):
         lock = self.server / "private/installation/installed.json"
         lock.parent.mkdir(parents=True)
         lock.symlink_to("absent.json")
@@ -162,10 +164,21 @@ sys.exit(0)
         self.assertFalse((self.server / "docker/secrets/install-token").exists())
         lock.unlink()
         self.complete_vendor()
+        env = self.server / "docker/.env"
+        env.write_text("\n".join(line for line in env.read_text().splitlines() if not line.startswith("MYSQL_ROOT_PASSWORD=")) + "\n")
         write(self.server / "docker/mysql/ibdata1", b"existing-db")
         result = self.run_start()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("no root secret", result.stderr)
+        self.assertIn("missing MYSQL_ROOT_PASSWORD", result.stderr)
+        self.assertFalse((self.server / "docker/secrets/mysql-root-password").exists())
+
+    def test_legacy_root_file_migrates_once_to_docker_environment(self):
+        env = self.server / "docker/.env"
+        env.write_text("\n".join(line for line in env.read_text().splitlines() if not line.startswith("MYSQL_ROOT_PASSWORD=")) + "\n")
+        write(self.server / "docker/secrets/mysql-root-password", b"e" * 64 + b"\n", 0o600)
+        result = self.run_start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("MYSQL_ROOT_PASSWORD=" + "e" * 64, env.read_text())
         self.assertFalse((self.server / "docker/secrets/mysql-root-password").exists())
 
 

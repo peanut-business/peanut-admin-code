@@ -104,6 +104,8 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 首次安装使用 `server/database/install.php`。产品升级使用已经安装且可信的 `scripts/upgrade`，入口分plan、apply、verify和recover；先验签，不能先运行未验证目标包代码，也不是git pull或无约束composer update。后端环境通过 `PEANUT_SERVER_ENV_FILE` 指定，升级的 `--env-file` 是受控信任公钥文件，两者不能混为一份配置。
 
+数据库配置固定分层：应用后端只使用 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASS`；MySQL 管理密码只在 Docker/部署编排环境使用 `MYSQL_ROOT_PASSWORD`。应用 `server/.env` 不保存 root 密码，Docker 私有环境（例如 `server/docker/.env`）不改用应用密码别名。现行实现不使用 `MYSQL_ROOT_PASSWORD_FILE`，旧 `DB_ROOT_PASS` 或旧 root 密码文件只允许被一次性兼容迁移消费，不能作为新的配置来源。Compose 向 MySQL 官方镜像映射 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 仅是容器初始化边界，不改变上述应用配置命名。
+
 文件协调层仍使用已有基线和三方差异：上游变化可更新，本地变化保留，双方变化或未知冲突明确报告；应用自有和第三方文件不自动覆盖。所有权变更需要精确adoption，不能把整个后端或前端都标为自有。文件锁、计划新鲜度、恢复副本和逐文件替换不等于完整数据库事务。
 
 完整升级还要独立准备目标依赖与前端、备份并限制写入、执行应用/模块迁移、切换及健康/业务验证。失败恢复按同一计划处理数据库、公共与私有文件及受管代码；activation_started后不得自动回灌旧备份。文件层recover不证明数据恢复，fresh不能冒充升级，不保证任意历史版本或未支持rename自动迁移。详见[模块交付](../architecture/module-development-delivery.md)与[开发规范](standard.md)。

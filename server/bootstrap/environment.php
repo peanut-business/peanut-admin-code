@@ -59,7 +59,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             'DB_NAME',
             'DB_USER',
             'DB_PASS',
-            'DB_ROOT_PASS',
+            'DB_CONNECT_TIMEOUT_SECONDS',
             'DB_CHARSET',
             'DB_PREFIX',
             'ASYNC_SIGNING_KEY',

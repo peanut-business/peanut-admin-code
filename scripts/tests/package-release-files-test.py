@@ -132,7 +132,7 @@ class PackagingFilesTest(unittest.TestCase):
         self.assertFalse(pack.allowed_source('server/runtime/customer-data.json'))
 
     def test_secret_and_raw_core_archives_are_rejected(self):
-        for path in ('server/.env','pc/.env.local','keys/signing.key','packages/core-web/old.tgz'):
+        for path in ('server/.env','server/docker/.env','pc/.env.local','keys/signing.key','packages/core-web/old.tgz'):
             self.assertFalse(pack.allowed_source(path),path)
         self.assertTrue(pack.allowed_source('pc/.env.production'))
 

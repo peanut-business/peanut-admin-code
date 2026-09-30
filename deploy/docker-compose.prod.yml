@@ -118,7 +118,7 @@ services:
       MYSQL_DATABASE: ${DB_NAME:?set DB_NAME in server/.env}
       MYSQL_USER: ${DB_USER:?set DB_USER in server/.env}
       MYSQL_PASSWORD: ${DB_PASS:?set DB_PASS in server/.env}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in deployment .env}
       TZ: Asia/Shanghai
     volumes:
       - mysql-data:/var/lib/mysql

@@ -12,6 +12,16 @@ $requiredDatabaseValue = static function (string $name): string {
     return $value;
 };
 
+$databaseConnectTimeout = env('DB_CONNECT_TIMEOUT_SECONDS', 5);
+if (
+    (!is_int($databaseConnectTimeout) && !is_string($databaseConnectTimeout))
+    || preg_match('/^[1-9][0-9]*$/D', (string) $databaseConnectTimeout) !== 1
+    || (int) $databaseConnectTimeout > 30
+) {
+    throw new RuntimeException('BACKEND_ENVIRONMENT_INVALID:DB_CONNECT_TIMEOUT_SECONDS');
+}
+$databaseConnectTimeout = (int) $databaseConnectTimeout;
+
 return [
     // Stable project registry identity used for cache/session/advisory-lock namespaces.
     'resource_id'     => $requiredDatabaseValue('PEANUT_DATABASE_RESOURCE_ID'),
@@ -49,7 +59,9 @@ return [
             // 端口
             'hostport'        => $requiredDatabaseValue('DB_PORT'),
             // 数据库连接参数
-            'params'          => [],
+            'params'          => [
+                PDO::ATTR_TIMEOUT => $databaseConnectTimeout,
+            ],
             // 数据库编码
             'charset'         => env('DB_CHARSET', 'utf8mb4'),
             // 数据库表前缀

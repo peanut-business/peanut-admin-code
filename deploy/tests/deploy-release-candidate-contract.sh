@@ -78,11 +78,12 @@ prod_output="$(run_legacy_helper "$prod_root" production "$prod_output_root" "$p
   18092 peanut-admin peanut-admin-production-bundled-mysql84 peanut_admin standalone '' '' auto https \
   peanut-admin.007345.xyz)" || fail 'root-only legacy layout was rejected'
 [[ "$prod_output" == 'legacy_layout=converted' ]] || fail 'root-only helper output is not sanitized'
-! rg -q '^(APP_|DB_|JWT_|DEPLOYMENT_MODE=|PEANUT_DEPLOYMENT_TARGET=|MYSQL_ROOT_PASSWORD)' "$prod_output_root" \
+! rg -q '^(APP_|DB_|JWT_|DEPLOYMENT_MODE=|PEANUT_DEPLOYMENT_TARGET=)' "$prod_output_root" \
   || fail 'root-only conversion left backend configuration in the orchestration file'
-rg -Fq 'DB_ROOT_PASS=legacy-root-secret' "$prod_output_backend" \
-  || fail 'MYSQL_ROOT_PASSWORD was not mapped to DB_ROOT_PASS'
-! rg -Fq 'MYSQL_ROOT_PASSWORD' "$prod_output_backend" || fail 'legacy MYSQL_ROOT_PASSWORD leaked into backend output'
+rg -Fq 'MYSQL_ROOT_PASSWORD=legacy-root-secret' "$prod_output_root" \
+  || fail 'MYSQL_ROOT_PASSWORD was not retained in Docker orchestration output'
+! rg -Fq 'MYSQL_ROOT_PASSWORD' "$prod_output_backend" || fail 'Docker root credential leaked into backend output'
+! rg -Fq 'DB_ROOT_PASS' "$prod_output_backend" || fail 'legacy DB_ROOT_PASS survived backend migration'
 ! rg -Fq 'legacy-root-secret' <<<"$prod_output" || fail 'helper output exposed a secret'
 
 split_root="$legacy_fixture/candidate-root.env"
@@ -117,10 +118,12 @@ split_output="$(run_legacy_helper "$split_root" production-candidate "$split_out
   pa-platform.007345.xyz,pa-admin.007345.xyz,pa-tenant-a.007345.xyz,pa-tenant-b.007345.xyz \
   --backend-env "$split_backend")" || fail 'split legacy layout was rejected'
 [[ "$split_output" == 'legacy_layout=converted' ]] || fail 'split helper output is not sanitized'
-! rg -q '^(DB_|JWT_|DEPLOYMENT_MODE=|PEANUT_DEPLOYMENT_TARGET=|MYSQL_ROOT_PASSWORD)' "$split_output_root" \
+! rg -q '^(DB_|JWT_|DEPLOYMENT_MODE=|PEANUT_DEPLOYMENT_TARGET=)' "$split_output_root" \
   || fail 'split conversion left backend configuration in the orchestration file'
-rg -Fq 'DB_ROOT_PASS=split-root-secret' "$split_output_backend" \
-  || fail 'matching MYSQL_ROOT_PASSWORD/DB_ROOT_PASS pair was not retained'
+rg -Fq 'MYSQL_ROOT_PASSWORD=split-root-secret' "$split_output_root" \
+  || fail 'split conversion did not retain MYSQL_ROOT_PASSWORD in Docker orchestration output'
+! rg -Fq 'DB_ROOT_PASS' "$split_output_backend" || fail 'matching legacy DB_ROOT_PASS was not consumed'
+! rg -Fq 'MYSQL_ROOT_PASSWORD' "$split_output_backend" || fail 'Docker root credential leaked into split backend output'
 
 expect_legacy_fail() {
   local name="$1" pattern="$2" root_env="$3" output_root="$4" output_backend="$5"
@@ -177,7 +180,7 @@ conflict_output="$(run_legacy_helper "$split_root" production-candidate "$legacy
   --backend-env "$conflict_backend" 2>&1)"
 conflict_rc=$?
 set -e
-[[ $conflict_rc -ne 0 && "$conflict_output" == *'MYSQL_ROOT_PASSWORD and DB_ROOT_PASS conflict'* ]] \
+[[ $conflict_rc -ne 0 && "$conflict_output" == *'MYSQL_ROOT_PASSWORD and legacy DB_ROOT_PASS conflict'* ]] \
   || fail 'conflicting root/database root credentials were accepted'
 printf 'passed=legacy-secret-conflict\n'
 

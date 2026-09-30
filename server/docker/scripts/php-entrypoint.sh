@@ -2,7 +2,7 @@
 set -eu
 SERVER_ROOT=/var/www/peanut-admin/server
 TOKEN_FILE="$SERVER_ROOT/docker/secrets/install-token"
-ROOT_SECRET="$SERVER_ROOT/docker/secrets/mysql-root-password"
+DOCKER_ENV="$SERVER_ROOT/docker/.env"
 BOOTSTRAP_ENV="$SERVER_ROOT/.env.bootstrap"
 INSTALLING_ENV="$SERVER_ROOT/.env.installing"
 FINAL_ENV="$SERVER_ROOT/.env"
@@ -128,7 +128,7 @@ installation_mode=$(sed -n 's/^PEANUT_INSTALLATION_MODE=//p' "$FINAL_ENV" | tail
 case "$installation_mode" in
   guided)
     if [ ! -f private/resources/database-provisioned.json ]; then
-        php docker/scripts/provision-database.php --server-root="$SERVER_ROOT" --root-secret="$ROOT_SECRET"
+        php docker/scripts/provision-database.php --server-root="$SERVER_ROOT" --docker-env="$DOCKER_ENV"
     fi
     write_installing_env
     export PEANUT_SERVER_ENV_FILE="$INSTALLING_ENV"

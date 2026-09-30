@@ -31,7 +31,9 @@ class RuntimeConfigurationTest(unittest.TestCase):
         data = target.read_text()
         self.assertIn("PHP_IMAGE=" + IMAGE + "\n", data)
         self.assertIn("HTTP_PORT=21081\n", data)
-        self.assertNotIn("PASSWORD", data)
+        root_password = next(line.split("=", 1)[1] for line in data.splitlines() if line.startswith("MYSQL_ROOT_PASSWORD="))
+        self.assertRegex(root_password, r"^[a-f0-9]{64}$")
+        self.assertEqual(data.count("MYSQL_ROOT_PASSWORD="), 1)
         self.assertFalse((self.root / "mysql").exists())
         self.assertFalse((self.root / "secrets").exists())
 

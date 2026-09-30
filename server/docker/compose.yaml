@@ -45,20 +45,14 @@ services:
     image: ${MYSQL_IMAGE:?set MYSQL_IMAGE in server/docker/.env}
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql-root-password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in server/docker/.env}
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - ./mysql:/var/lib/mysql
       - ./conf/mysql.cnf:/etc/mysql/conf.d/peanut.cnf:ro
-    secrets:
-      - mysql-root-password
     healthcheck:
-      test: ["CMD-SHELL", "MYSQL_PWD=\"$$(cat /run/secrets/mysql-root-password)\" mysqladmin ping -h 127.0.0.1 -u root --silent"]
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -u root --silent"]
       interval: 10s
       timeout: 5s
       retries: 20
       start_period: 20s
-
-secrets:
-  mysql-root-password:
-    file: ./secrets/mysql-root-password

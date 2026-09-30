@@ -103,7 +103,6 @@ final class RegisteredMysqlRunnerEnvironmentTest extends TestCase
             'DB_NAME=registered_mysql_runner_test',
             'DB_USER=runner_test',
             'DB_PASS=' . self::SECRET,
-            'DB_ROOT_PASS=' . self::SECRET,
             'DB_PREFIX=pa_',
             'PEANUT_DATABASE_RESOURCE_ID=registered-mysql-resource',
             'PEANUT_DATABASE_ENDPOINT_ID=registered-mysql-endpoint',

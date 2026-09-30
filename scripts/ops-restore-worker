@@ -236,8 +236,7 @@ php_image="$(jq -r '.runtime.images[] | select(.role == "php") | .digest' "$back
 sudo -n docker image inspect "$mysql_image" "$php_image" >/dev/null
 
 sudo -n install -d -m 0700 "$target_root"
-openssl rand -hex 32 | sudo -n tee "$target_root/mysql-root-password" >/dev/null
-sudo -n chmod 0600 "$target_root/mysql-root-password"
+mysql_root_password="$(openssl rand -hex 32)"
 sudo -n docker network create --internal "$target_network" >/dev/null
 sudo -n docker volume create "$target_mysql_volume" >/dev/null
 sudo -n docker volume create "$target_storage_volume" >/dev/null
@@ -250,15 +249,15 @@ sudo -n docker run -d \
   --network "$target_network" \
   --network-alias mysql \
   --mount "source=$target_mysql_volume,target=/var/lib/mysql" \
-  --mount "type=bind,source=$target_root/mysql-root-password,target=/run/secrets/mysql-root-password,readonly" \
-  --env MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root-password \
+  --env "MYSQL_ROOT_PASSWORD=$mysql_root_password" \
   --env "MYSQL_DATABASE=$target_database" \
   "$mysql_image" >/dev/null
+unset mysql_root_password
 
 ready=0
 for _ in {1..60}; do
   if sudo -n docker exec "$target_container" sh -c \
-      'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" mysqladmin ping -h127.0.0.1 --protocol=TCP -uroot --silent' >/dev/null 2>&1; then
+      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin ping -h127.0.0.1 --protocol=TCP -uroot --silent' >/dev/null 2>&1; then
     ready=1
     break
   fi
@@ -268,7 +267,7 @@ done
 
 sudo -n gzip -dc "$backup_dir/database.sql.gz" \
   | sudo -n docker exec -i "$target_container" sh -c \
-      'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" exec mysql -uroot "$1"' sh "$target_database"
+      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot "$1"' sh "$target_database"
 
 failure_code='OPS_RESTORE_FILES_FAILED'
 sudo -n gzip -dc "$backup_dir/php-storage.tar.gz" \
@@ -290,7 +289,7 @@ sudo -n docker run --rm --network none \
 
 mysql_scalar() {
   sudo -n docker exec "$target_container" sh -c \
-    'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" exec mysql -N -B -uroot "$1" -e "$2"' \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -N -B -uroot "$1" -e "$2"' \
     sh "$target_database" "$1"
 }
 

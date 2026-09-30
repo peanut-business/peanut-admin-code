@@ -149,7 +149,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce5042fb3acc647bf52c32acc88e478b0dcfcece879d875010f7b36c1d2043d0"
+            "source_sha256": "579857ab62d06a33bdc7c1062f8b0633697bc18576d41831e03dfeb02f4733f3"
         },
         {
             "path": ".github/workflows/core-source-development.yml",
@@ -411,7 +411,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3825cfe142206f5a3e98380cbc3a6cc300ca8fff869779593e63ac3753708b23"
+            "source_sha256": "e00ad8cba478d643818563aacdec972b9d180aee9f93b43f5359685bf80729ee"
         },
         {
             "path": "deploy/docker-compose.remote-development.yml",
@@ -548,7 +548,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d0603c1d0d1c88adb1a47514f4be90b50c4604af89a7419422b10c00ec014abd"
+            "source_sha256": "d7ee2028b553ebb2326e60cdbbe99702027051b7b41b5d34b63c7ab796e7e114"
         },
         {
             "path": "deploy/local-stack.env.example",
@@ -782,7 +782,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a153fc073d4618e8878d528f759d1e9d82703ae04e52d6858a49931a81582721"
+            "source_sha256": "28fe4273ca04a588caec286a9da5ffac70cff074165cad168016eb4e2a1d775a"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2779,7 +2779,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b22ca8089b3af2acfec66fd6c380e80802f8ab7e08cdc5fbe9e6ffc993cd0fc"
+            "source_sha256": "728e983c1d028bc773d5a22a2f302ffd1bdb1686095d79a66a6b3874d62eae81"
         },
         {
             "path": "scripts/check-local-runtime-contract",
@@ -2793,7 +2793,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a5f575a3911e24bf0da4e296c420070bf59e25eaf834cb412e9c4ddd519c18c"
+            "source_sha256": "4b0878de8493a18ed8d0c982af0b9014a4791361a716fa272306cdc110555409"
         },
         {
             "path": "scripts/check-module-boundaries.php",
@@ -3386,7 +3386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2aa4887b0ed2516cc9f9df3b35d0c8ee32597066954803fbae5f8eb655966929"
+            "source_sha256": "a09c5af11e79db5516cf22f21f3a7ec3ba80228c1b9c77007ad259516cda891a"
         },
         {
             "path": "scripts/package-release.sh",
@@ -3400,7 +3400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "978a1cf1f4fd99ac822ec91e646bba3f00afcb8bef2c3ccd7fdd56c650b0dff5"
+            "source_sha256": "510d31dbec40956d3ad81f73d122d4fa3b86cbc4e107ff13da368b78d6dcf65b"
         },
         {
             "path": "scripts/prepare-product-release-candidate",
@@ -4092,7 +4092,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e3ff9cb5280ea414326ab17b73c752e4e1e9c9c617ff521c2bdc14011877962"
+            "source_sha256": "ceec80707af9a4f4eb8890032a9d161f8e64649dcf28cd2f01307892e273f520"
         },
         {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
@@ -4216,7 +4216,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f282e5bc3377a6f777be562b73bd8b922c26ba2906ef23d31f452e829a44ceb8"
+            "source_sha256": "4a8e1033e1c416d8b21af4dac8bada5539b2fbb3372471333e14be61aa122399"
         },
         {
             "path": "scripts/tests/server-update-orchestration-test.py",
@@ -4510,7 +4510,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c65d6788609b3c9425ddf94eab6929b5b970a9dfe8ba07908ffae1e9a185946"
+            "source_sha256": "c09423d645daf45e54f925f9dc76a81ef981756f5577f2cf7e71fee29b157722"
         },
         {
             "path": "server/.gitignore",
@@ -22485,7 +22485,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "753ce1d8b5583e956830b756c2e64d8bcf79d5dc6fa31a9e0fda55c81468fd41"
+            "source_sha256": "50533c33e8815c4be5b6ef56d9a78aa558cebe2a0918260f92004c80302696a9"
         },
         {
             "path": "server/composer.json",
@@ -22639,7 +22639,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "686ccf61efbed8c8f845e9ecfbfdac2ee7a9e1d0131e19c05c91e75cc29a88b8"
+            "source_sha256": "2c6fbe749d94c8956447ae9fb9eb94bd8d6a3bfe04baab9f818a00035195a1fc"
         },
         {
             "path": "server/config/deployment.php",
@@ -23632,7 +23632,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e512e964ada5b763d018d98d11b3e2144e9504ba3d087667d496707debe9e9ec"
+            "source_sha256": "785abafde88ad531403f6ff72dad8994bc8d55863a07dec24d553b1fa1cf426a"
         },
         {
             "path": "server/docker/Dockerfile",
@@ -23674,7 +23674,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89a55580906e966d7366e5b497359e87619141b074ba0724180030d705016ad0"
+            "source_sha256": "4d6e4c07609ebefff040f180b9f00b6edf79a7c7d985b1b905bf565001dffc6c"
         },
         {
             "path": "server/docker/conf/crontab",
@@ -23772,7 +23772,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3aeded2c0a9ca666eda46264e4ecd0295c0e4aa7252792502556bcdfe6b7addc"
+            "source_sha256": "0e2c39018a778e43c16a23809674c3b0db5a1874b56ee538d79c3dd3bfa8edb5"
         },
         {
             "path": "server/docker/scripts/php-entrypoint.sh",
@@ -23786,7 +23786,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9b352724c934add9e02fad3a110538421c06cc884c8eac83026284839bd1440c"
+            "source_sha256": "ccb0a705039923b61513297de3551db273dfb44f4508cefce332eba76b4f5886"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
@@ -23800,7 +23800,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2beae66be1931c978d024925793a8804f7f6ec18fce91a7935c4138b7a6a6209"
+            "source_sha256": "7123007ce5d682c03303625bd03a09734b2bf0577fe18c9bda0db4aefcf8e22c"
         },
         {
             "path": "server/docker/scripts/prepare-vendor.sh",
@@ -23828,7 +23828,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ede55d9be4f30bda73afc0bce0826ec9e7d033ee50817036e2aafc3286fcaa80"
+            "source_sha256": "a5d7e98fe5a3a5149d92109e2c766493ea8f26a83c88732f4c04709c1814fa58"
         },
         {
             "path": "server/docker/scripts/recover.sh",
@@ -23870,7 +23870,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12750b3a6faf27fb40771c14565f09f4ab142c12aa72d77212a73ea3c73b2e7f"
+            "source_sha256": "3cec8649409b852db14be5b4506541442747a4100737a87e5f15609f03965d68"
         },
         {
             "path": "server/docker/scripts/stop.sh",
@@ -23940,7 +23940,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5d4c280b924c9ee51840f59a153e07428af24cd2f934d896f957674044e4f931"
+            "source_sha256": "61442d672bf2eb7922396942d9f82c39a8cd35ac18b9f9a11027bf2ce8f36326"
         },
         {
             "path": "server/docker/scripts/update.sh",
@@ -23982,7 +23982,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bce751f6678b709ec02072c3c37ee09d39cf7747a3727d8581261c6c98ddaedb"
+            "source_sha256": "6a4b39fff55e764c205e98821fd3faf1c33e8c2075ce439e808901b01a2f94a3"
         },
         {
             "path": "server/docker/tests/test_runtime_configuration.py",
@@ -23996,7 +23996,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f04702b1b18e929423493d2ef052de4aa3e07b50521d4d664b102d114d3f6447"
+            "source_sha256": "359ddb778fe4be8b0a06b40fd800ad494b42ebda49c23cc8e1afde94c2be554f"
         },
         {
             "path": "server/docker/tests/test_update_preparation.py",

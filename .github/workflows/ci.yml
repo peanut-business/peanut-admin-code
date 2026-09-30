@@ -162,7 +162,6 @@ jobs:
             'DB_NAME=peanut_admin_ci' \
             'DB_USER=root' \
             'DB_PASS=mt02_root' \
-            'DB_ROOT_PASS=mt02_root' \
             'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-static' \
             'DB_PREFIX=pa_' > "$backend_env"
 
@@ -266,7 +265,6 @@ jobs:
             'DB_NAME=peanut_admin_ci_registered_mysql' \
             'DB_USER=root' \
             'DB_PASS=mt02_root' \
-            'DB_ROOT_PASS=mt02_root' \
             "JWT_SECRET=${jwt_secret}" \
             'DB_PREFIX=pa_' \
             'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
