@@ -282,7 +282,50 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
             "source_product_version": "4.0.0-dev.14", "instance_version": None,
             "scaffold_template": "4.0.0-dev.14", "generated_instance_default": "0.1.0",
         })
-        self.write_json("RELEASE_METADATA.json", {"technical_qualification": {"result": "pending"}})
+        for relative in candidate.LEGAL_FILES:
+            (self.root / relative).write_text(f"current {relative}\n", encoding="utf-8")
+        self.write_json("RELEASE_METADATA.json", {
+            "legal_files": {relative: "0" * 64 for relative in candidate.LEGAL_FILES},
+            "technical_qualification": {"result": "pending"},
+        })
+
+    def test_prepare_refreshes_required_legal_file_hashes(self) -> None:
+        self.write_manifests()
+        self.write_native_locks()
+        with patch.object(candidate, "run_native_lock_updates", return_value=None):
+            candidate.prepare("4.0.0-rc.5", "4.0.0-rc.3", "752476a811a5d16ea816d5206e3c03814a81fe6a",
+                              "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c")
+        metadata = candidate.read_json(self.root / "RELEASE_METADATA.json")
+        self.assertEqual(set(metadata["legal_files"]), set(candidate.LEGAL_FILES))
+        for relative in candidate.LEGAL_FILES:
+            self.assertEqual(
+                metadata["legal_files"][relative],
+                hashlib.sha256((self.root / relative).read_bytes()).hexdigest(),
+            )
+
+    def test_missing_or_linked_required_legal_file_fails_and_restores_prepared_files(self) -> None:
+        for linked in (False, True):
+            with self.subTest(linked=linked):
+                self.write_manifests()
+                self.write_native_locks()
+                originals = {path: (self.root / path).read_bytes() for path in candidate.PREPARED_FILES}
+                notice = self.root / "NOTICE"
+                notice.unlink()
+                if linked:
+                    notice.symlink_to(self.root / "LICENSE")
+                with patch.object(candidate, "run_native_lock_updates", return_value=None):
+                    with self.assertRaisesRegex(SystemExit, "required release file must be a real regular file: NOTICE"):
+                        candidate.prepare(
+                            "4.0.0-rc.5", "4.0.0-rc.3",
+                            "752476a811a5d16ea816d5206e3c03814a81fe6a",
+                            "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c",
+                        )
+                self.assertEqual(
+                    originals,
+                    {path: (self.root / path).read_bytes() for path in candidate.PREPARED_FILES},
+                )
+                if notice.is_symlink():
+                    notice.unlink()
 
     def test_product_and_app_versions_remain_distinct(self) -> None:
         self.write_manifests()

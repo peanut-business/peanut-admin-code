@@ -31,6 +31,12 @@ CORE_WEB_PACKAGES = (
     "@peanut-admin/uniapp",
     "@peanut-admin/testing",
 )
+LEGAL_FILES = (
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+    "RELEASE_SBOM.spdx.json",
+)
 CLIENT_CORE_PACKAGES = {
     "web": ("@peanut-admin/vue", "@peanut-admin/ui-vue"),
     "platform": ("@peanut-admin/vue", "@peanut-admin/ui-vue"),
@@ -62,6 +68,13 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def required_release_file_sha256(relative: str) -> str:
+    path = ROOT / relative
+    if path.is_symlink() or not path.is_file():
+        fail(f"required release file must be a real regular file: {relative}")
+    return sha256(path)
 
 
 def run(command: list[str], *, cwd: Path = ROOT, dry_run: bool = False) -> None:
@@ -408,6 +421,10 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
         "platform/package-lock.json": sha256(ROOT / "platform/package-lock.json"),
         "pc/package-lock.json": sha256(ROOT / "pc/package-lock.json"),
         "uniapp/package-lock.json": sha256(ROOT / "uniapp/package-lock.json"),
+    }
+    data["legal_files"] = {
+        relative: required_release_file_sha256(relative)
+        for relative in LEGAL_FILES
     }
     data.setdefault("technical_qualification", {})
     data["technical_qualification"].update(
