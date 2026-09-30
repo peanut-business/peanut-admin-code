@@ -122,6 +122,7 @@ function excluded(string $path): bool
             'scripts/test-core-upgrade-public-entry-gate',
             'scripts/check-product-capability-ledger',
             'scripts/check-release-consistency', 'scripts/generate-release-legal.mjs', 'scripts/publish-github-release',
+            'scripts/prepare-product-release-candidate', 'scripts/tests/prepare_product_release_candidate_test.py',
             'scripts/deploy-release', 'scripts/ops-backup-worker', 'scripts/ops-restore-worker',
             'scripts/ops-upgrade-worker', 'scripts/ops-module-worker',
             'server/database/seed-multi-tenant-demo.php',
