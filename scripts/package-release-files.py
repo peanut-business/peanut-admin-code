@@ -513,6 +513,7 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
                 if path.name not in ('.gitkeep', '.gitignore'):
                     raise ValueError(f'runtime data cannot enter server release: {relative}')
                 path.unlink()
+        shutil.rmtree(protected)
     identity_file = server / '.peanut/release-identity.json'
     if identity_file.exists():
         raise ValueError('application source already contains a server release identity')

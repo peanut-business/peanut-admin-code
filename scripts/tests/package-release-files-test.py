@@ -231,6 +231,22 @@ class PackagingFilesTest(unittest.TestCase):
         self.assertTrue((self.out/'server/public/admin/index.html').exists())
         self.assertFalse(any(p.name=='node_modules' for p in self.out.rglob('*')))
 
+    def test_server_only_projection_omits_instance_state_directories(self):
+        import tarfile
+        pack.snapshot(self.source,self.out,True);pack.public_assets(self.asset_tree(),self.out)
+        pack.server_identity(self.source,self.out,self.manifest,{'kind':'generated-template','commit':None,'tree':None},pack.released_dependencies(self.source))
+        forbidden=('runtime','public/storage','private/storage','private/resources','public/uploads','docker/mysql','docker/secrets')
+        for relative in forbidden:
+            self.assertFalse((self.out/'server'/relative).exists(), relative)
+        writer=ROOT/'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php'
+        php='require $argv[1]; (new app\\common\\infrastructure\\scaffold\\DeterministicEditionArchive())->write($argv[2],"peanut-test-server",$argv[3]);'
+        archive=self.root/'server.tar.gz'
+        subprocess.run(['php','-r',php,str(writer),str(self.out),str(archive)],check=True,capture_output=True)
+        with tarfile.open(archive) as tar:
+            names=tar.getnames()
+            for relative in forbidden:
+                self.assertFalse(any(name == 'peanut-test-server/server/'+relative or name.startswith('peanut-test-server/server/'+relative+'/') for name in names), relative)
+
     def test_browser_php_and_dependency_folders_are_rejected(self):
         build=self.asset_tree();pack.snapshot(self.source,self.out,True)
         (build/'web/dist/evil.php').write_text('<?php echo 1;')
