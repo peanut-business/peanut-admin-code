@@ -67,7 +67,7 @@ class PublishGithubReleaseChannelTest(unittest.TestCase):
 
     def test_consistency_gate_keeps_stable_and_prerelease_tag_modes_explicit(self):
         source = (ROOT / 'scripts/check-release-consistency').read_text()
-        self.assertIn("if (options.prerelease && !options.tag)", source)
+        self.assertIn("if (options.prerelease && !options.tag && !options.candidate)", source)
         self.assertIn('Stable tag mode accepts only vX.Y.Z', source)
         self.assertIn("!options.prerelease && !stableTagPattern.test(options.tag)", source)
         self.assertIn("options.prerelease && !prereleaseTagPattern.test(options.tag)", source)

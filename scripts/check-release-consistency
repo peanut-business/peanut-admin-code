@@ -35,7 +35,7 @@ for (let index = 0; index < args.length;) {
   }
   if (argument === '--help' || argument === '-h') {
     console.log(`Usage:
-  scripts/check-release-consistency --candidate <full-commit> --qualification <summary.json> [--require-main]
+  scripts/check-release-consistency --candidate <full-commit> --qualification <summary.json> [--prerelease] [--require-main]
   scripts/check-release-consistency --tag vX.Y.Z [--qualification <summary.json>] [--remote origin]
       [--write-lock <absolute-file>] [--prerelease]
   scripts/check-release-consistency --static-only [--edition-manifest <absolute-file>]...
@@ -79,8 +79,8 @@ if (!options.staticOnly && (options.editionManifests.length || options.releaseEv
   console.error('check-release-consistency: Edition and release evidence inputs are only valid with --static-only')
   process.exit(64)
 }
-if (options.prerelease && !options.tag) {
-  console.error('check-release-consistency: --prerelease is only valid with --tag')
+if (options.prerelease && !options.tag && !options.candidate) {
+  console.error('check-release-consistency: --prerelease is only valid with --tag or --candidate')
   process.exit(64)
 }
 for (const path of [...options.editionManifests, ...(options.releaseEvidence ? [options.releaseEvidence] : [])]) {

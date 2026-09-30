@@ -138,19 +138,18 @@ git show "$TAG:THIRD_PARTY_NOTICES.md" > "$OUTPUT_DIR/peanut-admin-$VERSION-THIR
 git show "$TAG:RELEASE_SBOM.spdx.json" > "$OUTPUT_DIR/peanut-admin-$VERSION-SBOM.spdx.json"
 git show "$TAG:UPGRADE_TRUSTED_KEYS.json" > "$OUTPUT_DIR/UPGRADE_TRUSTED_KEYS.json"
 
-node - "$VERSION" "$TAG" "$OUTPUT_DIR" "$TAG_OBJECT" "$COMMIT" "$EDITION_ARTIFACTS" "$EDITION_BASELINE" <<'NODE'
+RELEASE_SCRIPT_DIR="$SCRIPT_DIR" node - "$VERSION" "$TAG" "$OUTPUT_DIR" "$TAG_OBJECT" "$COMMIT" "$EDITION_ARTIFACTS" "$EDITION_BASELINE" <<'NODE'
 const fs = require('node:fs')
 const cp = require('node:child_process')
 const crypto = require('node:crypto')
+const { releaseMetadataVersion } = require(`${process.env.RELEASE_SCRIPT_DIR}/release-metadata-version.cjs`)
 const [VERSION, TAG, OUTPUT_DIR, TAG_OBJECT, COMMIT, EDITION_ARTIFACTS, EDITION_BASELINE] = process.argv.slice(2)
 const baseline = EDITION_BASELINE === '1'
 const fromTag = (path) => cp.execFileSync('git', ['show', `${TAG}:${path}`], { encoding: 'utf8' })
 const candidateLock = JSON.parse(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_CANDIDATE_LOCK.json`, 'utf8'))
 const metadataText = fromTag('RELEASE_METADATA.json')
 const metadata = JSON.parse(metadataText)
-const metadataVersion = metadata.schema_version === 2 && metadata.protocol === 'peanut.release-metadata.v2'
-  ? (metadata.instance_version ?? metadata.source_product_version)
-  : metadata.version
+const metadataVersion = releaseMetadataVersion(metadata)
 if (metadataVersion !== VERSION || metadata.expected_tag !== TAG) {
   throw new Error('tag and embedded release metadata differ')
 }

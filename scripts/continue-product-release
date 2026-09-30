@@ -1,0 +1,769 @@
+#!/usr/bin/env python3
+"""Bounded Core-to-product release coordinator; native tools own every artifact."""
+from __future__ import annotations
+
+import argparse
+import fcntl
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+from pathlib import PurePosixPath
+import re
+import subprocess
+import sys
+import tarfile
+import tempfile
+from urllib.request import urlopen
+
+PACKAGES = ("client", "vue", "ui-vue", "nuxt", "uniapp", "testing")
+REPOS = {"php": "peanut-business/peanut-admin-core-php",
+         "web": "peanut-business/peanut-admin-core-web"}
+SHA = re.compile(r"[0-9a-f]{40}\Z")
+VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-rc\.([1-9][0-9]*))?\Z")
+PRODUCT_VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.([1-9][0-9]*)\Z")
+RUN_CONTEXT: tuple[dict, Path] | None = None
+TIMEOUT = {"input": 20, "core-remote": 40, "core-php": 90, "core-web": 90,
+           "prepare": 2400, "tool-dependencies": 2400, "inventory": 120, "scaffold": 1200, "qualification": 300,
+           "installers": 3600, "upgrades": 3600, "publish": 1800, "prepared-commit": 30}
+
+
+class Stop(Exception):
+    def __init__(self, phase: str, reason: str, code: int = 1):
+        super().__init__(reason)
+        self.phase, self.reason, self.code = phase, reason, code
+
+
+def command(argv: list[str], *, cwd: Path | None = None, phase: str, allow_missing: bool = False) -> str:
+    global RUN_CONTEXT
+    timeout = TIMEOUT.get(phase, 120)
+    attempt = None
+    if RUN_CONTEXT is not None and (argv[0] != "git" or (phase.startswith("core-") and any(part in ("tag", "push") for part in argv))):
+        state, state_path = RUN_CONTEXT
+        attempts = state.setdefault("attempts", [])
+        attempt = {"phase": phase, "status": "running", "command":
+                   ["--signing-secret-key-file=<redacted>" if part.startswith("--signing-secret-key-file=") else part for part in argv],
+                   "timeout_seconds": timeout, "attempt": len(attempts) + 1}
+        attempts.append(attempt)
+        atomic_json(state_path, state)
+    try:
+        result = subprocess.run(argv, cwd=cwd, text=True, capture_output=True, check=False, timeout=timeout)
+    except subprocess.TimeoutExpired as error:
+        if attempt is not None:
+            attempt.update(status="unknown", exit_code=None, reason="timeout")
+            atomic_json(RUN_CONTEXT[1], RUN_CONTEXT[0])
+        raise Stop(phase, f"command timed out after {timeout}s; inspect actual stage state before resume") from error
+    except OSError as error:
+        if attempt is not None:
+            attempt.update(status="failed", exit_code=None, reason=type(error).__name__)
+            atomic_json(RUN_CONTEXT[1], RUN_CONTEXT[0])
+        raise Stop(phase, f"command unavailable: {argv[0]} ({type(error).__name__})") from error
+    if attempt is not None:
+        logs = RUN_CONTEXT[1].parent / "logs"
+        logs.mkdir(mode=0o700, exist_ok=True)
+        log_path = logs / f"{attempt['attempt']:04d}-{phase}.log"
+        with log_path.open("x", encoding="utf-8", opener=lambda name, flags: os.open(name, flags, 0o600)) as stream:
+            stream.write(result.stdout)
+            stream.write("\n--- stderr ---\n")
+            stream.write(result.stderr)
+        attempt.update(status="done" if result.returncode == 0 else "failed", exit_code=result.returncode,
+                       log=str(log_path), log_sha256=hashlib.sha256(log_path.read_bytes()).hexdigest())
+        atomic_json(RUN_CONTEXT[1], RUN_CONTEXT[0])
+    if result.returncode:
+        if allow_missing and result.returncode == 1 and ("(HTTP 404)" in result.stderr or '"message":"Not Found"' in result.stdout):
+            return ""
+        raise Stop(phase, f"command failed (exit {result.returncode}): {argv[0]} {argv[1] if len(argv) > 1 else ''}", result.returncode)
+    return result.stdout.strip()
+
+
+def git(root: Path, *args: str, phase: str = "input") -> str:
+    return command(["git", "-C", str(root), *args], phase=phase)
+
+
+def digest(value: object) -> str:
+    raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
+def atomic_json(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_symlink():
+        raise Stop("state", "state path may not be a symlink")
+    fd, name = tempfile.mkstemp(prefix=".phase-", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(value, stream, ensure_ascii=False, sort_keys=True, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def identity(root: Path, repository: str, *, clean: bool = True) -> dict:
+    if not root.is_absolute() or root.is_symlink() or not root.is_dir():
+        raise Stop("input", f"repository must be an absolute real directory: {root}")
+    if Path(git(root, "rev-parse", "--show-toplevel")).resolve() != root.resolve():
+        raise Stop("input", f"wrong repository root: {root}")
+    origin = git(root, "remote", "get-url", "origin")
+    if origin not in (f"https://github.com/{repository}.git", f"https://github.com/{repository}",
+                      f"git@github.com:{repository}.git"):
+        raise Stop("input", f"wrong origin for {repository}")
+    if clean and git(root, "status", "--porcelain", "--untracked-files=normal"):
+        raise Stop("input", f"dirty repository: {root}")
+    return {"repository": repository, "head": git(root, "rev-parse", "HEAD"),
+            "tree": git(root, "rev-parse", "HEAD^{tree}"), "root": str(root)}
+
+
+def remote_refs(root: Path, tag: str) -> tuple[str, str | None, str | None]:
+    lines = git(root, "ls-remote", "origin", "refs/heads/main", f"refs/tags/{tag}",
+                f"refs/tags/{tag}^{{}}", phase="core-remote").splitlines()
+    refs = {line.split("\t", 1)[1]: line.split("\t", 1)[0] for line in lines if "\t" in line}
+    return refs.get("refs/heads/main", ""), refs.get(f"refs/tags/{tag}"), refs.get(f"refs/tags/{tag}^{{}}")
+
+
+def public_core(kind: str, version: str, reference: str, root: Path) -> dict:
+    phase = f"core-{kind}"
+    repo, tag = REPOS[kind], f"v{version}"
+    main, tag_object, commit = remote_refs(root, tag)
+    if not tag_object:
+        raise Stop(phase, f"{tag} is absent remotely; approved tag push is required")
+    if not commit or commit != reference or tag_object == commit:
+        raise Stop(phase, "remote tag must be annotated and resolve to the fixed Core commit")
+    runs = json.loads(command(["gh", "api", f"repos/{repo}/actions/runs?head_sha={reference}&event=push&per_page=100"], phase=phase))
+    successful = [run for run in runs.get("workflow_runs", [])
+                  if run.get("path") == ".github/workflows/release.yml"
+                  and run.get("head_branch") == tag and run.get("head_sha") == reference
+                  and run.get("conclusion") == "success"]
+    if not successful:
+        failed = [run for run in runs.get("workflow_runs", [])
+                  if run.get("path") == ".github/workflows/release.yml"
+                  and run.get("head_branch") == tag and run.get("head_sha") == reference
+                  and run.get("conclusion") in ("failure", "cancelled", "timed_out")
+                  and isinstance(run.get("id"), int)]
+        if failed and main == reference:
+            run_id = max(run["id"] for run in failed)
+            raise Stop(phase, f"tag Action incomplete; after checking every already-public package against this tag/source, "
+                              f"the controlled existing workflow command is gh run rerun {run_id} --repo {repo}; waiting")
+        raise Stop(phase, "matching release.yml tag Action has not succeeded; waiting")
+    release = json.loads(command(["gh", "api", f"repos/{repo}/releases/tags/{tag}"], phase=phase))
+    if (release.get("tag_name"), release.get("draft"), release.get("prerelease")) != (tag, False, "-" in version):
+        raise Stop(phase, "GitHub Release tag/channel/draft identity differs")
+    if not isinstance(release.get("id"), int):
+        raise Stop(phase, "GitHub Release identity is missing")
+    packages: dict[str, str] = {}
+    if kind == "php":
+        try:
+            with urlopen("https://repo.packagist.org/p2/peanut-admin/core.json", timeout=20) as stream:
+                data = json.load(stream)
+        except (OSError, ValueError) as error:
+            raise Stop(phase, f"Packagist lookup failed: {type(error).__name__}") from error
+        entries = [record for record in data.get("packages", {}).get("peanut-admin/core", [])
+                   if record.get("version", "").lstrip("v") == version]
+        if len(entries) != 1 or entries[0].get("version") != tag:
+            raise Stop(phase, "Packagist exact Core PHP version is absent or ambiguous")
+        source = entries[0].get("source") or {}
+        if source.get("url", "").removesuffix(".git") != f"https://github.com/{repo}" or source.get("reference") != reference:
+            raise Stop(phase, "Packagist source URL/reference differs")
+        packages["peanut-admin/core"] = {"version": tag, "source_url": source["url"], "source_reference": reference}
+    else:
+        loader = importlib.machinery.SourceFileLoader("peanut_candidate_validation", str(Path(__file__).with_name("prepare-product-release-candidate")))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        validation = importlib.util.module_from_spec(spec)
+        loader.exec_module(validation)
+        for name in PACKAGES:
+            full = f"@peanut-admin/{name}"
+            raw = command(["npm", "view", f"{full}@{version}", "version", "dist.integrity", "dist.tarball",
+                           "repository.url", "gitHead", "--json", "--registry=https://registry.npmjs.org"], phase=phase)
+            try:
+                item = json.loads(raw)
+            except ValueError as error:
+                raise Stop(phase, f"invalid npm metadata for {full}") from error
+            source = item.get("repository.url") or (item.get("repository") or {}).get("url")
+            integrity, tarball = item.get("dist.integrity"), item.get("dist.tarball")
+            try:
+                validation.validate_integrity(integrity, full)
+            except SystemExit as error:
+                raise Stop(phase, f"npm integrity invalid: {full}") from error
+            if (item.get("version") != version or item.get("gitHead") != reference
+                    or not validation.official_web_repository(source)
+                    or not validation.registry_tarball(tarball)):
+                raise Stop(phase, f"npm exact version, repository, gitHead, or integrity differs: {full}")
+            packages[full] = {"version": version, "repository": source, "gitHead": reference,
+                              "tarball": tarball, "integrity": integrity}
+    return {"repository": repo, "tag": tag, "tag_object": tag_object, "commit": commit,
+            "action_run": min(run["id"] for run in successful), "packages": packages,
+            "release_id": release.get("id"), "digest": digest(packages)}
+
+
+def tag_core(kind: str, version: str, reference: str, root: Path) -> None:
+    phase, tag = f"core-{kind}", f"v{version}"
+    main, existing, _ = remote_refs(root, tag)
+    if existing:
+        return
+    if main != reference or git(root, "rev-parse", "HEAD") != reference:
+        raise Stop(phase, "Core source is not the current remote main; integrate and qualify main separately")
+    push = git(root, "remote", "get-url", "--push", "origin")
+    if push not in (f"https://github.com/{REPOS[kind]}.git", f"https://github.com/{REPOS[kind]}",
+                    f"git@github.com:{REPOS[kind]}.git"):
+        raise Stop(phase, "Core push URL does not match the fixed official repository")
+    if not (root / ".github/workflows/release.yml").is_file():
+        raise Stop(phase, "Core main lacks release.yml")
+    runs = json.loads(command(["gh", "api", f"repos/{REPOS[kind]}/actions/workflows/ci.yml/runs?head_sha={reference}&event=workflow_dispatch&per_page=100"], phase=phase))
+    if not any(run.get("path") == ".github/workflows/ci.yml" and run.get("head_sha") == reference
+               and run.get("head_branch") == "main" and run.get("conclusion") == "success"
+               for run in runs.get("workflow_runs", [])):
+        raise Stop(phase, "the exact Core main commit lacks a successful dispatched CI qualification")
+    if kind == "php":
+        composer = json.loads((root / "composer.json").read_text())
+        if composer.get("name") != "peanut-admin/core" or "version" in composer:
+            raise Stop(phase, "PHP Core Composer identity is invalid")
+    else:
+        workspace = json.loads((root / "package.json").read_text())
+        if workspace.get("version") != version or workspace.get("private") is not True:
+            raise Stop(phase, "Web Core workspace version/private identity differs")
+        for package in PACKAGES:
+            manifest = json.loads((root / "packages" / package / "package.json").read_text())
+            if (manifest.get("name") != f"@peanut-admin/{package}" or manifest.get("version") != version
+                    or manifest.get("private") is True
+                    or manifest.get("repository", {}).get("url") != f"git+https://github.com/{REPOS['web']}.git"):
+                raise Stop(phase, f"Web Core package identity differs: {package}")
+    local = subprocess.run(["git", "-C", str(root), "rev-parse", "-q", "--verify", f"refs/tags/{tag}"], capture_output=True, timeout=20)
+    if local.returncode == 0:
+        if git(root, "cat-file", "-t", f"refs/tags/{tag}", phase=phase) != "tag" or git(root, "rev-parse", f"{tag}^{{commit}}", phase=phase) != reference:
+            raise Stop(phase, "existing local tag has different identity")
+    else:
+        command(["git", "-C", str(root), "tag", "-a", tag, reference, "-m", f"Core release {tag}"], phase=phase)
+    command(["git", "-C", str(root), "push", "origin", f"refs/tags/{tag}:refs/tags/{tag}"], phase=phase)
+
+
+def verify_edition_artifacts(directory: Path, version: str, commit: str, tree: str, *, upgrades: bool = False) -> dict[str, str]:
+    """Check the native two-edition output contract before recording a stage."""
+    if directory.is_symlink() or not directory.is_dir():
+        raise Stop("artifacts", "Edition artifact directory must be a real directory")
+    prefix = f"peanut-admin-{version}-"
+    required = {"SHA256SUMS.upgrades" if upgrades else "SHA256SUMS"}
+    expected_lines = []
+    for edition in ("standalone", "multi-tenant"):
+        base = f"{prefix}{edition}{'-upgrade' if upgrades else ''}.tar.gz"
+        names = [base]
+        if not upgrades:
+            names.append(f"{prefix}{edition}-server.tar.gz")
+        required.update([*names, base + ".manifest.json"])
+        manifest_file = directory / (base + ".manifest.json")
+        if manifest_file.is_symlink() or not manifest_file.is_file():
+            raise Stop("artifacts", f"missing or linked native manifest: {manifest_file.name}")
+        try:
+            manifest = json.loads(manifest_file.read_text())
+        except ValueError as error:
+            raise Stop("artifacts", f"invalid native manifest: {manifest_file.name}") from error
+        edition_name = manifest.get("edition")
+        if isinstance(edition_name, dict):
+            edition_name = edition_name.get("name")
+        if (manifest.get("schema_version") != 1 or manifest.get("protocol") !=
+                ("peanut.edition-upgrade-artifact.v1" if upgrades else "peanut.edition-installer.v1")
+                or manifest.get("product", {}).get("version") != version or edition_name != edition
+                or manifest.get("source", {}).get("commit") != commit
+                or manifest.get("source", {}).get("tree") != tree):
+            raise Stop("artifacts", f"native version/source identity differs: {base}")
+        for name, field in zip(names, ("archive",) if upgrades else ("archive", "server_archive")):
+            path, info = directory / name, manifest.get(field) or {}
+            if (path.is_symlink() or not path.is_file() or info.get("filename") != name
+                    or info.get("root") != name.removesuffix(".tar.gz")
+                    or info.get("format") != "tar.gz"
+                    or (not upgrades and info.get("layout") != ("server-only" if field == "server_archive" else "application-development-source"))
+                    or info.get("bytes") != path.stat().st_size
+                    or info.get("sha256") != hashlib.sha256(path.read_bytes()).hexdigest()):
+                raise Stop("artifacts", f"native archive digest or identity differs: {name}")
+            try:
+                with tarfile.open(path, "r:gz") as archive:
+                    members = archive.getmembers()
+                    if not members or not any(member.isfile() for member in members) or any(
+                            member.issym() or member.islnk() or PurePosixPath(member.name).is_absolute()
+                            or ".." in PurePosixPath(member.name).parts
+                            or PurePosixPath(member.name).parts[0] != info["root"] for member in members):
+                        raise Stop("artifacts", f"native archive member path/type differs: {name}")
+            except (OSError, tarfile.TarError) as error:
+                raise Stop("artifacts", f"unreadable native archive: {name}") from error
+            expected_lines.append(f"{info['sha256']}  {name}\n")
+    checksums = directory / ("SHA256SUMS.upgrades" if upgrades else "SHA256SUMS")
+    if checksums.is_symlink() or not checksums.is_file() or checksums.read_text() != "".join(expected_lines):
+        raise Stop("artifacts", "native checksum list is missing or differs")
+    for name in required:
+        if (directory / name).is_symlink():
+            raise Stop("artifacts", f"linked artifact: {name}")
+    allowed = set(required)
+    if upgrades:
+        allowed.add("SHA256SUMS")
+        for edition in ("standalone", "multi-tenant"):
+            archive = f"{prefix}{edition}.tar.gz"
+            allowed.update((archive, archive + ".manifest.json", f"{prefix}{edition}-server.tar.gz"))
+    if {item.name for item in directory.iterdir()} != allowed:
+        raise Stop("artifacts", "Edition artifact set is incomplete or contains unexpected files")
+    return {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in sorted(required)}
+
+
+def publication_assets(version: str, baseline: bool) -> set[str]:
+    names = {f"peanut-admin-{version}.tar.gz", f"peanut-admin-{version}-LICENSE.txt",
+             f"peanut-admin-{version}-NOTICE.txt", f"peanut-admin-{version}-THIRD-PARTY-NOTICES.md",
+             f"peanut-admin-{version}-SBOM.spdx.json", "RELEASE_CANDIDATE_LOCK.json",
+             "UPGRADE_TRUSTED_KEYS.json", "SHA256SUMS", "RELEASE_MANIFEST.json"}
+    for edition in ("standalone", "multi-tenant"):
+        archive = f"peanut-admin-{version}-{edition}.tar.gz"
+        names.update((archive, archive + ".manifest.json", f"peanut-admin-{version}-{edition}-server.tar.gz"))
+        if not baseline:
+            upgrade = f"peanut-admin-{version}-{edition}-upgrade.tar.gz"
+            names.update((upgrade, upgrade + ".manifest.json"))
+    if not baseline:
+        names.add("SHA256SUMS.upgrades")
+    return names
+
+
+def verify_published_release(candidate: Path, version: str, commit: str, publication: Path,
+                             baseline: bool, release: dict) -> dict[str, str]:
+    tag = f"v{version}"
+    main, remote_tag, remote_commit = remote_refs(candidate, tag)
+    if (not remote_tag or remote_tag == remote_commit or remote_commit != commit
+            or main != commit or git(candidate, "rev-parse", f"{tag}^{{tag}}", phase="publish") != remote_tag):
+        raise Stop("publish", "remote annotated product tag/main differs from fixed publication source")
+    if (release.get("tag_name"), release.get("draft"), release.get("prerelease")) != (tag, False, True):
+        raise Stop("publish", "existing Release tag/channel/draft differs")
+    if not isinstance(release.get("id"), int):
+        raise Stop("publish", "existing Release immutable identity is missing")
+    expected = publication_assets(version, baseline)
+    local_names = {path.name for path in publication.iterdir()} if publication.is_dir() and not publication.is_symlink() else set()
+    if local_names != expected | {"release-notes.md"}:
+        raise Stop("publish", "local publication attachment set is incomplete or contains extra files")
+    if (publication / "release-notes.md").is_symlink() or not (publication / "release-notes.md").is_file():
+        raise Stop("publish", "local publication notes are linked or missing")
+    local = {}
+    for name in expected:
+        path = publication / name
+        if path.is_symlink() or not path.is_file():
+            raise Stop("publish", f"local publication attachment is linked or missing: {name}")
+        local[name] = {"size": path.stat().st_size, "digest": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()}
+    assets = release.get("assets")
+    if not isinstance(assets, list) or {item.get("name") for item in assets if isinstance(item, dict)} != expected or len(assets) != len(expected):
+        raise Stop("publish", "remote Release attachment set differs; manual channel inspection required")
+    for item in assets:
+        if item.get("size") != local[item["name"]]["size"] or item.get("digest") != local[item["name"]]["digest"]:
+            raise Stop("publish", f"remote asset size/digest missing or differs: {item['name']}; manual channel inspection required")
+    return {name: value["digest"].removeprefix("sha256:") for name, value in local.items()}
+
+
+def source_diff(root: Path, base: str, end: str | None = None) -> tuple[str, set[str]]:
+    args = ["diff", "--binary", base, *( [end] if end else [])]
+    diff = git(root, *args, phase="prepared-commit")
+    names = set(git(root, "diff", "--name-only", base, *( [end] if end else []), phase="prepared-commit").splitlines())
+    return hashlib.sha256(diff.encode()).hexdigest(), names
+
+
+def file_hashes(root: Path, names: set[str]) -> dict[str, str]:
+    for name in names:
+        if (root / name).is_symlink():
+            raise Stop("input", f"source file may not be linked: {name}")
+    return {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in sorted(names)}
+
+
+def refresh_p0e_fixture(candidate: Path, version: str, manifest_path: Path) -> None:
+    """Project the native scaffold seal identity; qualification results remain untouched."""
+    fixture_path = candidate / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
+    if fixture_path.is_symlink() or manifest_path.is_symlink():
+        raise Stop("scaffold", "scaffold manifest or fixture may not be linked")
+    fixture = json.loads(fixture_path.read_text())
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    release = manifest["release"]
+    if release.get("version") != version:
+        raise Stop("scaffold", "native scaffold version differs")
+    fixture["target_release"].update({
+        "version": version, "source_commit": release["source_commit"],
+        "source_tree": release["source_tree"],
+        "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "inventory_sha256": release["inventory_sha256"],
+        "managed_tree_sha256": release["managed_tree_sha256"],
+        "file_count": len(manifest["files"]),
+    })
+    fixture_path.write_text(json.dumps(fixture, ensure_ascii=False, indent=2) + "\n")
+
+
+def stage(state: dict, path: Path, name: str, command_line: list[str], value: dict) -> None:
+    state["stages"][name] = {"status": "done", "command": command_line, "exit_code": 0, **value}
+    state["failure"] = None
+    atomic_json(path, state)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("source", "candidate", "core-php-root", "core-web-root", "output"):
+        parser.add_argument(f"--{name}", type=Path, required=True)
+    for name in ("source-commit", "product-version", "core-php-version", "core-php-reference",
+                 "core-web-version", "core-web-reference"):
+        parser.add_argument(f"--{name}", required=True)
+    parser.add_argument("--apply", action="store_true", help="persist state and run approved stages; default is read-only plan")
+    parser.add_argument("--approve-core-tag", action="append", choices=("php", "web"), default=[])
+    parser.add_argument("--generate-inventory", action="store_true")
+    parser.add_argument("--seal-source-commit")
+    parser.add_argument("--prepared-commit")
+    parser.add_argument("--build", action="store_true")
+    parser.add_argument("--baseline", action="store_true")
+    parser.add_argument("--minimum-source-version")
+    parser.add_argument("--signing-key-id")
+    parser.add_argument("--signing-secret-key-file", type=Path)
+    parser.add_argument("--qualification", type=Path)
+    parser.add_argument("--publish", action="store_true")
+    args = parser.parse_args()
+    roots = (args.source, args.candidate, args.core_php_root, args.core_web_root, args.output)
+    if any(not path.is_absolute() for path in roots):
+        raise Stop("input", "all roots and output must be absolute")
+    if args.source == args.candidate or args.output == args.candidate or args.output == args.source:
+        raise Stop("input", "source, isolated candidate and output must differ")
+    if not SHA.fullmatch(args.source_commit) or not SHA.fullmatch(args.core_php_reference) or not SHA.fullmatch(args.core_web_reference):
+        raise Stop("input", "source and Core references must be full lowercase commits")
+    if not PRODUCT_VERSION.fullmatch(args.product_version):
+        raise Stop("input", "first-stage product version must be unused X.Y.Z-rc.N")
+    if any(not VERSION.fullmatch(value) for value in (args.core_php_version, args.core_web_version)):
+        raise Stop("input", "Core versions must be fixed stable or rc.N SemVer")
+    source = identity(args.source, "peanut-business/peanut-admin-code")
+    php = identity(args.core_php_root, REPOS["php"])
+    web = identity(args.core_web_root, REPOS["web"])
+    if source["head"] != args.source_commit:
+        raise Stop("input", "Code source HEAD differs from fixed input")
+    for kind, item, ref in (("php", php, args.core_php_reference), ("web", web, args.core_web_reference)):
+        if item["head"] != ref:
+            raise Stop("input", f"Core {kind} HEAD differs from fixed input")
+    candidate = identity(args.candidate, "peanut-business/peanut-admin-code", clean=False)
+    if git(args.source, "rev-parse", "--path-format=absolute", "--git-common-dir") != git(args.candidate, "rev-parse", "--path-format=absolute", "--git-common-dir"):
+        raise Stop("input", "candidate is not an isolated worktree of the fixed Code repository")
+    for left, right in ((args.source, args.candidate), (args.output, args.source), (args.output, args.candidate),
+                        (args.output, args.core_php_root), (args.output, args.core_web_root),
+                        (args.core_php_root, args.core_web_root), (args.source, args.core_php_root),
+                        (args.source, args.core_web_root), (args.candidate, args.core_php_root),
+                        (args.candidate, args.core_web_root)):
+        if left.resolve() == right.resolve() or left.resolve() in right.resolve().parents or right.resolve() in left.resolve().parents:
+            raise Stop("input", "source, candidate and output directories must not overlap")
+    inputs = {"source": source, "candidate_root": str(args.candidate), "php": php, "web": web,
+              "product_version": args.product_version, "php_version": args.core_php_version,
+              "php_reference": args.core_php_reference, "web_version": args.core_web_version,
+              "web_reference": args.core_web_reference, "output": str(args.output),
+              "baseline": args.baseline, "minimum_source_version": args.minimum_source_version}
+    fingerprint = digest(inputs)
+    state_path = args.output / "phase-state.json"
+    if not args.apply:
+        print(json.dumps({"mode": "dry-run", "input_sha256": fingerprint,
+                          "stages": ["core-php", "core-web", "prepare", "tool-dependencies", "inventory", "seal-source-commit", "scaffold", "prepared-commit",
+                                     "installers", "upgrades", "qualification", "publish"],
+                          "commands": ["existing Core release.yml via annotated tag push if explicitly approved",
+                                       "scripts/prepare-product-release-candidate",
+                                       "scripts/build-edition-installers", "scripts/build-edition-upgrades",
+                                       "scripts/publish-github-release --prerelease"]}, indent=2))
+        return
+    if any(part.is_symlink() for part in (args.output, *args.output.parents)) or (args.output.exists() and not args.output.is_dir()):
+        raise Stop("input", "output must be a real directory")
+    args.output.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_path = args.output / ".phase-lock"
+    if lock_path.is_symlink():
+        raise Stop("resume", "output lock may not be a symlink")
+    lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        os.close(lock_fd)
+        raise Stop("resume", "another coordinator holds this output") from error
+    try:
+        if state_path.is_symlink():
+            raise Stop("resume", "state path may not be a symlink")
+        if state_path.exists():
+            state = json.loads(state_path.read_text())
+            if state.get("input_sha256") != fingerprint or state.get("inputs") != inputs:
+                raise Stop("resume", "fixed inputs/source differ; do not reuse this output root")
+        else:
+            state = {"schema_version": 1, "input_sha256": fingerprint, "inputs": inputs,
+                     "stages": {}, "failure": None}
+            atomic_json(state_path, state)
+    except BaseException:
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+        raise
+    global RUN_CONTEXT
+    RUN_CONTEXT = (state, state_path)
+    try:
+        for kind, root, version, reference in (("php", args.core_php_root, args.core_php_version, args.core_php_reference),
+                                                ("web", args.core_web_root, args.core_web_version, args.core_web_reference)):
+            name = f"core-{kind}"
+            try:
+                evidence = public_core(kind, version, reference, root)
+            except Stop as error:
+                if "absent remotely" not in error.reason or kind not in args.approve_core_tag:
+                    raise
+                state.setdefault("core_tag_intents", {})[kind] = {"tag": f"v{version}", "commit": reference,
+                                                               "repository": REPOS[kind]}
+                atomic_json(state_path, state)
+                tag_core(kind, version, reference, root)
+                evidence = public_core(kind, version, reference, root)
+            previous = state["stages"].get(name)
+            if previous and any(previous["evidence"].get(key) != evidence.get(key)
+                                for key in ("tag_object", "commit", "release_id", "digest")):
+                raise Stop(name, "public Core identity or package digest changed since completed stage")
+            if not previous:
+                stage(state, state_path, name, ["existing release.yml", f"v{version}"], {"evidence": evidence})
+        prepared = state["stages"].get("prepare")
+        if not prepared:
+            if candidate["head"] != args.source_commit or git(args.candidate, "status", "--porcelain", "--untracked-files=normal"):
+                raise Stop("prepare", "isolated candidate must start clean at fixed source commit")
+            cmd = ["python3", str(args.candidate / "scripts/prepare-product-release-candidate"),
+                   f"--version={args.product_version}", f"--core-php-version={args.core_php_version}",
+                   f"--core-php-reference={args.core_php_reference}", f"--core-web-version={args.core_web_version}",
+                   f"--core-web-reference={args.core_web_reference}"]
+            command(cmd, cwd=args.candidate, phase="prepare")
+            diff_sha, paths = source_diff(args.candidate, args.source_commit)
+            if not paths or not paths.issubset({"server/composer.json", "server/composer.lock", "web/package.json", "web/pnpm-lock.yaml",
+                                               "platform/package.json", "platform/package-lock.json", "pc/package.json", "pc/package-lock.json",
+                                               "uniapp/package.json", "uniapp/package-lock.json", "release-versions.json", "RELEASE_METADATA.json"}):
+                raise Stop("prepare", "candidate preparation produced no source change")
+            stage(state, state_path, "prepare", cmd, {"diff_sha256": diff_sha, "owned_files": file_hashes(args.candidate, paths)})
+            raise Stop("inventory", "review native locks and required CHANGELOG/legal inputs; resume with --generate-inventory")
+        if "inventory" not in state["stages"]:
+            if candidate["head"] != args.source_commit:
+                raise Stop("inventory", "inventory must be generated before the source seal commit")
+            for name, expected in prepared["owned_files"].items():
+                if hashlib.sha256((args.candidate / name).read_bytes()).hexdigest() != expected:
+                    raise Stop("inventory", f"prepared native input changed: {name}")
+            _, changes = source_diff(args.candidate, args.source_commit)
+            untracked = set(git(args.candidate, "ls-files", "--others", "--exclude-standard").splitlines())
+            allowed = set(prepared["owned_files"]) | {"CHANGELOG.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
+                                                       "RELEASE_SBOM.spdx.json", "UPGRADE_TRUSTED_KEYS.json",
+                                                       "scaffold/application-template-inventory.json"}
+            if not changes | untracked <= allowed:
+                raise Stop("inventory", f"unreviewed source paths before seal: {sorted((changes | untracked) - allowed)}")
+            lock_sha = hashlib.sha256((args.candidate / "server/composer.lock").read_bytes()).hexdigest()
+            autoload = args.candidate / "server/vendor/autoload.php"
+            if "tool-dependencies" not in state["stages"]:
+                if not args.generate_inventory:
+                    raise Stop("tool-dependencies", "resume with --generate-inventory to prepare candidate Composer tool dependencies")
+                if autoload.exists() or autoload.is_symlink():
+                    raise Stop("tool-dependencies", "unrecorded candidate vendor output exists; inspect native install before retry")
+                composer = str(args.candidate / "scripts/project-composer")
+                command([composer, "prepare"], cwd=args.candidate, phase="tool-dependencies")
+                install = [composer, "install", "--working-dir=server", "--no-scripts", "--no-plugins",
+                           "--no-interaction", "--no-progress", "--prefer-dist"]
+                command(install, cwd=args.candidate, phase="tool-dependencies")
+                if autoload.is_symlink() or not autoload.is_file():
+                    raise Stop("tool-dependencies", "candidate Composer install did not create a real autoload file")
+                stage(state, state_path, "tool-dependencies", install,
+                      {"composer_lock_sha256": lock_sha, "autoload_sha256": hashlib.sha256(autoload.read_bytes()).hexdigest()})
+            dependencies = state["stages"]["tool-dependencies"]
+            if (dependencies["composer_lock_sha256"] != lock_sha or autoload.is_symlink() or not autoload.is_file()
+                    or hashlib.sha256(autoload.read_bytes()).hexdigest() != dependencies["autoload_sha256"]):
+                raise Stop("tool-dependencies", "candidate tool dependencies or lock changed")
+            if not args.generate_inventory:
+                raise Stop("inventory", "run native inventory with --generate-inventory after reviewing release inputs")
+            inventory_cmd = ["php", str(args.candidate / "scripts/build-application-template-inventory")]
+            if "scaffold/application-template-inventory.json" not in changes:
+                command(inventory_cmd, cwd=args.candidate, phase="inventory")
+            command([*inventory_cmd, "--check"], cwd=args.candidate, phase="inventory")
+            diff_sha, changed = source_diff(args.candidate, args.source_commit)
+            if "scaffold/application-template-inventory.json" not in changed:
+                raise Stop("inventory", "native inventory did not bind the prepared candidate")
+            stage(state, state_path, "inventory", inventory_cmd,
+                  {"diff_sha256": diff_sha, "paths": sorted(changed),
+                   "inventory_sha256": hashlib.sha256((args.candidate / "scaffold/application-template-inventory.json").read_bytes()).hexdigest()})
+            raise Stop("seal-source-commit", "review exact inventory/source diff and commit seal source, then provide --seal-source-commit")
+        dependencies = state["stages"].get("tool-dependencies")
+        autoload = args.candidate / "server/vendor/autoload.php"
+        if not dependencies or hashlib.sha256((args.candidate / "server/composer.lock").read_bytes()).hexdigest() != dependencies["composer_lock_sha256"] or autoload.is_symlink() or not autoload.is_file() or hashlib.sha256(autoload.read_bytes()).hexdigest() != dependencies["autoload_sha256"]:
+            raise Stop("tool-dependencies", "candidate Composer tool installation changed")
+        seal = state["stages"].get("seal-source-commit")
+        if not seal:
+            if not args.seal_source_commit or not SHA.fullmatch(args.seal_source_commit):
+                raise Stop("seal-source-commit", "provide real clean source seal commit")
+            if candidate["head"] != args.seal_source_commit or git(args.candidate, "status", "--porcelain", "--untracked-files=normal"):
+                raise Stop("seal-source-commit", "source seal candidate must be clean at supplied commit")
+            diff_sha, paths = source_diff(args.candidate, args.source_commit, args.seal_source_commit)
+            if diff_sha != state["stages"]["inventory"]["diff_sha256"] or sorted(paths) != state["stages"]["inventory"]["paths"]:
+                raise Stop("seal-source-commit", "source seal commit differs from reviewed inventory source")
+            stage(state, state_path, "seal-source-commit", ["git", "commit", args.seal_source_commit],
+                  {"commit": args.seal_source_commit, "tree": candidate["tree"]})
+            seal = state["stages"]["seal-source-commit"]
+        elif candidate["head"] not in (seal["commit"], args.prepared_commit):
+            raise Stop("seal-source-commit", "candidate HEAD no longer follows the sealed source")
+        if "scaffold" not in state["stages"]:
+            if candidate["head"] != seal["commit"] or git(args.candidate, "status", "--porcelain", "--untracked-files=normal"):
+                raise Stop("scaffold", "scaffold must be generated from clean sealed source")
+            destination = args.candidate / "scaffold/releases" / f"v{args.product_version}"
+            if destination.exists() or destination.is_symlink():
+                raise Stop("scaffold", "scaffold output exists; inspect partial output before retry")
+            cmd = ["php", str(args.candidate / "scripts/build-scaffold-release"),
+                   f"--version={args.product_version}", f"--source-commit={seal['commit']}", f"--output={destination}"]
+            command(cmd, cwd=args.candidate, phase="scaffold")
+            refresh_p0e_fixture(args.candidate, args.product_version, destination / "scaffold-manifest.json")
+            _, paths = source_diff(args.candidate, seal["commit"])
+            fixture_diff = git(args.candidate, "diff", "--binary", seal["commit"], "--",
+                               "server/tests/fixtures/p0e-runtime-qualification/matrix.json", phase="scaffold")
+            untracked = set(git(args.candidate, "ls-files", "--others", "--exclude-standard").splitlines())
+            if paths != {"server/tests/fixtures/p0e-runtime-qualification/matrix.json"} or not untracked or any(
+                    not path.startswith(f"scaffold/releases/v{args.product_version}/") for path in untracked):
+                raise Stop("scaffold", "native scaffold/fixture write set differs")
+            stage(state, state_path, "scaffold", cmd,
+                  {"fixture_diff_sha256": hashlib.sha256(fixture_diff.encode()).hexdigest(), "files": file_hashes(args.candidate, untracked),
+                   "manifest_sha256": hashlib.sha256((destination / "scaffold-manifest.json").read_bytes()).hexdigest()})
+            raise Stop("prepared-commit", "review native scaffold and fixture, commit final product source and provide --prepared-commit")
+        prepared_commit = state["stages"].get("prepared-commit")
+        if not prepared_commit:
+            if not args.prepared_commit or not SHA.fullmatch(args.prepared_commit):
+                raise Stop("prepared-commit", "provide real reviewed --prepared-commit after committing candidate")
+            if candidate["head"] != args.prepared_commit or git(args.candidate, "status", "--porcelain", "--untracked-files=normal"):
+                raise Stop("prepared-commit", "candidate must be clean at supplied prepared commit")
+            command(["git", "-C", str(args.candidate), "merge-base", "--is-ancestor", seal["commit"], args.prepared_commit], phase="prepared-commit")
+            _, paths = source_diff(args.candidate, seal["commit"], args.prepared_commit)
+            fixture_diff = git(args.candidate, "diff", "--binary", seal["commit"], args.prepared_commit, "--",
+                               "server/tests/fixtures/p0e-runtime-qualification/matrix.json", phase="prepared-commit")
+            if hashlib.sha256(fixture_diff.encode()).hexdigest() != state["stages"]["scaffold"]["fixture_diff_sha256"] or paths != {"server/tests/fixtures/p0e-runtime-qualification/matrix.json"} | set(state["stages"]["scaffold"]["files"]):
+                raise Stop("prepared-commit", "final commit differs from native scaffold/fixture review")
+            for name, expected in state["stages"]["scaffold"]["files"].items():
+                if hashlib.sha256((args.candidate / name).read_bytes()).hexdigest() != expected:
+                    raise Stop("prepared-commit", f"scaffold file changed: {name}")
+            stage(state, state_path, "prepared-commit", ["git", "commit", args.prepared_commit],
+                  {"commit": args.prepared_commit, "tree": candidate["tree"]})
+        elif candidate["head"] != prepared_commit["commit"] or candidate["tree"] != prepared_commit["tree"] or git(args.candidate, "status", "--porcelain", "--untracked-files=normal"):
+            raise Stop("prepared-commit", "prepared source commit/tree or cleanliness changed")
+        release_commit = state["stages"]["prepared-commit"]["commit"]
+        if args.prepared_commit and args.prepared_commit != release_commit:
+            raise Stop("prepared-commit", "supplied prepared commit differs from completed stage")
+        if not args.build:
+            raise Stop("installers", "pass --build after prepared commit and Core verification")
+        artifacts = args.output / "edition-artifacts"
+        if artifacts.is_symlink():
+            raise Stop("installers", "Edition output directory may not be linked")
+        artifacts.mkdir(exist_ok=True)
+        prefix = f"peanut-admin-{args.product_version}-"
+        if "installers" not in state["stages"]:
+            if any(artifacts.iterdir()):
+                raise Stop("installers", "partial installer output exists; inspect before retry")
+            cmd = ["php", str(args.candidate / "scripts/build-edition-installers"),
+                   f"--version={args.product_version}", f"--source-commit={release_commit}", f"--output={artifacts}"]
+            command(cmd, cwd=args.candidate, phase="installers")
+            verified = verify_edition_artifacts(artifacts, args.product_version, release_commit,
+                                                 state["stages"]["prepared-commit"]["tree"])
+            for edition in ("standalone", "multi-tenant"):
+                name = f"{prefix}{edition}-server.tar.gz"
+                manifest = json.loads((artifacts / f"{prefix}{edition}.tar.gz.manifest.json").read_text())
+                command(["python3", str(args.candidate / "scripts/package-release-files.py"), "verify",
+                         f"--archive={artifacts / name}", f"--expected-sha256={manifest['server_archive']['sha256']}"],
+                        cwd=args.candidate, phase="installers")
+            stage(state, state_path, "installers", cmd, {"artifacts": verified})
+        for filename, sha in state["stages"]["installers"]["artifacts"].items():
+            path = artifacts / filename
+            if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
+                raise Stop("installers", f"completed artifact changed: {filename}")
+        if not args.baseline:
+            if not args.minimum_source_version or not args.signing_key_id or not args.signing_secret_key_file:
+                raise Stop("upgrades", "minimum version and signing key inputs are required for existing baseline")
+            if (not args.signing_secret_key_file.is_absolute() or args.signing_secret_key_file.is_symlink()
+                    or not args.signing_secret_key_file.is_file()):
+                raise Stop("upgrades", "signing key input must be an absolute real file")
+            if "upgrades" not in state["stages"]:
+                if any("-upgrade.tar.gz" in item.name or item.name == "SHA256SUMS.upgrades" for item in artifacts.iterdir()):
+                    raise Stop("upgrades", "partial upgrade output exists; inspect before retry")
+                cmd = ["php", str(args.candidate / "scripts/build-edition-upgrades"),
+                       f"--version={args.product_version}", f"--minimum-source-version={args.minimum_source_version}",
+                       f"--source-commit={release_commit}", f"--output={artifacts}",
+                       f"--signing-key-id={args.signing_key_id}", f"--signing-secret-key-file={args.signing_secret_key_file}"]
+                command(cmd, cwd=args.candidate, phase="upgrades")
+                stage(state, state_path, "upgrades", [*cmd[:-1], "--signing-secret-key-file=<redacted>"],
+                      {"artifacts": verify_edition_artifacts(artifacts, args.product_version, release_commit,
+                                                            state["stages"]["prepared-commit"]["tree"], upgrades=True),
+                       "signing_key_id": args.signing_key_id,
+                       "signing_key_path_sha256": hashlib.sha256(str(args.signing_secret_key_file).encode()).hexdigest()})
+            if (state["stages"]["upgrades"]["signing_key_id"] != args.signing_key_id
+                    or state["stages"]["upgrades"]["signing_key_path_sha256"] != hashlib.sha256(str(args.signing_secret_key_file).encode()).hexdigest()):
+                raise Stop("upgrades", "signing input differs from completed upgrade artifacts")
+            for filename, sha in state["stages"]["upgrades"]["artifacts"].items():
+                path = artifacts / filename
+                if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
+                    raise Stop("upgrades", f"completed artifact changed: {filename}")
+        if not args.qualification or not args.qualification.is_absolute() or not args.qualification.is_file():
+            raise Stop("qualification", "real qualification summary for prepared commit is required")
+        qualification_sha = hashlib.sha256(args.qualification.read_bytes()).hexdigest()
+        prior = state["stages"].get("qualification")
+        if prior and prior["sha256"] != qualification_sha:
+            raise Stop("qualification", "qualification evidence changed")
+        check = ["node", str(args.candidate / "scripts/check-release-consistency"),
+                 "--candidate", release_commit, "--qualification", str(args.qualification), "--prerelease"]
+        command(check, cwd=args.candidate, phase="qualification")
+        if not prior:
+            stage(state, state_path, "qualification", check,
+                  {"sha256": qualification_sha})
+        if not args.publish:
+            raise Stop("publish", "review qualification, annotated product tag and main; pass --publish to invoke existing publisher")
+        existing = command(["gh", "api", f"repos/peanut-business/peanut-admin-code/releases/tags/v{args.product_version}"],
+                           phase="publish", allow_missing=True)
+        intent = state.get("publication_intent")
+        if intent:
+            if (intent.get("tag") != f"v{args.product_version}" or intent.get("commit") != release_commit
+                    or intent.get("tree") != state["stages"]["prepared-commit"]["tree"]
+                    or intent.get("qualification_sha256") != qualification_sha):
+                raise Stop("publish", "saved publication intent differs from fixed candidate")
+        elif existing:
+            raise Stop("publish", "Release exists without a local publication intent; manual channel inspection required")
+        if not intent:
+            publication = args.output / "product-release-attempt-1"
+            if publication.exists() or publication.is_symlink():
+                raise Stop("publish", "publication output already exists without intent; inspect partial files")
+            cmd = [str(args.candidate / "scripts/publish-github-release"), args.product_version,
+                   "--prerelease", "--qualification", str(args.qualification),
+                   "--edition-artifacts", str(artifacts), "--output", str(publication)]
+            if args.baseline:
+                cmd.append("--edition-baseline")
+            intent = {"tag": f"v{args.product_version}", "commit": release_commit,
+                      "tree": state["stages"]["prepared-commit"]["tree"],
+                      "qualification_sha256": qualification_sha, "output": str(publication),
+                      "command": cmd}
+            state["publication_intent"] = intent
+            atomic_json(state_path, state)
+            command(cmd, cwd=args.candidate, phase="publish")
+            existing = command(["gh", "api", f"repos/peanut-business/peanut-admin-code/releases/tags/v{args.product_version}"],
+                               phase="publish", allow_missing=True)
+        if not existing:
+            raise Stop("publish", "publication intent exists but Release is absent; inspect attempt before any retry")
+        publication = Path(intent["output"])
+        verified = verify_published_release(args.candidate, args.product_version, release_commit,
+                                            publication, args.baseline, json.loads(existing))
+        completed = state["stages"].get("publish")
+        release_id = json.loads(existing)["id"]
+        if completed and completed.get("release_id") != release_id:
+            raise Stop("publish", "completed GitHub Release identity changed")
+        if completed and completed["artifacts"] != verified:
+            raise Stop("publish", "completed publication artifact digest changed")
+        if not completed:
+            stage(state, state_path, "publish", intent["command"], {"artifacts": verified,
+                                                                   "release_id": release_id})
+        print(f"complete: {state_path}")
+    except Stop as error:
+        state["failure"] = {"phase": error.phase, "reason": error.reason, "exit_code": error.code,
+                            "status": "waiting" if (error.phase in ("inventory", "seal-source-commit", "prepared-commit", "qualification", "publish")
+                            or (error.phase.startswith("core-") and "waiting" in error.reason))
+                            and error.code == 1 else "failed"}
+        atomic_json(state_path, state)
+        raise
+    finally:
+        RUN_CONTEXT = None
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Stop as error:
+        print(f"continue-product-release: phase={error.phase}: {error.reason}", file=sys.stderr)
+        sys.exit(error.code if 0 < error.code < 126 else 1)
