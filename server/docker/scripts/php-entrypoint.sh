@@ -9,10 +9,14 @@ FINAL_ENV="$SERVER_ROOT/.env"
 INSTALLED="$SERVER_ROOT/private/installation/installed.json"
 
 cd "$SERVER_ROOT"
+[ ! -L private ] && [ ! -L public ] && [ ! -L docker ] && [ ! -L docker/secrets ] || {
+    echo "server parent path is a symlink" >&2; exit 1;
+}
 for path in runtime runtime/upgrade public/storage private/storage private/installation private/resources; do
     [ ! -L "$path" ] || { echo "runtime path is a symlink: $path" >&2; exit 1; }
     mkdir -p "$path"
 done
+sh docker/scripts/prepare-install-permissions.sh
 [ ! -L runtime/upgrade/.mount-ready ] || { echo "upgrade guard sentinel is a symlink" >&2; exit 1; }
 if [ ! -e runtime/upgrade/.mount-ready ]; then
     printf '%s\n' 'peanut.server-update-guard.v1' > runtime/upgrade/.mount-ready
@@ -63,6 +67,7 @@ write_bootstrap_env() {
         printf 'PEANUT_DEMO_MODE=disabled\nDEFAULT_LANG=zh-cn\nPROJECT_VERSION=%s\n' "$version"
     } > "$tmp"
     chmod 600 "$tmp"
+    chown www-data:www-data "$tmp"
     mv "$tmp" "$BOOTSTRAP_ENV"
 }
 
@@ -74,6 +79,7 @@ write_installing_env() {
     cat "$FINAL_ENV" > "$tmp"
     printf 'PEANUT_INSTALLATION_SETUP_TOKEN=%s\n' "$token" >> "$tmp"
     chmod 600 "$tmp"
+    chown www-data:www-data "$tmp"
     mv "$tmp" "$INSTALLING_ENV"
 }
 
@@ -84,7 +90,7 @@ run_monitored_fpm() {
     trap 'kill -TERM "$fpm_pid" 2>/dev/null || true; wait "$fpm_pid" 2>/dev/null || true; exit 143' TERM
     trap 'kill -INT "$fpm_pid" 2>/dev/null || true; wait "$fpm_pid" 2>/dev/null || true; exit 130' INT
     while kill -0 "$fpm_pid" 2>/dev/null; do
-        if [ "$phase" = bootstrap ] && [ -f "$FINAL_ENV" ] && [ -f private/resources/project-resources.json ]; then
+        if [ "$phase" = bootstrap ] && [ -f "$FINAL_ENV" ] && [ -f private/resources/project-resources.json ] && [ -f private/resources/configuration.json ]; then
             sleep 2
             kill -QUIT "$fpm_pid" 2>/dev/null || true
             wait "$fpm_pid" || true

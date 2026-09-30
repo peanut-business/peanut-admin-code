@@ -55,6 +55,7 @@ if (!is_dir($root) && !mkdir($root, 0700, true) && !is_dir($root)) {
 $fixture = $root . '/installation-configuration-' . bin2hex(random_bytes(6));
 mkdir($fixture . '/standalone/private/installation', 0700, true);
 mkdir($fixture . '/multi/private/installation', 0700, true);
+mkdir($fixture . '/partial/private/resources', 0700, true);
 $token = str_repeat('t', 64);
 $secret = str_repeat('a', 64);
 
@@ -130,6 +131,21 @@ try {
     $multiEnv = (string) file_get_contents($fixture . '/multi/.env');
     installationConfigExpect(str_contains($multiEnv, "PLATFORM_HOSTS=pa-platform.example.test\n"), 'platform hosts must persist');
     installationConfigExpect(str_contains($multiEnv, "TENANT_ADMIN_HOSTS=pa-admin.example.test\n"), 'tenant admin hosts must persist');
+
+    $partial = new InstallationConfigurationHost(
+        $fixture . '/partial',
+        static fn(string $serverRoot): array => installationConfigIdentity('standalone'),
+        static fn(): string => $secret,
+    );
+    file_put_contents($fixture . '/partial/private/resources/configuration.lock', '');
+    installationConfigExpect($partial->status()['state'] === 'blocked', 'pending configuration lock must block status');
+    try {
+        $partial->configure($token, $token, ['deployment_target' => 'production']);
+        throw new RuntimeException('pending configuration was retried');
+    } catch (InstallationExecutionException $exception) {
+        installationConfigExpect($exception->errorCode === 'INSTALL_CONFIGURATION_PARTIAL', 'pending configuration must fail closed');
+    }
+    installationConfigExpect(!file_exists($fixture . '/partial/.env'), 'pending failure must not create final env');
 
     echo "INSTALLATION-CONFIGURATION-HOST passed\n";
 } finally {

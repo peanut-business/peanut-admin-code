@@ -44,8 +44,12 @@ final class InstallationConfigurationHost
         $identity = $this->identity();
         $env = $this->serverRoot . '/.env';
         $registry = $this->registryPath();
+        $record = $this->serverRoot . '/private/resources/configuration.json';
+        $lock = $this->serverRoot . '/private/resources/configuration.lock';
         $installed = $this->serverRoot . '/private/installation/installed.json';
-        $configured = is_file($env) && !is_link($env) && is_file($registry) && !is_link($registry);
+        $configured = is_file($env) && !is_link($env)
+            && is_file($registry) && !is_link($registry)
+            && is_file($record) && !is_link($record);
 
         if (file_exists($installed) || is_link($installed)) {
             return [
@@ -55,7 +59,10 @@ final class InstallationConfigurationHost
                 'application' => $this->publicIdentity($identity),
             ];
         }
-        if ((file_exists($env) || is_link($env)) xor (file_exists($registry) || is_link($registry))) {
+        if (!$configured && (file_exists($env) || is_link($env)
+            || file_exists($registry) || is_link($registry)
+            || file_exists($record) || is_link($record)
+            || file_exists($lock) || is_link($lock))) {
             return [
                 'state' => 'blocked',
                 'code' => 'INSTALL_CONFIGURATION_PARTIAL',
@@ -150,6 +157,15 @@ final class InstallationConfigurationHost
                 503,
             );
         }
+        if (file_exists($lockPath) && !(is_file($this->serverRoot . '/.env')
+            && is_file($this->registryPath())
+            && is_file($stateDirectory . '/configuration.json'))) {
+            throw new InstallationExecutionException(
+                'INSTALL_CONFIGURATION_PARTIAL',
+                '首次配置曾开始但未完成，须先核对实例状态。',
+                409,
+            );
+        }
         $lock = fopen($lockPath, 'c+');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
             if (is_resource($lock)) {
@@ -161,6 +177,7 @@ final class InstallationConfigurationHost
                 409,
             );
         }
+        chmod($lockPath, 0600);
 
         try {
             $this->assertFreshConfigurationState();
@@ -432,7 +449,13 @@ final class InstallationConfigurationHost
             throw new RuntimeException('INSTALL_CONFIGURATION_TARGET_EXISTS');
         }
         $temporary = dirname($path) . '/.' . basename($path) . '.tmp-' . bin2hex(random_bytes(8));
-        if (file_put_contents($temporary, $bytes, LOCK_EX) !== strlen($bytes)
+        $previousUmask = umask(0077);
+        try {
+            $written = file_put_contents($temporary, $bytes, LOCK_EX);
+        } finally {
+            umask($previousUmask);
+        }
+        if ($written !== strlen($bytes)
             || !chmod($temporary, 0600)
             || !rename($temporary, $path)) {
             @unlink($temporary);
