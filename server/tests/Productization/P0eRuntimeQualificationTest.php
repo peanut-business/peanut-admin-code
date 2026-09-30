@@ -5,7 +5,16 @@ declare(strict_types=1);
 $root = dirname(__DIR__, 3);
 $runner = $root . '/scripts/p0e-runtime-qualification';
 $fixturePath = $root . '/server/tests/fixtures/p0e-runtime-qualification/matrix.json';
-$registryPath = $root . '/resources/project-resources.json';
+$registryPath = getenv('PEANUT_RESOURCE_REGISTRY');
+if (
+    !is_string($registryPath)
+    || $registryPath === ''
+    || !str_starts_with($registryPath, '/')
+    || !is_file($registryPath)
+    || is_link($registryPath)
+) {
+    throw new RuntimeException('PEANUT_RESOURCE_REGISTRY must point to the explicit private maintainer registry');
+}
 $p0eRegistryPath = $root . '/resources/p0e-runtime-qualification.json';
 $releaseMetadataPath = $root . '/RELEASE_METADATA.json';
 
@@ -91,6 +100,8 @@ $binding = $p0eRegistry['database_administration_binding'] ?? null;
 $expect(is_array($binding), 'P0-E remote administration binding is missing');
 $expect(($binding['database_resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-gate', 'P0-E database resource is not fixed');
 $expect(($binding['runtime_resource_id'] ?? null) === ($registered[0]['runtime_resource_id'] ?? null), 'P0-E runtime resource diverged');
+$expect(($binding['credential_ref'] ?? null) === ($registered[0]['credential_ref'] ?? null), 'P0-E binding credential provenance diverged');
+$expect(str_contains((string) ($binding['failure_policy'] ?? ''), 'never stops or restarts Docker Desktop'), 'P0-E binding failure policy may escalate into Docker Desktop recovery');
 $browserHosts = $p0eRegistry['browser_host_binding'] ?? null;
 $expect(is_array($browserHosts), 'P0-E browser Host binding is missing');
 $expect(($browserHosts['platform_host'] ?? null) === 'platform.p0e.localhost', 'P0-E Platform browser Host changed');
@@ -100,6 +111,8 @@ $expect(($browserHosts['fallback'] ?? null) === 'none', 'P0-E browser Host bindi
 $tooling = $p0eRegistry['resources']['tooling'][0] ?? null;
 $expect(is_array($tooling), 'P0-E remote administration tooling is missing');
 $expect(($tooling['mysql_command'] ?? null) === '/usr/bin/mysql', 'P0-E MySQL CLI path changed');
+$expect(($tooling['credential_ref'] ?? null) === ($binding['credential_ref'] ?? null), 'P0-E tooling credential provenance diverged');
+$expect(($tooling['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'P0-E tooling failure policy diverged');
 $expect(!array_key_exists('mysqldump_command', $tooling), 'fresh-only P0-E retained backup tooling');
 $expect(($tooling['fallback'] ?? null) === 'none; host mysql commands are forbidden', 'P0-E tooling fallback changed');
 $browserTooling = array_values(array_filter(
@@ -145,6 +158,8 @@ $expect(($plan['environment'] ?? null) === 'development', 'plan environment chan
 $expect(($plan['endpoint'] ?? null) === 'host.docker.internal:20189', 'plan container endpoint changed');
 $expect(($plan['host_endpoint'] ?? null) === '192.168.192.2:20183', 'plan Host endpoint changed');
 $expect(($plan['database_tunnel']['stable_resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-container-tunnel', 'plan tunnel identity changed');
+$expect(($plan['database_admin_tooling']['credential_ref'] ?? null) === ($registered[0]['credential_ref'] ?? null), 'plan lost registered DB root credential provenance');
+$expect(($plan['database_admin_tooling']['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'plan lost fail-closed remote administration policy');
 $expect(($plan['target_release'] ?? null) === $expectedTarget, 'plan did not bind the 3.0 scaffold release');
 $expect(($plan['groups'] ?? null) === $expectedGroups, 'plan did not bind the fresh-only closure');
 $expect(!array_key_exists('legacy_application', $plan), 'plan retained a legacy application');
@@ -204,6 +219,11 @@ $expect(str_contains($runnerSource, '--formal-release-adoption'), 'consumer Modu
 $expect(str_contains($runnerSource, 'consumer_module_cycle'), 'consumer Module lifecycle does not own a length-safe isolated database scenario');
 $expect(str_contains($runnerSource, 'passed != required'), 'Gate completion closure is not enforced');
 $expect(str_contains($runnerSource, 'preflight_database_admin_tooling'), 'remote database administration does not fail fast');
+$expect(str_contains($runnerSource, 'registered database credential is missing or ambiguous: DB_ROOT_PASS'), 'remote administration does not fail closed on a missing registered root credential');
+$expect(str_contains($runnerSource, '--defaults-extra-file="$path"'), 'remote administration does not use a container-private MySQL option file');
+$expect(str_contains($runnerSource, "trap 'rm -f -- ") && str_contains($runnerSource, 'EXIT HUP INT TERM'), 'remote administration does not clean its container-private credential file');
+$expect(!str_contains($runnerSource, 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD"'), 'remote administration still depends on the container MYSQL_ROOT_PASSWORD environment');
+$expect(!str_contains($runnerSource, 'docker desktop restart') && !str_contains($runnerSource, 'docker desktop stop'), 'P0-E runner contains Docker Desktop recovery escalation');
 $expect(str_contains($runnerSource, 'start_database_tunnel'), 'container database tunnel is not lifecycle-managed');
 $expect(str_contains($runnerSource, 'stop_database_tunnel'), 'container database tunnel cleanup is missing');
 $expect(str_contains($runnerSource, 'preflight_browser_tooling'), 'browser tooling does not fail before resource claim');

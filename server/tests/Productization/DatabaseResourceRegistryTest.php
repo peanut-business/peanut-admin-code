@@ -26,7 +26,16 @@ const CONSUMER_UPGRADE_SCENARIO_MODES = [
 ];
 
 $root = dirname(__DIR__, 3);
-$registryPath = $root . '/resources/project-resources.json';
+$registryPath = getenv('PEANUT_RESOURCE_REGISTRY');
+if (
+    !is_string($registryPath)
+    || $registryPath === ''
+    || !str_starts_with($registryPath, '/')
+    || !is_file($registryPath)
+    || is_link($registryPath)
+) {
+    throw new RuntimeException('PEANUT_RESOURCE_REGISTRY must point to the explicit private maintainer registry');
+}
 $p0eRegistryPath = $root . '/resources/p0e-runtime-qualification.json';
 $p0eMatrixPath = $root . '/server/tests/fixtures/p0e-runtime-qualification/matrix.json';
 $consumerUpgradeMatrixPath = $root . '/server/tests/fixtures/consumer-upgrade-qualification/matrix.json';
@@ -254,6 +263,8 @@ $expect(($binding['database'] ?? null) === ($qualificationDatabase['database'] ?
 $expect(($binding['namespace'] ?? null) === ($qualificationDatabase['namespace'] ?? null), 'P0-E binding namespace diverged');
 $expect(($binding['version'] ?? null) === ($qualificationDatabase['version'] ?? null), 'P0-E binding version diverged');
 $expect(($binding['port'] ?? null) === ($qualificationDatabase['upstream_endpoint']['port'] ?? null), 'P0-E binding port diverged');
+$expect(($binding['credential_ref'] ?? null) === ($qualificationDatabase['credential_ref'] ?? null), 'P0-E binding credential provenance diverged');
+$expect(str_contains((string) ($binding['failure_policy'] ?? ''), 'never stops or restarts Docker Desktop'), 'P0-E binding failure policy is not fail-closed');
 $expect(($binding['fallback'] ?? null) === 'none', 'P0-E database administration binding must fail closed');
 
 $administrativeTools = array_values(array_filter(
@@ -269,6 +280,8 @@ $expect(($administrativeTool['ssh_command'] ?? null) === '/usr/bin/ssh', 'P0-E S
 $expect(($administrativeTool['docker_command'] ?? null) === '/usr/local/bin/docker', 'P0-E remote Docker command is not absolute');
 $expect(($administrativeTool['container_name'] ?? null) === 'peanut-admin-mysql84-development', 'P0-E administration container changed');
 $expect(($administrativeTool['mysql_command'] ?? null) === '/usr/bin/mysql', 'P0-E MySQL command is not absolute');
+$expect(($administrativeTool['credential_ref'] ?? null) === ($qualificationDatabase['credential_ref'] ?? null), 'P0-E administration credential provenance diverged');
+$expect(($administrativeTool['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'P0-E administration failure policy diverged');
 $expect(!array_key_exists('mysqldump_command', $administrativeTool), 'fresh-only P0-E retained backup tooling');
 $expect(str_starts_with((string) ($administrativeTool['container_image'] ?? ''), 'mysql:8.4.10@sha256:'), 'P0-E administration image is not immutable');
 $expect(($administrativeTool['fallback'] ?? null) === 'none; host mysql commands are forbidden', 'P0-E administration allowed a host CLI fallback');
@@ -409,6 +422,7 @@ $probe = (string) file_get_contents($root . '/scripts/local-environment-probe');
 $guardSource = (string) file_get_contents($root . '/server/database/environment-guard.php');
 $devCompose = (string) file_get_contents($root . '/deploy/docker-compose.dev.yml');
 $hostRuntime = (string) file_get_contents($root . '/scripts/local-php-runtime');
+$developmentDatabase = (string) file_get_contents($root . '/scripts/project-development-database.sh');
 
 $expect(str_contains($rootInstructions, 'resources/project-resources.json'), 'root AGENTS.md does not reference the registry');
 $expect(str_contains($rootInstructions, 'resources/p0e-runtime-qualification.json'), 'root AGENTS.md does not reference the P0-E source-only registry');
@@ -423,8 +437,22 @@ $expect(!preg_match('/(?m)^\s{2}php:\s*$/', $devCompose), 'development Compose s
 $expect(str_contains($devCompose, 'host.docker.internal'), 'development containers do not target host PHP');
 $expect(str_contains($devCompose, 'NO_PROXY'), 'development containers do not bypass proxies for host PHP');
 $expect(!str_contains($localStack, 'DB_HOST=192.168.192.2'), 'local stack contains a database host magic value');
+$expect(str_contains($developmentDatabase, 'repair-root-credential'), 'development database tooling lacks a bounded root credential repair entry');
+$expect(str_contains($developmentDatabase, 'StrictHostKeyChecking=yes'), 'development database credential repair does not preserve SSH host-key verification');
+$expect(str_contains($developmentDatabase, 'before-root-credential-repair'), 'development database credential repair lacks its lease-bound backup artifact');
+$expect(str_contains($developmentDatabase, 'project-resource-lease') && str_contains($developmentDatabase, "status\tACTIVE"), 'development database credential repair does not require an active resource lease');
+$expect(str_contains($developmentDatabase, 'development-db-recovery') && str_contains($developmentDatabase, 'mysql-resource') && str_contains($developmentDatabase, 'docker-volume'), 'development database credential repair does not bind the exact leased resource set');
+$expect(str_contains($developmentDatabase, 'MYSQL_ROOT_PASSWORD') && str_contains($developmentDatabase, 'SELECT 1'), 'development database credential repair does not verify the live root credential');
+$expect(
+    str_contains($developmentDatabase, '$1 != "DB_ROOT_PASS" && $1 != "MYSQL_ROOT_PASSWORD"'),
+    'normal development credential synchronization no longer strips root-only credentials',
+);
+$expect(!str_contains($developmentDatabase, 'docker desktop stop') && !str_contains($developmentDatabase, 'docker desktop restart'), 'development database repair may escalate into Docker Desktop lifecycle control');
 $registeredPorts = [];
 foreach ($registry['resources']['local_listeners'] ?? [] as $listener) {
+    if (!isset($listener['port_env'], $listener['port'])) {
+        continue;
+    }
     $registeredPorts[$listener['port_env']] = $listener['port'];
 }
 $expect($registeredPorts === [
@@ -455,7 +483,18 @@ $redis = array_values(array_filter(
 ));
 $expect(count($redis) === 1 && $redis[0]['port_env'] === 'REDIS_PORT' && $redis[0]['port'] === 20184, 'registered Redis port is invalid');
 
+$guardEnvironmentPath = $root . '/server/.env.resource-registry-test-' . getmypid();
+$expect(!file_exists($guardEnvironmentPath) && !is_link($guardEnvironmentPath), 'isolated backend environment fixture already exists');
+file_put_contents($guardEnvironmentPath, '');
+chmod($guardEnvironmentPath, 0600);
+register_shutdown_function(static function () use ($guardEnvironmentPath): void {
+    if (is_file($guardEnvironmentPath) || is_link($guardEnvironmentPath)) {
+        unlink($guardEnvironmentPath);
+    }
+});
+putenv('PEANUT_SERVER_ENV_FILE=' . $guardEnvironmentPath);
 require_once $root . '/server/database/environment-guard.php';
+unlink($guardEnvironmentPath);
 
 /** @param array<string,string> $values */
 function resourceGuardSetEnvironment(array $values): void

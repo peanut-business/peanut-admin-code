@@ -40,6 +40,10 @@ RESOURCE_ID = "peanut-admin-p0e-mysql84-gate"
 ADMIN_TOOLING_ID = "peanut-admin-mysql84-remote-admin-cli"
 BROWSER_TOOLING_ID = "peanut-admin-p0e-playwright-cli"
 DATABASE_TUNNEL_ID = "peanut-admin-p0e-mysql84-container-tunnel"
+REMOTE_ADMIN_FAILURE_POLICY = (
+    "credential, SSH, Docker daemon or allocation health failures fail closed; "
+    "P0-E never stops or restarts Docker Desktop and never recreates the persistent MySQL allocation"
+)
 GROUP_RESULT = re.compile(r"^[a-z0-9][a-z0-9.-]{0,63}$")
 RUNTIME_VALUES: dict[str, str] = {}
 
@@ -247,6 +251,8 @@ def validate_fixture() -> tuple[
         "database": registered.get("database"),
         "namespace": registered.get("namespace"),
         "version": registered.get("version"),
+        "credential_ref": registered.get("credential_ref"),
+        "failure_policy": REMOTE_ADMIN_FAILURE_POLICY,
         "fallback": "none",
     }
     for key, value in expected_binding.items():
@@ -267,12 +273,16 @@ def validate_fixture() -> tuple[
         "container_name": "peanut-admin-mysql84-development",
         "container_image": "mysql:8.4.10@sha256:8dbcf531a03aade657e181b9cf2f1d1803ce621a1d55610cb44cb531ab7d7db6",
         "mysql_command": "/usr/bin/mysql",
+        "credential_ref": binding.get("credential_ref"),
+        "failure_policy": REMOTE_ADMIN_FAILURE_POLICY,
     }
     for key, value in expected_tool.items():
         if admin_tool.get(key) != value:
             fail(f"registered P0-E administrative tooling disagrees on {key}")
     if admin_tool.get("fallback") != "none; host mysql commands are forbidden":
         fail("P0-E administrative tooling must forbid a host MySQL fallback")
+    if registered.get("credential_ref") != binding.get("credential_ref"):
+        fail("P0-E database credential source diverged from the maintainer registry")
     browser_matches = [item for item in tooling if item.get("stable_resource_id") == BROWSER_TOOLING_ID]
     if len(browser_matches) != 1:
         fail(f"registry must contain exactly one {BROWSER_TOOLING_ID}")
@@ -430,7 +440,6 @@ def database_names(fixture: dict[str, Any], run_id: str) -> dict[str, str]:
 
 
 def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
-    preflight_browser_tooling()
     fixture, registry, registered, admin_tool, browser_hosts, database_tunnel = validate_fixture()
     names = database_names(fixture, args.run_id)
     paths = {
@@ -512,7 +521,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
             for key in (
                 "stable_resource_id", "version", "host", "transport", "ssh_alias",
                 "ssh_command", "docker_command", "container_name", "container_image",
-                "mysql_command", "fallback",
+                "mysql_command", "credential_ref", "failure_policy", "fallback",
             )
         },
         "database_tunnel": {
@@ -571,6 +580,7 @@ def expected_resources(plan_data: dict[str, Any]) -> set[tuple[str, str]]:
 
 
 def claim(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
+    preflight_browser_tooling()
     for path in plan_data["paths"].values():
         if Path(path).exists():
             fail(f"claim path already exists: {path}")
@@ -693,18 +703,23 @@ class Runner:
     ) -> subprocess.CompletedProcess[bytes]:
         tool = self.plan["database_admin_tooling"]
         remote_command = shlex.join([tool["docker_command"], *arguments])
-        result = subprocess.run(
-            [
-                tool["ssh_command"], "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-                tool["ssh_alias"], remote_command,
-            ],
-            input=input_bytes,
-            stdin=stdin,
-            stdout=stdout,
-            stderr=subprocess.PIPE,
-            env=operating_system_environment(),
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                [
+                    tool["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                    "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=5",
+                    "-o", "ServerAliveCountMax=3", tool["ssh_alias"], remote_command,
+                ],
+                input=input_bytes,
+                stdin=stdin,
+                stdout=stdout,
+                stderr=subprocess.PIPE,
+                env=operating_system_environment(),
+                check=False,
+                timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            fail("registered remote Docker administration timed out; P0-E does not restart Docker Desktop")
         if check and result.returncode != 0:
             detail = result.stderr.decode("utf-8", errors="replace").strip()
             fail(f"registered remote database administration failed ({result.returncode}): {detail}")
@@ -733,6 +748,8 @@ class Runner:
         expected_user = required_environment("P0E_DB_USER")
         if f"user={expected_user}\n" not in probe:
             fail("P0-E application database identity does not match the registered allocation")
+        if self.remote_mysql("SELECT 1").strip() != "1":
+            fail("registered MySQL root credential preflight failed")
 
     def start_database_tunnel(self) -> None:
         if self.database_tunnel_process is not None and self.database_tunnel_process.poll() is None:
@@ -789,19 +806,61 @@ class Runner:
 
     def remote_mysql(self, sql: str, *, database: str | None = None) -> str:
         tool = self.plan["database_admin_tooling"]
-        client_script = (
-            'export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"; unset MYSQL_ROOT_PASSWORD; '
-            'if [ "$#" -eq 2 ]; then '
-            'exec "$1" --protocol=SOCKET --user=root --batch --raw --skip-column-names "$2"; '
-            'fi; exec "$1" --protocol=SOCKET --user=root --batch --raw --skip-column-names'
+        credential_host, separator, credential_path = tool["credential_ref"].partition(":")
+        if (
+            not separator
+            or credential_host != tool["ssh_alias"]
+            or not credential_path.startswith("/")
+        ):
+            fail("registered database credential reference is invalid")
+        container_script = (
+            'set -eu; client="$1"; database="$2"; '
+            'path="/tmp/.peanut-p0e-mysql-$$.cnf"; umask 077; test ! -e "$path"; '
+            'set -C; : > "$path"; set +C; '
+            "trap 'rm -f -- \"$path\"' EXIT HUP INT TERM; "
+            'IFS= read -r root; test -n "$root"; '
+            '{ printf "[client]\\n"; printf "user=root\\n"; printf "password=%s\\n" "$root"; } > "$path"; '
+            'chmod 600 "$path"; unset root MYSQL_ROOT_PASSWORD MYSQL_PWD; '
+            'if [ -n "$database" ]; then '
+            '"$client" --defaults-extra-file="$path" --protocol=SOCKET --batch --raw --skip-column-names "$database"; '
+            'else "$client" --defaults-extra-file="$path" --protocol=SOCKET --batch --raw --skip-column-names; fi'
         )
-        arguments = [
-            "exec", "-i", tool["container_name"], "/bin/sh", "-ceu", client_script,
-            "p0e-mysql", tool["mysql_command"],
-        ]
-        if database is not None:
-            arguments.append(database)
-        result = self.remote_docker(arguments, input_bytes=(sql + "\n").encode("utf-8"))
+        remote_script = (
+            'set -eu; credential="$1"; docker="$2"; container="$3"; client="$4"; database="$5"; payload="$6"; '
+            'test -f "$credential"; test ! -L "$credential"; '
+            'test "$(/usr/bin/stat -f %u "$credential")" = "$(/usr/bin/id -u)"; '
+            'test "$(/usr/bin/stat -f %Lp "$credential")" = 600; '
+            'test "$(/usr/bin/stat -f %l "$credential")" = 1; '
+            'count=$(/usr/bin/awk -F= \'$1 == "DB_ROOT_PASS" && length(substr($0, index($0, "=") + 1)) > 0 { count++ } END { print count + 0 }\' "$credential"); '
+            'test "$count" -eq 1 || { printf "%s\\n" "registered database credential is missing or ambiguous: DB_ROOT_PASS" >&2; exit 65; }; '
+            'root=$(/usr/bin/awk -F= \'$1 == "DB_ROOT_PASS" { sub(/^[^=]*=/, ""); print; exit }\' "$credential"); '
+            '{ printf "%s\\n" "$root"; /bin/cat; } | '
+            '"$docker" exec -i "$container" /bin/sh -ceu "$payload" p0e-mysql "$client" "$database"'
+        )
+        remote_command = shlex.join([
+            "/bin/sh", "-ceu", remote_script, "p0e-remote-admin",
+            credential_path, tool["docker_command"], tool["container_name"],
+            tool["mysql_command"], database or "", container_script,
+        ])
+        try:
+            result = subprocess.run(
+                [
+                    tool["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                    "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=5",
+                    "-o", "ServerAliveCountMax=3", tool["ssh_alias"], remote_command,
+                ],
+                input=(sql + "\n").encode("utf-8"),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=operating_system_environment(),
+                check=False,
+                timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            fail("registered remote database administration timed out; P0-E does not restart Docker Desktop")
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            fail(f"registered remote database administration failed ({result.returncode}): {detail}")
         return result.stdout.decode("utf-8", errors="strict")
 
     def initialize(self) -> None:
