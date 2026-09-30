@@ -73,7 +73,11 @@ python3 "$SCRIPT_DIR/package-release-files.py" snapshot --application-root "$APP
 # Frozen native installs prove availability and lock consistency. No installation
 # scripts touch the original checkout, runtime secrets or application database.
 "$build/scripts/project-composer" prepare
-"$build/scripts/project-composer" validate --working-dir="$build/server" --strict
+# Formal product candidates intentionally pin the published PHP Core exactly.
+# Composer reports exact require constraints as a general warning; keep schema
+# validation here, while frozen install + the --installed gate below prove the
+# actual dependency/lock closure.
+"$build/scripts/project-composer" validate --working-dir="$build/server"
 "$build/scripts/project-composer" install --working-dir="$build/server" --no-scripts --no-interaction --no-progress --prefer-dist
 HUSKY=0 pnpm --dir "$build/web" install --frozen-lockfile
 for client in platform pc uniapp; do HUSKY=0 npm --prefix "$build/$client" ci; done

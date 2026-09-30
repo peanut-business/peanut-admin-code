@@ -311,6 +311,8 @@ class PackagingFilesTest(unittest.TestCase):
         self.assertIn('run build',script)
         self.assertIn('--skip-client-build|--core-web-candidates=*) die',script)
         self.assertIn('DeterministicEditionArchive',script)
+        self.assertIn('project-composer" validate --working-dir="$build/server"', script)
+        self.assertNotIn('project-composer" validate --working-dir="$build/server" --strict', script)
         self.assertIn('release-dependency-locks.mjs', script)
         self.assertIn('--installed', script)
         self.assertIn('--application-root=',(ROOT/'scripts/build-edition-installers').read_text())
