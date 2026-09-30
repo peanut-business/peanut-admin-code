@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\DeterministicEditionArchive;
+use PeanutAdmin\Modules\Ops\Contract\InstanceSafetyQueries;
 
 require_once dirname(__DIR__, 2) . '/docker/scripts/update-plan.php';
 require_once dirname(__DIR__, 2) . '/app/common/infrastructure/scaffold/DeterministicEditionArchive.php';
+require_once dirname(__DIR__, 2) . '/app/modules/official/ops/src/Contract/InstanceSafetyQueries.php';
 
 function updatePlanExpect(bool $condition, string $message): void
 {
@@ -121,6 +123,8 @@ try {
         'server/app/new.txt' => "added\n",
         'server/composer.lock' => "lock-v2\n",
     ];
+    $targetFilesNoDependencyChange = $targetFiles;
+    $targetFilesNoDependencyChange['server/composer.lock'] = "lock-v1\n";
     $instance = $root . '/instance';
     updatePlanWriteServer($instance, '1.0.0', $currentFiles);
     $archive = updatePlanArchive($root, '1.1.0', $targetFiles);
@@ -133,6 +137,126 @@ try {
     updatePlanExpect(($ops['server/.peanut/release-identity.json'] ?? null) === 'replace', 'release identity must advance with program files');
     updatePlanExpect(($plan['requirements']['composer_dependencies_changed'] ?? false) === true, 'composer lock change must require dependency preparation');
     updatePlanExpect(is_file($workspace . '/plan.json'), 'plan must be durably written before any apply phase');
+    updatePlanExpect(is_file($workspace . '/prepared/server/app/a.txt'), 'plan must prepare target server files from archive');
+
+    $applyInstance = $root . '/apply-instance';
+    updatePlanWriteServer($applyInstance, '1.0.0', $currentFiles + ['server/docker/conf/nginx.conf' => "old-conf\n"]);
+    upgradePlanFixtureFile($applyInstance . '/server/.env', "DB_NAME=keep\n", 0600);
+    upgradePlanFixtureFile($applyInstance . '/server/app/local-custom.txt', "custom\n", 0600);
+    upgradePlanFixtureFile($applyInstance . '/server/public/storage/upload.txt', "upload\n", 0600);
+    upgradePlanFixtureFile($applyInstance . '/server/docker/secrets/mysql-root-password', "secret\n", 0600);
+    $applyArchive = updatePlanArchive(
+        $root,
+        '1.1.0',
+        $targetFilesNoDependencyChange + ['server/docker/conf/nginx.conf' => "new-conf\n"],
+    );
+    $applyWorkspace = updatePlanWorkspace($root);
+    PeanutServerUpdatePlan::build(
+        $applyInstance . '/server',
+        $applyArchive,
+        (string) hash_file('sha256', $applyArchive),
+        $applyWorkspace,
+    );
+    $applyJournal = PeanutServerUpdatePlan::apply($applyInstance . '/server', $applyWorkspace);
+    updatePlanExpect(($applyJournal['status'] ?? null) === 'completed', 'apply must complete program update');
+    updatePlanExpect((string) file_get_contents($applyInstance . '/server/app/a.txt') === "new\n", 'replace must publish target bytes');
+    updatePlanExpect(is_file($applyInstance . '/server/app/new.txt'), 'add must publish target file');
+    updatePlanExpect(!file_exists($applyInstance . '/server/app/remove.txt'), 'delete must remove old program file');
+    updatePlanExpect((string) file_get_contents($applyInstance . '/server/docker/conf/nginx.conf') === "new-conf\n", 'version conf must update');
+    updatePlanExpect((string) file_get_contents($applyInstance . '/server/.env') === "DB_NAME=keep\n", 'server .env must be preserved');
+    updatePlanExpect((string) file_get_contents($applyInstance . '/server/app/local-custom.txt') === "custom\n", 'unknown files must be preserved');
+    updatePlanExpect((string) file_get_contents($applyInstance . '/server/public/storage/upload.txt') === "upload\n", 'public storage must be preserved');
+    updatePlanExpect((string) file_get_contents($applyInstance . '/server/docker/secrets/mysql-root-password') === "secret\n", 'docker secrets must be preserved');
+    updatePlanExpect(is_file($applyWorkspace . '/backups/server/app/a.txt'), 'replace backup must include affected old file');
+    updatePlanExpect(is_file($applyWorkspace . '/backups/server/app/remove.txt'), 'delete backup must include affected old file');
+    updatePlanExpect(is_file($applyWorkspace . '/backups/server/docker/conf/nginx.conf'), 'version conf backup must include affected old file');
+    updatePlanExpect(!file_exists($applyInstance . '/server/runtime/upgrade/maintenance.json'), 'successful apply must clear maintenance marker');
+
+    $lockedInstance = $root . '/locked-instance';
+    updatePlanWriteServer($lockedInstance, '1.0.0', $currentFiles);
+    $lockedWorkspace = updatePlanWorkspace($root);
+    PeanutServerUpdatePlan::build($lockedInstance . '/server', $applyArchive, (string) hash_file('sha256', $applyArchive), $lockedWorkspace);
+    upgradePlanFixtureJson($lockedInstance . '/server/runtime/upgrade/current-update.json', [
+        'schema_version' => 1,
+        'protocol' => 'peanut.server-update-current.v1',
+        'update_id' => 'server_update_20260930000000_aaaaaaaaaaaa',
+        'workspace' => $lockedWorkspace,
+        'status' => 'failed',
+    ]);
+    try {
+        PeanutServerUpdatePlan::apply($lockedInstance . '/server', $lockedWorkspace);
+        throw new RuntimeException('second updater was accepted');
+    } catch (RuntimeException $exception) {
+        updatePlanExpect(str_contains($exception->getMessage(), 'already active'), 'single updater guard must fail closed');
+    }
+
+    $interruptedInstance = $root . '/interrupted-instance';
+    updatePlanWriteServer($interruptedInstance, '1.0.0', $currentFiles);
+    $interruptedWorkspace = updatePlanWorkspace($root);
+    PeanutServerUpdatePlan::build(
+        $interruptedInstance . '/server',
+        $applyArchive,
+        (string) hash_file('sha256', $applyArchive),
+        $interruptedWorkspace,
+    );
+    try {
+        PeanutServerUpdatePlan::apply(
+            $interruptedInstance . '/server',
+            $interruptedWorkspace,
+            static function (string $event, string $path): void {
+                if ($event === 'after_operation' && $path === 'server/app/remove.txt') {
+                    throw new RuntimeException('fixture interruption after journaled changes');
+                }
+            },
+        );
+        throw new RuntimeException('interruption did not stop apply');
+    } catch (RuntimeException $exception) {
+        updatePlanExpect(str_contains($exception->getMessage(), 'fixture interruption'), 'fixture interruption must propagate');
+    }
+    updatePlanExpect(is_file($interruptedInstance . '/server/runtime/upgrade/maintenance.json'), 'failed apply must keep maintenance marker');
+    $window = (new InstanceSafetyQueries($interruptedInstance . '/server'))->blockingMaintenanceWindow();
+    updatePlanExpect(is_array($window) && $window['reason_key'] === 'planned-upgrade', 'file maintenance guard must work without database');
+    $recovery = PeanutServerUpdatePlan::recover($interruptedInstance . '/server', $interruptedWorkspace);
+    updatePlanExpect(($recovery['status'] ?? null) === 'recovered', 'recover must complete from journal');
+    updatePlanExpect((string) file_get_contents($interruptedInstance . '/server/app/a.txt') === "old\n", 'recover must restore replaced file');
+    updatePlanExpect(!file_exists($interruptedInstance . '/server/app/new.txt'), 'recover must clear file added by failed update');
+    updatePlanExpect((string) file_get_contents($interruptedInstance . '/server/app/remove.txt') === "remove\n", 'recover must restore deleted file');
+    updatePlanExpect(!file_exists($interruptedInstance . '/server/runtime/upgrade/maintenance.json'), 'recovered update must clear maintenance marker');
+
+    $migrationInstance = $root . '/migration-instance';
+    updatePlanWriteServer($migrationInstance, '1.0.0', $currentFiles);
+    $migrationArchive = updatePlanArchive(
+        $root,
+        '1.1.0',
+        $targetFilesNoDependencyChange + ['server/database/migrations/20260930_fixture.php' => "<?php\n"],
+    );
+    $migrationWorkspace = updatePlanWorkspace($root);
+    PeanutServerUpdatePlan::build(
+        $migrationInstance . '/server',
+        $migrationArchive,
+        (string) hash_file('sha256', $migrationArchive),
+        $migrationWorkspace,
+    );
+    try {
+        PeanutServerUpdatePlan::apply($migrationInstance . '/server', $migrationWorkspace);
+        throw new RuntimeException('database migration update was applied');
+    } catch (RuntimeException $exception) {
+        updatePlanExpect(str_contains($exception->getMessage(), 'database migration gate is not implemented'), 'missing database migration gate must fail closed');
+    }
+    updatePlanExpect((string) file_get_contents($migrationInstance . '/server/app/a.txt') === "old\n", 'migration gate must not modify program files');
+    updatePlanExpect(!file_exists($migrationInstance . '/server/runtime/upgrade/maintenance.json'), 'migration gate failure must not activate maintenance');
+
+    $dependencyInstance = $root . '/dependency-instance';
+    updatePlanWriteServer($dependencyInstance, '1.0.0', $currentFiles);
+    $dependencyWorkspace = updatePlanWorkspace($root);
+    PeanutServerUpdatePlan::build($dependencyInstance . '/server', $archive, (string) hash_file('sha256', $archive), $dependencyWorkspace);
+    try {
+        PeanutServerUpdatePlan::apply($dependencyInstance . '/server', $dependencyWorkspace);
+        throw new RuntimeException('composer dependency update was applied');
+    } catch (RuntimeException $exception) {
+        updatePlanExpect(str_contains($exception->getMessage(), 'composer dependency preparation gate is not implemented'), 'missing composer preparation gate must fail closed');
+    }
+    updatePlanExpect((string) file_get_contents($dependencyInstance . '/server/composer.lock') === "lock-v1\n", 'composer gate must not modify lock file');
 
     $collisionInstance = $root . '/collision-instance';
     updatePlanWriteServer($collisionInstance, '1.0.0', $currentFiles);
@@ -186,4 +310,23 @@ try {
     echo "SERVER-UPDATE-PLAN passed\n";
 } finally {
     updatePlanDelete($root);
+}
+
+function upgradePlanFixtureFile(string $path, string $contents, int $mode = 0600): void
+{
+    if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0700, true) && !is_dir(dirname($path))) {
+        throw new RuntimeException('cannot create fixture directory');
+    }
+    file_put_contents($path, $contents);
+    chmod($path, $mode);
+}
+
+/** @param array<string,mixed> $data */
+function upgradePlanFixtureJson(string $path, array $data): void
+{
+    upgradePlanFixtureFile(
+        $path,
+        json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+        0600,
+    );
 }
