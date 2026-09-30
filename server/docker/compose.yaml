@@ -29,12 +29,13 @@ services:
       - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-21080}:80"
     volumes:
       - ../public:/var/www/peanut-admin/server/public:ro
+      - ../runtime/upgrade:/var/www/peanut-admin/server/runtime/upgrade:ro
       - ./conf/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       php:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -Y off -q -O /dev/null http://127.0.0.1/healthz"]
+      test: ["CMD-SHELL", "nginx -t >/dev/null 2>&1"]
       interval: 10s
       timeout: 3s
       retries: 12

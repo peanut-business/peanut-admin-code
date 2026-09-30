@@ -9,11 +9,19 @@ FINAL_ENV="$SERVER_ROOT/.env"
 INSTALLED="$SERVER_ROOT/private/installation/installed.json"
 
 cd "$SERVER_ROOT"
-for path in runtime public/storage private/storage private/installation private/resources; do
+for path in runtime runtime/upgrade public/storage private/storage private/installation private/resources; do
     [ ! -L "$path" ] || { echo "runtime path is a symlink: $path" >&2; exit 1; }
     mkdir -p "$path"
 done
+[ ! -L runtime/upgrade/.mount-ready ] || { echo "upgrade guard sentinel is a symlink" >&2; exit 1; }
+if [ ! -e runtime/upgrade/.mount-ready ]; then
+    printf '%s\n' 'peanut.server-update-guard.v1' > runtime/upgrade/.mount-ready
+fi
+[ -f runtime/upgrade/.mount-ready ] || { echo "upgrade guard sentinel is unavailable" >&2; exit 1; }
+chmod 0755 runtime runtime/upgrade
+chmod 0644 runtime/upgrade/.mount-ready
 [ -f vendor/autoload.php ] || { echo "composer dependencies are unavailable" >&2; exit 1; }
+php docker/scripts/update-plan.php initialize-traffic --instance-server="$SERVER_ROOT"
 
 secret() { php -r 'echo bin2hex(random_bytes(32));'; }
 
