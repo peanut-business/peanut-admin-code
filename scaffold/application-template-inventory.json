@@ -852,7 +852,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "40d944447231c5a1271f579dfec02e8dc7caaadc8b4ad5b8972ab2ac89486863"
+            "source_sha256": "21d39f947dbff6160677586baff25881b8f877b5136044293ac2be88bfe7d319"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -880,7 +880,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81f66a7124b1f615053bd04f59e22d51c19fb9b235c4c5b6fd6fef845c76000d"
+            "source_sha256": "e1c4c2b92da1162ab5931236c0c2d378a473e979493ffa4a1d314dc53d5b6f5a"
         },
         {
             "path": "docs/public/module-development.md",
@@ -908,7 +908,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63c5810fd72e84d0a3faa8a6b5ff4c493e6bc0d1a191ba32ac9cff8ae2ef57dc"
+            "source_sha256": "0be9fce19765bcfa38d9abe3511e04f1a4ca45772a39baa7ade0eaf88a9b9146"
         },
         {
             "path": "packages/core-web/peanut-admin-client-4.0.0-dev.0.tgz",
@@ -3098,6 +3098,19 @@
             ]
         },
         {
+            "path": "scripts/continue-product-release",
+            "target": "scripts/continue-product-release",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/core-dev",
             "target": "scripts/core-dev",
             "classification": "managed",
@@ -3611,6 +3624,19 @@
             "source_sha256": "6727f775aa929231799dd8194ed7e0a7b1cf0728140129cb7809992186315407"
         },
         {
+            "path": "scripts/release-metadata-version.cjs",
+            "target": "scripts/release-metadata-version.cjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/run-php-test",
             "target": "scripts/run-php-test",
             "classification": "managed",
@@ -3900,6 +3926,19 @@
                 "full"
             ],
             "source_sha256": "8f6f42ef01cba39f790af6c14f68f43756873bccff85056c2aa2263111ab6aeb"
+        },
+        {
+            "path": "scripts/tests/continue_product_release_test.py",
+            "target": "scripts/tests/continue_product_release_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "scripts/tests/core-dev-contract-test.py",
@@ -4192,7 +4231,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "970fccf971757eab11a8cf49a9727b11229702479b88f63518f43193dea9e301"
+            "source_sha256": "0d953edd84f470ba0099cbf4efd62a9f8723f36cb3e878530733636519b2f151"
         },
         {
             "path": "scripts/tests/release-dependency-locks-test.mjs",
@@ -4221,6 +4260,19 @@
                 "full"
             ],
             "source_sha256": "394a53563eb48fcd816a05ec8fdcd142e742e7708e1f437a102109926e75a674"
+        },
+        {
+            "path": "scripts/tests/release_metadata_version_test.py",
+            "target": "scripts/tests/release_metadata_version_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "scripts/tests/run-registered-mysql-tests",
@@ -4262,7 +4314,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f23f0be4a6cb5b54d5667a06fd6c920d25cad20e84f195fc8b33f5b5421fae3f"
+            "source_sha256": "0ecce521deccb7f05ee2616c6c235cd53c01e4e3bcbdf4d9cec057efa875dc41"
         },
         {
             "path": "scripts/tests/source-layout-test.php",
@@ -8537,7 +8589,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "851f5a9021629c39b720e8f0123795b6863b8ecfcec95eca954ae78761826550"
+            "source_sha256": "8dbd6b03b0a8fc4d80e1d4affd41d1ba73a9993ac85e1e7417c2451dde16ff4f"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -23653,6 +23705,20 @@
             ]
         },
         {
+            "path": "server/docker/.env.example",
+            "target": "server/docker/.env.example",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e512e964ada5b763d018d98d11b3e2144e9504ba3d087667d496707debe9e9ec"
+        },
+        {
             "path": "server/docker/Dockerfile",
             "target": "server/docker/Dockerfile",
             "classification": "managed",
@@ -23664,7 +23730,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0f28a52d949949dd8511b84d6f208e45a8a03806c872353a68347b2e44a9aa4"
+            "source_sha256": "af6e907c0e42ed7c6220fdb0a703ccd5e6ef051ed6d177dfaba2872a33fd9d39"
         },
         {
             "path": "server/docker/compose.local.yaml",
@@ -23765,6 +23831,34 @@
             "source_sha256": "b3b2cb729c29203895b5570385463c90d0b4918f84e3a0a6f343fb0b91bd7b87"
         },
         {
+            "path": "server/docker/runtime-configuration.example.json",
+            "target": "server/docker/runtime-configuration.example.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9021b6f4dbe0f494278e843c21c37fda400161d40288ce1eacc0d10971ee9ad9"
+        },
+        {
+            "path": "server/docker/scripts/configure-runtime.py",
+            "target": "server/docker/scripts/configure-runtime.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3aeded2c0a9ca666eda46264e4ecd0295c0e4aa7252792502556bcdfe6b7addc"
+        },
+        {
             "path": "server/docker/scripts/php-entrypoint.sh",
             "target": "server/docker/scripts/php-entrypoint.sh",
             "classification": "managed",
@@ -23776,7 +23870,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "360f70493f7eeb601c6fac1359e8e17775db6de39bcbfb5360ddf004bc9554f4"
+            "source_sha256": "9b352724c934add9e02fad3a110538421c06cc884c8eac83026284839bd1440c"
+        },
+        {
+            "path": "server/docker/scripts/prepare-install-permissions.sh",
+            "target": "server/docker/scripts/prepare-install-permissions.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2beae66be1931c978d024925793a8804f7f6ec18fce91a7935c4138b7a6a6209"
+        },
+        {
+            "path": "server/docker/scripts/prepare-vendor.sh",
+            "target": "server/docker/scripts/prepare-vendor.sh",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d23d5f678f60c9c0ca34b83c3c84ca8f702f24c3ce8f47f9c1ec1e0a6a1bcd3f"
         },
         {
             "path": "server/docker/scripts/provision-database.php",
@@ -23832,7 +23954,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "140af7541519115d5e355a01f6ebaec869ac71fedc662f5d487cc0bb26cf2909"
+            "source_sha256": "12750b3a6faf27fb40771c14565f09f4ab142c12aa72d77212a73ea3c73b2e7f"
         },
         {
             "path": "server/docker/scripts/stop.sh",
@@ -23849,6 +23971,20 @@
             "source_sha256": "7f8b6685c91655a995eacc62c548892a10c421f2f8ee40078650fd6b59e26b0e"
         },
         {
+            "path": "server/docker/scripts/update-database.php",
+            "target": "server/docker/scripts/update-database.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4fb95430b5543f1f23e394409902f60c23f881fcda5b45d9f281465d2902cd23"
+        },
+        {
             "path": "server/docker/scripts/update-plan.php",
             "target": "server/docker/scripts/update-plan.php",
             "classification": "managed",
@@ -23860,7 +23996,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "56ce96da1e700194402b8472ff8e46e0ab93a351108ef977e48afaa866a0c2d0"
+            "source_sha256": "995d7afd76586e83f25b89a093a82f9b6bca4a75e52d199abccb9ae9c1aec55e"
+        },
+        {
+            "path": "server/docker/scripts/update-preparation.py",
+            "target": "server/docker/scripts/update-preparation.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8f771a81947b9d953ab625df7876fe5a671f267562b6df13e19f35f7b69e2d46"
+        },
+        {
+            "path": "server/docker/scripts/update-recovery.py",
+            "target": "server/docker/scripts/update-recovery.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5d4c280b924c9ee51840f59a153e07428af24cd2f934d896f957674044e4f931"
         },
         {
             "path": "server/docker/scripts/update.sh",
@@ -23874,7 +24038,77 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c9ed74610cb8b2475c1a843c4808d2de4efd63b517739094c1711d6ad2769200"
+            "source_sha256": "f43af4d7a0d5fedb823f116c8a39af9052384e9800bc70c21eedbd3e04073415"
+        },
+        {
+            "path": "server/docker/scripts/vendor-state.py",
+            "target": "server/docker/scripts/vendor-state.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "43699b3ac012f6c594f87ac95e08ad01fbe7089b08ced3a945b79c12e24b2420"
+        },
+        {
+            "path": "server/docker/tests/test_first_start_vendor.py",
+            "target": "server/docker/tests/test_first_start_vendor.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bce751f6678b709ec02072c3c37ee09d39cf7747a3727d8581261c6c98ddaedb"
+        },
+        {
+            "path": "server/docker/tests/test_runtime_configuration.py",
+            "target": "server/docker/tests/test_runtime_configuration.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f04702b1b18e929423493d2ef052de4aa3e07b50521d4d664b102d114d3f6447"
+        },
+        {
+            "path": "server/docker/tests/test_update_preparation.py",
+            "target": "server/docker/tests/test_update_preparation.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9d1c467a8e622205f926193574283bdb87206210e578e064ebeae4a487f3b758"
+        },
+        {
+            "path": "server/docker/tests/test_update_recovery.py",
+            "target": "server/docker/tests/test_update_recovery.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fcba451258bf77f01947b7a799c6bac0a1b01a25e27efde8728f92bdc74742e7"
         },
         {
             "path": "server/extend/.gitignore",
@@ -26681,6 +26915,32 @@
             "source_sha256": "2118665f8367d856ac36e6c361f0ee0aabb855a18f02b399d2f434e51754638c"
         },
         {
+            "path": "server/tests/Productization/InstallRuntimeConfigurationUidTest.php",
+            "target": "server/tests/Productization/InstallRuntimeConfigurationUidTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/InstallRuntimePermissionsLinuxTest.sh",
+            "target": "server/tests/Productization/InstallRuntimePermissionsLinuxTest.sh",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/InstallationConfigurationHostTest.php",
             "target": "server/tests/Productization/InstallationConfigurationHostTest.php",
             "classification": "excluded",
@@ -27177,6 +27437,19 @@
         {
             "path": "server/tests/Productization/ServerReleaseRuntimeIdentityTest.php",
             "target": "server/tests/Productization/ServerReleaseRuntimeIdentityTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/ServerUpdateGateTest.php",
+            "target": "server/tests/Productization/ServerUpdateGateTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
