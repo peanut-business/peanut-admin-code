@@ -187,12 +187,18 @@ class ContinuationTest(unittest.TestCase):
         elif phase == "scaffold":
             destination = Path(next(value.split("=", 1)[1] for value in argv if value.startswith("--output=")))
             destination.mkdir(parents=True)
+            files = destination / "files"
+            files.mkdir()
+            (files / ".gitignore").write_text("/docs-site/\n")
+            docs = files / "docs-site"
+            docs.mkdir()
+            (docs / "index.md").write_text("generated docs fixture\n")
             commit = git(self.candidate, "rev-parse", "HEAD")
             write_json(destination / "scaffold-manifest.json", {"release": {
                 "version": "4.0.0-rc.10", "source_commit": commit,
                 "source_tree": git(self.candidate, "rev-parse", "HEAD^{tree}"),
                 "inventory_sha256": hashlib.sha256((self.candidate / "scaffold/application-template-inventory.json").read_bytes()).hexdigest(),
-                "managed_tree_sha256": "a" * 64}, "files": []})
+                "managed_tree_sha256": "a" * 64}, "files": [{"source": "files/.gitignore"}, {"source": "files/docs-site/index.md"}]})
         elif phase == "installers" and "build-edition-installers" in argv[1]:
             self.create_artifacts()
         elif phase == "installers" and argv[2] == "verify":
@@ -243,6 +249,7 @@ class ContinuationTest(unittest.TestCase):
         with self.assertRaisesRegex(release.Stop, "final product source"):
             self.run_flow("--apply", "--seal-source-commit", seal)
         git(self.candidate, "add", ".")
+        git(self.candidate, "add", "-f", "scaffold/releases/v4.0.0-rc.10")
         git(self.candidate, "commit", "-qm", "final product")
         return git(self.candidate, "rev-parse", "HEAD")
 
@@ -364,6 +371,17 @@ class ContinuationTest(unittest.TestCase):
         self.assertEqual(self.state()["failure"]["exit_code"], 8)
         self.assertIn("prepare", self.state()["stages"])
         self.assertNotIn("inventory", self.state()["stages"])
+
+    def test_scaffold_state_includes_ignored_generated_files_but_not_unrelated_ignored_files(self) -> None:
+        final = self.prepare_final_commit()
+        files = self.state()["stages"]["scaffold"]["files"]
+        prefix = "scaffold/releases/v4.0.0-rc.10/"
+        self.assertIn(prefix + "files/.gitignore", files)
+        self.assertIn(prefix + "files/docs-site/index.md", files)
+        self.assertIn(prefix + "scaffold-manifest.json", files)
+        self.assertNotIn("server/vendor/autoload.php", files)
+        with self.assertRaisesRegex(release.Stop, "qualification"):
+            self.run_flow("--apply", "--prepared-commit", final, "--build")
 
     def test_full_two_commit_chain_qualification_and_resume(self) -> None:
         final = self.prepare_final_commit()

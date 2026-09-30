@@ -708,12 +708,19 @@ def main() -> None:
             _, paths = source_diff(args.candidate, seal["commit"])
             fixture_diff = git(args.candidate, "diff", "--binary", seal["commit"], "--",
                                "server/tests/fixtures/p0e-runtime-qualification/matrix.json", phase="scaffold")
+            scaffold_prefix = f"scaffold/releases/v{args.product_version}/"
             untracked = set(git(args.candidate, "ls-files", "--others", "--exclude-standard").splitlines())
-            if paths != {"server/tests/fixtures/p0e-runtime-qualification/matrix.json"} or not untracked or any(
-                    not path.startswith(f"scaffold/releases/v{args.product_version}/") for path in untracked):
+            ignored_scaffold = set(git(
+                args.candidate, "ls-files", "--others", "--ignored", "--exclude-standard", "--",
+                scaffold_prefix.rstrip("/"), phase="scaffold",
+            ).splitlines())
+            scaffold_files = {path for path in untracked if path.startswith(scaffold_prefix)} | ignored_scaffold
+            if (paths != {"server/tests/fixtures/p0e-runtime-qualification/matrix.json"}
+                    or not scaffold_files
+                    or any(not path.startswith(scaffold_prefix) for path in untracked | ignored_scaffold)):
                 raise Stop("scaffold", "native scaffold/fixture write set differs")
             stage(state, state_path, "scaffold", cmd,
-                  {"fixture_diff_sha256": hashlib.sha256(fixture_diff.encode()).hexdigest(), "files": file_hashes(args.candidate, untracked),
+                  {"fixture_diff_sha256": hashlib.sha256(fixture_diff.encode()).hexdigest(), "files": file_hashes(args.candidate, scaffold_files),
                    "manifest_sha256": hashlib.sha256((destination / "scaffold-manifest.json").read_bytes()).hexdigest()})
             raise Stop("prepared-commit", "review native scaffold and fixture, commit final product source and provide --prepared-commit")
         prepared_commit = state["stages"].get("prepared-commit")
