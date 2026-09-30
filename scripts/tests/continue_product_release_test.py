@@ -64,6 +64,7 @@ class ContinuationTest(unittest.TestCase):
         self.publish_calls = 0
         self.publisher_unknown_once = False
         self.deps_fail = False
+        self.evidence_counter = 0
 
     def repo(self, name: str, remote: str) -> Path:
         path = self.root / name
@@ -96,7 +97,8 @@ class ContinuationTest(unittest.TestCase):
                 "--core-web-version", "4.0.0-rc.4", "--core-web-reference", git(self.web, "rev-parse", "HEAD"),
                 "--baseline", *extra]
 
-    def published(self, kind: str, version: str, reference: str, root: Path) -> dict:
+    def published(self, kind: str, version: str, reference: str, root: Path,
+                  web_package_evidence: tuple[Path, str] | None = None) -> dict:
         if self.core_failure == kind:
             raise release.Stop(f"core-{kind}", "public package missing or source mismatch")
         return {"tag_object": kind + "-tag", "commit": reference, "release_id": kind + "-release",
@@ -105,6 +107,40 @@ class ContinuationTest(unittest.TestCase):
     def refs(self, root: Path, tag: str) -> tuple[str, str, str]:
         commit = git(self.candidate, "rev-parse", "HEAD")
         return commit, git(self.candidate, "rev-parse", f"{tag}^{{tag}}"), commit
+
+    def web_package_evidence(self, *, release_id: int = 14, action_run: int = 12,
+                             mutate=None) -> Path:
+        reference = git(self.web, "rev-parse", "HEAD")
+        sri = "sha512-" + base64.b64encode(hashlib.sha512(b"fixture").digest()).decode()
+        packages = {
+            f"@peanut-admin/{name}": {
+                "version": "4.0.0-rc.4",
+                "repository": "git+https://github.com/peanut-business/peanut-admin-core-web.git",
+                "source_reference": reference,
+                "gitHead": reference,
+                "tarball": f"https://registry.npmjs.org/{name}/-/{name}-4.0.0-rc.4.tgz",
+                "integrity": sri,
+            }
+            for name in release.PACKAGES
+        }
+        evidence = {
+            "schema_version": 1,
+            "protocol": "peanut.web-core-package-evidence.v1",
+            "repository": "peanut-business/peanut-admin-core-web",
+            "tag": "v4.0.0-rc.4",
+            "version": "4.0.0-rc.4",
+            "source_reference": reference,
+            "release_id": release_id,
+            "action_run": action_run,
+            "packages": packages,
+        }
+        if mutate is not None:
+            mutate(evidence)
+        self.evidence_counter += 1
+        path = self.root / f"web-package-evidence-{self.evidence_counter}.json"
+        write_json(path, evidence)
+        path.chmod(0o444)
+        return path
 
     def create_artifacts(self) -> None:
         directory = self.output / "edition-artifacts"
@@ -345,6 +381,79 @@ class ContinuationTest(unittest.TestCase):
             missing_head = False
             evidence = release.public_core("web", "4.0.0", reference, self.web)
             self.assertEqual(len(evidence["packages"]), 6)
+
+    def test_web_package_evidence_keeps_live_release_checks_and_skips_npm(self) -> None:
+        reference = git(self.web, "rev-parse", "HEAD")
+        path = self.web_package_evidence()
+        evidence_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+        calls: list[list[str]] = []
+
+        def fake(argv: list[str], *, cwd: Path | None = None, phase: str, allow_missing: bool = False) -> str:
+            calls.append(argv)
+            if argv[0] == "gh" and "/actions/runs?" in argv[2]:
+                return json.dumps({"workflow_runs": [{"path": ".github/workflows/release.yml",
+                    "head_branch": "v4.0.0-rc.4", "head_sha": reference, "conclusion": "success", "id": 12}]})
+            if argv[0] == "gh":
+                return json.dumps({"tag_name": "v4.0.0-rc.4", "draft": False, "prerelease": True, "id": 14})
+            raise AssertionError(argv)
+
+        with patch.object(release, "remote_refs", return_value=(reference, "tag-object", reference)), \
+                patch.object(release, "command", fake):
+            result = release.public_core("web", "4.0.0-rc.4", reference, self.web, (path, evidence_sha))
+        self.assertEqual(len(result["packages"]), 6)
+        self.assertEqual(result["release_id"], 14)
+        self.assertEqual(result["action_run"], 12)
+        self.assertFalse(any(argv[0] == "npm" for argv in calls))
+
+    def test_web_package_evidence_rejects_release_package_and_source_mismatch(self) -> None:
+        reference = git(self.web, "rev-parse", "HEAD")
+
+        def fake(argv: list[str], *, cwd: Path | None = None, phase: str, allow_missing: bool = False) -> str:
+            if argv[0] == "gh" and "/actions/runs?" in argv[2]:
+                return json.dumps({"workflow_runs": [{"path": ".github/workflows/release.yml",
+                    "head_branch": "v4.0.0-rc.4", "head_sha": reference, "conclusion": "success", "id": 12}]})
+            if argv[0] == "gh":
+                return json.dumps({"tag_name": "v4.0.0-rc.4", "draft": False, "prerelease": True, "id": 14})
+            raise AssertionError(argv)
+
+        mutations = [
+            ("identity differs", lambda value: value.__setitem__("action_run", 99)),
+            ("package set differs", lambda value: value["packages"].pop("@peanut-admin/testing")),
+            ("package set differs", lambda value: value["packages"].__setitem__("@peanut-admin/extra",
+                dict(value["packages"]["@peanut-admin/testing"]))),
+            ("metadata differs", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
+                "source_reference", "0" * 40)),
+            ("integrity invalid", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
+                "integrity", "sha512-invalid")),
+        ]
+        for expected, mutation in mutations:
+            with self.subTest(expected=expected):
+                path = self.web_package_evidence(mutate=mutation)
+                evidence_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+                with patch.object(release, "remote_refs", return_value=(reference, "tag-object", reference)), \
+                        patch.object(release, "command", fake):
+                    with self.assertRaisesRegex(release.Stop, expected):
+                        release.public_core("web", "4.0.0-rc.4", reference, self.web, (path, evidence_sha))
+
+    def test_web_package_evidence_requires_read_only_and_resume_binds_bytes(self) -> None:
+        path = self.web_package_evidence()
+        path.chmod(0o644)
+        args = self.argv("--apply", "--core-web-package-evidence", str(path))
+        with patch.object(sys, "argv", args):
+            with self.assertRaisesRegex(release.Stop, "read-only"):
+                release.main()
+        self.assertFalse(self.output.exists())
+
+        path.chmod(0o444)
+        with self.assertRaisesRegex(release.Stop, "inventory"):
+            self.run_flow("--apply", "--core-web-package-evidence", str(path))
+        original = json.loads(path.read_text())
+        original["captured_note"] = "bytes changed after state creation"
+        path.chmod(0o644)
+        write_json(path, original)
+        path.chmod(0o444)
+        with self.assertRaisesRegex(release.Stop, "fixed inputs/source differ"):
+            self.run_flow("--apply", "--core-web-package-evidence", str(path))
 
     def test_new_core_tag_requires_successful_main_ci_then_uses_annotated_git_tag(self) -> None:
         reference = git(self.php, "rev-parse", "HEAD")

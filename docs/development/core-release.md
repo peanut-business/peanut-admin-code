@@ -78,6 +78,14 @@ python3 scripts/continue-product-release \
   --product-version=4.0.0-rc.N --output=/absolute/task-output --baseline
 ```
 
+若当前执行面不能直接查询 npm registry，但主控已经从受信渠道取得并固定六包公开元数据，可额外传入只读证据文件：
+
+```bash
+  --core-web-package-evidence=/absolute/read-only/web-core-package-evidence.json
+```
+
+该文件只替代六包的 npm 元数据读取，不替代协调器自己对远端注释 tag、固定提交、成功 `release.yml` Action 和 GitHub Release 的实时核验，也不授予 tag 或发布权限。证据文件绝对路径和 SHA-256 进入 phase-state 固定输入；恢复时字节或路径变化直接拒绝。文件必须为非符号链接、只读普通文件，精确包含六个 `@peanut-admin/*` 包的版本、官方仓库、source reference / gitHead、registry tarball 与 sha512 integrity，并绑定实时核到的 Release ID 和 Action run ID；缺包、额外包或任一身份不一致均 fail closed。无该参数时继续使用原 npm 直查路径。
+
 默认仅输出计划，不建立状态或访问公开渠道。确认批准且来源固定后，原命令加 `--apply`；若确需新 Core tag，仅对相应仓再加 `--approve-core-tag=php` 或 `--approve-core-tag=web`。新 tag 前要求该仓 HEAD 与远端当前 `main` 一致、推送地址正确、该精确 main 提交的 `ci.yml` 手动资格成功、版本清单与 workflow 存在且 tag 不冲突；工具只推送注释 tag，不把源码合入 main。随后每次运行都重新核远端注释 tag、同提交成功的 `release.yml` Action、GitHub Release 的稳定/预发行属性、Packagist 精确来源或六个 npm 精确版本/仓库/`gitHead`/integrity。稳定 Core 也可供已批准的产品预发行复用。任一缺失即停在该 Core 阶段；已有同版本包绝不重新 tag。远端流程尚在运行、部分包公开、公开元数据缺 `gitHead` 等都保持等待/失败状态，检查并等待正规来源证明，不填写“成功”绕过。
 
 两个 Core 均核实后，工具才在隔离候选树调用原生锁准备。主控核 12 个版本/锁文件及 CHANGELOG、法律材料后，以同一命令加 `--apply --generate-inventory` 继续：它在该候选运行 `scripts/project-composer prepare` 与 `install --working-dir=server --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist`，仅为库存/脚手架生成器准备按锁的候选工具依赖；再运行 `php scripts/build-application-template-inventory` 和 `--check`。这不是 APP 冷安装资格。主控审阅完整库存 diff 并在隔离树提交源码封存，再加 `--seal-source-commit=<真实提交>`；工具从该提交调用 `php scripts/build-scaffold-release --version=<产品版本> --source-commit=<封存提交> --output=<候选树/scaffold/releases/v版本>`，按真实 manifest 更新 P0-E 目标来源字段。主控审阅该增量并作第二个真实提交，再加 `--prepared-commit=<最终提交> --build`；这才是构建/资格绑定的产品提交与树。阶段摘要拒绝混入其它源码变化或软链接。首个 Edition 基线使用 `--baseline`；后续版本移除它，补 `--minimum-source-version=<semver> --signing-key-id=<id> --signing-secret-key-file=/absolute/key`。资格完成后补 `--qualification=/absolute/real-summary.json`；现有一致性检查必须以 `--candidate <最终提交> --qualification <文件> --prerelease` 退出 0，包含全部 groups/cleanup。确认产品注释 tag、当前 main 及公开发布授权后才加 `--publish`，发布器自身重跑原门禁。

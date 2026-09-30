@@ -131,7 +131,63 @@ def remote_refs(root: Path, tag: str) -> tuple[str, str | None, str | None]:
     return refs.get("refs/heads/main", ""), refs.get(f"refs/tags/{tag}"), refs.get(f"refs/tags/{tag}^{{}}")
 
 
-def public_core(kind: str, version: str, reference: str, root: Path) -> dict:
+def bound_readonly_json(path: Path, *, expected_sha256: str | None = None) -> tuple[dict, str]:
+    if not path.is_absolute() or path.is_symlink() or not path.is_file() or path.resolve() != path:
+        raise Stop("input", "Web Core package evidence must be an absolute real regular file")
+    if path.stat().st_mode & 0o222:
+        raise Stop("input", "Web Core package evidence must be read-only")
+    raw = path.read_bytes()
+    sha256 = hashlib.sha256(raw).hexdigest()
+    if expected_sha256 is not None and not hashlib.sha256(raw).hexdigest() == expected_sha256:
+        raise Stop("core-web", "Web Core package evidence bytes changed after input binding")
+    try:
+        value = json.loads(raw)
+    except ValueError as error:
+        raise Stop("input", "Web Core package evidence is invalid JSON") from error
+    if not isinstance(value, dict):
+        raise Stop("input", "Web Core package evidence must be a JSON object")
+    return value, sha256
+
+
+def web_packages_from_evidence(path: Path, expected_sha256: str, version: str, reference: str,
+                               release_id: int, action_run: int, validation: object) -> dict[str, dict]:
+    evidence, _ = bound_readonly_json(path, expected_sha256=expected_sha256)
+    required_top = {"schema_version", "protocol", "repository", "tag", "version", "source_reference",
+                    "release_id", "action_run", "packages"}
+    if set(evidence) != required_top or evidence.get("schema_version") != 1 \
+            or evidence.get("protocol") != "peanut.web-core-package-evidence.v1" \
+            or evidence.get("repository") != REPOS["web"] \
+            or evidence.get("tag") != f"v{version}" or evidence.get("version") != version \
+            or evidence.get("source_reference") != reference \
+            or evidence.get("release_id") != release_id or evidence.get("action_run") != action_run:
+        raise Stop("core-web", "Web Core package evidence identity differs from live release")
+    records = evidence.get("packages")
+    expected_names = {f"@peanut-admin/{name}" for name in PACKAGES}
+    if not isinstance(records, dict) or set(records) != expected_names:
+        raise Stop("core-web", "Web Core package evidence package set differs")
+    packages: dict[str, dict] = {}
+    for full in sorted(expected_names):
+        item = records.get(full)
+        if not isinstance(item, dict) or set(item) != {
+                "version", "repository", "source_reference", "gitHead", "tarball", "integrity"}:
+            raise Stop("core-web", f"Web Core package evidence record shape differs: {full}")
+        source = item.get("repository")
+        integrity, tarball = item.get("integrity"), item.get("tarball")
+        try:
+            validation.validate_integrity(integrity, full)
+        except SystemExit as error:
+            raise Stop("core-web", f"Web Core package evidence integrity invalid: {full}") from error
+        if item.get("version") != version or item.get("source_reference") != reference \
+                or item.get("gitHead") != reference or not validation.official_web_repository(source) \
+                or not validation.registry_tarball(tarball):
+            raise Stop("core-web", f"Web Core package evidence metadata differs: {full}")
+        packages[full] = {"version": version, "repository": source, "gitHead": reference,
+                          "tarball": tarball, "integrity": integrity}
+    return packages
+
+
+def public_core(kind: str, version: str, reference: str, root: Path,
+                web_package_evidence: tuple[Path, str] | None = None) -> dict:
     phase = f"core-{kind}"
     repo, tag = REPOS[kind], f"v{version}"
     main, tag_object, commit = remote_refs(root, tag)
@@ -180,26 +236,32 @@ def public_core(kind: str, version: str, reference: str, root: Path) -> dict:
         spec = importlib.util.spec_from_loader(loader.name, loader)
         validation = importlib.util.module_from_spec(spec)
         loader.exec_module(validation)
-        for name in PACKAGES:
-            full = f"@peanut-admin/{name}"
-            raw = command(["npm", "view", f"{full}@{version}", "version", "dist.integrity", "dist.tarball",
-                           "repository.url", "gitHead", "--json", "--registry=https://registry.npmjs.org"], phase=phase)
-            try:
-                item = json.loads(raw)
-            except ValueError as error:
-                raise Stop(phase, f"invalid npm metadata for {full}") from error
-            source = item.get("repository.url") or (item.get("repository") or {}).get("url")
-            integrity, tarball = item.get("dist.integrity"), item.get("dist.tarball")
-            try:
-                validation.validate_integrity(integrity, full)
-            except SystemExit as error:
-                raise Stop(phase, f"npm integrity invalid: {full}") from error
-            if (item.get("version") != version or item.get("gitHead") != reference
-                    or not validation.official_web_repository(source)
-                    or not validation.registry_tarball(tarball)):
-                raise Stop(phase, f"npm exact version, repository, gitHead, or integrity differs: {full}")
-            packages[full] = {"version": version, "repository": source, "gitHead": reference,
-                              "tarball": tarball, "integrity": integrity}
+        if web_package_evidence is not None:
+            packages = web_packages_from_evidence(
+                web_package_evidence[0], web_package_evidence[1], version, reference,
+                release["id"], min(run["id"] for run in successful), validation,
+            )
+        else:
+            for name in PACKAGES:
+                full = f"@peanut-admin/{name}"
+                raw = command(["npm", "view", f"{full}@{version}", "version", "dist.integrity", "dist.tarball",
+                               "repository.url", "gitHead", "--json", "--registry=https://registry.npmjs.org"], phase=phase)
+                try:
+                    item = json.loads(raw)
+                except ValueError as error:
+                    raise Stop(phase, f"invalid npm metadata for {full}") from error
+                source = item.get("repository.url") or (item.get("repository") or {}).get("url")
+                integrity, tarball = item.get("dist.integrity"), item.get("dist.tarball")
+                try:
+                    validation.validate_integrity(integrity, full)
+                except SystemExit as error:
+                    raise Stop(phase, f"npm integrity invalid: {full}") from error
+                if (item.get("version") != version or item.get("gitHead") != reference
+                        or not validation.official_web_repository(source)
+                        or not validation.registry_tarball(tarball)):
+                    raise Stop(phase, f"npm exact version, repository, gitHead, or integrity differs: {full}")
+                packages[full] = {"version": version, "repository": source, "gitHead": reference,
+                                  "tarball": tarball, "integrity": integrity}
     return {"repository": repo, "tag": tag, "tag_object": tag_object, "commit": commit,
             "action_run": min(run["id"] for run in successful), "packages": packages,
             "release_id": release.get("id"), "digest": digest(packages)}
@@ -420,6 +482,8 @@ def main() -> None:
     parser.add_argument("--signing-key-id")
     parser.add_argument("--signing-secret-key-file", type=Path)
     parser.add_argument("--qualification", type=Path)
+    parser.add_argument("--core-web-package-evidence", type=Path,
+                        help="read-only JSON package metadata evidence; live tag/Action/Release checks still run")
     parser.add_argument("--publish", action="store_true")
     args = parser.parse_args()
     roots = (args.source, args.candidate, args.core_php_root, args.core_web_root, args.output)
@@ -433,6 +497,10 @@ def main() -> None:
         raise Stop("input", "first-stage product version must be unused X.Y.Z-rc.N")
     if any(not VERSION.fullmatch(value) for value in (args.core_php_version, args.core_web_version)):
         raise Stop("input", "Core versions must be fixed stable or rc.N SemVer")
+    web_package_evidence: tuple[Path, str] | None = None
+    if args.core_web_package_evidence is not None:
+        _, evidence_sha256 = bound_readonly_json(args.core_web_package_evidence)
+        web_package_evidence = (args.core_web_package_evidence, evidence_sha256)
     source = identity(args.source, "peanut-business/peanut-admin-code")
     php = identity(args.core_php_root, REPOS["php"])
     web = identity(args.core_web_root, REPOS["web"])
@@ -455,7 +523,9 @@ def main() -> None:
               "product_version": args.product_version, "php_version": args.core_php_version,
               "php_reference": args.core_php_reference, "web_version": args.core_web_version,
               "web_reference": args.core_web_reference, "output": str(args.output),
-              "baseline": args.baseline, "minimum_source_version": args.minimum_source_version}
+              "baseline": args.baseline, "minimum_source_version": args.minimum_source_version,
+              "core_web_package_evidence": None if web_package_evidence is None else {
+                  "path": str(web_package_evidence[0]), "sha256": web_package_evidence[1]}}
     fingerprint = digest(inputs)
     state_path = args.output / "phase-state.json"
     if not args.apply:
@@ -501,7 +571,9 @@ def main() -> None:
                                                 ("web", args.core_web_root, args.core_web_version, args.core_web_reference)):
             name = f"core-{kind}"
             try:
-                evidence = public_core(kind, version, reference, root)
+                evidence = (public_core(kind, version, reference, root, web_package_evidence)
+                            if kind == "web" and web_package_evidence is not None
+                            else public_core(kind, version, reference, root))
             except Stop as error:
                 if "absent remotely" not in error.reason or kind not in args.approve_core_tag:
                     raise
@@ -509,7 +581,9 @@ def main() -> None:
                                                                "repository": REPOS[kind]}
                 atomic_json(state_path, state)
                 tag_core(kind, version, reference, root)
-                evidence = public_core(kind, version, reference, root)
+                evidence = (public_core(kind, version, reference, root, web_package_evidence)
+                            if kind == "web" and web_package_evidence is not None
+                            else public_core(kind, version, reference, root))
             previous = state["stages"].get(name)
             if previous and any(previous["evidence"].get(key) != evidence.get(key)
                                 for key in ("tag_object", "commit", "release_id", "digest")):
