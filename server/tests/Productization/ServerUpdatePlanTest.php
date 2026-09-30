@@ -139,6 +139,80 @@ function updatePlanSealFixture(string $serverRoot, string $workspace, string $ph
     $method->invoke(null, $serverRoot, $workspace, $plan, $journal, $phase);
 }
 
+/** File-only dependency receipt; it does not run Composer or qualify an installed vendor tree. */
+function updatePlanPrepareFixture(string $serverRoot, string $workspace): void
+{
+    $plan = json_decode((string) file_get_contents($workspace . '/plan.json'), true, 512, JSON_THROW_ON_ERROR);
+    $vendor = $workspace . '/prepared/server/vendor';
+    upgradePlanFixtureJson($vendor . '/.peanut-complete.json', [
+        'protocol' => 'peanut.composer-install.v1',
+        'lock_sha256' => hash_file('sha256', $workspace . '/prepared/server/composer.lock'),
+    ]);
+    upgradePlanFixtureFile($vendor . '/autoload.php', "<?php\n", 0644);
+    upgradePlanFixtureJson($workspace . '/preparation.json', [
+        'protocol' => 'peanut.server-update-preparation.v1',
+        'update_id' => $plan['update_id'],
+        'plan_sha256' => hash_file('sha256', $workspace . '/plan.json'),
+        'source_identity_sha256' => $plan['source']['identity_sha256'],
+        'target_identity_sha256' => $plan['target']['identity_sha256'],
+        'vendor_mode' => 'prepared',
+        'vendor_receipt_sha256' => hash_file('sha256', $vendor . '/.peanut-complete.json'),
+    ]);
+}
+
+/** Synthetic signed file receipt; no database operation is performed. */
+function updatePlanSignedFixture(string $serverRoot, string $path, array $data): void
+{
+    upgradePlanFixtureJson($path, $data);
+    $key = trim((string) file_get_contents($serverRoot . '/private/installation/update-verification.key'));
+    upgradePlanFixtureFile($path . '.hmac', hash_hmac('sha256', (string) file_get_contents($path), $key) . "\n");
+}
+
+/** Synthetic recovery point for file/state-machine regression only. */
+function updatePlanBackupFixture(string $serverRoot, string $workspace): void
+{
+    $plan = json_decode((string) file_get_contents($workspace . '/plan.json'), true, 512, JSON_THROW_ON_ERROR);
+    upgradePlanFixtureFile($workspace . '/recovery/database.sql.gz', "synthetic database dump; never restore\n");
+    updatePlanSignedFixture($serverRoot, $workspace . '/backup.json', [
+        'protocol' => 'peanut.server-update-backup.v1',
+        'update_id' => $plan['update_id'],
+        'plan_sha256' => hash_file('sha256', $workspace . '/plan.json'),
+        'snapshots' => [
+            'private/installation/installed.json' => $plan['source']['installed_receipt_sha256'],
+            'private/installation/baseline.json' => $plan['source']['baseline_sha256'],
+            'private/installation/deployment.json' => $plan['source']['deployment_state_sha256'],
+        ],
+        'database_dump_sha256' => hash_file('sha256', $workspace . '/recovery/database.sql.gz'),
+        'fixture_only' => 'synthetic; no database backup',
+    ]);
+}
+
+/** Synthetic completed migration receipt; no native migration is run. */
+function updatePlanMigrationFixture(string $serverRoot, string $workspace): void
+{
+    $plan = json_decode((string) file_get_contents($workspace . '/plan.json'), true, 512, JSON_THROW_ON_ERROR);
+    updatePlanSignedFixture($serverRoot, $workspace . '/migration.json', [
+        'protocol' => 'peanut.server-update-migration.v1',
+        'status' => 'completed',
+        'update_id' => $plan['update_id'],
+        'plan_sha256' => hash_file('sha256', $workspace . '/plan.json'),
+        'backup_sha256' => hash_file('sha256', $workspace . '/backup.json'),
+        'fixture_only' => 'synthetic; no native migration',
+    ]);
+}
+
+/** Synthetic completed database recovery receipt; no database is restored. */
+function updatePlanDatabaseRecoveryFixture(string $serverRoot, string $workspace): void
+{
+    $plan = json_decode((string) file_get_contents($workspace . '/plan.json'), true, 512, JSON_THROW_ON_ERROR);
+    updatePlanSignedFixture($serverRoot, $workspace . '/database-recovery.json', [
+        'status' => 'completed',
+        'update_id' => $plan['update_id'],
+        'backup_sha256' => hash_file('sha256', $workspace . '/backup.json'),
+        'fixture_only' => 'synthetic; no database restore',
+    ]);
+}
+
 $projectRoot = dirname(__DIR__, 3);
 $tmpRoot = $projectRoot . '/.local/tmp';
 if (!is_dir($tmpRoot) && !mkdir($tmpRoot, 0700, true) && !is_dir($tmpRoot)) {
@@ -204,6 +278,7 @@ try {
         (string) hash_file('sha256', $applyArchive),
         $applyWorkspace,
     );
+    updatePlanPrepareFixture($applyInstance . '/server', $applyWorkspace);
     $trafficPermit = $applyInstance . '/server/runtime/upgrade/.traffic-ready';
     $initialTraffic = PeanutServerUpdatePlan::initializeTraffic($applyInstance . '/server');
     updatePlanExpect(
@@ -211,6 +286,7 @@ try {
         'fresh known instance may initialize persistent public traffic permission',
     );
     $beginJournal = PeanutServerUpdatePlan::begin($applyInstance . '/server', $applyWorkspace);
+    updatePlanBackupFixture($applyInstance . '/server', $applyWorkspace);
     updatePlanExpect(($beginJournal['status'] ?? null) === 'applying', 'begin must publish an applying journal');
     updatePlanExpect(
         !file_exists($trafficPermit) && !is_link($trafficPermit),
@@ -235,6 +311,7 @@ try {
     upgradePlanFixtureFile($markerPath, $activeMarkerBytes, 0600);
     updatePlanExpect((string) file_get_contents($applyInstance . '/server/app/a.txt') === "old\n", 'begin must not change program files');
     $applyJournal = PeanutServerUpdatePlan::apply($applyInstance . '/server', $applyWorkspace);
+    updatePlanMigrationFixture($applyInstance . '/server', $applyWorkspace);
     updatePlanExpect(($applyJournal['status'] ?? null) === 'applied', 'apply must finish program update before activation');
     updatePlanExpect((string) file_get_contents($applyInstance . '/server/app/a.txt') === "new\n", 'replace must publish target bytes');
     updatePlanExpect(is_file($applyInstance . '/server/app/new.txt'), 'add must publish target file');
@@ -400,8 +477,11 @@ try {
     $secondWorkspace = updatePlanWorkspace($root);
     $secondPlan = PeanutServerUpdatePlan::build($applyInstance . '/server', $secondArchive, (string) hash_file('sha256', $secondArchive), $secondWorkspace);
     updatePlanExpect(($secondPlan['source']['deployment_generation'] ?? null) === 1, 'second plan must bind deployed generation one');
+    updatePlanPrepareFixture($applyInstance . '/server', $secondWorkspace);
     PeanutServerUpdatePlan::begin($applyInstance . '/server', $secondWorkspace);
+    updatePlanBackupFixture($applyInstance . '/server', $secondWorkspace);
     PeanutServerUpdatePlan::apply($applyInstance . '/server', $secondWorkspace);
+    updatePlanMigrationFixture($applyInstance . '/server', $secondWorkspace);
     updatePlanSealFixture($applyInstance . '/server', $secondWorkspace, 'target');
     PeanutServerUpdatePlan::activate($applyInstance . '/server', $secondWorkspace);
     $secondDeployment = json_decode((string) file_get_contents($deploymentPath), true, 512, JSON_THROW_ON_ERROR);
@@ -438,8 +518,11 @@ try {
     $modeOps = array_column($modePlan['operations'], null, 'path');
     updatePlanExpect(($modeOps['server/app/a.txt']['current_mode'] ?? null) === 0644
         && ($modeOps['server/app/a.txt']['target_mode'] ?? null) === 0755, 'mode-only operation must bind both modes');
+    updatePlanPrepareFixture($modeInstance . '/server', $modeWorkspace);
     PeanutServerUpdatePlan::begin($modeInstance . '/server', $modeWorkspace);
+    updatePlanBackupFixture($modeInstance . '/server', $modeWorkspace);
     PeanutServerUpdatePlan::apply($modeInstance . '/server', $modeWorkspace);
+    updatePlanMigrationFixture($modeInstance . '/server', $modeWorkspace);
     updatePlanExpect((fileperms($modeInstance . '/server/app/a.txt') & 0777) === 0755, 'same-byte program update must apply target mode');
     updatePlanExpect((fileperms($modeInstance . '/server/app/deep') & 0777) === 0755
         && (fileperms($modeInstance . '/server/app/deep/nested') & 0777) === 0755, 'nested new program directories must be traversable');
@@ -452,6 +535,7 @@ try {
         updatePlanExpect(str_contains($exception->getMessage(), 'changed during update'), 'activation must reject mode drift');
     }
     chmod($modeInstance . '/server/app/a.txt', 0755);
+    updatePlanDatabaseRecoveryFixture($modeInstance . '/server', $modeWorkspace);
     PeanutServerUpdatePlan::recover($modeInstance . '/server', $modeWorkspace);
     updatePlanExpect((fileperms($modeInstance . '/server/app/a.txt') & 0777) === 0644, 'recovery must restore original program mode');
     updatePlanExpect(!file_exists($modeInstance . '/server/app/deep/nested/new.txt'), 'recovery must remove nested added file');
@@ -460,6 +544,7 @@ try {
     updatePlanWriteServer($lockedInstance, '1.0.0', $currentFiles + ['server/docker/conf/nginx.conf' => "old-conf\n"]);
     $lockedWorkspace = updatePlanWorkspace($root);
     PeanutServerUpdatePlan::build($lockedInstance . '/server', $applyArchive, (string) hash_file('sha256', $applyArchive), $lockedWorkspace);
+    updatePlanPrepareFixture($lockedInstance . '/server', $lockedWorkspace);
     upgradePlanFixtureJson($lockedInstance . '/server/runtime/upgrade/current-update.json', [
         'schema_version' => 1,
         'protocol' => 'peanut.server-update-current.v1',
@@ -483,6 +568,9 @@ try {
         (string) hash_file('sha256', $applyArchive),
         $interruptedWorkspace,
     );
+    updatePlanPrepareFixture($interruptedInstance . '/server', $interruptedWorkspace);
+    PeanutServerUpdatePlan::begin($interruptedInstance . '/server', $interruptedWorkspace);
+    updatePlanBackupFixture($interruptedInstance . '/server', $interruptedWorkspace);
     try {
         PeanutServerUpdatePlan::apply(
             $interruptedInstance . '/server',
@@ -500,6 +588,7 @@ try {
     updatePlanExpect(is_file($interruptedInstance . '/server/runtime/upgrade/maintenance.json'), 'failed apply must keep maintenance marker');
     $window = (new InstanceSafetyQueries($interruptedInstance . '/server'))->blockingMaintenanceWindow();
     updatePlanExpect(is_array($window) && $window['reason_key'] === 'planned-upgrade', 'file maintenance guard must work without database');
+    updatePlanDatabaseRecoveryFixture($interruptedInstance . '/server', $interruptedWorkspace);
     $recovery = PeanutServerUpdatePlan::recover($interruptedInstance . '/server', $interruptedWorkspace);
     updatePlanExpect(($recovery['status'] ?? null) === 'recovered', 'recover must complete from journal');
     updatePlanExpect((string) file_get_contents($interruptedInstance . '/server/app/a.txt') === "old\n", 'recover must restore replaced file');
@@ -562,14 +651,15 @@ try {
         (string) hash_file('sha256', $migrationArchive),
         $migrationWorkspace,
     );
+    updatePlanPrepareFixture($migrationInstance . '/server', $migrationWorkspace);
     try {
         PeanutServerUpdatePlan::apply($migrationInstance . '/server', $migrationWorkspace);
-        throw new RuntimeException('database migration update was applied');
+        throw new RuntimeException('migration update bypassed recovery point');
     } catch (RuntimeException $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'database migration gate is not implemented'), 'missing database migration gate must fail closed');
+        updatePlanExpect(str_contains($exception->getMessage(), 'recovery point'), 'migration plan must require a signed recovery point before file apply');
     }
     updatePlanExpect((string) file_get_contents($migrationInstance . '/server/app/a.txt') === "old\n", 'migration gate must not modify program files');
-    updatePlanExpect(!file_exists($migrationInstance . '/server/runtime/upgrade/maintenance.json'), 'migration gate failure must not activate maintenance');
+    updatePlanExpect(is_file($migrationInstance . '/server/runtime/upgrade/maintenance.json'), 'missing recovery point must retain closed maintenance after begin');
     $migrationPlanPath = $migrationWorkspace . '/plan.json';
     $migrationPlan = json_decode((string) file_get_contents($migrationPlanPath), true, 512, JSON_THROW_ON_ERROR);
     $migrationPlan['requirements']['database_migrations_changed'] = false;
@@ -578,9 +668,9 @@ try {
         PeanutServerUpdatePlan::begin($migrationInstance . '/server', $migrationWorkspace);
         throw new RuntimeException('false migration requirement was accepted');
     } catch (RuntimeException $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'requirements differ from operations'), 'plan must derive migration gate from files');
+        updatePlanExpect(str_contains($exception->getMessage(), 'target dependency preparation differs from update plan'), 'changed migration requirement must fail preparation binding');
     }
-    updatePlanExpect(!file_exists($migrationInstance . '/server/runtime/upgrade/maintenance.json'), 'false migration gate must fail before maintenance');
+    updatePlanExpect(is_file($migrationInstance . '/server/runtime/upgrade/maintenance.json'), 'false migration requirement must retain existing maintenance');
 
     $dependencyInstance = $root . '/dependency-instance';
     updatePlanWriteServer($dependencyInstance, '1.0.0', $currentFiles);
@@ -588,9 +678,9 @@ try {
     PeanutServerUpdatePlan::build($dependencyInstance . '/server', $archive, (string) hash_file('sha256', $archive), $dependencyWorkspace);
     try {
         PeanutServerUpdatePlan::apply($dependencyInstance . '/server', $dependencyWorkspace);
-        throw new RuntimeException('composer dependency update was applied');
+        throw new RuntimeException('composer dependency update bypassed preparation');
     } catch (RuntimeException $exception) {
-        updatePlanExpect(str_contains($exception->getMessage(), 'composer dependency preparation gate is not implemented'), 'missing composer preparation gate must fail closed');
+        updatePlanExpect(str_contains($exception->getMessage(), 'target dependency preparation'), 'changed Composer lock must require preparation receipt');
     }
     updatePlanExpect((string) file_get_contents($dependencyInstance . '/server/composer.lock') === "lock-v1\n", 'composer gate must not modify lock file');
 
@@ -606,6 +696,7 @@ try {
         (string) hash_file('sha256', $environmentArchive),
         $environmentWorkspace,
     );
+    updatePlanPrepareFixture($environmentInstance . '/server', $environmentWorkspace);
     updatePlanExpect(
         ($environmentPlan['requirements']['runtime_environment_changed'] ?? null) === true,
         'changed runtime environment must retain its plan flag',
@@ -615,7 +706,7 @@ try {
         throw new RuntimeException('unprepared runtime environment was accepted');
     } catch (RuntimeException $exception) {
         updatePlanExpect(
-            str_contains($exception->getMessage(), 'runtime environment preparation gate is not implemented'),
+            str_contains($exception->getMessage(), 'runtime environment changed without an independently prepared compatible image set'),
             'runtime environment gate must fail before stop',
         );
     }
@@ -637,6 +728,7 @@ try {
         (string) hash_file('sha256', $environmentModeArchive),
         $environmentModeWorkspace,
     );
+    updatePlanPrepareFixture($environmentModeInstance . '/server', $environmentModeWorkspace);
     updatePlanExpect(
         ($environmentModePlan['requirements']['runtime_environment_changed'] ?? null) === true,
         'runtime config mode change must not be classified as unchanged',
@@ -646,7 +738,7 @@ try {
         throw new RuntimeException('runtime config mode change was accepted');
     } catch (RuntimeException $exception) {
         updatePlanExpect(
-            str_contains($exception->getMessage(), 'runtime environment preparation gate is not implemented'),
+            str_contains($exception->getMessage(), 'runtime environment changed without an independently prepared compatible image set'),
             'mode-only runtime environment change must fail before stop',
         );
     }
@@ -714,6 +806,7 @@ try {
     updatePlanWriteServer($driftInstance, '1.0.0', $currentFiles + ['server/docker/conf/nginx.conf' => "old-conf\n"]);
     $driftWorkspace = updatePlanWorkspace($root);
     PeanutServerUpdatePlan::build($driftInstance . '/server', $applyArchive, (string) hash_file('sha256', $applyArchive), $driftWorkspace);
+    updatePlanPrepareFixture($driftInstance . '/server', $driftWorkspace);
     file_put_contents($driftInstance . '/server/.peanut/release-identity.json', "{}\n");
     try {
         PeanutServerUpdatePlan::begin($driftInstance . '/server', $driftWorkspace);
@@ -727,10 +820,14 @@ try {
     updatePlanWriteServer($planDriftInstance, '1.0.0', $currentFiles + ['server/docker/conf/nginx.conf' => "old-conf\n"]);
     $planDriftWorkspace = updatePlanWorkspace($root);
     PeanutServerUpdatePlan::build($planDriftInstance . '/server', $applyArchive, (string) hash_file('sha256', $applyArchive), $planDriftWorkspace);
+    updatePlanPrepareFixture($planDriftInstance . '/server', $planDriftWorkspace);
     PeanutServerUpdatePlan::begin($planDriftInstance . '/server', $planDriftWorkspace);
     $changedPlan = json_decode((string) file_get_contents($planDriftWorkspace . '/plan.json'), true, 512, JSON_THROW_ON_ERROR);
     $changedPlan['note'] = 'changed after begin';
     upgradePlanFixtureJson($planDriftWorkspace . '/plan.json', $changedPlan);
+    $changedPreparation = json_decode((string) file_get_contents($planDriftWorkspace . '/preparation.json'), true, 512, JSON_THROW_ON_ERROR);
+    $changedPreparation['plan_sha256'] = hash_file('sha256', $planDriftWorkspace . '/plan.json');
+    upgradePlanFixtureJson($planDriftWorkspace . '/preparation.json', $changedPreparation);
     try {
         PeanutServerUpdatePlan::apply($planDriftInstance . '/server', $planDriftWorkspace);
         throw new RuntimeException('changed plan was accepted after journal creation');
@@ -743,6 +840,7 @@ try {
     updatePlanWriteServer($parentLinkInstance, '1.0.0', $currentFiles + ['server/docker/conf/nginx.conf' => "old-conf\n"]);
     $parentLinkWorkspace = updatePlanWorkspace($root);
     PeanutServerUpdatePlan::build($parentLinkInstance . '/server', $applyArchive, (string) hash_file('sha256', $applyArchive), $parentLinkWorkspace);
+    updatePlanPrepareFixture($parentLinkInstance . '/server', $parentLinkWorkspace);
     $originalApp = $parentLinkInstance . '/server/app-original';
     rename($parentLinkInstance . '/server/app', $originalApp);
     $outsideApp = $root . '/outside-app';

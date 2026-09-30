@@ -95,6 +95,7 @@ final class PeanutServerUpdatePlan
                 return match ($result['next_action'] ?? null) {
                     'none' => 10,
                     'verify_activate' => 11,
+                    'migrate' => 12,
                     'apply' => 0,
                     default => throw new RuntimeException('server update begin action is invalid'),
                 };
@@ -306,6 +307,8 @@ final class PeanutServerUpdatePlan
                 'identity_sha256' => hash('sha256', $targetBytes),
             ],
             'tool_sha256' => hash_file('sha256', __FILE__),
+            'tools_sha256' => is_file($workspace . '/.trusted-tools/manifest.json')
+                ? hash_file('sha256', $workspace . '/.trusted-tools/manifest.json') : null,
             'requirements' => $requirements,
             'protected_paths' => [...self::PROTECTED_FILES, ...self::PROTECTED_PREFIXES],
             'prepared_server' => 'prepared/server',
@@ -334,7 +337,7 @@ final class PeanutServerUpdatePlan
         $plan = self::plan($workspace);
         $updateId = self::updateId($plan);
         self::assertPreparedServer($workspace, $plan);
-        self::assertPlanApplySupported($plan);
+        self::assertPlanApplySupported($serverRoot, $workspace, $plan);
 
         return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId): array {
             $currentPointer = self::currentPointerPath($serverRoot);
@@ -367,6 +370,7 @@ final class PeanutServerUpdatePlan
                     $maintenanceExists = file_exists(self::maintenancePath($serverRoot)) || is_link(self::maintenancePath($serverRoot));
                     if (($existing['status'] ?? null) === 'completed') {
                         self::assertPublishedDeploymentState($serverRoot, $workspace, $plan, $updateId);
+                        self::assertMigrationComplete($serverRoot, $workspace, $plan);
                         if ($maintenanceExists) {
                             self::assertActivationPointer($serverRoot, $workspace, $updateId, true);
                         } elseif (file_exists($currentPointer) || is_link($currentPointer)) {
@@ -388,7 +392,17 @@ final class PeanutServerUpdatePlan
                     } else {
                         self::assertTrafficReady($serverRoot);
                     }
-                    $existing['next_action'] = $maintenanceExists ? 'verify_activate' : 'none';
+                    if (($existing['status'] ?? null) === 'applied' && $maintenanceExists) {
+                        $migrationPath = $workspace . '/migration.json';
+                        if (!file_exists($migrationPath) && !is_link($migrationPath)) {
+                            $existing['next_action'] = 'migrate';
+                        } else {
+                            self::assertMigrationComplete($serverRoot, $workspace, $plan);
+                            $existing['next_action'] = 'verify_activate';
+                        }
+                    } else {
+                        $existing['next_action'] = $maintenanceExists ? 'verify_activate' : 'none';
+                    }
                     return $existing;
                 }
             }
@@ -446,7 +460,7 @@ final class PeanutServerUpdatePlan
         $plan = self::plan($workspace);
         $updateId = self::updateId($plan);
         self::assertPreparedServer($workspace, $plan);
-        self::assertPlanApplySupported($plan);
+        self::assertPlanApplySupported($serverRoot, $workspace, $plan);
         self::begin($serverRoot, $workspace);
 
         return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId, $onEvent): array {
@@ -485,6 +499,7 @@ final class PeanutServerUpdatePlan
             if (($journal['status'] ?? null) !== 'applying') {
                 throw new RuntimeException('server update journal status is invalid for apply');
             }
+            self::assertRecoveryPoint($serverRoot, $workspace, $plan);
             self::writeMaintenance($serverRoot, $journal, 'applying');
 
             try {
@@ -576,6 +591,7 @@ final class PeanutServerUpdatePlan
             if (($journal['status'] ?? null) !== 'applied') {
                 throw new RuntimeException('server update must be applied before activation');
             }
+            self::assertMigrationComplete($serverRoot, $workspace, $plan);
             foreach ($journal['operations'] as $operation) {
                 if (($operation['status'] ?? null) !== 'done') {
                     throw new RuntimeException('server update has an unfinished file operation');
@@ -655,6 +671,7 @@ final class PeanutServerUpdatePlan
             if (($journal['status'] ?? null) === 'completed') {
                 throw new RuntimeException('completed server update cannot be recovered automatically');
             }
+            self::assertDatabaseRecovery($serverRoot, $workspace, $plan, $journal);
             self::assertActivePointer($serverRoot, $workspace, $updateId);
             self::removeDurableFile(self::verificationPath($workspace));
             if (($journal['status'] ?? null) === 'recovered') {
@@ -714,6 +731,7 @@ final class PeanutServerUpdatePlan
             if (($journal['status'] ?? null) !== 'recovered') {
                 throw new RuntimeException('server update must be recovered before clearing maintenance');
             }
+            self::assertDatabaseRecovery($serverRoot, $workspace, $plan, $journal);
             self::assertActivePointer($serverRoot, $workspace, $updateId);
             foreach ($journal['operations'] as $operation) {
                 self::assertOperationState($serverRoot, $operation);
@@ -748,6 +766,11 @@ final class PeanutServerUpdatePlan
             self::assertMaintenance($serverRoot, self::updateId($plan));
             foreach ($journal['operations'] as $operation) {
                 self::assertOperationState($serverRoot, $operation, $phase === 'target');
+            }
+            if ($phase === 'target') {
+                self::assertMigrationComplete($serverRoot, $workspace, $plan);
+            } else {
+                self::assertDatabaseRecovery($serverRoot, $workspace, $plan, $journal);
             }
             self::nativeRuntimeHealth($serverRoot);
             return self::sealVerification($serverRoot, $workspace, $plan, $journal, $phase);
@@ -846,6 +869,9 @@ final class PeanutServerUpdatePlan
         if (!file_exists($path) && !is_link($path) && $create) {
             self::durableFile($path, bin2hex(random_bytes(32)) . "\n", 0600);
         }
+        if (!is_file($path) || is_link($path) || (fileperms($path) & 0777) !== 0600) {
+            throw new RuntimeException('private update verification key has unsafe type or mode');
+        }
         $key = trim(self::regularBytes($path, 'private update verification key'));
         if (preg_match('/^[a-f0-9]{64}$/D', $key) !== 1) {
             throw new RuntimeException('private update verification key is invalid');
@@ -853,17 +879,111 @@ final class PeanutServerUpdatePlan
         return $key;
     }
 
-    /** @param array<string,mixed> $plan */
-    private static function assertPlanApplySupported(array $plan): void
+    private static function assertSignedRecord(string $serverRoot, string $path, string $label): void
     {
-        if (($plan['requirements']['database_migrations_changed'] ?? null) === true) {
-            throw new RuntimeException('database migration gate is not implemented for server update apply');
+        $bytes = self::regularBytes($path, $label);
+        $signaturePath = $path . '.hmac';
+        $signature = trim(self::regularBytes($signaturePath, $label . ' signature'));
+        if ((fileperms($path) & 0777) !== 0600
+            || (fileperms($signaturePath) & 0777) !== 0600
+            || preg_match('/^[a-f0-9]{64}$/D', $signature) !== 1
+            || !hash_equals(hash_hmac('sha256', $bytes, self::verificationKey($serverRoot, false)), $signature)) {
+            throw new RuntimeException($label . ' signature differs from this instance');
         }
-        if (($plan['requirements']['composer_dependencies_changed'] ?? null) === true) {
-            throw new RuntimeException('composer dependency preparation gate is not implemented for server update apply');
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function assertPlanApplySupported(string $serverRoot, string $workspace, array $plan): void
+    {
+        $preparation = self::jsonFile($workspace . '/preparation.json', 'target dependency preparation');
+        $digest = hash_file('sha256', $workspace . '/plan.json');
+        if (($preparation['protocol'] ?? null) !== 'peanut.server-update-preparation.v1'
+            || ($preparation['update_id'] ?? null) !== self::updateId($plan)
+            || ($preparation['plan_sha256'] ?? null) !== $digest
+            || ($preparation['target_identity_sha256'] ?? null) !== $plan['target']['identity_sha256']) {
+            throw new RuntimeException('target dependency preparation differs from update plan');
+        }
+        $mode = $preparation['vendor_mode'] ?? null;
+        $targetLock = self::preparedPath($workspace, 'server/composer.lock');
+        $sourceLock = $serverRoot . '/composer.lock';
+        $switchPath = $workspace . '/dependency-switch.json';
+        $switched = file_exists($switchPath) || is_link($switchPath);
+        if ($switched) {
+            $switch = self::jsonFile($switchPath, 'prepared dependency switch');
+            if (($switch['status'] ?? null) !== 'completed'
+                || ($switch['update_id'] ?? null) !== self::updateId($plan)
+                || ($switch['plan_sha256'] ?? null) !== $digest) {
+                throw new RuntimeException('prepared dependency switch is incomplete');
+            }
+        }
+        $vendorRoot = $mode === 'reuse' || $switched ? $serverRoot : $workspace . '/prepared/server';
+        $receipt = $vendorRoot . '/vendor/.peanut-complete.json';
+        $installed = self::jsonFile($receipt, 'installed vendor receipt');
+        if (!in_array($mode, ['reuse', 'prepared'], true)
+            || ($mode === 'reuse' && hash_file('sha256', $sourceLock) !== hash_file('sha256', $targetLock))
+            || ($installed['protocol'] ?? null) !== 'peanut.composer-install.v1'
+            || ($installed['lock_sha256'] ?? null) !== hash_file('sha256', $targetLock)
+            || ($preparation['vendor_receipt_sha256'] ?? null) !== hash_file('sha256', $receipt)
+            || !is_file($vendorRoot . '/vendor/autoload.php')) {
+            throw new RuntimeException('target Composer installation is missing or mismatched');
         }
         if (($plan['requirements']['runtime_environment_changed'] ?? null) === true) {
-            throw new RuntimeException('runtime environment preparation gate is not implemented for server update apply');
+            throw new RuntimeException('runtime environment changed without an independently prepared compatible image set');
+        }
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function assertRecoveryPoint(string $serverRoot, string $workspace, array $plan): void
+    {
+        self::assertSignedRecord($serverRoot, $workspace . '/backup.json', 'server update recovery point');
+        $backup = self::jsonFile($workspace . '/backup.json', 'server update recovery point');
+        if (($backup['protocol'] ?? null) !== 'peanut.server-update-backup.v1'
+            || ($backup['update_id'] ?? null) !== self::updateId($plan)
+            || ($backup['plan_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
+            || ($backup['snapshots']['private/installation/installed.json'] ?? null) !== $plan['source']['installed_receipt_sha256']
+            || ($backup['snapshots']['private/installation/baseline.json'] ?? null) !== $plan['source']['baseline_sha256']
+            || ($backup['snapshots']['private/installation/deployment.json'] ?? null) !== $plan['source']['deployment_state_sha256']
+            || ($backup['database_dump_sha256'] ?? null) !== hash_file('sha256', $workspace . '/recovery/database.sql.gz')) {
+            throw new RuntimeException('server update recovery point is missing or differs from plan');
+        }
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function assertMigrationComplete(string $serverRoot, string $workspace, array $plan): void
+    {
+        self::assertSignedRecord($serverRoot, $workspace . '/migration.json', 'native migration result');
+        $migration = self::jsonFile($workspace . '/migration.json', 'native migration result');
+        if (($migration['protocol'] ?? null) !== 'peanut.server-update-migration.v1'
+            || ($migration['status'] ?? null) !== 'completed'
+            || ($migration['update_id'] ?? null) !== self::updateId($plan)
+            || ($migration['plan_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
+            || ($migration['backup_sha256'] ?? null) !== hash_file('sha256', $workspace . '/backup.json')) {
+            throw new RuntimeException('native migration has not completed for this recovery point');
+        }
+    }
+
+    /** @param array<string,mixed> $plan @param array<string,mixed> $journal */
+    private static function assertDatabaseRecovery(string $serverRoot, string $workspace, array $plan, array $journal): void
+    {
+        $backupPath = $workspace . '/backup.json';
+        if (!file_exists($backupPath) && !is_link($backupPath)) {
+            foreach ($journal['operations'] as $operation) {
+                if (($operation['status'] ?? null) !== 'pending') {
+                    throw new RuntimeException('program changed without a database recovery point');
+                }
+            }
+            if (file_exists($workspace . '/migration.json') || is_link($workspace . '/migration.json')) {
+                throw new RuntimeException('migration started without a database recovery point');
+            }
+            return;
+        }
+        self::assertSignedRecord($serverRoot, $backupPath, 'server update recovery point');
+        self::assertSignedRecord($serverRoot, $workspace . '/database-recovery.json', 'database recovery result');
+        $record = self::jsonFile($workspace . '/database-recovery.json', 'database recovery result');
+        if (($record['status'] ?? null) !== 'completed'
+            || ($record['update_id'] ?? null) !== self::updateId($plan)
+            || ($record['backup_sha256'] ?? null) !== hash_file('sha256', $backupPath)) {
+            throw new RuntimeException('old database has not been restored for this update');
         }
     }
 
@@ -919,6 +1039,10 @@ final class PeanutServerUpdatePlan
         $toolDigest = hash_file('sha256', __FILE__);
         if (!is_string($toolDigest) || !hash_equals((string) ($plan['tool_sha256'] ?? ''), $toolDigest)) {
             throw new RuntimeException('server update tool differs from planned trusted copy');
+        }
+        if (($plan['tools_sha256'] ?? null) !== null
+            && ($plan['tools_sha256'] ?? null) !== hash_file('sha256', $workspace . '/.trusted-tools/manifest.json')) {
+            throw new RuntimeException('server update helper manifest differs from plan');
         }
         self::updateId($plan);
         return $plan;
