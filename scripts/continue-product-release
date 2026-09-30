@@ -61,16 +61,36 @@ def command(argv: list[str], *, cwd: Path | None = None, phase: str, allow_missi
             atomic_json(RUN_CONTEXT[1], RUN_CONTEXT[0])
         raise Stop(phase, f"command unavailable: {argv[0]} ({type(error).__name__})") from error
     if attempt is not None:
-        logs = RUN_CONTEXT[1].parent / "logs"
-        logs.mkdir(mode=0o700, exist_ok=True)
+        state, state_path = RUN_CONTEXT
+        logs = state_path.parent / "logs"
         log_path = logs / f"{attempt['attempt']:04d}-{phase}.log"
-        with log_path.open("x", encoding="utf-8", opener=lambda name, flags: os.open(name, flags, 0o600)) as stream:
-            stream.write(result.stdout)
-            stream.write("\n--- stderr ---\n")
-            stream.write(result.stderr)
-        attempt.update(status="done" if result.returncode == 0 else "failed", exit_code=result.returncode,
-                       log=str(log_path), log_sha256=hashlib.sha256(log_path.read_bytes()).hexdigest())
-        atomic_json(RUN_CONTEXT[1], RUN_CONTEXT[0])
+        try:
+            if logs.is_symlink() or (logs.exists() and not logs.is_dir()):
+                raise OSError("command log directory is unsafe")
+            logs.mkdir(mode=0o700, exist_ok=True)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            fd = os.open(log_path, flags, 0o600)
+            try:
+                stream = os.fdopen(fd, "w", encoding="utf-8")
+            except BaseException:
+                os.close(fd)
+                raise
+            with stream:
+                stream.write(result.stdout)
+                stream.write("\n--- stderr ---\n")
+                stream.write(result.stderr)
+                stream.flush()
+                os.fsync(stream.fileno())
+            attempt.update(status="done" if result.returncode == 0 else "failed", exit_code=result.returncode,
+                           log=str(log_path), log_sha256=hashlib.sha256(log_path.read_bytes()).hexdigest())
+            atomic_json(state_path, state)
+        except OSError as error:
+            attempt.update(status="failed", exit_code=result.returncode,
+                           reason=f"log-{type(error).__name__}", log=str(log_path))
+            atomic_json(state_path, state)
+            raise Stop(phase, f"cannot persist command log ({type(error).__name__})") from error
     if result.returncode:
         if allow_missing and result.returncode == 1 and ("(HTTP 404)" in result.stderr or '"message":"Not Found"' in result.stdout):
             return ""

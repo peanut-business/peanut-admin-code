@@ -244,6 +244,62 @@ class ContinuationTest(unittest.TestCase):
         git(self.candidate, "commit", "-qm", "final product")
         return git(self.candidate, "rev-parse", "HEAD")
 
+    def test_command_persists_real_0600_logs_and_terminal_attempts(self) -> None:
+        state_path = self.root / "command-receipt" / "phase-state.json"
+        state = {"schema_version": 1, "attempts": []}
+        release.atomic_json(state_path, state)
+        release.RUN_CONTEXT = (state, state_path)
+        try:
+            output = release.command(
+                [sys.executable, "-c", "import sys; print('real-stdout'); print('real-stderr', file=sys.stderr)"],
+                phase="core-web",
+            )
+            self.assertEqual(output, "real-stdout")
+            success = state["attempts"][0]
+            self.assertEqual((success["status"], success["exit_code"]), ("done", 0))
+            success_log = Path(success["log"])
+            self.assertEqual(success_log.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(
+                success_log.read_text(),
+                "real-stdout\n\n--- stderr ---\nreal-stderr\n",
+            )
+            self.assertEqual(success["log_sha256"], hashlib.sha256(success_log.read_bytes()).hexdigest())
+
+            with self.assertRaisesRegex(release.Stop, "command failed"):
+                release.command(
+                    [sys.executable, "-c", "import sys; print('failed-out'); print('failed-err', file=sys.stderr); sys.exit(7)"],
+                    phase="core-web",
+                )
+            failed = state["attempts"][1]
+            self.assertEqual((failed["status"], failed["exit_code"]), ("failed", 7))
+            failed_log = Path(failed["log"])
+            self.assertEqual(failed_log.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(failed["log_sha256"], hashlib.sha256(failed_log.read_bytes()).hexdigest())
+            persisted = json.loads(state_path.read_text())
+            self.assertEqual([item["status"] for item in persisted["attempts"]], ["done", "failed"])
+            self.assertNotIn("running", {item["status"] for item in persisted["attempts"]})
+        finally:
+            release.RUN_CONTEXT = None
+
+    def test_command_log_failure_records_failed_attempt_instead_of_running(self) -> None:
+        state_path = self.root / "command-log-failure" / "phase-state.json"
+        state = {"schema_version": 1, "attempts": []}
+        release.atomic_json(state_path, state)
+        logs_path = state_path.parent / "logs"
+        logs_path.write_text("not-a-directory\n")
+        release.RUN_CONTEXT = (state, state_path)
+        try:
+            with self.assertRaisesRegex(release.Stop, "cannot persist command log"):
+                release.command([sys.executable, "-c", "print('command-finished')"], phase="core-web")
+            persisted = json.loads(state_path.read_text())
+            self.assertEqual(len(persisted["attempts"]), 1)
+            attempt = persisted["attempts"][0]
+            self.assertEqual((attempt["status"], attempt["exit_code"]), ("failed", 0))
+            self.assertEqual(attempt["reason"], "log-OSError")
+            self.assertNotEqual(attempt["status"], "running")
+        finally:
+            release.RUN_CONTEXT = None
+
     def test_dry_run_no_writes(self) -> None:
         self.run_flow()
         self.assertFalse(self.output.exists())
