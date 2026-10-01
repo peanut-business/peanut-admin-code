@@ -22765,7 +22765,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3dabb79f12b687bf7b756550759fecd04ecebb797fbb3a0a392ea7e85192e9e4"
+            "source_sha256": "0fc0aa8551575277970525bd0f70de9f508e23d66def85439b870e2273536c35"
         },
         {
             "path": "server/config/notification.php",

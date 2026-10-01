@@ -623,9 +623,10 @@ try {
     $generatedModulesConfig = (string) file_get_contents($first . '/server/config/modules.php');
     createApplicationExpect(!str_contains($generatedModulesConfig, 'fixture.delivery-record'), 'demo Module identity leaked into generated deployment config');
     createApplicationExpect(
-        str_contains($generatedModulesConfig, "\$pluginLockDefault = \$sourceDevelopment ? '../plugins.lock' : 'plugins.lock';")
+        str_contains($generatedModulesConfig, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);")
+            && str_contains($generatedModulesConfig, "\$pluginLockDefault = \$serverRelease ? 'plugins.lock' : '../plugins.lock';")
             && str_contains($generatedModulesConfig, "env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)"),
-        'generated deployment must select the source Plugin lock only in explicit development mode',
+        'generated deployment must use the application-root Plugin lock until a Server release identity exists',
     );
     $releaseMetadata = json_decode((string) file_get_contents($first . '/RELEASE_METADATA.json'), true, 512, JSON_THROW_ON_ERROR);
     $generatedReleaseVersion = in_array(($releaseMetadata['schema_version'] ?? null), [2, 3], true)

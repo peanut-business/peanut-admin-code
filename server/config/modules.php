@@ -8,18 +8,11 @@ $roots = array_values(array_filter(array_map(
 )));
 
 $serverRoot = dirname(__DIR__);
-$sourceRoot = dirname($serverRoot);
 $serverIdentity = $serverRoot . '/.peanut/release-identity.json';
-$sourceDevelopment = !file_exists($serverIdentity)
-    && !is_link($serverIdentity)
-    && getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
-    && file_exists($sourceRoot . '/.git')
-    && !is_link($sourceRoot . '/.git')
-    && is_file($sourceRoot . '/release-versions.json')
-    && (is_file($sourceRoot . '/.peanut/application-manifest.json')
-        || (is_file($sourceRoot . '/scaffold/application-template-inventory.json')
-            && is_file($sourceRoot . '/scaffold/edition-profiles.json')));
-$pluginLockDefault = $sourceDevelopment ? '../plugins.lock' : 'plugins.lock';
+// Source/generated applications own plugins.lock at the application root.
+// A packaged Server release switches to its verified backend-only projection.
+$serverRelease = file_exists($serverIdentity) || is_link($serverIdentity);
+$pluginLockDefault = $serverRelease ? 'plugins.lock' : '../plugins.lock';
 
 return [
     // Module roots are an explicit deployment input. An empty list keeps the

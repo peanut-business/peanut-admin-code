@@ -1119,9 +1119,9 @@ PHP;
 
     private function modulesConfig(string $content): string
     {
-        if (substr_count($content, "\$pluginLockDefault = \$sourceDevelopment ? '../plugins.lock' : 'plugins.lock';") !== 1
+        if (substr_count($content, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);") !== 1
+            || substr_count($content, "\$pluginLockDefault = \$serverRelease ? 'plugins.lock' : '../plugins.lock';") !== 1
             || substr_count($content, "'plugin_lock' => (string) env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)") !== 1
-            || substr_count($content, "PEANUT_INSTALLATION_SOURCE_MODE") < 1
         ) {
             throw new RuntimeException('CREATE_APP_MODULES_CONFIG_SOURCE_INVALID');
         }
