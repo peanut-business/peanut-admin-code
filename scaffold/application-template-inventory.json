@@ -8519,7 +8519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79736d1fcb3b96f9fa4b1b2dc0c8f6430c42b7e38678259899cef200b1ddc9e6"
+            "source_sha256": "e6741505a7854422cf95c4d3fea6feba5f738b3c6d27a25e1e8e71b8379f1439"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -8533,7 +8533,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "effa6660bb27bb648699fb1ebe3d802681ce3c1fce1a84e9ae80e854f7212781"
+            "source_sha256": "fc710e1083e22d7b29b7a6342b97bc95d72c240dde41438d65130bae15754aeb"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -22947,7 +22947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9dcbd0a0b17904b25b58fc69c71ae65947e3912a49fa1f5515e58418f98d6465"
+            "source_sha256": "c8a478882466c7acdff5eff342bf31ee52d35b3fbe5c41142d13fd46597ed418"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",

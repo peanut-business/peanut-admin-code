@@ -358,11 +358,20 @@ final class InstallationExecutionHost
         }
         // 与独立模块包使用同一依赖/版本规则，且在创建数据库之前完成校验。
         $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
-        $packageRoot = (file_exists($serverIdentity) || is_link($serverIdentity))
-            ? $this->serverRoot
-            : (\installationSourceDevelopmentMode($this->serverRoot)
-                ? dirname($this->serverRoot)
-                : $this->serverRoot);
+        $projectRoot = dirname($this->serverRoot);
+        $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
+        if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+            $packageRoot = $this->serverRoot;
+        } elseif (\installationSourceDevelopmentMode($this->serverRoot)) {
+            $packageRoot = $projectRoot;
+        } elseif (file_exists($applicationManifest) || is_link($applicationManifest)) {
+            if (!is_file($applicationManifest) || is_link($applicationManifest)) {
+                throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+            }
+            $packageRoot = $projectRoot;
+        } else {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        }
         $modules = (new \app\platform\validation\plugin\ModulePackagePreflight($packageRoot))
             ->dependencyOrder($definitions, []);
         $credentials = array_intersect_key($input, array_flip([
@@ -592,8 +601,13 @@ final class InstallationExecutionHost
                 'server_release_identity_sha256' => $identity->identitySha256(),
                 'application_manifest_sha256' => $identity->manifestSha256(),
             ];
-        } elseif (!\installationSourceDevelopmentMode($this->serverRoot)) {
-            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        } elseif (\installationSourceDevelopmentMode($this->serverRoot)) {
+            $source = [
+                'kind' => 'product-source',
+                'inventory_sha256' => $this->fileDigest($projectRoot . '/scaffold/application-template-inventory.json'),
+                'edition_profiles_sha256' => $this->fileDigest($projectRoot . '/scaffold/edition-profiles.json'),
+                'release_versions_sha256' => $this->fileDigest($projectRoot . '/release-versions.json'),
+            ];
         } elseif (file_exists($applicationManifest) || is_link($applicationManifest)) {
             if (!is_file($applicationManifest) || is_link($applicationManifest)) {
                 throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
@@ -603,12 +617,7 @@ final class InstallationExecutionHost
                 'application_manifest_sha256' => $this->fileDigest($applicationManifest),
             ];
         } else {
-            $source = [
-                'kind' => 'product-source',
-                'inventory_sha256' => $this->fileDigest($projectRoot . '/scaffold/application-template-inventory.json'),
-                'edition_profiles_sha256' => $this->fileDigest($projectRoot . '/scaffold/edition-profiles.json'),
-                'release_versions_sha256' => $this->fileDigest($projectRoot . '/release-versions.json'),
-            ];
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
         }
 
         $migrations = [];

@@ -259,8 +259,13 @@ function installationTenantBootstrapContract(string $serverDir): array
     if (file_exists($serverIdentity) || is_link($serverIdentity)) {
         $identity = ServerReleaseIdentity::load($serverDir);
         $contract = $identity->tenantBootstrapContract($mode);
-    } elseif (!installationSourceDevelopmentMode($serverDir)) {
-        throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+    } elseif (installationSourceDevelopmentMode($serverDir)) {
+        $inventoryPath = $projectRoot . '/scaffold/application-template-inventory.json';
+        $profilePath = $projectRoot . '/scaffold/edition-profiles.json';
+        if (!is_file($inventoryPath) || is_link($inventoryPath)) {
+            throw new RuntimeException('INSTALL_EDITION_MANIFEST_MISSING');
+        }
+        $contract = EditionProfile::load($profilePath, $mode)->identity()['tenant_bootstrap'];
     } elseif (file_exists($manifestPath) || is_link($manifestPath)) {
         if (!is_file($manifestPath) || is_link($manifestPath)) {
             throw new RuntimeException('INSTALL_EDITION_MANIFEST_INVALID');
@@ -287,12 +292,7 @@ function installationTenantBootstrapContract(string $serverDir): array
         }
         $contract = $manifest['edition']['tenant_bootstrap'] ?? null;
     } else {
-        $inventoryPath = $projectRoot . '/scaffold/application-template-inventory.json';
-        $profilePath = $projectRoot . '/scaffold/edition-profiles.json';
-        if (!is_file($inventoryPath) || is_link($inventoryPath)) {
-            throw new RuntimeException('INSTALL_EDITION_MANIFEST_MISSING');
-        }
-        $contract = EditionProfile::load($profilePath, $mode)->identity()['tenant_bootstrap'];
+        throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
     }
 
     $expected = [
@@ -578,10 +578,17 @@ function applicationReleaseVersions(string $serverDir): array
     if (file_exists($serverIdentity) || is_link($serverIdentity)) {
         return ServerReleaseIdentity::load($serverDir)->versions();
     }
+    $projectRoot = dirname($serverDir);
+    $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
     if (!installationSourceDevelopmentMode($serverDir)) {
-        throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        if (!file_exists($applicationManifest) && !is_link($applicationManifest)) {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        }
+        if (!is_file($applicationManifest) || is_link($applicationManifest)) {
+            throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
+        }
     }
-    $contract = ApplicationReleaseVersions::load(dirname($serverDir) . '/release-versions.json');
+    $contract = ApplicationReleaseVersions::load($projectRoot . '/release-versions.json');
     return [
         'source_product_version' => $contract->sourceProductVersion(),
         'release_sequence_version' => $contract->releaseSequenceVersion(),

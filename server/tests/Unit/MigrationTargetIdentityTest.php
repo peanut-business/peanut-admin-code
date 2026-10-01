@@ -16,7 +16,13 @@ final class MigrationTargetIdentityTest extends TestCase
             . '$target = applicationMigrationTargetVersion($server, $versions);'
             . 'echo json_encode([$versions["scaffold_template"], validatedMigrationTargetVersion($server, $target, $versions)], JSON_THROW_ON_ERROR);',
         );
-        self::assertSame('4.0.0-dev', $result[0]);
+        $contract = json_decode(
+            (string) file_get_contents(dirname(__DIR__, 3) . '/release-versions.json'),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        self::assertSame($contract['scaffold_template'], $result[0]);
         self::assertSame($result[0], $result[1]);
     }
 
@@ -109,12 +115,13 @@ PHP);
         $file = fopen($path, 'x');
         self::assertIsResource($file);
         chmod($path, 0600);
-        fwrite($file, "APP_ENV=development\nAPP_DEBUG=false\n");
+        fwrite($file, "APP_ENV=development\nAPP_DEBUG=false\nPEANUT_INSTALLATION_SOURCE_MODE=development\n");
         fclose($file);
         try {
             $source = '$server = ' . var_export($server, true) . '; require $server . "/vendor/autoload.php"; require $server . "/database/install.php"; ' . $body;
             $process = proc_open([PHP_BINARY, '-r', $source], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname($server), [
-                'PATH' => (string) getenv('PATH'), 'PEANUT_SERVER_ENV_FILE' => $path,
+                'PATH' => (string) getenv('PATH'),
+                'PEANUT_SERVER_ENV_FILE' => $path,
             ]);
             self::assertIsResource($process);
             $output = stream_get_contents($pipes[1]);

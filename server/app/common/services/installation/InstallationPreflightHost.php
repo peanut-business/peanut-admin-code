@@ -138,19 +138,26 @@ final class InstallationPreflightHost
     {
         $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
         $sourceRoot = dirname($this->serverRoot);
-        $sourceDevelopment = getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
+        $applicationManifest = $sourceRoot . '/.peanut/application-manifest.json';
+        $serverRelease = file_exists($serverIdentity) || is_link($serverIdentity);
+        $sourceDevelopment = !$serverRelease
+            && getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
             && file_exists($sourceRoot . '/.git')
             && !is_link($sourceRoot . '/.git')
             && is_file($sourceRoot . '/release-versions.json')
-            && (is_file($sourceRoot . '/.peanut/application-manifest.json')
+            && (is_file($applicationManifest)
                 || (is_file($sourceRoot . '/scaffold/application-template-inventory.json')
                     && is_file($sourceRoot . '/scaffold/edition-profiles.json')));
-        $serverRelease = file_exists($serverIdentity) || is_link($serverIdentity) || !$sourceDevelopment;
+        $generatedApplication = !$serverRelease
+            && !$sourceDevelopment
+            && (file_exists($applicationManifest) || is_link($applicationManifest));
         $required = [
             'Composer autoload' => $this->serverRoot . '/vendor/autoload.php',
             '数据库基线' => $this->serverRoot . '/database/init.sql',
             '品牌配置' => $this->serverRoot . '/config/brand.json',
-            'Server 发布身份' => $serverRelease ? $serverIdentity : $sourceRoot . '/RELEASE_METADATA.json',
+            '发布身份' => $serverRelease
+                ? $serverIdentity
+                : ($generatedApplication ? $applicationManifest : $sourceRoot . '/RELEASE_METADATA.json'),
             '发布元数据' => $serverRelease
                 ? $this->serverRoot . '/.peanut/RELEASE_METADATA.json'
                 : $sourceRoot . '/RELEASE_METADATA.json',
@@ -159,6 +166,9 @@ final class InstallationPreflightHost
                 : $sourceRoot . '/plugins.lock',
             'Plugin schema' => $this->serverRoot . '/resources/schemas/plugin.schema.json',
         ];
+        if (!$serverRelease && !$generatedApplication && !$sourceDevelopment) {
+            $required['源码开发身份'] = $sourceRoot . '/.git';
+        }
         $missing = [];
         foreach ($required as $label => $path) {
             if (!is_file($path) || !is_readable($path)) {
