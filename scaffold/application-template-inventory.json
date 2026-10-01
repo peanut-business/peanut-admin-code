@@ -23730,7 +23730,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d23d5f678f60c9c0ca34b83c3c84ca8f702f24c3ce8f47f9c1ec1e0a6a1bcd3f"
+            "source_sha256": "2847b11d6fd0ff7108025f82b729447fe047473dbb413d238607216db49c7913"
         },
         {
             "path": "server/docker/scripts/provision-database.php",
