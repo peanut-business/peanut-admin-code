@@ -9,24 +9,42 @@
     "database_template": "peanut_admin_development_p0e_<run_id>_<scenario>"
   },
   "target_release": {
-    "version": "3.1.0",
-    "source_commit": "73bc4572fd9b663ace19f074dcc65daf0b5ba877",
-    "source_tree": "5f416ef01b9e4ecea57de06a8818f407f3b48f77",
-    "manifest_sha256": "c687e6a0faac4a170d4c90bc10aefda833097fb6d77f07b3dd78b84ab8d37b5e",
-    "inventory_sha256": "16934c8c4145f3c0240e5c986286c5ace6c328cfa38fc84782b9a8b5035f7f0e",
-    "managed_tree_sha256": "06407fdde3fff6b32e1389ee726b4204bd175a76ba871300757fd683653bbd55",
-    "file_count": 441,
+    "version": "4.0.0-rc.2",
+    "source_commit": "6f90e90188bfd5f5b28857dbd0947e6c2f686445",
+    "source_tree": "d1777d390c42f25fadd26908b1a46c63974b0474",
+    "manifest_sha256": "0e6b0a58df36e04093e15ebc32b893657712adada4c0bdaefdda02b047efda9c",
+    "inventory_sha256": "91e779807978a6a9021da76eb729d5e95949520119c9ab63489496853d5d4a57",
+    "managed_tree_sha256": "13b067b753096207163be6df379cc5de6ec13d0f4df6239d2168aac59d6db3c2",
+    "file_count": 2157,
     "application_manifest_schema": 2,
     "default_application_version": "0.1.0",
     "default_uniapp_version_code": "10"
   },
   "scenarios": {
-    "standalone_fresh": { "deployment_mode": "standalone", "action": "fresh" },
-    "multi_tenant_fresh": { "deployment_mode": "multi-tenant", "action": "fresh" },
-    "plugin_lifecycle": { "deployment_mode": "multi-tenant", "action": "plugin" },
-    "consumer_module_cycle": { "deployment_mode": "standalone", "action": "consumer-module" },
-    "standalone_browser": { "deployment_mode": "standalone", "action": "browser" },
-    "multi_tenant_browser": { "deployment_mode": "multi-tenant", "action": "browser" }
+    "standalone_fresh": {
+      "deployment_mode": "standalone",
+      "action": "fresh"
+    },
+    "multi_tenant_fresh": {
+      "deployment_mode": "multi-tenant",
+      "action": "fresh"
+    },
+    "plugin_lifecycle": {
+      "deployment_mode": "multi-tenant",
+      "action": "plugin"
+    },
+    "consumer_module_cycle": {
+      "deployment_mode": "standalone",
+      "action": "consumer-module"
+    },
+    "standalone_browser": {
+      "deployment_mode": "standalone",
+      "action": "browser"
+    },
+    "multi_tenant_browser": {
+      "deployment_mode": "multi-tenant",
+      "action": "browser"
+    }
   },
   "groups": [
     "generated-application",
