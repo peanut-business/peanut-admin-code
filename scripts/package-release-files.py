@@ -456,18 +456,36 @@ def project_server_plugins(source: Path, target: Path) -> dict:
 
 def release_rows(target: Path) -> list[dict]:
     rows = []
-    for path in sorted(target.rglob('*')):
+    for path in target.rglob('*'):
         if path.is_dir():
             continue
         relative = path.relative_to(target).as_posix()
         regular_file(target, relative)
         rows.append({'path': relative, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
                      'mode': stat.S_IMODE(path.stat().st_mode)})
+    rows.sort(key=lambda row: row['path'])
     return rows
 
 
 def rows_sha256(rows: list[dict]) -> str:
     return hashlib.sha256(json.dumps(rows, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+
+
+def validate_server_release_rows(rows: list[dict]) -> None:
+    if not isinstance(rows, list) or not rows:
+        raise ValueError('release file list is invalid')
+    previous = ''
+    for row in rows:
+        if not isinstance(row, dict) or list(row) != ['path', 'sha256', 'mode']:
+            raise ValueError('release file row is invalid')
+        path = row['path']
+        if not isinstance(path, str) or not path.startswith('server/'):
+            raise ValueError('release path is invalid')
+        safe_relative(path)
+        if (path <= previous or row['mode'] not in (0o644, 0o755)
+                or not re.fullmatch(r'[a-f0-9]{64}', str(row['sha256']))):
+            raise ValueError('release file order, mode or digest is invalid')
+        previous = path
 
 
 def application_release_identity(source: Path, target: Path, manifest: dict, git: dict) -> None:
@@ -544,7 +562,8 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
     registry.chmod(0o644)
     plugin_projection = project_server_plugins(source, target)
     files = release_rows(target)
-    if not files or not any(row['path'] == 'server/database/install.php' for row in files):
+    validate_server_release_rows(files)
+    if not any(row['path'] == 'server/database/install.php' for row in files):
         raise ValueError('server release lacks its installer')
     release = {
         'schema_version': 1, 'protocol': 'peanut.server-release.v1',
@@ -621,6 +640,7 @@ def verify_archive(archive: Path, expected_sha256: str) -> None:
         if not isinstance(declared, list) or hashlib.sha256(json.dumps(
                 declared, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest() != identity.get('files_sha256'):
             raise ValueError('archive file list digest is invalid')
+        validate_server_release_rows(declared)
         actual = {name: value for name, value in files.items() if name != identity_key}
         expected = {row['path']: (row['sha256'], row['mode']) for row in declared}
         if len(expected) != len(declared) or actual != expected:

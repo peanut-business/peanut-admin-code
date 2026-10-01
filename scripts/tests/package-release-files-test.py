@@ -54,7 +54,12 @@ class PackagingFilesTest(unittest.TestCase):
         }
         self.add('release-versions.json', json.dumps(versions))
         self.add('server/composer.json', json.dumps({'require': {'peanut-admin/core': self.version}, 'repositories': []}))
-        self.add('server/composer.lock', json.dumps({'packages': [{'name': 'peanut-admin/core', 'version': self.version, 'source': {'reference':'b'*40}}]}))
+        self.add('server/composer.lock', json.dumps({
+            'content-hash': 'f'*32,
+            'packages': [{'name': 'peanut-admin/core', 'version': self.version,
+                          'source': {'url': 'https://example.invalid/peanut-admin-core.git',
+                                     'reference': 'b'*40}}],
+        }))
         self.add('RELEASE_METADATA.json', json.dumps({
             'source_product_version': self.version, 'instance_version': self.version,
             'application_identity': 'packaging-fixture/application',
@@ -246,6 +251,51 @@ class PackagingFilesTest(unittest.TestCase):
             names=tar.getnames()
             for relative in forbidden:
                 self.assertFalse(any(name == 'peanut-test-server/server/'+relative or name.startswith('peanut-test-server/server/'+relative+'/') for name in names), relative)
+
+
+    def test_server_release_identity_matches_vendor_stage_contract(self):
+        pack.snapshot(self.source,self.out,True);pack.public_assets(self.asset_tree(),self.out)
+        pack.server_identity(self.source,self.out,self.manifest,{'kind':'generated-template','commit':None,'tree':None},pack.released_dependencies(self.source))
+        identity=json.loads((self.out/'server/.peanut/release-identity.json').read_text())
+        paths=[row['path'] for row in identity['files']]
+        self.assertEqual(paths,sorted(paths))
+        stage=self.root/'vendor-stage'
+        result=subprocess.run(['python3',str(ROOT/'server/docker/scripts/vendor-state.py'),'stage',
+                               '--server',str(self.out/'server'),'--destination',str(stage)],
+                              capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertTrue((stage/'composer.lock').is_file())
+
+    def test_server_release_row_validation_rejects_runtime_incompatible_rows(self):
+        valid=[
+            {'path':'server/a.php','sha256':'a'*64,'mode':0o644},
+            {'path':'server/b.sh','sha256':'b'*64,'mode':0o755},
+        ]
+        cases=[
+            ([{'sha256':'a'*64,'path':'server/a.php','mode':0o644}], 'row'),
+            (list(reversed(valid)), 'order'),
+            ([{'path':'server/a.php','sha256':'a'*64,'mode':0o600}], 'order'),
+            ([{'path':'server/a.php','sha256':'x'*64,'mode':0o644}], 'order'),
+        ]
+        for rows,message in cases:
+            with self.subTest(rows=rows),self.assertRaisesRegex(ValueError,message):
+                pack.validate_server_release_rows(rows)
+
+    def test_archive_verify_rejects_out_of_order_release_identity(self):
+        pack.snapshot(self.source,self.out,True);pack.public_assets(self.asset_tree(),self.out)
+        pack.server_identity(self.source,self.out,self.manifest,{'kind':'generated-template','commit':None,'tree':None},pack.released_dependencies(self.source))
+        identity_path=self.out/'server/.peanut/release-identity.json'
+        identity=json.loads(identity_path.read_text())
+        identity['files'][0],identity['files'][1]=identity['files'][1],identity['files'][0]
+        identity['files_sha256']=pack.rows_sha256(identity['files'])
+        identity_path.write_text(json.dumps(identity,ensure_ascii=False,indent=2)+'\n')
+        writer=ROOT/'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php'
+        php='require $argv[1]; (new app\\common\\infrastructure\\scaffold\\DeterministicEditionArchive())->write($argv[2],"peanut-test-server",$argv[3]);'
+        archive=self.root/'out-of-order-server.tar.gz'
+        subprocess.run(['php','-r',php,str(writer),str(self.out),str(archive)],check=True,capture_output=True)
+        digest=hashlib.sha256(archive.read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError,'order'):
+            pack.verify_archive(archive,digest)
 
     def test_vite_manifest_is_excluded_but_other_hidden_browser_assets_are_rejected(self):
         build=self.asset_tree();pack.snapshot(self.source,self.out,True)
