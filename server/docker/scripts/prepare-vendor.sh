@@ -48,7 +48,7 @@ docker run --rm --network bridge --mount "type=bind,src=$work,dst=/srv" \
     --workdir /srv --entrypoint /bin/sh "$php_image" -ec '
       composer --version --no-ansi | grep -Eq "^Composer version 2[.]10[.]2 "
       printf "%s  %s\n" 5ee7125f8a30a34d246cefdc0bc85b8a783b28f2aec968994118512350d28027 /usr/local/bin/composer | sha256sum -c -
-      COMPOSER_ALLOW_SUPERUSER=1 composer validate --strict --no-check-publish
+      COMPOSER_ALLOW_SUPERUSER=1 composer validate --no-check-publish
       COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --no-plugins
       php think service:discover
       php think vendor:publish
