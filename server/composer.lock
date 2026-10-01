@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "28abd4e54bf607cda11c954e582f5e89",
+    "content-hash": "be2d8b108e2b513cba052a8edf4754f6",
     "packages": [
         {
             "name": "aliyuncs/oss-sdk-php",
@@ -1478,16 +1478,16 @@
         },
         {
             "name": "peanut-admin/core",
-            "version": "dev-dev",
+            "version": "v4.0.0-rc.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-                "reference": "98500eac433dddf71f93c45fa04e318a27ac88b9"
+                "reference": "752476a811a5d16ea816d5206e3c03814a81fe6a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/peanut-business/peanut-admin-core-php/zipball/98500eac433dddf71f93c45fa04e318a27ac88b9",
-                "reference": "98500eac433dddf71f93c45fa04e318a27ac88b9",
+                "url": "https://api.github.com/repos/peanut-business/peanut-admin-core-php/zipball/752476a811a5d16ea816d5206e3c03814a81fe6a",
+                "reference": "752476a811a5d16ea816d5206e3c03814a81fe6a",
                 "shasum": ""
             },
             "require": {
@@ -1508,7 +1508,6 @@
                 "qcloud/cos-sdk-v5": "Required by hosts that construct QcloudStorageDriver.",
                 "qiniu/php-sdk": "Required by hosts that construct QiniuStorageDriver."
             },
-            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -1534,10 +1533,10 @@
             ],
             "description": "Peanut Admin technical kernel and ThinkPHP integration",
             "support": {
-                "source": "https://github.com/peanut-business/peanut-admin-core-php/tree/dev",
+                "source": "https://github.com/peanut-business/peanut-admin-core-php",
                 "issues": "https://github.com/peanut-business/peanut-admin-core-php/issues"
             },
-            "time": "2026-09-21T07:54:59+00:00"
+            "time": "2026-09-29T11:45:47+00:00"
         },
         {
             "name": "psr/container",
@@ -4579,7 +4578,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
-        "peanut-admin/core": 20
+        "peanut-admin/core": 5
     },
     "prefer-stable": false,
     "prefer-lowest": false,

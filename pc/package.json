@@ -1,6 +1,6 @@
 {
   "name": "peanut-admin-pc",
-  "version": "4.0.0-dev",
+  "version": "4.0.0-rc.2",
   "description": "Peanut Admin PC client",
   "private": true,
   "author": "花生科技",
@@ -21,8 +21,8 @@
   },
   "dependencies": {
     "@element-plus/nuxt": "^1.0.10",
-    "@peanut-admin/client": "file:../packages/core-web/peanut-admin-client-4.0.0-dev.1.tgz",
-    "@peanut-admin/nuxt": "file:../packages/core-web/peanut-admin-nuxt-4.0.0-dev.1.tgz",
+    "@peanut-admin/client": "4.0.0-rc.4",
+    "@peanut-admin/nuxt": "4.0.0-rc.4",
     "@pinia/nuxt": "^0.5.5",
     "dompurify": "^3.4.14",
     "element-plus": "^2.9.1",

@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "4.0.0-dev.14",
+    "template_version": "4.0.0-rc.2",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -911,90 +911,6 @@
             "source_sha256": "2851b0d541250012d245e94e7d49d4f152d38eb990233622cdb5e04a269aa6a4"
         },
         {
-            "path": "packages/core-web/peanut-admin-client-4.0.0-dev.1.tgz",
-            "target": "packages/core-web/peanut-admin-client-4.0.0-dev.1.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "f1220b210e47d7777ff84eb6f3e62031dee1a54f1483f0d6de4a105cb79bbde5"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.1.tgz",
-            "target": "packages/core-web/peanut-admin-nuxt-4.0.0-dev.1.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c8027c201d81df291692d3c299a3f6e683c7a0594581e5b4416417f3ac7a4f10"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-testing-4.0.0-dev.1.tgz",
-            "target": "packages/core-web/peanut-admin-testing-4.0.0-dev.1.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "f61692fc3a03c61042d0e68ae29a957fdd5615e95384244822ed3ff823a286e4"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.1.tgz",
-            "target": "packages/core-web/peanut-admin-ui-vue-4.0.0-dev.1.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "892d23223cadf108afad0ec9796c0fbfa8a8942c6c66d50e24b642a6c75cd206"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.1.tgz",
-            "target": "packages/core-web/peanut-admin-uniapp-4.0.0-dev.1.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a138bcb36878e11f27adce6a93ea3134eaebb84a173d741f245d761a259f67c8"
-        },
-        {
-            "path": "packages/core-web/peanut-admin-vue-4.0.0-dev.1.tgz",
-            "target": "packages/core-web/peanut-admin-vue-4.0.0-dev.1.tgz",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "cf64f68a696069a34bf0a83a50286400f37ac4a2e4f9e7e297d0844ddaaa335b"
-        },
-        {
             "path": "pc/.env.example",
             "target": "pc/.env.example",
             "classification": "managed",
@@ -1187,7 +1103,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eeb7aa0090b2bed7ee0e0deb8eb660675350b69244d8e5a0b2c4e3bb3a46a854"
+            "source_sha256": "82726d6ed3f41d8cd38d176a67bf421c8360a63671808ab56dcfd9a3b892f1d2"
         },
         {
             "path": "pc/package.json",
@@ -1200,7 +1116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e28cde7a47605fc1cfc4a42440c1878b4c6159815ee805c1ceda9b6a2dc529cc"
+            "source_sha256": "64157e0305f7c9f3101a1c80a5629751a0b0df92df8722a400a0ec235423ccb3"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1725,7 +1641,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5d268166fa29aa2aa09d1fbb6ebee2e9c0a5268a73303ac0d0a6ab971054c3c7"
+            "source_sha256": "6b361513ed0c5f6dfbaae3c00d5833a8200ed9b3991357aac5403aca8654fdc8"
         },
         {
             "path": "platform/package.json",
@@ -1739,7 +1655,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "950cb0b30293d4b0f5098e93f908e9fb67bca64cfba41c01be906db582a5567b"
+            "source_sha256": "2dc027dd2388ae9aebe6b625a58993484d7b334e302bebf53682beee3906967e"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -3386,7 +3302,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a09c5af11e79db5516cf22f21f3a7ec3ba80228c1b9c77007ad259516cda891a"
+            "source_sha256": "9182d7cf95e1d91df981ad9117d21f64f77eaa0e9190d50962869444a8fa5238"
         },
         {
             "path": "scripts/package-release.sh",
@@ -4092,7 +4008,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ceec80707af9a4f4eb8890032a9d161f8e64649dcf28cd2f01307892e273f520"
+            "source_sha256": "d5f3aefca41a6636fb1d4d9edd03e32ac4aff821fe8a5e0cb06ee25e042f1a90"
         },
         {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
@@ -22499,7 +22415,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "269751603d199eab77dbbb09c014d9376a3c25d13111445dcc315977049585c0"
+            "source_sha256": "7b4b9091891de598ceb2e8a99b62680ec9309f5001051c6db6cddc7484b720ef"
         },
         {
             "path": "server/composer.lock",
@@ -22513,7 +22429,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1740795f86bc1f7aaceb47e7e24978a22299982ffa4e3e64d15d93d763ba9be6"
+            "source_sha256": "f1ec1b1a359c2a9d466e589b571ebb31e3568c00ae173dd0b34e0c1287a375f9"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -29321,7 +29237,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e2399bc1921fc8c05ad930ad8676018e3ace96306f7219ebfdd810d0d9976b41"
+            "source_sha256": "d842dc32fb13434b43013689d940c23285315fd9f3ac8901c36c2d1f715b4d7b"
         },
         {
             "path": "uniapp/package.json",
@@ -29334,7 +29250,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "169fc32a6a21c84df459947680bd97f295dd99690b70653825c001a06c5596cd"
+            "source_sha256": "daf35fe3ddeaf5ad7b5d3b30e5fa46f8e80230a54994b5e02641dbde41c84c58"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -30556,7 +30472,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "422fc9d4304d10f709cf0c2bb02c38345de86043131d4aff5fd6881d97027601"
+            "source_sha256": "1f462b6e3d50ad503e57b11b67647017ceb96da28505cfd1a546a4303741fd19"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -30570,7 +30486,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "95f12bedaef240249456be4e6ed4509e07a479723081efbc3334175e946b56eb"
+            "source_sha256": "d078e70c07c40fad42807a90cd58b680c801c3d8d2de6c303f8c3ef36f7ea8d6"
         },
         {
             "path": "web/public/brand/avatar-admin.svg",
