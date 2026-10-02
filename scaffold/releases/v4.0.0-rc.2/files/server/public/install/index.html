@@ -36,7 +36,7 @@ async function jsonRequest(url,options={}){
  const response=await fetch(url,{credentials:'same-origin',...options})
  const data=await response.json()
  if(!response.ok) throw new Error(JSON.stringify(data,null,2))
- return data
+ return data.data
 }
 async function refresh(){
  try{
@@ -47,7 +47,7 @@ async function refresh(){
   }
   status.textContent=JSON.stringify({configuration,installation},null,2)
   $('configure').disabled=configuration.configured||configuration.state==='installed'
-  $('install').disabled=!configuration.configured||configuration.state==='installed'
+  $('install').disabled=installation?.state!=='uninstalled'
  }catch(error){status.textContent=String(error)}
 }
 $('configure').addEventListener('click',async()=>{
