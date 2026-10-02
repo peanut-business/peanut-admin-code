@@ -16,6 +16,7 @@
 
 - [总体能力地图](architecture/overview.md)
 - [默认交付与职责](architecture/default-delivery-and-ownership.md)
+- [Peanut CLI 与可选 Recipes](architecture/cli-and-recipes.md)
 - [身份、组织与执行信息](architecture/identity-organization-access.md)
 - [租户模块授权与 Scope](architecture/tenant-modules-and-data-scopes.md)
 - [模块开发与交付](architecture/module-development-delivery.md)
