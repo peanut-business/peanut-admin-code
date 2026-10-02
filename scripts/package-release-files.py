@@ -308,6 +308,11 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
         raise ValueError('invalid existing baseline root')
     for entry in files:
         relative = entry['path']
+        source = regular_file(root, relative)
+        source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        source_mode = 0o755 if source.stat().st_mode & 0o111 else 0o644
+        if entry.get('sha256') != source_digest or entry.get('mode') != source_mode:
+            raise ValueError(f'application manifest source identity changed: {relative}')
         classification = entry.get('classification')
         if classification not in ('managed', 'generated-managed', 'app-owned') or relative.startswith('.peanut/'):
             raise ValueError(f'invalid file ownership: {relative}')
@@ -315,8 +320,7 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
             raise ValueError(f'invalid source mode: {relative}')
         if classification in ('managed', 'generated-managed'):
             baseline = entry.get('baseline_path')
-            if (baseline != baseline_root + '/' + relative or baseline not in tracked
-                    or entry.get('baseline_sha256') != entry['sha256']):
+            if baseline != baseline_root + '/' + relative or baseline not in tracked:
                 raise ValueError(f'invalid source baseline: {relative}')
             copy_checked(root, target, baseline, entry['baseline_sha256'], 0o644,
                          blobs.get(baseline), git_hash)

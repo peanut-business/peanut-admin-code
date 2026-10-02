@@ -116,6 +116,20 @@ class PackagingFilesTest(unittest.TestCase):
             if 'baseline_path' in entry:
                 self.assertEqual((self.out/entry['baseline_path']).read_bytes(),(self.source/entry['baseline_path']).read_bytes())
 
+    def test_rendered_managed_source_can_differ_from_immutable_baseline(self):
+        relative = 'web/src/page.vue'
+        source = self.source / relative
+        source.write_text('<template>rendered Peanut App</template>')
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        entry = next(item for item in self.manifest['files'] if item['path'] == relative)
+        self.assertNotEqual(digest, entry['baseline_sha256'])
+        entry['sha256'] = digest
+        self.save()
+        pack.snapshot(self.source, self.out, True)
+        self.assertEqual((self.out / relative).read_bytes(), source.read_bytes())
+        baseline = self.source / entry['baseline_path']
+        self.assertEqual((self.out / entry['baseline_path']).read_bytes(), baseline.read_bytes())
+
     def test_generated_template_rejects_unlisted_runtime_or_dependency_files(self):
         for name in ('vendor/a.php','web/node_modules/a/index.js','pc/.output/server/node_modules/a/x.js',
                      'server/.env','server/public/storage/customer.jpg'):
@@ -177,6 +191,43 @@ class PackagingFilesTest(unittest.TestCase):
         self.assertFalse((target/'server/public/admin/index.html').exists())
         baseline=self.manifest['files'][0]['baseline_path']
         self.assertEqual((target/baseline).read_bytes(),(app/baseline).read_bytes())
+
+    def test_git_application_can_release_managed_customization_with_intact_baseline(self):
+        import shutil
+        app = self.root/'git-customized-application'
+        shutil.copytree(self.source, app)
+        relative = 'web/src/page.vue'
+        source = app/relative
+        source.write_text('<template>customer CI-like customization</template>')
+        manifest_path = app/pack.MANIFEST
+        manifest = json.loads(manifest_path.read_text())
+        entry = next(item for item in manifest['files'] if item['path'] == relative)
+        entry['sha256'] = hashlib.sha256(source.read_bytes()).hexdigest()
+        self.assertNotEqual(entry['sha256'], entry['baseline_sha256'])
+        manifest_path.write_text(json.dumps(manifest))
+        subprocess.run(['git','init','-q'],cwd=app,check=True)
+        subprocess.run(['git','config','user.name','Packaging Test'],cwd=app,check=True)
+        subprocess.run(['git','config','user.email','packaging@example.invalid'],cwd=app,check=True)
+        subprocess.run(['git','add','-A'],cwd=app,check=True)
+        subprocess.run(['git','commit','-qm','customized app release source'],cwd=app,check=True)
+        target = self.root/'customized-release-source'
+        pack.snapshot(app,target,False)
+        self.assertEqual((target/relative).read_bytes(), source.read_bytes())
+        self.assertEqual((target/entry['baseline_path']).read_bytes(), (app/entry['baseline_path']).read_bytes())
+
+    def test_git_application_rejects_stale_manifest_current_digest(self):
+        import shutil
+        app = self.root/'git-stale-manifest-application'
+        shutil.copytree(self.source, app)
+        relative = 'web/src/page.vue'
+        (app/relative).write_text('<template>unrecorded customization</template>')
+        subprocess.run(['git','init','-q'],cwd=app,check=True)
+        subprocess.run(['git','config','user.name','Packaging Test'],cwd=app,check=True)
+        subprocess.run(['git','config','user.email','packaging@example.invalid'],cwd=app,check=True)
+        subprocess.run(['git','add','-A'],cwd=app,check=True)
+        subprocess.run(['git','commit','-qm','stale app manifest'],cwd=app,check=True)
+        with self.assertRaisesRegex(ValueError, 'application manifest source identity changed: web/src/page.vue'):
+            pack.snapshot(app,self.root/'stale-manifest-release-source',False)
 
     def test_modified_source_is_rejected(self):
         (self.source/'web/src/page.vue').write_text('changed')
