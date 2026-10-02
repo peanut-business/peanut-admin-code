@@ -15,7 +15,7 @@ Usage: scripts/publish-github-release <version> --qualification <summary.json> \
 Creates the deterministic source archive, legal assets, external manifest and
 release notes from annotated tag v<version>. The Edition directory must contain
 the two development-source installers, two matching server-only archives and,
-except for an explicit first-edition baseline, two signed upgrades, their
+except for an explicit first-edition baseline, two Edition upgrades, their
 manifests and checksum files for the same commit/tree. The
 qualification summary must be for the exact frozen tag commit/tree. Without
 --prepare-only, publishes the candidate lock and all release assets as one GitHub
@@ -136,7 +136,6 @@ git show "$TAG:LICENSE" > "$OUTPUT_DIR/peanut-admin-$VERSION-LICENSE.txt"
 git show "$TAG:NOTICE" > "$OUTPUT_DIR/peanut-admin-$VERSION-NOTICE.txt"
 git show "$TAG:THIRD_PARTY_NOTICES.md" > "$OUTPUT_DIR/peanut-admin-$VERSION-THIRD-PARTY-NOTICES.md"
 git show "$TAG:RELEASE_SBOM.spdx.json" > "$OUTPUT_DIR/peanut-admin-$VERSION-SBOM.spdx.json"
-git show "$TAG:UPGRADE_TRUSTED_KEYS.json" > "$OUTPUT_DIR/UPGRADE_TRUSTED_KEYS.json"
 
 RELEASE_SCRIPT_DIR="$SCRIPT_DIR" node - "$VERSION" "$TAG" "$OUTPUT_DIR" "$TAG_OBJECT" "$COMMIT" "$EDITION_ARTIFACTS" "$EDITION_BASELINE" <<'NODE'
 const fs = require('node:fs')
@@ -154,11 +153,6 @@ if (metadataVersion !== VERSION || metadata.expected_tag !== TAG) {
   throw new Error('tag and embedded release metadata differ')
 }
 const digest = (value) => crypto.createHash('sha256').update(value).digest('hex')
-const trustedKeys = JSON.parse(fs.readFileSync(`${OUTPUT_DIR}/UPGRADE_TRUSTED_KEYS.json`, 'utf8'))
-if (!trustedKeys || Array.isArray(trustedKeys) || Object.keys(trustedKeys).length === 0
-  || Object.values(trustedKeys).some((value) => typeof value !== 'string' || Buffer.from(value, 'base64').length !== 32)) {
-  throw new Error('UPGRADE_TRUSTED_KEYS.json is not a non-empty Ed25519 public-key map')
-}
 const editionFiles = []
 for (const edition of ['standalone', 'multi-tenant']) {
   for (const kind of baseline ? ['installer'] : ['installer', 'upgrade']) {
@@ -184,28 +178,53 @@ for (const edition of ['standalone', 'multi-tenant']) {
       || manifest.archive?.bytes !== bytes.length) {
       throw new Error(`Edition artifact identity mismatch: ${archive}`)
     }
-    if (kind === 'upgrade' && !Object.hasOwn(trustedKeys, manifest.package?.signature_key_id)) {
-      throw new Error(`Edition upgrade uses an unpublished signing key: ${archive}`)
-    }
     if (kind === 'upgrade') {
-      const keyId = manifest.package.signature_key_id
       const root = manifest.archive.root
       const extract = (path) => cp.execFileSync('tar', ['-xOzf', archivePath, `${root}/${path}`])
-      const inventory = extract('META-INF/files.sha256')
-      const signature = JSON.parse(extract(`META-INF/signatures/${keyId}.json`).toString('utf8'))
-      const packageManifest = extract('upgrade-manifest.json')
-      const publicKey = crypto.createPublicKey({
-        key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), Buffer.from(trustedKeys[keyId], 'base64')]),
-        format: 'der',
-        type: 'spki',
-      })
-      if (manifest.package.inventory_sha256 !== digest(inventory)
-        || manifest.package.manifest_sha256 !== digest(packageManifest)
-        || signature.schema_version !== 1 || signature.algorithm !== 'ed25519' || signature.key_id !== keyId
-        || signature.inventory_sha256 !== digest(inventory)
-        || !crypto.verify(null, crypto.createHash('sha256').update(inventory).digest(), publicKey,
-          Buffer.from(signature.signature_base64 ?? '', 'base64'))) {
-        throw new Error(`Edition upgrade signature verification failed: ${archive}`)
+      const inventoryBytes = extract('META-INF/files.sha256')
+      const packageManifestBytes = extract('upgrade-manifest.json')
+      const packageManifest = JSON.parse(packageManifestBytes.toString('utf8'))
+      const inventoryText = inventoryBytes.toString('utf8')
+      const lines = inventoryText.split('\n')
+      if (lines.pop() !== '') throw new Error(`Edition upgrade inventory is malformed: ${archive}`)
+      const inventory = new Map()
+      let previous = ''
+      for (const line of lines) {
+        const separator = line.lastIndexOf('\0')
+        if (separator <= 0 || line.indexOf('\0') !== separator) throw new Error(`Edition upgrade inventory is malformed: ${archive}`)
+        const path = line.slice(0, separator)
+        const sha = line.slice(separator + 1)
+        if (path <= previous || !/^[a-f0-9]{64}$/.test(sha) || path.startsWith('/') || path.split('/').includes('..')) {
+          throw new Error(`Edition upgrade inventory is malformed: ${archive}`)
+        }
+        previous = path
+        inventory.set(path, sha)
+      }
+      const members = cp.execFileSync('tar', ['-tzf', archivePath], { encoding: 'utf8' }).trimEnd().split('\n')
+      const prefix = `${root}/`
+      const actualFiles = []
+      for (const member of members) {
+        if (!member.startsWith(prefix) || member.split('/').includes('..')) throw new Error(`Edition upgrade archive path is unsafe: ${archive}`)
+        const relative = member.slice(prefix.length)
+        if (relative === 'META-INF/files.sha256') continue
+        if (relative.startsWith('META-INF/signatures/')) throw new Error(`Edition upgrade contains forbidden signature files: ${archive}`)
+        if (relative.endsWith('/')) continue
+        actualFiles.push(relative)
+        const bytes = cp.execFileSync('tar', ['-xOzf', archivePath, `${root}/${relative}`])
+        if (inventory.get(relative) !== digest(bytes)) throw new Error(`Edition upgrade file digest mismatch: ${archive}:${relative}`)
+      }
+      actualFiles.sort()
+      const declaredFiles = [...inventory.keys()].sort()
+      if (JSON.stringify(actualFiles) !== JSON.stringify(declaredFiles)
+        || manifest.package?.inventory_sha256 !== digest(inventoryBytes)
+        || manifest.package?.manifest_sha256 !== digest(packageManifestBytes)
+        || packageManifest.protocol !== 'peanut.edition-upgrade-package.v1'
+        || packageManifest.schema_version !== 1
+        || packageManifest.build_source?.commit !== COMMIT
+        || packageManifest.build_source?.tree !== manifest.source?.tree
+        || packageManifest.target?.version !== VERSION
+        || packageManifest.edition?.name !== edition) {
+        throw new Error(`Edition upgrade package identity or inventory mismatch: ${archive}`)
       }
     }
     if (kind === 'installer') {
@@ -275,7 +294,6 @@ const names = [
   `peanut-admin-${VERSION}-THIRD-PARTY-NOTICES.md`,
   `peanut-admin-${VERSION}-SBOM.spdx.json`,
   'RELEASE_CANDIDATE_LOCK.json',
-  'UPGRADE_TRUSTED_KEYS.json',
   ...editionFiles,
 ]
 const artifacts = Object.fromEntries(names.map((name) => {
@@ -335,14 +353,14 @@ const section = (next < 0 ? tail : tail.slice(0, next)).trim()
 const archiveSha = artifacts[`peanut-admin-${VERSION}.tar.gz`].sha256
 const manifestSha = digest(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_MANIFEST.json`))
 const editionNotes = baseline
-  ? `- Standalone development and server archives: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant development and server archives: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\`\n- This is the first correct Edition distribution baseline; it intentionally has no upgrade packages. The next release may use this version as its signed same-Edition upgrade source.`
+  ? `- Standalone development and server archives: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant development and server archives: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\`\n- This is the first correct Edition distribution baseline; it intentionally has no upgrade packages. The next release may use this version as its same-Edition upgrade source.`
   : `- Standalone development, server and same-Edition upgrade archives: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant development, server and same-Edition upgrade archives: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\``
-const notes = `# Peanut Admin ${VERSION}\n\nImmutable source: annotated tag \`${TAG}\` at commit \`${COMMIT}\`.\n\n${section}\n\n## Artifacts and verification\n\n- Normative deterministic source archive: \`peanut-admin-${VERSION}.tar.gz\`\n  - SHA-256: \`${archiveSha}\`\n${editionNotes}\n- Upgrade trust bootstrap: \`UPGRADE_TRUSTED_KEYS.json\`\n- Candidate lock: \`RELEASE_CANDIDATE_LOCK.json\`\n- External release manifest: \`RELEASE_MANIFEST.json\`\n  - SHA-256: \`${manifestSha}\`\n\n\`RELEASE_CANDIDATE_LOCK.json\` binds the external qualification summary to this exact tag.\n\`RELEASE_MANIFEST.json\` records hashes and sizes for every other attached artifact. GitHub-generated source archives are convenience downloads; the attached deterministic archive is normative.\n`
+const notes = `# Peanut Admin ${VERSION}\n\nImmutable source: annotated tag \`${TAG}\` at commit \`${COMMIT}\`.\n\n${section}\n\n## Artifacts and verification\n\n- Normative deterministic source archive: \`peanut-admin-${VERSION}.tar.gz\`\n  - SHA-256: \`${archiveSha}\`\n${editionNotes}\n- Candidate lock: \`RELEASE_CANDIDATE_LOCK.json\`\n- External release manifest: \`RELEASE_MANIFEST.json\`\n  - SHA-256: \`${manifestSha}\`\n\n\`RELEASE_CANDIDATE_LOCK.json\` binds the external qualification summary to this exact tag.\n\`RELEASE_MANIFEST.json\` records hashes and sizes for every other attached artifact. GitHub-generated source archives are convenience downloads; the attached deterministic archive is normative.\n`
 fs.writeFileSync(`${OUTPUT_DIR}/release-notes.md`, notes)
 NODE
 
-expected_file_count=21
-[[ "$EDITION_BASELINE" == 0 ]] || expected_file_count=16
+expected_file_count=20
+[[ "$EDITION_BASELINE" == 0 ]] || expected_file_count=15
 [[ "$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" == "$expected_file_count" ]] || {
   printf 'publish-github-release: unexpected output file count\n' >&2
   exit 1
@@ -354,7 +372,6 @@ release_files=(
   "peanut-admin-$VERSION-THIRD-PARTY-NOTICES.md"
   "peanut-admin-$VERSION-SBOM.spdx.json"
   RELEASE_CANDIDATE_LOCK.json
-  UPGRADE_TRUSTED_KEYS.json
   "peanut-admin-$VERSION-standalone.tar.gz"
   "peanut-admin-$VERSION-standalone-server.tar.gz"
   "peanut-admin-$VERSION-standalone.tar.gz.manifest.json"

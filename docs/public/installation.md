@@ -4,7 +4,7 @@
 
 ## 取得与核对
 
-从项目公布的 GitHub Release 页面选择同一产品版本、同一 Edition（`standalone` 或 `multi-tenant`）的 `peanut-admin-<version>-<edition>-server.tar.gz`、对应 Edition `.manifest.json`、`SHA256SUMS` 和 `RELEASE_MANIFEST.json`。以 Release 说明中公布的 SHA-256 核对 `RELEASE_MANIFEST.json`，再核对它列出的附件摘要、`SHA256SUMS` 和 Edition 清单 `server_archive` 中的版本、来源、文件名及归档摘要。解压或替换正式目录前，可在隔离位置用可信发行工具源码执行 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<可信渠道提供的SHA-256>`，再核对包内 server 文件清单。任一身份或摘要不符、依赖尚未公开发布时停止。安装包本身当前使用这些清单和摘要，不要把升级包的 Ed25519 签名说成安装包签名。不要从仓库源码 ZIP 自行拼装缺失的发行附件；本开发候选尚不能提供可执行的正式下载示例。
+从项目公布的 GitHub Release 页面选择同一产品版本、同一 Edition（`standalone` 或 `multi-tenant`）的 `peanut-admin-<version>-<edition>-server.tar.gz`、对应 Edition `.manifest.json`、`SHA256SUMS` 和 `RELEASE_MANIFEST.json`。以 Release 说明中公布的 SHA-256 核对 `RELEASE_MANIFEST.json`，再核对它列出的附件摘要、`SHA256SUMS` 和 Edition 清单 `server_archive` 中的版本、来源、文件名及归档摘要。解压或替换正式目录前，可在隔离位置用可信发行工具源码执行 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<可信渠道提供的SHA-256>`，再核对包内 server 文件清单。任一身份或摘要不符、依赖尚未公开发布时停止。安装包与 Edition 升级包均使用清单和 SHA-256 完整性校验；升级包还核对版本、来源与目标身份。不要从仓库源码 ZIP 自行拼装缺失的发行附件；本开发候选尚不能提供可执行的正式下载示例。
 
 安全提取到独立的实例目录。生产包根目录仅有 `server/`；其中 `server/.peanut/release-identity.json` 记录本次发行的应用与文件身份，`server/plugins.lock` 是后端运行投影。先核对外部发行清单、归档摘要、包内身份和 `server/composer.lock`。
 

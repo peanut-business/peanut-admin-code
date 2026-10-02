@@ -16,49 +16,13 @@ function usage(): never
 {
     fwrite(STDERR, "Usage:\n"
         . "  php scripts/scaffold-upgrade preflight --project-root=<path> --from-manifest=<path> --to-manifest=<path>\n"
-        . "  php scripts/scaffold-upgrade preflight --project-root=<path> --package=<extracted-package> --signature-key-id=<id> --env-file=<0600-file>\n"
+        . "  php scripts/scaffold-upgrade preflight --project-root=<path> --package=<extracted-package>\n"
         . "  php scripts/scaffold-upgrade resolve --project-root=<path> --plan=<path> --confirm-plan-sha256=<sha256:...> --preserve-paths=<comma-separated-paths|-> --replace-paths=<comma-separated-paths|->\n"
-        . "  php scripts/scaffold-upgrade adoption-plan --project-root=<path> --package=<extracted-package> --signature-key-id=<id> --env-file=<0600-file>\n"
-        . "  php scripts/scaffold-upgrade adoption-apply --project-root=<path> --plan=<path> --confirm-plan-sha256=<sha256:...> --confirm-paths=<comma-separated-exact-paths> --env-file=<0600-file>\n"
+        . "  php scripts/scaffold-upgrade adoption-plan --project-root=<path> --package=<extracted-package>\n"
+        . "  php scripts/scaffold-upgrade adoption-apply --project-root=<path> --plan=<path> --confirm-plan-sha256=<sha256:...> --confirm-paths=<comma-separated-exact-paths>\n"
         . "  php scripts/scaffold-upgrade adoption-recover --project-root=<path> --plan=<path>\n"
         . "  php scripts/scaffold-upgrade apply|verify|recover|rollback --project-root=<path> --plan=<path>\n");
     exit(64);
-}
-
-/** @return array<string,string> */
-function upgradeTrustedKeys(string $path): array
-{
-    if (getenv('PEANUT_UPGRADE_TRUSTED_KEYS_JSON') !== false) {
-        throw new RuntimeException('EDITION_UPGRADE_AMBIENT_TRUST_FORBIDDEN');
-    }
-    if (!str_starts_with($path, '/') || !is_file($path) || is_link($path)) {
-        throw new RuntimeException('EDITION_UPGRADE_ENV_FILE_INVALID');
-    }
-    $stat = lstat($path);
-    if (!is_array($stat) || ($stat['nlink'] ?? 0) !== 1 || (($stat['mode'] ?? 0) & 0777) !== 0600) {
-        throw new RuntimeException('EDITION_UPGRADE_ENV_FILE_PERMISSIONS_INVALID');
-    }
-    $values = parse_ini_file($path, false, INI_SCANNER_RAW);
-    if (!is_array($values) || array_keys($values) !== ['PEANUT_UPGRADE_TRUSTED_KEYS_JSON']) {
-        throw new RuntimeException('EDITION_UPGRADE_ENV_FILE_SCHEMA_INVALID');
-    }
-    try {
-        $keys = json_decode((string) $values['PEANUT_UPGRADE_TRUSTED_KEYS_JSON'], true, 32, JSON_THROW_ON_ERROR);
-    } catch (JsonException $exception) {
-        throw new RuntimeException('EDITION_UPGRADE_ENV_FILE_SCHEMA_INVALID', 0, $exception);
-    }
-    if (!is_array($keys) || array_is_list($keys) || $keys === []
-        || array_filter(array_keys($keys), static fn(mixed $key): bool => !is_string($key) || preg_match('/^[A-Za-z0-9._-]{1,96}$/D', $key) !== 1) !== []
-        || array_filter($keys, static function (mixed $key): bool {
-            if (!is_string($key)) {
-                return true;
-            }
-            $decoded = base64_decode($key, true);
-            return !is_string($decoded) || strlen($decoded) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES;
-        }) !== []) {
-        throw new RuntimeException('EDITION_UPGRADE_ENV_FILE_SCHEMA_INVALID');
-    }
-    return $keys;
 }
 
 /** @return list<string> */
@@ -81,17 +45,17 @@ if (!in_array($command, ['preflight', 'resolve', 'adoption-plan', 'adoption-appl
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(project-root|from-manifest|to-manifest|package|signature-key-id|plan|confirm-plan-sha256|confirm-paths|preserve-paths|replace-paths|env-file)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(project-root|from-manifest|to-manifest|package|plan|confirm-plan-sha256|confirm-paths|preserve-paths|replace-paths)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         usage();
     }
     $options[$matches[1]] = $matches[2];
 }
 $packagePreflight = $command === 'preflight' && isset($options['package']);
 $requiredOptions = match ($command) {
-    'preflight' => $packagePreflight ? ['project-root', 'package', 'signature-key-id', 'env-file'] : ['project-root', 'from-manifest', 'to-manifest'],
+    'preflight' => $packagePreflight ? ['project-root', 'package'] : ['project-root', 'from-manifest', 'to-manifest'],
     'resolve' => ['project-root', 'plan', 'confirm-plan-sha256', 'preserve-paths', 'replace-paths'],
-    'adoption-plan' => ['project-root', 'package', 'signature-key-id', 'env-file'],
-    'adoption-apply' => ['project-root', 'plan', 'confirm-plan-sha256', 'confirm-paths', 'env-file'],
+    'adoption-plan' => ['project-root', 'package'],
+    'adoption-apply' => ['project-root', 'plan', 'confirm-plan-sha256', 'confirm-paths'],
     default => ['project-root', 'plan'],
 };
 foreach ($requiredOptions as $required) {
@@ -131,9 +95,8 @@ require $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
 
 try {
     $runner = new ScaffoldUpgradeRunner();
-    $trustedKeys = isset($options['env-file']) ? upgradeTrustedKeys($options['env-file']) : [];
     $manifests = $packagePreflight
-        ? (new EditionUpgradePackage())->prepare($options['project-root'], $options['package'], $options['signature-key-id'], $trustedKeys)
+        ? (new EditionUpgradePackage())->prepare($options['project-root'], $options['package'])
         : null;
     $result = match ($command) {
         'preflight' => $runner->preflight(
@@ -148,13 +111,12 @@ try {
             upgradePathList($options['preserve-paths']),
             upgradePathList($options['replace-paths']),
         ),
-        'adoption-plan' => $runner->adoptionPlan($options['project-root'], $options['package'], $options['signature-key-id'], $trustedKeys),
+        'adoption-plan' => $runner->adoptionPlan($options['project-root'], $options['package']),
         'adoption-apply' => $runner->adoptionApply(
             $options['project-root'],
             $options['plan'],
             $options['confirm-plan-sha256'],
             explode(',', $options['confirm-paths']),
-            $trustedKeys,
         ),
         'adoption-recover' => $runner->adoptionRecover($options['project-root'], $options['plan']),
         'apply' => $runner->apply($options['project-root'], $options['plan']),

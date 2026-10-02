@@ -24,8 +24,6 @@ EDITION_MANIFEST_SHA256=""
 UPGRADE_PACKAGE=""
 UPGRADE_MANIFEST=""
 UPGRADE_MANIFEST_SHA256=""
-UPGRADE_TRUST_ENV=""
-UPGRADE_SIGNATURE_KEY_ID=""
 CONFIRM_DESTROY=""
 EXPECTED_COMMIT=""
 EXPECTED_TREE=""
@@ -52,8 +50,7 @@ Usage: scripts/deploy-release <vX.Y.Z> --target <production|production-candidate
   [--expected-commit <sha1> --expected-tree <sha1>] \
   [--env-file <permission-0600-file>] \
   [--edition-package <installer.tar.gz> --edition-manifest <manifest.json>] \
-  [--upgrade-package <upgrade.tar.gz> --upgrade-manifest <manifest.json> \
-  --upgrade-trust-env <permission-0600-file>] \
+  [--upgrade-package <upgrade.tar.gz> --upgrade-manifest <manifest.json>] \
   [--overlay <demo-patch.tar>] \
   [--confirm-destroy <target>] [--paired-backup <id> \
   --paired-backup-manifest-sha256 <sha256>]
@@ -83,10 +80,7 @@ tag/commit/tree instead of the pre-qualification embedded metadata.
   --edition-manifest
              external manifest shipped beside --edition-package
   --upgrade-package, --upgrade-manifest
-             exact signed Edition upgrade artifact used by --update
-  --upgrade-trust-env
-             permission-0600 trust file containing only
-             PEANUT_UPGRADE_TRUSTED_KEYS_JSON; required by --update
+             exact Edition upgrade artifact used by --update
   --confirm-destroy
              required for --fresh; value must exactly equal the target
   --expected-commit, --expected-tree
@@ -98,7 +92,7 @@ tag/commit/tree instead of the pre-qualification embedded metadata.
              identify the exact paired DB/files backup required by --fresh; no
              directory ordering or newest-backup inference is used
 
-Routine updates run the signed package's locked product workflow, including
+Routine updates run the package's locked product workflow, including
 target preparation, paired backup, write drain, append-only migrations,
 switch, reload, runtime verification and recovery evidence. Fresh installation
 uses the package's canonical baseline; Plugin Module migrations retain their
@@ -265,11 +259,6 @@ while [[ $# -gt 0 ]]; do
       UPGRADE_MANIFEST="$2"; shift 2 ;;
     --upgrade-manifest=*)
       UPGRADE_MANIFEST="${1#--upgrade-manifest=}"; shift ;;
-    --upgrade-trust-env)
-      [[ $# -ge 2 ]] || fail '--upgrade-trust-env requires a value'
-      UPGRADE_TRUST_ENV="$2"; shift 2 ;;
-    --upgrade-trust-env=*)
-      UPGRADE_TRUST_ENV="${1#--upgrade-trust-env=}"; shift ;;
     --confirm-destroy)
       [[ $# -ge 2 ]] || fail '--confirm-destroy requires a value'
       CONFIRM_DESTROY="$2"; shift 2 ;;
@@ -394,33 +383,17 @@ if [[ -n "$EDITION_PACKAGE" || -n "$EDITION_MANIFEST" ]]; then
   [[ -f "$EDITION_MANIFEST" && ! -L "$EDITION_MANIFEST" ]] \
     || fail "Edition installer manifest is unavailable: $EDITION_MANIFEST"
 fi
-if [[ -n "$UPGRADE_PACKAGE" || -n "$UPGRADE_MANIFEST" || -n "$UPGRADE_TRUST_ENV" ]]; then
-  [[ -n "$UPGRADE_PACKAGE" && -n "$UPGRADE_MANIFEST" && -n "$UPGRADE_TRUST_ENV" ]] \
-    || fail '--upgrade-package, --upgrade-manifest and --upgrade-trust-env must be provided together'
+if [[ -n "$UPGRADE_PACKAGE" || -n "$UPGRADE_MANIFEST" ]]; then
+  [[ -n "$UPGRADE_PACKAGE" && -n "$UPGRADE_MANIFEST" ]] \
+    || fail '--upgrade-package and --upgrade-manifest must be provided together'
   [[ -f "$UPGRADE_PACKAGE" && ! -L "$UPGRADE_PACKAGE" ]] \
     || fail "Edition upgrade package is unavailable: $UPGRADE_PACKAGE"
   [[ -f "$UPGRADE_MANIFEST" && ! -L "$UPGRADE_MANIFEST" ]] \
     || fail "Edition upgrade manifest is unavailable: $UPGRADE_MANIFEST"
-  [[ "$UPGRADE_TRUST_ENV" == /* && -f "$UPGRADE_TRUST_ENV" && ! -L "$UPGRADE_TRUST_ENV" ]] \
-    || fail '--upgrade-trust-env must be an absolute regular file'
-  trust_mode="$(stat -f '%Lp' "$UPGRADE_TRUST_ENV" 2>/dev/null || stat -c '%a' "$UPGRADE_TRUST_ENV" 2>/dev/null || true)"
-  [[ "$trust_mode" == 600 ]] || fail '--upgrade-trust-env must have mode 0600'
-  trust_line_count="$(awk '!/^[[:space:]]*($|#)/ { count++ } END { print count + 0 }' "$UPGRADE_TRUST_ENV")"
-  [[ "$trust_line_count" == 1 ]] \
-    || fail '--upgrade-trust-env must contain exactly one non-comment value'
-  trust_line="$(awk '!/^[[:space:]]*($|#)/ { print; exit }' "$UPGRADE_TRUST_ENV")"
-  [[ "$trust_line" == PEANUT_UPGRADE_TRUSTED_KEYS_JSON=* ]] \
-    || fail '--upgrade-trust-env must contain exactly PEANUT_UPGRADE_TRUSTED_KEYS_JSON'
-  TRUSTED_UPGRADE_KEYS_JSON="${trust_line#PEANUT_UPGRADE_TRUSTED_KEYS_JSON=}"
-  jq -e 'type == "object" and length > 0
-    and all(to_entries[]; (.key | test("^[A-Za-z0-9._-]{1,96}$"))
-      and (.value | type == "string" and (try (@base64d | length == 32) catch false)))' \
-    <<<"$TRUSTED_UPGRADE_KEYS_JSON" >/dev/null \
-    || fail '--upgrade-trust-env trusted-key JSON must be a non-empty object of strings'
 fi
 if [[ "$UPDATE" == 1 ]]; then
   [[ -n "$UPGRADE_PACKAGE" && -z "$EDITION_PACKAGE" ]] \
-    || fail '--update requires the signed upgrade package and does not accept an installer package'
+    || fail '--update requires the Edition upgrade package and does not accept an installer package'
 elif [[ -n "$UPGRADE_PACKAGE" ]]; then
   fail 'upgrade artifacts are only valid with --update'
 fi
@@ -596,7 +569,6 @@ if [[ -n "$UPGRADE_PACKAGE" ]]; then
   upgrade_root="$(jq -r '.archive.root // empty' "$UPGRADE_MANIFEST")"
   upgrade_sha256="$(jq -r '.archive.sha256 // empty' "$UPGRADE_MANIFEST")"
   upgrade_bytes="$(jq -r '.archive.bytes // empty' "$UPGRADE_MANIFEST")"
-  UPGRADE_SIGNATURE_KEY_ID="$(jq -r '.package.signature_key_id // empty' "$UPGRADE_MANIFEST")"
   actual_upgrade_sha256="$(shasum -a 256 "$UPGRADE_PACKAGE" | awk '{print $1}')"
   actual_upgrade_bytes="$(wc -c < "$UPGRADE_PACKAGE" | tr -d ' ')"
   [[ "$upgrade_protocol" == peanut.edition-upgrade-artifact.v1
@@ -607,12 +579,8 @@ if [[ -n "$UPGRADE_PACKAGE" ]]; then
     && "$upgrade_filename" == "$(basename "$UPGRADE_PACKAGE")"
     && "$upgrade_root" == "peanut-admin-${version}-${deployment_mode}-upgrade"
     && "$upgrade_sha256" == "$actual_upgrade_sha256"
-    && "$upgrade_bytes" == "$actual_upgrade_bytes"
-    && "$UPGRADE_SIGNATURE_KEY_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] \
+    && "$upgrade_bytes" == "$actual_upgrade_bytes" ]] \
     || fail 'Edition upgrade artifact and fixed source identities differ'
-  jq -e --arg key_id "$UPGRADE_SIGNATURE_KEY_ID" 'has($key_id)' \
-    <<<"$TRUSTED_UPGRADE_KEYS_JSON" >/dev/null \
-    || fail 'Edition upgrade signature key is absent from the trusted-key environment'
   tar -tzf "$UPGRADE_PACKAGE" | awk -v root="$upgrade_root/" '
     index($0, root) != 1 || $0 ~ /(^|\/)\.\.($|\/)/ { bad = 1 }
     $0 == root "upgrade-manifest.json" { manifest = 1 }
@@ -693,7 +661,7 @@ fi
 if [[ "$DRY_RUN" == 1 ]]; then
   case "$mode" in
     install) printf 'plan=validate candidate, build PHP/NGINX/PC images, install the registered scaffold baseline and apply its exact migration target into an empty target, start the stack, health smoke\n' ;;
-    update) printf 'plan=authenticate the signed upgrade package and immutable plan, then run its locked public workflow to prepare dependencies/frontends/images, create and verify an exact paired backup, drain writers, migrate, switch, reload, verify runtime/business health and record completion\n' ;;
+    update) printf 'plan=validate the SHA-256 inventory, release identities and immutable plan, then run its locked public workflow to prepare dependencies/frontends/images, create and verify an exact paired backup, drain writers, migrate, switch, reload, verify runtime/business health and record completion\n' ;;
     fresh) printf 'plan=validate the exact paired DB/files backup, build PHP/NGINX/PC images and empty-database preflight, then stop target, remove only registered volumes, install the registered scaffold baseline and apply its exact migration target, health smoke\n'; printf 'warning=--fresh is destructive and requires --confirm-destroy=%s plus a verified exact paired backup\n' "$TARGET" ;;
   esac
   exit 0
@@ -712,7 +680,6 @@ remote_secrets="/tmp/peanut-admin-deploy-secrets-$$.env"
 application_registry_input=""
 application_registry_file=""
 remote_application_registry=""
-remote_upgrade_trust=""
 remote_overlay=""
 trap 'rm -f "$archive_file" "$secrets_file" "${application_registry_input:-}" "${application_registry_file:-}"' EXIT
 if [[ "$archive_kind" == edition ]]; then
@@ -767,11 +734,6 @@ if [[ -n "$remote_application_registry" ]]; then
   scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$application_registry_file" "$SSH_ALIAS:$remote_application_registry" \
     || fail 'cannot transfer selected application resource registry'
 fi
-if [[ -n "$UPGRADE_TRUST_ENV" ]]; then
-  remote_upgrade_trust="/tmp/peanut-admin-upgrade-trust-$$.env"
-  scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$UPGRADE_TRUST_ENV" "$SSH_ALIAS:$remote_upgrade_trust" \
-    || fail 'cannot transfer upgrade trust payload'
-fi
 if [[ -n "$OVERLAY" ]]; then
   remote_overlay="/tmp/peanut-admin-demo-overlay-$$.tar"
   scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$OVERLAY" "$SSH_ALIAS:$remote_overlay" || fail 'cannot transfer demo overlay'
@@ -783,7 +745,7 @@ fi
 ssh -o BatchMode=yes "${SSH_KEEPALIVE_OPTS[@]}" "$SSH_ALIAS" sudo -n bash -s -- \
   "$DEPLOYMENT_KIND" "$(encode_remote_arg "$TAG")" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" \
   "$(encode_remote_arg "$platform_hosts")" "$(encode_remote_arg "$tenant_admin_hosts")" "$owner_invitation_mode" "$public_scheme" "$(encode_remote_arg "$trusted_hosts")" \
-  "$(encode_remote_arg "$UPGRADE_MANIFEST_SHA256")" "$(encode_remote_arg "$UPGRADE_SIGNATURE_KEY_ID")" "$(encode_remote_arg "$remote_upgrade_trust")" "$(encode_remote_arg "$remote_application_registry")" <<'REMOTE_SCRIPT'
+  "$(encode_remote_arg "$UPGRADE_MANIFEST_SHA256")" "$(encode_remote_arg "$remote_application_registry")" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 decode_remote_arg() {
@@ -819,9 +781,7 @@ owner_invitation_mode="${26:-}"
 public_scheme="${27:-}"
 trusted_hosts="$(decode_remote_arg "${28:-__PEANUT_EMPTY__}")"
 upgrade_manifest_sha="$(decode_remote_arg "${29:-__PEANUT_EMPTY__}")"
-upgrade_signature_key_id="$(decode_remote_arg "${30:-__PEANUT_EMPTY__}")"
-upgrade_trust="$(decode_remote_arg "${31:-__PEANUT_EMPTY__}")"
-application_registry_input="$(decode_remote_arg "${32:-__PEANUT_EMPTY__}")"
+application_registry_input="$(decode_remote_arg "${30:-__PEANUT_EMPTY__}")"
 version="${candidate_product_version:-${tag#v}}"
 migration_target_version="$scaffold_migration_version"
 overlay_commit=""
@@ -831,7 +791,6 @@ cleanup_remote_inputs() {
   local status=$?
   sudo -n rm -f -- "$archive" "$secrets"
   [[ -z "$overlay" ]] || sudo -n rm -f -- "$overlay"
-  [[ -z "$upgrade_trust" ]] || sudo -n rm -f -- "$upgrade_trust"
   [[ -z "$application_registry_input" ]] || sudo -n rm -f -- "$application_registry_input"
   exit "$status"
 }
@@ -877,12 +836,9 @@ else
   [[ -z "$edition_manifest_sha" ]] || fail 'source deployment cannot carry an Edition manifest identity'
 fi
 if [[ "$archive_kind" == upgrade ]]; then
-  [[ "$mode" == update && "$upgrade_manifest_sha" =~ ^[0-9a-f]{64}$ \
-    && "$upgrade_signature_key_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ \
-    && -f "$upgrade_trust" && ! -L "$upgrade_trust" ]] \
-    || fail 'signed upgrade artifact identity or trust payload is invalid'
-  chmod 600 "$upgrade_trust"
-elif [[ -n "$upgrade_manifest_sha" || -n "$upgrade_signature_key_id" || -n "$upgrade_trust" ]]; then
+  [[ "$mode" == update && "$upgrade_manifest_sha" =~ ^[0-9a-f]{64}$ ]] \
+    || fail 'upgrade artifact identity is invalid'
+elif [[ -n "$upgrade_manifest_sha" ]]; then
   fail 'non-upgrade deployment carried upgrade-only inputs'
 fi
 if [[ "$deployment_kind" == candidate ]]; then
@@ -919,7 +875,6 @@ cleanup_before_target_drain() {
   if [[ -n "${preflight_project:-}" ]]; then
     "${preflight_compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   fi
-  [[ -z "${upgrade_trust:-}" ]] || sudo -n rm -f -- "$upgrade_trust"
   [[ -z "${deployment_receipt_file:-}" ]] || sudo -n rm -f -- "$deployment_receipt_file"
   sudo -n rm -f -- "$archive"
   [[ -z "$overlay" ]] || sudo -n rm -f -- "$overlay"
@@ -1037,7 +992,7 @@ if [[ "$mode" != update ]]; then
     "$application_registry_input" >/dev/null \
     || fail 'selected application registry does not match the deployment database'
   # The archive has already passed its immutable hash check. This app-owned runtime
-  # input is installed into staging separately from the signed source identity.
+  # input is installed into staging separately from the source identity.
   sudo -n install -m 0644 "$application_registry_input" "$application_staging/resources/project-resources.json" \
     || fail 'cannot install selected application resource registry into staging'
 fi
@@ -1070,14 +1025,12 @@ if [[ "$mode" == update ]]; then
     (( trusted_runtime_found == 1 )) \
       || fail "installed trusted upgrade runtime is unavailable: $trusted_runtime_spec"
   done
-  # The installed coordinator is the trust anchor. It verifies the extracted
-  # package signature, canonical inventory and file types before it can invoke
-  # the signed package host driver. Never bootstrap trust from package code.
+  # The installed coordinator verifies the extracted inventory, SHA-256 digests
+  # and release identities before invoking the package host driver.
   upgrade_runner=(env "PEANUT_SERVER_ENV_FILE=$runtime_environment" php "$trusted_upgrade_entrypoint")
   upgrade_plan_json="$("${upgrade_runner[@]}" plan \
-    --instance-root="$root" --package="$upgrade_artifact_root" \
-    --signature-key-id="$upgrade_signature_key_id" --env-file="$upgrade_trust" </dev/null)" \
-    || fail 'signed product upgrade plan failed before preparation or quiescence'
+    --instance-root="$root" --package="$upgrade_artifact_root" </dev/null)" \
+    || fail 'product upgrade plan failed before preparation or quiescence'
   upgrade_plan_path="$(jq -r '.plan_path // empty' <<<"$upgrade_plan_json")"
   upgrade_candidate="$(jq -r '.candidate // empty' <<<"$upgrade_plan_json")"
   upgrade_plan_sha="$(jq -r '.plan_sha256 // empty' <<<"$upgrade_plan_json")"
@@ -1087,10 +1040,9 @@ if [[ "$mode" == update ]]; then
     and (.plan_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
     and (.plan_path | type == "string" and startswith($root + "/.peanut/upgrades/product-plans/"))
   ' <<<"$upgrade_plan_json" >/dev/null \
-    || fail 'signed product upgrade plan did not return its bound ready state'
+    || fail 'product upgrade plan did not return its bound ready state'
   upgrade_apply_json="$("${upgrade_runner[@]}" apply \
     --instance-root="$root" --package="$upgrade_artifact_root" \
-    --signature-key-id="$upgrade_signature_key_id" --env-file="$upgrade_trust" \
     --plan="$upgrade_plan_path" </dev/null)" \
     || fail 'locked product upgrade workflow failed; retain its state and recovery evidence'
   jq -e --arg candidate "$upgrade_candidate" --arg plan "$upgrade_plan_sha" '
@@ -1126,7 +1078,7 @@ if [[ "$mode" == update ]]; then
     "$upgrade_candidate" "$upgrade_plan_sha" \
     "$(jq -r '.health_evidence_sha256' <<<"$upgrade_apply_json")" \
     "$(jq -r '.activation_evidence_sha256' <<<"$upgrade_apply_json")"
-  sudo -n rm -f -- "$archive" "$upgrade_trust"
+  sudo -n rm -f -- "$archive"
   exit 0
 fi
 if [[ -n "$overlay" ]]; then
@@ -1222,7 +1174,6 @@ if [[ "$deployment_kind" == candidate ]]; then
     --arg archive_sha256 "$expected_archive_sha" \
     --arg artifact_kind "$archive_kind" \
     --arg manifest_sha256 "$artifact_manifest_sha" \
-    --arg signature_key_id "$upgrade_signature_key_id" \
     --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{
       schema_version:2,
@@ -1234,7 +1185,6 @@ if [[ "$deployment_kind" == candidate ]]; then
       artifact:{
         kind:$artifact_kind,
         manifest_sha256:(if $manifest_sha256=="" then null else $manifest_sha256 end),
-        signature_key_id:(if $signature_key_id=="" then null else $signature_key_id end)
       },
       images:null,
       generated_at:$generated_at
@@ -1249,7 +1199,6 @@ else
     --arg kind "$archive_kind" \
     --arg archive_sha256 "$expected_archive_sha" \
     --arg manifest_sha256 "$artifact_manifest_sha" \
-    --arg signature_key_id "$upgrade_signature_key_id" \
     --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --argjson overlay "$receipt_overlay" \
     '{
@@ -1262,7 +1211,6 @@ else
         kind:$kind,
         archive_sha256:$archive_sha256,
         manifest_sha256:(if $manifest_sha256=="" then null else $manifest_sha256 end),
-        signature_key_id:(if $signature_key_id=="" then null else $signature_key_id end)
       },
       overlay:$overlay,
       images:null,
@@ -1437,7 +1385,6 @@ deployment_failure_diagnostic() {
   fi
   [[ -z "${backend_environment_copy:-}" ]] || sudo -n rm -f -- "$backend_environment_copy"
   [[ -z "${installation_env:-}" ]] || sudo -n rm -f -- "$installation_env"
-  [[ -z "${upgrade_trust:-}" ]] || sudo -n rm -f -- "$upgrade_trust"
   [[ -z "${deployment_receipt_file:-}" ]] || sudo -n rm -f -- "$deployment_receipt_file"
   exit "$status"
 }
@@ -1691,5 +1638,5 @@ if [[ -n "$expected_overlay_sha" ]]; then
     "$expected_overlay_sha" "$(jq -r '.overlay_commit' DEMO_PATCH_METADATA.json)" "$migration_target_version"
 fi
 target_stopped=0
-sudo -n rm -f -- "$upgrade_trust" "$deployment_receipt_file"
+sudo -n rm -f -- "$deployment_receipt_file"
 REMOTE_SCRIPT

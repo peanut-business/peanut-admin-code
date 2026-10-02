@@ -11,7 +11,7 @@ const EDITION_UPGRADE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1
 
 function editionUpgradeUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-edition-upgrades --version=<semver> --minimum-source-version=<semver> --source-commit=<full-sha> --output=<absolute-directory> --signing-key-id=<id> --signing-secret-key-file=<path> [--internal-core-inputs=<absolute-release-core-inputs.json>] [--adoption-source-version=<semver> --adoption-source-commit=<full-sha>] [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/build-edition-upgrades --version=<semver> --minimum-source-version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--internal-core-inputs=<absolute-release-core-inputs.json>] [--adoption-source-version=<semver> --adoption-source-commit=<full-sha>] [--check]\n");
     exit(64);
 }
 
@@ -91,13 +91,13 @@ foreach (array_slice($argv, 1) as $argument) {
         $check = true;
         continue;
     }
-    if (preg_match('/^--(version|minimum-source-version|source-commit|output|signing-key-id|signing-secret-key-file|internal-core-inputs|adoption-source-version|adoption-source-commit)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(version|minimum-source-version|source-commit|output|internal-core-inputs|adoption-source-version|adoption-source-commit)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         editionUpgradeUsage();
     }
     $options[$matches[1]] = $matches[2];
 }
-foreach (['version', 'minimum-source-version', 'source-commit', 'output', 'signing-key-id', 'signing-secret-key-file'] as $required) {
+foreach (['version', 'minimum-source-version', 'source-commit', 'output'] as $required) {
     if (!isset($options[$required])) {
         editionUpgradeUsage();
     }
@@ -110,7 +110,6 @@ foreach (['version', 'minimum-source-version'] as $versionOption) {
 if (Semver::greaterThanOrEqualTo($options['minimum-source-version'], $options['version'])
     || explode('.', $options['minimum-source-version'], 2)[0] !== explode('.', $options['version'], 2)[0]
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
-    || preg_match('/^[A-Za-z0-9._-]{1,96}$/D', $options['signing-key-id']) !== 1
     || !str_starts_with($options['output'], '/')) {
     editionUpgradeUsage();
 }
@@ -131,13 +130,6 @@ if (isset($options['internal-core-inputs']) && !str_starts_with($options['intern
     editionUpgradeUsage();
 }
 
-if (!is_file($options['signing-secret-key-file']) || is_link($options['signing-secret-key-file'])) {
-    throw new RuntimeException('EDITION_UPGRADE_SIGNING_KEY_INVALID');
-}
-$secret = base64_decode(trim((string) file_get_contents($options['signing-secret-key-file'])), true);
-if (!is_string($secret) || strlen($secret) !== SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) {
-    throw new RuntimeException('EDITION_UPGRADE_SIGNING_KEY_INVALID');
-}
 $commit = trim(editionUpgradeRun(['git', '-C', $root, 'rev-parse', $options['source-commit'] . '^{commit}']));
 if (!hash_equals($options['source-commit'], $commit)) {
     throw new RuntimeException('EDITION_UPGRADE_SOURCE_NOT_COMMIT');
@@ -329,7 +321,6 @@ try {
                 'managed_files' => 'scaffold-recovery-plan',
                 'database' => 'operator-backup-required',
             ],
-            'signing' => ['algorithm' => 'ed25519', 'authority' => $options['signing-key-id']],
         ];
         if ($internalProjection !== null) {
             $manifest['scope'] = 'internal-upgrade-candidate';
@@ -357,17 +348,7 @@ try {
             $inventoryBytes .= $path . "\0" . $digest . "\n";
         }
         editionUpgradeWrite($package . '/META-INF/files.sha256', $inventoryBytes);
-        $signature = [
-            'schema_version' => 1,
-            'algorithm' => 'ed25519',
-            'key_id' => $options['signing-key-id'],
-            'inventory_sha256' => hash('sha256', $inventoryBytes),
-            'signature_base64' => base64_encode(sodium_crypto_sign_detached(hash('sha256', $inventoryBytes, true), $secret)),
-        ];
-        editionUpgradeWrite(
-            $package . '/META-INF/signatures/' . $options['signing-key-id'] . '.json',
-            json_encode($signature, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
-        );
+
 
         $filename = $archiveRoot . '.tar.gz';
         $archive = $temporary . '/' . $filename;
@@ -382,7 +363,6 @@ try {
             'package' => [
                 'manifest_sha256' => hash_file('sha256', $package . '/upgrade-manifest.json'),
                 'inventory_sha256' => hash('sha256', $inventoryBytes),
-                'signature_key_id' => $options['signing-key-id'],
             ],
             'archive' => [
                 'filename' => $filename,

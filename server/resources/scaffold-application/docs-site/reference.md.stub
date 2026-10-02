@@ -10,7 +10,7 @@ This is the generated application's command, version, configuration and recovery
 | Version identity | candidate manifest, application manifest, source commit/tree, Package digest and lock files |
 | HTTP and configuration | `server/route/`, controllers, `server/.env.example`, and the configuration loader |
 | Tenant and RBAC rules | trusted Tenant context, TenantModule governance, roles, permissions and data scopes |
-| Product upgrade | the installed trusted `scripts/upgrade`, verified package, explicit instance root and recorded product plan |
+| Product upgrade | the installed `scripts/upgrade`, SHA-256 checked package, explicit instance root and recorded product plan |
 | Diagnostics and support | [support guide](/support) and the root `SECURITY.md` |
 
 Sealing and `create-app` commands are maintainer-source tools, not prerequisites shipped to every product consumer. Product consumers install dependencies, configure their own authorized instance, then use `server/database/install.php`; they do not obtain the private Project repository.
@@ -32,7 +32,7 @@ Sealing and `create-app` commands are maintainer-source tools, not prerequisites
 | `php think module:uninstall-package MODULE_OR_PACKAGE_KEY [--purge] [--confirm-plan-file=PLAN_JSON --confirm-plan-digest=PLAN_SHA256]` | Preview or double-confirm retire/Purge; never edit a plan to bypass a blocker. |
 | `php think ops-module:request preview\|prepare --operation=update\|retire\|purge ...` | Queue only a deployment-owned opaque update, retire or Purge task. |
 | `scripts/ops-module-worker --once` | Production worker for update, retire and Purge; no initial install, disable or reactivate entry. |
-| `php scripts/upgrade plan\|apply\|verify\|recover ...` | Trusted product orchestration: verify package first, protect owned files, coordinate dependencies and migrations, and enforce recovery direction. See the lifecycle guide for the two distinct environment files. |
+| `php scripts/upgrade plan\|apply\|verify\|recover ...` | Product orchestration: check package inventory, SHA-256 and release identities first, protect owned files, coordinate dependencies and migrations, and enforce recovery direction. The lifecycle guide covers the instance environment. |
 
 The four Package mutation commands above use only the trusted local console context in development/debug. Platform HTTP remains Standalone-only, and production HTTP cannot upload a Package, choose a path or URL, issue a command, select a target, or supply credentials. Production update/retire/Purge still goes through opaque ops tasks. Frontend contributions still require the owning client build and deployment.
 

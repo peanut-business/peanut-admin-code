@@ -145,13 +145,11 @@ jq -e '
          and (.artifact.kind == "source" or .artifact.kind == "edition" or .artifact.kind == "upgrade")
          and (.artifact.archive_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
          and (if .artifact.kind == "source" then
-                .artifact.manifest_sha256 == null and .artifact.signature_key_id == null
+                .artifact.manifest_sha256 == null
               elif .artifact.kind == "edition" then
                 (.artifact.manifest_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-                and .artifact.signature_key_id == null
               else
                 (.artifact.manifest_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-                and (.artifact.signature_key_id | type == "string" and test("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"))
               end)
          and .overlay == null
        elif .protocol == "peanut.product-upgrade-runtime-receipt.v1" then

@@ -177,7 +177,7 @@ classify() {
     docs/*|README.md|CHANGELOG.md|SECURITY.md|NOTICE|LICENSE|THIRD_PARTY_NOTICES.md|server/app/api/metadata/README.md|scripts/check-public-docs)
       mark docs
       ;;
-    release-versions.json|release-versions.schema.json|RELEASE_METADATA.json|RELEASE_SBOM.spdx.json|UPGRADE_TRUSTED_KEYS.json)
+    release-versions.json|release-versions.schema.json|RELEASE_METADATA.json|RELEASE_SBOM.spdx.json)
       select_all
       ;;
     server/composer.json|server/composer.lock)

@@ -329,20 +329,6 @@
             "source_sha256": "feb511137757a8e260d02c6f7fdd44470b1cb2e52e0629f03cb7766668a90369"
         },
         {
-            "path": "UPGRADE_TRUSTED_KEYS.json",
-            "target": "UPGRADE_TRUSTED_KEYS.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5b01f1cea07e599130297ca7fea900559f70cf8d00d27a94e14d507c5b969936"
-        },
-        {
             "path": "compose.yaml",
             "target": "compose.yaml",
             "classification": "managed",
@@ -794,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28fe4273ca04a588caec286a9da5ffac70cff074165cad168016eb4e2a1d775a"
+            "source_sha256": "0e19ddf6dfd9bdfc3da2c4b02b41b5eb760abe9169a67dc14a55f200c0343ac0"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -850,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "33a7b5c68b2a835367831d8e71fd76ed4a9ae61b525dbb737c2ceb9a5f1aabaa"
+            "source_sha256": "f4c50e96c29b5ca4cd825bc50d0233bfd230e9d619f514207ea5ba02b2865b90"
         },
         {
             "path": "docs/module-layout.md",
@@ -906,7 +892,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1c4c2b92da1162ab5931236c0c2d378a473e979493ffa4a1d314dc53d5b6f5a"
+            "source_sha256": "5c645d318860c0b1f295893ab3ec47dfe4970f4c895a10e0b89456991f6303f3"
         },
         {
             "path": "docs/public/module-development.md",
@@ -934,7 +920,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2851b0d541250012d245e94e7d49d4f152d38eb990233622cdb5e04a269aa6a4"
+            "source_sha256": "40c8946d4eb67ff1b4bc275086f8dc4bd87274bbf40d17f39827c258da41ced0"
         },
         {
             "path": "pc/.env.example",
@@ -2845,7 +2831,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a40f9c1a3b9ab52f0ed02e19cc03471e3bdda820e5836ae75db8944e6ccb3dcb"
+            "source_sha256": "ed8cabc0d286b3825ba013e8bebe57d5184d2bcb0d6becf2c273fc04e91b5ba4"
         },
         {
             "path": "scripts/ci-checkpoint",
@@ -3562,7 +3548,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ecadef6bc9be1cdbb63c3c514121e0f4fea5cc78c123a2763e5b26e57abbf0c3"
+            "source_sha256": "a3cd2b996d2400ca383f480aed6b805811b67baf47e5b662ebae5b9a4bc72797"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
@@ -3632,7 +3618,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff9d317bdd0d2d06c4a3c5097fefe7c195690a806b1d026c205670c9bf895405"
+            "source_sha256": "990313a75afe06ea1f440918986b1f7480c3f41932cc640f4290bdd49356710e"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4465,7 +4451,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d9924615d93ad9697acb9ebf5017486ae9357fa7cbfe6ce0b9741b8e19cfa203"
+            "source_sha256": "aeafe04ce6e992da41f573e14cbd9d69b86817b5179d7ccde8bcb15b81eb2651"
         },
         {
             "path": "server/.env.example",
@@ -17002,7 +16988,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "58d4f9abd2e9e448abc92945dae23f7cfb3aa7d275ebb0b9e48ad38fbd6cd711"
+            "source_sha256": "7aec89ad8c89ec04e2a4bd7c3817d907075ff660720f5022be63ea6dce53368d"
         },
         {
             "path": "server/app/modules/official/ops/src/Infrastructure/Authorization/PlatformOpsPermissionChecker.php",
@@ -24594,7 +24580,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81f95dfff2d497640d3c6f6321cbd6ddb1c81329930e66a4d651b8a47b24e40d"
+            "source_sha256": "ef8af29645bf853fcb4dcb2624de6fbf4b33d5f37f1c48c1f5fa92d67f783327"
         },
         {
             "path": "server/resources/scaffold-application/docs-site/guide/development.md.stub",
@@ -24692,7 +24678,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "822fac371bebc1f8bf53668eb40566538efd4a603dfba692f22e1fa3c9414803"
+            "source_sha256": "65f3187de7e07681c1a6bfca393b82d85bc33715faa4c716fb3f5d76957ca3ed"
         },
         {
             "path": "server/resources/scaffold-application/docs-site/releases.md.stub",

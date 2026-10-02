@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /**
- * 用既有签名包夹具执行真实 scripts/upgrade 子进程及文件引擎。
+ * 用既有 SHA-256 inventory 包夹具执行真实 scripts/upgrade 子进程及文件引擎。
  * Host 为明确合成的阶段回执/故障注入，不运行Docker、数据库、网站或真实业务。
  */
 function productCoordinatorProbe(
@@ -11,8 +11,6 @@ function productCoordinatorProbe(
     string $temporary,
     string $sourceProject,
     string $sourcePackage,
-    string $public,
-    string $secret,
 ): void {
     $checks = 0;
     $failures = [];
@@ -70,7 +68,7 @@ PHP;
         && !str_contains($output, 'Fatal error'), 'missing dependencies must fail before package access');
 
     $cases = ['normal', 'managed-drift', 'app-owned-drift', 'migration-recovery',
-        'recovery-resume-rejected', 'activation-failure', 'untrusted-package', 'wrong-evidence', 'lock-contention'];
+        'recovery-resume-rejected', 'activation-failure', 'inventory-digest-mismatch', 'wrong-evidence', 'lock-contention'];
     foreach ($cases as $case) {
         $base = $temporary . '/coordinator-' . $case;
         $project = $base . '/instance';
@@ -79,7 +77,7 @@ PHP;
         editionUpgradeCopyTree($sourcePackage, $package);
         $hostPath = $package . '/scripts/upgrade-runtime/product-upgrade-host';
         editionUpgradeFile($hostPath, $host, 0755);
-        // 使用夹具专用临时密钥重新签名，绝不复用正式签名身份。
+        // 将测试 Host 纳入包 inventory，随后由升级入口校验文件摘要。
         $inventory = [];
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($package, FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
@@ -97,15 +95,7 @@ PHP;
             $bytes .= $path . "\0" . $hash . "\n";
         }
         editionUpgradeFile($package . '/META-INF/files.sha256', $bytes);
-        editionUpgradeJson($package . '/META-INF/signatures/test-release.json', [
-            'schema_version' => 1, 'algorithm' => 'ed25519', 'key_id' => 'test-release',
-            'inventory_sha256' => hash('sha256', $bytes),
-            'signature_base64' => base64_encode(sodium_crypto_sign_detached(hash('sha256', $bytes, true), $secret)),
-        ]);
-        $keys = $base . '/trusted.ini';
-        editionUpgradeFile($keys, "PEANUT_UPGRADE_TRUSTED_KEYS_JSON=" . json_encode([
-            'test-release' => base64_encode($public),
-        ], JSON_THROW_ON_ERROR) . "\n", 0600);
+        editionUpgradeExpect(hash('sha256', $bytes) !== '', 'package inventory digest unavailable');
         mkdir($project . '/.fixture-host', 0700);
         $calls = static function () use ($project): array {
             $path = $project . '/.fixture-host/calls.jsonl';
@@ -114,10 +104,9 @@ PHP;
         $control = static function (array $value) use ($project): void {
             editionUpgradeJson($project . '/.fixture-host/control.json', $value);
         };
-        $run = static function (string $operation, ?string $plan = null) use ($toolRoot, $project, $package, $keys, $base): array {
+        $run = static function (string $operation, ?string $plan = null) use ($toolRoot, $project, $package, $base): array {
             $arguments = [PHP_BINARY, $toolRoot . '/scripts/upgrade', $operation,
-                '--instance-root=' . $project, '--package=' . $package,
-                '--signature-key-id=test-release', '--env-file=' . $keys];
+                '--instance-root=' . $project, '--package=' . $package];
             if ($plan !== null) {
                 $arguments[] = '--plan=' . $plan;
             }
@@ -152,10 +141,10 @@ PHP;
             );
         };
         try {
-            if ($case === 'untrusted-package') {
+            if ($case === 'inventory-digest-mismatch') {
                 file_put_contents($hostPath, "\n# untrusted mutation\n", FILE_APPEND);
                 $reject($run('plan'), 'EDITION_UPGRADE_FILE_DIGEST_MISMATCH');
-                $assert($calls() === [], 'untrusted target executed before authentication');
+                $assert($calls() === [], 'inventory-mismatched target executed before authentication');
                 continue;
             }
             $plan = $ok($run('plan'), 'plan');

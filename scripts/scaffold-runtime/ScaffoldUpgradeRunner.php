@@ -176,11 +176,11 @@ final class ScaffoldUpgradeRunner
     }
 
     /** Build a metadata-only ownership-adoption plan from an authenticated formal package. */
-    public function adoptionPlan(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
+    public function adoptionPlan(string $projectRoot, string $packageRoot): array
     {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
-        $prepared = (new EditionUpgradePackage())->prepareAdoption($root, $packageRoot, $signatureKeyId, $trustedKeys);
-        $plan = $this->buildAdoptionPlan($root, $prepared, $packageRoot, $signatureKeyId);
+        $prepared = (new EditionUpgradePackage())->prepareAdoption($root, $packageRoot);
+        $plan = $this->buildAdoptionPlan($root, $prepared, $packageRoot);
         $stateRoot = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades');
         $path = $stateRoot . '/plans/' . $plan['candidate'] . '.json';
         $this->writeJsonAtomic($path, $plan, 0600);
@@ -197,9 +197,8 @@ final class ScaffoldUpgradeRunner
         string $planPath,
         string $confirmedPlanSha256,
         array $confirmedPaths,
-        array $trustedKeys,
     ): array {
-        return $this->locked($projectRoot, function (string $root) use ($planPath, $confirmedPlanSha256, $confirmedPaths, $trustedKeys): array {
+        return $this->locked($projectRoot, function (string $root) use ($planPath, $confirmedPlanSha256, $confirmedPaths): array {
             $plan = $this->loadAdoptionPlan($root, $planPath);
             if (!hash_equals($plan['plan_sha256'], $confirmedPlanSha256)
                 || array_values($confirmedPaths) !== $plan['paths']) {
@@ -212,14 +211,11 @@ final class ScaffoldUpgradeRunner
             $prepared = (new EditionUpgradePackage())->prepareAdoption(
                 $root,
                 $plan['formal_package']['root'],
-                $plan['formal_package']['signature_key_id'],
-                $trustedKeys,
             );
             $expected = $this->buildAdoptionPlan(
                 $root,
                 $prepared,
                 $plan['formal_package']['root'],
-                $plan['formal_package']['signature_key_id'],
             );
             if (!hash_equals($plan['candidate'], $expected['candidate'])) {
                 throw new RuntimeException('SCAFFOLD_ADOPTION_PLAN_REBIND_FAILED');
@@ -487,7 +483,6 @@ final class ScaffoldUpgradeRunner
         string $root,
         array $prepared,
         string $packageRoot,
-        string $signatureKeyId,
     ): array {
         $adoption = $prepared['adoption'] ?? null;
         if (!is_array($adoption) || !is_array($adoption['files'] ?? null)) {
@@ -565,7 +560,6 @@ final class ScaffoldUpgradeRunner
             'identity' => $identity,
             'formal_package' => [
                 'root' => realpath($packageRoot),
-                'signature_key_id' => $signatureKeyId,
             ],
             'metadata_writes' => $metadataWrites,
             'actions' => $actions,

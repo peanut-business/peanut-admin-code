@@ -23,16 +23,13 @@
 server-only 生产包不含根目录 `scripts/upgrade`；下面的升级命令只适用于保留完整源码及该可信入口的既有实例。当前开发源码另有 `server/docker/scripts/update.sh` 和 `recover.sh`，但尚未构成已完成资格验证的正式 server-only 升级制品，不能用首次安装器或待验目标包中的脚本代替。
 
 升级命令以 `--instance-root` 指定现有实例，以 `--package` 指定安全提取后的目标升级包。
-由已安装入口验证目标包的 Ed25519 签名、完整文件清单和路径，再执行已验证的驱动；不要先运行待验签包中的程序。
-`--signature-key-id` 选择可信密钥，权限为 0600 的 `--env-file` 只包含 `PEANUT_UPGRADE_TRUSTED_KEYS_JSON`。
-该变量不得同时存在于进程环境。另以 `PEANUT_SERVER_ENV_FILE` 明确指定实例内权限 0600 的后端配置，实例根目录的 Compose `.env` 也必须存在。
+由已安装入口核对包内 inventory 与每个文件的 SHA-256、upgrade manifest、版本兼容范围、edition、source commit/tree、target manifest 和 managed tree，再执行已校验的驱动；不要先运行尚未校验完整性的目标包程序。
+另以 `PEANUT_SERVER_ENV_FILE` 明确指定实例内权限 0600 的后端配置，实例根目录的 Compose `.env` 也必须存在。
 
 ```sh
-unset PEANUT_UPGRADE_TRUSTED_KEYS_JSON
 export PEANUT_SERVER_ENV_FILE=/srv/my-app/server/.env
 php /srv/my-app/scripts/upgrade plan \
-  --instance-root=/srv/my-app --package=/srv/upgrades/target \
-  --signature-key-id=release-key --env-file=/srv/keys/upgrade-trust.env
+  --instance-root=/srv/my-app --package=/srv/upgrades/target
 ```
 
 确认 `plan` 退出成功并返回 `authenticated: true`；将返回的绝对 `plan_path` 作为 `--plan`，以相同参数调用 `apply`、`verify` 或 `recover`。

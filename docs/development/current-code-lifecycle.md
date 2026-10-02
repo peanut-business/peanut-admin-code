@@ -102,7 +102,7 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 业务 CRUD 预览另从 `server/app/adminapi/services/generator/GeneratorRenderService.php::render` 进入，目标是已登记模块的 admin-web 贡献，不是创建整个应用。其页面使用 Web 已声明的 Element Plus，表格行插槽、独立分页、确认事件和权限键遵循实际组件合同；列表与提交状态复用公开 `useAsyncList/useAsyncAction`。输入未声明软删除时不生成回收动作，已声明时保留普通/回收接口及主键类型；失败结果不能提示操作成功。预览返回 create/merge 与原文件摘要，不会自动应用合并或建表。源码仓可复用 `server/tests/fixtures/generator-element-plus-inputs.php` 的四组定义分别调用该入口；PHP 模板回归、实际前端消费者检查和完整产品安装是不同验证范围。
 
-首次安装使用 `server/database/install.php`。产品升级使用已经安装且可信的 `scripts/upgrade`，入口分plan、apply、verify和recover；先验签，不能先运行未验证目标包代码，也不是git pull或无约束composer update。后端环境通过 `PEANUT_SERVER_ENV_FILE` 指定，升级的 `--env-file` 是受控信任公钥文件，两者不能混为一份配置。
+首次安装使用 `server/database/install.php`。产品升级使用已经安装的 `scripts/upgrade`，入口分plan、apply、verify和recover；入口先核包内 inventory、逐文件 SHA-256、版本兼容及来源/目标身份，不能先运行未校验目标包代码，也不是git pull或无约束composer update。后端环境通过 `PEANUT_SERVER_ENV_FILE` 指定。
 
 数据库配置固定分层：应用后端只使用 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASS`；MySQL 管理密码只在 Docker/部署编排环境使用 `MYSQL_ROOT_PASSWORD`。应用 `server/.env` 不保存 root 密码，Docker 私有环境（例如 `server/docker/.env`）不改用应用密码别名。现行实现不使用 `MYSQL_ROOT_PASSWORD_FILE`，旧 `DB_ROOT_PASS` 或旧 root 密码文件只允许被一次性兼容迁移消费，不能作为新的配置来源。Compose 向 MySQL 官方镜像映射 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 仅是容器初始化边界，不改变上述应用配置命名。
 

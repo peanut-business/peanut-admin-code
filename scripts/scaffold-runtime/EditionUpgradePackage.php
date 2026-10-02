@@ -69,26 +69,26 @@ final class EditionUpgradePackage
     ];
 
     /** @return array{from_manifest:string,to_manifest:string,package:array<string,mixed>} */
-    public function prepare(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
+    public function prepare(string $projectRoot, string $packageRoot): array
     {
-        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys, true);
+        $prepared = $this->authenticate($projectRoot, $packageRoot, true);
         $prepared['from_manifest'] = $this->writeBaselineManifest($prepared['project_root'], $prepared['application']);
         unset($prepared['project_root'], $prepared['application']);
         return $prepared;
     }
 
     /** Authenticate a formal package without writing source-baseline metadata. */
-    public function prepareAdoption(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
+    public function prepareAdoption(string $projectRoot, string $packageRoot): array
     {
-        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys, true);
+        $prepared = $this->authenticate($projectRoot, $packageRoot, true);
         unset($prepared['project_root'], $prepared['application']);
         return $prepared;
     }
 
     /** Reauthenticate a plan-bound package after its target application manifest may already be active. */
-    public function reauthenticate(string $projectRoot, string $packageRoot, string $signatureKeyId, array $trustedKeys): array
+    public function reauthenticate(string $projectRoot, string $packageRoot): array
     {
-        $prepared = $this->authenticate($projectRoot, $packageRoot, $signatureKeyId, $trustedKeys, false);
+        $prepared = $this->authenticate($projectRoot, $packageRoot, false);
         unset($prepared['project_root'], $prepared['application']);
         return $prepared;
     }
@@ -97,8 +97,6 @@ final class EditionUpgradePackage
     private function authenticate(
         string $projectRoot,
         string $packageRoot,
-        string $signatureKeyId,
-        array $trustedKeys,
         bool $requireSourceCompatibility,
     ): array {
         $project = ScaffoldPathGuard::projectRoot($projectRoot);
@@ -106,17 +104,12 @@ final class EditionUpgradePackage
         if (!is_string($package) || !is_dir($package) || is_link($package)) {
             throw new RuntimeException('EDITION_UPGRADE_PACKAGE_NOT_FOUND');
         }
-        if (preg_match('/^[A-Za-z0-9._-]{1,96}$/D', $signatureKeyId) !== 1) {
-            throw new RuntimeException('EDITION_UPGRADE_SIGNATURE_KEY_INVALID');
-        }
-
         $inventoryPath = $package . '/META-INF/files.sha256';
         if (!is_file($inventoryPath) || is_link($inventoryPath)) {
             throw new RuntimeException('EDITION_UPGRADE_INVENTORY_MISSING');
         }
         $inventory = (string) file_get_contents($inventoryPath);
         $files = $this->verifyInventory($package, $inventory);
-        $this->verifySignature($package, $inventory, $signatureKeyId, $trustedKeys);
 
         $manifestPath = $package . '/upgrade-manifest.json';
         if (!isset($files['upgrade-manifest.json'])) {
@@ -159,11 +152,6 @@ final class EditionUpgradePackage
                 && $application['edition']['tenant_bootstrap'] !== $packageEdition['tenant_bootstrap'])) {
             throw new RuntimeException('EDITION_UPGRADE_EDITION_MISMATCH');
         }
-        if (($manifest['signing']['algorithm'] ?? null) !== 'ed25519'
-            || ($manifest['signing']['authority'] ?? null) !== $signatureKeyId) {
-            throw new RuntimeException('EDITION_UPGRADE_AUTHORITY_MISMATCH');
-        }
-
         $current = (string) ($application['template']['version'] ?? '');
         $minimum = (string) ($manifest['compatibility']['source']['minimum_inclusive'] ?? '');
         $maximum = (string) ($manifest['compatibility']['source']['maximum_exclusive'] ?? '');
@@ -225,13 +213,12 @@ final class EditionUpgradePackage
             'application' => $application,
             'package' => $manifest + [
                 'inventory_sha256' => 'sha256:' . hash('sha256', $inventory),
-                'signature_key_id' => $signatureKeyId,
                 'manifest_sha256' => 'sha256:' . hash_file('sha256', $manifestPath),
             ],
         ];
     }
 
-    /** The signed target and upgrade manifest must identify the same projected Core bytes. */
+    /** The identified target and upgrade manifest must identify the same projected Core bytes. */
     private function assertInternalCoreProjection(ScaffoldManifest $target, array $upgrade): void
     {
         $projection = $target->data['internal_core_projection'] ?? null;
@@ -414,7 +401,7 @@ final class EditionUpgradePackage
                 throw new RuntimeException('EDITION_UPGRADE_FILE_TYPE_INVALID');
             }
             $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
-            if ($relative === 'META-INF/files.sha256' || str_starts_with($relative, 'META-INF/signatures/')) {
+            if ($relative === 'META-INF/files.sha256') {
                 continue;
             }
             $actual[] = $relative;
@@ -424,31 +411,6 @@ final class EditionUpgradePackage
             throw new RuntimeException('EDITION_UPGRADE_INVENTORY_COVERAGE_MISMATCH');
         }
         return $inventory;
-    }
-
-    /** @param array<string,string> $trustedKeys */
-    private function verifySignature(string $root, string $inventory, string $keyId, array $trustedKeys): void
-    {
-        $public = base64_decode((string) ($trustedKeys[$keyId] ?? ''), true);
-        $path = $root . '/META-INF/signatures/' . $keyId . '.json';
-        try {
-            $signature = is_file($path) && !is_link($path)
-                ? json_decode((string) file_get_contents($path), true, 32, JSON_THROW_ON_ERROR)
-                : null;
-        } catch (\JsonException $exception) {
-            throw new RuntimeException('EDITION_UPGRADE_SIGNATURE_INVALID', 0, $exception);
-        }
-        $bytes = is_array($signature) ? base64_decode((string) ($signature['signature_base64'] ?? ''), true) : false;
-        if (!is_string($public) || strlen($public) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES
-            || !is_array($signature)
-            || ($signature['schema_version'] ?? null) !== 1
-            || ($signature['algorithm'] ?? null) !== 'ed25519'
-            || ($signature['key_id'] ?? null) !== $keyId
-            || !hash_equals(hash('sha256', $inventory), (string) ($signature['inventory_sha256'] ?? ''))
-            || !is_string($bytes) || strlen($bytes) !== SODIUM_CRYPTO_SIGN_BYTES
-            || !sodium_crypto_sign_verify_detached($bytes, hash('sha256', $inventory, true), $public)) {
-            throw new RuntimeException('EDITION_UPGRADE_SOURCE_UNTRUSTED');
-        }
     }
 
     /** @return array<string,mixed> */

@@ -1,6 +1,6 @@
 # 应用与模块生命周期
 
-本文面向应用维护者和模块作者。完整产品包可直接按包内资料安装，不要求取得维护者的私有 Project 或先运行生成器。维护者制作应用、模块作者开发签名、消费者安装升级分别记录精确来源、原生锁、摘要及恢复证据。开发规范见包内 `docs/development/standard.md`。
+本文面向应用维护者和模块作者。完整产品包可直接按包内资料安装，不要求取得维护者的私有 Project 或先运行生成器。维护者制作应用、模块作者开发包、消费者安装和升级分别记录精确来源、原生锁、摘要及恢复证据。开发规范见包内 `docs/development/standard.md`。
 
 ## 1. 取得产品或制作开发应用
 
@@ -67,15 +67,15 @@ php think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<
 - `app-owned`：应用、自有扩展和客户模块，升级保留并在冲突时要求 adoption。
 - 实例状态：环境文件、凭据、上传、数据库行、备份和 recovery pointer，不能进入候选或包。
 
-产品升级从已安装且可信的 `scripts/upgrade` 入口进行。`PEANUT_SERVER_ENV_FILE` 指向实例自己的后端环境文件；下面 `--env-file` 则指向权限为 0600、仅含升级信任公钥配置的文件，两者不能混用，私钥不进入消费端。
+产品升级从已安装的 `scripts/upgrade` 入口进行。入口核对包内 inventory、逐文件 SHA-256、manifest、版本兼容及来源/目标身份后才使用包内驱动。`PEANUT_SERVER_ENV_FILE` 指向实例自己的后端环境文件。
 
 ```bash
-php scripts/upgrade plan --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file>
-php scripts/upgrade apply --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file> --plan=<absolute-plan>
-php scripts/upgrade verify --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file> --plan=<absolute-plan>
-php scripts/upgrade recover --instance-root=<absolute-instance> --package=<absolute-extracted-package> --signature-key-id=<trusted-key-id> --env-file=<absolute-trust-file> --plan=<absolute-plan>
+php scripts/upgrade plan --instance-root=<absolute-instance> --package=<absolute-extracted-package>
+php scripts/upgrade apply --instance-root=<absolute-instance> --package=<absolute-extracted-package> --plan=<absolute-plan>
+php scripts/upgrade verify --instance-root=<absolute-instance> --package=<absolute-extracted-package> --plan=<absolute-plan>
+php scripts/upgrade recover --instance-root=<absolute-instance> --package=<absolute-extracted-package> --plan=<absolute-plan>
 ```
 
-仅在计划指明可恢复且前置检查成立时执行 recover，不把四条命令当作无条件顺序脚本。先验签再使用目标包；冲突停在计划阶段。进入恢复后不能继续向前 apply；激活开始后禁止自动回灌旧备份。单纯受管文件差异工具不能代替产品依赖、数据库与文件卷的成对恢复。
+仅在计划指明可恢复且前置检查成立时执行 recover，不把四条命令当作无条件顺序脚本。先完成完整性和来源身份校验再使用目标包；冲突停在计划阶段。进入恢复后不能继续向前 apply；激活开始后禁止自动回灌旧备份。单纯受管文件差异工具不能代替产品依赖、数据库与文件卷的成对恢复。
 
 既有实例保留原 baseline 和自有修改；明确 breaking 代码迁移不等于对客户数据的破坏性授权。安装、升级、数据恢复分别取得真实证据，不能通过删包文件、锁或迁移账本绕过完整性检查。

@@ -242,17 +242,13 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
             || !is_array($receipt['release'])
             || array_keys($receipt['release']) !== ['tag', 'commit', 'tree']
             || !is_array($receipt['artifact'])
-            || array_keys($receipt['artifact']) !== ['kind', 'archive_sha256', 'manifest_sha256', 'signature_key_id']
+            || array_keys($receipt['artifact']) !== ['kind', 'archive_sha256', 'manifest_sha256']
             || !in_array($receipt['artifact']['kind'], ['source', 'edition', 'upgrade'], true)
             || preg_match('/^[a-f0-9]{64}$/D', (string) $receipt['artifact']['archive_sha256']) !== 1
             || ($receipt['artifact']['kind'] === 'source'
-                && ($receipt['artifact']['manifest_sha256'] !== null || $receipt['artifact']['signature_key_id'] !== null))
-            || ($receipt['artifact']['kind'] === 'edition'
-                && (preg_match('/^[a-f0-9]{64}$/D', (string) $receipt['artifact']['manifest_sha256']) !== 1
-                    || $receipt['artifact']['signature_key_id'] !== null))
-            || ($receipt['artifact']['kind'] === 'upgrade'
-                && (preg_match('/^[a-f0-9]{64}$/D', (string) $receipt['artifact']['manifest_sha256']) !== 1
-                    || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/D', (string) $receipt['artifact']['signature_key_id']) !== 1))
+                && $receipt['artifact']['manifest_sha256'] !== null)
+            || (in_array($receipt['artifact']['kind'], ['edition', 'upgrade'], true)
+                && preg_match('/^[a-f0-9]{64}$/D', (string) $receipt['artifact']['manifest_sha256']) !== 1)
             || !$this->validImageReceipt($receipt['images'])
             || preg_match('/^v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', (string) $receipt['release']['tag']) !== 1
             || preg_match('/^[a-f0-9]{40}$/D', (string) $receipt['release']['commit']) !== 1

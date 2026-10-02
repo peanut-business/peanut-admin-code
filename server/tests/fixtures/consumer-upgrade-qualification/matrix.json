@@ -34,20 +34,44 @@
   },
   "target_release": {
     "version": "3.1.0",
-    "minimum_source_version": "3.0.14",
-    "signing_resource_id": "peanut-admin-edition-upgrade-release-signing-key",
-    "signature_key_id": "peanut-admin-release-2026-01"
+    "minimum_source_version": "3.0.14"
   },
   "scenarios": {
     "standalone_upgrade": {
       "edition": "standalone",
-      "inputs": ["official-installer", "formal-signed-upgrade", "external-trusted-key", "synthetic-business-data", "paired-backup"],
-      "assertions": ["installer-and-manifest-digests-match", "all-25-host-paths-reviewed-before-metadata-adoption", "preflight-ready-before-apply", "apply-and-verify-succeed", "business-module-secret-and-customized-bytes-preserved", "recover-restores-exact-pre-upgrade-state"]
+      "inputs": [
+        "official-installer",
+        "sha256-inventory",
+        "source-identity",
+        "synthetic-business-data",
+        "paired-backup"
+      ],
+      "assertions": [
+        "sha256-inventory-and-source-commit-tree-target-identity-match",
+        "all-25-host-paths-reviewed-before-metadata-adoption",
+        "preflight-ready-before-apply",
+        "apply-and-verify-succeed",
+        "business-module-secret-and-customized-bytes-preserved",
+        "recover-restores-exact-pre-upgrade-state"
+      ]
     },
     "multi_tenant_upgrade": {
       "edition": "multi-tenant",
-      "inputs": ["official-installer", "formal-signed-upgrade", "external-trusted-key", "synthetic-business-data", "paired-backup"],
-      "assertions": ["installer-and-manifest-digests-match", "all-25-host-paths-reviewed-before-metadata-adoption", "preflight-ready-before-apply", "apply-and-verify-succeed", "tenant-membership-rbac-and-business-data-read-back", "recover-restores-exact-pre-upgrade-state"]
+      "inputs": [
+        "official-installer",
+        "sha256-inventory",
+        "source-identity",
+        "synthetic-business-data",
+        "paired-backup"
+      ],
+      "assertions": [
+        "sha256-inventory-and-source-commit-tree-target-identity-match",
+        "all-25-host-paths-reviewed-before-metadata-adoption",
+        "preflight-ready-before-apply",
+        "apply-and-verify-succeed",
+        "tenant-membership-rbac-and-business-data-read-back",
+        "recover-restores-exact-pre-upgrade-state"
+      ]
     }
   },
   "execution": {
@@ -58,6 +82,11 @@
     "instance_upgrade_entry": "php scripts/scaffold-upgrade adoption-plan|adoption-apply|preflight|apply|verify|recover",
     "http_entry": "/usr/local/bin/docker compose --project-name peanut-cr03-<run_id>-<scenario> --env-file .env --env-file server/.env.local-production-preview -f deploy/docker-compose.prod.yml",
     "cleanup_owner": "active CR03 consumer-upgrade lease owner",
-    "forbidden": ["p0e-fresh-databases", "persistent-development-database", "demo-deployment", "production-data", "ephemeral-signing-key"]
+    "forbidden": [
+      "p0e-fresh-databases",
+      "persistent-development-database",
+      "demo-deployment",
+      "production-data"
+    ]
   }
 }

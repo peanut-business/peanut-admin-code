@@ -44,7 +44,7 @@ def command(argv: list[str], *, cwd: Path | None = None, phase: str, allow_missi
         state, state_path = RUN_CONTEXT
         attempts = state.setdefault("attempts", [])
         attempt = {"phase": phase, "status": "running", "command":
-                   ["--signing-secret-key-file=<redacted>" if part.startswith("--signing-secret-key-file=") else part for part in argv],
+                   argv,
                    "timeout_seconds": timeout, "attempt": len(attempts) + 1}
         attempts.append(attempt)
         atomic_json(state_path, state)
@@ -398,7 +398,7 @@ def publication_assets(version: str, baseline: bool) -> set[str]:
     names = {f"peanut-admin-{version}.tar.gz", f"peanut-admin-{version}-LICENSE.txt",
              f"peanut-admin-{version}-NOTICE.txt", f"peanut-admin-{version}-THIRD-PARTY-NOTICES.md",
              f"peanut-admin-{version}-SBOM.spdx.json", "RELEASE_CANDIDATE_LOCK.json",
-             "UPGRADE_TRUSTED_KEYS.json", "SHA256SUMS", "RELEASE_MANIFEST.json"}
+             "SHA256SUMS", "RELEASE_MANIFEST.json"}
     for edition in ("standalone", "multi-tenant"):
         archive = f"peanut-admin-{version}-{edition}.tar.gz"
         names.update((archive, archive + ".manifest.json", f"peanut-admin-{version}-{edition}-server.tar.gz"))
@@ -499,8 +499,6 @@ def main() -> None:
     parser.add_argument("--build", action="store_true")
     parser.add_argument("--baseline", action="store_true")
     parser.add_argument("--minimum-source-version")
-    parser.add_argument("--signing-key-id")
-    parser.add_argument("--signing-secret-key-file", type=Path)
     parser.add_argument("--qualification", type=Path)
     parser.add_argument("--core-web-package-evidence", type=Path,
                         help="read-only JSON package metadata evidence; live tag/Action/Release checks still run")
@@ -640,7 +638,7 @@ def main() -> None:
             _, changes = source_diff(args.candidate, args.source_commit)
             untracked = set(git(args.candidate, "ls-files", "--others", "--exclude-standard").splitlines())
             allowed = set(prepared["owned_files"]) | {"CHANGELOG.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
-                                                       "RELEASE_SBOM.spdx.json", "UPGRADE_TRUSTED_KEYS.json",
+                                                       "RELEASE_SBOM.spdx.json",
                                                        "scaffold/application-template-inventory.json"}
             if not changes | untracked <= allowed:
                 raise Stop("inventory", f"unreviewed source paths before seal: {sorted((changes | untracked) - allowed)}")
@@ -772,27 +770,18 @@ def main() -> None:
             if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
                 raise Stop("installers", f"completed artifact changed: {filename}")
         if not args.baseline:
-            if not args.minimum_source_version or not args.signing_key_id or not args.signing_secret_key_file:
-                raise Stop("upgrades", "minimum version and signing key inputs are required for existing baseline")
-            if (not args.signing_secret_key_file.is_absolute() or args.signing_secret_key_file.is_symlink()
-                    or not args.signing_secret_key_file.is_file()):
-                raise Stop("upgrades", "signing key input must be an absolute real file")
+            if not args.minimum_source_version:
+                raise Stop("upgrades", "minimum source version is required for existing baseline")
             if "upgrades" not in state["stages"]:
                 if any("-upgrade.tar.gz" in item.name or item.name == "SHA256SUMS.upgrades" for item in artifacts.iterdir()):
                     raise Stop("upgrades", "partial upgrade output exists; inspect before retry")
                 cmd = ["php", str(args.candidate / "scripts/build-edition-upgrades"),
                        f"--version={args.product_version}", f"--minimum-source-version={args.minimum_source_version}",
-                       f"--source-commit={release_commit}", f"--output={artifacts}",
-                       f"--signing-key-id={args.signing_key_id}", f"--signing-secret-key-file={args.signing_secret_key_file}"]
+                       f"--source-commit={release_commit}", f"--output={artifacts}"]
                 command(cmd, cwd=args.candidate, phase="upgrades")
-                stage(state, state_path, "upgrades", [*cmd[:-1], "--signing-secret-key-file=<redacted>"],
+                stage(state, state_path, "upgrades", cmd,
                       {"artifacts": verify_edition_artifacts(artifacts, args.product_version, release_commit,
-                                                            state["stages"]["prepared-commit"]["tree"], upgrades=True),
-                       "signing_key_id": args.signing_key_id,
-                       "signing_key_path_sha256": hashlib.sha256(str(args.signing_secret_key_file).encode()).hexdigest()})
-            if (state["stages"]["upgrades"]["signing_key_id"] != args.signing_key_id
-                    or state["stages"]["upgrades"]["signing_key_path_sha256"] != hashlib.sha256(str(args.signing_secret_key_file).encode()).hexdigest()):
-                raise Stop("upgrades", "signing input differs from completed upgrade artifacts")
+                                                            state["stages"]["prepared-commit"]["tree"], upgrades=True)})
             for filename, sha in state["stages"]["upgrades"]["artifacts"].items():
                 path = artifacts / filename
                 if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != sha:
