@@ -3302,7 +3302,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9182d7cf95e1d91df981ad9117d21f64f77eaa0e9190d50962869444a8fa5238"
+            "source_sha256": "1abf770b44a441b24b14f1e0a1ca8160efcb8a9a62205e97bcb5855e7eb10b26"
         },
         {
             "path": "scripts/package-release.sh",
@@ -3522,7 +3522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f7163aa3102c655a3ba99327243f6885014a081977e74e0df2095837c560dbe"
+            "source_sha256": "ecadef6bc9be1cdbb63c3c514121e0f4fea5cc78c123a2763e5b26e57abbf0c3"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
@@ -3592,7 +3592,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "366a8c9b430e45dcc5e6ba2dff7596a367480586bb3672c40916abf7fa0da69d"
+            "source_sha256": "1fb1c59f10c520c685a6460e4887af3ca2e831c7a06a7a3bd0f4044af4ee991b"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -8801,6 +8801,20 @@
                 "full"
             ],
             "source_sha256": "8f85a1c648de32d3cd97b3bb8dae1a58606e44a1cd613a3ba9c07acbc558b033"
+        },
+        {
+            "path": "server/app/common/value/installation/ApplicationSourceIdentity.php",
+            "target": "server/app/common/value/installation/ApplicationSourceIdentity.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "42fb20b95694baf360b98b205dcf5314078373e836a379f9a901bafdfcc2e6e3"
         },
         {
             "path": "server/app/common/value/installation/ServerReleaseIdentity.php",
@@ -22863,7 +22877,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c8a478882466c7acdff5eff342bf31ee52d35b3fbe5c41142d13fd46597ed418"
+            "source_sha256": "5c0130ffac5f7d15d2ce8bd4b3246c15aee9eb52e14a30cde31d58f8adb90644"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -24177,7 +24191,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d06d375e20dafe149aac8a1df36d11050585ff076ebaf5efe5b93713d50ae83"
+            "source_sha256": "90b27d3258db44954ad99e2990ee449a01ff423f653bb52ac107d87abae3da37"
         },
         {
             "path": "server/public/robots.txt",
