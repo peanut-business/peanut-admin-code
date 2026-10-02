@@ -158,7 +158,7 @@ function excluded(string $path): bool
             'scripts/release-metadata-version.cjs', 'scripts/continue-product-release',
             'scripts/tests/continue_product_release_test.py',
             'scripts/tests/release_metadata_version_test.py',
-            'scripts/tests/peanut-cli-test.py',
+            'scripts/tests/scaffold-recipe-ownership-transition-test.py',
             'scripts/prepare-product-release-candidate', 'scripts/tests/prepare_product_release_candidate_test.py',
             'scripts/deploy-release', 'scripts/ops-backup-worker', 'scripts/ops-restore-worker',
             'scripts/ops-upgrade-worker', 'scripts/ops-module-worker',

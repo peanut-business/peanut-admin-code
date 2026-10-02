@@ -641,7 +641,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9100347555c1271a29cdd91f287420fcf7146f62015ceb927708cf8091572157"
+            "source_sha256": "1df265059998b899f557a45950d0a254d7cb996adb7de1c1e00b961ee36ae857"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fba8c6cb1b2f2545fd3fed22e2207641d5d77486409f8c1a2fdd6bc42a4034e6"
+            "source_sha256": "9653fe380a36edc4be51f0abe21055892847b3cc984dba9f22edfa1ad56c50ea"
         },
         {
             "path": "docs/development/standard.md",
@@ -2494,118 +2494,6 @@
             "source_sha256": "6c5f33f3e29ea26b33f3a958de750e5f2d2f606e1cf2bb5bec5f648777868505"
         },
         {
-            "path": "recipes/catalog.json",
-            "target": "recipes/catalog.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "782aef02b8f76ee74c05892c5707edf16b2addc33f062b0d35967b8812a26be9"
-        },
-        {
-            "path": "recipes/github-ci/1.0.0/files/.github/workflows/ci.yml",
-            "target": "recipes/github-ci/1.0.0/files/.github/workflows/ci.yml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "939e9e8bb173110514fd3a1891dc483ced3d946e9f68fb2189a033a146b183be"
-        },
-        {
-            "path": "recipes/github-ci/1.0.0/files/.github/workflows/release.yml",
-            "target": "recipes/github-ci/1.0.0/files/.github/workflows/release.yml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5dc54a1a1a4f38faf42b8987732aa6958042e4b244c784c65a1694e274dca040"
-        },
-        {
-            "path": "recipes/github-ci/1.0.0/manifest.json",
-            "target": "recipes/github-ci/1.0.0/manifest.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c1ebc74c8d12f831ed3edecba263105592e39eb1977885d3b2a3fa24a9dc6819"
-        },
-        {
-            "path": "recipes/github-ci/1.1.0/files/.github/workflows/ci.yml",
-            "target": "recipes/github-ci/1.1.0/files/.github/workflows/ci.yml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "16cbf257bc981a578f39caa5cac6e0d57ee70ee43b471873d41749e4888a3920"
-        },
-        {
-            "path": "recipes/github-ci/1.1.0/files/.github/workflows/release.yml",
-            "target": "recipes/github-ci/1.1.0/files/.github/workflows/release.yml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ec1dd02f9c97260f6949d925990f984180c4e71590f701cf47cede687511b6cd"
-        },
-        {
-            "path": "recipes/github-ci/1.1.0/files/.github/workflows/toolchain.yml",
-            "target": "recipes/github-ci/1.1.0/files/.github/workflows/toolchain.yml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "439618a94043706e45edd0e5367b0423a628c016ad0e2deb9103b5313440a288"
-        },
-        {
-            "path": "recipes/github-ci/1.1.0/manifest.json",
-            "target": "recipes/github-ci/1.1.0/manifest.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2cf2923fc47a90fe49a188f29131ee4214e72440b7cad1789495473e024149d2"
-        },
-        {
             "path": "release-versions.json",
             "target": "release-versions.json",
             "classification": "managed",
@@ -3000,20 +2888,6 @@
                 "full"
             ],
             "source_sha256": "e9940c1eb9bd66ca734e2d5bf616d2043e8420229dbe1c9afabaa1d230995d08"
-        },
-        {
-            "path": "scripts/cli/RecipeManager.php",
-            "target": "scripts/cli/RecipeManager.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c2da8357a268b09023462cf87833fffdbcb8082da8adb5b2bfaeb63c8eb6a0df"
         },
         {
             "path": "scripts/client-environment.ts",
@@ -3471,20 +3345,6 @@
             "source_sha256": "510d31dbec40956d3ad81f73d122d4fa3b86cbc4e107ff13da368b78d6dcf65b"
         },
         {
-            "path": "scripts/peanut",
-            "target": "scripts/peanut",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2bc1cfade731a3af21ee5e7684ee56a86c3b79951fdfbe10128fe706087a1698"
-        },
-        {
             "path": "scripts/prepare-product-release-candidate",
             "target": "scripts/prepare-product-release-candidate",
             "classification": "excluded",
@@ -3578,7 +3438,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a36e32987baffba911359a17f5b72441c2d28ac29ef72629a8b80560be459f8"
+            "source_sha256": "07416a3475e612ef9639cd3f8b7f4974a3dcfc60d6f59f82b7572f2ec5324972"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -4219,19 +4079,6 @@
             "source_sha256": "e5ca47a646b5abe614919e5c4e772f4b167419dffe74e3004f72af7acb36bf21"
         },
         {
-            "path": "scripts/tests/peanut-cli-test.py",
-            "target": "scripts/tests/peanut-cli-test.py",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "scripts/tests/prepare_product_release_candidate_test.py",
             "target": "scripts/tests/prepare_product_release_candidate_test.py",
             "classification": "excluded",
@@ -4312,6 +4159,19 @@
                 "full"
             ],
             "source_sha256": "ccf0e6b8d9fb84fca177659ea4909c7ee8676cee117fc5c1ddd9a722b760f5d4"
+        },
+        {
+            "path": "scripts/tests/scaffold-recipe-ownership-transition-test.py",
+            "target": "scripts/tests/scaffold-recipe-ownership-transition-test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "scripts/tests/server-docker-layout-test.py",

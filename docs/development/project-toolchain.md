@@ -16,13 +16,13 @@
 python3 scripts/project-env requirements
 python3 scripts/project-env doctor
 python3 scripts/project-env prepare
-python3 scripts/project-env exec -- php scripts/peanut status
+python3 scripts/project-env exec -- peanut status
 python3 scripts/project-env exec -- bash scripts/package-release.sh /absolute/new-output --application-root=/absolute/application
 ```
 
 `requirements` 不需要本机配置，可供 CI 读取。`doctor` 只读检查；`prepare` 只在本项目 `.local/toolchain/project-env/` 建立薄命令入口及本项目临时目录，不安装第三方包。`exec` 只使用已经准备好的登记，不自动 prepare；子进程继承同一工具 PATH 和缓存，避免 PHP→Python→pnpm 再次选错版本。缺失、不符或登记改变时退出 2；成功 exec 后保留实际子命令退出码及原始标准输入/输出。首次 `prepare` 先创建项目临时目录，再执行工具版本探测，避免 pnpm 在不存在的 TMPDIR 上失败。`doctor` 遇到缺失的项目临时目录只报告需要显式准备，不创建目录；版本命令非零时报告实际子命令退出码及错误片段，不把错误栈中的依赖版本误当成工具版本。
 
-入口会创建工具入口，不是新的隔离系统或包管理器。命令本身仍具有调用者权限；选择已信任的配置和程序。不要用此入口绕过资源、测试、发布或部署授权。Peanut CLI 与这里的工具环境入口分工：CLI 负责业务命令，project-env 负责先给这些命令选对工具；不复制一套业务 CLI。
+入口会创建工具入口，不是新的隔离系统或包管理器。命令本身仍具有调用者权限；选择已信任的配置和程序。不要用此入口绕过资源、测试、发布或部署授权。Peanut CLI 是独立安装的全局工具；这里的 project-env 只负责为当前项目选择登记工具环境，并在对应 Node bin 已安装 `peanut` 时调用它，不再在 Peanut Admin 内复制业务 CLI。
 
 ## 速度与缓存
 
@@ -36,13 +36,13 @@ CI 安装工具的步骤先从 `requirements` 输出读取版本，再绑定 CI 
 
 下游交付约定是通过同一可变模板 inventory 接收 `scripts/project-env`、`tools/toolchain.json`、本机配置示例和本指南；公开 AGENTS 引导使用该入口。维护者必须先用原生生成器更新 inventory 并核对来源，之后正常生成应用；仅修改生成器或入口文档不代表已经完成交付。生成应用不携带真实 `host.json`、维护者资源或凭据，也不自动安装 GitHub 工作流。工具要求是可定制的 managed 文件，升级遇到本地修改沿既有冲突流程处理；历史应用不因模板更新被直接改写。
 
-`recipes/github-ci/1.1.0/` 是工具登记接入的本地源码候选，未运行 Actions、未通过新版本验收。当前 catalog 仍指向 `1.0.0`，`peanut recipe add github-ci` 仍按该默认版本工作，不会安装或升级到 `1.1.0`。激活新默认需要授权后完成相关回归及 CI 验证并明确切换 catalog；既有 Recipe 的 update/adoption 尚未实现，不能用 add、复制文件或更换 baseline 代替升级。
+`github-ci@1.1.0` 候选源码和 catalog 已归独立 `peanut-cli` 仓库管理；Peanut Admin 不再保存第二份 Recipe 源码。CLI `v0.1.0` 的 catalog 仍指向 `1.0.0`，`peanut recipe add github-ci` 不会自动升级既有 Recipe。激活新默认必须在 CLI 仓库完成相应回归及 CI 验证并发布新的 CLI/Recipe 版本；既有 Recipe 的 update/adoption 尚未实现，不能用 add、复制文件或更换 baseline 代替升级。
 
 新候选由手动触发的 `ci.yml`、`release.yml` 复用 `toolchain.yml`。后者只接受 `workflow_call`，统一读取 `project-env requirements`，按项目版本准备一次 Node、pnpm、PHP、Python 和固定 Composer，再生成 CI 自己的私有路径绑定并执行 prepare。后续命令均经 project-env，不继承维护者电脑路径。固定版本不可取得、实际版本或 PHP 扩展不符时失败，不自动放宽为最新版本。CI 引入的下载、依赖安装、编译及工件上传只有在后续获得执行授权并启动工作流时才发生。
 
 缓存只保存 pnpm/npm/Composer 包缓存，并按 runner 系统、架构、工具要求及依赖锁区分；不缓存 host.json、工具 shim、vendor、node_modules、凭据或数据库。CI 保留原有应用布局、后端语法与客户端构建步骤；server-only candidate 使用既有 package-release 入口，上传服务端归档和对应外部 manifest，不签名、不创建 Release、不部署。
 
-待验证：工具精确版本在 Linux Actions 中的供应、实际安装路径、缓存恢复、Recipe 三文件安装/重复/冲突、生成 APP 的入口闭合。当前 Python 与 PHP 精确版本来自本机登记，不代表已经证明 hosted runner 可以取得同版本。旧版 CLI 回归中固定 `1.0.0` 的断言和破坏样本路径须在获测试修改授权后随 catalog 切换同步处理，不能在本轮暗改或跳过。
+待验证：工具精确版本在 Linux Actions 中的供应、实际安装路径、缓存恢复、生成 APP 的入口闭合，以及独立 CLI Recipe 在真实 Actions 环境中的执行。当前 Python 与 PHP 精确版本来自本机登记，不代表已经证明 hosted runner 可以取得同版本。Recipe 安装/重复/冲突回归归 `peanut-cli` 仓库；Peanut Admin 只保留自身 scaffold 的归属迁移保护。
 
 ## 固定发行候选
 

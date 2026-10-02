@@ -138,7 +138,10 @@ def configuration(root: Path, host_path: Path) -> tuple:
 
 def environment(root: Path, host: dict, bin_path: Path) -> dict:
     env = dict(os.environ)
-    env["PATH"] = os.pathsep.join([str(bin_path), *host["extra_path"]])
+    # Keep the registered Node bin visible after the prepared shims so globally installed
+    # Node tools such as the independent Peanut CLI can be invoked without copying them here.
+    path_entries = [str(bin_path), str(Path(host["commands"]["node"][0]).parent), *host["extra_path"]]
+    env["PATH"] = os.pathsep.join(dict.fromkeys(path_entries))
     for name, variable in CACHE_ENV.items():
         for key in list(env):
             if key.lower() == variable.lower():
