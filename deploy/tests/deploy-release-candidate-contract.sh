@@ -287,8 +287,7 @@ upgrade_root="peanut-admin-4.0.0-dev-standalone-upgrade"
 upgrade_stage="$legacy_fixture/$upgrade_root"
 upgrade_archive="$legacy_fixture/$upgrade_root.tar.gz"
 upgrade_manifest="$upgrade_archive.manifest.json"
-upgrade_trust="$legacy_fixture/upgrade-trust.env"
-mkdir -p "$upgrade_stage/scripts/upgrade-runtime" "$upgrade_stage/target/files"
+mkdir -p "$upgrade_stage/META-INF" "$upgrade_stage/scripts/upgrade-runtime" "$upgrade_stage/target/files"
 printf '#!/usr/bin/env php\n' >"$upgrade_stage/scripts/scaffold-upgrade"
 chmod 755 "$upgrade_stage/scripts/scaffold-upgrade"
 printf '#!/usr/bin/env bash\nexit 1\n' >"$upgrade_stage/scripts/upgrade-runtime/product-upgrade-host"
@@ -297,7 +296,17 @@ printf '#!/usr/bin/env php\n' >"$upgrade_stage/scripts/upgrade-runtime/product-u
 chmod 755 "$upgrade_stage/scripts/upgrade-runtime/product-upgrade-database"
 printf 'name: candidate-upgrade-contract\n' >"$upgrade_stage/target/files/compose.yaml"
 printf '{}\n' >"$upgrade_stage/target/scaffold-manifest.json"
-printf '{"protocol":"peanut.edition-upgrade-package.v1"}\n' >"$upgrade_stage/upgrade-manifest.json"
+printf '{"schema_version":1,"protocol":"peanut.edition-upgrade-package.v1","build_source":{"commit":"%s","tree":"%s"},"target":{"version":"4.0.0-dev"}}\n' \
+  "$candidate_commit" "$candidate_tree" >"$upgrade_stage/upgrade-manifest.json"
+upgrade_inventory="$upgrade_stage/META-INF/files.sha256"
+: >"$upgrade_inventory"
+while IFS= read -r upgrade_file; do
+  upgrade_relative="${upgrade_file#"$upgrade_stage/"}"
+  upgrade_file_sha="$(shasum -a 256 "$upgrade_file" | awk '{print $1}')"
+  printf '%s\0%s\n' "$upgrade_relative" "$upgrade_file_sha" >>"$upgrade_inventory"
+done < <(find "$upgrade_stage" -type f ! -path "$upgrade_inventory" | LC_ALL=C sort)
+upgrade_inventory_sha="$(shasum -a 256 "$upgrade_inventory" | awk '{print $1}')"
+upgrade_package_manifest_sha="$(shasum -a 256 "$upgrade_stage/upgrade-manifest.json" | awk '{print $1}')"
 tar -czf "$upgrade_archive" -C "$legacy_fixture" "$upgrade_root"
 upgrade_sha="$(shasum -a 256 "$upgrade_archive" | awk '{print $1}')"
 upgrade_bytes="$(wc -c <"$upgrade_archive" | tr -d ' ')"
@@ -305,19 +314,19 @@ jq -n \
   --arg version 4.0.0-dev --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
   --arg filename "$(basename "$upgrade_archive")" --arg root "$upgrade_root" \
   --arg sha "$upgrade_sha" --argjson bytes "$upgrade_bytes" \
+  --arg inventory_sha "sha256:$upgrade_inventory_sha" \
+  --arg manifest_sha "sha256:$upgrade_package_manifest_sha" \
   '{schema_version:1,protocol:"peanut.edition-upgrade-artifact.v1",product:{version:$version},
     edition:{name:"standalone"},source:{commit:$commit,tree:$tree},
-    package:{signature_key_id:"peanut-contract-key"},
+    package:{inventory_sha256:$inventory_sha,manifest_sha256:$manifest_sha},
     archive:{filename:$filename,root:$root,sha256:$sha,bytes:$bytes}}' >"$upgrade_manifest"
-printf 'PEANUT_UPGRADE_TRUSTED_KEYS_JSON={"peanut-contract-key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}\n' >"$upgrade_trust"
-chmod 600 "$upgrade_trust"
 upgrade_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
   --target production --update \
   --upgrade-package="$upgrade_archive" --upgrade-manifest="$upgrade_manifest" \
-  --upgrade-trust-env="$upgrade_trust" --dry-run 2>&1)" || fail 'candidate upgrade dry-run was rejected'
+  --dry-run 2>&1)" || fail 'candidate upgrade dry-run was rejected'
 [[ "$upgrade_output" == *'deployment_artifact=upgrade'* \
-  && "$upgrade_output" == *'authenticate the signed upgrade package'* ]] \
-  || fail 'candidate upgrade plan did not select the signed upgrade lifecycle'
+  && "$upgrade_output" == *'validate the SHA-256 inventory'* ]] \
+  || fail 'candidate upgrade plan did not select the SHA-256 upgrade lifecycle'
 printf 'passed=candidate-upgrade-dry-run\n'
 
 compose_file="$ROOT_DIR/deploy/docker-compose.prod.yml"

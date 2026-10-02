@@ -21,16 +21,11 @@ ssh_alias="$(jq -r '.ssh_alias' <<<"$worker_json")"
 deployment_root="$(jq -r '.deployment_root' <<<"$worker_json")"
 target="$(jq -r '.deployment_target' <<<"$worker_json")"
 upgrade_artifact_directory="$(jq -r '.upgrade_artifact_directory // empty' <<<"$worker_json")"
-upgrade_trust_env="$(jq -r '.upgrade_trust_env // empty' <<<"$worker_json")"
 [[ "$project_root" == "$control_checkout" ]] || die 'run from the registered deployment-control checkout'
 [[ "$ssh_alias" == oracle3 && "$deployment_root" == /www/docker/peanut-admin && "$target" == production ]] \
   || die 'registered upgrade worker boundary is invalid'
 [[ "$upgrade_artifact_directory" == /* && -d "$upgrade_artifact_directory" && ! -L "$upgrade_artifact_directory" ]] \
   || die 'registered upgrade artifact directory is unavailable'
-[[ "$upgrade_trust_env" == /* && -f "$upgrade_trust_env" && ! -L "$upgrade_trust_env" ]] \
-  || die 'registered upgrade trust environment is unavailable'
-[[ "$(stat -c '%a %h' "$upgrade_trust_env")" == '600 1' ]] \
-  || die 'registered upgrade trust environment must have mode 0600 and one hard link'
 [[ -x "$project_root/scripts/deploy-release" ]] || die 'deploy-release owner is unavailable'
 git -C "$project_root" diff --quiet || die 'deployment-control checkout has unstaged changes'
 git -C "$project_root" diff --cached --quiet || die 'deployment-control checkout has staged changes'
@@ -98,12 +93,16 @@ upgrade_package="$upgrade_artifact_directory/$upgrade_basename"
 upgrade_manifest="$upgrade_package.manifest.json"
 [[ -f "$upgrade_package" && ! -L "$upgrade_package" \
   && -f "$upgrade_manifest" && ! -L "$upgrade_manifest" ]] \
-  || die 'task-bound signed upgrade artifact is unavailable'
+  || die 'task-bound upgrade artifact is unavailable'
 jq -e --arg version "$target_version" --arg commit "$target_commit" --arg tree "$target_tree" \
   '.protocol == "peanut.edition-upgrade-artifact.v1"
    and .product.version == $version and .edition.name == "standalone"
-   and .source.commit == $commit and .source.tree == $tree' \
-  "$upgrade_manifest" >/dev/null || die 'task-bound signed upgrade artifact identity is invalid'
+   and .source.commit == $commit and .source.tree == $tree
+   and (.package.inventory_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+   and (.package.manifest_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
+   and (.archive.sha256 | type == "string" and test("^[a-f0-9]{64}$"))
+   and (.archive.bytes | type == "number" and . > 0)' \
+  "$upgrade_manifest" >/dev/null || die 'task-bound upgrade artifact identity is invalid'
 
 failure_code='OPS_UPGRADE_PREFLIGHT_FAILED'
 heartbeat_pid=''
@@ -170,8 +169,7 @@ stop_heartbeat
 failure_code='OPS_UPGRADE_DEPLOYMENT_FAILED'
 "$project_root/scripts/deploy-release" "$target_release_key" --target production --update --apply \
   --expected-commit "$target_commit" --expected-tree "$target_tree" \
-  --upgrade-package "$upgrade_package" --upgrade-manifest "$upgrade_manifest" \
-  --upgrade-trust-env "$upgrade_trust_env"
+  --upgrade-package "$upgrade_package" --upgrade-manifest "$upgrade_manifest"
 
 failure_code='OPS_UPGRADE_SMOKE_FAILED'
 succeed_json="$(remote_upgrade succeed "$task_key" "$revision")"
