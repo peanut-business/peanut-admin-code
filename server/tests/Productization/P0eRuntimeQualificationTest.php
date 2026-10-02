@@ -36,10 +36,13 @@ $fixture = json_decode((string) file_get_contents($fixturePath), true, 512, JSON
 $registry = json_decode((string) file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
 $p0eRegistry = json_decode((string) file_get_contents($p0eRegistryPath), true, 512, JSON_THROW_ON_ERROR);
 $releaseMetadata = json_decode((string) file_get_contents($releaseMetadataPath), true, 512, JSON_THROW_ON_ERROR);
-$releaseVersion = ($releaseMetadata['schema_version'] ?? null) === 2
-    && ($releaseMetadata['protocol'] ?? null) === 'peanut.release-metadata.v2'
-    ? (string) ($releaseMetadata['instance_version'] ?? $releaseMetadata['source_product_version'] ?? '')
-    : (string) ($releaseMetadata['version'] ?? '');
+$expect(
+    ($releaseMetadata['schema_version'] ?? null) === 3
+    && ($releaseMetadata['protocol'] ?? null) === 'peanut.release-metadata.v3',
+    'release metadata contract changed',
+);
+$releaseVersion = (string) ($releaseMetadata['source_product_version'] ?? '');
+$expect($releaseVersion !== '', 'release metadata source product version is unavailable');
 $scaffoldManifestPath = $root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json';
 $scaffoldManifestText = (string) file_get_contents($scaffoldManifestPath);
 $scaffoldManifest = json_decode($scaffoldManifestText, true, 512, JSON_THROW_ON_ERROR);
