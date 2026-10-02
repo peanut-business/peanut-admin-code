@@ -103,12 +103,14 @@ final class ScaffoldUpgradeRunner
             'app_owned_pre_sha256' => $appOwnedState['digest'],
             'plugin_projection' => $pluginProjection,
         ];
-        $candidate = 'scaffold-' . substr(hash('sha256', self::canonicalJson([$identity, $actions])), 0, 24);
+        $planDigest = hash('sha256', self::canonicalJson([$identity, $actions]));
+        $candidate = 'scaffold-' . substr($planDigest, 0, 24);
         $status = $summary['conflicts'] === 0 ? 'ready' : 'blocked';
         return [
             'schema_version' => 2,
             'protocol' => 'peanut.scaffold-upgrade-plan.v2',
             'candidate' => $candidate,
+            'plan_sha256' => 'sha256:' . $planDigest,
             'status' => $status,
             'identity' => $identity,
             'manifest_paths' => ['from' => $from->path, 'to' => $to->path],
@@ -138,6 +140,39 @@ final class ScaffoldUpgradeRunner
             ));
         }
         return $plan + ['plan_path' => $this->relative($root, $path)];
+    }
+
+    /** Resolve every blocked managed-file conflict through an explicit preserve/replace decision. */
+    public function resolve(
+        string $projectRoot,
+        string $planPath,
+        string $confirmedPlanSha256,
+        array $preservePaths,
+        array $replacePaths,
+    ): array {
+        return $this->locked($projectRoot, function (string $root) use ($planPath, $confirmedPlanSha256, $preservePaths, $replacePaths): array {
+            $plan = $this->loadPlan($root, $planPath);
+            if (($plan['status'] ?? null) !== 'blocked') {
+                throw new RuntimeException('SCAFFOLD_RESOLUTION_PLAN_NOT_BLOCKED');
+            }
+            $this->assertPlanFresh($root, $plan);
+            $resolved = $this->resolveConflicts($plan, $confirmedPlanSha256, $preservePaths, $replacePaths);
+            $stateRoot = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades');
+            $path = $stateRoot . '/plans/' . $resolved['candidate'] . '.json';
+            $this->writeJsonAtomic($path, $resolved, 0600);
+            $ledger = new ScaffoldUpgradeLedger($stateRoot . '/ledger.ndjson');
+            if (!$this->hasEvent($ledger, $resolved['candidate'], 'resolve', 'ready')) {
+                $ledger->append($this->event(
+                    $resolved,
+                    'resolve',
+                    'ready',
+                    $resolved['identity']['managed_pre_sha256'],
+                    null,
+                    ['resolution' => $resolved['resolution']],
+                ));
+            }
+            return $resolved + ['plan_path' => $this->relative($root, $path)];
+        });
     }
 
     /** Build a metadata-only ownership-adoption plan from an authenticated formal package. */
@@ -1057,6 +1092,78 @@ final class ScaffoldUpgradeRunner
         return false;
     }
 
+    /** @param list<string> $preservePaths @param list<string> $replacePaths */
+    private function resolveConflicts(array $plan, string $confirmedPlanSha256, array $preservePaths, array $replacePaths): array
+    {
+        $actualPlanSha256 = 'sha256:' . hash('sha256', self::canonicalJson([$plan['identity'] ?? null, $plan['actions'] ?? null]));
+        if (!hash_equals($actualPlanSha256, $confirmedPlanSha256)
+            || (isset($plan['plan_sha256']) && !hash_equals((string) $plan['plan_sha256'], $actualPlanSha256))) {
+            throw new RuntimeException('SCAFFOLD_RESOLUTION_CONFIRMATION_MISMATCH');
+        }
+        foreach ([$preservePaths, $replacePaths] as $paths) {
+            if (array_filter($paths, static fn(mixed $path): bool => !is_string($path) || $path === '') !== []
+                || count(array_unique($paths)) !== count($paths)) {
+                throw new RuntimeException('SCAFFOLD_RESOLUTION_PATHS_INVALID');
+            }
+        }
+        $preservePaths = array_values($preservePaths);
+        $replacePaths = array_values($replacePaths);
+        sort($preservePaths, SORT_STRING);
+        sort($replacePaths, SORT_STRING);
+        if (array_intersect($preservePaths, $replacePaths) !== []) {
+            throw new RuntimeException('SCAFFOLD_RESOLUTION_PATHS_INVALID');
+        }
+        $conflictPaths = [];
+        foreach ($plan['actions'] as $action) {
+            if (($action['conflict'] ?? null) === true) {
+                $conflictPaths[] = (string) $action['path'];
+            }
+        }
+        sort($conflictPaths, SORT_STRING);
+        $confirmedPaths = [...$preservePaths, ...$replacePaths];
+        sort($confirmedPaths, SORT_STRING);
+        if ($confirmedPaths !== $conflictPaths) {
+            throw new RuntimeException('SCAFFOLD_RESOLUTION_PATHS_MISMATCH');
+        }
+        $preserve = array_fill_keys($preservePaths, true);
+        $replace = array_fill_keys($replacePaths, true);
+        $actions = $plan['actions'];
+        foreach ($actions as &$action) {
+            if (($action['conflict'] ?? null) !== true) {
+                continue;
+            }
+            $path = (string) $action['path'];
+            if (isset($preserve[$path])) {
+                $action['action'] = 'preserve';
+                $action['reason'] = 'conflict_preserve_confirmed';
+                $action['conflict'] = false;
+                continue;
+            }
+            if (!isset($replace[$path]) || !is_string($action['target_sha256'] ?? null)) {
+                throw new RuntimeException('SCAFFOLD_RESOLUTION_PATHS_MISMATCH');
+            }
+            $action['action'] = ($action['classification'] ?? null) === 'generated-managed' ? 'regenerate' : 'replace';
+            $action['reason'] = 'conflict_replace_confirmed';
+            $action['conflict'] = false;
+        }
+        unset($action);
+        $resolved = $plan;
+        $resolved['actions'] = $actions;
+        $resolved['status'] = 'ready';
+        $resolved['summary'] = $this->summary($actions);
+        $resolved['impact'] = $this->impact($actions);
+        $resolved['resolution'] = [
+            'from_candidate' => $plan['candidate'],
+            'from_plan_sha256' => $actualPlanSha256,
+            'preserve_paths' => $preservePaths,
+            'replace_paths' => $replacePaths,
+        ];
+        $digest = hash('sha256', self::canonicalJson([$resolved['identity'], $resolved['actions']]));
+        $resolved['candidate'] = 'scaffold-' . substr($digest, 0, 24);
+        $resolved['plan_sha256'] = 'sha256:' . $digest;
+        return $resolved;
+    }
+
     private function summary(array $actions): array
     {
         $summary = ['total' => count($actions), 'automatic' => 0, 'preserved' => 0, 'conflicts' => 0];
@@ -1354,8 +1461,10 @@ final class ScaffoldUpgradeRunner
         if (!is_array($data) || ($data['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2' || preg_match('/^scaffold-[a-f0-9]{24}$/D', (string) ($data['candidate'] ?? '')) !== 1) {
             throw new RuntimeException('SCAFFOLD_PLAN_INVALID');
         }
-        $expected = 'scaffold-' . substr(hash('sha256', self::canonicalJson([$data['identity'] ?? null,$data['actions'] ?? null])), 0, 24);
-        if (!hash_equals($expected, $data['candidate'])) {
+        $digest = hash('sha256', self::canonicalJson([$data['identity'] ?? null,$data['actions'] ?? null]));
+        $expected = 'scaffold-' . substr($digest, 0, 24);
+        if (!hash_equals($expected, $data['candidate'])
+            || (isset($data['plan_sha256']) && !hash_equals('sha256:' . $digest, (string) $data['plan_sha256']))) {
             throw new RuntimeException('SCAFFOLD_PLAN_CHECKSUM_DRIFT');
         }
         $expectedStatus = count(array_filter($data['actions'], static fn(array $action): bool => ($action['conflict'] ?? null) === true)) === 0 ? 'ready' : 'blocked';
@@ -1491,7 +1600,24 @@ final class ScaffoldUpgradeRunner
             (string) $plan['manifest_paths']['from'],
             (string) $plan['manifest_paths']['to'],
         );
-        if (!hash_equals((string) $expected['candidate'], (string) $plan['candidate'])) {
+        if (isset($plan['resolution'])) {
+            $resolution = $plan['resolution'];
+            if (!is_array($resolution)
+                || !hash_equals((string) ($resolution['from_candidate'] ?? ''), (string) $expected['candidate'])
+                || !hash_equals((string) ($resolution['from_plan_sha256'] ?? ''), (string) $expected['plan_sha256'])
+                || !is_array($resolution['preserve_paths'] ?? null)
+                || !is_array($resolution['replace_paths'] ?? null)) {
+                throw new RuntimeException('SCAFFOLD_PLAN_MANIFEST_REBIND_FAILED');
+            }
+            $expected = $this->resolveConflicts(
+                $expected,
+                (string) $expected['plan_sha256'],
+                $resolution['preserve_paths'],
+                $resolution['replace_paths'],
+            );
+        }
+        if (!hash_equals((string) $expected['candidate'], (string) $plan['candidate'])
+            || !hash_equals((string) $expected['plan_sha256'], (string) ($plan['plan_sha256'] ?? ''))) {
             throw new RuntimeException('SCAFFOLD_PLAN_MANIFEST_REBIND_FAILED');
         }
     }
