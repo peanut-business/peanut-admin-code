@@ -140,30 +140,28 @@
         {
             "path": ".github/workflows/ci.yml",
             "target": ".github/workflows/ci.yml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "ci",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "579857ab62d06a33bdc7c1062f8b0633697bc18576d41831e03dfeb02f4733f3"
+            ]
         },
         {
             "path": ".github/workflows/core-source-development.yml",
             "target": ".github/workflows/core-source-development.yml",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "b5d5fd551746e9535424d0cebb5e9c40480e2120250c9a4efde45e3e605de701"
+            ]
         },
         {
             "path": ".github/workflows/repository-policy.yml",
@@ -629,7 +627,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc5ce8e47c5d9db88e4dd45c8fac70cb7c30d4dbcb249db31c38be92376b370b"
+            "source_sha256": "41995fe0874ec1b98e04ad94966201eee482cf2730092b6f6d5228820b86fb6c"
+        },
+        {
+            "path": "docs/architecture/cli-and-recipes.md",
+            "target": "docs/architecture/cli-and-recipes.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "14aacff2a07c1dcfdd4cc1540c3ff4529dc3092b4ec933d06a6c75db4bffaf66"
         },
         {
             "path": "docs/architecture/default-delivery-and-ownership.md",
@@ -2468,6 +2480,62 @@
             "source_sha256": "6c5f33f3e29ea26b33f3a958de750e5f2d2f606e1cf2bb5bec5f648777868505"
         },
         {
+            "path": "recipes/catalog.json",
+            "target": "recipes/catalog.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "782aef02b8f76ee74c05892c5707edf16b2addc33f062b0d35967b8812a26be9"
+        },
+        {
+            "path": "recipes/github-ci/1.0.0/files/.github/workflows/ci.yml",
+            "target": "recipes/github-ci/1.0.0/files/.github/workflows/ci.yml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "939e9e8bb173110514fd3a1891dc483ced3d946e9f68fb2189a033a146b183be"
+        },
+        {
+            "path": "recipes/github-ci/1.0.0/files/.github/workflows/release.yml",
+            "target": "recipes/github-ci/1.0.0/files/.github/workflows/release.yml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5dc54a1a1a4f38faf42b8987732aa6958042e4b244c784c65a1694e274dca040"
+        },
+        {
+            "path": "recipes/github-ci/1.0.0/manifest.json",
+            "target": "recipes/github-ci/1.0.0/manifest.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c1ebc74c8d12f831ed3edecba263105592e39eb1977885d3b2a3fa24a9dc6819"
+        },
+        {
             "path": "release-versions.json",
             "target": "release-versions.json",
             "classification": "managed",
@@ -2862,6 +2930,20 @@
                 "full"
             ],
             "source_sha256": "e9940c1eb9bd66ca734e2d5bf616d2043e8420229dbe1c9afabaa1d230995d08"
+        },
+        {
+            "path": "scripts/cli/RecipeManager.php",
+            "target": "scripts/cli/RecipeManager.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c2da8357a268b09023462cf87833fffdbcb8082da8adb5b2bfaeb63c8eb6a0df"
         },
         {
             "path": "scripts/client-environment.ts",
@@ -3302,7 +3384,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1abf770b44a441b24b14f1e0a1ca8160efcb8a9a62205e97bcb5855e7eb10b26"
+            "source_sha256": "30901a7484f3fe85927566a7f14fc9ede0c56b2086013e2c230d4815bb9a021f"
         },
         {
             "path": "scripts/package-release.sh",
@@ -3317,6 +3399,20 @@
                 "full"
             ],
             "source_sha256": "510d31dbec40956d3ad81f73d122d4fa3b86cbc4e107ff13da368b78d6dcf65b"
+        },
+        {
+            "path": "scripts/peanut",
+            "target": "scripts/peanut",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2bc1cfade731a3af21ee5e7684ee56a86c3b79951fdfbe10128fe706087a1698"
         },
         {
             "path": "scripts/prepare-product-release-candidate",
@@ -3550,7 +3646,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "474dace7f54ce6a2e876edf3b9b220f93872e3614e120213737a70b2235fe746"
+            "source_sha256": "1488d35ba5e3e556fe523ec0c1228aaba6ba0b1c4882b63fe87988ea546bdac0"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldPathGuard.php",
@@ -3592,7 +3688,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1fb1c59f10c520c685a6460e4887af3ca2e831c7a06a7a3bd0f4044af4ee991b"
+            "source_sha256": "ff9d317bdd0d2d06c4a3c5097fefe7c195690a806b1d026c205670c9bf895405"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4008,7 +4104,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d5f3aefca41a6636fb1d4d9edd03e32ac4aff821fe8a5e0cb06ee25e042f1a90"
+            "source_sha256": "663425d9f900f8c8f50471db5726c42269cfdee2820b208f9d75f389b858ce9e"
         },
         {
             "path": "scripts/tests/pc-rendering-policy-test.mjs",
@@ -4037,6 +4133,19 @@
                 "full"
             ],
             "source_sha256": "e5ca47a646b5abe614919e5c4e772f4b167419dffe74e3004f72af7acb36bf21"
+        },
+        {
+            "path": "scripts/tests/peanut-cli-test.py",
+            "target": "scripts/tests/peanut-cli-test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "scripts/tests/prepare_product_release_candidate_test.py",

@@ -27,7 +27,7 @@ require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginLockRe
 final class ApplicationCreator
 {
     private const CLASSIFICATIONS = ['managed', 'generated-managed', 'app-owned', 'excluded'];
-    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'ci', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'plugins-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
+    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'plugins-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
     private const VARIABLES = ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'];
     private const PROFILES = ['minimal', 'standard', 'full'];
     private const WRITABLE_DIRECTORIES = [
@@ -577,7 +577,6 @@ final class ApplicationCreator
             'brand' => $this->brandManifest($parameters),
             'brand-asset' => $this->brandAsset((string) $entry['path'], $parameters),
             'changelog' => $this->render($this->changelog($parameters['APPLICATION_VERSION']), $parameters),
-            'ci' => $this->ciTransform($content),
             'docs-page' => $this->render($content, $parameters),
             'environment-guard' => $this->environmentGuard($content),
             'release-metadata' => $this->releaseMetadata($parameters),
@@ -779,82 +778,6 @@ final class ApplicationCreator
                 . '<circle cx="47.5" cy="47.5" r="5.5" fill="#34D399"/></svg>' . "\n";
         }
         return $this->textTransform((string) file_get_contents($this->sourcePath($path)), $parameters, $path);
-    }
-
-    private function ciTransform(string $content): string
-    {
-        return <<<'YAML'
-name: Application CI
-
-on:
-  pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-jobs:
-  layout:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify shipped application contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          for path in \
-            .peanut/application-manifest.json \
-            resources/project-resources.json \
-            server/composer.json server/composer.lock server/database/install.php \
-            scripts/project-composer scripts/upgrade \
-            web/package.json web/pnpm-lock.yaml; do
-            test -f "$path"
-          done
-          for client in platform pc uniapp; do
-            if test -d "$client"; then
-              test -f "$client/package.json"
-              test -f "$client/package-lock.json"
-            fi
-          done
-
-  php:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: json, mbstring, pdo_mysql, sodium
-          coverage: none
-      - name: Validate locked backend
-        working-directory: server
-        run: |
-          composer validate --strict
-          composer install --no-interaction --no-progress --prefer-dist --no-scripts
-          find app database -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
-  clients:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22.23.2'
-      - name: Build shipped clients from locked dependencies
-        shell: bash
-        env:
-          HUSKY: '0'
-        run: |
-          set -euo pipefail
-          (cd web && pnpm install --frozen-lockfile && pnpm run build)
-          if test -d platform; then (cd platform && npm ci && npm run build); fi
-          if test -d pc; then (cd pc && npm ci && npm run build); fi
-          if test -d uniapp; then (cd uniapp && npm ci && npm run build:h5); fi
-YAML;
     }
 
     private function environmentGuard(string $content): string
@@ -1081,14 +1004,7 @@ PHP;
             ],
             'resources' => [
                 'tooling' => [],
-                'databases' => [[
-                    'stable_resource_id' => $parameters['SLUG'] . '-mysql84-ci', 'purpose' => 'GitHub Actions server checks',
-                    'environments' => ['ci'], 'owner' => 'generated GitHub Actions workflow', 'host' => '127.0.0.1', 'port' => 3306,
-                    'database' => null, 'schema' => 'pa_ table prefix', 'namespace' => $parameters['SLUG'] . '-ci',
-                    'service_type' => 'mysql:8.4 service container', 'credential_ref' => 'ephemeral workflow environment variables',
-                    'data_source' => 'fresh ephemeral CI database', 'freshness_requirement' => 'new service container per job',
-                    'health_check' => 'mysqladmin ping', 'fallback' => 'none', 'cleanup_responsibility' => 'GitHub Actions job teardown',
-                ]],
+                'databases' => [],
                 'local_listeners' => [], 'containers' => [], 'optional_services' => [], 'backups' => [],
                 'external_services' => [],
                 'queues' => ['status' => 'not_registered'], 'object_storage' => ['status' => 'not_registered'],

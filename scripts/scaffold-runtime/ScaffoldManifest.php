@@ -105,6 +105,17 @@ final class ScaffoldManifest
         return (string) $this->data['release']['version'];
     }
 
+    /** Shared new-path decision; matching bytes alone do not grant ownership. */
+    public static function additionDecision(bool $present, bool $matchesOwnedTarget): array
+    {
+        if (!$present) {
+            return ['action' => 'create', 'reason' => 'new_managed_file', 'conflict' => false];
+        }
+        return $matchesOwnedTarget
+            ? ['action' => 'preserve', 'reason' => 'existing_matches_target', 'conflict' => false]
+            : ['action' => 'conflict', 'reason' => 'new_path_already_exists', 'conflict' => true];
+    }
+
     public function supportsApplicationVersion(): bool
     {
         return $this->data['protocol'] === 'peanut.scaffold-release.v3';

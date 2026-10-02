@@ -91,7 +91,7 @@ function excluded(string $path): bool
         return false;
     }
     // Repository delivery/editor settings do not belong to generated applications.
-    if (str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
+    if (str_starts_with($path, '.github/') || str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
         || str_starts_with($path, 'evidence/')
         || str_starts_with($path, 'deploy/tests/')) {
         return true;
@@ -127,6 +127,7 @@ function excluded(string $path): bool
             'docs/development/php-thinkphp-guidelines.md',
             'docs/development/current-code-lifecycle.md',
             'docs/architecture/overview.md',
+            'docs/architecture/cli-and-recipes.md',
             'docs/architecture/default-delivery-and-ownership.md',
             'docs/architecture/identity-organization-access.md',
             'docs/architecture/tenant-modules-and-data-scopes.md',
@@ -156,6 +157,7 @@ function excluded(string $path): bool
             'scripts/release-metadata-version.cjs', 'scripts/continue-product-release',
             'scripts/tests/continue_product_release_test.py',
             'scripts/tests/release_metadata_version_test.py',
+            'scripts/tests/peanut-cli-test.py',
             'scripts/prepare-product-release-candidate', 'scripts/tests/prepare_product_release_candidate_test.py',
             'scripts/deploy-release', 'scripts/ops-backup-worker', 'scripts/ops-restore-worker',
             'scripts/ops-upgrade-worker', 'scripts/ops-module-worker',
@@ -334,9 +336,6 @@ function transform(string $path, string $classification): string
     }
     if ($path === 'server/config/modules.php') {
         return 'modules-config';
-    }
-    if ($path === '.github/workflows/ci.yml') {
-        return 'ci';
     }
     if ($path === 'server/database/environment-guard.php') {
         return 'environment-guard';

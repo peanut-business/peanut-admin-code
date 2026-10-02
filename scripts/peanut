@@ -1,0 +1,164 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use app\common\validation\scaffold\ScaffoldPathGuard;
+use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
+use app\common\infrastructure\scaffold\Semver;
+use Peanut\Cli\RecipeManager;
+
+$toolRoot = dirname(__DIR__);
+require_once $toolRoot . '/scripts/scaffold-runtime/ScaffoldManifest.php';
+require_once $toolRoot . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
+require_once $toolRoot . '/scripts/scaffold-runtime/Semver.php';
+require_once $toolRoot . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
+require_once $toolRoot . '/scripts/cli/RecipeManager.php';
+
+function peanutUsage(): void
+{
+    echo "Peanut CLI 0.1.0\nUsage: peanut doctor|status [--path <application>]\n"
+        . "       peanut recipe list|status [<id>] [--path <application>]\n"
+        . "       peanut recipe add github-ci [--path <application>]\n"
+        . "Local files only. Recipe upgrades and create are not implemented in this MVP.\n";
+}
+
+function peanutOutput(array $result): void
+{
+    echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+}
+
+function peanutTool(string $name): bool
+{
+    foreach (explode(PATH_SEPARATOR, getenv('PATH') ?: '') as $directory) {
+        if ($directory !== '' && is_file($directory . '/' . $name) && is_executable($directory . '/' . $name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+try {
+    $arguments = [];
+    $path = null;
+    $raw = array_slice($argv, 1);
+    for ($i = 0; $i < count($raw); $i++) {
+        $argument = $raw[$i];
+        if ($argument === '--path' || str_starts_with($argument, '--path=')) {
+            if ($path !== null) {
+                throw new RuntimeException('PEANUT_DUPLICATE_PATH');
+            }
+            $path = $argument === '--path' ? ($raw[++$i] ?? '') : substr($argument, 7);
+            if ($path === '') {
+                throw new RuntimeException('PEANUT_PATH_REQUIRED');
+            }
+        } elseif (str_starts_with($argument, '-')) {
+            if (in_array($argument, ['--help', '-h'], true) && count($raw) === 1) {
+                peanutUsage();
+                exit(0);
+            }
+            throw new RuntimeException('PEANUT_OPTION_UNSUPPORTED');
+        } else {
+            $arguments[] = $argument;
+        }
+    }
+    if ($arguments === []) {
+        peanutUsage();
+        exit(0);
+    }
+    $root = ScaffoldPathGuard::projectRoot($path ?? (getcwd() ?: '.'));
+    $recipes = new RecipeManager($toolRoot);
+    $command = $arguments[0];
+    if ($command === 'recipe') {
+        $action = $arguments[1] ?? '';
+        $id = $arguments[2] ?? null;
+        if (count($arguments) > 3 || ($action === 'list' && $id !== null)) {
+            throw new RuntimeException('PEANUT_ARGUMENTS_INVALID');
+        }
+        if ($action === 'list') {
+            peanutOutput(['available' => $recipes->catalog()]);
+        } elseif ($action === 'status') {
+            $result = [];
+            foreach ($id === null ? array_keys($recipes->catalog()) : [$id] as $recipe) {
+                $result[] = $recipes->status($root, $recipe);
+            }
+            peanutOutput(['recipes' => $result]);
+        } elseif ($action === 'add' && $id !== null) {
+            peanutOutput($recipes->add($root, $id));
+        } else {
+            throw new RuntimeException('PEANUT_RECIPE_COMMAND_UNSUPPORTED');
+        }
+        exit(0);
+    }
+    if (count($arguments) !== 1 || !in_array($command, ['doctor', 'status'], true)) {
+        throw new RuntimeException('PEANUT_COMMAND_UNSUPPORTED');
+    }
+    $manifestPath = ScaffoldPathGuard::projectPath($root, '.peanut/application-manifest.json');
+    $application = file_exists($manifestPath) ? $recipes->application($root) : null;
+    if ($application === null && !is_file(ScaffoldPathGuard::projectPath($root, 'scaffold/application-template-inventory.json'))) {
+        throw new RuntimeException('APPLICATION_MANIFEST_REQUIRED');
+    }
+    $versionsPath = ScaffoldPathGuard::projectPath($root, 'release-versions.json');
+    ScaffoldPathGuard::existingFileWithin($root, $versionsPath, 'VERSION_CONTRACT_REQUIRED');
+    $versions = RecipeManager::json($versionsPath);
+    if (($versions['schema_version'] ?? null) !== 3 || ($versions['protocol'] ?? null) !== 'peanut.release-versions.v3') {
+        throw new RuntimeException('VERSION_CONTRACT_INVALID');
+    }
+    foreach (['source_product_version', 'scaffold_template', 'generated_instance_default'] as $key) {
+        if (!is_string($versions[$key] ?? null)) {
+            throw new RuntimeException('VERSION_CONTRACT_INVALID');
+        }
+        Semver::compare($versions[$key], $versions[$key]);
+    }
+    if (!array_key_exists('instance_version', $versions)) {
+        throw new RuntimeException('VERSION_CONTRACT_INVALID');
+    }
+    if ($versions['instance_version'] !== null) {
+        if (!is_string($versions['instance_version'])) {
+            throw new RuntimeException('VERSION_CONTRACT_INVALID');
+        }
+        Semver::compare($versions['instance_version'], $versions['instance_version']);
+    }
+    ReleaseDependencyIdentity::validate(
+        $versions['core_php'] ?? null,
+        $versions['core_web'] ?? null,
+        'VERSION_CONTRACT_CORE_PHP_INVALID',
+        'VERSION_CONTRACT_CORE_WEB_INVALID',
+    );
+    $recipeStates = [];
+    foreach (array_keys($recipes->catalog()) as $id) {
+        $recipeStates[] = $recipes->status($root, $id);
+    }
+    if ($command === 'status') {
+        peanutOutput(['cli_version' => '0.1.0', 'kind' => $application === null ? 'source_checkout' : 'application',
+            'application' => $application['application'] ?? null, 'scaffold' => $application['template'] ?? null,
+            'versions' => $versions, 'recipes' => $recipeStates,
+            'upgrade_state_present' => file_exists(ScaffoldPathGuard::projectPath($root, '.peanut/upgrades'))]);
+        exit(0);
+    }
+    $checks = ['php_8_3' => PHP_MAJOR_VERSION === 8 && PHP_MINOR_VERSION === 3];
+    foreach (['json', 'mbstring', 'pdo_mysql', 'sodium'] as $extension) {
+        $checks['php_extension_' . $extension] = extension_loaded($extension);
+    }
+    foreach (['node', 'npm', 'pnpm'] as $tool) {
+        $checks['tool_' . $tool] = peanutTool($tool);
+    }
+    foreach (['server/composer.json', 'server/composer.lock', 'web/package.json', 'web/pnpm-lock.yaml',
+        'plugins.lock', 'RELEASE_METADATA.json', 'resources/project-resources.json', 'scripts/project-composer', 'scripts/upgrade'] as $file) {
+        $target = ScaffoldPathGuard::projectPath($root, $file);
+        $checks[$file] = is_file($target);
+        if (is_file($target)) {
+            ScaffoldPathGuard::existingFileWithin($root, $target, 'DOCTOR_INPUT_INVALID');
+            if (str_ends_with($file, '.json') || str_ends_with($file, '.lock') && $file !== 'web/pnpm-lock.yaml') {
+                RecipeManager::json($target);
+            }
+        }
+    }
+    $checks['recipe_installation_complete'] = !in_array('recovery_required', array_column($recipeStates, 'status'), true);
+    $ok = !in_array(false, $checks, true);
+    peanutOutput(['status' => $ok ? 'ok' : 'incomplete', 'scope' => 'local tooling and metadata; no dependency install, network or runtime health check', 'checks' => $checks]);
+    exit($ok ? 0 : 1);
+} catch (Throwable $error) {
+    fwrite(STDERR, 'peanut: ' . $error->getMessage() . "\n");
+    exit(2);
+}

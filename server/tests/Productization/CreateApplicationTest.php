@@ -765,20 +765,7 @@ try {
     symlink($temporary . '/outside-parent', $temporary . '/linked-parent');
     createApplicationFails(fn() => $creator->create('Acme Console', 'acme-console', 'acme/acme-console', $temporary . '/linked-parent/escape', 'multi-tenant', null, 'full'), 'CREATE_APP_TARGET_SYMLINK_REJECTED');
 
-    $generatedCi = (string) file_get_contents($first . '/.github/workflows/ci.yml');
-    createApplicationExpect(
-        str_contains($generatedCi, 'name: Application CI')
-            && str_contains($generatedCi, 'composer validate --strict')
-            && str_contains($generatedCi, 'pnpm install --frozen-lockfile')
-            && str_contains($generatedCi, 'npm ci')
-            && !str_contains($generatedCi, 'stale-facts:')
-            && !str_contains($generatedCi, 'create-app:')
-            && !str_contains($generatedCi, 'ci-server-check')
-            && !str_contains($generatedCi, 'check-test-integrity')
-            && !str_contains($generatedCi, 'consumer-module-reference-chain')
-            && !str_contains($generatedCi, 'plugin-contribution.test.ts'),
-        'generated CI must use only shipped application build inputs',
-    );
+    createApplicationExpect(!is_dir($first . '/.github'), 'default application must remain CI-platform independent');
     $generatedReadme = (string) file_get_contents($first . '/README.md');
     createApplicationExpect(
         str_contains($generatedReadme, '`server/app/modules/custom/`')

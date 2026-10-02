@@ -662,6 +662,12 @@ final class ScaffoldUpgradeRunner
                 continue;
             }
             if ($after === null) {
+                // Platform files from older baselines need an explicit ownership
+                // transition; removing them from the neutral template is not deletion consent.
+                if (str_starts_with($path, '.github/')) {
+                    $actions[] = $this->action($path, $before ?? [], 'conflict', 'recipe_ownership_transition_required', true, $current, null);
+                    continue;
+                }
                 if (!$current['present']) {
                     $actions[] = $this->action($path, $before ?? [], 'conflict', 'managed_file_missing', true, $current, null);
                     continue;
@@ -678,14 +684,12 @@ final class ScaffoldUpgradeRunner
             $targetContent = $this->renderCurrentVersionArtifact($to, $after, $targetParameters, $versionContract);
             $targetDigest = hash('sha256', $targetContent);
             if ($before === null) {
-                if (!$current['present']) {
-                    $actions[] = $this->action($path, $after, 'create', 'new_managed_file', false, $current, $targetDigest);
-                } elseif ($this->renderedContentMatches($root, $path, $current, $targetContent)
-                    && ($current['mode'] ?? null) === ($after['mode'] ?? null)) {
-                    $actions[] = $this->action($path, $after, 'preserve', 'existing_matches_target', false, $current, $targetDigest);
-                } else {
-                    $actions[] = $this->action($path, $after, 'conflict', 'new_path_already_exists', true, $current, $targetDigest);
-                }
+                $decision = ScaffoldManifest::additionDecision(
+                    $current['present'],
+                    $this->renderedContentMatches($root, $path, $current, $targetContent)
+                        && ($current['mode'] ?? null) === ($after['mode'] ?? null),
+                );
+                $actions[] = $this->action($path, $after, $decision['action'], $decision['reason'], $decision['conflict'], $current, $targetDigest);
                 continue;
             }
             $oldContent = $this->renderArtifact($from, $before, $fromParameters);
