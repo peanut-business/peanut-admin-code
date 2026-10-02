@@ -219,7 +219,7 @@ $expect(str_contains($runnerSource, '--formal-release-adoption'), 'consumer Modu
 $expect(str_contains($runnerSource, 'consumer_module_cycle'), 'consumer Module lifecycle does not own a length-safe isolated database scenario');
 $expect(str_contains($runnerSource, 'passed != required'), 'Gate completion closure is not enforced');
 $expect(str_contains($runnerSource, 'preflight_database_admin_tooling'), 'remote database administration does not fail fast');
-$expect(str_contains($runnerSource, 'registered database credential is missing or ambiguous: DB_ROOT_PASS'), 'remote administration does not fail closed on a missing registered root credential');
+$expect(str_contains($runnerSource, 'registered database credential is missing or ambiguous: MYSQL_ROOT_PASSWORD'), 'remote administration does not fail closed on a missing registered root credential');
 $expect(str_contains($runnerSource, '--defaults-extra-file="$path"'), 'remote administration does not use a container-private MySQL option file');
 $expect(str_contains($runnerSource, "trap 'rm -f -- ") && str_contains($runnerSource, 'EXIT HUP INT TERM'), 'remote administration does not clean its container-private credential file');
 $expect(!str_contains($runnerSource, 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD"'), 'remote administration still depends on the container MYSQL_ROOT_PASSWORD environment');

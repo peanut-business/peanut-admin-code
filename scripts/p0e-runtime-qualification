@@ -831,9 +831,9 @@ class Runner:
             'test "$(/usr/bin/stat -f %u "$credential")" = "$(/usr/bin/id -u)"; '
             'test "$(/usr/bin/stat -f %Lp "$credential")" = 600; '
             'test "$(/usr/bin/stat -f %l "$credential")" = 1; '
-            'count=$(/usr/bin/awk -F= \'$1 == "DB_ROOT_PASS" && length(substr($0, index($0, "=") + 1)) > 0 { count++ } END { print count + 0 }\' "$credential"); '
-            'test "$count" -eq 1 || { printf "%s\\n" "registered database credential is missing or ambiguous: DB_ROOT_PASS" >&2; exit 65; }; '
-            'root=$(/usr/bin/awk -F= \'$1 == "DB_ROOT_PASS" { sub(/^[^=]*=/, ""); print; exit }\' "$credential"); '
+            'count=$(/usr/bin/awk -F= \'$1 == "MYSQL_ROOT_PASSWORD" && length(substr($0, index($0, "=") + 1)) > 0 { count++ } END { print count + 0 }\' "$credential"); '
+            'test "$count" -eq 1 || { printf "%s\\n" "registered database credential is missing or ambiguous: MYSQL_ROOT_PASSWORD" >&2; exit 65; }; '
+            'root=$(/usr/bin/awk -F= \'$1 == "MYSQL_ROOT_PASSWORD" { sub(/^[^=]*=/, ""); print; exit }\' "$credential"); '
             '{ printf "%s\\n" "$root"; /bin/cat; } | '
             '"$docker" exec -i "$container" /bin/sh -ceu "$payload" p0e-mysql "$client" "$database"'
         )
