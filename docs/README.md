@@ -5,6 +5,7 @@
 ## 开发约定
 
 - [应用开发约定](development/application-conventions.md)
+- [项目工具登记、本机准备与可选 CI](development/project-toolchain.md)
 - [Controller 与命名空间](development/controller-access-and-namespaces.md)
 - [开发者中心与文档](development/developer-center-and-documentation.md)
 - [PHP / ThinkPHP 开发规范](development/php-thinkphp-guidelines.md)

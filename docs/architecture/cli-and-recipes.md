@@ -2,6 +2,8 @@
 
 状态：已批准的架构；CLI MVP 0.1.0。初始官方 Recipe 为 `github-ci@1.0.0`。
 
+工具登记集成候选：`github-ci@1.1.0` 已有本地源码，但 catalog 默认仍为 `1.0.0`，未运行新版本测试或 Actions。候选通过三个 workflow 复用一套项目工具要求，保留只读权限、手动启动与现有 baseline 保护；准备、缓存和激活 Gate 见[项目工具指南](../development/project-toolchain.md#下游应用与可选-ci)。本轮不修改 `1.0.0` 的模板、manifest 或已安装状态。
+
 ## 1. 职责
 
 Core Scaffold 是平台无关的应用底座，交付后端、客户端、模块、原生依赖锁、安装、发行、升级及公开开发资料。新派生 APP 默认不生成 `.github/`，资源登记不预设 GitHub Actions 数据库。源码仓自身的 GitHub 工作流保持其维护者职责。

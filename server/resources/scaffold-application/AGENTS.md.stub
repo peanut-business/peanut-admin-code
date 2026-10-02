@@ -8,6 +8,14 @@ Read [the development standard](docs/development/standard.md), then locate the r
 
 Confirm the actual checkout, branch, worktree changes and installed dependency paths before editing. Preserve existing work and use a separate feature branch or worktree for source changes. Never overwrite unrelated changes or force shared history. A change request does not implicitly authorize publication, deployment, paid operations, or changes to customer data.
 
+## Project tool environment
+
+Read [the project toolchain guide](docs/development/project-toolchain.md). `tools/toolchain.json` owns the project tool requirements; `.local/toolchain/host.json` privately binds this machine's installed programs and caches using `tools/toolchain.local.example.json`. Do not commit machine paths or credentials. pnpm and Composer requirements come from their existing version authorities, not duplicated guesses.
+
+Use `python3 scripts/project-env requirements` to read requirements, explicitly `prepare` the registered local environment, then run authorized commands through `python3 scripts/project-env exec -- ...`. `doctor` is read-only and may request preparation; neither doctor nor exec installs missing tools. Preparation is not permission to test, build, start services or publish. Preserve downstream toolchain edits with the normal managed-file conflict process.
+
+GitHub CI is optional and separately versioned through Recipes; this application does not need GitHub or a maintainer's private repository. The toolchain guide distinguishes the catalog default from a pending Recipe version. Do not overwrite existing workflows or Recipe baselines to adopt an update.
+
 ## Source and dependency boundaries
 
 The backend application and business modules live under `server/`; `web`, `platform`, `pc` and `uniapp` are distinct clients when included in this application profile. Module dependencies, public capabilities, routes and frontend contributions come from the checked-in declarations. Cross-module calls use explicitly exported operations or stable results, not another module's internal Models, repositories or private tables. Reuse the existing container, ORM, authorization, errors, tasks and upgrade mechanism rather than introducing parallel frameworks.

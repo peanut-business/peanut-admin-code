@@ -126,6 +126,7 @@ function excluded(string $path): bool
             'docs/development/developer-center-and-documentation.md',
             'docs/development/php-thinkphp-guidelines.md',
             'docs/development/current-code-lifecycle.md',
+            'docs/development/project-toolchain.md',
             'docs/architecture/overview.md',
             'docs/architecture/cli-and-recipes.md',
             'docs/architecture/default-delivery-and-ownership.md',
