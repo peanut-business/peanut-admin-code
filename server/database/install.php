@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use app\common\value\installation\ApplicationReleaseVersions;
+use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\common\value\scaffold\EditionProfile;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
@@ -259,6 +260,9 @@ function installationTenantBootstrapContract(string $serverDir): array
     if (file_exists($serverIdentity) || is_link($serverIdentity)) {
         $identity = ServerReleaseIdentity::load($serverDir);
         $contract = $identity->tenantBootstrapContract($mode);
+    } elseif (file_exists($manifestPath) || is_link($manifestPath)) {
+        $identity = ApplicationSourceIdentity::load($serverDir);
+        $contract = $identity->tenantBootstrapContract($mode);
     } elseif (installationSourceDevelopmentMode($serverDir)) {
         $inventoryPath = $projectRoot . '/scaffold/application-template-inventory.json';
         $profilePath = $projectRoot . '/scaffold/edition-profiles.json';
@@ -266,31 +270,6 @@ function installationTenantBootstrapContract(string $serverDir): array
             throw new RuntimeException('INSTALL_EDITION_MANIFEST_MISSING');
         }
         $contract = EditionProfile::load($profilePath, $mode)->identity()['tenant_bootstrap'];
-    } elseif (file_exists($manifestPath) || is_link($manifestPath)) {
-        if (!is_file($manifestPath) || is_link($manifestPath)) {
-            throw new RuntimeException('INSTALL_EDITION_MANIFEST_INVALID');
-        }
-        try {
-            $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new RuntimeException('INSTALL_EDITION_MANIFEST_INVALID', 0, $exception);
-        }
-        if (!is_array($manifest)
-            || ($manifest['schema_version'] ?? null) !== 2
-            || ($manifest['protocol'] ?? null) !== 'peanut.application-scaffold.v2'
-            || ($manifest['application']['edition'] ?? null) !== $mode
-            || ($manifest['edition']['name'] ?? null) !== $mode
-            || ($manifest['edition']['deployment_mode'] ?? null) !== $mode
-            || !is_string($manifest['edition']['source_sha256'] ?? null)
-            || !hash_equals(
-                $manifest['edition']['source_sha256'],
-                (string) (isset($manifest['last_scaffold_upgrade'])
-                    ? ($manifest['last_scaffold_upgrade']['edition_profile_sha256'] ?? '')
-                    : ($manifest['generation_source']['edition_profile_sha256'] ?? '')),
-            )) {
-            throw new RuntimeException('INSTALL_EDITION_MANIFEST_INVALID');
-        }
-        $contract = $manifest['edition']['tenant_bootstrap'] ?? null;
     } else {
         throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
     }

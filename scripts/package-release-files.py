@@ -256,6 +256,15 @@ def application_git(root: Path, manifest: dict, generated_template: bool) -> tup
     return commit, tree, tracked, blobs, git_hash
 
 
+def validate_release_metadata(source: Path, manifest: dict, versions: dict) -> None:
+    metadata = document(source, 'RELEASE_METADATA.json')
+    application = manifest.get('application', {})
+    if metadata.get('source_product_version') != versions.get('source_product_version') \
+            or metadata.get('instance_version') != application.get('version') \
+            or metadata.get('application_identity') != application.get('package_identity'):
+        raise ValueError('application release metadata differs from application identity')
+
+
 def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, dict]:
     if target.exists() or target.is_symlink():
         raise ValueError('snapshot destination must not exist')
@@ -289,7 +298,8 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
     for client in CLIENTS:
         if not any(p.startswith(client + '/') and p.endswith(('.vue', '.ts', '.js')) for p in paths):
             raise ValueError(f'frontend development source is missing: {client}')
-    released_dependencies(root)
+    versions = released_dependencies(root)
+    validate_release_metadata(root, manifest, versions)
     if not set(paths).issubset(tracked):
         raise ValueError('application ownership manifest names uncommitted files')
     target.mkdir(parents=True)
@@ -541,12 +551,8 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
     if identity_file.exists():
         raise ValueError('application source already contains a server release identity')
     metadata = server / '.peanut/RELEASE_METADATA.json'
-    metadata_source = document(source, 'RELEASE_METADATA.json')
+    validate_release_metadata(source, manifest, versions)
     application = manifest['application']
-    if metadata_source.get('source_product_version') != versions['source_product_version'] \
-            or metadata_source.get('instance_version') != application['version'] \
-            or metadata_source.get('application_identity') != application['package_identity']:
-        raise ValueError('application release metadata differs from application identity')
     metadata.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(regular_file(source, 'RELEASE_METADATA.json'), metadata)
     metadata.chmod(0o644)
