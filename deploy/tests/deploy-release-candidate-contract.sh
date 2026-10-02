@@ -187,6 +187,10 @@ printf 'passed=legacy-secret-conflict\n'
 candidate_commit="$(git rev-parse HEAD)"
 candidate_tree="$(git rev-parse HEAD^{tree})"
 candidate_sha="$(printf '%s' "$candidate_commit" | cut -c1-12)"
+candidate_version="$(git show "$candidate_commit:release-versions.json" | jq -r '.source_product_version // empty')"
+candidate_scaffold_version="$(git show "$candidate_commit:release-versions.json" | jq -r '.scaffold_template // empty')"
+[[ -n "$candidate_version" && -n "$candidate_scaffold_version" ]] \
+  || fail 'candidate release versions are unavailable'
 valid_env="$(mktemp /tmp/peanut-candidate-contract-env.XXXXXX)"
 trap 'rm -rf -- "$legacy_fixture"; rm -f -- "$valid_env"' EXIT
 chmod 600 "$valid_env"
@@ -241,8 +245,8 @@ valid_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="
   --target production --install \
   --env-file="$valid_env" --dry-run 2>&1)" || fail 'valid candidate dry-run was rejected'
 [[ "$valid_output" == *'deployment_identity=candidate'* ]] || fail 'candidate identity was not printed'
-[[ "$valid_output" == *'product_version=4.0.0-dev'* ]] || fail 'candidate product version was not preserved'
-[[ "$valid_output" == *'schema_source=4.0.0-dev'* ]] || fail 'candidate scaffold migration target was not preserved'
+[[ "$valid_output" == *"product_version=$candidate_version"* ]] || fail 'candidate product version was not preserved'
+[[ "$valid_output" == *"schema_source=$candidate_scaffold_version"* ]] || fail 'candidate scaffold migration target was not preserved'
 [[ "$valid_output" != *'schema_source=3.1.0'* ]] || fail 'candidate dry-run used the old release metadata as its migration target'
 rg -Fq 'release-versions.scaffold_template' "$SCRIPT" \
   || fail 'candidate receipt does not identify the scaffold migration authority'
@@ -256,7 +260,7 @@ expect_fail 'candidate fresh requires Edition package' \
   --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" \
   --env-file="$valid_env" --dry-run
 
-edition_root="peanut-admin-4.0.0-dev-standalone"
+edition_root="peanut-admin-$candidate_version-standalone"
 edition_stage="$legacy_fixture/$edition_root"
 edition_archive="$legacy_fixture/$edition_root.tar.gz"
 edition_manifest="$edition_archive.manifest.json"
@@ -266,7 +270,7 @@ tar -czf "$edition_archive" -C "$legacy_fixture" "$edition_root"
 edition_sha="$(shasum -a 256 "$edition_archive" | awk '{print $1}')"
 edition_bytes="$(wc -c <"$edition_archive" | tr -d ' ')"
 jq -n \
-  --arg version 4.0.0-dev --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
+  --arg version "$candidate_version" --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
   --arg filename "$(basename "$edition_archive")" --arg root "$edition_root" \
   --arg sha "$edition_sha" --argjson bytes "$edition_bytes" \
   '{schema_version:1,protocol:"peanut.edition-installer.v1",product:{version:$version},
@@ -283,7 +287,7 @@ edition_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree
   || fail 'candidate Edition artifact identity was not selected'
 printf 'passed=candidate-edition-dry-run\n'
 
-upgrade_root="peanut-admin-4.0.0-dev-standalone-upgrade"
+upgrade_root="peanut-admin-$candidate_version-standalone-upgrade"
 upgrade_stage="$legacy_fixture/$upgrade_root"
 upgrade_archive="$legacy_fixture/$upgrade_root.tar.gz"
 upgrade_manifest="$upgrade_archive.manifest.json"
@@ -296,8 +300,8 @@ printf '#!/usr/bin/env php\n' >"$upgrade_stage/scripts/upgrade-runtime/product-u
 chmod 755 "$upgrade_stage/scripts/upgrade-runtime/product-upgrade-database"
 printf 'name: candidate-upgrade-contract\n' >"$upgrade_stage/target/files/compose.yaml"
 printf '{}\n' >"$upgrade_stage/target/scaffold-manifest.json"
-printf '{"schema_version":1,"protocol":"peanut.edition-upgrade-package.v1","build_source":{"commit":"%s","tree":"%s"},"target":{"version":"4.0.0-dev"}}\n' \
-  "$candidate_commit" "$candidate_tree" >"$upgrade_stage/upgrade-manifest.json"
+printf '{"schema_version":1,"protocol":"peanut.edition-upgrade-package.v1","build_source":{"commit":"%s","tree":"%s"},"target":{"version":"%s"}}\n' \
+  "$candidate_commit" "$candidate_tree" "$candidate_version" >"$upgrade_stage/upgrade-manifest.json"
 upgrade_inventory="$upgrade_stage/META-INF/files.sha256"
 : >"$upgrade_inventory"
 while IFS= read -r upgrade_file; do
@@ -311,7 +315,7 @@ tar -czf "$upgrade_archive" -C "$legacy_fixture" "$upgrade_root"
 upgrade_sha="$(shasum -a 256 "$upgrade_archive" | awk '{print $1}')"
 upgrade_bytes="$(wc -c <"$upgrade_archive" | tr -d ' ')"
 jq -n \
-  --arg version 4.0.0-dev --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
+  --arg version "$candidate_version" --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
   --arg filename "$(basename "$upgrade_archive")" --arg root "$upgrade_root" \
   --arg sha "$upgrade_sha" --argjson bytes "$upgrade_bytes" \
   --arg inventory_sha "sha256:$upgrade_inventory_sha" \
