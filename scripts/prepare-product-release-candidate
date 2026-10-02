@@ -43,6 +43,12 @@ CLIENT_CORE_PACKAGES = {
     "pc": ("@peanut-admin/client", "@peanut-admin/nuxt"),
     "uniapp": ("@peanut-admin/client", "@peanut-admin/uniapp"),
 }
+RELEASE_DELTA = (
+    "Adopts the published fixed PHP Core and Web Core package identities recorded in "
+    "public_runtime_dependencies, separates source product identity from customer-owned "
+    "instance identity, and prepares one-source deterministic Standalone and Multi-tenant "
+    "scaffold inputs."
+)
 SEMVER = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
     r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
@@ -446,6 +452,7 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
             "scaffold_version": product_version,
             "application_initial_version": read_json(ROOT / "release-versions.json")["generated_instance_default"],
             "evidence": "P1 prerelease candidate identity is prepared from public Core registry locks; qualification remains pending.",
+            "release_delta": RELEASE_DELTA,
         }
     )
     write_json(ROOT / "RELEASE_METADATA.json", data)

@@ -261,6 +261,9 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
             versions["core_web"]["packages"]["@peanut-admin/client"]["resolved"],
             self.registry["@peanut-admin/client"]["resolved"],
         )
+        metadata = candidate.read_json(self.root / "RELEASE_METADATA.json")
+        self.assertEqual(metadata["technical_qualification"]["release_delta"], candidate.RELEASE_DELTA)
+        self.assertNotIn("3.1.0", metadata["technical_qualification"]["release_delta"])
 
     def test_rejects_native_lock_disagreement(self) -> None:
         self.write_native_locks()
@@ -286,7 +289,7 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
             (self.root / relative).write_text(f"current {relative}\n", encoding="utf-8")
         self.write_json("RELEASE_METADATA.json", {
             "legal_files": {relative: "0" * 64 for relative in candidate.LEGAL_FILES},
-            "technical_qualification": {"result": "pending"},
+            "technical_qualification": {"result": "pending", "release_delta": "stale Core 3.1.0 description"},
         })
 
     def test_prepare_refreshes_required_legal_file_hashes(self) -> None:
