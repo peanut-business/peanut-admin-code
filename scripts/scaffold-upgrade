@@ -11,21 +11,6 @@ require $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
 require $root . '/scripts/scaffold-runtime/Semver.php';
-foreach ([
-    ['/server/app/platform/exception/plugin/PluginLifecycleException.php', '/scripts/upgrade-runtime/PluginLifecycleException.php'],
-    ['/server/app/platform/value/plugin/PluginDescriptor.php', '/scripts/upgrade-runtime/PluginDescriptor.php'],
-    ['/server/app/platform/infrastructure/plugin/PluginLockResolver.php', '/scripts/upgrade-runtime/PluginLockResolver.php'],
-] as $candidates) {
-    foreach ($candidates as $candidate) {
-        if (is_file($root . $candidate)) {
-            require_once $root . $candidate;
-            continue 2;
-        }
-    }
-    throw new RuntimeException('SCAFFOLD_UPGRADE_RUNTIME_MISSING');
-}
-require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
-require $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
 
 function usage(): never
 {
@@ -105,6 +90,28 @@ sort($actualOptions, SORT_STRING);
 if ($actualOptions !== $allowedOptions) {
     usage();
 }
+
+$projectRoot = \app\common\validation\scaffold\ScaffoldPathGuard::projectRoot($options['project-root']);
+$installedAutoload = $projectRoot . '/server/vendor/autoload.php';
+if (!is_file($installedAutoload)) {
+    throw new RuntimeException('SCAFFOLD_UPGRADE_DEPENDENCIES_MISSING');
+}
+require_once $installedAutoload;
+foreach ([
+    ['/server/app/platform/exception/plugin/PluginLifecycleException.php', '/scripts/upgrade-runtime/PluginLifecycleException.php'],
+    ['/server/app/platform/value/plugin/PluginDescriptor.php', '/scripts/upgrade-runtime/PluginDescriptor.php'],
+    ['/server/app/platform/infrastructure/plugin/PluginLockResolver.php', '/scripts/upgrade-runtime/PluginLockResolver.php'],
+] as $candidates) {
+    foreach ($candidates as $candidate) {
+        if (is_file($root . $candidate)) {
+            require_once $root . $candidate;
+            continue 2;
+        }
+    }
+    throw new RuntimeException('SCAFFOLD_UPGRADE_RUNTIME_MISSING');
+}
+require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
+require $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
 
 try {
     $runner = new ScaffoldUpgradeRunner();
