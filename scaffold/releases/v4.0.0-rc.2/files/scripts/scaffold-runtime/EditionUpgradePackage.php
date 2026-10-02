@@ -317,8 +317,7 @@ final class EditionUpgradePackage
             || !is_int($edition['generator_version'] ?? null)
             || ($edition['module_profile'] ?? null) !== 'official-default'
             || ($edition['tenant_bootstrap'] ?? null) !== $expectedBootstrap
-            || !in_array($edition['schema_projection'] ?? null, ['single-organization-v1', 'tenant-owned-v1'], true)
-            || (($edition['name'] === 'standalone') !== ($edition['schema_projection'] === 'single-organization-v1'))) {
+            || ($edition['schema_projection'] ?? null) !== 'tenant-owned-v1') {
             throw new RuntimeException('EDITION_UPGRADE_EDITION_CONTRACT_INVALID');
         }
         return $edition;
