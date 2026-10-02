@@ -20,7 +20,7 @@ python3 scripts/project-env exec -- php scripts/peanut status
 python3 scripts/project-env exec -- bash scripts/package-release.sh /absolute/new-output --application-root=/absolute/application
 ```
 
-`requirements` 不需要本机配置，可供 CI 读取。`doctor` 只读检查；`prepare` 只在本项目 `.local/toolchain/project-env/` 建立薄命令入口及本项目临时目录，不安装第三方包。`exec` 只使用已经准备好的登记，不自动 prepare；子进程继承同一工具 PATH 和缓存，避免 PHP→Python→pnpm 再次选错版本。缺失、不符或登记改变时退出 2；成功 exec 后保留实际子命令退出码及原始标准输入/输出。
+`requirements` 不需要本机配置，可供 CI 读取。`doctor` 只读检查；`prepare` 只在本项目 `.local/toolchain/project-env/` 建立薄命令入口及本项目临时目录，不安装第三方包。`exec` 只使用已经准备好的登记，不自动 prepare；子进程继承同一工具 PATH 和缓存，避免 PHP→Python→pnpm 再次选错版本。缺失、不符或登记改变时退出 2；成功 exec 后保留实际子命令退出码及原始标准输入/输出。首次 `prepare` 先创建项目临时目录，再执行工具版本探测，避免 pnpm 在不存在的 TMPDIR 上失败。`doctor` 遇到缺失的项目临时目录只报告需要显式准备，不创建目录；版本命令非零时报告实际子命令退出码及错误片段，不把错误栈中的依赖版本误当成工具版本。
 
 入口会创建工具入口，不是新的隔离系统或包管理器。命令本身仍具有调用者权限；选择已信任的配置和程序。不要用此入口绕过资源、测试、发布或部署授权。Peanut CLI 与这里的工具环境入口分工：CLI 负责业务命令，project-env 负责先给这些命令选对工具；不复制一套业务 CLI。
 

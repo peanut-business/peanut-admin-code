@@ -160,9 +160,11 @@ def probe(root: Path, required: dict, host: dict, env: dict) -> dict:
         options = ["--no-plugins", "--no-scripts", "--version"] if name == "composer" else ["--version"]
         process = subprocess.run([*argv, *options], cwd=root, env=probe_env, text=True, capture_output=True, timeout=10)
         output = process.stdout + process.stderr
+        if process.returncode:
+            fail(f"{name} version probe exited {process.returncode}: {output.strip()[-4000:]}")
         match = re.search(r"(?<![\d.])v?(\d+\.\d+\.\d+)(?![\d.])", output)
         actual = match.group(1) if match else None
-        if process.returncode or actual != required[name]["version"]:
+        if actual != required[name]["version"]:
             fail(f"{name}: expected {required[name]['version']}, observed {actual}, exit {process.returncode}")
         result[name] = {"version": actual, "argv": argv}
     code = "echo json_encode(get_loaded_extensions(), JSON_THROW_ON_ERROR);"
@@ -211,9 +213,14 @@ def main() -> None:
     directory = within(root, str((parent / fingerprint).relative_to(root)))
     env = environment(root, host, directory / "bin")
     if args.action == "doctor":
+        if not Path(env["TMPDIR"]).is_dir():
+            fail("project temporary directory missing; run prepare explicitly (doctor never creates it)")
         print(json.dumps({"status": "ok", "fingerprint": fingerprint, "tools": probe(root, required, host, env), "caches": host["caches"], "writes": False}, indent=2))
         return
     if args.action == "prepare":
+        # Version probes such as pnpm resolve TMPDIR before printing a version.
+        # Creating this directory belongs to explicit prepare, never doctor.
+        within(root, ".local/tmp/project-env").mkdir(parents=True, exist_ok=True, mode=0o700)
         if directory.exists():
             state = check_prepared(directory, fingerprint, host)
             state["reused"] = True
@@ -236,7 +243,6 @@ def main() -> None:
             finally:
                 if staging.exists():
                     shutil.rmtree(staging)
-        within(root, ".local/tmp/project-env").mkdir(parents=True, exist_ok=True, mode=0o700)
         print(json.dumps({"status": "prepared", "path": str(directory), **state}, indent=2))
         return
     check_prepared(directory, fingerprint, host)
