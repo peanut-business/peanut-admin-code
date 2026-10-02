@@ -516,6 +516,7 @@ final class EditionUpgradePackage
         $version = (string) $application['template']['version'];
         $baselineRoot = '.peanut/scaffold-baseline/' . $version;
         $files = [];
+        $baselineFiles = [];
         foreach ($application['files'] as $file) {
             if (!is_array($file) || !in_array($file['classification'] ?? null, ['managed', 'generated-managed'], true)) {
                 continue;
@@ -527,6 +528,7 @@ final class EditionUpgradePackage
                 throw new RuntimeException('EDITION_UPGRADE_BASELINE_PATH_INVALID: ' . $path);
             }
             $absolute = ScaffoldPathGuard::projectPath($root, $expectedBaseline);
+            $baselineFiles[$path] = $absolute;
             $digest = hash_file('sha256', $absolute);
             $expectedDigest = (string) ($file['baseline_sha256'] ?? $file['sha256'] ?? '');
             if (!is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $expectedDigest) !== 1
@@ -557,13 +559,7 @@ final class EditionUpgradePackage
                 'inventory_sha256' => $application['template']['inventory_sha256'],
                 'inventory_template_version' => $version,
                 'managed_tree_sha256' => $application['digests']['managed_tree_sha256'],
-                'tokens' => [
-                    'product_name' => '__PEANUT_BASELINE_PRODUCT_NAME__',
-                    'slug' => '__PEANUT_BASELINE_SLUG__',
-                    'package_identity' => '__PEANUT_BASELINE_PACKAGE_IDENTITY__',
-                    // Keep this runtime token from being substituted in the PHP release artifact.
-                    'application_version' => '__PEANUT_BASELINE_' . 'APPLICATION_VERSION__',
-                ],
+                'tokens' => $this->baselineTokens($application, $baselineFiles),
             ],
             'files' => $files,
             'renames' => [],
@@ -571,10 +567,31 @@ final class EditionUpgradePackage
         $path = ScaffoldPathGuard::projectPath($root, $baselineRoot . '/edition-scaffold-manifest.json');
         $json = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
         if (is_file($path)) {
-            if (!hash_equals($json, (string) file_get_contents($path))) {
+            $existingRaw = file_get_contents($path);
+            if (is_string($existingRaw) && hash_equals($json, $existingRaw)) {
+                return $path;
+            }
+            try {
+                $existing = is_string($existingRaw)
+                    ? json_decode($existingRaw, true, 512, JSON_THROW_ON_ERROR)
+                    : null;
+            } catch (\JsonException) {
+                $existing = null;
+            }
+            $legacyTokens = [
+                'product_name' => '__PEANUT_BASELINE_' . 'PRODUCT_NAME__',
+                'slug' => '__PEANUT_BASELINE_' . 'SLUG__',
+                'package_identity' => '__PEANUT_BASELINE_' . 'PACKAGE_IDENTITY__',
+                'application_version' => '__PEANUT_BASELINE_' . 'APPLICATION_VERSION__',
+            ];
+            if (!is_array($existing) || ($existing['release']['tokens'] ?? null) !== $legacyTokens) {
                 throw new RuntimeException('EDITION_UPGRADE_BASELINE_MANIFEST_DRIFT');
             }
-            return $path;
+            $existing['release']['tokens'] = $manifest['release']['tokens'];
+            $migrated = json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+            if (!hash_equals($json, $migrated)) {
+                throw new RuntimeException('EDITION_UPGRADE_BASELINE_MANIFEST_DRIFT');
+            }
         }
         ScaffoldPathGuard::ensureDirectory(dirname($path));
         $temporary = $path . '.stage-' . bin2hex(random_bytes(6));
@@ -583,6 +600,44 @@ final class EditionUpgradePackage
             throw new RuntimeException('EDITION_UPGRADE_BASELINE_MANIFEST_WRITE_FAILED');
         }
         return $path;
+    }
+
+    /** @param array<string,mixed> $application @param array<string,string> $baselineFiles @return array<string,string> */
+    private function baselineTokens(array $application, array $baselineFiles): array
+    {
+        $seed = hash('sha256', json_encode([
+            'version' => $application['template']['version'],
+            'source_commit' => $application['template']['source_commit'],
+            'source_tree' => $application['template']['source_tree'],
+            'inventory_sha256' => $application['template']['inventory_sha256'],
+            'managed_tree_sha256' => $application['digests']['managed_tree_sha256'],
+        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        for ($nonce = 0; $nonce < 1024; $nonce++) {
+            $prefix = '__PEANUT_SYNTHETIC_BASELINE_' . hash('sha256', $seed . "\0" . $nonce) . '_';
+            $tokens = [
+                'product_name' => $prefix . 'PRODUCT_NAME__',
+                'slug' => $prefix . 'SLUG__',
+                'package_identity' => $prefix . 'PACKAGE_IDENTITY__',
+                'application_version' => $prefix . 'APPLICATION_VERSION__',
+            ];
+            $collision = false;
+            foreach ($baselineFiles as $path => $absolute) {
+                $contents = file_get_contents($absolute);
+                if (!is_string($contents)) {
+                    throw new RuntimeException('EDITION_UPGRADE_BASELINE_DRIFT: ' . $path);
+                }
+                foreach ($tokens as $token) {
+                    if (str_contains($contents, $token)) {
+                        $collision = true;
+                        break 2;
+                    }
+                }
+            }
+            if (!$collision) {
+                return $tokens;
+            }
+        }
+        throw new RuntimeException('EDITION_UPGRADE_BASELINE_TOKEN_COLLISION');
     }
 
     private function owner(string $path): string
