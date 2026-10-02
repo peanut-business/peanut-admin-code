@@ -86,8 +86,8 @@ function editionUpgradeEdition(string $edition): array
             'rbac' => 'required', 'execution_context' => 'PeanutAdmin\\Kernel\\Context\\TenantSystemContext',
             'module_lifecycle' => 'required',
         ],
-        'schema_projection' => $edition === 'standalone' ? 'single-organization-v1' : 'tenant-owned-v1',
-        'schema' => ['projection' => $edition === 'standalone' ? 'single-organization-v1' : 'tenant-owned-v1'],
+        'schema_projection' => 'tenant-owned-v1',
+        'schema' => ['projection' => 'tenant-owned-v1'],
     ];
 }
 
