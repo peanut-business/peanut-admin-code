@@ -3522,7 +3522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c17aecf6ed19690b105cf93fed6cab3eee613fb7bdf829c203b1d59ae3143dad"
+            "source_sha256": "4f7163aa3102c655a3ba99327243f6885014a081977e74e0df2095837c560dbe"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
