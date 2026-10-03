@@ -14,6 +14,7 @@ deploy/production.env
 /updates/
 /backups/
 /.peanut/application-release.json
+/.peanut/upgrades/
 /release-manifest.txt
 /server/public/admin/
 /server/public/platform/
