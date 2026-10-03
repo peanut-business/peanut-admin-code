@@ -223,6 +223,9 @@ foreach ($scenarios as $scenario) {
             $applier->apply($registry, ['official.article']);
             $reactivated = $pdo->query("SELECT status,name,parent_key FROM pa_menu_definition WHERE `key`='official.article.articles'")->fetch();
             menuExpect($reactivated === ['status' => 'active', 'name' => '我的文章', 'parent_key' => 'core.organization'], 'reinstall failed to preserve and reactivate a customized menu');
+            // Scoped lifecycle synchronization has a different manifest digest.
+            // Restore the normal full reconcile before comparing repeated full upgrades.
+            $applier->apply($registry);
         }
         $stable = menuStable($pdo);
         menuExpect($migration->run([$grouping], '4.0.0-rc.2', '4.0.0-rc.2')['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
