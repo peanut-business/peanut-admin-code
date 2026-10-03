@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "4.0.0-rc.8",
+    "template_version": "4.0.0-rc.9",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -1115,7 +1115,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "356a6a23b70c485c655554485437f490232b3003aa56ea15169ceedc598df4b4"
+            "source_sha256": "bc975f655c66d8a1a6aac4fffdadae5acc1923c6669d74a7cb007081ff0331b4"
         },
         {
             "path": "pc/package.json",
@@ -1128,7 +1128,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8032ca95c09dc73778ffb373f3e3faa3dce415303c08585751be9e4cb3b3babf"
+            "source_sha256": "4a144a7dcb874f80ed4d7bf9100d1abae1d88d8bdbcf74e8f0621ac52e6056f6"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1653,7 +1653,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "152b1c2a77f5ccdbb7ffc7ab4b8a9984e9bf0350b526436ceb50fbe35e9a6fed"
+            "source_sha256": "572e38ce437c9cca7410a09738cd29891c5d4e583ba87e5a9074d11baac70786"
         },
         {
             "path": "platform/package.json",
@@ -1667,7 +1667,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8db1a19b8b8c50e5f578ec3c5630dac348894ffb26603bb34aff8e03b8cd97ea"
+            "source_sha256": "f81be8684b1ac2f8ae74f63ef58abf816faca6c8c7b383dc211ae621555b08fa"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -23785,6 +23785,20 @@
             "source_sha256": "7123007ce5d682c03303625bd03a09734b2bf0577fe18c9bda0db4aefcf8e22c"
         },
         {
+            "path": "server/docker/scripts/prepare-vendor.php",
+            "target": "server/docker/scripts/prepare-vendor.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c24dae548e39ca6c5d2ecf8aceb88582f0f2e6da0e4d519101e591af28b5c922"
+        },
+        {
             "path": "server/docker/scripts/prepare-vendor.sh",
             "target": "server/docker/scripts/prepare-vendor.sh",
             "classification": "managed",
@@ -23796,7 +23810,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "966620926163b2495fe874f2862f2a04bdc87ecdc5970d796c2246f0c417b215"
+            "source_sha256": "018e9f48137902eeef7fbb030832255901a80ec6dd17a41772b6ac898565ca96"
         },
         {
             "path": "server/docker/scripts/provision-database.php",
@@ -29331,7 +29345,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "43efa7385fd6b6133805df1a122769c33b9786ca7ca4871eaa3ae530b13c953c"
+            "source_sha256": "412ac287c445058dac3e9b2c53ea40e53b188a8f5c00796dc0b8a87986f8488b"
         },
         {
             "path": "uniapp/package.json",
@@ -29344,7 +29358,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cc1f9c2976966cb6c9a0a0e8ddfa313fa77af7d5999603703a3ece2d5c6c4e2d"
+            "source_sha256": "6195507b0d72bd895c095073ef21bf075936c86471b0be3b8a43b6ffbd17fc03"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -30566,7 +30580,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd56c37ab4fb4e5e9912c15d7b4f38c29648aa5b482b11dbc566dbe370095c21"
+            "source_sha256": "9af6548475ac57010dfbb7cc182b7f8b4569d4276bb85f766188db7ebcfc4e11"
         },
         {
             "path": "web/pnpm-lock.yaml",
