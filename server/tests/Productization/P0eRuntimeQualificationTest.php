@@ -46,6 +46,8 @@ $expect($releaseVersion !== '', 'release metadata source product version is unav
 $scaffoldManifestPath = $root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json';
 $scaffoldManifestText = (string) file_get_contents($scaffoldManifestPath);
 $scaffoldManifest = json_decode($scaffoldManifestText, true, 512, JSON_THROW_ON_ERROR);
+$candidateInventorySha256 = hash_file('sha256', $root . '/scaffold/application-template-inventory.json');
+$expect(is_string($candidateInventorySha256) && $candidateInventorySha256 !== '', 'candidate inventory SHA is unavailable');
 
 $expectedScenarios = [
     'standalone_fresh',
@@ -156,6 +158,7 @@ $arguments = [
 $expect($code === 0, "P0-E no-resource plan failed: {$output}");
 $plan = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
 $expect(($plan['candidate'] ?? null) === $candidate, 'plan candidate is not exact HEAD');
+$expect(($plan['candidate_inventory_sha256'] ?? null) === $candidateInventorySha256, 'plan did not bind the current candidate inventory');
 $expect(($plan['resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-gate', 'plan resource identity changed');
 $expect(($plan['environment'] ?? null) === 'development', 'plan environment changed');
 $expect(($plan['endpoint'] ?? null) === 'host.docker.internal:20189', 'plan container endpoint changed');

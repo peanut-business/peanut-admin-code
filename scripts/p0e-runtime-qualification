@@ -596,6 +596,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "full_gate_groups": fixture_groups,
         "through_group": through_group,
         "parent_lease": getattr(args, "parent_lease", None),
+        "candidate_inventory_sha256": sha256(ROOT / "scaffold/application-template-inventory.json"),
         "target_release": fixture["target_release"],
         "lease_resources": [{"type": kind, "value": value} for kind, value in resources],
     }
@@ -1353,7 +1354,7 @@ class Runner:
                 or artifact_manifest.get("source") != {
                     "commit": self.args.candidate,
                     "tree": self.plan["candidate_tree"],
-                    "inventory_sha256": target["inventory_sha256"],
+                    "inventory_sha256": self.plan["candidate_inventory_sha256"],
                 }
                 or artifact_manifest.get("archive", {}).get("filename") != filename
                 or artifact_manifest.get("archive", {}).get("sha256") != sha256(archive)
@@ -1402,7 +1403,7 @@ class Runner:
             manifest = read_json(manifest_path)
             expected_template = {
                 "version": target["version"],
-                "inventory_sha256": target["inventory_sha256"],
+                "inventory_sha256": self.plan["candidate_inventory_sha256"],
                 "source_commit": self.args.candidate,
                 "source_tree": self.plan["candidate_tree"],
             }
@@ -1416,7 +1417,7 @@ class Runner:
                 or manifest.get("template") != expected_template
                 or generation.get("commit") != self.args.candidate
                 or generation.get("tree") != self.plan["candidate_tree"]
-                or generation.get("inventory_sha256") != target["inventory_sha256"]
+                or generation.get("inventory_sha256") != self.plan["candidate_inventory_sha256"]
                 or artifact_manifest.get("application", {}).get("manifest_sha256") != sha256(manifest_path)
                 or artifact_manifest.get("application", {}).get("managed_tree_sha256") != manifest.get("digests", {}).get("managed_tree_sha256")
             ):
