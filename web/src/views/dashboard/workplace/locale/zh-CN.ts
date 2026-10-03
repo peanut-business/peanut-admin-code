@@ -1,6 +1,6 @@
 export default {
   'menu.dashboard.workplace': '工作台',
-  'workplace.version.title': '版本信息',
+  'workplace.version.title': '应用版本信息',
   'workplace.version.platform': '平台名称',
   'workplace.version.current': '当前版本',
   'workplace.version.based': '技术栈',
