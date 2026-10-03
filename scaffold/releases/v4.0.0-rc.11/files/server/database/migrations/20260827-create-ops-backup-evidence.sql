@@ -1,0 +1,22 @@
+CREATE TABLE `pa_ops_backup_evidence` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `backup_reference_key` CHAR(39) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `task_key` CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `provider_key` VARCHAR(96) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `manifest_sha256` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `source_commit` CHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `source_tree` CHAR(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `source_release_key` VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  `consistency_started_at` DATETIME(3) NOT NULL,
+  `consistency_completed_at` DATETIME(3) NOT NULL,
+  `verified_at` DATETIME(3) NOT NULL,
+  `manifest_json` JSON NOT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ops_backup_reference` (`backup_reference_key`),
+  UNIQUE KEY `uk_ops_backup_task` (`task_key`),
+  KEY `idx_ops_backup_verified` (`verified_at`, `id`),
+  CONSTRAINT `fk_ops_backup_task` FOREIGN KEY (`task_key`) REFERENCES `pa_ops_task` (`task_key`) ON DELETE RESTRICT,
+  CONSTRAINT `chk_ops_backup_provider` CHECK (`provider_key` = 'peanut.paired-db-files'),
+  CONSTRAINT `chk_ops_backup_window` CHECK (`consistency_completed_at` >= `consistency_started_at`)
+) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
