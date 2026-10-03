@@ -1,7 +1,7 @@
 {
   "name": "peanut-admin-web",
   "description": "Peanut Admin management client",
-  "version": "4.0.0-rc.6",
+  "version": "4.0.0-rc.7",
   "private": true,
   "author": "花生科技",
   "license": "Apache-2.0",
