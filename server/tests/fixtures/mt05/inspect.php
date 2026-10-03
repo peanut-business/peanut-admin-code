@@ -47,8 +47,8 @@ function indexExists(PDO $pdo, string $table, string $index): bool
 /** @return list<string> */
 function expectedApplicationMigrationIds(string $serverRoot): array
 {
-    require_once $serverRoot . '/app/common/service/installation/ApplicationReleaseVersions.php';
-    $targetVersion = \app\common\service\installation\ApplicationReleaseVersions::load(
+    require_once $serverRoot . '/app/common/value/installation/ApplicationReleaseVersions.php';
+    $targetVersion = \app\common\value\installation\ApplicationReleaseVersions::load(
         dirname($serverRoot) . '/release-versions.json'
     )->scaffoldTemplate();
     expectInvariant(
