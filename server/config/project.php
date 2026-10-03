@@ -4,21 +4,7 @@ $brandManifest = json_decode((string) file_get_contents(__DIR__ . '/brand.json')
 $defaultImage = is_array($brandManifest['default_image'] ?? null)
     ? $brandManifest['default_image']
     : throw new RuntimeException('品牌默认图片配置格式错误');
-$releaseVersions = json_decode(
-    (string) file_get_contents(dirname(__DIR__, 2) . '/release-versions.json'),
-    true,
-);
-$declaredReleaseVersion = $releaseVersions['instance_version']
-    ?? $releaseVersions['source_product_version']
-    ?? $releaseVersions['product_release']
-    ?? null;
-$versionPattern = in_array(($releaseVersions['schema_version'] ?? null), [2, 3], true)
-    ? '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D'
-    : '/^\d+\.\d+\.\d+$/D';
-$defaultVersion = is_string($declaredReleaseVersion)
-    && preg_match($versionPattern, $declaredReleaseVersion) === 1
-    ? $declaredReleaseVersion
-    : throw new RuntimeException('产品版本配置格式错误');
+$defaultVersion = \app\common\value\installation\ApplicationReleaseVersions::runningVersion(dirname(__DIR__));
 
 return [
     'version' => env('project.version', $defaultVersion),

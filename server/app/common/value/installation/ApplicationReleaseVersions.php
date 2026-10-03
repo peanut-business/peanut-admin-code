@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace app\common\value\installation;
 
-require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
-
 use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
 use JsonException;
 use RuntimeException;
@@ -106,6 +104,21 @@ final readonly class ApplicationReleaseVersions
             : $this->values['product_release'];
     }
 
+    /** Read the running instance version from the declared server or source layout. */
+    public static function runningVersion(string $serverRoot): string
+    {
+        $identityPath = $serverRoot . '/.peanut/release-identity.json';
+        if (file_exists($identityPath) || is_link($identityPath)) {
+            $version = ServerReleaseIdentity::load($serverRoot)->versions()['release_sequence_version'];
+            if (preg_match(self::STRICT_SEMVER, $version) !== 1) {
+                throw new RuntimeException('APPLICATION_RELEASE_VERSION_INVALID');
+            }
+            return $version;
+        }
+
+        return self::load(dirname($serverRoot) . '/release-versions.json')->releaseSequenceVersion();
+    }
+
     public function instanceVersion(): ?string
     {
         return $this->values['schema_version'] >= 2 ? $this->values['instance_version'] : null;
@@ -137,6 +150,7 @@ final readonly class ApplicationReleaseVersions
 
     private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
     {
+        require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
         ReleaseDependencyIdentity::validate(
             $php,
             $web,
