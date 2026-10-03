@@ -33,9 +33,9 @@ class MenuController extends BaseAdminController
         if ($denial = $this->instanceMenuDenial()) {
             return $denial;
         }
-        $params = ['id' => (int) $this->request->get('id')];
+        $params = ['menu_key' => $this->request->get('menu_key')];
         $this->validate($params, MenuValidate::class . '.detail');
-        return $this->data($this->menus->detail($params['id']));
+        return $this->data($this->menus->detail($params['menu_key']));
     }
 
     public function add()
@@ -63,9 +63,9 @@ class MenuController extends BaseAdminController
         if ($denial = $this->instanceMenuDenial()) {
             return $denial;
         }
-        $params = ['id' => (int) $this->request->post('id')];
+        $params = ['menu_key' => $this->request->post('menu_key')];
         $this->validate($params, MenuValidate::class . '.delete');
-        $this->menus->delete($params['id']);
+        $this->menus->delete($params['menu_key']);
         return $this->success('操作成功');
     }
 
@@ -75,11 +75,11 @@ class MenuController extends BaseAdminController
             return $denial;
         }
         $params = [
-            'id' => (int) $this->request->post('id'),
+            'menu_key' => $this->request->post('menu_key'),
             'is_disable' => $this->request->post('is_disable'),
         ];
         $this->validate($params, MenuValidate::class . '.status');
-        $this->menus->updateStatus($params['id'], (int) $params['is_disable']);
+        $this->menus->updateStatus($params['menu_key'], (int) $params['is_disable']);
         return $this->success('操作成功');
     }
 

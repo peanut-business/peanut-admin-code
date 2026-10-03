@@ -41,8 +41,8 @@ export default function mapServerMenu(
         // Presentation-only containers are never registered with the router and
         // never load a component. Every leaf still resolves a static route below.
         return {
-          path: normalizePath(menu.paths || `/menu-group/${menu.id}`),
-          name: `menu-group-${menu.id}`,
+          path: normalizePath(menu.paths || `/menu-group/${menu.menu_key}`),
+          name: `menu-group-${menu.menu_key}`,
           meta: {
             title: menu.name,
             icon: menu.icon,

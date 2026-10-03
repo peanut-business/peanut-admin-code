@@ -4,11 +4,11 @@
     "inputs": [
         {
             "path": "release-versions.json",
-            "sha256": "283fe216d132bcc2c7073266db7a745aee6da3676317dd10018ef97459392664"
+            "sha256": "85338b0caa1a7b222c45232e80590f758ab6c2b0e26843cfed1bb697a696d798"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "b101528bbbc26513d3e37e74462496321c4f503e0e4e3adff23407ab21fb90c3"
+            "sha256": "9a91218592e1c2787ee45960c750472339fd32c1e6a2ae8ac0e379c25240e768"
         },
         {
             "path": "server/app/api/metadata/application/common.php",

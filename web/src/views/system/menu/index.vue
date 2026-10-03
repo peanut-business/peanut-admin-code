@@ -18,13 +18,29 @@
         </el-col>
       </el-row>
       <el-table
-        row-key="id"
+        row-key="menu_key"
         :loading="loading"
         :data="renderData"
         border
         default-expand-all
         :tree-props="{ children: 'children' }"
       >
+        <el-table-column prop="menu_key" label="菜单标识" min-width="180" />
+        <el-table-column label="来源 / 所属模块" min-width="180">
+          <template #default="{ row }">
+            <el-tag>{{
+              row.source === 'module'
+                ? '模块贡献'
+                : row.source === 'system'
+                ? '系统菜单'
+                : '自建菜单'
+            }}</el-tag>
+            <div>{{ row.module_key }}</div>
+            <el-tag v-if="row.status === 'retired'" type="info"
+              >模块已退出</el-tag
+            >
+          </template>
+        </el-table-column>
         <el-table-column prop="name" :label="$t('systemMenu.columns.name')" />
         <el-table-column :label="$t('systemMenu.columns.type')" width="90">
           <template #default="{ row }">
@@ -47,7 +63,8 @@
         <el-table-column :label="$t('systemMenu.columns.status')" width="90">
           <template #default="{ row }">
             <el-switch
-              :model-value="row.is_disable === 0"
+              :model-value="row.status === 'active' && row.is_disable === 0"
+              :disabled="row.status !== 'active'"
               @change="(v: string | number | boolean) => handleStatus(row, v as boolean)"
             />
           </template>
@@ -69,6 +86,7 @@
                 $t('systemMenu.operation.edit')
               }}</el-button>
               <el-popconfirm
+                v-if="!row.managed"
                 :title="$t('systemMenu.delete.confirm')"
                 @confirm="handleDelete(row)"
               >
@@ -95,7 +113,7 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item prop="type" :label="$t('systemMenu.field.type')">
-          <el-radio-group v-model="form.type">
+          <el-radio-group v-model="form.type" :disabled="form.managed">
             <el-radio-button label="M">{{
               $t('systemMenu.type.M')
             }}</el-radio-button>
@@ -107,11 +125,11 @@
             }}</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item prop="pid" :label="$t('systemMenu.field.pid')">
+        <el-form-item prop="parent_key" :label="$t('systemMenu.field.pid')">
           <el-tree-select
-            v-model="form.pid"
+            v-model="form.parent_key"
             :data="parentTree"
-            :props="{ value: 'id', label: 'name', children: 'children' }"
+            :props="{ value: 'menu_key', label: 'name', children: 'children' }"
             :placeholder="$t('systemMenu.field.pid.placeholder')"
             clearable
           />
@@ -139,6 +157,7 @@
         >
           <el-input
             v-model="form.paths"
+            :disabled="form.managed"
             :placeholder="$t('systemMenu.field.paths.placeholder')"
           />
         </el-form-item>
@@ -149,12 +168,14 @@
         >
           <el-input
             v-model="form.component"
+            :disabled="form.managed"
             :placeholder="$t('systemMenu.field.component.placeholder')"
           />
         </el-form-item>
         <el-form-item prop="perms" :label="$t('systemMenu.field.perms')">
           <el-input
             v-model="form.perms"
+            :disabled="form.managed"
             :placeholder="$t('systemMenu.field.perms.placeholder')"
           />
         </el-form-item>
@@ -223,7 +244,7 @@
 
   // ---- 上级菜单选择树：只允许挂在 M/C 下，按钮(A)不能当父级 ----
   interface MenuParentOption {
-    id: number;
+    menu_key: string | null;
     name: string;
     children: MenuParentOption[];
   }
@@ -231,15 +252,22 @@
   const parentTree = computed<MenuParentOption[]>(() => {
     const strip = (nodes: MenuRecord[]): MenuParentOption[] =>
       nodes
-        .filter((n) => n.type !== 'A')
+        .filter(
+          (n) =>
+            n.type !== 'A' &&
+            (!form.managed ||
+              form.source !== 'module' ||
+              (n.source === 'module' && n.type === 'M') ||
+              n.menu_key === form.parent_key)
+        )
         .map((n) => ({
-          id: n.id,
+          menu_key: n.menu_key,
           name: n.name,
           children: n.children ? strip(n.children) : [],
         }));
     return [
       {
-        id: 0,
+        menu_key: null,
         name: t('systemMenu.field.pid.root'),
         children: strip(renderData.value),
       },
@@ -254,7 +282,8 @@
 
   const defaultForm = (): MenuForm => ({
     id: undefined,
-    pid: 0,
+    parent_key: null,
+    managed: false,
     type: 'C',
     name: '',
     icon: '',
@@ -293,7 +322,7 @@
 
   const handleAdd = (parent?: MenuRecord) => {
     isEdit.value = false;
-    resetForm({ pid: parent ? parent.id : 0 });
+    resetForm({ parent_key: parent?.menu_key ?? null });
     modalVisible.value = true;
   };
 
@@ -322,13 +351,13 @@
   };
 
   const handleDelete = async (record: MenuRecord) => {
-    await deleteMenu(record.id);
+    await deleteMenu(record.menu_key);
     ElMessage.success(t('systemMenu.tip.success'));
     await fetchData();
   };
 
   const handleStatus = async (record: MenuRecord, enabled: boolean) => {
-    await updateMenuStatus(record.id, enabled ? 0 : 1);
+    await updateMenuStatus(record.menu_key, enabled ? 0 : 1);
     record.is_disable = enabled ? 0 : 1;
     ElMessage.success(t('systemMenu.tip.success'));
   };

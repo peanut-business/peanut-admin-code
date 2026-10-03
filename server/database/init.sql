@@ -18,6 +18,9 @@ CREATE TABLE `pa_schema_migration` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用追加迁移账本';
 
 CREATE TABLE `pa_system_menu` (
+  `menu_key` VARCHAR(160) NULL,
+  `parent_key` VARCHAR(160) NULL,
+  `module_key` VARCHAR(96) NOT NULL DEFAULT 'application',
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`        INT UNSIGNED NOT NULL DEFAULT 0,
   `type`       CHAR(1)      NOT NULL DEFAULT 'C' COMMENT 'M目录 C菜单 A按钮',
@@ -1307,6 +1310,9 @@ CREATE TABLE `pa_resource_operation_condition` (
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `pa_menu_definition` (
+  `is_show` TINYINT NOT NULL DEFAULT 1,
+  `is_cache` TINYINT NOT NULL DEFAULT 0,
+  `is_disable` TINYINT NOT NULL DEFAULT 0,
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `key` VARCHAR(160) NOT NULL,
   `module_key` VARCHAR(96) NOT NULL,

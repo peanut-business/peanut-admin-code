@@ -132,7 +132,8 @@
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccess",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccessException",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationQuery",
-      "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationCommands"
+      "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationCommands",
+      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuAdministrationService"
     ],
     "events": []
   },

@@ -12,6 +12,7 @@ use PeanutAdmin\Kernel\Menu\MenuDefinition;
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Menu\MenuRegistry;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
+use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
 
 /**
  * Adapts the Core Module/TenantModule catalog to the Admin Shell menu payload.
@@ -23,38 +24,19 @@ final readonly class CoreTenantModuleAdminBridge
 {
     private const APPLICATION_PERMISSION_OWNER = 'peanut.admin';
 
-    /** @return list<string> */
-    public static function officialModuleMenuPaths(): array
-    {
-        return [
-            '/system/file',
-            '/system/crontab',
-            '/notice/channel',
-            '/notice/template',
-            '/notice/log',
-            '/app-setting/channel',
-            '/app-setting/pay',
-            '/member/list',
-            '/member/tag',
-            '/finance/account-log',
-            '/finance/recharge',
-            '/finance/refund',
-            '/article/cate',
-            '/article/list',
-            '/system/configuration-transfer',
-            '/system/integration-security',
-            '/system/reference-codes',
-            '/rich-text/documents',
-            '/system/settings',
-        ];
-    }
-
     public function __construct(
         private ThinkPhpModuleGovernanceProvider $moduleGovernance,
         private TenantAuthorizationRepository $authorization,
         private MenuCatalogRepository $menuCatalog,
         private TenantAuthorizationQuery $identityAuthorization,
+        private MenuAdministrationService $menuAdministration,
     ) {}
+
+    /** @return list<string> */
+    public function managedMenuKeys(): array
+    {
+        return array_column($this->menuAdministration->records(), 'key');
+    }
 
     /** @return array{menu:list<array<string,mixed>>,permissions:list<string>} */
     public function accessData(mixed $tenantContext): array
@@ -189,33 +171,19 @@ final readonly class CoreTenantModuleAdminBridge
      */
     private function serverMenuRecords(array $definitions, ?array $permissions = null): array
     {
+        if ($definitions === []) {
+            return [];
+        }
         $legacy = SystemMenu::order('id')->select()->toArray();
-        $groupPaths = [
-            'core.organization' => '/system', 'core.business' => '/member',
-            'core.content' => '/article', 'core.applications' => '/app-setting',
-            'core.system' => '/system-settings', 'core.operations' => '/operations',
-        ];
+        $nativeRows = array_column($this->menuAdministration->records(), null, 'key');
         $presentations = [];
         $ids = [];
         foreach ($definitions as $definition) {
-            $ids[$definition->key] = self::virtualMenuId($definition->key);
-            $matches = array_values(array_filter($legacy, static function (array $row) use ($definition, $groupPaths): bool {
-                if ($definition->type === 'group') {
-                    return $row['type'] === 'M' && $row['paths'] === ($groupPaths[$definition->key] ?? null);
-                }
-                $baseline = $row['upstream_defaults_json'] ?? null;
-                if (is_string($baseline)) {
-                    $baseline = json_decode($baseline, true, 512, JSON_THROW_ON_ERROR);
-                }
-                return $row['type'] === 'C' && ($row['paths'] === $definition->routePath
-                    || (is_array($baseline) && ($baseline['paths'] ?? null) === $definition->routePath));
-            }));
+            $ids[$definition->key] = (int) $nativeRows[$definition->key]['id'];
+            $matches = array_values(array_filter($legacy, static fn(array $row): bool => $row['menu_key'] === $definition->key));
             // Ambiguous legacy identities are preserved, never guessed or merged.
             if (count($matches) === 1) {
                 $presentations[$definition->key] = $matches[0];
-                if ($definition->type === 'group') {
-                    $ids[$definition->key] = (int) $matches[0]['id'];
-                }
             }
         }
 
@@ -234,6 +202,9 @@ final readonly class CoreTenantModuleAdminBridge
                     continue 2;
                 }
                 $seen[$ancestor->key] = true;
+                if ((int) $nativeRows[$ancestor->key]['is_disable'] !== 0) {
+                    continue 2;
+                }
                 $directory = $presentations[$ancestor->key] ?? null;
                 if ($directory !== null && !$this->legacyPresentationVisible($directory, $legacy, $permissions)) {
                     continue 2;
@@ -252,6 +223,7 @@ final readonly class CoreTenantModuleAdminBridge
                 'id' => $ids[$definition->key],
                 'pid' => $presentation === null
                     ? ($ids[$definition->parentKey] ?? 0) : (int) $presentation['pid'],
+                'parent_key' => $presentation === null ? $definition->parentKey : $presentation['parent_key'],
                 'type' => $definition->type === 'group' ? 'M' : 'C',
                 'name' => $presentation['name'] ?? $definition->name,
                 'icon' => $presentation['icon'] ?? $definition->icon ?? '',
@@ -259,8 +231,8 @@ final readonly class CoreTenantModuleAdminBridge
                 'perms' => $definition->requiredPermission ?? '',
                 'paths' => $presentation['paths'] ?? $definition->routePath ?? '',
                 'component' => $definition->componentKey ?? '',
-                'is_cache' => $presentation['is_cache'] ?? 0,
-                'is_show' => $presentation['is_show'] ?? 1,
+                'is_cache' => $presentation['is_cache'] ?? (int) $nativeRows[$definition->key]['is_cache'],
+                'is_show' => $presentation['is_show'] ?? (int) $nativeRows[$definition->key]['is_show'],
                 'is_disable' => 0,
                 'module_key' => $definition->moduleKey,
                 'required_permission' => $definition->requiredPermission,
@@ -299,6 +271,10 @@ final readonly class CoreTenantModuleAdminBridge
                     return true;
                 }
             }
+            $expectedParent = $byId[(int) ($baseline['pid'] ?? 0)]['menu_key'] ?? null;
+            if ($row['parent_key'] !== $expectedParent) {
+                return true;
+            }
             $parent = (int) $row['pid'];
             if ($parent === 0 || !isset($byId[$parent])) {
                 return false;
@@ -310,7 +286,7 @@ final readonly class CoreTenantModuleAdminBridge
     /** Legacy presentation never grants a permission; changed restrictions remain effective. */
     private function legacyPresentationVisible(array $row, array $rows, ?array $permissions): bool
     {
-        $byId = array_column($rows, null, 'id');
+        $byKey = array_column($rows, null, 'menu_key');
         $seen = [];
         while (true) {
             $id = (int) $row['id'];
@@ -328,17 +304,12 @@ final readonly class CoreTenantModuleAdminBridge
                 && !in_array($customPermission, $permissions, true)) {
                 return false;
             }
-            $parent = (int) $row['pid'];
-            if ($parent === 0 || !isset($byId[$parent])) {
+            $parent = $row['parent_key'];
+            if ($parent === null || !isset($byKey[$parent])) {
                 return true;
             }
-            $row = $byId[$parent];
+            $row = $byKey[$parent];
         }
-    }
-
-    public static function virtualMenuId(string $menuKey): int
-    {
-        return 2_000_000_000 + (int) sprintf('%u', crc32($menuKey)) % 100_000_000;
     }
 
     private function isTenantOwner(TenantContext $context): bool

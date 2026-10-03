@@ -9,10 +9,10 @@ use think\Validate;
 class MenuValidate extends Validate
 {
     protected $rule = [
-        'id'         => 'require|integer|gt:0',
+        'menu_key'   => 'require|max:160|regex:/^[a-zA-Z0-9_.-]+$/',
         'name'       => 'require|max:50',
         'type'       => 'require|in:M,C,A',
-        'pid'        => 'integer|egt:0',
+        'parent_key' => 'max:160|regex:/^[a-zA-Z0-9_.-]+$/',
         'icon'       => 'max:100',
         'sort'       => 'integer',
         'perms'      => 'max:100',
@@ -24,7 +24,7 @@ class MenuValidate extends Validate
     ];
 
     protected $message = [
-        'id.require'   => 'id 不能为空',
+        'menu_key.require' => '菜单标识不能为空',
         'name.require' => '菜单名称不能为空',
         'name.max'     => '菜单名称最多 50 个字符',
         'type.require' => '菜单类型不能为空',
@@ -32,10 +32,10 @@ class MenuValidate extends Validate
     ];
 
     protected $scene = [
-        'add'    => ['name', 'type', 'pid', 'icon', 'sort', 'perms', 'paths', 'component', 'is_cache', 'is_show', 'is_disable'],
-        'edit'   => ['id', 'name', 'type', 'pid', 'icon', 'sort', 'perms', 'paths', 'component', 'is_cache', 'is_show', 'is_disable'],
-        'detail' => ['id'],
-        'delete' => ['id'],
-        'status' => ['id', 'is_disable' => 'require|in:0,1'],
+        'add'    => ['name', 'type', 'parent_key', 'icon', 'sort', 'perms', 'paths', 'component', 'is_cache', 'is_show', 'is_disable'],
+        'edit'   => ['menu_key', 'name', 'type', 'parent_key', 'icon', 'sort', 'perms', 'paths', 'component', 'is_cache', 'is_show', 'is_disable'],
+        'detail' => ['menu_key'],
+        'delete' => ['menu_key'],
+        'status' => ['menu_key', 'is_disable' => 'require|in:0,1'],
     ];
 }

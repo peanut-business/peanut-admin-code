@@ -181,7 +181,7 @@
             :default-expanded-keys="expandedKeys"
             :default-checked-keys="authCheckedKeys"
             :data="treeData"
-            node-key="id"
+            node-key="menu_key"
             :props="{ label: 'name', children: 'children' }"
             show-checkbox
             check-strictly
@@ -355,15 +355,15 @@
   const menuTree = ref<MenuRecord[]>([]);
   const treeData = computed(() => menuTree.value);
   const parentLinked = ref(true);
-  const expandedKeys = ref<number[]>([]);
-  const authCheckedKeys = ref<number[]>([]);
-  const authHalfCheckedKeys = ref<number[]>([]);
+  const expandedKeys = ref<string[]>([]);
+  const authCheckedKeys = ref<string[]>([]);
+  const authHalfCheckedKeys = ref<string[]>([]);
   const authForm = reactive<RoleAuthForm>({
     id: 0,
     name: '',
     desc: '',
     sort: 0,
-    menu_id: [],
+    menu_keys: [],
   });
 
   // Element Plus exposes default tree state as initialization-only props. Re-key
@@ -379,22 +379,22 @@
   );
 
   const handleTreeExpand = (data: MenuRecord) => {
-    const id = Number(data.id);
+    const id = data.menu_key;
     if (!expandedKeys.value.includes(id)) {
       expandedKeys.value = [...expandedKeys.value, id];
     }
   };
 
   const handleTreeCollapse = (data: MenuRecord) => {
-    const id = Number(data.id);
+    const id = data.menu_key;
     expandedKeys.value = expandedKeys.value.filter((key) => key !== id);
   };
 
   const allMenuIds = computed(() => {
-    const ids: number[] = [];
+    const ids: string[] = [];
     const visit = (nodes: MenuRecord[]) => {
       nodes.forEach((node) => {
-        ids.push(node.id);
+        ids.push(node.menu_key);
         if (node.children?.length) visit(node.children);
       });
     };
@@ -403,10 +403,10 @@
   });
 
   const menuNodeMap = computed(() => {
-    const nodes = new Map<number, MenuRecord>();
+    const nodes = new Map<string, MenuRecord>();
     const visit = (items: MenuRecord[]) => {
       items.forEach((item) => {
-        nodes.set(item.id, item);
+        nodes.set(item.menu_key, item);
         if (item.children?.length) visit(item.children);
       });
     };
@@ -420,34 +420,34 @@
       authCheckedKeys.value.length === allMenuIds.value.length
   );
 
-  const orderKeys = (keys: Set<number>) =>
+  const orderKeys = (keys: Set<string>) =>
     allMenuIds.value.filter((id) => keys.has(id));
 
-  const normalizeLinkedState = (menuIds: number[]) => {
+  const normalizeLinkedState = (menuIds: string[]) => {
     const selected = new Set(menuIds);
-    const checked = new Set<number>();
-    const halfChecked = new Set<number>();
+    const checked = new Set<string>();
+    const halfChecked = new Set<string>();
 
     const visit = (node: MenuRecord): AuthCheckState => {
       const childStates = (node.children ?? []).map(visit);
-      const selfSelected = selected.has(node.id);
+      const selfSelected = selected.has(node.menu_key);
       if (childStates.length === 0) {
-        if (selfSelected) checked.add(node.id);
+        if (selfSelected) checked.add(node.menu_key);
         return selfSelected ? 2 : 0;
       }
 
       const allChildrenChecked = childStates.every((state) => state === 2);
       const hasCheckedChild = childStates.some((state) => state !== 0);
       if (allChildrenChecked && (selfSelected || hasCheckedChild)) {
-        checked.add(node.id);
+        checked.add(node.menu_key);
         return 2;
       }
       if (hasCheckedChild) {
-        halfChecked.add(node.id);
+        halfChecked.add(node.menu_key);
         return 1;
       }
       if (selfSelected) {
-        checked.add(node.id);
+        checked.add(node.menu_key);
         return 2;
       }
       return 0;
@@ -472,13 +472,13 @@
         getRoleDetail(record.id),
         loadMenuTree(),
       ]);
-      const menuIds = data.menu_id ?? data.menu_ids ?? [];
+      const menuIds = data.menu_keys;
       Object.assign(authForm, {
         id: data.id,
         name: data.name,
         desc: data.desc,
         sort: data.sort,
-        menu_id: [...menuIds],
+        menu_keys: [...menuIds],
       });
       parentLinked.value = true;
       expandedKeys.value = [];
@@ -494,12 +494,12 @@
   const setSubtreeChecked = (
     node: MenuRecord,
     checked: boolean,
-    checkedSet: Set<number>,
-    halfCheckedSet: Set<number>
+    checkedSet: Set<string>,
+    halfCheckedSet: Set<string>
   ) => {
-    if (checked) checkedSet.add(node.id);
-    else checkedSet.delete(node.id);
-    halfCheckedSet.delete(node.id);
+    if (checked) checkedSet.add(node.menu_key);
+    else checkedSet.delete(node.menu_key);
+    halfCheckedSet.delete(node.menu_key);
     node.children?.forEach((child) =>
       setSubtreeChecked(child, checked, checkedSet, halfCheckedSet)
     );
@@ -507,30 +507,31 @@
 
   const updateAncestors = (
     node: MenuRecord,
-    checkedSet: Set<number>,
-    halfCheckedSet: Set<number>
+    checkedSet: Set<string>,
+    halfCheckedSet: Set<string>
   ) => {
-    let parent = menuNodeMap.value.get(node.pid);
+    let parent = menuNodeMap.value.get(node.parent_key ?? '');
     while (parent) {
       const children = parent.children ?? [];
       const allChildrenChecked =
         children.length > 0 &&
-        children.every((child) => checkedSet.has(child.id));
+        children.every((child) => checkedSet.has(child.menu_key));
       const hasCheckedChild = children.some(
-        (child) => checkedSet.has(child.id) || halfCheckedSet.has(child.id)
+        (child) =>
+          checkedSet.has(child.menu_key) || halfCheckedSet.has(child.menu_key)
       );
 
       if (allChildrenChecked) {
-        checkedSet.add(parent.id);
-        halfCheckedSet.delete(parent.id);
+        checkedSet.add(parent.menu_key);
+        halfCheckedSet.delete(parent.menu_key);
       } else if (hasCheckedChild) {
-        checkedSet.delete(parent.id);
-        halfCheckedSet.add(parent.id);
+        checkedSet.delete(parent.menu_key);
+        halfCheckedSet.add(parent.menu_key);
       } else {
-        checkedSet.delete(parent.id);
-        halfCheckedSet.delete(parent.id);
+        checkedSet.delete(parent.menu_key);
+        halfCheckedSet.delete(parent.menu_key);
       }
-      parent = menuNodeMap.value.get(parent.pid);
+      parent = menuNodeMap.value.get(parent.parent_key ?? '');
     }
   };
 
@@ -538,20 +539,20 @@
     rawCheckedKeys: Array<number | string>,
     event: AuthCheckEvent
   ) => {
-    const keys = rawCheckedKeys.map(Number);
+    const keys = rawCheckedKeys.map(String);
     if (!parentLinked.value) {
       authCheckedKeys.value = keys;
       authHalfCheckedKeys.value = [];
       return;
     }
 
-    const nodeId = Number(event.node?.id);
-    const node = menuNodeMap.value.get(nodeId);
+    const nodeId = event.node?.menu_key;
+    const node = menuNodeMap.value.get(nodeId ?? '');
     if (!node) return;
 
     const checkedSet = new Set(authCheckedKeys.value);
     const halfCheckedSet = new Set(authHalfCheckedKeys.value);
-    const checked = event.checked ?? keys.includes(nodeId);
+    const checked = event.checked ?? keys.includes(node.menu_key);
     setSubtreeChecked(node, checked, checkedSet, halfCheckedSet);
     updateAncestors(node, checkedSet, halfCheckedSet);
     authCheckedKeys.value = orderKeys(checkedSet);
@@ -608,7 +609,7 @@
         name: authForm.name,
         desc: authForm.desc,
         sort: authForm.sort,
-        menu_id: menuIds,
+        menu_keys: menuIds,
       });
       ElMessage.success(t('systemRole.tip.success'));
       authVisible.value = false;

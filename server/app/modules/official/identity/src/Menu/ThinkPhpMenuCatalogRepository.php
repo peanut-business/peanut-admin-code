@@ -43,6 +43,7 @@ final class ThinkPhpMenuCatalogRepository implements \PeanutAdmin\Kernel\Menu\Me
             'required_permission_id' => $permissionId,
             'client_keys_json' => $clientKeys,
             'status' => 'active',
+            'is_show' => 1, 'is_cache' => 0, 'is_disable' => 0,
             'manifest_digest' => $manifestDigest,
             'updated_at' => $now,
         ];
@@ -112,9 +113,12 @@ final class ThinkPhpMenuCatalogRepository implements \PeanutAdmin\Kernel\Menu\Me
     private function metadata(array $row): array
     {
         $fields = ['module_key', 'scope', 'parent_key', 'type', 'name', 'route_name', 'route_path',
-            'component_key', 'icon', 'sort_order', 'required_permission_id', 'client_keys_json', 'status'];
+            'component_key', 'icon', 'sort_order', 'required_permission_id', 'client_keys_json', 'status', 'is_show', 'is_cache', 'is_disable'];
         $metadata = array_intersect_key($row, array_fill_keys($fields, true));
         $metadata['sort_order'] = (int) $metadata['sort_order'];
+        foreach (['is_show', 'is_cache', 'is_disable'] as $field) {
+            $metadata[$field] = (int) ($metadata[$field] ?? ($field === 'is_show' ? 1 : 0));
+        }
         $metadata['required_permission_id'] = $metadata['required_permission_id'] === null
             ? null : (int) $metadata['required_permission_id'];
         $metadata['client_keys_json'] = $this->decodedJson($metadata['client_keys_json']);

@@ -6,7 +6,7 @@
     },
     "info": {
         "title": "Peanut Admin HTTP API",
-        "version": "4.0.0-dev.14",
+        "version": "4.0.0-rc.11",
         "description": "Application HTTP contract for the identity, Tenant, article, file and notification entry points. Runtime authorization and Tenant binding remain enforced by the server middleware.",
         "x-peanut-contract-generator": {
             "name": "scripts/generate-api-contracts.php",
@@ -5144,11 +5144,12 @@
                 "parameters": [
                     {
                         "in": "query",
-                        "name": "id",
+                        "name": "menu_key",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "minimum": 1
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
                         }
                     }
                 ],
@@ -5483,12 +5484,13 @@
                             "schema": {
                                 "type": "object",
                                 "required": [
-                                    "id"
+                                    "menu_key"
                                 ],
                                 "properties": {
-                                    "id": {
-                                        "type": "integer",
-                                        "minimum": 1
+                                    "menu_key": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 160
                                     }
                                 }
                             }
@@ -5498,7 +5500,8 @@
                 "x-peanut-errors": [
                     "ADMIN_MENU_NOT_FOUND",
                     "ADMIN_MENU_HAS_CHILDREN",
-                    "ADMIN_MENU_IN_USE"
+                    "ADMIN_MENU_IN_USE",
+                    "MANAGED_MENU_DELETE_FORBIDDEN"
                 ],
                 "security": [
                     {
@@ -5589,13 +5592,14 @@
                             "schema": {
                                 "type": "object",
                                 "required": [
-                                    "id",
+                                    "menu_key",
                                     "is_disable"
                                 ],
                                 "properties": {
-                                    "id": {
-                                        "type": "integer",
-                                        "minimum": 1
+                                    "menu_key": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 160
                                     },
                                     "is_disable": {
                                         "type": "integer",
@@ -32995,15 +32999,22 @@
                 },
                 "required": [
                     "id",
-                    "pid",
+                    "menu_key",
+                    "parent_key",
                     "name"
                 ],
                 "properties": {
                     "id": {
                         "type": "integer"
                     },
-                    "pid": {
-                        "type": "integer"
+                    "menu_key": {
+                        "type": "string",
+                        "maxLength": 160
+                    },
+                    "parent_key": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 160
                     },
                     "name": {
                         "type": "string"
@@ -33073,9 +33084,9 @@
                     "type"
                 ],
                 "properties": {
-                    "id": {
-                        "type": "integer",
-                        "minimum": 1
+                    "menu_key": {
+                        "type": "string",
+                        "maxLength": 160
                     },
                     "name": {
                         "type": "string",
@@ -33089,9 +33100,10 @@
                             "A"
                         ]
                     },
-                    "pid": {
-                        "type": "integer",
-                        "minimum": 0
+                    "parent_key": {
+                        "type": "string",
+                        "nullable": true,
+                        "maxLength": 160
                     },
                     "icon": {
                         "type": "string",
@@ -33145,8 +33157,7 @@
                     "sort",
                     "create_time",
                     "num",
-                    "menu_id",
-                    "menu_ids",
+                    "menu_keys",
                     "status",
                     "revision"
                 ],
@@ -33170,11 +33181,8 @@
                         "type": "integer",
                         "minimum": 0
                     },
-                    "menu_id": {
-                        "$ref": "#/components/schemas/IntegerList"
-                    },
-                    "menu_ids": {
-                        "$ref": "#/components/schemas/IntegerList"
+                    "menu_keys": {
+                        "$ref": "#/components/schemas/StringList"
                     },
                     "status": {
                         "type": "string"
@@ -33203,11 +33211,8 @@
                     "desc": {
                         "type": "string"
                     },
-                    "menu_id": {
-                        "$ref": "#/components/schemas/IntegerList"
-                    },
-                    "menu_ids": {
-                        "$ref": "#/components/schemas/IntegerList"
+                    "menu_keys": {
+                        "$ref": "#/components/schemas/StringList"
                     }
                 }
             },

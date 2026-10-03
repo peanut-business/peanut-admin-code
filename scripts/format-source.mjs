@@ -95,7 +95,11 @@ export function formatSources(arguments_) {
   const prettier = require('prettier');
   if (prettier.version !== '2.8.8')
     throw new Error('FORMAT_LOCKED_PRETTIER_REQUIRED');
-  const tracked = new Set(git('ls-files', '-z').split('\0').filter(Boolean));
+  const tracked = new Set(
+    git('ls-files', '-z', ...(requested.length ? ['--', ...requested] : []))
+      .split('\0')
+      .filter(Boolean)
+  );
   const candidates = requested.length === 0 ? [...tracked] : requested;
   const files = [];
   for (const path of candidates) {

@@ -6052,7 +6052,8 @@ export interface components {
         };
         AdminMenuNode: {
             id: number;
-            pid: number;
+            menu_key: string;
+            parent_key: string | null;
             name: string;
             /** @enum {string} */
             type?: "M" | "C" | "A";
@@ -6074,11 +6075,11 @@ export interface components {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
         };
         AdminMenuWriteRequest: {
-            id?: number;
+            menu_key?: string;
             name: string;
             /** @enum {string} */
             type: "M" | "C" | "A";
-            pid?: number;
+            parent_key?: string | null;
             icon?: string;
             sort?: number;
             perms?: string;
@@ -6098,8 +6099,7 @@ export interface components {
             sort: number;
             create_time: string;
             num: number;
-            menu_id: components["schemas"]["IntegerList"];
-            menu_ids: components["schemas"]["IntegerList"];
+            menu_keys: components["schemas"]["StringList"];
             status: string;
             revision: number;
         };
@@ -6107,8 +6107,7 @@ export interface components {
             id?: number;
             name: string;
             desc?: string;
-            menu_id?: components["schemas"]["IntegerList"];
-            menu_ids?: components["schemas"]["IntegerList"];
+            menu_keys?: components["schemas"]["StringList"];
         };
         Department: {
             id: number;
@@ -11204,7 +11203,7 @@ export interface operations {
     getAdminMenu: {
         parameters: {
             query: {
-                id: number;
+                menu_key: string;
             };
             header?: never;
             path?: never;
@@ -11308,7 +11307,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    id: number;
+                    menu_key: string;
                 };
             };
         };
@@ -11344,7 +11343,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    id: number;
+                    menu_key: string;
                     /** @enum {integer} */
                     is_disable: 0 | 1;
                 };

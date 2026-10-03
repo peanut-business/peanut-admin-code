@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router';
 export interface ServerMenuRecord {
   id: number;
   pid: number;
+  parent_key: string | null;
   type: 'M' | 'C';
   name: string;
   icon?: string;
@@ -14,7 +15,7 @@ export interface ServerMenuRecord {
   is_show?: number;
   is_disable?: number;
   module_key?: string;
-  menu_key?: string;
+  menu_key: string;
   required_permission?: string;
   children?: ServerMenuRecord[];
 }

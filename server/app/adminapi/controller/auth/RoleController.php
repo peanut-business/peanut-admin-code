@@ -54,16 +54,8 @@ class RoleController extends BaseAdminController
         return $this->success('操作成功');
     }
 
-    /**
-     * menu_id 是正式契约；menu_ids 仅兼容现有 Peanut 前端。
-     * 两者同时存在时始终以 menu_id 为准。
-     */
     private function roleParams(): array
     {
-        $params = $this->request->post();
-        if (!array_key_exists('menu_id', $params) && array_key_exists('menu_ids', $params)) {
-            $params['menu_id'] = $params['menu_ids'];
-        }
-        return $params;
+        return $this->request->post();
     }
 }

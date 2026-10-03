@@ -179,9 +179,9 @@ $schemas = [
     'AdminMenuNode' => [
         'type' => 'object',
         'additionalProperties' => $ref('ApplicationDynamicValue'),
-        'required' => ['id', 'pid', 'name'],
+        'required' => ['id', 'menu_key', 'parent_key', 'name'],
         'properties' => [
-            'id' => ['type' => 'integer'], 'pid' => ['type' => 'integer'], 'name' => ['type' => 'string'],
+            'id' => ['type' => 'integer'], 'menu_key' => ['type' => 'string', 'maxLength' => 160], 'parent_key' => ['type' => 'string', 'nullable' => true, 'maxLength' => 160], 'name' => ['type' => 'string'],
             'type' => ['type' => 'string', 'enum' => ['M', 'C', 'A']], 'icon' => ['type' => 'string'],
             'sort' => ['type' => 'integer'], 'perms' => ['type' => 'string'], 'paths' => ['type' => 'string'],
             'component' => ['type' => 'string'], 'is_cache' => ['type' => 'integer', 'enum' => [0, 1]],
@@ -193,8 +193,8 @@ $schemas = [
     'AdminMenuWriteRequest' => [
         'type' => 'object', 'required' => ['name', 'type'],
         'properties' => [
-            'id' => ['type' => 'integer', 'minimum' => 1], 'name' => ['type' => 'string', 'maxLength' => 50],
-            'type' => ['type' => 'string', 'enum' => ['M', 'C', 'A']], 'pid' => ['type' => 'integer', 'minimum' => 0],
+            'menu_key' => ['type' => 'string', 'maxLength' => 160], 'name' => ['type' => 'string', 'maxLength' => 50],
+            'type' => ['type' => 'string', 'enum' => ['M', 'C', 'A']], 'parent_key' => ['type' => 'string', 'nullable' => true, 'maxLength' => 160],
             'icon' => ['type' => 'string', 'maxLength' => 100], 'sort' => ['type' => 'integer'],
             'perms' => ['type' => 'string', 'maxLength' => 100], 'paths' => ['type' => 'string', 'maxLength' => 200],
             'component' => ['type' => 'string', 'maxLength' => 200], 'is_cache' => ['type' => 'integer', 'enum' => [0, 1]],
@@ -203,11 +203,11 @@ $schemas = [
     ],
     'AdminRole' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['id', 'name', 'desc', 'sort', 'create_time', 'num', 'menu_id', 'menu_ids', 'status', 'revision'],
+        'required' => ['id', 'name', 'desc', 'sort', 'create_time', 'num', 'menu_keys', 'status', 'revision'],
         'properties' => [
             'id' => ['type' => 'integer'], 'name' => ['type' => 'string'], 'desc' => ['type' => 'string'],
             'sort' => ['type' => 'integer'], 'create_time' => ['type' => 'string'], 'num' => ['type' => 'integer', 'minimum' => 0],
-            'menu_id' => $ref('IntegerList'), 'menu_ids' => $ref('IntegerList'), 'status' => ['type' => 'string'],
+            'menu_keys' => $ref('StringList'), 'status' => ['type' => 'string'],
             'revision' => ['type' => 'integer', 'minimum' => 1],
         ],
     ],
@@ -215,7 +215,7 @@ $schemas = [
         'type' => 'object', 'required' => ['name'],
         'properties' => [
             'id' => ['type' => 'integer', 'minimum' => 1], 'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120],
-            'desc' => ['type' => 'string'], 'menu_id' => $ref('IntegerList'), 'menu_ids' => $ref('IntegerList'),
+            'desc' => ['type' => 'string'], 'menu_keys' => $ref('StringList'),
         ],
     ],
     'Department' => [
@@ -500,6 +500,10 @@ $schemas = [
 
 $ok = static fn(string $schema): array => ['200' => $success($ref($schema)), '401' => $error, '403' => $error];
 $mutation = ['200' => $emptySuccess, '401' => $error, '403' => $error, '422' => $error];
+$menuKeySchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 160];
+$menuKeyQuery = [$query('menu_key', $menuKeySchema, true)];
+$menuKeyBody = $jsonBody(['type' => 'object', 'required' => ['menu_key'], 'properties' => ['menu_key' => $menuKeySchema]]);
+$menuStatusBody = $jsonBody(['type' => 'object', 'required' => ['menu_key', 'is_disable'], 'properties' => ['menu_key' => $menuKeySchema, 'is_disable' => ['type' => 'integer', 'enum' => [0, 1]]]]);
 $idQuery = [$query('id', ['type' => 'integer', 'minimum' => 1], true)];
 $idBody = $jsonBody(['type' => 'object', 'required' => ['id'], 'properties' => ['id' => ['type' => 'integer', 'minimum' => 1]]]);
 $statusBody = static fn(string $field): array => $jsonBody([
@@ -540,11 +544,11 @@ $add($paths, 'POST', '/adminapi/admin/status', $operation('setAdministratorStatu
 $add($paths, 'GET', '/adminapi/menu/route', $operation('getAdministratorMenuRoute', 'AdminMenus', ['200' => $success($adminMenuList), '401' => $error, '403' => $error]));
 $add($paths, 'GET', '/adminapi/menu/lists', $operation('listAdminMenus', 'AdminMenus', ['200' => $success($adminMenuList), '401' => $error, '403' => $error]));
 $add($paths, 'GET', '/adminapi/menu/all', $operation('listAssignableAdminMenus', 'AdminMenus', ['200' => $success($adminMenuList), '401' => $error, '403' => $error]));
-$add($paths, 'GET', '/adminapi/menu/detail', $operation('getAdminMenu', 'AdminMenus', $ok('AdminMenuNode'), $idQuery));
+$add($paths, 'GET', '/adminapi/menu/detail', $operation('getAdminMenu', 'AdminMenus', $ok('AdminMenuNode'), $menuKeyQuery));
 $add($paths, 'POST', '/adminapi/menu/add', $operation('createAdminMenu', 'AdminMenus', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('AdminMenuWriteRequest')), errors: ['ADMIN_MENU_PARENT_INVALID', 'ADMIN_MENU_PARENT_NOT_FOUND', 'ADMIN_MENU_HIERARCHY_INVALID']));
 $add($paths, 'POST', '/adminapi/menu/edit', $operation('updateAdminMenu', 'AdminMenus', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('AdminMenuWriteRequest')), errors: ['ADMIN_MENU_NOT_FOUND', 'ADMIN_MENU_PARENT_INVALID', 'ADMIN_MENU_PARENT_NOT_FOUND', 'ADMIN_MENU_HIERARCHY_INVALID']));
-$add($paths, 'POST', '/adminapi/menu/delete', $operation('deleteAdminMenu', 'AdminMenus', $mutation + ['404' => $error, '409' => $error], requestBody: $idBody, errors: ['ADMIN_MENU_NOT_FOUND', 'ADMIN_MENU_HAS_CHILDREN', 'ADMIN_MENU_IN_USE']));
-$add($paths, 'POST', '/adminapi/menu/status', $operation('setAdminMenuStatus', 'AdminMenus', $mutation + ['404' => $error], requestBody: $statusBody('is_disable'), errors: ['ADMIN_MENU_NOT_FOUND']));
+$add($paths, 'POST', '/adminapi/menu/delete', $operation('deleteAdminMenu', 'AdminMenus', $mutation + ['404' => $error, '409' => $error], requestBody: $menuKeyBody, errors: ['ADMIN_MENU_NOT_FOUND', 'ADMIN_MENU_HAS_CHILDREN', 'ADMIN_MENU_IN_USE', 'MANAGED_MENU_DELETE_FORBIDDEN']));
+$add($paths, 'POST', '/adminapi/menu/status', $operation('setAdminMenuStatus', 'AdminMenus', $mutation + ['404' => $error], requestBody: $menuStatusBody, errors: ['ADMIN_MENU_NOT_FOUND']));
 $rolePage = [
     'type' => 'object', 'additionalProperties' => false, 'required' => ['lists', 'count', 'pageNo', 'pageSize'],
     'properties' => ['lists' => ['type' => 'array', 'items' => $ref('AdminRole')], 'count' => ['type' => 'integer'], 'pageNo' => ['type' => 'integer'], 'pageSize' => ['type' => 'integer']],

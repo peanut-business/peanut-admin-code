@@ -40,12 +40,14 @@ test('categories preserve static leaf routes, names and cache metadata', () => {
   const result = map([
     {
       id: 100,
+      menu_key: 'core.content',
       type: 'M',
       name: '内容与资源',
       paths: '/article',
       children: [
         {
-          id: 101,
+          id: 100,
+          menu_key: 'official.file.library',
           type: 'C',
           name: '文件',
           paths: '/system/file',
@@ -57,6 +59,7 @@ test('categories preserve static leaf routes, names and cache metadata', () => {
   ]);
   assert.equal(result.length, 1);
   assert.equal(result[0].component, undefined);
+  assert.equal(result[0].name, 'menu-group-core.content');
   assert.equal(result[0].children[0].path, '/system/file');
   assert.equal(result[0].children[0].name, 'File');
   assert.equal(result[0].children[0].component, component);
@@ -73,6 +76,7 @@ test('unknown pages and empty categories cannot load arbitrary components', () =
     map([
       {
         id: 1,
+        menu_key: 'custom.category',
         type: 'M',
         paths: '/category',
         children: [
@@ -95,6 +99,7 @@ test('custom category and page hiding is preserved independently of authorizatio
   const result = map([
     {
       id: 1,
+      menu_key: 'custom.category',
       type: 'M',
       name: '我的目录',
       is_show: 0,

@@ -85,19 +85,19 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             array_column(array_filter(
                 $this->compatibilityMenus($tenantContext, $admin, $permissions),
                 static fn(array $row): bool => !in_array((int) $row['id'], array_column($native['menu'], 'legacy_menu_id'), true),
-            ), null, 'id'),
-            array_column($native['menu'], null, 'id'),
+            ), null, 'menu_key'),
+            array_column($native['menu'], null, 'menu_key'),
         ));
         do {
             $before = count($menus);
-            $ids = array_column($menus, 'id');
+            $ids = array_column($menus, 'menu_key');
             $menus = array_values(array_filter($menus, static fn(array $row): bool =>
-                !isset($row['menu_key']) || (int) $row['pid'] === 0 || in_array((int) $row['pid'], $ids, true)));
+                $row['parent_key'] === null || in_array($row['parent_key'], $ids, true)));
         } while (count($menus) !== $before);
         usort($menus, static fn(array $a, array $b): int => [-$a['sort'], $a['id']] <=> [-$b['sort'], $b['id']]);
 
         return new AdminAccessData(
-            menu: linear_to_tree($menus),
+            menu: linear_to_tree($menus, 'children', 'menu_key', 'parent_key'),
             permissions: $admin->root
                 ? $bridge->registeredPermissions($tenantContext->tenantId)
                 : array_values(array_unique($permissions)),
@@ -254,14 +254,11 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
                 $query->where('perms', '')->whereOr('perms', 'in', $visiblePermissions ?: ['__none__']);
             });
 
-        return array_values(array_filter($query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(), static function (array $row): bool {
-            $baseline = $row['upstream_defaults_json'] ?? null;
-            if (is_string($baseline)) {
-                $baseline = json_decode($baseline, true, 512, JSON_THROW_ON_ERROR);
-            }
-            return $row['type'] === 'M' || !is_array($baseline)
-                || !in_array($baseline['paths'] ?? '', CoreTenantModuleAdminBridge::officialModuleMenuPaths(), true);
-        }));
+        $nativeKeys = array_fill_keys($this->moduleAdmin->managedMenuKeys(), true);
+        return array_values(array_filter(
+            $query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(),
+            static fn(array $row): bool => !isset($nativeKeys[$row['menu_key']]),
+        ));
     }
 
     private function validContext(?TenantContext $context, AdminPrincipal $admin): bool

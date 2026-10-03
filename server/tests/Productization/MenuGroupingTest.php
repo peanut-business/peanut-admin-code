@@ -9,6 +9,10 @@ use PeanutAdmin\Kernel\Menu\MenuRegistry;
 use PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer;
 use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository;
+use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
+use app\adminapi\services\auth\MenuApplicationService;
+use app\common\services\authorization\AdminAuthorizationService;
+use app\common\services\authorization\MenuPermissionUsageQuery;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
@@ -96,7 +100,8 @@ foreach ($scenarios as $scenario) {
         ]);
         $files = glob($server . '/database/migrations/*.sql');
         $grouping = $server . '/database/migrations/20261004-group-default-navigation.sql';
-        $oldFiles = array_values(array_diff($files, [$grouping]));
+        $identity = $server . '/database/migrations/20261004-menu-stable-identities.sql';
+        $oldFiles = array_values(array_diff($files, [$grouping, $identity]));
         $migration->run($oldFiles, $targetVersion, $targetVersion);
         (new ModuleAuthorizationCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize($registry);
         $legacyBefore = menuRows($pdo, 'pa_system_menu');
@@ -132,8 +137,8 @@ foreach ($scenarios as $scenario) {
             $pdo->exec("INSERT INTO pa_menu_definition (`key`,module_key,scope,type,name,client_keys_json,status,manifest_digest,created_at,updated_at) VALUES ('customer.category','core','tenant','group','客户目录',JSON_ARRAY('admin-web'),'active',REPEAT('b',64),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
             $customBefore = [$pdo->query('SELECT * FROM pa_system_menu WHERE id=84')->fetch(), $pdo->query('SELECT * FROM pa_menu_definition WHERE `key`=\'official.article.articles\'')->fetch()];
         }
-        $firstMigration = $migration->run([$grouping], $targetVersion, $targetVersion);
-        menuExpect($firstMigration['applied'] === ['20261004-group-default-navigation'], 'normal upgrade runner did not apply menu migration');
+        $firstMigration = $migration->run([$grouping, $identity], $targetVersion, $targetVersion);
+        menuExpect($firstMigration['applied'] === ['20261004-group-default-navigation', '20261004-menu-stable-identities'], 'normal upgrade runner did not apply menu migration');
         $applier = \ThinkPhpTestConnection::moduleCatalogs($pdo);
         $first = $applier->apply($registry);
         $repository = new ThinkPhpMenuCatalogRepository();
@@ -168,16 +173,17 @@ foreach ($scenarios as $scenario) {
         menuExpect(count(array_filter($withoutArticle, static fn($page): bool => $page->moduleKey === 'official.article')) === 0, 'disabled module remained visible');
         menuExpect(menuVisible($repository, $allPermissions, [], 'platform') === [], 'platform menus escaped deployment/client scope');
         $bridge = (new ReflectionClass(CoreTenantModuleAdminBridge::class))->newInstanceWithoutConstructor();
+        (new ReflectionProperty($bridge, 'menuAdministration'))->setValue($bridge, new MenuAdministrationService());
         $projection = new ReflectionMethod($bridge, 'serverMenuRecords');
         $records = $projection->invoke($bridge, $visible, $allPermissions);
         foreach ($records as $record) {
             if ($record['type'] === 'C') {
-                menuExpect($record['id'] === CoreTenantModuleAdminBridge::virtualMenuId($record['menu_key']), 'virtual page identity changed');
+                menuExpect($record['id'] === (int) array_column((new MenuAdministrationService())->records(), 'id', 'key')[$record['menu_key']], 'projection must return the real auto-increment catalog ID');
             }
         }
         if ($scenario === 'plugin_lifecycle') {
             $legacy = $pdo->query('SELECT * FROM pa_system_menu WHERE id=84')->fetch();
-            foreach ($customBefore[0] as $field => $value) {
+            foreach (array_diff_key($customBefore[0], array_flip(['menu_key','parent_key','module_key'])) as $field => $value) {
                 menuExpect($legacy[$field] === $value, 'legacy custom field overwritten: ' . $field);
             }
             $custom = $pdo->query("SELECT * FROM pa_menu_definition WHERE `key`='official.article.articles'")->fetch();
@@ -228,9 +234,47 @@ foreach ($scenarios as $scenario) {
             // Restore the normal full reconcile before comparing repeated full upgrades.
             $applier->apply($registry);
         }
+        $management = new MenuApplicationService(
+            (new ReflectionClass(AdminAuthorizationService::class))->newInstanceWithoutConstructor(),
+            (new ReflectionClass(MenuPermissionUsageQuery::class))->newInstanceWithoutConstructor(),
+            new MenuAdministrationService(),
+        );
+        $managed = $management->records();
+        menuExpect(count(array_filter($managed, static fn(array $row): bool => $row['source'] === 'module' && $row['type'] === 'C' && str_starts_with($row['module_key'], 'official.'))) === 19, 'management omitted module menus or their owner');
+        foreach (['official.rich-text.documents', 'official.file.library'] as $key) {
+            $record = $management->detail($key);
+            $management->edit([...$record, 'name' => '自定义展示名', 'sort' => 888, 'is_show' => 0, 'is_cache' => 1,
+                'perms' => 'malicious.grant', 'paths' => '/malicious', 'component' => 'malicious/component']);
+            $applier->apply($registry);
+            $edited = $management->detail($key);
+            menuExpect($edited['name'] === '自定义展示名' && $edited['sort'] === 888 && $edited['is_show'] === 0 && $edited['is_cache'] === 1, 'module presentation edit lost during synchronization');
+            menuExpect($edited['perms'] === $record['perms'] && $edited['paths'] === $record['paths'] && $edited['component'] === $record['component'], 'module management changed immutable contribution fields');
+            $management->updateStatus($key, 1);
+            $applier->apply($registry);
+            menuExpect($management->detail($key)['is_disable'] === 1, 'module disable lost during synchronization');
+            menuExpect(count(array_filter($projection->invoke($bridge, menuVisible($repository, $allPermissions, $modules), $allPermissions), static fn(array $row): bool => $row['menu_key'] === $key)) === 0, 'disabled module menu still projected');
+            $management->updateStatus($key, 0);
+            try {
+                $management->delete($key);
+                menuExpect(false, 'managed menu deletion accepted');
+            } catch (\app\common\exception\BusinessException $error) {
+                menuExpect(true, 'managed delete rejected');
+            }
+        }
+        $management->add(['type' => 'M', 'name' => '编号预留验证', 'parent_key' => 'core.content']);
+        $createdMenu = array_values(array_filter($management->records(), static fn(array $row): bool => $row['name'] === '编号预留验证'))[0];
+        menuExpect($createdMenu['id'] >= MenuApplicationService::CUSTOM_ID_START && str_starts_with($createdMenu['menu_key'], 'custom.') && $createdMenu['parent_key'] === 'core.content' && $createdMenu['module_key'] === 'application', 'custom menu did not use reserved range and stable identity');
+        try {
+            $management->edit([...$createdMenu, 'parent_key' => $createdMenu['menu_key']]);
+            menuExpect(false, 'parent cycle accepted');
+        } catch (\app\common\exception\BusinessException $error) {
+            menuExpect(true, 'parent cycle rejected');
+        }
+        $management->delete($createdMenu['menu_key']);
         $stable = menuStable($pdo);
-        menuExpect($migration->run([$grouping], $targetVersion, $targetVersion)['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
+        menuExpect($migration->run([$grouping, $identity], $targetVersion, $targetVersion)['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
         $pdo->exec(file_get_contents($grouping));
+        $pdo->exec(file_get_contents($identity));
         $applier->apply($registry);
         menuExpect(menuStable($pdo) === $stable, 'repeat SQL/synchronization changed menus or grants');
         $results[] = ['scenario' => $scenario, 'official_pages' => count($pages), 'tenant_roots' => 6, 'catalog_revision' => $first['catalog_revision']];
