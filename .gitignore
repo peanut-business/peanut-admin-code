@@ -14,6 +14,7 @@ deploy/production.env
 /updates/
 /backups/
 /.peanut/application-release.json
+/.peanut/upgrades/
 /release-manifest.txt
 /server/public/admin/
 /server/public/platform/
@@ -53,5 +54,6 @@ web/.claude/
 # Runtime/test output is not repository source
 /output/
 
-# Public contracts live in docs; stale maintainer docs-site caches are not source.
-/docs-site/
+# Generated applications retain their managed documentation source and lock.
+/docs-site/.vitepress/cache/
+/docs-site/.vitepress/dist/

@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "key": "official.import-export",
+  "name": "Import and Export",
+  "description": "Tenant-private import and export operations, jobs and result files.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-import-export",
+  "web_package": "@peanut-admin/official-import-export",
+  "dependencies": [
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.task",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.settings",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.integration",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    }
+  ],
+  "backend": {
+    "provider": "PeanutAdmin\\Modules\\ImportExport\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json",
+    "setting_definitions": "resources/setting-definitions.json"
+  },
+  "frontend": {
+    "entry": "web/src/modules/official-import-export/contribution.ts"
+  },
+  "database": {
+    "owned_tables": ["pa_import_export_operation", "pa_import_export_row_error"]
+  },
+  "contracts": {
+    "exports": [
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportCommands",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportQueries",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportWorkerRuntime",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferCommands",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferQueries",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\Dto\\AsyncExportOperation",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\Dto\\CsvExportOperation",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\DataProvider",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\ColumnDefinition",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\SchemaDefinition",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\ExportBatch",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Contract\\RowIssue",
+      "PeanutAdmin\\Modules\\ImportExport\\Engine\\Application\\ImportExportException"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": true,
+    "disable_behavior": "reject_new_operations",
+    "requires": [
+      "official.file",
+      "official.task",
+      "official.settings",
+      "official.integration"
+    ]
+  }
+}
