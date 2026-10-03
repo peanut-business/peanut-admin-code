@@ -158,10 +158,16 @@ INSERT INTO pa_menu_grouping_expected VALUES (45,JSON_OBJECT('pid',0,'type','M',
 INSERT INTO pa_menu_grouping_expected VALUES (84,JSON_OBJECT('pid',45,'type','C','name','素材管理','icon','icon-folder','sort',50,'perms','file/lists','paths','/system/file','component','system/file/index','is_cache',0,'is_show',1,'is_disable',0),1);
 INSERT INTO pa_menu_grouping_expected VALUES (57,JSON_OBJECT('pid',20,'type','C','name','充值记录','icon','icon-thunderbolt','sort',80,'perms','recharge.recharge/lists','paths','/finance/recharge','component','finance/recharge/index','is_cache',0,'is_show',1,'is_disable',0),38);
 INSERT INTO pa_menu_grouping_expected VALUES (58,JSON_OBJECT('pid',20,'type','C','name','退款记录','icon','icon-undo','sort',70,'perms','finance.refund/record','paths','/finance/refund','component','finance/refund/index','is_cache',0,'is_show',1,'is_disable',0),38);
--- Any custom field protects the whole node. A customized source directory also protects its children.
+-- Any custom field protects the whole node; both source and destination directories must remain managed defaults.
 UPDATE pa_system_menu m JOIN pa_menu_grouping_expected e ON e.id=m.id LEFT JOIN pa_system_menu p ON p.id=e.old_parent
+LEFT JOIN pa_system_menu t ON t.id=CAST(JSON_UNQUOTE(JSON_EXTRACT(e.target_defaults,'$.pid')) AS UNSIGNED)
 SET m.pid=CAST(JSON_UNQUOTE(JSON_EXTRACT(e.target_defaults,'$.pid')) AS UNSIGNED), m.name=JSON_UNQUOTE(JSON_EXTRACT(e.target_defaults,'$.name')), m.upstream_defaults_json=e.target_defaults, m.menu_conflict_json=NULL
 WHERE JSON_OBJECT('pid',m.`pid`,'type',m.`type`,'name',m.`name`,'icon',m.`icon`,'sort',m.`sort`,'perms',m.`perms`,'paths',m.`paths`,'component',m.`component`,'is_cache',m.`is_cache`,'is_show',m.`is_show`,'is_disable',m.`is_disable`)=m.upstream_defaults_json AND JSON_EXTRACT(e.target_defaults,'$.pid')<>CAST('null' AS JSON)
-AND (e.old_parent=0 OR JSON_OBJECT('pid',p.`pid`,'type',p.`type`,'name',p.`name`,'icon',p.`icon`,'sort',p.`sort`,'perms',p.`perms`,'paths',p.`paths`,'component',p.`component`,'is_cache',p.`is_cache`,'is_show',p.`is_show`,'is_disable',p.`is_disable`)=p.upstream_defaults_json);
+AND (e.old_parent=0 OR JSON_OBJECT('pid',p.`pid`,'type',p.`type`,'name',p.`name`,'icon',p.`icon`,'sort',p.`sort`,'perms',p.`perms`,'paths',p.`paths`,'component',p.`component`,'is_cache',p.`is_cache`,'is_show',p.`is_show`,'is_disable',p.`is_disable`)=p.upstream_defaults_json)
+AND (JSON_EXTRACT(e.target_defaults,'$.pid')=CAST('0' AS JSON) OR JSON_OBJECT('pid',t.`pid`,'type',t.`type`,'name',t.`name`,'icon',t.`icon`,'sort',t.`sort`,'perms',t.`perms`,'paths',t.`paths`,'component',t.`component`,'is_cache',t.`is_cache`,'is_show',t.`is_show`,'is_disable',t.`is_disable`)=t.upstream_defaults_json);
+UPDATE pa_system_menu m JOIN pa_menu_grouping_expected e ON e.id=m.id
+SET m.menu_conflict_json=JSON_OBJECT('reason','navigation_parent_conflict')
+WHERE JSON_OBJECT('pid',m.`pid`,'type',m.`type`,'name',m.`name`,'icon',m.`icon`,'sort',m.`sort`,'perms',m.`perms`,'paths',m.`paths`,'component',m.`component`,'is_cache',m.`is_cache`,'is_show',m.`is_show`,'is_disable',m.`is_disable`)=m.upstream_defaults_json
+AND m.upstream_defaults_json<>e.target_defaults;
 UPDATE pa_system_menu m SET menu_conflict_json=JSON_OBJECT('reason','legacy_default_mismatch') WHERE m.upstream_defaults_json IS NOT NULL AND JSON_OBJECT('pid',m.`pid`,'type',m.`type`,'name',m.`name`,'icon',m.`icon`,'sort',m.`sort`,'perms',m.`perms`,'paths',m.`paths`,'component',m.`component`,'is_cache',m.`is_cache`,'is_show',m.`is_show`,'is_disable',m.`is_disable`)<>m.upstream_defaults_json;
 DROP TEMPORARY TABLE pa_menu_grouping_expected;

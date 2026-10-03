@@ -49,12 +49,13 @@ function menuStable(PDO $pdo): array
     }
     return $result;
 }
-function menuVisible(ThinkPhpMenuCatalogRepository $repository, array $permissions, array $modules, string $scope = 'tenant'): array
+function menuVisible(ThinkPhpMenuCatalogRepository $repository, array $permissions, array $modules, string $scope = 'tenant', ?array $tenantModules = null): array
 {
+    $tenantModules ??= $modules;
     return (new MenuRegistry($repository->activeDefinitions($scope)))->visible(
         $scope === 'tenant' ? 'admin-web' : 'platform-web',
         static fn(string $key): bool => in_array($key, $modules, true),
-        static fn(string $key): bool => in_array($key, $modules, true),
+        static fn(string $key): bool => in_array($key, $tenantModules, true),
         static fn(string $key): bool => in_array($key, $permissions, true),
     );
 }
@@ -70,7 +71,7 @@ foreach ($scenarios as $scenario) {
     [$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);
     try {
         \ThinkPhpTestConnection::fromPdo($pdo);
-        initializeCoreIdentity(
+        $bootstrap = initializeCoreIdentity(
             $pdo,
             'menu-owner@example.test',
             'synthetic-menu-password-1004',
@@ -120,6 +121,8 @@ foreach ($scenarios as $scenario) {
             $pdo->exec("INSERT INTO pa_system_menu (pid,type,name,paths,sort) VALUES ({$customGroupId},'C','我的页面','/my-page',998)");
             $customPageId = (int) $pdo->lastInsertId();
             $pdo->exec("UPDATE pa_menu_definition SET name='我的文章',parent_key='core.organization',sort_order=997,icon='my-icon' WHERE `key`='official.article.articles'");
+            $pdo->exec("UPDATE pa_menu_definition SET route_path='/my-oauth' WHERE `key`='official.oauth.channel'");
+            $pdo->exec("INSERT INTO pa_menu_definition (`key`,module_key,scope,type,name,client_keys_json,status,manifest_digest,created_at,updated_at) VALUES ('customer.category','core','tenant','group','客户目录',JSON_ARRAY('admin-web'),'active',REPEAT('b',64),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
             $customBefore = [$pdo->query('SELECT * FROM pa_system_menu WHERE id=84')->fetch(), $pdo->query('SELECT * FROM pa_menu_definition WHERE `key`=\'official.article.articles\'')->fetch()];
         }
         $firstMigration = $migration->run([$grouping], '4.0.0-rc.2', '4.0.0-rc.2');
@@ -135,7 +138,8 @@ foreach ($scenarios as $scenario) {
         foreach ($pages as $page) {
             menuExpect($page->parentKey !== null, 'official page remained at root: ' . $page->key);
             $original = array_values(array_filter($registry->menus, static fn(array $row): bool => $row['key'] === $page->key))[0];
-            menuExpect($page->routeName === $original['route_name'] && $page->routePath === $original['route_path'] && $page->requiredPermission === $original['required_permission'], 'route or permission changed: ' . $page->key);
+            $expectedPath = $scenario === 'plugin_lifecycle' && $page->key === 'official.oauth.channel' ? '/my-oauth' : $original['route_path'];
+            menuExpect($page->routeName === $original['route_name'] && $page->routePath === $expectedPath && $page->requiredPermission === $original['required_permission'], 'route or permission changed: ' . $page->key);
         }
         foreach ($oldIds as $key => $id) {
             $query = $pdo->prepare('SELECT id FROM pa_menu_definition WHERE `key`=?');
@@ -151,8 +155,8 @@ foreach ($scenarios as $scenario) {
         $visible = menuVisible($repository, $allPermissions, $modules);
         menuExpect(count(array_filter($visible, static fn($page): bool => $page->parentKey === null)) === 6, 'tenant category count changed');
         menuExpect(menuVisible($repository, [], $modules) === [], 'empty permission set exposed a page or empty category');
-        $articleOnly = menuVisible($repository, ['official.article.article.list'], $modules);
-        menuExpect(count(array_filter($articleOnly, static fn($page): bool => $page->type === 'page')) <= 1, 'a category granted additional leaf permissions');
+        $articleOnly = menuVisible($repository, ['official.article.list'], $modules);
+        menuExpect(count(array_filter($articleOnly, static fn($page): bool => $page->type === 'page')) === 1, 'a category lost the granted page or granted additional leaf permissions');
         $withoutArticle = menuVisible($repository, $allPermissions, array_values(array_diff($modules, ['official.article'])));
         menuExpect(count(array_filter($withoutArticle, static fn($page): bool => $page->moduleKey === 'official.article')) === 0, 'disabled module remained visible');
         menuExpect(menuVisible($repository, $allPermissions, [], 'platform') === [], 'platform menus escaped deployment/client scope');
@@ -175,12 +179,33 @@ foreach ($scenarios as $scenario) {
             }
             menuExpect($custom['menu_conflict_json'] !== null && $legacy['menu_conflict_json'] !== null, 'custom conflict was not reported');
             menuExpect((int) $pdo->query('SELECT COUNT(*) FROM pa_system_menu WHERE id IN (' . $customGroupId . ',' . $customPageId . ')')->fetchColumn() === 2, 'user-created menus were removed');
+            menuExpect($pdo->query("SELECT status FROM pa_menu_definition WHERE `key`='customer.category'")->fetchColumn() === 'active', 'unknown user catalog menu was retired');
             $beforeParent = array_values(array_filter($legacyBefore, static fn(array $row): bool => (int) $row['id'] === 39))[0]['pid'];
             menuExpect((int) $pdo->query('SELECT pid FROM pa_system_menu WHERE id=39')->fetchColumn() === (int) $beforeParent, 'custom directory did not preserve children');
+            menuExpect($pdo->query('SELECT menu_conflict_json FROM pa_system_menu WHERE id=39')->fetchColumn() !== null, 'custom destination conflict was not reported');
+            $accountLog = array_values(array_filter($records, static fn(array $row): bool => $row['menu_key'] === 'official.member.account-log'));
+            menuExpect(count($accountLog) === 1 && $accountLog[0]['pid'] === (int) $beforeParent, 'projection overrode a protected legacy parent');
             $pdo->exec("UPDATE pa_system_menu SET is_disable=1 WHERE paths='/operations'");
             $denied = $projection->invoke($bridge, $visible, $allPermissions);
             menuExpect(count(array_filter($denied, static fn(array $row): bool => in_array($row['menu_key'], ['official.notification.log', 'official.task.crontab'], true))) === 0, 'disabled category leaked new or existing module pages');
             $pdo->exec("UPDATE pa_system_menu SET is_disable=0 WHERE paths='/operations'");
+            $manifests = [];
+            foreach ($registry->modules as $manifest) {
+                $manifests[$manifest->data['key']] = $manifest;
+                (new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService())->registerDeployedManifest($manifest);
+                $pdo->prepare("INSERT INTO pa_tenant_module (tenant_id,module_key,status,created_at,updated_at) VALUES (?,?,'enabled',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE status='enabled'")->execute([$bootstrap['tenant_id'], $manifest->data['key']]);
+            }
+            $applier->disableActivePackageModules(['official.task']);
+            menuExpect(!in_array('official.task', $repository->activeDeploymentModules(), true), 'deployment disable did not affect menu availability');
+            $deploymentFiltered = menuVisible($repository, $allPermissions, $repository->activeDeploymentModules());
+            menuExpect(count(array_filter($deploymentFiltered, static fn($page): bool => $page->moduleKey === 'official.task')) === 0, 'deployment-disabled menu remained visible');
+            $applier->activatePackageDeployment(['official.task' => $manifests['official.task']], false, gmdate('Y-m-d H:i:s'));
+            $pdo->prepare("UPDATE pa_tenant_module SET status='disabled' WHERE tenant_id=? AND module_key='official.task'")->execute([$bootstrap['tenant_id']]);
+            $enabled = $pdo->prepare("SELECT module_key FROM pa_tenant_module WHERE tenant_id=? AND status='enabled'");
+            $enabled->execute([$bootstrap['tenant_id']]);
+            $tenantFiltered = menuVisible($repository, $allPermissions, $repository->activeDeploymentModules(), 'tenant', $enabled->fetchAll(PDO::FETCH_COLUMN));
+            menuExpect(count(array_filter($tenantFiltered, static fn($page): bool => $page->moduleKey === 'official.task')) === 0, 'tenant-disabled menu remained visible after deployment reactivation');
+            $pdo->prepare("UPDATE pa_tenant_module SET status='enabled' WHERE tenant_id=? AND module_key='official.task'")->execute([$bootstrap['tenant_id']]);
             $applier->retire(['official.task']);
             menuExpect(count(array_filter($repository->activeDefinitions('tenant'), static fn($page): bool => $page->moduleKey === 'official.task')) === 0, 'retire left active menus');
             $applier->apply($registry, ['official.task']);

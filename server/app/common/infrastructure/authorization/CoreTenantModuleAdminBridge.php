@@ -279,7 +279,7 @@ final readonly class CoreTenantModuleAdminBridge
         $seen = [];
         while (true) {
             $id = (int) $row['id'];
-            if (isset($seen[$id])) {
+            if (isset($seen[$id]) || ($row['menu_conflict_json'] ?? null) !== null) {
                 return true;
             }
             $seen[$id] = true;
