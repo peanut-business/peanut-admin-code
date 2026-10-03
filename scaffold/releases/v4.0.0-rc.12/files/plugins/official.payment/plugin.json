@@ -1,0 +1,116 @@
+{
+    "schema_version": 1,
+    "key": "official.payment",
+    "version": "1.0.0",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "4826a07f1566efc1e04b10ec6091e30347a6243c576bc36b39c46f24ab654a7c"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "official.payment",
+                    "version": "1.0.0",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "official.file",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
+                        },
+                        {
+                            "module_key": "official.integration",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.member",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.oauth",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.settings",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "aa6abbc566274b212710800ce6175e3da2d4837574c4d3b45247eed7dee67c3a"
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "official.payment:20260826-namespace-permission-keys",
+                                "sha256": "c216a6dc4934549fb1388fa864b64e4e4222f40a9ae00f90484133452dc36f84"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/official-payment",
+            "version": "1.0.0",
+            "sha256": "48fb50c3733c25936bdf1f4d2fa7e8629ad902af7e2b4df4801af70cfe7a8b4a"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/official-payment",
+            "version": "1.0.0",
+            "integrity": "sha256-GdQVPdD6yjxCe/FKkoJtrPjlfAv3CkkC8bS0K29oSY8="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/official-payment",
+            "version": "1.0.0",
+            "entry": "web/src/modules/official-payment/contribution.ts",
+            "sha256": "94d41ccbd29f32bcef54e01363e8c4cf4a850825a2fc2cf0f594864625fe3e83"
+        }
+    ],
+    "modules": [
+        {
+            "key": "official.payment",
+            "root": "server/app/modules/official/payment"
+        }
+    ]
+}
