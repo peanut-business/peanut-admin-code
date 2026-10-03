@@ -2,10 +2,10 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "4.0.0-rc.5",
+  "source_product_version": "4.0.0-rc.6",
   "instance_version": null,
-  "expected_tag": "v4.0.0-rc.5",
-  "release_date": "2026-10-03",
+  "expected_tag": "v4.0.0-rc.6",
+  "release_date": "2026-10-04",
   "repository": "https://github.com/peanut-business/peanut-admin",
   "license": {
     "type": "Apache-2.0",
@@ -77,9 +77,9 @@
   "lockfiles": {
     "server/composer.lock": "f1ec1b1a359c2a9d466e589b571ebb31e3568c00ae173dd0b34e0c1287a375f9",
     "web/pnpm-lock.yaml": "d078e70c07c40fad42807a90cd58b680c801c3d8d2de6c303f8c3ef36f7ea8d6",
-    "platform/package-lock.json": "43d7290270618e0076877314ae147db80f834f64e5b44c8b9328844740e6d8ed",
-    "pc/package-lock.json": "16da148fee1ef9b1ea6e890fc0717b2dabe52b1b1152f61726a1858698e6ef9a",
-    "uniapp/package-lock.json": "b241a3b88ac93ce07e3af2a4bd590c26b9728367e2ecbfc96696625b946d25ee"
+    "platform/package-lock.json": "11e6d8e98975410d4519fdef87e5bceda8adafbd655dbb4860bdbd0637d8d83d",
+    "pc/package-lock.json": "59e8d9da93a0cb4ea2536a779f1e17ba4de99b2381140fe260cb1d498624acdc",
+    "uniapp/package-lock.json": "474d23532d1a024bc90787373c5e3cacac2e724fe11a4b4745644b85dda04f89"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
@@ -88,7 +88,7 @@
     "RELEASE_SBOM.spdx.json": "7d0738b553d3115612ced8496469e60bc259ea026b433eb52b56b07857ddccd7"
   },
   "technical_qualification": {
-    "phase": "4.0.0-rc.5-prerelease-candidate",
+    "phase": "4.0.0-rc.6-prerelease-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -98,7 +98,7 @@
     "cleanup_residual_count": null,
     "lease_released": false,
     "migrations": 10,
-    "scaffold_version": "4.0.0-rc.5",
+    "scaffold_version": "4.0.0-rc.6",
     "application_initial_version": "0.1.0",
     "evidence": "P1 prerelease candidate identity is prepared from public Core registry locks; qualification remains pending.",
     "release_delta": "Adopts the published fixed PHP Core and Web Core package identities recorded in public_runtime_dependencies, separates source product identity from customer-owned instance identity, and prepares one-source deterministic Standalone and Multi-tenant scaffold inputs."
