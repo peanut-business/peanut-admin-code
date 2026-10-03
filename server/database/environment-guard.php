@@ -743,6 +743,7 @@ function assertConsumerUpgradeLeaseContract(
 }
 
 /** @return array{environment:string,deployment_target:string,resource_id:string,endpoint_id:string,consumer:string,host:string,port:string,database:string,user:string,password:string} */
+/** 源码与生成 APP 共用此门禁；资源路径只由严格的项目／实例身份读取器选择。 */
 function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null): array
 {
     $registry = projectResourceRegistry();
