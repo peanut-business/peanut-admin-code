@@ -53,7 +53,7 @@ function expectedApplicationMigrationIds(string $serverRoot): array
     )->scaffoldTemplate();
     expectInvariant(
         is_string($targetVersion)
-            && preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $targetVersion) === 1,
+            && preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $targetVersion) === 1,
         'MT05_APPLICATION_VERSION_INVALID'
     );
 
