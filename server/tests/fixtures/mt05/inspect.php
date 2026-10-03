@@ -137,22 +137,11 @@ try {
         'pa_tenant_idempotency_record',
         'pa_system_dict_type',
         'pa_system_dict_data',
-    ] as $requiredTable) {
-        expectInvariant(tableExists($pdo, $requiredTable), 'MT05_REQUIRED_TABLE_MISSING:' . $requiredTable);
-    }
-
-    $multiTenantOnlyTables = [
         'pa_tenant_entry_binding',
         'pa_tenant_owner_invitation',
         'pa_provider_qualification_evidence',
-    ];
-    foreach ($multiTenantOnlyTables as $table) {
-        expectInvariant(
-            tableExists($pdo, $table) === ($deploymentMode === 'multi-tenant'),
-            ($deploymentMode === 'multi-tenant'
-                ? 'MT05_REQUIRED_TABLE_MISSING:'
-                : 'MT05_STANDALONE_FORBIDDEN_TABLE_PRESENT:') . $table
-        );
+    ] as $requiredTable) {
+        expectInvariant(tableExists($pdo, $requiredTable), 'MT05_REQUIRED_TABLE_MISSING:' . $requiredTable);
     }
 
     $requiredIndexes = [
@@ -161,17 +150,12 @@ try {
         ['pa_refund_record', 'idx_refund_record_tenant_order_amount'],
         ['pa_system_dict_type', 'uk_system_dict_type_code'],
         ['pa_system_dict_data', 'uk_system_dict_data_type_value'],
+        ['pa_tenant_entry_binding', 'uk_tenant_entry_binding'],
+        ['pa_tenant_owner_invitation', 'uk_owner_invitation_pending_tenant'],
+        ['pa_provider_qualification_evidence', 'uk_provider_qualification_evidence_key'],
+        ['pa_provider_qualification_evidence', 'idx_provider_qualification_subject_observed'],
+        ['pa_provider_qualification_evidence', 'idx_provider_qualification_expiry'],
     ];
-    if ($deploymentMode === 'multi-tenant') {
-        $requiredIndexes = [
-            ...$requiredIndexes,
-            ['pa_tenant_entry_binding', 'uk_tenant_entry_binding'],
-            ['pa_tenant_owner_invitation', 'uk_owner_invitation_pending_tenant'],
-            ['pa_provider_qualification_evidence', 'uk_provider_qualification_evidence_key'],
-            ['pa_provider_qualification_evidence', 'idx_provider_qualification_subject_observed'],
-            ['pa_provider_qualification_evidence', 'idx_provider_qualification_expiry'],
-        ];
-    }
     foreach ($requiredIndexes as [$table, $index]) {
         expectInvariant(indexExists($pdo, $table, $index), 'MT05_REQUIRED_INDEX_MISSING:' . $index);
     }
