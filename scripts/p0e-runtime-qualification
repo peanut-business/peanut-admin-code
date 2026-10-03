@@ -509,6 +509,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         ("resource-id", RESOURCE_ID),
         ("environment", "development"),
         ("deployment-target", "local-production-preview"),
+        ("qualification-group", selected_groups[-1]),
         ("consumer", "host"),
         (
             "endpoint",

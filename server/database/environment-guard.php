@@ -390,29 +390,86 @@ function assertP0eLeaseContract(
     string $deploymentTarget,
     string $deploymentMode,
 ): void {
+    $runId = $identity['run_id'];
+    $allowedScenarios = $database['allowed_scenarios'] ?? null;
+    if (!is_array($allowedScenarios)
+        || count($allowedScenarios) < 2
+        || array_filter($allowedScenarios, static fn(mixed $scenario): bool => !is_string($scenario) || $scenario === '') !== []) {
+        throw new RuntimeException('P0-E database scenario 登记无效');
+    }
+    $allExpectedDatabases = array_map(
+        static fn(string $scenario): string => str_replace(
+            ['<run_id>', '<scenario>'],
+            [$runId, $scenario],
+            (string) $database['database'],
+        ),
+        $allowedScenarios,
+    );
+    $qualificationGroups = $resources['qualification-group'] ?? null;
+    if (!is_array($qualificationGroups) || count($qualificationGroups) !== 1) {
+        throw new RuntimeException('P0-E lease 缺少唯一 qualification group 身份');
+    }
+    $profiles = [
+        'generated-application' => ['scenario_count' => 2, 'compose' => false, 'browser' => false],
+        'standalone-fresh' => ['scenario_count' => 2, 'compose' => false, 'browser' => false],
+        'multi-tenant-fresh' => ['scenario_count' => 2, 'compose' => false, 'browser' => false],
+        'plugin-lifecycle' => ['scenario_count' => 3, 'compose' => false, 'browser' => false],
+        'consumer-module-lifecycle' => ['scenario_count' => 4, 'compose' => false, 'browser' => false],
+        'production-compose' => ['scenario_count' => 5, 'compose' => true, 'browser' => false],
+        'standalone-browser' => ['scenario_count' => 5, 'compose' => true, 'browser' => true],
+        'multi-tenant-browser' => ['scenario_count' => 6, 'compose' => true, 'browser' => true],
+    ];
+    $qualificationGroup = $qualificationGroups[0];
+    $profile = $profiles[$qualificationGroup] ?? null;
+    if (!is_array($profile) || $profile['scenario_count'] > count($allExpectedDatabases)) {
+        throw new RuntimeException('P0-E lease qualification group 未登记或超出 database scenario 合同');
+    }
+    $selectedScenarioCount = $profile['scenario_count'];
+    $actualDatabases = $resources['mysql-db'] ?? null;
+    if (!is_array($actualDatabases)) {
+        throw new RuntimeException('P0-E lease 缺少 database scenario 资源');
+    }
+    $expectedPrefix = array_slice($allExpectedDatabases, 0, $selectedScenarioCount);
+    sort($expectedPrefix, SORT_STRING);
+    if ($actualDatabases !== $expectedPrefix) {
+        throw new RuntimeException('P0-E lease database scenario 不是已登记的资格前缀');
+    }
+    $hasComposeResources = $profile['compose'];
+    $hasBrowserResources = $profile['browser'];
+
     $expectedCounts = [
-        'browser-host' => 2,
-        'browser-session' => 1,
         'cache-dir' => 1,
         'candidate-tree' => 1,
-        'compose-project' => 1,
-        'consumer' => 2,
-        'database-tunnel' => 1,
+        'consumer' => $hasComposeResources ? 2 : 1,
         'deployment-mode' => 2,
         'deployment-target' => 1,
-        'docs-port' => 1,
-        'endpoint' => 2,
+        'endpoint' => $hasComposeResources ? 2 : 1,
         'environment' => 1,
         'gate' => 1,
-        'http-port' => 1,
-        'lease-proof-dir' => 1,
-        'mysql-db' => count($database['allowed_scenarios']),
+        'mysql-db' => $selectedScenarioCount,
         'output-dir' => 1,
-        'port' => 3,
+        'qualification-group' => 1,
         'resource-id' => 1,
         'run-id' => 1,
         'worktree' => 1,
     ];
+    if ($hasComposeResources) {
+        $expectedCounts += [
+            'compose-project' => 1,
+            'database-tunnel' => 1,
+            'http-port' => 1,
+            'lease-proof-dir' => 1,
+            'port' => $hasBrowserResources ? 3 : 2,
+        ];
+    }
+    if ($hasBrowserResources) {
+        $expectedCounts += [
+            'browser-host' => 2,
+            'browser-session' => 1,
+            'docs-port' => 1,
+        ];
+    }
+    ksort($expectedCounts, SORT_STRING);
     $actualCounts = [];
     foreach ($resources as $type => $values) {
         $actualCounts[$type] = count($values);
@@ -422,22 +479,16 @@ function assertP0eLeaseContract(
         throw new RuntimeException('P0-E lease resource set 存在缺失、额外项或 cardinality 冲突');
     }
 
-    $runId = $identity['run_id'];
-    $allowedScenarios = $database['allowed_scenarios'];
-    $expectedDatabases = array_map(
-        static fn(string $scenario): string => str_replace(
-            ['<run_id>', '<scenario>'],
-            [$runId, $scenario],
-            (string) $database['database'],
-        ),
-        $allowedScenarios,
-    );
     assertLeaseResourceValues($resources, 'resource-id', [$resourceId]);
     assertLeaseResourceValues($resources, 'environment', ['development']);
     assertLeaseResourceValues($resources, 'deployment-target', [$deploymentTarget]);
-    assertLeaseResourceValues($resources, 'consumer', ['container', 'host']);
+    assertLeaseResourceValues(
+        $resources,
+        'consumer',
+        $hasComposeResources ? ['container', 'host'] : ['host'],
+    );
     $registeredEndpoints = [];
-    foreach (['upstream_endpoint', 'container_endpoint'] as $endpointKey) {
+    foreach ($hasComposeResources ? ['upstream_endpoint', 'container_endpoint'] : ['upstream_endpoint'] as $endpointKey) {
         $registered = $database[$endpointKey] ?? null;
         if (!is_array($registered)) {
             throw new RuntimeException("P0-E database {$endpointKey} 登记缺失");
@@ -446,19 +497,28 @@ function assertP0eLeaseContract(
     }
     assertLeaseResourceValues($resources, 'endpoint', $registeredEndpoints);
     assertLeaseResourceValues($resources, 'run-id', [$runId]);
-    assertLeaseResourceValues($resources, 'mysql-db', $expectedDatabases);
+    assertLeaseResourceValues($resources, 'mysql-db', array_slice($allExpectedDatabases, 0, $selectedScenarioCount));
+    assertLeaseResourceValues($resources, 'qualification-group', [$qualificationGroup]);
     assertLeaseResourceValues($resources, 'deployment-mode', ['multi-tenant', 'standalone']);
-    assertLeaseResourceValues($resources, 'port', ['20186', '20189', '20190']);
-    assertLeaseResourceValues($resources, 'http-port', ['20190']);
-    assertLeaseResourceValues($resources, 'docs-port', ['20186']);
-    assertLeaseResourceValues(
-        $resources,
-        'database-tunnel',
-        ['peanut-admin-p0e-mysql84-container-tunnel'],
-    );
-    assertLeaseResourceValues($resources, 'compose-project', ['peanut-p0e-' . $runId]);
-    assertLeaseResourceValues($resources, 'browser-session', ['p0e-' . $runId]);
-    assertLeaseResourceValues($resources, 'browser-host', ['admin.p0e.localhost', 'platform.p0e.localhost']);
+    if ($hasComposeResources) {
+        assertLeaseResourceValues(
+            $resources,
+            'port',
+            $hasBrowserResources ? ['20186', '20189', '20190'] : ['20189', '20190'],
+        );
+        assertLeaseResourceValues($resources, 'http-port', ['20190']);
+        assertLeaseResourceValues(
+            $resources,
+            'database-tunnel',
+            ['peanut-admin-p0e-mysql84-container-tunnel'],
+        );
+        assertLeaseResourceValues($resources, 'compose-project', ['peanut-p0e-' . $runId]);
+    }
+    if ($hasBrowserResources) {
+        assertLeaseResourceValues($resources, 'docs-port', ['20186']);
+        assertLeaseResourceValues($resources, 'browser-session', ['p0e-' . $runId]);
+        assertLeaseResourceValues($resources, 'browser-host', ['admin.p0e.localhost', 'platform.p0e.localhost']);
+    }
     assertLeaseResourceValues($resources, 'gate', [$metadata['gate']]);
     assertLeaseResourceValues($resources, 'worktree', [$metadata['worktree']]);
     if ($metadata['lease'] !== 'p0e-runtime-' . $runId
@@ -470,15 +530,19 @@ function assertP0eLeaseContract(
 
     $outputDir = $resources['output-dir'][0];
     $cacheDir = $resources['cache-dir'][0];
-    $proofDir = $resources['lease-proof-dir'][0];
     if (!isLexicallyAbsolutePath($outputDir)
         || !isLexicallyAbsolutePath($cacheDir)
-        || !isLexicallyAbsolutePath($proofDir)
         || $outputDir !== rtrim($metadata['worktree'], '/') . '/output/p0e-' . $runId
         || basename($cacheDir) !== 'p0e-' . $runId
-        || !str_ends_with($cacheDir, '/.cache/peanut-admin/p0e-' . $runId)
-        || !str_ends_with($proofDir, '/peanut-admin-resource-leases/leases/' . $metadata['lease'])) {
+        || !str_ends_with($cacheDir, '/.cache/peanut-admin/p0e-' . $runId)) {
         throw new RuntimeException('P0-E lease path identity 不匹配精确 run_id 合同');
+    }
+    if ($hasComposeResources) {
+        $proofDir = $resources['lease-proof-dir'][0];
+        if (!isLexicallyAbsolutePath($proofDir)
+            || !str_ends_with($proofDir, '/peanut-admin-resource-leases/leases/' . $metadata['lease'])) {
+            throw new RuntimeException('P0-E lease proof path 不匹配精确 run_id 合同');
+        }
     }
 
     $multiTenantScenarios = ['multi_tenant_fresh', 'plugin_lifecycle', 'multi_tenant_browser'];

@@ -175,12 +175,15 @@ $expect(!array_key_exists('backup-dir', $plan['paths'] ?? []), 'plan retained a 
 $expect(!file_exists($outputPath) && !file_exists($cachePath), 'no-resource plan created a path');
 
 $resourceCounts = [];
+$resourceValues = [];
 foreach ($plan['lease_resources'] ?? [] as $resource) {
     $type = (string) ($resource['type'] ?? '');
     $resourceCounts[$type] = ($resourceCounts[$type] ?? 0) + 1;
+    $resourceValues[$type][] = (string) ($resource['value'] ?? '');
 }
-$expect(count($plan['lease_resources'] ?? []) === 30, 'manual lease resources must have 30 exact rows');
+$expect(count($plan['lease_resources'] ?? []) === 31, 'manual lease resources must have 31 exact rows');
 $expect(($resourceCounts['mysql-db'] ?? null) === 6, 'claim must bind six exact fresh-only databases');
+$expect(($resourceValues['qualification-group'] ?? null) === ['multi-tenant-browser'], 'full claim lost its exact qualification cutoff');
 $expect(($resourceCounts['deployment-mode'] ?? null) === 2, 'claim must bind both deployment modes');
 $expect(($resourceCounts['port'] ?? null) === 3, 'claim must bind all generic port conflicts');
 $expect(($resourceCounts['database-tunnel'] ?? null) === 1, 'claim must bind the database tunnel');
@@ -200,11 +203,14 @@ $expect(
 $expect(($boundedPlan['full_gate_groups'] ?? null) === $expectedGroups, 'bounded plan changed the full Gate definition');
 $expect(($boundedPlan['through_group'] ?? null) === 'multi-tenant-fresh', 'bounded plan lost its exact cutoff group');
 $boundedResourceCounts = [];
+$boundedResourceValues = [];
 foreach ($boundedPlan['lease_resources'] ?? [] as $resource) {
     $type = (string) ($resource['type'] ?? '');
     $boundedResourceCounts[$type] = ($boundedResourceCounts[$type] ?? 0) + 1;
+    $boundedResourceValues[$type][] = (string) ($resource['value'] ?? '');
 }
 $expect(($boundedResourceCounts['mysql-db'] ?? null) === 2, 'bounded plan must reserve only the two fresh databases');
+$expect(($boundedResourceValues['qualification-group'] ?? null) === ['multi-tenant-fresh'], 'bounded plan lost its exact qualification cutoff');
 $expect(!array_key_exists('browser-host', $boundedResourceCounts), 'bounded plan unexpectedly reserved browser Hosts');
 $expect(!array_key_exists('browser-session', $boundedResourceCounts), 'bounded plan unexpectedly reserved a browser session');
 $expect(!array_key_exists('port', $boundedResourceCounts), 'bounded fresh-only plan unexpectedly reserved listener ports');

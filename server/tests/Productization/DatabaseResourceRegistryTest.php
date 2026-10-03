@@ -643,6 +643,7 @@ function resourceGuardWriteProof(string $directory, string $runId, int $now, ?ca
         'resource-id' => ['peanut-admin-p0e-mysql84-gate'],
         'environment' => ['development'],
         'deployment-target' => ['local-production-preview'],
+        'qualification-group' => ['multi-tenant-browser'],
         'consumer' => ['host', 'container'],
         'endpoint' => ['192.168.192.2:20183', 'host.docker.internal:20189'],
         'run-id' => [$runId],
@@ -833,6 +834,46 @@ try {
     ));
     $hostConfig = guardedDatabaseConfig($activeProof, $guardNow);
     $expect($hostConfig['consumer'] === 'host', 'P0-E guard did not allow the exact lease-bound Host endpoint');
+
+    $boundedProof = $temporary . '/bounded-fresh';
+    resourceGuardWriteProof(
+        $boundedProof,
+        $guardRunId,
+        $guardNow,
+        static function (array &$metadata, array &$resources): void {
+            $resources['qualification-group'] = ['multi-tenant-fresh'];
+            $resources['consumer'] = ['host'];
+            $resources['endpoint'] = ['192.168.192.2:20183'];
+            $resources['mysql-db'] = array_slice($resources['mysql-db'], 0, 2);
+            foreach ([
+                'port',
+                'http-port',
+                'docs-port',
+                'database-tunnel',
+                'compose-project',
+                'browser-session',
+                'browser-host',
+                'lease-proof-dir',
+            ] as $type) {
+                unset($resources[$type]);
+            }
+        },
+    );
+    foreach (['standalone_fresh' => 'standalone', 'multi_tenant_fresh' => 'multi-tenant'] as $scenario => $mode) {
+        resourceGuardSetEnvironment(resourceGuardP0eEnvironment(
+            $guardRunId,
+            $scenario,
+            $mode,
+            [
+                'PEANUT_DATABASE_CONSUMER' => 'host',
+                'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
+                'DB_HOST' => '192.168.192.2',
+                'DB_PORT' => '20183',
+            ],
+        ));
+        $boundedConfig = guardedDatabaseConfig($boundedProof, $guardNow);
+        $expect($boundedConfig['consumer'] === 'host', "bounded P0-E guard rejected exact fresh scenario {$scenario}");
+    }
 
     $proofMutations = [
         'expired' => static function (array &$metadata): void {
