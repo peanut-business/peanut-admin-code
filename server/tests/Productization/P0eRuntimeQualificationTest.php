@@ -196,6 +196,18 @@ $expect(
 );
 $expect(($boundedPlan['full_gate_groups'] ?? null) === $expectedGroups, 'bounded plan changed the full Gate definition');
 $expect(($boundedPlan['through_group'] ?? null) === 'multi-tenant-fresh', 'bounded plan lost its exact cutoff group');
+$boundedResourceCounts = [];
+foreach ($boundedPlan['lease_resources'] ?? [] as $resource) {
+    $type = (string) ($resource['type'] ?? '');
+    $boundedResourceCounts[$type] = ($boundedResourceCounts[$type] ?? 0) + 1;
+}
+$expect(($boundedResourceCounts['mysql-db'] ?? null) === 2, 'bounded plan must reserve only the two fresh databases');
+$expect(!array_key_exists('browser-host', $boundedResourceCounts), 'bounded plan unexpectedly reserved browser Hosts');
+$expect(!array_key_exists('browser-session', $boundedResourceCounts), 'bounded plan unexpectedly reserved a browser session');
+$expect(!array_key_exists('port', $boundedResourceCounts), 'bounded fresh-only plan unexpectedly reserved listener ports');
+$expect(($boundedPlan['listener_ports'] ?? null) === [], 'bounded fresh-only plan retained listener port dependencies');
+$expect(($boundedPlan['compose_required'] ?? null) === false, 'bounded fresh-only plan retained Compose execution');
+$expect(($boundedPlan['browser_required'] ?? null) === false, 'bounded fresh-only plan retained browser execution');
 
 $runnerSource = (string) file_get_contents($runner);
 $unsupportedRunnerFragments = [

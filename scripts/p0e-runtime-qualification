@@ -425,13 +425,20 @@ def absolute_path(value: str, label: str, run_id: str) -> Path:
     return normalized
 
 
-def database_names(fixture: dict[str, Any], run_id: str) -> dict[str, str]:
+def database_names(
+    fixture: dict[str, Any],
+    run_id: str,
+    scenarios: list[str] | None = None,
+) -> dict[str, str]:
     if not re.fullmatch(r"[a-z0-9]{1,11}", run_id):
         fail("run_id must match ^[a-z0-9]{1,11}$")
     template = fixture["database_resource"]["database_template"]
+    requested = scenarios if scenarios is not None else list(fixture["scenarios"])
+    if any(scenario not in fixture["scenarios"] for scenario in requested):
+        fail("qualification selected an unknown database scenario")
     names = {
         scenario: template.replace("<run_id>", run_id).replace("<scenario>", scenario)
-        for scenario in fixture["scenarios"]
+        for scenario in requested
     }
     for name in names.values():
         if name == PERSISTENT_DATABASE or not re.fullmatch(r"[a-z0-9_]{1,64}", name):
@@ -449,7 +456,24 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         if through_group not in fixture_groups:
             fail(f"through-group is not a registered qualification group: {through_group}")
         selected_groups = fixture_groups[:fixture_groups.index(through_group) + 1]
-    names = database_names(fixture, args.run_id)
+    group_scenarios = {
+        "generated-application": ("standalone_fresh", "multi_tenant_fresh"),
+        "standalone-fresh": ("standalone_fresh",),
+        "multi-tenant-fresh": ("multi_tenant_fresh",),
+        "plugin-lifecycle": ("plugin_lifecycle",),
+        "consumer-module-lifecycle": ("consumer_module_cycle",),
+        "production-compose": ("standalone_browser",),
+        "standalone-browser": ("standalone_browser",),
+        "multi-tenant-browser": ("multi_tenant_browser",),
+    }
+    selected_scenarios: list[str] = []
+    for group in selected_groups:
+        for scenario in group_scenarios[group]:
+            if scenario not in selected_scenarios:
+                selected_scenarios.append(scenario)
+    names = database_names(fixture, args.run_id, selected_scenarios)
+    compose_required = "production-compose" in selected_groups
+    browser_required = any(group in selected_groups for group in ("standalone-browser", "multi-tenant-browser"))
     paths = {
         "output-dir": str(absolute_path(args.output_dir, "output-dir", args.run_id)),
         "cache-dir": str(absolute_path(args.cache_dir, "cache-dir", args.run_id)),
@@ -486,36 +510,45 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         ("environment", "development"),
         ("deployment-target", "local-production-preview"),
         ("consumer", "host"),
-        ("consumer", "container"),
         (
             "endpoint",
             f"{registered['upstream_endpoint']['host']}:"
             f"{registered['upstream_endpoint']['port']}",
-        ),
-        (
-            "endpoint",
-            f"{registered['container_endpoint']['host']}:"
-            f"{registered['container_endpoint']['port']}",
         ),
         ("run-id", args.run_id),
         ("candidate-tree", tree),
         *(("mysql-db", value) for value in names.values()),
         ("deployment-mode", "standalone"),
         ("deployment-mode", "multi-tenant"),
-        (("port", str(args.http_port))),
-        (("port", str(args.docs_port))),
-        (("port", str(database_tunnel["local_port"]))),
-        ("http-port", str(args.http_port)),
-        ("docs-port", str(args.docs_port)),
-        ("database-tunnel", DATABASE_TUNNEL_ID),
         ("cache-dir", paths["cache-dir"]),
         ("output-dir", paths["output-dir"]),
-        ("compose-project", compose_project),
-        ("browser-session", f"p0e-{args.run_id}"),
-        ("browser-host", browser_hosts["tenant_admin_host"]),
-        ("browser-host", browser_hosts["platform_host"]),
-        ("lease-proof-dir", str(lease_proof_dir)),
     ]
+    listener_ports: list[int] = []
+    if compose_required:
+        resources.extend([
+            ("consumer", "container"),
+            (
+                "endpoint",
+                f"{registered['container_endpoint']['host']}:"
+                f"{registered['container_endpoint']['port']}",
+            ),
+            ("port", str(args.http_port)),
+            ("port", str(database_tunnel["local_port"])),
+            ("http-port", str(args.http_port)),
+            ("database-tunnel", DATABASE_TUNNEL_ID),
+            ("compose-project", compose_project),
+            ("lease-proof-dir", str(lease_proof_dir)),
+        ])
+        listener_ports.extend([args.http_port, int(database_tunnel["local_port"])])
+    if browser_required:
+        resources.extend([
+            ("port", str(args.docs_port)),
+            ("docs-port", str(args.docs_port)),
+            ("browser-session", f"p0e-{args.run_id}"),
+            ("browser-host", browser_hosts["tenant_admin_host"]),
+            ("browser-host", browser_hosts["platform_host"]),
+        ])
+        listener_ports.append(args.docs_port)
     return {
         "schema_version": 1,
         "gate": fixture["gate"],
@@ -548,6 +581,9 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "host_endpoint": f"{fixture['database_resource']['host']}:{fixture['database_resource']['port']}",
         "databases": names,
         "ports": {"http": args.http_port, "docs": args.docs_port},
+        "listener_ports": listener_ports,
+        "compose_required": compose_required,
+        "browser_required": browser_required,
         "browser_hosts": {
             "tenant_admin": browser_hosts["tenant_admin_host"],
             "platform": browser_hosts["platform_host"],
@@ -590,7 +626,8 @@ def expected_resources(plan_data: dict[str, Any]) -> set[tuple[str, str]]:
 
 
 def claim(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
-    preflight_browser_tooling()
+    if plan_data["browser_required"]:
+        preflight_browser_tooling()
     for path in plan_data["paths"].values():
         if Path(path).exists():
             fail(f"claim path already exists: {path}")
@@ -875,7 +912,7 @@ class Runner:
         return result.stdout.decode("utf-8", errors="strict")
 
     def initialize(self) -> None:
-        for port in [*self.plan["ports"].values(), self.plan["database_tunnel"]["local_port"]]:
+        for port in self.plan["listener_ports"]:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
                 probe.settimeout(0.5)
                 if probe.connect_ex(("127.0.0.1", int(port))) == 0:
@@ -1878,7 +1915,7 @@ class Runner:
 
     def cleanup_success(self) -> None:
         self.stop_docs()
-        if self.compose_env.exists():
+        if self.plan["compose_required"] and self.compose_env.exists():
             self.compose(
                 "down", "--volumes", "--remove-orphans", "--rmi", "local",
                 check=False,
@@ -1890,19 +1927,20 @@ class Runner:
         residual = [name for name in self.plan["databases"].values() if self.database_exists(name)]
         if residual:
             fail(f"lease-owned database cleanup incomplete: {residual}")
-        project = self.plan["compose_project"]
-        docker_residuals = {
-            "containers": command(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
-            "volumes": command(["docker", "volume", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
-            "networks": command(["docker", "network", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
-        }
-        for tag in (f"peanut-p0e-php:{self.args.run_id}", f"peanut-p0e-nginx:{self.args.run_id}"):
-            result = command(["docker", "image", "inspect", tag], capture=True, check=False)
-            if result.returncode == 0:
-                docker_residuals.setdefault("images", []).append(tag)
-        if any(docker_residuals.values()):
-            fail(f"compose cleanup residuals remain: {docker_residuals}")
-        for port in [*self.plan["ports"].values(), self.plan["database_tunnel"]["local_port"]]:
+        if self.plan["compose_required"]:
+            project = self.plan["compose_project"]
+            docker_residuals = {
+                "containers": command(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
+                "volumes": command(["docker", "volume", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
+                "networks": command(["docker", "network", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
+            }
+            for tag in (f"peanut-p0e-php:{self.args.run_id}", f"peanut-p0e-nginx:{self.args.run_id}"):
+                result = command(["docker", "image", "inspect", tag], capture=True, check=False)
+                if result.returncode == 0:
+                    docker_residuals.setdefault("images", []).append(tag)
+            if any(docker_residuals.values()):
+                fail(f"compose cleanup residuals remain: {docker_residuals}")
+        for port in self.plan["listener_ports"]:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
                 probe.settimeout(0.5)
                 if probe.connect_ex(("127.0.0.1", int(port))) == 0:
@@ -1915,12 +1953,13 @@ class Runner:
         shutil.rmtree(self.cache)
         if self.created_candidate_vendor and (ROOT / "server/vendor").exists():
             shutil.rmtree(ROOT / "server/vendor")
-        playwright_cli = Path(self.playwright_cli())
-        lease_proof_dir = Path(self.plan["lease_proof_dir"])
-        if playwright_cli.parent == lease_proof_dir and playwright_cli.name == "playwright-cli":
-            if not playwright_cli.is_file() or playwright_cli.is_symlink():
-                fail("lease-owned Playwright CLI wrapper identity changed")
-            playwright_cli.unlink()
+        if self.plan["browser_required"]:
+            playwright_cli = Path(self.playwright_cli())
+            lease_proof_dir = Path(self.plan["lease_proof_dir"])
+            if playwright_cli.parent == lease_proof_dir and playwright_cli.name == "playwright-cli":
+                if not playwright_cli.is_file() or playwright_cli.is_symlink():
+                    fail("lease-owned Playwright CLI wrapper identity changed")
+                playwright_cli.unlink()
         self.write_json(self.summary_path, {
             "schema_version": 1,
             "status": "passed" if self.plan["groups"] == self.fixture["groups"] else "partial-passed",
