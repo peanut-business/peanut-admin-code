@@ -44,8 +44,11 @@ else
     fi
 fi
 
-docker run --rm --network bridge --mount "type=bind,src=$work,dst=/srv" \
-    --workdir /srv --entrypoint /bin/sh "$php_image" -ec '
+bootstrap_env="$work/.env.vendor-bootstrap"
+cp -- "$server/.env.example" "$bootstrap_env"
+chmod 600 "$bootstrap_env"
+if ! docker run --rm --network bridge --env PEANUT_SERVER_ENV_FILE=/srv/.env.vendor-bootstrap \
+    --mount "type=bind,src=$work,dst=/srv" --workdir /srv --entrypoint /bin/sh "$php_image" -ec '
       composer --version --no-ansi | grep -Eq "^Composer version 2[.]10[.]2 "
       printf "%s  %s\n" 5ee7125f8a30a34d246cefdc0bc85b8a783b28f2aec968994118512350d28027 /usr/local/bin/composer | sha256sum -c -
       COMPOSER_ALLOW_SUPERUSER=1 composer validate --no-check-publish
@@ -54,6 +57,11 @@ docker run --rm --network bridge --mount "type=bind,src=$work,dst=/srv" \
       php think vendor:publish
       COMPOSER_ALLOW_SUPERUSER=1 composer check-platform-reqs --no-dev
     '
+then
+    rm -f -- "$bootstrap_env"
+    exit 1
+fi
+rm -f -- "$bootstrap_env"
 python3 "$script_dir/vendor-state.py" seal --server "$work"
 python3 "$script_dir/vendor-state.py" check --server "$work"
 

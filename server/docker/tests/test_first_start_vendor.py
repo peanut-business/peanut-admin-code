@@ -34,6 +34,7 @@ class FirstStartVendorTest(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(SCRIPTS / name, target)
         write(self.server / "docker/.env", f"PHP_IMAGE={IMAGE}\nNGINX_IMAGE=sha256:{'b'*64}\nMYSQL_IMAGE=sha256:{'c'*64}\nMYSQL_ROOT_PASSWORD={'d'*64}\n".encode(), 0o600)
+        write(self.server / ".env.example", b"APP_DEBUG=false\n")
         write(self.server / "composer.json", b'{"name":"fixture/app"}\n')
         write(self.server / "composer.lock", b'{"content-hash":"' + b"0" * 32 + b'","packages":[]}\n')
         write(self.server / "think", b'<?php echo "fixture";\n', 0o755)
@@ -47,7 +48,12 @@ if args[:1] == ["run"]:
     if os.environ.get("DOCKER_SENTINEL_FAIL"): sys.exit(42)
     mounts=[a for a in args if a.startswith("type=bind,src=") and a.endswith(",dst=/srv")]
     if len(mounts)!=1: sys.exit(43)
+    envs=[args[i+1] for i,a in enumerate(args[:-1]) if a == "--env"]
+    if envs != ["PEANUT_SERVER_ENV_FILE=/srv/.env.vendor-bootstrap"]: sys.exit(44)
     work=pathlib.Path(mounts[0].split("src=",1)[1].split(",dst=",1)[0])
+    bootstrap=work/".env.vendor-bootstrap"
+    if not bootstrap.is_file() or bootstrap.stat().st_mode & 0o777 != 0o600: sys.exit(45)
+    if bootstrap.read_text() != "APP_DEBUG=false\\n": sys.exit(46)
     (work/"vendor/composer").mkdir(parents=True)
     (work/"vendor/autoload.php").write_text("<?php\\n")
     (work/"vendor/composer/installed.json").write_text('{"packages":[]}')
@@ -87,6 +93,7 @@ sys.exit(0)
         result = self.run_start()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.server / "vendor/.peanut-complete.json").is_file())
+        self.assertFalse(any((self.server / "runtime").glob("vendor-stage-*/.env.vendor-bootstrap")))
         self.assertTrue((self.server / "docker/secrets/install-token").is_file())
         self.assertFalse((self.server / "docker/secrets/mysql-root-password").exists())
         calls = self.commands()
@@ -112,6 +119,7 @@ sys.exit(0)
         self.assertFalse((self.server / "vendor/.peanut-complete.json").exists())
         self.assertFalse(any(c[0] == "compose" for c in self.commands()))
         self.assertTrue(any(p.name.startswith("vendor-stage-") for p in (self.server / "runtime").iterdir()))
+        self.assertFalse(any((self.server / "runtime").glob("vendor-stage-*/.env.vendor-bootstrap")))
 
     def test_installed_damaged_vendor_cannot_be_renamed(self):
         write(self.server / "private/installation/installed.json", b"original")
