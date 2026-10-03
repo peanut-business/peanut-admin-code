@@ -21,6 +21,7 @@ $logConfig = require $root . '/server/config/log.php';
 $logConfig['channels']['file']['path'] = $root . '/.local/tmp/menu-grouping/conflicts';
 $app->config->set($logConfig, 'log');
 $server = $root . '/server';
+$targetVersion = \app\common\value\installation\ApplicationReleaseVersions::load($root . '/release-versions.json')->releaseSequenceVersion();
 $registry = (new PluginModuleRegistryFactory($server))->fromDeploymentConfig([
     'roots' => array_map(static fn(string $path): string => dirname($path), glob($server . '/app/modules/official/*/module.json')),
     'kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web'],
@@ -96,7 +97,7 @@ foreach ($scenarios as $scenario) {
         $files = glob($server . '/database/migrations/*.sql');
         $grouping = $server . '/database/migrations/20261004-group-default-navigation.sql';
         $oldFiles = array_values(array_diff($files, [$grouping]));
-        $migration->run($oldFiles, '4.0.0-rc.2', '4.0.0-rc.2');
+        $migration->run($oldFiles, $targetVersion, $targetVersion);
         (new ModuleAuthorizationCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize($registry);
         $legacyBefore = menuRows($pdo, 'pa_system_menu');
         $bindingsBefore = [menuRows($pdo, 'pa_role_permission'), menuRows($pdo, 'pa_platform_role_permission')];
@@ -131,7 +132,7 @@ foreach ($scenarios as $scenario) {
             $pdo->exec("INSERT INTO pa_menu_definition (`key`,module_key,scope,type,name,client_keys_json,status,manifest_digest,created_at,updated_at) VALUES ('customer.category','core','tenant','group','客户目录',JSON_ARRAY('admin-web'),'active',REPEAT('b',64),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
             $customBefore = [$pdo->query('SELECT * FROM pa_system_menu WHERE id=84')->fetch(), $pdo->query('SELECT * FROM pa_menu_definition WHERE `key`=\'official.article.articles\'')->fetch()];
         }
-        $firstMigration = $migration->run([$grouping], '4.0.0-rc.2', '4.0.0-rc.2');
+        $firstMigration = $migration->run([$grouping], $targetVersion, $targetVersion);
         menuExpect($firstMigration['applied'] === ['20261004-group-default-navigation'], 'normal upgrade runner did not apply menu migration');
         $applier = \ThinkPhpTestConnection::moduleCatalogs($pdo);
         $first = $applier->apply($registry);
@@ -228,7 +229,7 @@ foreach ($scenarios as $scenario) {
             $applier->apply($registry);
         }
         $stable = menuStable($pdo);
-        menuExpect($migration->run([$grouping], '4.0.0-rc.2', '4.0.0-rc.2')['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
+        menuExpect($migration->run([$grouping], $targetVersion, $targetVersion)['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
         $pdo->exec(file_get_contents($grouping));
         $applier->apply($registry);
         menuExpect(menuStable($pdo) === $stable, 'repeat SQL/synchronization changed menus or grants');
