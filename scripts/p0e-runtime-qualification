@@ -595,6 +595,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "groups": selected_groups,
         "full_gate_groups": fixture_groups,
         "through_group": through_group,
+        "parent_lease": getattr(args, "parent_lease", None),
         "target_release": fixture["target_release"],
         "lease_resources": [{"type": kind, "value": value} for kind, value in resources],
     }
@@ -636,6 +637,8 @@ def claim(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
         "--thread", args.thread, "--candidate", args.candidate, "--gate", plan_data["gate"],
         "--ttl", str(args.ttl),
     ]
+    if args.parent_lease:
+        invocation.extend(["--parent-lease", args.parent_lease])
     for item in plan_data["lease_resources"]:
         invocation.extend(["--resource", f"{item['type']}={item['value']}"])
     command(invocation)
@@ -651,6 +654,7 @@ def verify_lease(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
         "thread": args.thread,
         "candidate": args.candidate,
         "candidate_repository": plan_data["worktree"],
+        "parent_lease": args.parent_lease or "",
         "gate": plan_data["gate"],
         "worktree": plan_data["worktree"],
         "status": "ACTIVE",
@@ -697,6 +701,7 @@ class Runner:
             "candidate_tree": plan_data["candidate_tree"],
             "run_id": args.run_id,
             "lease": args.lease,
+            "parent_lease": args.parent_lease,
             "planned_groups": plan_data["groups"],
             "owned_candidate_vendor": self.created_candidate_vendor,
             "groups": {},
@@ -935,6 +940,7 @@ class Runner:
             "candidate_tree": self.plan["candidate_tree"],
             "run_id": self.args.run_id,
             "lease": self.args.lease,
+            "parent_lease": self.args.parent_lease,
             "planned_groups": self.plan["groups"],
         }.items():
             if checkpoint.get(key) != expected:
@@ -2060,6 +2066,7 @@ def add_fixed_arguments(parser: argparse.ArgumentParser, with_lease: bool = True
     parser.add_argument("--cache-dir", required=True)
     parser.add_argument("--http-port", required=True, type=int)
     parser.add_argument("--docs-port", required=True, type=int)
+    parser.add_argument("--parent-lease", help="active controller lease that owns this worktree")
     parser.add_argument(
         "--through-group",
         help="run the registered qualification group prefix through this exact group; omit for the full Gate",

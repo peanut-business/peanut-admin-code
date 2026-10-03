@@ -10,6 +10,7 @@ Usage:
   scripts/project-resource-lease claim \
     --lease <run-id> --owner <owner> [--thread <thread-id>] \
     --candidate <40-hex-commit> [--candidate-repository <absolute-path>] \
+    [--parent-lease <lease-id>] \
     --gate <gate-name> [--ttl <seconds>] \
     --resource <type=value> [--resource <type=value> ...]
   scripts/project-resource-lease renew --lease <run-id> --owner <owner> [--ttl <seconds>]
@@ -152,14 +153,55 @@ lease_expired() {
   [[ "$expires_at" =~ ^[0-9]+$ && "$expires_at" -le "$now" ]]
 }
 
+lease_has_resource() {
+  local lease_dir="$1" resource_type="$2" resource_value="$3"
+  awk -F '\t' -v wanted_type="$resource_type" -v wanted_value="$resource_value" '
+    $2 == wanted_type && $3 == wanted_value { found=1 }
+    END { exit found ? 0 : 1 }
+  ' "$lease_dir/resources.tsv"
+}
+
+active_child_lease() {
+  local parent_lease="$1" child_dir child_id child_parent
+  shopt -s nullglob
+  for child_dir in "$LEASES_DIR"/*; do
+    [[ -d "$child_dir" && -f "$child_dir/metadata.tsv" ]] || continue
+    child_id="$(metadata_value "$child_dir/metadata.tsv" lease)"
+    [[ "$child_id" != "$parent_lease" ]] || continue
+    child_parent="$(metadata_value "$child_dir/metadata.tsv" parent_lease 2>/dev/null || true)"
+    if [[ "$child_parent" == "$parent_lease" ]] && ! lease_expired "$child_dir"; then
+      printf '%s\n' "$child_id"
+      shopt -u nullglob
+      return 0
+    fi
+  done
+  shopt -u nullglob
+  return 1
+}
+
+validate_parent_lease_locked() {
+  local parent_lease="$1" owner="$2" thread_id="$3" candidate="$4" candidate_repository="$5" worktree="$6"
+  local parent_dir="$LEASES_DIR/$parent_lease"
+  [[ -d "$parent_dir" && -f "$parent_dir/metadata.tsv" ]] || die "parent lease does not exist: $parent_lease"
+  ! lease_expired "$parent_dir" || die "parent lease is expired: $parent_lease"
+  [[ "$(metadata_value "$parent_dir/metadata.tsv" owner)" == "$owner" ]] || die "parent lease belongs to another owner: $parent_lease"
+  [[ "$(metadata_value "$parent_dir/metadata.tsv" thread)" == "$thread_id" ]] || die "parent lease belongs to another thread: $parent_lease"
+  [[ "$(metadata_value "$parent_dir/metadata.tsv" candidate)" == "$candidate" ]] || die "parent lease candidate mismatch: $parent_lease"
+  [[ "$(metadata_value "$parent_dir/metadata.tsv" candidate_repository)" == "$candidate_repository" ]] || die "parent lease candidate repository mismatch: $parent_lease"
+  [[ "$(metadata_value "$parent_dir/metadata.tsv" worktree)" == "$worktree" ]] || die "parent lease worktree mismatch: $parent_lease"
+  lease_has_resource "$parent_dir" worktree "$worktree" || die "parent lease does not own the worktree: $parent_lease"
+}
+
 release_lease_locked() {
-  local lease_id="$1" expected_owner="${2:-}" lease_dir owner hash type value resource_dir
+  local lease_id="$1" expected_owner="${2:-}" lease_dir owner hash type value resource_dir child_lease
   lease_dir="$LEASES_DIR/$lease_id"
   [[ -d "$lease_dir" ]] || die "lease does not exist: $lease_id"
   owner="$(metadata_value "$lease_dir/metadata.tsv" owner)"
   if [[ -n "$expected_owner" && "$owner" != "$expected_owner" ]]; then
     die "lease $lease_id belongs to $owner, not $expected_owner"
   fi
+  child_lease="$(active_child_lease "$lease_id" || true)"
+  [[ -z "$child_lease" ]] || die "lease $lease_id has active child lease $child_lease"
   while IFS=$'\t' read -r hash type value; do
     [[ -n "$hash" ]] || continue
     resource_dir="$RESOURCES_DIR/$hash"
@@ -178,6 +220,7 @@ case "$COMMAND" in
     THREAD_ID=""
     CANDIDATE=""
     CANDIDATE_REPOSITORY="$REPO_ROOT"
+    PARENT_LEASE=""
     GATE=""
     TTL=14400
     RESOURCES=()
@@ -188,6 +231,7 @@ case "$COMMAND" in
         --thread) [[ $# -ge 2 ]] || die '--thread requires a value'; THREAD_ID="$2"; shift 2 ;;
         --candidate) [[ $# -ge 2 ]] || die '--candidate requires a value'; CANDIDATE="$2"; shift 2 ;;
         --candidate-repository) [[ $# -ge 2 ]] || die '--candidate-repository requires a value'; CANDIDATE_REPOSITORY="$2"; shift 2 ;;
+        --parent-lease) [[ $# -ge 2 ]] || die '--parent-lease requires a value'; PARENT_LEASE="$2"; shift 2 ;;
         --gate) [[ $# -ge 2 ]] || die '--gate requires a value'; GATE="$2"; shift 2 ;;
         --ttl) [[ $# -ge 2 ]] || die '--ttl requires a value'; TTL="$2"; shift 2 ;;
         --resource) [[ $# -ge 2 ]] || die '--resource requires a value'; RESOURCES+=("$2"); shift 2 ;;
@@ -209,11 +253,21 @@ case "$COMMAND" in
       || die "candidate is unavailable in $CANDIDATE_REPOSITORY: $CANDIDATE"
     [[ "$GATE" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]] || die 'gate has an invalid name'
     [[ "$TTL" =~ ^[0-9]+$ && "$TTL" -ge 60 && "$TTL" -le 86400 ]] || die 'ttl must be 60-86400 seconds'
+    if [[ -n "$PARENT_LEASE" ]]; then
+      validate_lease_id "$PARENT_LEASE"
+      [[ "$PARENT_LEASE" != "$LEASE_ID" ]] || die 'parent lease must differ from child lease'
+    fi
     WORKTREE="$(cd "$REPO_ROOT" && pwd -P)"
-    RESOURCES+=("gate=$GATE" "worktree=$WORKTREE")
+    RESOURCES+=("gate=$GATE")
+    if [[ -z "$PARENT_LEASE" ]]; then
+      RESOURCES+=("worktree=$WORKTREE")
+    fi
     for resource in "${RESOURCES[@]}"; do validate_resource "$resource"; done
 
     acquire_mutex
+    if [[ -n "$PARENT_LEASE" ]]; then
+      validate_parent_lease_locked "$PARENT_LEASE" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$WORKTREE"
+    fi
     LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ ! -e "$LEASE_DIR" ]] || die "lease already exists: $LEASE_ID"
     NOW="$(date +%s)"
@@ -248,8 +302,8 @@ case "$COMMAND" in
     done
     rm -f "$SEEN_FILE"
     SEEN_FILE=""
-    printf 'lease\t%s\nowner\t%s\nthread\t%s\ncandidate\t%s\ncandidate_repository\t%s\ngate\t%s\nworktree\t%s\ncreated_at\t%s\nexpires_at\t%s\nstatus\tACTIVE\n' \
-      "$LEASE_ID" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$GATE" "$WORKTREE" "$NOW" "$EXPIRES_AT" > "$CLAIM_TMP_DIR/metadata.tsv"
+    printf 'lease\t%s\nowner\t%s\nthread\t%s\ncandidate\t%s\ncandidate_repository\t%s\nparent_lease\t%s\ngate\t%s\nworktree\t%s\ncreated_at\t%s\nexpires_at\t%s\nstatus\tACTIVE\n' \
+      "$LEASE_ID" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$PARENT_LEASE" "$GATE" "$WORKTREE" "$NOW" "$EXPIRES_AT" > "$CLAIM_TMP_DIR/metadata.tsv"
     mv "$CLAIM_TMP_DIR" "$LEASE_DIR"
     CLAIM_TMP_DIR=""
     rm -f "$CREATED_RESOURCES_FILE"
@@ -317,9 +371,24 @@ case "$COMMAND" in
     [[ "${1:-}" == '--lease' && -n "${2:-}" && $# -eq 2 ]] || die 'show requires --lease <run-id>'
     LEASE_ID="$2"; validate_lease_id "$LEASE_ID"; LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
+    PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease 2>/dev/null || true)"
+    if [[ -n "$PARENT_LEASE" ]]; then
+      acquire_mutex
+      validate_parent_lease_locked \
+        "$PARENT_LEASE" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" thread)" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate)" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate_repository)" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
+    fi
     cat "$LEASE_DIR/metadata.tsv"
     printf 'resources\n'
     awk -F '\t' '{printf "%s\t%s\n", $2, $3}' "$LEASE_DIR/resources.tsv"
+    if [[ -n "$PARENT_LEASE" ]]; then
+      printf 'worktree\t%s\n' "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
+      release_mutex
+    fi
     ;;
 
   prune-expired)
@@ -331,8 +400,10 @@ case "$COMMAND" in
       [[ -d "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || continue
       if lease_expired "$LEASE_DIR"; then
         LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
-        release_lease_locked "$LEASE_ID"
-        COUNT=$((COUNT + 1))
+        if [[ -z "$(active_child_lease "$LEASE_ID" || true)" ]]; then
+          release_lease_locked "$LEASE_ID"
+          COUNT=$((COUNT + 1))
+        fi
       fi
     done
     release_mutex
