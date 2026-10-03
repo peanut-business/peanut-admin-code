@@ -1,0 +1,21 @@
+{
+  "name": "@peanut-admin/official-rich-text",
+  "version": "1.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./contribution.ts",
+    "./document": "./src/document.ts",
+    "./editor": "./src/editor.ts"
+  },
+  "dependencies": {
+    "@hocuspocus/provider": "4.6.0",
+    "@tiptap/core": "3.30.0",
+    "@tiptap/extension-collaboration": "3.30.0",
+    "@tiptap/pm": "3.30.0",
+    "@tiptap/starter-kit": "3.30.0",
+    "dompurify": "3.4.14",
+    "yjs": "13.6.32"
+  }
+}
