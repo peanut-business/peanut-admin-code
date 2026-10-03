@@ -16,7 +16,10 @@ require_once dirname(__DIR__, 2) . '/database/install.php';
 require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
 
 $root = dirname(__DIR__, 3);
-new \think\App($root . '/.local/tmp/menu-grouping/think-app');
+$app = new \think\App($root . '/.local/tmp/menu-grouping/think-app');
+$logConfig = require $root . '/server/config/log.php';
+$logConfig['channels']['file']['path'] = $root . '/.local/tmp/menu-grouping/conflicts';
+$app->config->set($logConfig, 'log');
 $server = $root . '/server';
 $registry = (new PluginModuleRegistryFactory($server))->fromDeploymentConfig([
     'roots' => array_map(static fn(string $path): string => dirname($path), glob($server . '/app/modules/official/*/module.json')),
@@ -182,6 +185,10 @@ foreach ($scenarios as $scenario) {
             menuExpect(count(array_filter($repository->activeDefinitions('tenant'), static fn($page): bool => $page->moduleKey === 'official.task')) === 0, 'retire left active menus');
             $applier->apply($registry, ['official.task']);
             menuExpect(count(array_filter($repository->activeDefinitions('tenant'), static fn($page): bool => $page->moduleKey === 'official.task')) === 1, 'module reinstall did not reactivate menu');
+            $applier->retire(['official.article']);
+            $applier->apply($registry, ['official.article']);
+            $reactivated = $pdo->query("SELECT status,name,parent_key FROM pa_menu_definition WHERE `key`='official.article.articles'")->fetch();
+            menuExpect($reactivated === ['status' => 'active', 'name' => '我的文章', 'parent_key' => 'core.organization'], 'reinstall failed to preserve and reactivate a customized menu');
         }
         $stable = menuStable($pdo);
         menuExpect($migration->run([$grouping], '4.0.0-rc.2', '4.0.0-rc.2')['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
@@ -189,6 +196,7 @@ foreach ($scenarios as $scenario) {
         $applier->apply($registry);
         menuExpect(menuStable($pdo) === $stable, 'repeat SQL/synchronization changed menus or grants');
         $results[] = ['scenario' => $scenario, 'official_pages' => count($pages), 'tenant_roots' => 6, 'catalog_revision' => $first['catalog_revision']];
+        echo json_encode(['scenario' => $scenario, 'status' => 'passed', 'assertions' => $assertions], JSON_THROW_ON_ERROR), PHP_EOL;
     } finally {
         RegisteredMysqlTestResource::cleanup($pdo, $database, $created);
     }

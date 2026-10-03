@@ -66,8 +66,17 @@ final class ThinkPhpMenuCatalogRepository implements \PeanutAdmin\Kernel\Menu\Me
                 !array_key_exists($field, $expected) || $value !== $expected[$field], ARRAY_FILTER_USE_BOTH));
             if ($conflicts !== []) {
                 $encoded = json_encode(['reason' => $baseline === null ? 'unknown_defaults' : 'customized', 'fields' => $conflicts], JSON_THROW_ON_ERROR);
-                if ($existing->getAttr('menu_conflict_json') !== $encoded) {
-                    $existing->save(['menu_conflict_json' => $encoded]);
+                $changes = ['menu_conflict_json' => $encoded];
+                // Lifecycle state remains managed even when presentation is
+                // customized. An independently edited status stays protected.
+                if ($baseline !== null && !in_array('status', $conflicts, true)
+                    && $current['status'] !== $data['status']) {
+                    $baseline['status'] = $data['status'];
+                    $changes += ['status' => $data['status'], 'updated_at' => $now,
+                        'upstream_defaults_json' => json_encode($baseline, JSON_THROW_ON_ERROR)];
+                }
+                if ($existing->getAttr('menu_conflict_json') !== $encoded || count($changes) > 1) {
+                    $existing->save($changes);
                     Log::warning('MENU_DEFAULT_CONFLICT', ['key' => $definition->key, 'fields' => $conflicts]);
                 }
                 return;

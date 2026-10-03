@@ -22,7 +22,7 @@ final class CoreMenuCatalog
             new \PeanutAdmin\Kernel\Menu\MenuDefinition('core.operations', 'core', 'tenant', null, 'group', '运维与审计', null, null, null, null, ['admin-web'], 60, 'icon-history'),
             new \PeanutAdmin\Kernel\Menu\MenuDefinition('core.module.list', 'core', 'tenant', 'core.applications', 'page', '模块管理', 'tenant.modules.list', '/app/modules', 'core.module.list', 'core.module.read', ['admin-web'], 21, 'Blocks'),
             new \PeanutAdmin\Kernel\Menu\MenuDefinition('core.audit.list', 'core', 'tenant', 'core.operations', 'page', '审计日志', 'tenant.audit.list', '/app/audit', 'core.audit.list', 'core.audit.read', ['admin-web'], 22, 'ScrollText'),
-            new \PeanutAdmin\Kernel\Menu\MenuDefinition('platform.governance', 'platform', 'platform', null, 'group', '平台治理', null, null, null, null, ['platform-web'], 10, 'Landmark'),
+            new \PeanutAdmin\Kernel\Menu\MenuDefinition('platform.governance', 'platform', 'platform', null, 'group', '组织与权限', null, null, null, null, ['platform-web'], 10, 'Landmark'),
             new \PeanutAdmin\Kernel\Menu\MenuDefinition('platform.tenancy', 'platform', 'platform', null, 'group', '租户运营', null, null, null, null, ['platform-web'], 5, 'Building2'),
             new \PeanutAdmin\Kernel\Menu\MenuDefinition('platform.operations', 'platform', 'platform', null, 'group', '运维与审计', null, null, null, null, ['platform-web'], 20, 'Activity'),
             new \PeanutAdmin\Kernel\Menu\MenuDefinition('platform.tenant.list', 'platform', 'platform', 'platform.tenancy', 'page', '租户管理', 'platform.tenants.list', '/platform/tenants', 'platform.tenant.list', 'platform.tenant.read', ['platform-web'], 11, 'Building2'),

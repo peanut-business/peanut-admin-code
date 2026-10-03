@@ -2212,7 +2212,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b18e4b37211e26c3ec03c5d879e690a5c77c1ce949f332e15a9b6cca5d731cb"
+            "source_sha256": "e3095ec8cefc199bd2cfb69ff1f91c447787a2d01f229b6fa8a2f83f63d93c2c"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2294,7 +2294,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "60860d813dcf61f001eea2c02f6b389f39a38360e8fab4e9d35633d1bc72ba75"
+            "source_sha256": "feda9505e9fdcca645e0946c37a388ce2e131ec56e2521295e736ade27def8fb"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -11636,7 +11636,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8efb6d62d5581ebd1a255e43a413d86a246248ea4dc47b6ce846b79ac86d06be"
+            "source_sha256": "db358bd56c35ad66fcbb18df78668d89caf66b3fb80b666d8a0c8eb211fc8fde"
         },
         {
             "path": "server/app/modules/official/identity/src/Menu/MenuCatalogSynchronizer.php",
@@ -11664,7 +11664,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "217c587109ef1a396a059c364f61f39ab86871c35bc725a87a0a00cff4a8f682"
+            "source_sha256": "251ba1db8f39eeecf26e085666f854cb80dddf6bf5bf1cafdc29826efb1fda77"
         },
         {
             "path": "server/app/modules/official/identity/src/Module/Model/ModuleInstallation.php",
