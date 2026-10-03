@@ -1,0 +1,72 @@
+#!/bin/sh
+
+set -eu
+
+repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+env_file="$repo_dir/.local/stack.env"
+component=${1:-}
+[ -n "$component" ] || { printf 'Usage: %s {web|platform|pc|mobile|docs} [--env-file path] [--dry-run] [-- extra args]\n' "$0" >&2; exit 2; }
+shift
+dry_run=0
+while [ $# -gt 0 ] && [ "$1" != -- ]; do
+    case "$1" in
+        --env-file) [ $# -ge 2 ] || { printf '%s\n' '--env-file requires a value' >&2; exit 2; }; env_file=$2; shift 2 ;;
+        --dry-run) dry_run=1; shift ;;
+        *) printf 'unsupported argument: %s\n' "$1" >&2; exit 2 ;;
+    esac
+done
+[ "${1:-}" != "--" ] || shift
+[ "${env_file#/}" != "$env_file" ] && [ -f "$env_file" ] && [ ! -L "$env_file" ] || {
+    printf 'client environment must be an absolute regular file: %s\n' "$env_file" >&2
+    exit 1
+}
+read_env() { awk -F= -v name="$1" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$env_file"; }
+php_port=$(read_env PHP_PORT)
+[ -n "$php_port" ] || { printf '%s\n' 'PHP_PORT is missing from the client environment' >&2; exit 1; }
+clean_exec() {
+    env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$env_file" "$@"
+}
+
+case "$component" in
+    web)
+        listen_port=$(read_env VITE_PORT)
+        [ "$dry_run" != 1 ] || {
+            printf 'component=web listen_port=%s api_origin=http://127.0.0.1:%s\n' "$listen_port" "$php_port"
+            exit 0
+        }
+        clean_exec node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts --host 127.0.0.1 --port "$listen_port" "$@"
+        ;;
+    platform)
+        listen_port=$(read_env PLATFORM_PORT)
+        [ "$dry_run" != 1 ] || {
+            printf 'component=platform listen_port=%s api_origin=http://127.0.0.1:%s\n' "$listen_port" "$php_port"
+            exit 0
+        }
+        clean_exec node node_modules/vite/bin/vite.js --configLoader runner --host 127.0.0.1 --port "$listen_port" "$@"
+        ;;
+    pc)
+        listen_port=$(read_env PC_PORT)
+        [ "$dry_run" != 1 ] || {
+            printf 'component=pc listen_port=%s api_origin=http://127.0.0.1:%s\n' "$listen_port" "$php_port"
+            exit 0
+        }
+        clean_exec node node_modules/nuxt/bin/nuxt.mjs dev --host 127.0.0.1 --port "$listen_port" "$@"
+        ;;
+    mobile)
+        listen_port=$(read_env MOBILE_PORT)
+        [ "$dry_run" != 1 ] || {
+            printf 'component=mobile listen_port=%s api_origin=http://127.0.0.1:%s\n' "$listen_port" "$php_port"
+            exit 0
+        }
+        clean_exec node node_modules/@dcloudio/vite-plugin-uni/bin/uni.js --host 127.0.0.1 --port "$listen_port" "$@"
+        ;;
+    docs)
+        listen_port=$(read_env DOCS_PORT)
+        [ "$dry_run" != 1 ] || {
+            printf 'component=docs listen_port=%s\n' "$listen_port"
+            exit 0
+        }
+        clean_exec node node_modules/vitepress/bin/vitepress.js dev . --host 127.0.0.1 --port "$listen_port" "$@"
+        ;;
+    *) printf 'Unsupported local client: %s\n' "$component" >&2; exit 2 ;;
+esac
