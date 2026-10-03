@@ -1,4 +1,4 @@
 [
-  {"key":"official.article.categories","scope":"tenant","type":"page","name":"文章分类","route_name":"ArticleCate","route_path":"/article/cate","component_key":"official.article.cate","required_permission":"official.article.category.list","icon":"icon-folder","sort_order":90,"client_keys":["admin-web"]},
-  {"key":"official.article.articles","scope":"tenant","type":"page","name":"文章管理","route_name":"ArticleList","route_path":"/article/list","component_key":"official.article.list","required_permission":"official.article.list","icon":"icon-file","sort_order":80,"client_keys":["admin-web"]}
+  {"key":"official.article.categories","parent_key":"core.content","scope":"tenant","type":"page","name":"文章分类","route_name":"ArticleCate","route_path":"/article/cate","component_key":"official.article.cate","required_permission":"official.article.category.list","icon":"icon-folder","sort_order":90,"client_keys":["admin-web"]},
+  {"key":"official.article.articles","parent_key":"core.content","scope":"tenant","type":"page","name":"文章管理","route_name":"ArticleList","route_path":"/article/list","component_key":"official.article.list","required_permission":"official.article.list","icon":"icon-file","sort_order":80,"client_keys":["admin-web"]}
 ]

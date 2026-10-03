@@ -1,3 +1,3 @@
 [
-  {"key":"official.import-export.configuration","scope":"tenant","type":"page","name":"配置转移","route_name":"ConfigurationTransfer","route_path":"/system/configuration-transfer","component_key":"official.import-export.configuration","required_permission":"official.import-export.configuration.export","icon":"icon-swap","sort_order":55,"client_keys":["admin-web"]}
+  {"key":"official.import-export.configuration","parent_key":"core.applications","scope":"tenant","type":"page","name":"配置转移","route_name":"ConfigurationTransfer","route_path":"/system/configuration-transfer","component_key":"official.import-export.configuration","required_permission":"official.import-export.configuration.export","icon":"icon-swap","sort_order":55,"client_keys":["admin-web"]}
 ]

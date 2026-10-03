@@ -35,19 +35,33 @@ export default function mapServerMenu(
 ): RouteRecordRaw[] {
   return menus
     .map((menu): RouteRecordRaw | null => {
+      const children = mapServerMenu(menu.children || []);
+      if (menu.type === 'M') {
+        if (children.length === 0) return null;
+        // Presentation-only containers are never registered with the router and
+        // never load a component. Every leaf still resolves a static route below.
+        return {
+          path: normalizePath(menu.paths || `/menu-group/${menu.id}`),
+          name: `menu-group-${menu.id}`,
+          meta: {
+            title: menu.name,
+            icon: menu.icon,
+            requiresAuth: true,
+            hideInMenu: Number(menu.is_show ?? 1) === 0,
+          },
+          children,
+        };
+      }
       const staticRoute = staticRoutesByPath.get(
         normalizePath(menu.paths || '')
       );
       if (!staticRoute) return null;
 
-      const children = mapServerMenu(menu.children || []);
       if (staticRoute.children?.length && children.length === 0) return null;
 
       return {
         ...staticRoute,
-        path: menu.module_key
-          ? normalizePath(menu.paths || staticRoute.path)
-          : staticRoute.path,
+        path: normalizePath(menu.paths || staticRoute.path),
         meta: {
           ...staticRoute.meta,
           icon: menu.icon || staticRoute.meta?.icon,

@@ -14,6 +14,7 @@ export interface ServerMenuRecord {
   is_show?: number;
   is_disable?: number;
   module_key?: string;
+  menu_key?: string;
   required_permission?: string;
   children?: ServerMenuRecord[];
 }

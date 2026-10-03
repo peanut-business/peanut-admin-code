@@ -30,6 +30,8 @@ CREATE TABLE `pa_system_menu` (
   `is_cache`   TINYINT(1)   NOT NULL DEFAULT 0,
   `is_show`    TINYINT(1)   NOT NULL DEFAULT 1,
   `is_disable` TINYINT(1)   NOT NULL DEFAULT 0,
+  `upstream_defaults_json` JSON NULL,
+  `menu_conflict_json` JSON NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统菜单';
 
@@ -1321,6 +1323,8 @@ CREATE TABLE `pa_menu_definition` (
   `client_keys_json` JSON NOT NULL,
   `status` VARCHAR(16) NOT NULL DEFAULT 'active',
   `manifest_digest` CHAR(64) NOT NULL,
+  `upstream_defaults_json` JSON NULL,
+  `menu_conflict_json` JSON NULL,
   `created_at` DATETIME(3) NOT NULL,
   `updated_at` DATETIME(3) NOT NULL,
   PRIMARY KEY (`id`),

@@ -56,6 +56,10 @@ final readonly class MenuCatalogSynchronizer
     /** @param array<string, mixed> $menu */
     private function definition(array $menu): \PeanutAdmin\Kernel\Menu\MenuDefinition
     {
+        if (($menu['scope'] ?? null) === 'tenant' && ($menu['type'] ?? null) === 'page'
+            && !array_key_exists('parent_key', $menu)) {
+            throw new ModuleException('MODULE_MANIFEST_INVALID', 'Tenant page menus must declare a category parent_key; explicit null reserves an intentional root entry.');
+        }
         $clients = $menu['client_keys'] ?? null;
         if (!is_array($clients) || !array_is_list($clients)) {
             throw new ModuleException('MODULE_MANIFEST_INVALID', 'Menu client keys are invalid.');

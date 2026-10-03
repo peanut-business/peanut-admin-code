@@ -1,0 +1,581 @@
+{
+  "source": "6d651a4e8f9f89940e359ac0a89f55b6908de6c3",
+  "definitions": [
+    {
+      "key": "core.organization",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": null,
+      "type": "group",
+      "name": "组织权限",
+      "route_name": null,
+      "route_path": null,
+      "component_key": null,
+      "icon": "Users",
+      "sort_order": 10,
+      "required_permission": null,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "core.member.list",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": "core.organization",
+      "type": "page",
+      "name": "成员管理",
+      "route_name": "tenant.members.list",
+      "route_path": "/app/members",
+      "component_key": "core.member.list",
+      "icon": "UserRound",
+      "sort_order": 11,
+      "required_permission": "core.member.read",
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "core.department.list",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": "core.organization",
+      "type": "page",
+      "name": "部门管理",
+      "route_name": "tenant.departments.list",
+      "route_path": "/app/departments",
+      "component_key": "core.department.list",
+      "icon": "Network",
+      "sort_order": 12,
+      "required_permission": "core.department.read",
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "core.role.list",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": "core.organization",
+      "type": "page",
+      "name": "角色管理",
+      "route_name": "tenant.roles.list",
+      "route_path": "/app/roles",
+      "component_key": "core.role.list",
+      "icon": "Shield",
+      "sort_order": 13,
+      "required_permission": "core.role.read",
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "core.governance.workbench",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": "core.organization",
+      "type": "page",
+      "name": "权限治理",
+      "route_name": "tenant.governance.workbench",
+      "route_path": "/app/governance",
+      "component_key": "core.governance.workbench",
+      "icon": "SlidersHorizontal",
+      "sort_order": 14,
+      "required_permission": "core.role.read",
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "core.system",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": null,
+      "type": "group",
+      "name": "系统管理",
+      "route_name": null,
+      "route_path": null,
+      "component_key": null,
+      "icon": "Settings",
+      "sort_order": 20,
+      "required_permission": null,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "core.module.list",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": "core.system",
+      "type": "page",
+      "name": "模块管理",
+      "route_name": "tenant.modules.list",
+      "route_path": "/app/modules",
+      "component_key": "core.module.list",
+      "icon": "Blocks",
+      "sort_order": 21,
+      "required_permission": "core.module.read",
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "core.audit.list",
+      "module_key": "core",
+      "scope": "tenant",
+      "parent_key": "core.system",
+      "type": "page",
+      "name": "审计日志",
+      "route_name": "tenant.audit.list",
+      "route_path": "/app/audit",
+      "component_key": "core.audit.list",
+      "icon": "ScrollText",
+      "sort_order": 22,
+      "required_permission": "core.audit.read",
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "key": "platform.governance",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": null,
+      "type": "group",
+      "name": "平台治理",
+      "route_name": null,
+      "route_path": null,
+      "component_key": null,
+      "icon": "Landmark",
+      "sort_order": 10,
+      "required_permission": null,
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "key": "platform.tenant.list",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": "platform.governance",
+      "type": "page",
+      "name": "租户管理",
+      "route_name": "platform.tenants.list",
+      "route_path": "/platform/tenants",
+      "component_key": "platform.tenant.list",
+      "icon": "Building2",
+      "sort_order": 11,
+      "required_permission": "platform.tenant.read",
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "key": "platform.operator.list",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": "platform.governance",
+      "type": "page",
+      "name": "平台操作员",
+      "route_name": "platform.operators.list",
+      "route_path": "/platform/operators",
+      "component_key": "platform.operator.list",
+      "icon": "UserCog",
+      "sort_order": 12,
+      "required_permission": "platform.operator.read",
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "key": "platform.role.list",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": "platform.governance",
+      "type": "page",
+      "name": "平台角色",
+      "route_name": "platform.roles.list",
+      "route_path": "/platform/roles",
+      "component_key": "platform.role.list",
+      "icon": "ShieldCheck",
+      "sort_order": 13,
+      "required_permission": "platform.role.read",
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "key": "platform.governance.workbench",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": "platform.governance",
+      "type": "page",
+      "name": "权限治理",
+      "route_name": "platform.governance.workbench",
+      "route_path": "/platform/governance",
+      "component_key": "platform.governance.workbench",
+      "icon": "SlidersHorizontal",
+      "sort_order": 14,
+      "required_permission": "platform.role.read",
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "key": "platform.audit.list",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": "platform.governance",
+      "type": "page",
+      "name": "平台审计",
+      "route_name": "platform.audit.list",
+      "route_path": "/platform/audit",
+      "component_key": "platform.audit.list",
+      "icon": "ScrollText",
+      "sort_order": 15,
+      "required_permission": "platform.audit.read",
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "key": "platform.upgrade.status",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": "platform.governance",
+      "type": "page",
+      "name": "版本与升级",
+      "route_name": "platform.upgrade.status",
+      "route_path": "/platform/upgrade",
+      "component_key": "platform.upgrade.status",
+      "icon": "ArrowUpCircle",
+      "sort_order": 16,
+      "required_permission": "platform.upgrade.read",
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "key": "platform.ops.console",
+      "module_key": "platform",
+      "scope": "platform",
+      "parent_key": "platform.governance",
+      "type": "page",
+      "name": "运维控制台",
+      "route_name": "platform.ops.console",
+      "route_path": "/platform/ops",
+      "component_key": "platform.ops.console",
+      "icon": "Activity",
+      "sort_order": 17,
+      "required_permission": "platform.ops.read",
+      "client_keys": [
+        "platform-web"
+      ]
+    },
+    {
+      "module_key": "official.article",
+      "key": "official.article.categories",
+      "scope": "tenant",
+      "type": "page",
+      "name": "文章分类",
+      "route_name": "ArticleCate",
+      "route_path": "/article/cate",
+      "component_key": "official.article.cate",
+      "required_permission": "official.article.category.list",
+      "icon": "icon-folder",
+      "sort_order": 90,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.article",
+      "key": "official.article.articles",
+      "scope": "tenant",
+      "type": "page",
+      "name": "文章管理",
+      "route_name": "ArticleList",
+      "route_path": "/article/list",
+      "component_key": "official.article.list",
+      "required_permission": "official.article.list",
+      "icon": "icon-file",
+      "sort_order": 80,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.file",
+      "key": "official.file.library",
+      "scope": "tenant",
+      "type": "page",
+      "name": "文件素材",
+      "route_name": "SystemFile",
+      "route_path": "/system/file",
+      "component_key": "official.file.library",
+      "required_permission": "official.file.list",
+      "icon": "icon-folder",
+      "sort_order": 60,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.import_export",
+      "key": "official.import-export.configuration",
+      "scope": "tenant",
+      "type": "page",
+      "name": "配置转移",
+      "route_name": "ConfigurationTransfer",
+      "route_path": "/system/configuration-transfer",
+      "component_key": "official.import-export.configuration",
+      "required_permission": "official.import-export.configuration.export",
+      "icon": "icon-swap",
+      "sort_order": 55,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.integration",
+      "key": "official.integration.security",
+      "scope": "tenant",
+      "type": "page",
+      "name": "集成与安全",
+      "route_name": "official.integration.index",
+      "route_path": "/system/integration-security",
+      "component_key": "official.integration.index",
+      "required_permission": "official.integration.access",
+      "icon": "icon-link",
+      "sort_order": 54,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.member",
+      "key": "official.member.list",
+      "scope": "tenant",
+      "type": "page",
+      "name": "会员列表",
+      "route_name": "MemberList",
+      "route_path": "/member/list",
+      "component_key": "official.member.list",
+      "required_permission": "official.member.list",
+      "icon": "icon-user",
+      "sort_order": 80,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.member",
+      "key": "official.member.tag",
+      "scope": "tenant",
+      "type": "page",
+      "name": "会员标签",
+      "route_name": "MemberTag",
+      "route_path": "/member/tag",
+      "component_key": "official.member.tag",
+      "required_permission": "official.member.tag.list",
+      "icon": "icon-tag",
+      "sort_order": 70,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.member",
+      "key": "official.member.account-log",
+      "scope": "tenant",
+      "type": "page",
+      "name": "余额明细",
+      "route_name": "FinanceAccountLog",
+      "route_path": "/finance/account-log",
+      "component_key": "official.member.account-log",
+      "required_permission": "official.member.account-log.list",
+      "icon": "icon-list",
+      "sort_order": 60,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.notification",
+      "key": "official.notification.channel",
+      "scope": "tenant",
+      "type": "page",
+      "name": "通知渠道",
+      "route_name": "NoticeChannel",
+      "route_path": "/notice/channel",
+      "component_key": "official.notification.channel",
+      "required_permission": "official.notification.channel.detail",
+      "icon": "icon-notification",
+      "sort_order": 70,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.notification",
+      "key": "official.notification.template",
+      "scope": "tenant",
+      "type": "page",
+      "name": "通知模板",
+      "route_name": "NoticeTemplate",
+      "route_path": "/notice/template",
+      "component_key": "official.notification.template",
+      "required_permission": "official.notification.scene.list",
+      "icon": "icon-file",
+      "sort_order": 60,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.notification",
+      "key": "official.notification.log",
+      "scope": "tenant",
+      "type": "page",
+      "name": "通知日志",
+      "route_name": "NoticeLog",
+      "route_path": "/notice/log",
+      "component_key": "official.notification.log",
+      "required_permission": "official.notification.log.list",
+      "icon": "icon-history",
+      "sort_order": 50,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.oauth",
+      "key": "official.oauth.channels",
+      "scope": "tenant",
+      "type": "page",
+      "name": "渠道与 OAuth",
+      "route_name": "AppSettingChannel",
+      "route_path": "/app-setting/channel",
+      "component_key": "official.oauth.channel",
+      "required_permission": "official.oauth.web-page.config",
+      "icon": "icon-link",
+      "sort_order": 50,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.payment",
+      "key": "official.payment.settings",
+      "scope": "tenant",
+      "type": "page",
+      "name": "支付设置",
+      "route_name": "AppSettingPay",
+      "route_path": "/app-setting/pay",
+      "component_key": "official.payment.settings",
+      "required_permission": "official.payment.settings.detail",
+      "icon": "icon-settings",
+      "sort_order": 70,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.payment",
+      "key": "official.payment.recharge",
+      "scope": "tenant",
+      "type": "page",
+      "name": "充值订单",
+      "route_name": "FinanceRecharge",
+      "route_path": "/finance/recharge",
+      "component_key": "official.payment.recharge",
+      "required_permission": "official.payment.recharge.list",
+      "icon": "icon-pay-circle",
+      "sort_order": 60,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.payment",
+      "key": "official.payment.refund",
+      "scope": "tenant",
+      "type": "page",
+      "name": "退款记录",
+      "route_name": "FinanceRefund",
+      "route_path": "/finance/refund",
+      "component_key": "official.payment.refund",
+      "required_permission": "official.payment.refund.list",
+      "icon": "icon-rollback",
+      "sort_order": 50,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.reference_codes",
+      "key": "official.reference-codes.page",
+      "scope": "tenant",
+      "type": "page",
+      "name": "参考代码",
+      "route_name": "OfficialReferenceCodes",
+      "route_path": "/system/reference-codes",
+      "component_key": "official.reference-codes.page",
+      "required_permission": "official.reference-codes.read",
+      "icon": "icon-list",
+      "sort_order": 71,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.rich_text",
+      "key": "official.rich-text.documents",
+      "scope": "tenant",
+      "type": "page",
+      "name": "富文本文档",
+      "route_name": "RichTextDocuments",
+      "route_path": "/rich-text/documents",
+      "component_key": "official.rich-text.documents",
+      "required_permission": "official.rich-text.document.list",
+      "icon": "icon-edit",
+      "sort_order": 70,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.settings",
+      "key": "official.settings.page",
+      "scope": "tenant",
+      "type": "page",
+      "name": "设置",
+      "route_name": "OfficialSettings",
+      "route_path": "/system/settings",
+      "component_key": "official.settings.page",
+      "required_permission": "official.settings.read",
+      "icon": "icon-settings",
+      "sort_order": 70,
+      "client_keys": [
+        "admin-web"
+      ]
+    },
+    {
+      "module_key": "official.task",
+      "key": "official.task.schedules",
+      "scope": "tenant",
+      "type": "page",
+      "name": "定时任务",
+      "route_name": "SystemCrontab",
+      "route_path": "/system/crontab",
+      "component_key": "official.task.schedules",
+      "required_permission": "official.task.list",
+      "icon": "icon-clock-circle",
+      "sort_order": 50,
+      "client_keys": [
+        "admin-web"
+      ]
+    }
+  ]
+}

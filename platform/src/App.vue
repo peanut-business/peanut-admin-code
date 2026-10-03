@@ -94,19 +94,29 @@
       ><div class="logo">PEANUT <b>平台</b></div
       ><el-menu :default-active="view" @select="selectView"
         ><el-menu-item index="overview">概览</el-menu-item
-        ><el-menu-item v-if="can('platform.ops.read')" index="ops"
-          >运行与维护</el-menu-item
-        ><el-menu-item index="tenants">租户与生命周期</el-menu-item
-        ><el-menu-item index="owners">租户所有者邀请</el-menu-item
-        ><el-menu-item index="endpoints">入口域名与客户端</el-menu-item
-        ><el-menu-item v-if="can('platform.tenant.read')" index="modules"
-          >租户模块开通</el-menu-item
-        ><el-menu-item v-if="can('platform.module.read')" index="developer"
-          >开发者中心</el-menu-item
-        ><el-menu-item index="storage">存储基础设施</el-menu-item
-        ><el-menu-item index="operators">实例平台操作员</el-menu-item
-        ><el-menu-item index="roles">平台角色与权限</el-menu-item
-        ><el-menu-item index="audit">平台审计</el-menu-item></el-menu
+        ><el-sub-menu index="tenant-operations"
+          ><template #title>租户运营</template
+          ><el-menu-item index="tenants">租户与生命周期</el-menu-item
+          ><el-menu-item index="owners">租户所有者邀请</el-menu-item
+          ><el-menu-item index="endpoints">入口域名与客户端</el-menu-item
+          ><el-menu-item v-if="can('platform.tenant.read')" index="modules"
+            >租户模块开通</el-menu-item
+          ></el-sub-menu
+        ><el-sub-menu index="organization-access"
+          ><template #title>组织与权限</template
+          ><el-menu-item index="operators">实例平台操作员</el-menu-item
+          ><el-menu-item index="roles"
+            >平台角色与权限</el-menu-item
+          ></el-sub-menu
+        ><el-sub-menu index="operations-audit"
+          ><template #title>运维与审计</template
+          ><el-menu-item v-if="can('platform.ops.read')" index="ops"
+            >运行与维护</el-menu-item
+          ><el-menu-item v-if="can('platform.module.read')" index="developer"
+            >开发者中心</el-menu-item
+          ><el-menu-item index="storage">存储基础设施</el-menu-item
+          ><el-menu-item index="audit">平台审计</el-menu-item></el-sub-menu
+        ></el-menu
       ></el-aside
     ><el-container
       ><el-header

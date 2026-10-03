@@ -21,6 +21,7 @@
 - [身份、组织与执行信息](architecture/identity-organization-access.md)
 - [租户模块授权与 Scope](architecture/tenant-modules-and-data-scopes.md)
 - [模块开发与交付](architecture/module-development-delivery.md)
+- [默认导航分类与菜单定制](development/menu-navigation.md)
 - [平台服务与租户配置](architecture/service-bindings.md)
 - [事件、任务与异步协作](architecture/events-and-tasks.md)
 

@@ -13,6 +13,8 @@ use PeanutAdmin\Modules\Identity\Module\Model\TenantModule;
 use PeanutAdmin\Modules\Identity\Persistence\Model\MenuDefinition as MenuDefinitionRecord;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
 use think\model\type\Json;
+use think\facade\Db;
+use think\facade\Log;
 
 final class ThinkPhpMenuCatalogRepository implements \PeanutAdmin\Kernel\Menu\MenuCatalogRepository
 {
@@ -44,12 +46,38 @@ final class ThinkPhpMenuCatalogRepository implements \PeanutAdmin\Kernel\Menu\Me
             'manifest_digest' => $manifestDigest,
             'updated_at' => $now,
         ];
-        $existing = MenuDefinitionRecord::where('key', $definition->key)->value('id');
-        if ($existing === null) {
-            MenuDefinitionRecord::create(['key' => $definition->key, ...$data, 'created_at' => $now]);
-            return;
-        }
-        MenuDefinitionRecord::where('id', (int) $existing)->update($data);
+        Db::transaction(function () use ($definition, $data, $now): void {
+            $existing = MenuDefinitionRecord::where('key', $definition->key)->lock(true)->find();
+            $defaults = $this->metadata($data);
+            if ($existing === null) {
+                MenuDefinitionRecord::create([
+                    'key' => $definition->key, ...$data, 'created_at' => $now,
+                    'upstream_defaults_json' => json_encode($defaults, JSON_THROW_ON_ERROR),
+                    'menu_conflict_json' => null,
+                ]);
+                return;
+            }
+            $current = $this->metadata($existing->toArray());
+            $baseline = $this->decodedJson($existing->getAttr('upstream_defaults_json'));
+            // Unknown ownership is adopted only when no presentation or permission
+            // field would change. Historical defaults are registered by the migration.
+            $expected = $baseline ?? $defaults;
+            $conflicts = array_keys(array_filter($current, static fn($value, $field): bool =>
+                !array_key_exists($field, $expected) || $value !== $expected[$field], ARRAY_FILTER_USE_BOTH));
+            if ($conflicts !== []) {
+                $encoded = json_encode(['reason' => $baseline === null ? 'unknown_defaults' : 'customized', 'fields' => $conflicts], JSON_THROW_ON_ERROR);
+                if ($existing->getAttr('menu_conflict_json') !== $encoded) {
+                    $existing->save(['menu_conflict_json' => $encoded]);
+                    Log::warning('MENU_DEFAULT_CONFLICT', ['key' => $definition->key, 'fields' => $conflicts]);
+                }
+                return;
+            }
+            $existing->save([
+                ...$data,
+                'upstream_defaults_json' => json_encode($defaults, JSON_THROW_ON_ERROR),
+                'menu_conflict_json' => null,
+            ]);
+        });
     }
 
     public function retireMissing(array $activeKeys): void
@@ -57,9 +85,53 @@ final class ThinkPhpMenuCatalogRepository implements \PeanutAdmin\Kernel\Menu\Me
         if ($activeKeys === []) {
             throw new DomainException('The active menu catalog cannot be empty.');
         }
-        MenuDefinitionRecord::where('status', 'active')
-            ->whereNotIn('key', $activeKeys)
-            ->update(['status' => 'retired', 'updated_at' => $this->now()]);
+        Db::transaction(function () use ($activeKeys): void {
+            foreach (MenuDefinitionRecord::where('status', 'active')->whereNotIn('key', $activeKeys)->lock(true)->select() as $row) {
+                $baseline = $this->decodedJson($row->getAttr('upstream_defaults_json'));
+                // A user-created or customized menu is never retired by discovery.
+                if ($baseline === null || $this->metadata($row->toArray()) !== $baseline) {
+                    continue;
+                }
+                $baseline['status'] = 'retired';
+                $row->save(['status' => 'retired', 'updated_at' => $this->now(),
+                    'upstream_defaults_json' => json_encode($baseline, JSON_THROW_ON_ERROR)]);
+            }
+        });
+    }
+
+    /** @return array<string,mixed> */
+    private function metadata(array $row): array
+    {
+        $fields = ['module_key', 'scope', 'parent_key', 'type', 'name', 'route_name', 'route_path',
+            'component_key', 'icon', 'sort_order', 'required_permission_id', 'client_keys_json', 'status'];
+        $metadata = array_intersect_key($row, array_fill_keys($fields, true));
+        $metadata['sort_order'] = (int) $metadata['sort_order'];
+        $metadata['required_permission_id'] = $metadata['required_permission_id'] === null
+            ? null : (int) $metadata['required_permission_id'];
+        $metadata['client_keys_json'] = $this->decodedJson($metadata['client_keys_json']);
+        // JSON objects have no key ordering; compare canonical field order.
+        ksort($metadata, SORT_STRING);
+        return $metadata;
+    }
+
+    private function decodedJson(mixed $value): ?array
+    {
+        if ($value instanceof Json) {
+            $value = $value->value();
+        }
+        if (is_string($value)) {
+            $value = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        }
+        if ($value === null) {
+            return null;
+        }
+        if (!is_array($value)) {
+            throw new DomainException('Menu default metadata is invalid.');
+        }
+        if (!array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+        return $value;
     }
 
     public function activeDefinitions(string $scope): array

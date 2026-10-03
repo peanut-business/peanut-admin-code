@@ -99,7 +99,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "808e2769c9b6e8cfc8500cd525e7c1bebc5aa84b89f110a38fe22ddb5e8ad195"
+                "sha256": "cb8f889acdcbddeed162caf13578a87a20111f5209793dcd02160a3de4ec2329"
             },
             "trust": {
                 "channel": "bundled",
@@ -192,7 +192,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "1a73a2907cf63b266e294930429dc16f897e2009c48412bd753f80e441992a47"
+            "manifest_sha256": "485821a55db7c4c36a8d65540b20098d364600ef90d887ecfb7fafd07197c837"
         },
         {
             "key": "official.file",
@@ -200,7 +200,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "028f1ebd7ad67d62f62cbea3fb4909947ab67e98de480641cfb08abf223deeaa"
+                "sha256": "4bb4a01541a78cb2d582ccb411ce77f8cc93851c77cb9b257149148493b9539c"
             },
             "trust": {
                 "channel": "bundled",
@@ -297,7 +297,7 @@
                 }
             ],
             "manifest": "plugins/official.file/plugin.json",
-            "manifest_sha256": "f38cc342c4880602d41f1681c62a8a8d8480398d5b0fcbe0de4cfb153bb11d45"
+            "manifest_sha256": "43d5ee601a22e83812f69b117ae6bf016d669e89b54ff12b6ff9aa7aeb494982"
         },
         {
             "key": "official.identity",
@@ -305,7 +305,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "53c5aff6cd2c775816ac1ebf915b71043c55e2955ddbc329b74368efae8627ec"
+                "sha256": "6d826312574c1e08cdc8ac461fd7f5016995ba4e5554777329f2bdc70f9e63b8"
             },
             "trust": {
                 "channel": "bundled",
@@ -375,7 +375,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "d5eef6de17b017c032455c43f078d6d4eda96ea0f5dce097d2b0c59e87e36f1c"
+            "manifest_sha256": "60860d813dcf61f001eea2c02f6b389f39a38360e8fab4e9d35633d1bc72ba75"
         },
         {
             "key": "official.import-export",
@@ -383,7 +383,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "66bd1e8cfc61922d6611d33d5c56dfa131cc15a8595909772962202e7fe683de"
+                "sha256": "e9d1b0a91c3e43a680a36f3912494bb009be8de00dbfc864e29ffbff34c94efc"
             },
             "trust": {
                 "channel": "bundled",
@@ -492,7 +492,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "a0eb5f9f85f88e6cbf2b4a199e65e10602c074a2196597914f0fdcf0d7eb1c59"
+            "manifest_sha256": "dbdf29213832f06659437948ffff7602bfb7bc870b058e8bc7597d76cb265b09"
         },
         {
             "key": "official.integration",
@@ -500,7 +500,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "fd2652ca4867de47051f1eacb7e4b4cfa2f97ca0fba878caa9edd841d5fc7272"
+                "sha256": "5b2845818ca488081a8276ac2e67dedba9b478583e0b9ed341ecd72e6bf4ed30"
             },
             "trust": {
                 "channel": "bundled",
@@ -584,7 +584,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "efdbf26a230fe00f1b1fa6f9125c85315b81142588ee0e56ed9e18db752ceed3"
+            "manifest_sha256": "0d30d9db1aab4ebc60f03c0f7f58cdbae5ac7020a607adc8ce31eaf0787709fa"
         },
         {
             "key": "official.member",
@@ -592,7 +592,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "8110e03ff73595d879e03d6e810da985d781154feb15c6dcd1e0b21089046ea3"
+                "sha256": "7a88d7b919b111899482240572a3ea246159c5b482b08332e423a00ffb820aad"
             },
             "trust": {
                 "channel": "bundled",
@@ -689,7 +689,7 @@
                 }
             ],
             "manifest": "plugins/official.member/plugin.json",
-            "manifest_sha256": "5ae343c1b6acd88a5fcbf6b1b2fc9fc281b0dedc08bb65d05981a448a71ca9d2"
+            "manifest_sha256": "b78cf8b832ac70ed29ea5661d61611e858d7ea68e064f9fe50533588e624531e"
         },
         {
             "key": "official.notification",
@@ -697,7 +697,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "a10589439988e09eb9acb38e9a8e4c5f286af3d61d80c00b80d69d03e20bc395"
+                "sha256": "01a066f025a6bc40110934f37bc279d38f4bce93b5939c5976184b8d0deae9d0"
             },
             "trust": {
                 "channel": "bundled",
@@ -798,7 +798,7 @@
                 }
             ],
             "manifest": "plugins/official.notification/plugin.json",
-            "manifest_sha256": "8e8aae9daa60efb26bb66f28eaf9e36d6d6861fca6b49fcbd9886a67e541bcb5"
+            "manifest_sha256": "99385c2ba8e0bc54db200f7bbf0d00f381436f6851d46d610808f8607cedd92a"
         },
         {
             "key": "official.oauth",
@@ -806,7 +806,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "d814a7230c88294d34e348824f35197da5c51400ea37d3353ba9c9a527fe488b"
+                "sha256": "3e5c52c2215f160266732e4049baab08c2c442eb53a912a7cae22ecc18546a37"
             },
             "trust": {
                 "channel": "bundled",
@@ -911,7 +911,7 @@
                 }
             ],
             "manifest": "plugins/official.oauth/plugin.json",
-            "manifest_sha256": "9ee1777a661fc4885768d51dca7237e5984f58b2456869c6b5b648b97077d97c"
+            "manifest_sha256": "c840b0450e26a617216c4380aaa80f9ec2a4dfcec95a8cdcd1c85701c7d0d9ac"
         },
         {
             "key": "official.ops",
@@ -919,7 +919,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "c264620f6c9d81234e2581a5e1992fb81b7d670814f455a90e5ea2c0f96ef896"
+                "sha256": "0b4afdce8f4034ae2d8fa34d63ed71056ddb4fd8e1490e42bbbc22ce2c4c792b"
             },
             "trust": {
                 "channel": "bundled",
@@ -1007,7 +1007,7 @@
                 }
             ],
             "manifest": "plugins/official.ops/plugin.json",
-            "manifest_sha256": "b5594e70b44aa6ea49931c04730a07df0c42bf6aac42e9f5614428994682338d"
+            "manifest_sha256": "18304294dbfe1427444beec81429540c6f2c4e4971afeb64bd28c4d480ed1161"
         },
         {
             "key": "official.payment",
@@ -1015,7 +1015,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "4826a07f1566efc1e04b10ec6091e30347a6243c576bc36b39c46f24ab654a7c"
+                "sha256": "ba4d392c4df5aa055a537b4577a37922b2a8e66f9fbc8683bb5a63a30700dd7b"
             },
             "trust": {
                 "channel": "bundled",
@@ -1124,7 +1124,7 @@
                 }
             ],
             "manifest": "plugins/official.payment/plugin.json",
-            "manifest_sha256": "f97cb7cf131798427594038923b318339917bcca1ead2fd223d45aa9f1e2fdb9"
+            "manifest_sha256": "d73b93ee137fcf48cad413d372fe320f6ef1fcd595fd5ddc749bc34493cfd49a"
         },
         {
             "key": "official.reference-codes",
@@ -1132,7 +1132,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ba34c6300beb27f7db14cba8657de79eca28d19e2e0bdeab6b535bb676cfcb35"
+                "sha256": "4c33416dcb7211a36fd536f54fe9c0bcba9fc0ff4464784607f99fd03179e997"
             },
             "trust": {
                 "channel": "bundled",
@@ -1221,7 +1221,7 @@
                 }
             ],
             "manifest": "plugins/official.reference-codes/plugin.json",
-            "manifest_sha256": "5e26fca02a62f5397b0a8f6247814edb114706a5b7647b31645bc794c9db7dbd"
+            "manifest_sha256": "5e3e385a7bb3bdf575eda5d89bd174abade3b1e9559a4482efa1bf7c3d6b582c"
         },
         {
             "key": "official.rich-text",
@@ -1229,7 +1229,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "75ddcee9abf288dbd451d31001a86c4deb61921281a68479cd6146977d597f61"
+                "sha256": "0dd5ebbc48fe03633624ca2170f57afaf4f34055179a37489bebcbaa92a0566c"
             },
             "trust": {
                 "channel": "bundled",
@@ -1313,7 +1313,7 @@
                 }
             ],
             "manifest": "plugins/official.rich-text/plugin.json",
-            "manifest_sha256": "6b69a3ba02424527154b8703e4293cacf5977db3c5bf763bb63ebd9c7d384480"
+            "manifest_sha256": "1e066e2ccbbaf4aa32f288b99f8f41a3447e37a6a3d7763c819a52ba91ddbf79"
         },
         {
             "key": "official.settings",
@@ -1321,7 +1321,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "346e2ffe12a847042adc0ffbb64680c4093794dfc354d4f527efa2ebffafa0fe"
+                "sha256": "1009928495d16734ae08c0dfea5cef829a4456b2637df6ec15ed83c95348e4f1"
             },
             "trust": {
                 "channel": "bundled",
@@ -1414,7 +1414,7 @@
                 }
             ],
             "manifest": "plugins/official.settings/plugin.json",
-            "manifest_sha256": "853b21c06d96b94a08499a3df68a4041940924c5f423fd125d76a2216435b5be"
+            "manifest_sha256": "beae2c9ad5d6332be7431f40da3d0127fbc2bf232879a4d85a3969cb6c5ce8db"
         },
         {
             "key": "official.task",
@@ -1422,7 +1422,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1ce2f92527e102a9e8f34d5442a95a7a97a63ba6e2da59af7eba10b4942c47b6"
+                "sha256": "10c6a47571d15d945ecf6697ef2773bc13807b50cc7b131b0ec9cba9a36ecd7c"
             },
             "trust": {
                 "channel": "bundled",
@@ -1515,7 +1515,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "c12321c8072841c14687ee341d94a8beb6877ae8d51b722480d6637a6f362d68"
+            "manifest_sha256": "eedc8bccfa4ecb255806e6faf8d5a5fd39f13d04c0314842c25d7d249a504e18"
         },
         {
             "key": "peanut.artifact-revision",

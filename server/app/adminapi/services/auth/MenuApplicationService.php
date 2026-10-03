@@ -51,14 +51,17 @@ class MenuApplicationService
         $moduleMenus = array_map(
             static fn(array $menu): array => [
                 'id' => (int) $menu['id'],
-                'pid' => 0,
+                'pid' => (int) $menu['pid'],
                 'name' => (string) $menu['name'],
                 'module_key' => (string) $menu['module_key'],
                 'managed' => true,
             ],
             $this->authorization->assignableMenuRecords($context),
         );
-        return [...linear_to_tree($data), ...$moduleMenus];
+        return linear_to_tree(array_values(array_replace(
+            array_column($data, null, 'id'),
+            array_column($moduleMenus, null, 'id'),
+        )));
     }
 
     public function detail(int $id): array

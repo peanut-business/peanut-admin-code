@@ -308,9 +308,13 @@ final readonly class CatalogLifecycleService
             $operations = $this->foreignIds('pa_resource_operation', 'protected_resource_id', $resources);
             $this->updateByIds('pa_permission', $permissions, ['status' => 'retired', 'retired_at' => $now, 'updated_at' => $now]);
             $this->updateByIds('pa_protected_resource', $resources, ['status' => 'retired', 'retired_at' => $now, 'updated_at' => $now]);
-            foreach (['pa_target_type', 'pa_data_condition_definition', 'pa_menu_definition'] as $table) {
+            foreach (['pa_target_type', 'pa_data_condition_definition'] as $table) {
                 $this->updateByIds($table, $this->ids($table, $moduleKeys), ['status' => 'retired', 'updated_at' => $now]);
             }
+            $this->updateByIds('pa_menu_definition', $this->ids('pa_menu_definition', $moduleKeys), [
+                'status' => 'retired', 'updated_at' => $now,
+                'upstream_defaults_json' => Db::raw("JSON_SET(upstream_defaults_json, '$.status', 'retired')"),
+            ]);
             $this->updateByIds('pa_resource_operation', $operations, ['status' => 'retired', 'updated_at' => $now]);
             foreach (['pa_resource_operation_target_type', 'pa_resource_operation_condition'] as $table) {
                 $this->updateByIds($table, $this->foreignIds($table, 'resource_operation_id', $operations), ['status' => 'retired']);

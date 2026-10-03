@@ -81,12 +81,23 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         $bridge = $this->moduleAdmin;
         $native = $bridge->accessData($tenantContext);
         $permissions = $native['permissions'];
+        $menus = array_values(array_replace(
+            array_column(array_filter(
+                $this->compatibilityMenus($tenantContext, $admin, $permissions),
+                static fn(array $row): bool => !in_array((int) $row['id'], array_column($native['menu'], 'legacy_menu_id'), true),
+            ), null, 'id'),
+            array_column($native['menu'], null, 'id'),
+        ));
+        do {
+            $before = count($menus);
+            $ids = array_column($menus, 'id');
+            $menus = array_values(array_filter($menus, static fn(array $row): bool =>
+                !isset($row['menu_key']) || (int) $row['pid'] === 0 || in_array((int) $row['pid'], $ids, true)));
+        } while (count($menus) !== $before);
+        usort($menus, static fn(array $a, array $b): int => [-$a['sort'], $a['id']] <=> [-$b['sort'], $b['id']]);
 
         return new AdminAccessData(
-            menu: [
-                ...$this->compatibilityMenus($tenantContext, $admin, $permissions),
-                ...$native['menu'],
-            ],
+            menu: linear_to_tree($menus),
             permissions: $admin->root
                 ? $bridge->registeredPermissions($tenantContext->tenantId)
                 : array_values(array_unique($permissions)),
@@ -238,18 +249,19 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         $query = SystemMenu::where('type', 'in', ['M', 'C'])
             ->where('is_disable', 0)
             ->whereNotIn('perms', InstanceControlPlanePolicy::tenantAdminPermissions())
-            ->whereNotIn('paths', [
-                ...InstanceControlPlanePolicy::tenantAdminPaths(),
-                '/article',
-                '/article/cate',
-                '/article/list',
-                ...CoreTenantModuleAdminBridge::officialModuleMenuPaths(),
-            ])
+            ->whereNotIn('paths', InstanceControlPlanePolicy::tenantAdminPaths())
             ->where(static function ($query) use ($visiblePermissions): void {
                 $query->where('perms', '')->whereOr('perms', 'in', $visiblePermissions ?: ['__none__']);
             });
 
-        return linear_to_tree($query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray());
+        return array_values(array_filter($query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(), static function (array $row): bool {
+            $baseline = $row['upstream_defaults_json'] ?? null;
+            if (is_string($baseline)) {
+                $baseline = json_decode($baseline, true, 512, JSON_THROW_ON_ERROR);
+            }
+            return $row['type'] === 'M' || !is_array($baseline)
+                || !in_array($baseline['paths'] ?? '', CoreTenantModuleAdminBridge::officialModuleMenuPaths(), true);
+        }));
     }
 
     private function validContext(?TenantContext $context, AdminPrincipal $admin): bool
