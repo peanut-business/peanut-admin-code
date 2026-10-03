@@ -1,0 +1,14 @@
+[
+  {"key":"official.member.list","type":"api","name":"查看会员列表","risk_level":"normal"},
+  {"key":"official.member.detail","type":"api","name":"查看会员详情","risk_level":"normal"},
+  {"key":"official.member.add","type":"action","name":"新增会员","risk_level":"sensitive"},
+  {"key":"official.member.edit","type":"action","name":"编辑会员","risk_level":"sensitive"},
+  {"key":"official.member.update-status","type":"action","name":"切换会员状态","risk_level":"sensitive"},
+  {"key":"official.member.balance.adjust","type":"action","name":"调整会员余额","risk_level":"critical"},
+  {"key":"official.member.tag.list","type":"api","name":"查看会员标签","risk_level":"normal"},
+  {"key":"official.member.tag.add","type":"action","name":"新增会员标签","risk_level":"sensitive"},
+  {"key":"official.member.tag.edit","type":"action","name":"编辑会员标签","risk_level":"sensitive"},
+  {"key":"official.member.tag.delete","type":"action","name":"删除会员标签","risk_level":"critical"},
+  {"key":"official.member.account-log.list","type":"api","name":"查看余额明细","risk_level":"normal"},
+  {"key":"official.member.account-log.change-types","type":"api","name":"查看余额变动类型","risk_level":"normal"}
+]

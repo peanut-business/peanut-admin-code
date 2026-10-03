@@ -632,6 +632,7 @@ function resourceGuardWriteProof(string $directory, string $runId, int $now, ?ca
         'thread' => 'environment-guard-test-thread',
         'candidate' => str_repeat('a', 40),
         'candidate_repository' => $worktree,
+        'parent_lease' => '',
         'gate' => 'p0e-runtime-qualification',
         'worktree' => $worktree,
         'created_at' => (string) ($now - 30),
@@ -643,6 +644,7 @@ function resourceGuardWriteProof(string $directory, string $runId, int $now, ?ca
         'resource-id' => ['peanut-admin-p0e-mysql84-gate'],
         'environment' => ['development'],
         'deployment-target' => ['local-production-preview'],
+        'qualification-group' => ['multi-tenant-browser'],
         'consumer' => ['host', 'container'],
         'endpoint' => ['192.168.192.2:20183', 'host.docker.internal:20189'],
         'run-id' => [$runId],
@@ -704,6 +706,7 @@ function resourceGuardWriteConsumerUpgradeProof(
         'thread' => 'environment-guard-test-thread',
         'candidate' => $repository['candidate'],
         'candidate_repository' => $worktree,
+        'parent_lease' => '',
         'gate' => 'consumer-upgrade-qualification',
         'worktree' => $worktree,
         'created_at' => (string) ($now - 30),
@@ -752,6 +755,48 @@ function resourceGuardWriteConsumerUpgradeProof(
         }
     }
     file_put_contents($directory . '/resources.tsv', implode("\n", $resourceRows) . "\n");
+}
+
+/** @return array{child:string,parent:string,locks:string,repository:string} */
+function resourceGuardP0eParentFixture(string $root, string $runId, int $now): array
+{
+    $repository = resourceGuardConsumerRepository($root, 'p0e-runtime-' . $runId);
+    $child = $repository['proof'];
+    $parent = dirname($child) . '/p0e-controller-test';
+    resourceGuardWriteProof($child, $runId, $now, static function (array &$metadata, array &$resources) use ($repository, $parent, $runId): void {
+        $metadata['candidate'] = $repository['candidate'];
+        $metadata['candidate_repository'] = $repository['repository'];
+        $metadata['worktree'] = $repository['repository'];
+        $metadata['parent_lease'] = basename($parent);
+        $resources['candidate-tree'] = [$repository['tree']];
+        $resources['output-dir'] = [$repository['repository'] . '/output/p0e-' . $runId];
+        $resources['lease-proof-dir'] = [$repository['proof']];
+        unset($resources['worktree']);
+    });
+    mkdir($parent, 0700, true);
+    $parentMetadata = (string) file_get_contents($child . '/metadata.tsv');
+    $parentMetadata = str_replace([
+        "lease\tp0e-runtime-" . $runId . "\n",
+        "parent_lease\t" . basename($parent) . "\n",
+        "gate\tp0e-runtime-qualification\n",
+    ], ["lease\t" . basename($parent) . "\n", "parent_lease\t\n", "gate\tcontroller\n"], $parentMetadata);
+    file_put_contents($parent . '/metadata.tsv', $parentMetadata);
+    $worktree = $repository['repository'];
+    file_put_contents($parent . '/resources.tsv',
+        hash('sha256', "worktree\t" . $worktree) . "\tworktree\t" . $worktree . "\n"
+        . hash('sha256', "controller-task\tparent-only") . "\tcontroller-task\tparent-only\n");
+    $locks = dirname(dirname($child)) . '/resources';
+    foreach ([$child, $parent] as $proof) {
+        foreach (file($proof . '/resources.tsv', FILE_IGNORE_NEW_LINES) ?: [] as $row) {
+            [$hash, $type, $value] = explode("\t", $row);
+            $lock = $locks . '/' . $hash;
+            mkdir($lock, 0700, true);
+            foreach (['lease' => basename($proof), 'type' => $type, 'value' => $value] as $field => $content) {
+                file_put_contents($lock . '/' . $field, $content . "\n");
+            }
+        }
+    }
+    return ['child' => $child, 'parent' => $parent, 'locks' => $locks, 'repository' => $worktree];
 }
 
 function resourceGuardMustFail(callable $operation, string $case): void
@@ -834,6 +879,46 @@ try {
     $hostConfig = guardedDatabaseConfig($activeProof, $guardNow);
     $expect($hostConfig['consumer'] === 'host', 'P0-E guard did not allow the exact lease-bound Host endpoint');
 
+    $boundedProof = $temporary . '/bounded-fresh';
+    resourceGuardWriteProof(
+        $boundedProof,
+        $guardRunId,
+        $guardNow,
+        static function (array &$metadata, array &$resources): void {
+            $resources['qualification-group'] = ['multi-tenant-fresh'];
+            $resources['consumer'] = ['host'];
+            $resources['endpoint'] = ['192.168.192.2:20183'];
+            $resources['mysql-db'] = array_slice($resources['mysql-db'], 0, 2);
+            foreach ([
+                'port',
+                'http-port',
+                'docs-port',
+                'database-tunnel',
+                'compose-project',
+                'browser-session',
+                'browser-host',
+                'lease-proof-dir',
+            ] as $type) {
+                unset($resources[$type]);
+            }
+        },
+    );
+    foreach (['standalone_fresh' => 'standalone', 'multi_tenant_fresh' => 'multi-tenant'] as $scenario => $mode) {
+        resourceGuardSetEnvironment(resourceGuardP0eEnvironment(
+            $guardRunId,
+            $scenario,
+            $mode,
+            [
+                'PEANUT_DATABASE_CONSUMER' => 'host',
+                'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
+                'DB_HOST' => '192.168.192.2',
+                'DB_PORT' => '20183',
+            ],
+        ));
+        $boundedConfig = guardedDatabaseConfig($boundedProof, $guardNow);
+        $expect($boundedConfig['consumer'] === 'host', "bounded P0-E guard rejected exact fresh scenario {$scenario}");
+    }
+
     $proofMutations = [
         'expired' => static function (array &$metadata): void {
             $metadata['expires_at'] = '2000000000';
@@ -903,6 +988,76 @@ try {
         'deleted proof directory',
     );
 
+    $parentFixture = resourceGuardP0eParentFixture($temporary . '/parent-fixture', $guardRunId, $guardNow);
+    $parentProof = $parentFixture['parent'];
+    $childProof = $parentFixture['child'];
+    $hostEnvironment = resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone', [
+        'PEANUT_DATABASE_CONSUMER' => 'host',
+        'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
+        'DB_HOST' => '192.168.192.2', 'DB_PORT' => '20183',
+    ]);
+    resourceGuardSetEnvironment($hostEnvironment);
+    $expect(guardedDatabaseConfig($childProof, $guardNow)['consumer'] === 'host', 'P0-E exact parent lease was rejected');
+    $resolved = resolvedP0eLeaseResources($childProof, activeLeaseMetadata($childProof, $guardNow, null), $guardNow, 'host');
+    $expect(($resolved['worktree'] ?? null) === [$parentFixture['repository']], 'P0-E child did not inherit parent worktree');
+    $expect(!isset($resolved['controller-task']), 'P0-E child inherited an unrelated parent resource');
+    $parentMetadata = (string) file_get_contents($parentProof . '/metadata.tsv');
+    $parentMutations = [
+        'lease' => 'different-parent', 'owner' => 'different-owner', 'thread' => 'different-thread',
+        'candidate' => str_repeat('f', 40), 'candidate_repository' => '/tmp/other',
+        'worktree' => '/tmp/other', 'expires_at' => (string) $guardNow,
+        'status' => 'RELEASED', 'parent_lease' => 'nested-parent',
+    ];
+    foreach ($parentMutations as $key => $value) {
+        file_put_contents($parentProof . '/metadata.tsv', preg_replace('/^' . $key . "\t[^\n]*$/m", $key . "\t" . $value, $parentMetadata));
+        resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E parent ' . $key);
+        file_put_contents($parentProof . '/metadata.tsv', $parentMetadata);
+    }
+    file_put_contents($parentProof . '/metadata.tsv', $parentMetadata . "extra\tunexpected\n");
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E parent extra metadata');
+    file_put_contents($parentProof . '/metadata.tsv', $parentMetadata);
+    rename($parentProof, $parentProof . '-missing');
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E missing parent');
+    symlink($parentProof . '-missing', $parentProof);
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E symlink parent');
+    unlink($parentProof);
+    rename($parentProof . '-missing', $parentProof);
+    $childMetadata = (string) file_get_contents($childProof . '/metadata.tsv');
+    file_put_contents($childProof . '/metadata.tsv', preg_replace('/^expires_at\t[^\n]*$/m', "expires_at\t" . ($guardNow + 3601), $childMetadata));
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E child outlives parent');
+    file_put_contents($childProof . '/metadata.tsv', $childMetadata);
+    $parentResources = (string) file_get_contents($parentProof . '/resources.tsv');
+    file_put_contents($parentProof . '/resources.tsv', preg_replace('/^[^\n]*\tworktree\t[^\n]*\n/m', '', $parentResources));
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E parent missing worktree');
+    file_put_contents($parentProof . '/resources.tsv', $parentResources);
+    $candidateHead = resourceGuardGit($parentFixture['repository'], ['rev-parse', 'HEAD']);
+    file_put_contents($parentFixture['repository'] . '/candidate.txt', "changed candidate\n");
+    resourceGuardGit($parentFixture['repository'], ['add', 'candidate.txt']);
+    resourceGuardGit($parentFixture['repository'], ['commit', '--quiet', '-m', 'different head']);
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E moved candidate HEAD');
+    resourceGuardGit($parentFixture['repository'], ['reset', '--hard', $candidateHead]);
+    $childResources = (string) file_get_contents($childProof . '/resources.tsv');
+    $worktree = $parentFixture['repository'];
+    file_put_contents($childProof . '/resources.tsv', $childResources . hash('sha256', "worktree\t" . $worktree) . "\tworktree\t" . $worktree . "\n");
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E child direct worktree');
+    file_put_contents($childProof . '/resources.tsv', preg_replace('/^[^\n]*\tcandidate-tree\t[^\n]*$/m', hash('sha256', "candidate-tree\t" . str_repeat('f', 40)) . "\tcandidate-tree\t" . str_repeat('f', 40), $childResources));
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E child wrong candidate tree');
+    file_put_contents($childProof . '/resources.tsv', $childResources);
+    foreach ([['worktree', $worktree], ['gate', 'p0e-runtime-qualification']] as [$type, $value]) {
+        $lock = $parentFixture['locks'] . '/' . hash('sha256', $type . "\t" . $value);
+        foreach (['lease', 'type', 'value'] as $field) {
+            $original = (string) file_get_contents($lock . '/' . $field);
+            file_put_contents($lock . '/' . $field, "wrong\n");
+            resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($childProof, $guardNow), 'P0-E lock ' . $type . '/' . $field);
+            file_put_contents($lock . '/' . $field, $original);
+        }
+    }
+    $copiedChild = $temporary . '/copied-p0e-child';
+    mkdir($copiedChild, 0700, true);
+    copy($childProof . '/metadata.tsv', $copiedChild . '/metadata.tsv');
+    copy($childProof . '/resources.tsv', $copiedChild . '/resources.tsv');
+    resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($copiedChild, $guardNow), 'P0-E copied child proof');
+
     $consumerProof = $temporary . '/consumer-active';
     $consumerRepository = resourceGuardConsumerRepository($temporary, 'consumer-upgrade-' . $guardRunId);
     $consumerProof = $consumerRepository['proof'];
@@ -913,6 +1068,12 @@ try {
         $expect($config['consumer'] === 'host', "consumer-upgrade guard did not allow exact scenario {$scenario}");
     }
     $consumerProofMutations = [
+        'parent-lease' => static function (array &$metadata): void {
+            $metadata['parent_lease'] = 'p0e-controller-test';
+        },
+        'extra-metadata' => static function (array &$metadata): void {
+            $metadata['extra'] = 'unexpected';
+        },
         'released' => static function (array &$metadata): void {
             $metadata['status'] = 'RELEASED';
         },

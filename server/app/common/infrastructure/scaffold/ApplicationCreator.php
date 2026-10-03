@@ -578,7 +578,7 @@ final class ApplicationCreator
             'brand-asset' => $this->brandAsset((string) $entry['path'], $parameters),
             'changelog' => $this->render($this->changelog($parameters['APPLICATION_VERSION']), $parameters),
             'docs-page' => $this->render($content, $parameters),
-            'environment-guard' => $this->environmentGuard($content),
+            'environment-guard' => $content,
             'release-metadata' => $this->releaseMetadata($parameters),
             'resources' => $this->resourceRegistry($parameters),
             'readme' => $this->render($this->readme(), $parameters),
@@ -778,69 +778,6 @@ final class ApplicationCreator
                 . '<circle cx="47.5" cy="47.5" r="5.5" fill="#34D399"/></svg>' . "\n";
         }
         return $this->textTransform((string) file_get_contents($this->sourcePath($path)), $parameters, $path);
-    }
-
-    private function environmentGuard(string $content): string
-    {
-        $content = preg_replace('/const PEANUT_DATABASE_RESOURCES = \[.*?\n\];\n/s', '', $content, 1) ?? $content;
-        $replacement = <<<'PHP'
-function guardedDatabaseConfig(): array
-{
-    $environment = requiredEnvironment('APP_ENV');
-    $deploymentTarget = requiredEnvironment('PEANUT_DEPLOYMENT_TARGET');
-    $resourceId = requiredEnvironment('PEANUT_DATABASE_RESOURCE_ID');
-    $endpointId = requiredEnvironment('PEANUT_DATABASE_ENDPOINT_ID');
-    $consumer = requiredEnvironment('PEANUT_DATABASE_CONSUMER');
-    $registryPath = dirname(__DIR__, 2) . '/resources/project-resources.json';
-    $raw = file_get_contents($registryPath);
-    $registry = is_string($raw) ? json_decode($raw, true) : null;
-    $databases = is_array($registry) ? ($registry['resources']['databases'] ?? null) : null;
-    if (!is_array($databases)) {
-        throw new RuntimeException('项目数据库资源登记无效');
-    }
-    $registered = null;
-    foreach ($databases as $database) {
-        if (is_array($database) && ($database['stable_resource_id'] ?? null) === $resourceId) {
-            $registered = $database;
-            break;
-        }
-    }
-    if (!is_array($registered)) {
-        throw new RuntimeException("数据库资源 {$resourceId} 未登记");
-    }
-    $environments = $registered['environments'] ?? [$registered['environment'] ?? null];
-    if (!is_array($environments) || (!in_array($environment, $environments, true) && !in_array($deploymentTarget, $environments, true))) {
-        throw new RuntimeException("数据库资源 {$resourceId} 未登记为 {$environment}/{$deploymentTarget}");
-    }
-    $actual = [
-        'host' => requiredEnvironment('DB_HOST'),
-        'port' => requiredEnvironment('DB_PORT'),
-        'database' => requiredEnvironment('DB_NAME'),
-    ];
-    $endpoint = registeredDatabaseEndpoint($registered, $consumer);
-    if (!hash_equals((string)$endpoint['endpoint_id'], $endpointId)
-        || !hash_equals((string)$endpoint['host'], $actual['host'])
-        || !hash_equals((string)$endpoint['port'], $actual['port'])
-        || !hash_equals((string)($registered['database'] ?? ''), $actual['database'])) {
-        throw new RuntimeException("数据库资源 {$resourceId} 的地址或 database 不匹配登记值");
-    }
-    if (!in_array(requiredEnvironment('DEPLOYMENT_MODE'), ['standalone', 'multi-tenant'], true)) {
-        throw new RuntimeException('DEPLOYMENT_MODE 只允许 standalone 或 multi-tenant');
-    }
-    return [
-        'environment' => $environment,
-        'deployment_target' => $deploymentTarget,
-        'resource_id' => $resourceId,
-        'endpoint_id' => $endpointId,
-        'consumer' => $consumer,
-        ...$actual,
-        'user' => requiredEnvironment('DB_USER'),
-        'password' => requiredEnvironment('DB_PASS'),
-    ];
-}
-PHP;
-        $content = preg_replace('/function guardedDatabaseConfig\([^)]*\): array\s*\{.*?\n\}\n\nfunction guardedConnection/s', $replacement . "\n\nfunction guardedConnection", $content, 1) ?? $content;
-        return $content;
     }
 
     /** @param array<string,string> $parameters */

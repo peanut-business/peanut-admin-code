@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+!.env.production
+*.local
+.pnpm-store/
+.eslintcache
+*.tsbuildinfo
+coverage/
+.DS_Store
+*.log
