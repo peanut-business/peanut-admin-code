@@ -441,6 +441,14 @@ def database_names(fixture: dict[str, Any], run_id: str) -> dict[str, str]:
 
 def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
     fixture, registry, registered, admin_tool, browser_hosts, database_tunnel = validate_fixture()
+    fixture_groups = list(fixture["groups"])
+    through_group = getattr(args, "through_group", None)
+    if through_group is None:
+        selected_groups = fixture_groups
+    else:
+        if through_group not in fixture_groups:
+            fail(f"through-group is not a registered qualification group: {through_group}")
+        selected_groups = fixture_groups[:fixture_groups.index(through_group) + 1]
     names = database_names(fixture, args.run_id)
     paths = {
         "output-dir": str(absolute_path(args.output_dir, "output-dir", args.run_id)),
@@ -548,7 +556,9 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "compose_project": compose_project,
         "lease_proof_dir": str(lease_proof_dir),
         "lease_proof_container_path": "/run/peanut-admin/resource-lease",
-        "groups": fixture["groups"],
+        "groups": selected_groups,
+        "full_gate_groups": fixture_groups,
+        "through_group": through_group,
         "target_release": fixture["target_release"],
         "lease_resources": [{"type": kind, "value": value} for kind, value in resources],
     }
@@ -650,6 +660,7 @@ class Runner:
             "candidate_tree": plan_data["candidate_tree"],
             "run_id": args.run_id,
             "lease": args.lease,
+            "planned_groups": plan_data["groups"],
             "owned_candidate_vendor": self.created_candidate_vendor,
             "groups": {},
         }
@@ -887,6 +898,7 @@ class Runner:
             "candidate_tree": self.plan["candidate_tree"],
             "run_id": self.args.run_id,
             "lease": self.args.lease,
+            "planned_groups": self.plan["groups"],
         }.items():
             if checkpoint.get(key) != expected:
                 fail(f"checkpoint {key} mismatch")
@@ -1911,13 +1923,16 @@ class Runner:
             playwright_cli.unlink()
         self.write_json(self.summary_path, {
             "schema_version": 1,
-            "status": "passed",
+            "status": "passed" if self.plan["groups"] == self.fixture["groups"] else "partial-passed",
+            "scope": "full" if self.plan["groups"] == self.fixture["groups"] else "through-group",
             "candidate": self.args.candidate,
             "candidate_tree": self.plan["candidate_tree"],
             "run_id": self.args.run_id,
             "resource_id": RESOURCE_ID,
             "environment": "development",
             "endpoint": self.plan["endpoint"],
+            "planned_groups": self.plan["groups"],
+            "full_gate_groups": self.fixture["groups"],
             "groups": self.checkpoint["groups"],
             "fresh_only_2_0": {
                 "generated_application": "groups/generated-application.json",
@@ -1950,15 +1965,23 @@ class Runner:
         self.write_json(self.summary_path, summary)
 
     def run(self) -> None:
-        self.run_group("generated-application", self.generated_application)
-        self.run_group("standalone-fresh", lambda: self.fresh("standalone_fresh", "standalone-fresh", "standalone"))
-        self.run_group("multi-tenant-fresh", lambda: self.fresh("multi_tenant_fresh", "multi-tenant-fresh", "multi-tenant"))
-        self.run_group("plugin-lifecycle", self.plugin_lifecycle)
-        self.run_group("consumer-module-lifecycle", self.consumer_module_lifecycle)
-        self.run_group("production-compose", self.production_compose)
-        self.run_group("standalone-browser", lambda: self.browser("standalone"))
-        self.run_group("multi-tenant-browser", lambda: self.browser("multi-tenant"))
-        required = set(self.fixture["groups"])
+        required = set(self.plan["groups"])
+        if "generated-application" in required:
+            self.run_group("generated-application", self.generated_application)
+        if "standalone-fresh" in required:
+            self.run_group("standalone-fresh", lambda: self.fresh("standalone_fresh", "standalone-fresh", "standalone"))
+        if "multi-tenant-fresh" in required:
+            self.run_group("multi-tenant-fresh", lambda: self.fresh("multi_tenant_fresh", "multi-tenant-fresh", "multi-tenant"))
+        if "plugin-lifecycle" in required:
+            self.run_group("plugin-lifecycle", self.plugin_lifecycle)
+        if "consumer-module-lifecycle" in required:
+            self.run_group("consumer-module-lifecycle", self.consumer_module_lifecycle)
+        if "production-compose" in required:
+            self.run_group("production-compose", self.production_compose)
+        if "standalone-browser" in required:
+            self.run_group("standalone-browser", lambda: self.browser("standalone"))
+        if "multi-tenant-browser" in required:
+            self.run_group("multi-tenant-browser", lambda: self.browser("multi-tenant"))
         passed = {name for name, value in self.checkpoint["groups"].items() if value.get("status") == "passed"}
         if passed != required:
             fail(f"qualification group closure is incomplete: {sorted(required - passed)}")
@@ -1998,6 +2021,10 @@ def add_fixed_arguments(parser: argparse.ArgumentParser, with_lease: bool = True
     parser.add_argument("--cache-dir", required=True)
     parser.add_argument("--http-port", required=True, type=int)
     parser.add_argument("--docs-port", required=True, type=int)
+    parser.add_argument(
+        "--through-group",
+        help="run the registered qualification group prefix through this exact group; omit for the full Gate",
+    )
     if with_lease:
         parser.add_argument("--lease", required=True)
         parser.add_argument("--owner", required=True)
@@ -2049,7 +2076,8 @@ def main() -> int:
     except Exception as exception:
         runner.preserve_failure(exception)
         raise
-    print(json.dumps({"status": "passed", "summary": str(runner.summary_path)}))
+    summary = read_json(runner.summary_path)
+    print(json.dumps({"status": summary["status"], "summary": str(runner.summary_path)}))
     return 0
 
 

@@ -165,6 +165,8 @@ $expect(($plan['database_admin_tooling']['credential_ref'] ?? null) === ($regist
 $expect(($plan['database_admin_tooling']['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'plan lost fail-closed remote administration policy');
 $expect(($plan['target_release'] ?? null) === $expectedTarget, 'plan did not bind the 3.0 scaffold release');
 $expect(($plan['groups'] ?? null) === $expectedGroups, 'plan did not bind the fresh-only closure');
+$expect(($plan['full_gate_groups'] ?? null) === $expectedGroups, 'plan lost the full P0-E group definition');
+$expect(($plan['through_group'] ?? null) === null, 'full plan unexpectedly became a bounded run');
 $expect(!array_key_exists('legacy_application', $plan), 'plan retained a legacy application');
 $expect(!array_key_exists('backup-dir', $plan['paths'] ?? []), 'plan retained a recovery backup path');
 $expect(!file_exists($outputPath) && !file_exists($cachePath), 'no-resource plan created a path');
@@ -181,6 +183,19 @@ $expect(($resourceCounts['port'] ?? null) === 3, 'claim must bind all generic po
 $expect(($resourceCounts['database-tunnel'] ?? null) === 1, 'claim must bind the database tunnel');
 $expect(($resourceCounts['browser-host'] ?? null) === 2, 'claim must bind the separate browser Host boundaries');
 $expect(($resourceCounts['endpoint'] ?? null) === 2, 'claim must bind Host and container database endpoints');
+
+$boundedArguments = $arguments;
+$boundedArguments[] = '--through-group';
+$boundedArguments[] = 'multi-tenant-fresh';
+[$boundedCode, $boundedOutput] = $run($boundedArguments);
+$expect($boundedCode === 0, "P0-E bounded no-resource plan failed: {$boundedOutput}");
+$boundedPlan = json_decode($boundedOutput, true, 512, JSON_THROW_ON_ERROR);
+$expect(
+    ($boundedPlan['groups'] ?? null) === array_slice($expectedGroups, 0, 3),
+    'bounded P0-E plan did not select the exact dependency-preserving prefix',
+);
+$expect(($boundedPlan['full_gate_groups'] ?? null) === $expectedGroups, 'bounded plan changed the full Gate definition');
+$expect(($boundedPlan['through_group'] ?? null) === 'multi-tenant-fresh', 'bounded plan lost its exact cutoff group');
 
 $runnerSource = (string) file_get_contents($runner);
 $unsupportedRunnerFragments = [
@@ -221,6 +236,8 @@ $expect(str_contains($runnerSource, 'consumer-module-reference-chain'), 'consume
 $expect(str_contains($runnerSource, '--formal-release-adoption'), 'consumer Module lifecycle does not require the sealed scaffold adoption path');
 $expect(str_contains($runnerSource, 'consumer_module_cycle'), 'consumer Module lifecycle does not own a length-safe isolated database scenario');
 $expect(str_contains($runnerSource, 'passed != required'), 'Gate completion closure is not enforced');
+$expect(str_contains($runnerSource, 'required = set(self.plan["groups"])'), 'runner does not close against the explicitly planned group prefix');
+$expect(str_contains($runnerSource, '"partial-passed"'), 'bounded qualification is not distinguished from a full Gate pass');
 $expect(str_contains($runnerSource, 'preflight_database_admin_tooling'), 'remote database administration does not fail fast');
 $expect(str_contains($runnerSource, 'registered database credential is missing or ambiguous: MYSQL_ROOT_PASSWORD'), 'remote administration does not fail closed on a missing registered root credential');
 $expect(str_contains($runnerSource, '--defaults-extra-file="$path"'), 'remote administration does not use a container-private MySQL option file');
