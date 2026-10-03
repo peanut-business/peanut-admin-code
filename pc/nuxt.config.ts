@@ -1,7 +1,11 @@
 import defaultBrand from './generated/brand.json';
 import { resolve } from 'node:path';
+import { extendRouteRules, useNitro } from '@nuxt/kit';
 import { readClientEnvironment } from '../scripts/client-environment';
-import { createPcRenderingOptions } from './utils/rendering-policy';
+import {
+  createPcRenderingOptions,
+  createPcPageRules,
+} from './utils/rendering-policy';
 
 const fileEnv = readClientEnvironment(
   resolve(import.meta.dirname, '.env.production')
@@ -12,11 +16,31 @@ const devProxyOrigin =
     ? `http://127.0.0.1:${fileEnv.PHP_PORT}`
     : 'http://127.0.0.1');
 const devProxyTarget = fileEnv.NUXT_DEV_PROXY_TARGET || `${devProxyOrigin}/api`;
+const rendering = createPcRenderingOptions(fileEnv.NUXT_PC_RENDER_MODE);
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: false },
-  ...createPcRenderingOptions(fileEnv.NUXT_PC_RENDER_MODE),
+  ...rendering,
+  hooks: {
+    async 'pages:resolved'(pages) {
+      const rules = createPcPageRules(
+        pages,
+        resolve(import.meta.dirname, 'pages'),
+        rendering.ssr
+      );
+      for (const [path, rule] of Object.entries(rules)) {
+        extendRouteRules(path, rule, { override: true });
+      }
+      // Nitro 在页面扫描前已经初始化；同时更新其实际配置，保留私有页 headers。
+      const nitro = useNitro();
+      const routeRules = { ...nitro.options.routeRules };
+      for (const [path, rule] of Object.entries(rules)) {
+        routeRules[path] = { ...routeRules[path], ...rule };
+      }
+      await nitro.updateConfig({ routeRules });
+    },
+  },
 
   app: {
     baseURL: '/',

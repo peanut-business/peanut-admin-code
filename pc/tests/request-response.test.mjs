@@ -29,7 +29,7 @@ async function publicPackage(name) {
 const client = await publicPackage('client');
 const nuxt = await publicPackage('nuxt');
 
-function request(fetch, server = false) {
+function request(fetch, server = false, options = {}) {
   const calls = { cleared: 0, redirects: [], messages: [], network: [] };
   const output = ts.transpileModule(source, {
     compilerOptions: {
@@ -83,7 +83,7 @@ function request(fetch, server = false) {
       return fetch(url, options);
     },
   });
-  return { api: exports.useRequest(), calls };
+  return { api: exports.useRequest(options), calls };
 }
 
 for (const [name, value] of [
@@ -140,6 +140,20 @@ test('valid authorization failure clears the client session and redirects once',
   );
   assert.equal(h.calls.cleared, 1);
   assert.deepEqual(h.calls.redirects, ['/login']);
+});
+
+test('optional personal extensions clear an expired session without redirecting public reading', async () => {
+  const h = request(
+    async () => ({ code: 40100, msg: 'Login required', data: null }),
+    false,
+    { redirectOnUnauthorized: false }
+  );
+  await assert.rejects(
+    h.api.get('api/article/detail', { id: 1 }),
+    (error) => error.kind === 'unauthorized'
+  );
+  assert.equal(h.calls.cleared, 1);
+  assert.deepEqual(h.calls.redirects, []);
 });
 
 test('valid HTTP business failures are decoded without converting them into transport failures', async () => {

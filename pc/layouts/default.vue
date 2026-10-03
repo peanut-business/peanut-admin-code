@@ -32,51 +32,13 @@
             class="text-gray-600 hover:text-primary transition-colors"
             >关于我们</NuxtLink
           >
-          <NuxtLink
-            v-if="isLoggedIn"
-            to="/recharge"
-            class="text-gray-600 hover:text-primary transition-colors"
-            >充值</NuxtLink
-          >
         </nav>
 
         <ClientOnly>
-          <div class="flex items-center gap-3">
-            <template v-if="isLoggedIn">
-              <el-dropdown>
-                <div class="flex items-center gap-2 cursor-pointer">
-                  <el-avatar
-                    :size="32"
-                    :src="(userInfo?.avatar as string) || ''"
-                  />
-                  <span class="text-gray-700">{{
-                    userInfo?.nickname || '用户'
-                  }}</span>
-                </div>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item @click="$router.push('/user/info')"
-                      >个人资料</el-dropdown-item
-                    >
-                    <el-dropdown-item @click="$router.push('/user/collection')"
-                      >我的收藏</el-dropdown-item
-                    >
-                    <el-dropdown-item @click="$router.push('/account/security')"
-                      >账户安全</el-dropdown-item
-                    >
-                    <el-dropdown-item divided @click="handleLogout"
-                      >退出登录</el-dropdown-item
-                    >
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </template>
-            <template v-else>
-              <NuxtLink to="/login">
-                <el-button type="primary" size="small">登录</el-button>
-              </NuxtLink>
-            </template>
-          </div>
+          <MemberNavigation />
+          <template #fallback>
+            <NuxtLink to="/login" class="text-primary">登录</NuxtLink>
+          </template>
         </ClientOnly>
       </div>
     </header>
@@ -109,27 +71,5 @@
 
 <script setup lang="ts">
   const appStore = useAppStore();
-  const userStore = import.meta.client ? useUserStore() : null;
-  const request = useRequest();
-
   const website = computed(() => appStore.website);
-  const isLoggedIn = computed(() => userStore?.isLoggedIn ?? false);
-  const userInfo = computed(() => userStore?.userInfo);
-
-  async function handleLogout() {
-    let revoked = true;
-    try {
-      await request.post('api/login/logout');
-    } catch {
-      revoked = false;
-    } finally {
-      userStore?.clearSession();
-    }
-    await navigateTo('/');
-    if (revoked) {
-      ElMessage.success('已退出登录');
-    } else {
-      ElMessage.warning('服务端撤销失败，已清除本地会话');
-    }
-  }
 </script>

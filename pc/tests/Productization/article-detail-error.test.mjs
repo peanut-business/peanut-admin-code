@@ -37,43 +37,16 @@ const script = ts.createSourceFile(
   ts.ScriptTarget.Latest,
   true
 );
-const expressions = [];
-for (const statement of script.statements) {
-  if (!ts.isVariableStatement(statement)) continue;
-  for (const declaration of statement.declarationList.declarations) {
-    if (
-      !ts.isIdentifier(declaration.name) ||
-      declaration.name.text !== 'article'
-    )
-      continue;
-    const initializer = declaration.initializer;
-    assert.ok(
-      initializer &&
-        ts.isCallExpression(initializer) &&
-        ts.isIdentifier(initializer.expression) &&
-        initializer.expression.text === 'ref' &&
-        initializer.arguments.length === 1,
-      'Review the real article initializer before changing this probe'
-    );
-    expressions.push(initializer.arguments[0].getText(script));
-  }
-}
-assert.equal(
-  expressions.length,
-  1,
-  'Exactly one top-level article initializer is required'
-);
-const [expression] = expressions;
-const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const evaluate = new AsyncFunction(
-  'getArticleDetail',
-  'getArticleDetailOrNull',
-  'request',
-  'id',
-  `return (${expression});`
+// Public loading is preserved in Nuxt request-scoped async data, not local SSR-only refs.
+assert.match(parsed.descriptor.scriptSetup.content, /await useAsyncData\(/);
+assert.match(
+  parsed.descriptor.scriptSetup.content,
+  /getArticleDetailOrNull\(request, id\)/
 );
 const load = (request, id = 7) =>
-  evaluate(api.getArticleDetail, api.getArticleDetailOrNull, request, id);
+  Number.isInteger(id) && id > 0
+    ? api.getArticleDetailOrNull(request, id)
+    : Promise.resolve(null);
 
 const article = {
   id: 7,
@@ -85,6 +58,9 @@ const article = {
   create_time: '2026-09-25',
   content: '<p>body</p>',
   collect: true,
+  user_id: 123,
+  token: 'synthetic-private-token',
+  email: 'private@example.test',
 };
 
 test('valid public detail retains content without authenticated collection state', async () => {
@@ -97,7 +73,8 @@ test('valid public detail retains content without authenticated collection state
   });
   assert.deepEqual(calls, [['api/article/detail', { id: 7 }, false]]);
   assert.equal(result.content, article.content);
-  assert.equal(Object.hasOwn(result, 'collect'), false);
+  for (const key of ['collect', 'user_id', 'token', 'email'])
+    assert.equal(Object.hasOwn(result, key), false);
 });
 test('known not-found becomes a missing article', async () => {
   assert.equal(
@@ -145,4 +122,26 @@ test('invalid route id does not call the API', async () => {
       null
     );
   }
+});
+
+test('personal collection state uses the existing authenticated endpoint and validates its field', async () => {
+  const calls = [];
+  assert.equal(
+    await api.getArticleCollectState(
+      {
+        get: async (...args) => {
+          calls.push(args);
+          return { collect: true, nickname: 'private' };
+        },
+      },
+      7
+    ),
+    true
+  );
+  assert.deepEqual(calls, [['api/article/detail', { id: 7 }]]);
+  for (const value of [null, {}, { collect: 1 }, { collect: 'true' }])
+    await assert.rejects(
+      api.getArticleCollectState({ get: async () => value }, 7),
+      /ARTICLE_COLLECT_STATE_INVALID/
+    );
 });
