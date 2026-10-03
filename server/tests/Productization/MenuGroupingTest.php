@@ -63,6 +63,12 @@ function menuVisible(ThinkPhpMenuCatalogRepository $repository, array $permissio
 $configured = RegisteredMysqlTestResource::configuredDatabaseName();
 $prefix = substr($configured, 0, -strlen('standalone_fresh'));
 $scenarios = ['standalone_fresh', 'multi_tenant_fresh', 'plugin_lifecycle'];
+if (isset($argv[1])) {
+    if (!in_array($argv[1], $scenarios, true)) {
+        throw new InvalidArgumentException('Unknown menu verification scenario.');
+    }
+    $scenarios = [$argv[1]];
+}
 $results = [];
 foreach ($scenarios as $scenario) {
     $database = $prefix . $scenario;
@@ -192,7 +198,10 @@ foreach ($scenarios as $scenario) {
             $manifests = [];
             foreach ($registry->modules as $manifest) {
                 $manifests[$manifest->data['key']] = $manifest;
-                (new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService())->registerDeployedManifest($manifest);
+            }
+            $applier->beginPackageDeployment($manifests, false, gmdate('Y-m-d H:i:s'));
+            $applier->activatePackageDeployment($manifests, false, gmdate('Y-m-d H:i:s'));
+            foreach ($manifests as $manifest) {
                 $pdo->prepare("INSERT INTO pa_tenant_module (tenant_id,module_key,status,created_at,updated_at) VALUES (?,?,'enabled',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)) ON DUPLICATE KEY UPDATE status='enabled'")->execute([$bootstrap['tenant_id'], $manifest->data['key']]);
             }
             $applier->disableActivePackageModules(['official.task']);
