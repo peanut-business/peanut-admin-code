@@ -173,7 +173,7 @@ function registeredDatabaseEndpoint(array $database, string $consumer): array
 }
 
 /** @return array<string,string> */
-function activeLeaseMetadata(string $proofPath, int $now, string $expectedGate): array
+function activeLeaseMetadata(string $proofPath, int $now, ?string $expectedGate): array
 {
     $metadataPath = $proofPath . '/metadata.tsv';
     if (!is_dir($proofPath) || is_link($proofPath) || !is_file($metadataPath) || is_link($metadataPath)) {
@@ -186,21 +186,27 @@ function activeLeaseMetadata(string $proofPath, int $now, string $expectedGate):
     $metadata = [];
     foreach ($lines as $line) {
         $fields = explode("\t", $line);
-        if (count($fields) !== 2 || $fields[0] === '' || $fields[1] === '' || isset($metadata[$fields[0]])) {
+        if (count($fields) !== 2 || $fields[0] === ''
+            || ($fields[1] === '' && $fields[0] !== 'parent_lease')
+            || array_key_exists($fields[0], $metadata)) {
             throw new RuntimeException('active lease metadata 格式无效');
         }
         $metadata[$fields[0]] = $fields[1];
     }
-    $expectedKeys = ['lease', 'owner', 'thread', 'candidate', 'candidate_repository', 'gate', 'worktree', 'created_at', 'expires_at', 'status'];
+    $expectedKeys = ['lease', 'owner', 'thread', 'candidate', 'candidate_repository', 'parent_lease', 'gate', 'worktree', 'created_at', 'expires_at', 'status'];
     $actualKeys = array_keys($metadata);
     sort($expectedKeys, SORT_STRING);
     sort($actualKeys, SORT_STRING);
     if ($actualKeys !== $expectedKeys
         || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/D', $metadata['lease']) !== 1
         || preg_match('/^[a-f0-9]{40}$/D', $metadata['candidate']) !== 1
-        || $metadata['gate'] !== $expectedGate
-        || !str_starts_with($metadata['candidate_repository'], '/')
-        || !str_starts_with($metadata['worktree'], '/')
+        || ($expectedGate !== null && $metadata['gate'] !== $expectedGate)
+        || ($metadata['parent_lease'] !== '' && (
+            preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/D', $metadata['parent_lease']) !== 1
+            || $metadata['parent_lease'] === $metadata['lease']
+        ))
+        || !isLexicallyAbsolutePath($metadata['candidate_repository'])
+        || !isLexicallyAbsolutePath($metadata['worktree'])
         || preg_match('/^[0-9]+$/D', $metadata['created_at']) !== 1
         || preg_match('/^[0-9]+$/D', $metadata['expires_at']) !== 1
         || $metadata['status'] !== 'ACTIVE'
@@ -244,6 +250,86 @@ function activeLeaseResources(string $proofPath): array
         sort($values, SORT_STRING);
     }
     unset($values);
+    ksort($resources, SORT_STRING);
+    return $resources;
+}
+
+/**
+ * Only the directly owned worktree may be inherited from a live parent.
+ * Host proofs stay in the candidate Git registry; containers receive two
+ * explicitly selected read-only mounts, never an arbitrary parent path.
+ *
+ * @param array<string,string> $metadata
+ * @return array<string,list<string>>
+ */
+function resolvedP0eLeaseResources(string $proofPath, array $metadata, int $now, string $consumer): array
+{
+    $resources = activeLeaseResources($proofPath);
+    if ($metadata['parent_lease'] === '') {
+        return $resources;
+    }
+    if (isset($resources['worktree']) || $metadata['candidate_repository'] !== $metadata['worktree']) {
+        throw new RuntimeException('child lease 不能自行声明或越界继承 worktree');
+    }
+    if ($consumer === 'container') {
+        if ($proofPath !== '/run/peanut-admin/resource-lease') {
+            throw new RuntimeException('P0-E child proof mount 不匹配');
+        }
+        $parentPath = '/run/peanut-admin/resource-lease-parent';
+    } elseif ($consumer === 'host') {
+        $repository = realpath($metadata['candidate_repository']);
+        if ($repository !== $metadata['candidate_repository'] || !is_dir($repository)) {
+            throw new RuntimeException('P0-E parent candidate repository 不是可信实体');
+        }
+        $common = leaseGit(['-C', $repository, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+        $leases = $common . '/peanut-admin-resource-leases/leases';
+        if (realpath($proofPath) !== $proofPath || $proofPath !== $leases . '/' . $metadata['lease']) {
+            throw new RuntimeException('P0-E child proof 不是当前 candidate 的 active lease 坐标');
+        }
+        $head = leaseGit(['-C', $repository, 'rev-parse', 'HEAD^{commit}']);
+        $tree = leaseGit(['-C', $repository, 'rev-parse', $metadata['candidate'] . '^{tree}']);
+        if ($head !== $metadata['candidate'] || ($resources['candidate-tree'] ?? null) !== [$tree]) {
+            throw new RuntimeException('P0-E parent candidate HEAD/tree 不匹配');
+        }
+        $parentPath = $leases . '/' . $metadata['parent_lease'];
+    } else {
+        throw new RuntimeException('P0-E parent proof consumer 无效');
+    }
+    $parent = activeLeaseMetadata($parentPath, $now, null);
+    if ($parent['lease'] !== $metadata['parent_lease'] || $parent['parent_lease'] !== '') {
+        throw new RuntimeException('P0-E parent proof identity 或嵌套关系无效');
+    }
+    foreach (['owner', 'thread', 'candidate', 'candidate_repository', 'worktree'] as $key) {
+        if (!hash_equals($metadata[$key], $parent[$key])) {
+            throw new RuntimeException('P0-E parent/child identity 不匹配: ' . $key);
+        }
+    }
+    if ((int) $metadata['expires_at'] > (int) $parent['expires_at']) {
+        throw new RuntimeException('P0-E child lease 不能超出 parent 有效期');
+    }
+    $parentResources = activeLeaseResources($parentPath);
+    assertLeaseResourceValues($parentResources, 'worktree', [$metadata['worktree']]);
+    if ($consumer === 'host') {
+        $locks = dirname($leases) . '/resources';
+        foreach ([$metadata['lease'] => $resources, $parent['lease'] => ['worktree' => [$metadata['worktree']]]] as $lease => $owned) {
+            foreach ($owned as $type => $values) {
+                foreach ($values as $value) {
+                    $lock = $locks . '/' . hash('sha256', $type . "\t" . $value);
+                    if (!is_dir($lock) || is_link($lock)) {
+                        throw new RuntimeException('P0-E active resource lock 不可用');
+                    }
+                    foreach (['lease' => $lease, 'type' => $type, 'value' => $value] as $field => $expected) {
+                        $file = $lock . '/' . $field;
+                        if (!is_file($file) || is_link($file)
+                            || rtrim((string) file_get_contents($file), "\n") !== $expected) {
+                            throw new RuntimeException('P0-E active resource lock 归属不匹配');
+                        }
+                    }
+                }
+            }
+        }
+    }
+    $resources['worktree'] = [$metadata['worktree']];
     ksort($resources, SORT_STRING);
     return $resources;
 }
@@ -719,7 +805,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
                 }
             }
             $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), 'p0e-runtime-qualification');
-            $resources = activeLeaseResources($leaseProofPath);
+            $resources = resolvedP0eLeaseResources($leaseProofPath, $metadata, $now ?? time(), $consumer);
             assertP0eLeaseContract($metadata, $resources, $database, $endpoint, $identity, $resourceId, $deploymentTarget, $deploymentMode);
         } elseif ($resourceId === 'peanut-admin-consumer-upgrade-mysql84-gate') {
             if ($deploymentTarget !== 'local-development' || $consumer !== 'host') {
@@ -727,6 +813,9 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
             }
             $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
             $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), 'consumer-upgrade-qualification');
+            if ($metadata['parent_lease'] !== '') {
+                throw new RuntimeException('consumer-upgrade 不允许继承 parent lease');
+            }
             $resources = activeLeaseResources($leaseProofPath);
             assertConsumerUpgradeLeaseContract($leaseProofPath, $metadata, $resources, $database, $identity, $resourceId, $deploymentTarget, $deploymentMode);
         } else {
@@ -756,6 +845,9 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         }
         $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
         $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
+        if ($metadata['parent_lease'] !== '') {
+            throw new RuntimeException('development-test 不允许继承 parent lease');
+        }
         $resources = activeLeaseResources($leaseProofPath);
         $root = realpath(dirname(__DIR__, 2));
         $common = leaseGit(['-C', (string) $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);

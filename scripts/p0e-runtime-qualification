@@ -670,6 +670,16 @@ def verify_lease(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
         missing = sorted(expected_resources(plan_data) - resources)
         extra = sorted(resources - expected_resources(plan_data))
         fail(f"lease resource set mismatch; missing={missing}, extra={extra}")
+    locks = Path(plan_data["lease_proof_dir"]).parent.parent / "resources"
+    for kind, value in resources:
+        holder = args.parent_lease if kind == "worktree" and args.parent_lease else args.lease
+        lock = locks / hashlib.sha256(f"{kind}\t{value}".encode()).hexdigest()
+        if lock.is_symlink() or not lock.is_dir():
+            fail(f"lease resource lock is unavailable: {kind}")
+        for field, expected in (("lease", holder), ("type", kind), ("value", value)):
+            path = lock / field
+            if path.is_symlink() or not path.is_file() or path.read_text().rstrip("\n") != expected:
+                fail(f"lease resource lock ownership mismatch: {kind}")
 
 
 class Runner:
@@ -1220,6 +1230,14 @@ class Runner:
         self.reset_generated_installation_state(project_root)
         with self.generated_install_bridge(project_root, database):
             with self.backend_process_environment(project_root, database, mode) as env:
+                preflight = command(
+                    ["php", "server/database/install.php", "--preflight"],
+                    cwd=project_root, env=env, capture=True, check=False,
+                )
+                log.with_suffix(".preflight.stdout").write_text(preflight.stdout, encoding="utf-8")
+                log.with_suffix(".preflight.stderr").write_text(preflight.stderr, encoding="utf-8")
+                if preflight.returncode != 0:
+                    fail(f"installer preflight failed ({preflight.returncode}): {preflight.stdout.strip()} {preflight.stderr.strip()}")
                 command(["php", "server/database/install.php"], cwd=project_root, env=env, log=log)
         self.assert_up_to_date(database, mode, log, project_root=project_root)
 
@@ -1738,6 +1756,18 @@ class Runner:
         proof_dir = Path(self.plan["lease_proof_dir"])
         if not proof_dir.is_dir():
             fail(f"active lease proof directory is unavailable: {proof_dir}")
+        parent_mount = ""
+        if self.args.parent_lease:
+            verify_lease(self.args, self.plan)
+            parent_dir = proof_dir.parent / self.args.parent_lease
+            if parent_dir.is_symlink() or not parent_dir.is_dir():
+                fail("active parent lease proof directory is unavailable")
+            parent_mount = (
+                "      - type: bind\n"
+                f"        source: {parent_dir}\n"
+                "        target: /run/peanut-admin/resource-lease-parent\n"
+                "        read_only: true\n"
+            )
         overlay = (
             "services:\n"
             "  php:\n"
@@ -1746,6 +1776,7 @@ class Runner:
             f"        source: {proof_dir}\n"
             f"        target: {self.plan['lease_proof_container_path']}\n"
             "        read_only: true\n"
+            f"{parent_mount}"
             "      - type: bind\n"
             f"        source: {ROOT / 'server/database/environment-guard.php'}\n"
             "        target: /var/www/peanut-admin/server/database/environment-guard.php\n"
@@ -1756,6 +1787,7 @@ class Runner:
             f"        source: {proof_dir}\n"
             f"        target: {self.plan['lease_proof_container_path']}\n"
             "        read_only: true\n"
+            f"{parent_mount}"
             "networks:\n"
             "  default:\n"
             "    ipam:\n"
