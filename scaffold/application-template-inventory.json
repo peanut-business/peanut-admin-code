@@ -3438,7 +3438,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63dc2bfaba6628bb967a91a1e6aa79482534a4f241890601f716ddd9012f7ef7"
+            "source_sha256": "29227f5b8ca9acc88b09bdf75a3765a97ef84b65b31a2454a9e760a5b96b8a3c"
         },
         {
             "path": "scripts/project-resource-registry",
@@ -4071,6 +4071,19 @@
             "owner": "template-source-only",
             "transform": "copy",
             "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "scripts/tests/project_resource_lease_parent_test.py",
+            "target": "scripts/tests/project_resource_lease_parent_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
