@@ -12,6 +12,8 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createPcRenderingOptions,
+  createPcPageRules,
+  pcPublicSsrPages,
   isPcPrivateRoute,
   pcPrivateRouteRoots,
 } from '../../pc/utils/rendering-policy.ts';
@@ -27,9 +29,10 @@ test('the default renders only registered public display routes on the server', 
     ['/user', '/account', '/login', '/oauth', '/recharge']
   );
   assert.equal(config.routeRules['/**'].ssr, false);
-  for (const route of ['/', '/information', '/information/**', '/about']) {
-    assert.equal(config.routeRules[route].ssr, true);
-  }
+  assert.equal(
+    Object.values(config.routeRules).some((rule) => rule.ssr === true),
+    false
+  );
   assert.equal(config.routeRules['/policy/**'], undefined);
 });
 
@@ -202,4 +205,63 @@ test('homepage hands data to Nuxt and distinguishes failure/loading from no arti
   assert.match(source, /v-else-if="indexError"/);
   assert.doesNotMatch(source, /const indexData = await getPcIndex/);
   assert.doesNotMatch(source, /\.catch\(\(\) => null\)/);
+});
+
+const pagesDirectory = '/synthetic/pc/pages';
+const publicPaths = [
+  '/',
+  '/information',
+  '/information/:source()',
+  '/information/detail/:id()',
+  '/about',
+];
+const publicPages = pcPublicSsrPages.map((file, index) => ({
+  file: `${pagesDirectory}/${file}`,
+  path: publicPaths[index],
+}));
+test('resolved file routes explicitly register the public pages, with single-segment parameters', () => {
+  const rules = createPcPageRules(publicPages, pagesDirectory, true);
+  assert.deepEqual(Object.keys(rules), [
+    '/',
+    '/information',
+    '/information/*',
+    '/information/detail/*',
+    '/about',
+  ]);
+  assert.ok(Object.values(rules).every((rule) => rule.ssr));
+  assert.ok(
+    Object.values(createPcPageRules(publicPages, pagesDirectory, false)).every(
+      (rule) => !rule.ssr
+    )
+  );
+});
+test('new unregistered pages under public directories and private pages stay CSR', () => {
+  const pages = [
+    ...publicPages,
+    ...[
+      'information/settings.vue',
+      'information/detail/orders.vue',
+      'login.vue',
+      'user/info.vue',
+      'user/collection.vue',
+      'account/security.vue',
+      'recharge.vue',
+      'policy/[type].vue',
+    ].map((file) => ({
+      file: `${pagesDirectory}/${file}`,
+      path: '/' + file.replace(/\.vue$/u, '').replace('[type]', ':type()'),
+    })),
+  ];
+  const rules = createPcPageRules(pages, pagesDirectory, true);
+  for (const path of [
+    '/information/settings',
+    '/information/detail/orders',
+    '/login',
+    '/user/info',
+    '/user/collection',
+    '/account/security',
+    '/recharge',
+    '/policy/*',
+  ])
+    assert.equal(rules[path].ssr, false, path);
 });

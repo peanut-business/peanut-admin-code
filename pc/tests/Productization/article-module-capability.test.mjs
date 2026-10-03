@@ -72,7 +72,7 @@ assert.equal(
 
 // A disabled module must never leave server-fetched Article data rendered from stale state.
 const homeProjection = pcIndex.match(
-  /const articles = computed\(\(\) => (.+)\)/
+  /const articles = computed\(\s*\(\) => ([^\n]+)\s*\)/
 )?.[1];
 assert.ok(homeProjection, 'review the actual reactive home projection');
 const projectHome = new Function('indexData', `return (${homeProjection});`);

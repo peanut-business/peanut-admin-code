@@ -29,7 +29,6 @@ export interface Article {
   author?: string;
   click: number;
   create_time: string;
-  collect?: boolean;
 }
 
 export interface ArticleDetail extends Article {
@@ -63,9 +62,20 @@ interface ArticleCollectionWireItem extends Omit<ArticleCollectionItem, 'id'> {
   article_id: number;
 }
 
-function publicArticle<T extends Article>(article: T): Omit<T, 'collect'> {
-  const { collect: _collect, ...publicFields } = article;
-  return publicFields;
+function publicArticle(article: Article): Article {
+  // 仅投影公开内容；上游新增字段也不能被自动写入公开 payload。
+  return {
+    id: article.id,
+    cid: article.cid,
+    cate_name: article.cate_name,
+    title: article.title,
+    image: article.image,
+    desc: article.desc,
+    abstract: article.abstract,
+    author: article.author,
+    click: article.click,
+    create_time: article.create_time,
+  };
 }
 
 export function getPcIndex<TDecoration>(client: ArticleRequestClient) {
@@ -76,9 +86,9 @@ export function getPcIndex<TDecoration>(client: ArticleRequestClient) {
       decorate?: TDecoration;
     }>('api/pc/index', undefined, false)
     .then((data) => ({
-      ...data,
       all: data.all?.map(publicArticle),
       article: data.article?.map(publicArticle),
+      decorate: data.decorate,
     }));
 }
 
@@ -111,7 +121,27 @@ export function getArticleDetail(client: ArticleRequestClient, id: number) {
       { id },
       false
     )
-    .then(publicArticle);
+    .then((article) => ({
+      ...publicArticle(article),
+      content: article.content,
+    }));
+}
+
+/** 仅浏览器个人扩展消费既有鉴权详情接口，不将个人响应保存到公开内容。 */
+export async function getArticleCollectState(
+  client: ArticleRequestClient,
+  id: number
+) {
+  const detail = await client.get<unknown>('api/article/detail', { id });
+  if (
+    typeof detail !== 'object' ||
+    detail === null ||
+    !('collect' in detail) ||
+    typeof detail.collect !== 'boolean'
+  ) {
+    throw new Error('ARTICLE_COLLECT_STATE_INVALID');
+  }
+  return detail.collect;
 }
 
 /** 只有明确的不存在响应转为空状态；服务、权限、网络和解析异常继续交给页面错误处理。 */

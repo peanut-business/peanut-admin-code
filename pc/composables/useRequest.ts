@@ -80,7 +80,7 @@ const decodeApiResponse = (
   };
 };
 
-export function useRequest() {
+export function useRequest(options: { redirectOnUnauthorized?: boolean } = {}) {
   const runtimeConfig = useRuntimeConfig();
   const configuredBaseUrl = String(runtimeConfig.public.apiBase || '');
   let baseUrl: string;
@@ -152,7 +152,8 @@ export function useRequest() {
     decoder: decodeApiResponse,
     hooks: {
       unauthorized: async () => {
-        await navigateTo('/login');
+        if (options.redirectOnUnauthorized !== false)
+          await navigateTo('/login');
       },
       businessError: (error) => {
         if (import.meta.client) ElMessage.error(error.message || '请求失败');

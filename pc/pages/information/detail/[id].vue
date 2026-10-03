@@ -23,13 +23,12 @@
           <span>{{ article.author }}</span>
           <div class="flex items-center gap-4">
             <span>{{ article.click }} 次浏览</span>
-            <el-button
-              :type="collected ? 'primary' : 'default'"
-              size="small"
-              :icon="collected ? 'StarFilled' : 'Star'"
-              @click="toggleCollect"
-              >{{ collected ? '已收藏' : '收藏' }}</el-button
-            >
+            <ClientOnly>
+              <ArticleFavorite :article-id="article.id" />
+              <template #fallback
+                ><NuxtLink to="/login">收藏</NuxtLink></template
+              >
+            </ClientOnly>
           </div>
         </div>
 
@@ -55,38 +54,25 @@
   import sanitizeRichText, {
     richTextToPlainText,
   } from '~/utils/sanitize-rich-text';
-  import {
-    addArticleCollect,
-    cancelArticleCollect,
-    getArticleDetailOrNull,
-  } from '~/api/article';
+  import { getArticleDetailOrNull } from '~/api/article';
 
   definePageMeta({ layout: 'default' });
 
   const route = useRoute();
   const id = Number(route.params.id);
-  const userStore = import.meta.client ? useUserStore() : null;
   const request = useRequest();
-  const collected = ref(false);
-  const article = ref(
-    Number.isInteger(id) && id > 0
-      ? await getArticleDetailOrNull(request, id)
-      : null
+  const { data: article, error } = await useAsyncData(
+    `pc:public-article:${id}`,
+    () =>
+      Number.isInteger(id) && id > 0
+        ? getArticleDetailOrNull(request, id)
+        : Promise.resolve(null)
   );
+  if (error.value) throw error.value;
   if (import.meta.server && !article.value) setResponseStatus(404);
   const hydrated = ref(false);
   onMounted(() => {
     hydrated.value = true;
-    if (userStore?.isLoggedIn && article.value) {
-      request
-        .get<{ collect?: boolean }>('api/article/detail', {
-          id: article.value.id,
-        })
-        .then((detail) => {
-          collected.value = detail.collect === true;
-        })
-        .catch(() => {});
-    }
   });
   const safeArticleContent = computed(() =>
     sanitizeRichText(article.value?.content)
@@ -103,14 +89,4 @@
       ssrArticleContent.value.slice(0, 160),
     robots: () => (article.value ? 'index,follow' : 'noindex,nofollow'),
   });
-
-  async function toggleCollect() {
-    if (!userStore?.isLoggedIn) return navigateTo('/login');
-    if (!article.value) return;
-    const updateCollect = collected.value
-      ? cancelArticleCollect
-      : addArticleCollect;
-    await updateCollect(request, article.value.id);
-    collected.value = !collected.value;
-  }
 </script>
