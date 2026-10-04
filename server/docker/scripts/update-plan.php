@@ -285,7 +285,10 @@ final class PeanutServerUpdatePlan
             'database_migrations_changed' => self::operationPrefix($operations, 'server/database/'),
             'runtime_environment_changed' => self::operationTouches($operations, 'server/docker/Dockerfile')
                 || self::operationTouches($operations, 'server/docker/compose.yaml')
-                || self::operationPrefix($operations, 'server/docker/conf/'),
+                || self::operationPrefix(array_values(array_filter($operations,
+                    static fn(array $operation): bool => $operation['path'] !== 'server/docker/conf/nginx.conf')),
+                    'server/docker/conf/'),
+            'nginx_configuration_changed' => self::operationTouches($operations, 'server/docker/conf/nginx.conf'),
         ];
 
         $plan = [
@@ -930,6 +933,19 @@ final class PeanutServerUpdatePlan
         if (($plan['requirements']['runtime_environment_changed'] ?? null) === true) {
             throw new RuntimeException('runtime environment changed without an independently prepared compatible image set');
         }
+        if (($plan['requirements']['nginx_configuration_changed'] ?? null) === true) {
+            $nginx = self::jsonFile($workspace . '/nginx-preparation.json', 'target Nginx preparation');
+            $composeEnv = self::regularBytes($serverRoot . '/docker/.env', 'instance Compose environment');
+            preg_match_all('/^NGINX_IMAGE=(.+)$/m', $composeEnv, $images);
+            $image = $images[1] === [] ? null : trim(end($images[1]));
+            if (($nginx['protocol'] ?? null) !== 'peanut.server-update-nginx-preparation.v1'
+                || ($nginx['status'] ?? null) !== 'completed'
+                || ($nginx['plan_sha256'] ?? null) !== $digest
+                || ($nginx['image'] ?? null) !== $image
+                || ($nginx['configuration_sha256'] ?? null) !== hash_file('sha256', self::preparedPath($workspace, 'server/docker/conf/nginx.conf'))) {
+                throw new RuntimeException('target Nginx configuration has not been checked with this instance image');
+            }
+        }
     }
 
     /** @param array<string,mixed> $plan */
@@ -1354,7 +1370,10 @@ final class PeanutServerUpdatePlan
             'database_migrations_changed' => self::operationPrefix($operations, 'server/database/'),
             'runtime_environment_changed' => self::operationTouches($operations, 'server/docker/Dockerfile')
                 || self::operationTouches($operations, 'server/docker/compose.yaml')
-                || self::operationPrefix($operations, 'server/docker/conf/'),
+                || self::operationPrefix(array_values(array_filter($operations,
+                    static fn(array $operation): bool => $operation['path'] !== 'server/docker/conf/nginx.conf')),
+                    'server/docker/conf/'),
+            'nginx_configuration_changed' => self::operationTouches($operations, 'server/docker/conf/nginx.conf'),
         ];
         if ($plan['requirements'] !== $requirements) {
             throw new RuntimeException('server update plan requirements differ from operations');

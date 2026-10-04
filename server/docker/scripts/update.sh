@@ -166,6 +166,34 @@ run_database() {
         --entrypoint php "$php_image" /tool/update-database.php "$phase" /instance-server /workspace
 }
 
+prepare_nginx_configuration() {
+    needs_nginx=$(python3 - "$workspace/plan.json" <<'PY'
+import json, sys
+print('yes' if json.load(open(sys.argv[1]))['requirements']['nginx_configuration_changed'] else 'no')
+PY
+)
+    [ "$needs_nginx" = yes ] || return 0
+    nginx_image=$(env_value NGINX_IMAGE)
+    target_conf="$workspace/prepared/server/docker/conf/nginx.conf"
+    docker run --rm --network none --add-host php:127.0.0.1 \
+        --mount "type=bind,src=$target_conf,dst=/etc/nginx/nginx.conf,readonly" \
+        --entrypoint nginx "$nginx_image" -t
+    python3 - "$workspace" "$nginx_image" <<'PY'
+import hashlib, json, os, pathlib, sys
+root=pathlib.Path(sys.argv[1])
+data={'protocol':'peanut.server-update-nginx-preparation.v1','status':'completed',
+      'plan_sha256':hashlib.sha256((root/'plan.json').read_bytes()).hexdigest(),
+      'configuration_sha256':hashlib.sha256((root/'prepared/server/docker/conf/nginx.conf').read_bytes()).hexdigest(),
+      'image':sys.argv[2]}
+path=root/'nginx-preparation.json'
+if path.exists():
+    assert not path.is_symlink() and path.stat().st_nlink==1 and json.loads(path.read_text())==data
+else:
+    with path.open('x') as output:
+        os.fchmod(output.fileno(),0o600);json.dump(data,output,sort_keys=True);output.flush();os.fsync(output.fileno())
+PY
+}
+
 run_update_tool() {
     phase=$1
     docker run --rm --network none \
@@ -265,6 +293,7 @@ compose config --quiet
 case "$command" in
     apply)
         prepare_dependencies
+        prepare_nginx_configuration
         if [ -f "$workspace/dependency-switch.json" ]; then
             switch_status=$(python3 - "$workspace/dependency-switch.json" <<'PY'
 import json, sys
@@ -305,7 +334,7 @@ PY
             run_database migrate
             run_database verify
         fi
-        compose up -d --no-build php nginx
+        compose up -d --no-build --force-recreate php nginx
         require_maintenance_marker
         verify_runtime verify-applied
         run_update_tool activate
@@ -319,7 +348,7 @@ PY
         fi
         run_update_tool recover
         python3 "$tool_dir/update-preparation.py" recover --server "$SERVER_DIR" --workspace "$workspace"
-        compose up -d --no-build php nginx
+        compose up -d --no-build --force-recreate php nginx
         require_maintenance_marker
         verify_runtime verify-recovered
         run_update_tool finish-recovery
