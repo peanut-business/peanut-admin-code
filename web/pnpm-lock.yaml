@@ -10,6 +10,16 @@ overrides:
   decode-uri-component: 0.5.0
   js-yaml@4.3.1: 4.3.2
   postcss: 8.5.23
+  micromatch@<4.0.8: 4.0.8
+  yaml@>=2.0.0 <2.8.3: 2.8.3
+  fast-uri@>=3.0.0 <3.1.8: 3.1.8
+  brace-expansion@<1.1.21: 1.1.21
+  brace-expansion@>=2.0.0 <2.1.7: 2.1.7
+  brace-expansion@<1.1.20: 1.1.21
+  brace-expansion@>=2.0.0 <2.1.6: 2.1.7
+  brace-expansion@<1.1.19: 1.1.21
+  brace-expansion@>=2.0.0 <2.1.5: 2.1.7
+  probe-image-size@<=7.3.0: 7.4.0
 
 importers:
 
@@ -117,10 +127,10 @@ importers:
         version: 5.62.0(eslint@8.57.1)(typescript@4.9.5)
       '@vitejs/plugin-vue':
         specifier: 5.2.4
-        version: 5.2.4(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0))(vue@3.5.40(typescript@4.9.5))
+        version: 5.2.4(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3))(vue@3.5.40(typescript@4.9.5))
       '@vitejs/plugin-vue-jsx':
         specifier: 4.2.0
-        version: 4.2.0(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0))(vue@3.5.40(typescript@4.9.5))
+        version: 4.2.0(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3))(vue@3.5.40(typescript@4.9.5))
       '@vue/babel-plugin-jsx':
         specifier: ^1.1.1
         version: 1.5.0(@babel/core@7.29.7)
@@ -201,13 +211,13 @@ importers:
         version: 4.9.5
       vite:
         specifier: 6.4.3
-        version: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)
+        version: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3)
       vite-plugin-compression:
         specifier: ^0.5.1
-        version: 0.5.1(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0))
+        version: 0.5.1(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3))
       vite-plugin-eslint:
         specifier: ^1.8.1
-        version: 1.8.1(eslint@8.57.1)(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0))
+        version: 1.8.1(eslint@8.57.1)(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3))
       vite-svg-loader:
         specifier: ^3.6.0
         version: 3.6.0
@@ -1467,11 +1477,11 @@ packages:
   boolbase@1.0.0:
     resolution: {integrity: sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww==}
 
-  brace-expansion@1.1.18:
-    resolution: {integrity: sha512-Edep/X9fGqVNmzKBVsDYIOtD+z1tuezV70LBjdCst9Tqu76lsnvRiZ6oTic1n+/BIwX6QDGAO94PN4N2SADvtw==}
+  brace-expansion@1.1.21:
+    resolution: {integrity: sha512-9zeA+KLZNNzglF2TPKRQEDyx6Yby7daAkuy8MiPzpXPsYDWi/DRM8jmwUDxokQjYqBpv5DgPiwD4h4ZZSy1Ujw==}
 
-  brace-expansion@2.1.4:
-    resolution: {integrity: sha512-hGfVzPxthbf3+2yjg/RBs60cB0FhqBS/zvdV/4wn4/BmN0bNMMHPc4V/BbFieqf1TKAGGAHnY4eSjajCl0f2Xg==}
+  brace-expansion@2.1.7:
+    resolution: {integrity: sha512-uZbew1NqdmPDTMJ8ah1y+b+9QEJrfkXFk3RcTQw3X0jW/xRUvFKsg1CfQdSYGdTbXZWExtU3J3ccxtnfw1Fi0g==}
 
   braces@3.0.3:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
@@ -2025,8 +2035,8 @@ packages:
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
 
-  fast-uri@3.1.7:
-    resolution: {integrity: sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==}
+  fast-uri@3.1.8:
+    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
 
   fastest-levenshtein@1.0.16:
     resolution: {integrity: sha512-eRnCtTTtGZFpQCwhJiUOuxPQWRXVKYDn0b2PeHfXL6/Zi53SLAzAHfVhVWK2AryC/WH05kGfxhFIPvTF0SXQzg==}
@@ -2689,10 +2699,6 @@ packages:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
     engines: {node: '>= 8'}
 
-  micromatch@4.0.5:
-    resolution: {integrity: sha512-DMy+ERcEW2q8Z2Po+WNXuw3c5YaUSFjAO5GsJqfEl7UjvtIuFKO6ZrKvcItdy98dwFI2N1tg3zNIdKaQT+aNdA==}
-    engines: {node: '>=8.6'}
-
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
@@ -3029,8 +3035,8 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  probe-image-size@7.3.0:
-    resolution: {integrity: sha512-7CaDeBwiAbh6ohXsvLbAZhO7wzsZAmaevfxe39qvCwRh8LyaZfDlBGGLU1CCTgrTLtCOdwBBhjOrIHaIIimHfQ==}
+  probe-image-size@7.4.0:
+    resolution: {integrity: sha512-cdEprVtZxV+awMde9X+4jILBFYh4CARxVrQaMl4wY4YcPWbul9jntXrIW95NInBDyJwcVUP3U0T6yukN8rMBaQ==}
 
   prosemirror-changeset@2.4.2:
     resolution: {integrity: sha512-ViYrjMSg3YFiXwIhKaluu+/mi3Yrxt6AR8ri14ulTaGcZtXO1CThl7A2gv79qx5fQnOw8woKwyBU2u+9PVCm3w==}
@@ -3633,7 +3639,7 @@ packages:
       sugarss: '*'
       terser: ^5.16.0
       tsx: ^4.8.1
-      yaml: ^2.4.2
+      yaml: 2.8.3
     peerDependenciesMeta:
       '@types/node':
         optional: true
@@ -3787,9 +3793,10 @@ packages:
     resolution: {integrity: sha512-vIYeF1u3CjlhAFekPPAk2h/Kv4T3mAkMox5OymRiJQB0spDP10LHvt+K7G9Ny6NuuMAb25/6n1qyUjAcGNf/AA==}
     engines: {node: '>= 6'}
 
-  yaml@2.3.1:
-    resolution: {integrity: sha512-2eHWfjaoXgTBC2jNM1LRef62VQa0umtvRiDSk6HSzW7RvS5YtkabJrwYLLEKWBc8a5U2PTSCs+dJjUTJdlHsWQ==}
-    engines: {node: '>= 14'}
+  yaml@2.8.3:
+    resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
 
   yargs-parser@20.2.9:
     resolution: {integrity: sha512-y11nGElTIV+CT3Zv9t7VKl+Q3hTQoT9a1Qzezhhl6Rp21gJ/IVTW7Z3y9EWXhuUBC2Shnf+DX0antecpAwSP8w==}
@@ -4816,20 +4823,20 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.12.2':
     optional: true
 
-  '@vitejs/plugin-vue-jsx@4.2.0(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0))(vue@3.5.40(typescript@4.9.5))':
+  '@vitejs/plugin-vue-jsx@4.2.0(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3))(vue@3.5.40(typescript@4.9.5))':
     dependencies:
       '@babel/core': 7.29.7
       '@babel/plugin-transform-typescript': 7.29.7(@babel/core@7.29.7)
       '@rolldown/pluginutils': 1.0.1
       '@vue/babel-plugin-jsx': 1.5.0(@babel/core@7.29.7)
-      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)
+      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3)
       vue: 3.5.40(typescript@4.9.5)
     transitivePeerDependencies:
       - supports-color
 
-  '@vitejs/plugin-vue@5.2.4(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0))(vue@3.5.40(typescript@4.9.5))':
+  '@vitejs/plugin-vue@5.2.4(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3))(vue@3.5.40(typescript@4.9.5))':
     dependencies:
-      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)
+      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3)
       vue: 3.5.40(typescript@4.9.5)
 
   '@volar/language-core@1.11.1':
@@ -5003,7 +5010,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.7
+      fast-uri: 3.1.8
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -5111,12 +5118,12 @@ snapshots:
 
   boolbase@1.0.0: {}
 
-  brace-expansion@1.1.18:
+  brace-expansion@1.1.21:
     dependencies:
       balanced-match: 1.0.2
       concat-map: 0.0.1
 
-  brace-expansion@2.1.4:
+  brace-expansion@2.1.7:
     dependencies:
       balanced-match: 1.0.2
 
@@ -5821,7 +5828,7 @@ snapshots:
 
   fast-levenshtein@2.0.6: {}
 
-  fast-uri@3.1.7: {}
+  fast-uri@3.1.8: {}
 
   fastest-levenshtein@1.0.16: {}
 
@@ -6309,7 +6316,7 @@ snapshots:
       make-dir: 5.1.0
       mime: 1.6.0
       needle: 3.5.0
-      probe-image-size: 7.3.0
+      probe-image-size: 7.4.0
       source-map: 0.6.1
     transitivePeerDependencies:
       - supports-color
@@ -6337,10 +6344,10 @@ snapshots:
       execa: 7.2.0
       lilconfig: 2.1.0
       listr2: 6.6.1
-      micromatch: 4.0.5
+      micromatch: 4.0.8
       pidtree: 0.6.0
       string-argv: 0.3.2
-      yaml: 2.3.1
+      yaml: 2.8.3
     transitivePeerDependencies:
       - enquirer
       - supports-color
@@ -6464,11 +6471,6 @@ snapshots:
 
   merge2@1.4.1: {}
 
-  micromatch@4.0.5:
-    dependencies:
-      braces: 3.0.3
-      picomatch: 2.3.2
-
   micromatch@4.0.8:
     dependencies:
       braces: 3.0.3
@@ -6491,15 +6493,15 @@ snapshots:
 
   minimatch@3.1.5:
     dependencies:
-      brace-expansion: 1.1.18
+      brace-expansion: 1.1.21
 
   minimatch@5.1.9:
     dependencies:
-      brace-expansion: 2.1.4
+      brace-expansion: 2.1.7
 
   minimatch@9.0.9:
     dependencies:
-      brace-expansion: 2.1.4
+      brace-expansion: 2.1.7
 
   minimist-options@4.1.0:
     dependencies:
@@ -6793,7 +6795,7 @@ snapshots:
 
   prettier@2.8.8: {}
 
-  probe-image-size@7.3.0:
+  probe-image-size@7.4.0:
     dependencies:
       lodash.merge: 4.6.2
       needle: 2.9.1
@@ -7527,29 +7529,29 @@ snapshots:
       spdx-correct: 3.2.0
       spdx-expression-parse: 3.0.1
 
-  vite-plugin-compression@0.5.1(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)):
+  vite-plugin-compression@0.5.1(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3)):
     dependencies:
       chalk: 4.1.2
       debug: 4.4.3(supports-color@10.2.2)
       fs-extra: 10.1.0
-      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)
+      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3)
     transitivePeerDependencies:
       - supports-color
 
-  vite-plugin-eslint@1.8.1(eslint@8.57.1)(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)):
+  vite-plugin-eslint@1.8.1(eslint@8.57.1)(vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3)):
     dependencies:
       '@rollup/pluginutils': 4.2.1
       '@types/eslint': 8.56.12
       eslint: 8.57.1
       rollup: 2.80.0
-      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)
+      vite: 6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3)
 
   vite-svg-loader@3.6.0:
     dependencies:
       '@vue/compiler-sfc': 3.5.40
       svgo: 2.8.4
 
-  vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0):
+  vite@6.4.3(@types/node@20.5.1)(less@4.8.0)(sugarss@2.0.0)(yaml@2.8.3):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
@@ -7562,6 +7564,7 @@ snapshots:
       fsevents: 2.3.3
       less: 4.8.0
       sugarss: 2.0.0
+      yaml: 2.8.3
 
   vue-component-type-helpers@3.3.9: {}
 
@@ -7710,7 +7713,7 @@ snapshots:
 
   yaml@1.10.3: {}
 
-  yaml@2.3.1: {}
+  yaml@2.8.3: {}
 
   yargs-parser@20.2.9: {}
 
