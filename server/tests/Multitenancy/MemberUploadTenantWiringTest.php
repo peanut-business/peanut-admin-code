@@ -45,10 +45,15 @@ SQL);
     expectMemberUpload($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
     $storageMigration = (string) file_get_contents(
-        $serverRoot . '/database/migrations/20260823-unify-storage-service.sql',
+        $serverRoot . '/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql',
     );
     expectMemberUpload($storageMigration !== '', 'canonical storage migration is missing');
     $pdo->exec($storageMigration);
+    $imageAssetMigration = (string) file_get_contents(
+        $serverRoot . '/app/modules/official/file/database/migrations/20260921020000_add_file_image_assets.sql',
+    );
+    expectMemberUpload($imageAssetMigration !== '', 'canonical image asset migration is missing');
+    $pdo->exec($imageAssetMigration);
     $pdo->exec(<<<'SQL'
 INSERT INTO pa_account
   (id, display_name, status, created_at, updated_at)
@@ -65,10 +70,12 @@ $serverRoot = dirname(__DIR__, 2);
 $routeSource = (string) file_get_contents($serverRoot . '/app/modules/official/file/route/app.php');
 $uploadRoute = "Route::post('upload/image', [ApiUploadController::class, 'image'])";
 expectMemberUpload(substr_count($routeSource, $uploadRoute) === 1, 'member upload route is missing or duplicated');
+// Indentation is formatting; the ordered identity and Module middleware remain mandatory.
+$middlewareRouteSource = preg_replace('/\R[ \t]+(?=->middleware\()/', "\n", $routeSource);
 expectMemberUpload(
     str_contains(
-        $routeSource,
-        $uploadRoute . "\n    ->middleware(CheckTokenMiddleware::class)\n    ->middleware(OfficialModuleMiddleware::class",
+        $middlewareRouteSource,
+        $uploadRoute . "\n->middleware(CheckTokenMiddleware::class)\n->middleware(OfficialModuleMiddleware::class",
     ),
     'member upload route is not protected by identity and Module middleware',
 );
