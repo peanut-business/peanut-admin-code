@@ -1,12 +1,20 @@
 # 发行渠道与版本身份
 
-当前源码身份由根目录 `release-versions.json` 的 `source_product_version` 定义。当前值 `4.0.0-dev.14` 是开发候选，不是正式 tag、Release 或已发布公共包；取得源码分支不能替代取得固定发行包。
+当前源码身份由根目录 `release-versions.json` 的 `source_product_version` 定义。版本号本身不证明已公开发布；以对应固定 tag、Release、制品清单和摘要核对来源，取得源码分支不能替代取得固定发行包。
+
+## 三种升级与独立版本
+
+`peanut upgrade` 在开发机上的 downstream APP 中吸收所选公开 Peanut/Scaffold 上游版本，调用 APP 已安装的原生 `scripts/scaffold-upgrade` 引擎，保护 APP 身份及自有内容；它不是生产源码更新命令。`--check` 查询版本及来源，`--plan` 保存原生计划，明确审阅冲突后才应用。同版本不同 commit/tree 必须分别报告，不能仅凭版本相同宣称来源一致。
+
+APP 继续开发并独立提升自己的版本，再从干净的 APP 提交制备 APP Release；APP 版本与 Peanut、Core、CLI 版本独立。生产服务器消费经清单和 SHA-256 核验的 APP Release，通过已安装的标准生产升级入口执行 plan、backup、apply、migration、health、verify 与受控 recovery，不能对生产目录执行 Peanut 上游吸收或 git pull。
+
+人工生产升级是人工触发标准引擎；自动升级是 CI/Deployment Agent 触发同一引擎。两者使用相同的制品、清单、摘要、计划、迁移、备份、应用、核验和恢复合同，只有触发者不同。完整源码实例使用 `scripts/upgrade`，server-only 实例使用其已安装的 `server/docker/scripts/update.sh`；各入口须满足下文对应资格及保护前提。
 
 `scripts/package-release.sh` 从已提交且干净的 APP Git 工作树默认装配完整开发源码包，保留 APP 自有登记、四端源码与 `.peanut/scaffold-baseline` 上游原始字节，供二开和现有源码升级入口使用。发行时生成的 `.peanut/application-release.json`、`release-manifest.txt` 和 `server/public/{admin,platform,pc,mobile}` 浏览器成品属于可再生发行输出，不成为下一次 APP 源码输入；原始 scaffold baseline 不因再次发行而改写。`--server-only` 另装配仅含 `server/` 的生产部署包。生产包 `server/.peanut/release-identity.json` 从同一次 APP 清单生成应用、上游来源、版本及实际 server 文件摘要；`server/plugins.lock` 是经原 APP 锁验证后生成的后端运行投影，原锁摘要与逐插件来源/派生摘要分别记录。APP 二开提交由其自己的 Git HEAD 表示。APP 的 `resources/project-resources.json` 是开发仓可编辑资源真值；打包到 server 后成为受发行摘要保护的只读投影。`build-edition-installers` 对同一初始模板生成开发源码和 server 两个包，明确标为 `generated-template`，没有独立 APP 提交。两类包都不含维护者登记、`.local`、Peanut scaffold 历史、实例安装记录、真实 Docker/MySQL 数据、secrets、updates/backups 或已安装依赖。
 
-替换正式目录前，在隔离位置用可信渠道给出的归档摘要运行发行工具源码中的 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<trusted-64-hex>`。核验归档 SHA-256、仅含 server 的路径及包内逐文件清单；不能把同目录临时生成的摘要当作可信来源。当前开发候选的依赖仍未固定为正式发布版本，不能以此宣称已有正式生产包。
+替换正式目录前，在隔离位置用可信渠道给出的归档摘要运行发行工具源码中的 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<trusted-64-hex>`。核验归档 SHA-256、仅含 server 的路径及包内逐文件清单；不能把同目录临时生成的摘要当作可信来源。候选依赖固定、制包、公开预发行和稳定生产资格分别记账，不能仅凭开发分支或制包成功宣称已有稳定生产包。
 
-当前开发候选的 PHP Core 由 Composer 锁到 `peanut-admin/core` 的明确 Git 提交，Web Core 六包由候选本地 `.tgz` 和 SHA-256 固定；这不是公共发行包。第一阶段公开产品预发行可在严格核验 Action、Release、Packagist/npm 精确版本、源提交和六包完整性后使用相应的公开 Core 预发行精确版本。稳定正式产品仍要求正式稳定 Core 版本和独立资格。不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。正式包的取得、完整性核对、依赖与首次安装步骤见[安装指南](installation.md)。
+公开产品候选的 PHP Core 由 Composer 锁定已发布的精确版本、源码提交与分发身份；Web Core 六包由 npm registry 的精确版本、tarball 和 sha512 integrity 固定。来源核验同时绑定官方仓库、固定提交/tag、成功 Action 和 Release；npm 未提供 gitHead 时使用经验证的公共 provenance，详见 [Core 发行](../development/core-release.md)。产品预发行可使用相应公开 Core 预发行；稳定正式产品仍要求正式稳定 Core 版本和独立资格。不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。正式包的取得、完整性核对、依赖与首次安装步骤见[安装指南](installation.md)。
 
 产品 GitHub Release 的发布入口是单一脚本 `scripts/publish-github-release`。默认稳定模式只接受不带 `v` 前缀的 `X.Y.Z`，要求存在注释式 tag `vX.Y.Z`，通过 candidate、tag、qualification、`main`、固定依赖和清单绑定检查后，创建正式 GitHub Release 并使用 `--latest`。公开预发行通道不是第二发布器，必须显式传入 `--prerelease`，版本只接受严格 `X.Y.Z-<prerelease>`（例如 `4.0.0-rc.1`），要求注释式 tag `vX.Y.Z-<prerelease>`，通过同一组 Gate 后创建 GitHub prerelease，且不得标记为 latest。稳定模式拒绝预发行版本；预发行模式拒绝稳定版本和非法 SemVer 预发行标识。没有明确授权时，不创建 `main`、tag、GitHub Release 或公开包。
 

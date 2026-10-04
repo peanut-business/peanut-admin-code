@@ -3,7 +3,7 @@
   "key": "official.reference-codes",
   "name": "Reference Codes",
   "description": "Tenant dictionaries, deployment reference values and versioned reference-code definitions.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-reference-codes",
@@ -11,7 +11,7 @@
   "dependencies": [
     {
       "module_key": "official.identity",
-      "version": "4.0.0-rc.16"
+      "version": "4.0.0-rc.19"
     }
   ],
   "backend": {
