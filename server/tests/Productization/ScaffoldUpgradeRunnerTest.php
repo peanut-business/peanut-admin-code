@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
+use app\common\value\scaffold\ScaffoldManifest;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 
 $root = dirname(__DIR__, 3);
@@ -220,6 +221,62 @@ try {
             && ($projection['plugins']['official.ops']['frontend_roots'] ?? null) === ['platform/src/modules/official-ops'],
         'Plugin projection must derive backend-only and platform-only roots from real Module manifests',
     );
+    // Use the immutable release's complete native graph, including real dependencies and catalogs.
+    $moduleRelease = ScaffoldManifest::load($root . '/scaffold/releases/v4.0.0-rc.19/scaffold-manifest.json');
+    $tokens = $moduleRelease->release()['tokens'];
+    $moduleParameters = [
+        'PRODUCT_NAME' => $tokens['product_name'],
+        'SLUG' => $tokens['slug'],
+        'PACKAGE_IDENTITY' => $tokens['package_identity'],
+        'APPLICATION_VERSION' => $tokens['application_version'],
+    ];
+    $moduleTargetReader = Closure::bind(
+        fn(): array => $this->targetPluginIndex($moduleRelease, $moduleParameters, []),
+        $projectionRunner,
+        ScaffoldUpgradeRunner::class,
+    );
+    $moduleTarget = $moduleTargetReader();
+    $moduleRoot = $temporary . '/module-version-projection';
+    mkdir($moduleRoot . '/.peanut/upgrades', 0700, true);
+    $moduleFiles = $moduleRelease->files();
+    foreach ($moduleTarget as $plugin) {
+        foreach ([$plugin['manifest'], ...$plugin['module_roots'], ...$plugin['frontend_roots']] as $path) {
+            $sourcePath = $moduleRelease->directory . '/files/' . $path;
+            if (is_dir($sourcePath)) {
+                scaffoldCopy($sourcePath, $moduleRoot . '/' . $path);
+            } else {
+                mkdir(dirname($moduleRoot . '/' . $path), 0775, true);
+                copy($sourcePath, $moduleRoot . '/' . $path);
+            }
+        }
+    }
+    mkdir($moduleRoot . '/server/resources/schemas', 0775, true);
+    copy($moduleRelease->directory . '/files/server/resources/schemas/plugin.schema.json', $moduleRoot . '/server/resources/schemas/plugin.schema.json');
+    $moduleWriter = new PluginArtifactWriter($moduleRoot . '/server');
+    foreach ($moduleTarget as $key => $plugin) {
+        $specs = array_map(static fn(string $key, string $path): string => $key . '=' . $path, $plugin['module_keys'], $plugin['module_roots']);
+        $moduleWriter->make($key, $plugin['version'], $specs);
+    }
+    $moduleWriter->writeLock();
+    $moduleProjection = Closure::bind(
+        fn(): array => $this->upstreamPluginProjection($moduleRoot, $this->pluginProjection($moduleRoot), $moduleFiles, [], $moduleTarget, $moduleRelease, $moduleParameters, []),
+        $projectionRunner,
+        ScaffoldUpgradeRunner::class,
+    );
+    $articleRoot = $moduleRoot . '/server/app/modules/official/article';
+    $articleManifest = (new \PeanutAdmin\Kernel\Module\ManifestLoader())->load($articleRoot);
+    scaffoldExpect(hash_file('sha256', $articleRoot . '/module.json') !== $articleManifest->digest, 'real catalog manifest must exercise distinct file and semantic digest contracts');
+    $identicalProjection = $moduleProjection();
+    scaffoldExpect($identicalProjection['projection'] === $projectionReader($moduleRoot), 'same-version identical native graph must be accepted without changing its identity');
+    $articleService = $articleRoot . '/src/Service/ArticleQueryService.php';
+    file_put_contents($articleService, (string) file_get_contents($articleService) . "\n// changed same-version source\n");
+    $moduleWriter->make('official.article', $moduleTarget['official.article']['version'], ['official.article=server/app/modules/official/article']);
+    $moduleWriter->writeLock();
+    scaffoldFails($moduleProjection, 'SCAFFOLD_OFFICIAL_MODULE_VERSION_IDENTITY_CONFLICT: official.article');
+    if (in_array('--plugin-projection-only', $argv, true)) {
+        echo "SCAFFOLD-PLUGIN-PROJECTION passed: identical same-version accepted; changed same-version rejected\n";
+        return;
+    }
     $source = $temporary . '/from-source';
     scaffoldRun(['git','clone','--quiet','--no-local','--no-checkout',$root,$source]);
     scaffoldRun(['git','checkout','--quiet','--detach',SCAFFOLD_FROM_COMMIT], $source);

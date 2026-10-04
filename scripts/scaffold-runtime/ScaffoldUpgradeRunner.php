@@ -1224,7 +1224,8 @@ final class ScaffoldUpgradeRunner
                         $changed = $this->pluginSourceFiles($root, $moduleRoots) !== $this->pluginSourceFiles($stage, $moduleRoots);
                         if (version_compare($inspection['version'], $oldVersion) < 0
                             || ($changed && version_compare($inspection['version'], $oldVersion) <= 0)
-                            || ($inspection['version'] === $oldVersion && $oldDigest !== $inspection['manifest']->digest)) {
+                            || ($inspection['version'] === $oldVersion
+                                && $oldDigest !== hash_file('sha256', $stage . '/' . $inspection['backend_relative'] . '/module.json'))) {
                             throw new RuntimeException('SCAFFOLD_OFFICIAL_MODULE_VERSION_IDENTITY_CONFLICT: ' . $moduleKey);
                         }
                     }
