@@ -15,9 +15,9 @@ die() {
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 FIXTURE="$ROOT/server/tests/fixtures/core-upgrade-compatibility"
 METADATA="$FIXTURE/fixture.json"
-COMPOSER_BIN="${PEANUT_COMPOSER:-composer}"
-PHP_BIN="${PEANUT_PHP:-php}"
-PNPM_BIN="${PEANUT_PNPM:-pnpm}"
+COMPOSER_BIN="$ROOT/scripts/project-composer"
+PHP_BIN="/opt/homebrew/bin/php"
+PNPM_BIN="pnpm"
 
 cache_input=''
 output_input=''

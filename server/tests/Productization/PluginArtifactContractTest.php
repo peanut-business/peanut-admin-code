@@ -1,15 +1,13 @@
 <?php
+
 declare(strict_types=1);
 
-use app\platform\service\plugin\PluginLifecycleException;
-use app\platform\service\plugin\PluginLockResolver;
+use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\infrastructure\plugin\PluginLockResolver;
 use Opis\JsonSchema\Errors\ErrorFormatter;
 use Opis\JsonSchema\Validator;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
-require dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLifecycleException.php';
-require dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginDescriptor.php';
-require dirname(__DIR__, 2) . '/app/platform/service/plugin/PluginLockResolver.php';
 
 function pluginArtifactExpect(bool $condition, string $message): void
 {
@@ -22,12 +20,12 @@ function pluginArtifactExpect(bool $condition, string $message): void
 function pluginArtifactRejects(string $repoRoot, callable $mutate, string $expectedCode): void
 {
     $fixtureRoot = sys_get_temp_dir() . '/pa-plugin-artifact-' . bin2hex(random_bytes(8));
-    $moduleRoot = $fixtureRoot . '/server/app/Modules/Fixture/DeliveryRecord';
+    $moduleRoot = $fixtureRoot . '/server/app/modules/fixture/delivery_record';
     mkdir($moduleRoot, 0777, true);
-    $sourceRoot = $repoRoot . '/server/app/Modules/Fixture/DeliveryRecord';
+    $sourceRoot = $repoRoot . '/server/app/modules/fixture/delivery_record';
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($sourceRoot, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
+        RecursiveIteratorIterator::SELF_FIRST,
     );
     foreach ($iterator as $entry) {
         $relative = substr($entry->getPathname(), strlen($sourceRoot) + 1);
@@ -43,7 +41,7 @@ function pluginArtifactRejects(string $repoRoot, callable $mutate, string $expec
     mkdir($frontendRoot, 0777, true);
     $frontendIterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($frontendSourceRoot, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
+        RecursiveIteratorIterator::SELF_FIRST,
     );
     foreach ($frontendIterator as $entry) {
         $relative = substr($entry->getPathname(), strlen($frontendSourceRoot) + 1);
@@ -55,23 +53,23 @@ function pluginArtifactRejects(string $repoRoot, callable $mutate, string $expec
         }
     }
     mkdir($fixtureRoot . '/plugins/fixture.delivery-record', 0777, true);
-    $lock = json_decode((string)file_get_contents($repoRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+    $lock = json_decode((string) file_get_contents($repoRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
     $manifest = json_decode(
-        (string)file_get_contents($repoRoot . '/plugins/fixture.delivery-record/plugin.json'),
+        (string) file_get_contents($repoRoot . '/plugins/fixture.delivery-record/plugin.json'),
         true,
         64,
-        JSON_THROW_ON_ERROR
+        JSON_THROW_ON_ERROR,
     );
     $mutate($lock, $manifest);
     $manifestPath = $fixtureRoot . '/plugins/fixture.delivery-record/plugin.json';
     file_put_contents(
         $manifestPath,
-        json_encode($manifest, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+        json_encode($manifest, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
     );
     $lock['plugins'][0]['manifest_sha256'] = hash_file('sha256', $manifestPath);
     file_put_contents(
         $fixtureRoot . '/plugins.lock',
-        json_encode($lock, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n"
+        json_encode($lock, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
     );
     try {
         (new PluginLockResolver($fixtureRoot . '/server', '../plugins.lock'))->all();
@@ -81,7 +79,7 @@ function pluginArtifactRejects(string $repoRoot, callable $mutate, string $expec
     } finally {
         $cleanup = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($fixtureRoot, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
+            RecursiveIteratorIterator::CHILD_FIRST,
         );
         foreach ($cleanup as $entry) {
             $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
@@ -99,47 +97,47 @@ $articleDescriptor = (new PluginLockResolver($serverRoot, '../plugins.lock'))->r
 pluginArtifactExpect($articleDescriptor->key === 'official.article', 'official Article Plugin did not resolve');
 pluginArtifactExpect(
     array_keys($articleDescriptor->moduleRoots) === ['official.article'],
-    'official Article Module root identity changed'
+    'official Article Module root identity changed',
 );
 $resolver = new PluginLockResolver($serverRoot, '../plugins.lock');
 $sameJson = \Closure::bind(
     fn(mixed $left, mixed $right): bool => $this->sameJson($left, $right),
     $resolver,
-    PluginLockResolver::class
+    PluginLockResolver::class,
 );
 pluginArtifactExpect(is_callable($sameJson), 'Plugin manifest comparator is unavailable');
 pluginArtifactExpect($sameJson(
     [
-        ['key' => 'fixture.alpha', 'root' => 'server/app/Modules/Fixture/Alpha'],
-        ['key' => 'fixture.beta', 'root' => 'server/app/Modules/Fixture/Beta'],
+        ['key' => 'fixture.alpha', 'root' => 'server/app/modules/fixture/alpha'],
+        ['key' => 'fixture.beta', 'root' => 'server/app/modules/fixture/beta'],
     ],
     [
-        ['root' => 'server/app/Modules/Fixture/Beta', 'key' => 'fixture.beta'],
-        ['root' => 'server/app/Modules/Fixture/Alpha', 'key' => 'fixture.alpha'],
-    ]
+        ['root' => 'server/app/modules/fixture/beta', 'key' => 'fixture.beta'],
+        ['root' => 'server/app/modules/fixture/alpha', 'key' => 'fixture.alpha'],
+    ],
 ), 'multi-Module manifest comparison depends on declaration order');
 pluginArtifactExpect(!$sameJson(
-    [['key' => 'fixture.alpha', 'root' => 'server/app/Modules/Fixture/Alpha']],
-    [['key' => 'fixture.alpha', 'root' => 'server/app/Modules/Fixture/Changed']]
+    [['key' => 'fixture.alpha', 'root' => 'server/app/modules/fixture/alpha']],
+    [['key' => 'fixture.alpha', 'root' => 'server/app/modules/fixture/changed']],
 ), 'multi-Module manifest comparison ignored a changed root');
 
 $validator = new Validator();
-$schema = json_decode((string)file_get_contents($serverRoot . '/resources/schemas/plugin.schema.json'));
-$manifest = json_decode((string)file_get_contents($repoRoot . '/plugins/fixture.delivery-record/plugin.json'));
+$schema = json_decode((string) file_get_contents($serverRoot . '/resources/schemas/plugin.schema.json'));
+$manifest = json_decode((string) file_get_contents($repoRoot . '/plugins/fixture.delivery-record/plugin.json'));
 $validation = $validator->validate($manifest, $schema);
 if (!$validation->isValid()) {
     throw new RuntimeException(
-        'plugin.json schema failed: ' . json_encode((new ErrorFormatter())->format($validation->error()))
+        'plugin.json schema failed: ' . json_encode((new ErrorFormatter())->format($validation->error())),
     );
 }
 $articlePluginManifest = json_decode(
-    (string)file_get_contents($repoRoot . '/plugins/official.article/plugin.json')
+    (string) file_get_contents($repoRoot . '/plugins/official.article/plugin.json'),
 );
 $articleValidation = $validator->validate($articlePluginManifest, $schema);
 if (!$articleValidation->isValid()) {
     throw new RuntimeException(
         'official article plugin.json schema failed: '
-        . json_encode((new ErrorFormatter())->format($articleValidation->error()))
+        . json_encode((new ErrorFormatter())->format($articleValidation->error())),
     );
 }
 

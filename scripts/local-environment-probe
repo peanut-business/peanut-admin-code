@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import http.client
 import json
+import os
 import re
 import socket
 import subprocess
@@ -17,11 +18,15 @@ from typing import Any
 
 
 REPO = Path(__file__).resolve().parent.parent
-REGISTRY_PATH = REPO / "resources/project-resources.json"
+REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or REPO / "resources/project-resources.json")
 DAILY_DEVELOPMENT_DATABASE_ID = "peanut-admin-mysql84-development"
 
 
 def registered_expectations() -> tuple[dict[str, Any], dict[str, int], dict[str, str]]:
+    if not os.environ.get("PEANUT_RESOURCE_REGISTRY"):
+        raise ValueError("local maintainer probe requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    if not REGISTRY_PATH.is_absolute() or REGISTRY_PATH.is_symlink():
+        raise ValueError("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
     registry = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
     databases = [
         item
@@ -92,6 +97,7 @@ class Probe:
         self.checks: list[dict[str, Any]] = []
         self._orchestration = self._read_environment(orchestration_env)
         self._backend = self._read_environment(backend_env)
+        self._effective_ports = self._load_effective_ports(orchestration_env)
         self._secrets = [
             value
             for name, value in (self._orchestration | self._backend).items()
@@ -113,6 +119,19 @@ class Probe:
             if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
                 values[name] = value.strip().strip("'\"")
         return values
+
+    @staticmethod
+    def _load_effective_ports(path: Path) -> dict[str, int] | None:
+        result = subprocess.run(
+            [str(REPO / "scripts/project-resource-registry"), "local-stack-ports", "--env-file", str(path)],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            return None
+        return {
+            name: int(value)
+            for name, value in (line.split("=", 1) for line in result.stdout.splitlines())
+        }
 
     def _redact(self, value: str, limit: int = 500) -> str:
         result = value
@@ -174,6 +193,11 @@ class Probe:
                 stderr=subprocess.PIPE,
                 timeout=timeout,
                 check=False,
+                env={
+                    key: value
+                    for key in ("PATH", "HOME", "TMPDIR", "DOCKER_HOST", "SystemRoot", "COMSPEC", "PATHEXT")
+                    if (value := os.environ.get(key))
+                },
             )
         except (OSError, subprocess.TimeoutExpired) as exception:
             return False, self._redact(str(exception))
@@ -240,7 +264,7 @@ class Probe:
             "production_preview_gateway": prod_compose,
         }
         ports_ok = all(fragment in port_sources[name] for name, fragment in port_fragments.items())
-        ports_ok = ports_ok and "local-stack-env" in local_stack
+        ports_ok = ports_ok and "local-stack-ports" in local_stack
         self.add(
             "config.fixed_ports",
             ports_ok,
@@ -383,16 +407,12 @@ class Probe:
                 and safe_environment.get("DB_PORT") == str(EXPECTED_DATABASE["port"])
                 and safe_environment.get("DB_NAME") == EXPECTED_DATABASE["database"]
                 and safe_environment.get("DEPLOYMENT_MODE") == "standalone"
-                and all(
-                    safe_environment.get(env_name, str(EXPECTED_PORTS[name])).isdigit()
-                    and 1 <= int(safe_environment.get(env_name, str(EXPECTED_PORTS[name]))) <= 65535
-                    for name, env_name in PORT_ENV_NAMES.items()
-                )
+                and self._effective_ports is not None
             )
             self.add(
                 "config.local_environment",
                 env_ok,
-                "split local environments select the registered database and valid listener ports",
+                "split local environments select the registered database and valid local listener ports",
                 {
                     "orchestration_path": str(self.orchestration_env),
                     "backend_path": str(self.backend_env),
@@ -424,14 +444,12 @@ class Probe:
         return match.group(1)
 
     def resolved_ports(self) -> dict[str, int]:
-        ports: dict[str, int] = {}
-        for name, expected in EXPECTED_PORTS.items():
-            raw = self._orchestration.get(PORT_ENV_NAMES[name], str(expected))
-            try:
-                ports[name] = int(raw)
-            except ValueError:
-                ports[name] = -1
-        return ports
+        if self._effective_ports is None:
+            return {name: -1 for name in EXPECTED_PORTS}
+        return {
+            name: self._effective_ports[env_name]
+            for name, env_name in PORT_ENV_NAMES.items()
+        }
 
     @staticmethod
     def socket_open(port: int) -> bool:
@@ -589,13 +607,7 @@ class Probe:
         )
 
         baseline_ok, baseline_output = self.run_command(
-            [
-                "env",
-                f"PEANUT_LOCAL_ENV_FILE={self.orchestration_env}",
-                f"PEANUT_SERVER_ENV_FILE={self.backend_env}",
-                str(REPO / "scripts/local-stack.sh"),
-                "database-host-status",
-            ],
+            [str(REPO / "scripts/local-stack.sh"), "database-host-status"],
             timeout=30,
             output_limit=20_000,
         )

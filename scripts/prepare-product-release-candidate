@@ -1,0 +1,575 @@
+#!/usr/bin/env python3
+"""Prepare a product prerelease candidate from public registry Core packages.
+
+The script intentionally derives Composer/npm identities from native manifests
+and lockfiles after running the package managers. Loose tarball/SRI strings are
+not accepted. A coordinator-bound, read-only Web Core package evidence file may
+supply the same registry metadata when direct npm metadata reads are unavailable;
+native npm/pnpm lock generation and lock-vs-registry verification still run.
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import datetime as dt
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+from urllib.parse import urlparse
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+CORE_WEB_PACKAGES = (
+    "@peanut-admin/client",
+    "@peanut-admin/vue",
+    "@peanut-admin/ui-vue",
+    "@peanut-admin/nuxt",
+    "@peanut-admin/uniapp",
+    "@peanut-admin/testing",
+)
+LEGAL_FILES = (
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+    "RELEASE_SBOM.spdx.json",
+)
+CLIENT_CORE_PACKAGES = {
+    "web": ("@peanut-admin/vue", "@peanut-admin/ui-vue"),
+    "platform": ("@peanut-admin/vue", "@peanut-admin/ui-vue"),
+    "pc": ("@peanut-admin/client", "@peanut-admin/nuxt"),
+    "uniapp": ("@peanut-admin/client", "@peanut-admin/uniapp"),
+}
+RELEASE_DELTA = (
+    "Adopts the published fixed PHP Core and Web Core package identities recorded in "
+    "public_runtime_dependencies, separates source product identity from customer-owned "
+    "instance identity, and prepares one-source deterministic Standalone and Multi-tenant "
+    "scaffold inputs."
+)
+SEMVER = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
+
+
+def fail(message: str) -> None:
+    raise SystemExit(f"prepare-product-release-candidate: {message}")
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        fail(f"expected JSON object: {path}")
+    return data
+
+
+def write_json(path: Path, data: dict[str, Any]) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def required_release_file_sha256(relative: str) -> str:
+    path = ROOT / relative
+    if path.is_symlink() or not path.is_file():
+        fail(f"required release file must be a real regular file: {relative}")
+    return sha256(path)
+
+
+def run(command: list[str], *, cwd: Path = ROOT, dry_run: bool = False) -> None:
+    printable = " ".join(command)
+    if dry_run:
+        print(f"DRY-RUN {cwd.relative_to(ROOT) if cwd != ROOT else '.'}: {printable}")
+        return
+    subprocess.run(command, cwd=cwd, check=True)
+
+
+def require_semver(value: str, label: str) -> str:
+    if not SEMVER.fullmatch(value):
+        fail(f"{label} must be an exact SemVer value")
+    return value
+
+
+def update_package_version(path: Path, version: str) -> None:
+    data = read_json(path)
+    data["version"] = version
+    write_json(path, data)
+
+
+def set_core_web_specs(version: str) -> None:
+    for client, names in CLIENT_CORE_PACKAGES.items():
+        path = ROOT / client / "package.json"
+        data = read_json(path)
+        dependencies = data.get("dependencies", {})
+        for name in names:
+            if name not in dependencies:
+                fail(f"{client}/package.json is missing {name}")
+            dependencies[name] = version
+        write_json(path, data)
+
+
+def set_composer_spec(version: str) -> None:
+    path = ROOT / "server/composer.json"
+    data = read_json(path)
+    require = data.get("require", {})
+    if "peanut-admin/core" not in require:
+        fail("server/composer.json is missing peanut-admin/core")
+    require["peanut-admin/core"] = version
+    write_json(path, data)
+
+
+def composer_command() -> list[str]:
+    fixed = ROOT / "scripts/project-composer"
+    if fixed.is_file() and os.access(fixed, os.X_OK):
+        return [str(fixed)]
+    composer = shutil.which("composer")
+    if composer:
+        return [composer]
+    fail("Composer is required")
+
+
+def npm_command() -> str:
+    npm = shutil.which("npm")
+    if not npm:
+        fail("npm is required to create native package-lock files")
+    return npm
+
+
+def corepack_command() -> str:
+    corepack = shutil.which("corepack")
+    if not corepack:
+        fail("corepack is required to create the native pnpm lock")
+    return corepack
+
+
+def preflight_tools() -> None:
+    checks = [
+        [*composer_command(), "--version", "--no-ansi"],
+        [npm_command(), "--version"],
+        [corepack_command(), "--version"],
+    ]
+    for command in checks:
+        try:
+            subprocess.run(command, cwd=ROOT, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        except subprocess.CalledProcessError as error:
+            fail(f"required tool is not ready: {' '.join(command)}: {error.stderr.strip()}")
+
+
+def run_native_lock_updates(dry_run: bool) -> None:
+    run(
+        [
+            *composer_command(),
+            "update",
+            "peanut-admin/core",
+            "--with-dependencies",
+            "--no-install",
+            "--no-interaction",
+            "--working-dir=server",
+        ],
+        dry_run=dry_run,
+    )
+    npm = "npm" if dry_run else npm_command()
+    for client in ("platform", "pc", "uniapp"):
+        run([npm, "install", "--package-lock-only", "--ignore-scripts"], cwd=ROOT / client, dry_run=dry_run)
+    run(
+        [
+            "corepack" if dry_run else corepack_command(),
+            "pnpm",
+            "--dir",
+            "web",
+            "install",
+            "--lockfile-only",
+            "--ignore-scripts",
+            "--frozen-lockfile=false",
+        ],
+        dry_run=dry_run,
+    )
+
+
+def read_core_php(expected_version: str, expected_reference: str) -> dict[str, str]:
+    lock = read_json(ROOT / "server/composer.lock")
+    records = [item for item in lock.get("packages", []) if item.get("name") == "peanut-admin/core"]
+    if len(records) != 1:
+        fail("server/composer.lock must contain exactly one peanut-admin/core record")
+    package = records[0]
+    source = package.get("source") or {}
+    if package.get("version", "").lstrip("v") != expected_version:
+        fail("Composer lock did not resolve the requested Core PHP version")
+    if source.get("reference") != expected_reference:
+        fail("Composer lock source_reference differs from the fixed Core PHP source")
+    if source.get("type") != "git" or source.get("url") != "https://github.com/peanut-business/peanut-admin-core-php.git":
+        fail("Composer lock Core PHP source is not the public repository")
+    return {
+        "package": "peanut-admin/core",
+        "constraint": expected_version,
+        "resolved_version": package["version"],
+        "source_type": source.get("type"),
+        "source_url": source.get("url"),
+        "source_reference": source.get("reference"),
+    }
+
+
+def npm_lock_package(client: str, name: str, expected_version: str) -> dict[str, str]:
+    lock = read_json(ROOT / client / "package-lock.json")
+    if lock.get("packages", {}).get("", {}).get("dependencies", {}).get(name) != expected_version:
+        fail(f"{client}/package-lock.json root does not pin {name}")
+    package = lock.get("packages", {}).get(f"node_modules/{name}")
+    if not isinstance(package, dict):
+        fail(f"{client}/package-lock.json is missing {name}")
+    if package.get("version") != expected_version:
+        fail(f"{client}/package-lock.json resolved {name} to {package.get('version')}")
+    resolved = package.get("resolved")
+    integrity = package.get("integrity")
+    if not registry_tarball(resolved):
+        fail(f"{client}/package-lock.json did not record registry tarball for {name}")
+    validate_integrity(integrity, f"{client}:{name}")
+    return {"version": expected_version, "resolved": resolved, "integrity": integrity}
+
+
+def validate_integrity(value: Any, label: str) -> None:
+    if not isinstance(value, str) or not value.startswith("sha512-"):
+        fail(f"{label} integrity must be sha512 SRI")
+    try:
+        raw = base64.b64decode(value[7:], validate=True)
+    except Exception as error:  # noqa: BLE001
+        fail(f"{label} integrity is invalid: {error}")
+    if len(raw) != 64:
+        fail(f"{label} integrity is not a SHA-512 digest")
+
+
+def registry_tarball(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    parsed = urlparse(value)
+    return parsed.scheme == "https" and parsed.hostname == "registry.npmjs.org" and parsed.port is None and parsed.path.endswith(".tgz") and not parsed.username and not parsed.password
+
+
+def pnpm_lock_package(name: str, expected_version: str) -> dict[str, str]:
+    text = (ROOT / "web/pnpm-lock.yaml").read_text(encoding="utf-8")
+    importer = text.split("\npackages:\n", 1)[0]
+    if not re.search(r"^      '" + re.escape(name) + r"':\n        specifier: " + re.escape(expected_version) + r"$", importer, re.M):
+        fail(f"web/pnpm-lock.yaml importer does not pin {name}")
+    escaped = re.escape(f"  '{name}@{expected_version}':")
+    match = re.search(
+        escaped
+        + r"\n(?:    [^\n]*\n)*?    resolution:\s*\{([^}\n]+)\}",
+        text,
+    )
+    if not match:
+        fail(f"web/pnpm-lock.yaml is missing {name}@{expected_version}")
+    fields: dict[str, str] = {}
+    for part in match.group(1).split(","):
+        if ":" not in part:
+            continue
+        key, value = part.split(":", 1)
+        fields[key.strip()] = value.strip().strip("'\"")
+    integrity = fields.get("integrity")
+    validate_integrity(integrity, f"web:{name}")
+    result = {"version": expected_version, "integrity": integrity}
+    if "tarball" in fields:
+        tarball = fields["tarball"]
+        if not registry_tarball(tarball):
+            fail(f"web:{name} tarball is not a registry URL")
+        result["resolved"] = tarball
+    return result
+
+
+def npm_registry_package(name: str, expected_version: str) -> dict[str, str]:
+    npm = npm_command()
+    output = subprocess.check_output(
+        [npm, "view", f"{name}@{expected_version}", "version", "dist.tarball", "dist.integrity",
+         "repository.url", "gitHead", "--json", "--registry=https://registry.npmjs.org"],
+        cwd=ROOT,
+        text=True,
+    )
+    data = json.loads(output)
+    if data.get("version") != expected_version:
+        fail(f"npm registry resolved {name} to {data.get('version')}")
+    resolved = data.get("dist.tarball")
+    integrity = data.get("dist.integrity")
+    if not registry_tarball(resolved):
+        fail(f"npm registry did not provide a tarball URL for {name}")
+    validate_integrity(integrity, f"npm:{name}")
+    repository = data.get("repository.url")
+    if repository is None and isinstance(data.get("repository"), dict):
+        repository = data["repository"].get("url")
+    return {"version": expected_version, "resolved": resolved, "integrity": integrity,
+            "repository": repository, "gitHead": data.get("gitHead")}
+
+
+def official_web_repository(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    parsed = urlparse(value.removeprefix("git+"))
+    return (parsed.scheme == "https" and parsed.hostname == "github.com" and parsed.port is None
+            and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment
+            and parsed.path in ("/peanut-business/peanut-admin-core-web", "/peanut-business/peanut-admin-core-web.git"))
+
+
+def read_web_package_evidence(path: Path, expected_sha256: str, expected_version: str,
+                              expected_reference: str) -> dict[str, dict[str, str]]:
+    if not path.is_absolute() or path.is_symlink():
+        fail("Web Core package evidence must be an absolute real regular file")
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError:
+        fail("Web Core package evidence must be an absolute real regular file")
+    if not resolved.is_file():
+        fail("Web Core package evidence must be an absolute real regular file")
+    if resolved.stat().st_mode & 0o222:
+        fail("Web Core package evidence must be read-only")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
+        fail("Web Core package evidence SHA-256 must be lowercase hex")
+    raw = resolved.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != expected_sha256:
+        fail("Web Core package evidence bytes changed from the coordinator binding")
+    try:
+        data = json.loads(raw)
+    except ValueError as error:
+        fail(f"Web Core package evidence is invalid JSON: {error}")
+    required = {"schema_version", "protocol", "repository", "tag", "version", "source_reference",
+                "release_id", "action_run", "packages"}
+    if (not isinstance(data, dict) or set(data) != required
+            or data.get("schema_version") != 1
+            or data.get("protocol") != "peanut.web-core-package-evidence.v1"
+            or data.get("repository") != "peanut-business/peanut-admin-core-web"
+            or data.get("tag") != f"v{expected_version}" or data.get("version") != expected_version
+            or data.get("source_reference") != expected_reference
+            or not isinstance(data.get("release_id"), int) or data["release_id"] < 1
+            or not isinstance(data.get("action_run"), int) or data["action_run"] < 1):
+        fail("Web Core package evidence identity differs")
+    records = data.get("packages")
+    if not isinstance(records, dict) or set(records) != set(CORE_WEB_PACKAGES):
+        fail("Web Core package evidence package set differs")
+    registry: dict[str, dict[str, str]] = {}
+    for name in CORE_WEB_PACKAGES:
+        item = records.get(name)
+        if not isinstance(item, dict) or set(item) != {
+                "version", "repository", "source_reference", "gitHead", "tarball", "integrity"}:
+            fail(f"Web Core package evidence record shape differs: {name}")
+        repository = item.get("repository")
+        tarball = item.get("tarball")
+        integrity = item.get("integrity")
+        validate_integrity(integrity, f"evidence:{name}")
+        if (item.get("version") != expected_version or item.get("source_reference") != expected_reference
+                or item.get("gitHead") != expected_reference or not official_web_repository(repository)
+                or not registry_tarball(tarball)):
+            fail(f"Web Core package evidence metadata differs: {name}")
+        registry[name] = {"version": expected_version, "resolved": tarball, "integrity": integrity,
+                          "repository": repository, "gitHead": expected_reference}
+    return registry
+
+
+def read_core_web(expected_version: str, expected_reference: str,
+                  registry_packages: dict[str, dict[str, str]] | None = None) -> dict[str, Any]:
+    packages: dict[str, dict[str, str]] = {}
+    for name in CORE_WEB_PACKAGES:
+        observations = []
+        for client, names in CLIENT_CORE_PACKAGES.items():
+            if name not in names:
+                continue
+            observations.append(
+                pnpm_lock_package(name, expected_version)
+                if client == "web"
+                else npm_lock_package(client, name, expected_version)
+            )
+        registry = (registry_packages[name] if registry_packages is not None
+                    else npm_registry_package(name, expected_version))
+        if not official_web_repository(registry.get("repository")):
+            fail(f"npm registry repository is missing or wrong for {name}")
+        if registry.get("gitHead") != expected_reference:
+            fail(f"npm registry gitHead is missing or differs from fixed Core Web source for {name}")
+        verified = {key: registry[key] for key in ("version", "resolved", "integrity")}
+        for item in observations:
+            if item["version"] != verified["version"] or item["integrity"] != verified["integrity"]:
+                fail(f"native locks disagree with npm registry for {name}")
+            if "resolved" in item and item["resolved"] != verified["resolved"]:
+                fail(f"native lock tarball disagrees with npm registry for {name}")
+        packages[name] = verified
+    return {
+        "source_type": "git",
+        "source_url": "https://github.com/peanut-business/peanut-admin-core-web.git",
+        "source_reference": expected_reference,
+        "packages": packages,
+    }
+
+
+def update_release_versions(product_version: str, core_php: dict[str, str], core_web: dict[str, Any]) -> None:
+    data = read_json(ROOT / "release-versions.json")
+    data.update(
+        {
+            "schema_version": 3,
+            "protocol": "peanut.release-versions.v3",
+            "source_product_version": product_version,
+            "instance_version": None,
+            "scaffold_template": product_version,
+            "core_php": core_php,
+            "core_web": core_web,
+        }
+    )
+    write_json(ROOT / "release-versions.json", data)
+
+
+def update_release_metadata(product_version: str, core_php: dict[str, str], core_web: dict[str, Any]) -> None:
+    data = read_json(ROOT / "RELEASE_METADATA.json")
+    data["schema_version"] = 3
+    data["protocol"] = "peanut.release-metadata.v3"
+    data["source_product_version"] = product_version
+    data["instance_version"] = None
+    data["expected_tag"] = f"v{product_version}"
+    data["release_date"] = dt.date.today().isoformat()
+    data["public_runtime_dependencies"] = {"composer": core_php, "npm": core_web}
+    data["lockfiles"] = {
+        "server/composer.lock": sha256(ROOT / "server/composer.lock"),
+        "web/pnpm-lock.yaml": sha256(ROOT / "web/pnpm-lock.yaml"),
+        "platform/package-lock.json": sha256(ROOT / "platform/package-lock.json"),
+        "pc/package-lock.json": sha256(ROOT / "pc/package-lock.json"),
+        "uniapp/package-lock.json": sha256(ROOT / "uniapp/package-lock.json"),
+    }
+    data["legal_files"] = {
+        relative: required_release_file_sha256(relative)
+        for relative in LEGAL_FILES
+    }
+    data.setdefault("technical_qualification", {})
+    data["technical_qualification"].update(
+        {
+            "phase": f"{product_version}-prerelease-candidate",
+            "result": "pending",
+            "final_candidate_commit": None,
+            "final_candidate_tree": None,
+            "run_id": None,
+            "groups_passed": 0,
+            "summary_sha256": None,
+            "cleanup_residual_count": None,
+            "lease_released": False,
+            "scaffold_version": product_version,
+            "application_initial_version": read_json(ROOT / "release-versions.json")["generated_instance_default"],
+            "evidence": "P1 prerelease candidate identity is prepared from public Core registry locks; qualification remains pending.",
+            "release_delta": RELEASE_DELTA,
+        }
+    )
+    write_json(ROOT / "RELEASE_METADATA.json", data)
+
+
+PREPARED_FILES = (
+    "server/composer.json", "server/composer.lock", "web/package.json", "web/pnpm-lock.yaml",
+    "platform/package.json", "platform/package-lock.json", "pc/package.json", "pc/package-lock.json",
+    "uniapp/package.json", "uniapp/package-lock.json", "release-versions.json", "RELEASE_METADATA.json",
+)
+
+
+def check_inputs(product_version: str) -> None:
+    versions = read_json(ROOT / "release-versions.json")
+    if (versions.get("schema_version"), versions.get("protocol"), versions.get("instance_version")) != (3, "peanut.release-versions.v3", None):
+        fail("unsupported product version contract")
+    if versions.get("source_product_version") == product_version:
+        fail("product candidate version must be new")
+    require_semver(versions.get("generated_instance_default", ""), "APP initial version")
+    metadata = read_json(ROOT / "RELEASE_METADATA.json")
+    if not isinstance(metadata.get("technical_qualification"), dict) or metadata["technical_qualification"].get("result") not in ("pending", None):
+        fail("existing qualified release metadata must not be replaced")
+    if (ROOT / "scaffold/releases" / f"v{product_version}").exists():
+        fail("fixed scaffold release already exists")
+    composer = read_json(ROOT / "server/composer.json")
+    if "peanut-admin/core" not in composer.get("require", {}):
+        fail("server/composer.json is missing peanut-admin/core")
+    if any(item.get("type") in ("path", "artifact", "package") for item in composer.get("repositories", []) if isinstance(item, dict)):
+        fail("server/composer.json has a local or synthetic package repository")
+    for client, names in CLIENT_CORE_PACKAGES.items():
+        manifest = read_json(ROOT / client / "package.json")
+        dependencies = manifest.get("dependencies", {})
+        if any(name not in dependencies for name in names):
+            fail(f"{client}/package.json is missing a Core Web dependency")
+        for section in ("dependencies", "devDependencies", "optionalDependencies"):
+            for name, spec in manifest.get(section, {}).items():
+                if name not in names and isinstance(spec, str) and spec.startswith(("file:", "link:", "workspace:", "git+", "./", "../")):
+                    fail(f"{client}/package.json has a local dependency: {name}")
+
+
+def prepare(product_version: str, core_php_version: str, core_php_reference: str,
+            core_web_version: str, core_web_reference: str,
+            core_web_package_evidence: tuple[Path, str] | None = None) -> None:
+    check_inputs(product_version)
+    # Native package managers may fail after writing a lock. Restore every owned input byte on failure.
+    originals = {path: (ROOT / path).read_bytes() if (ROOT / path).exists() else None for path in PREPARED_FILES}
+    try:
+        set_composer_spec(core_php_version)
+        set_core_web_specs(core_web_version)
+        for path in ("web/package.json", "platform/package.json", "pc/package.json", "uniapp/package.json"):
+            update_package_version(ROOT / path, product_version)
+        run_native_lock_updates(False)
+        core_php = read_core_php(core_php_version, core_php_reference)
+        registry_packages = (read_web_package_evidence(
+            core_web_package_evidence[0], core_web_package_evidence[1],
+            core_web_version, core_web_reference,
+        ) if core_web_package_evidence is not None else None)
+        core_web = read_core_web(core_web_version, core_web_reference, registry_packages)
+        update_release_versions(product_version, core_php, core_web)
+        update_release_metadata(product_version, core_php, core_web)
+    except BaseException:
+        for path, original in originals.items():
+            target = ROOT / path
+            if original is None:
+                target.unlink(missing_ok=True)
+            else:
+                target.write_bytes(original)
+        raise
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--version", required=True)
+    parser.add_argument("--core-php-version", required=True)
+    parser.add_argument("--core-php-reference", required=True)
+    parser.add_argument("--core-web-version", required=True)
+    parser.add_argument("--core-web-reference", required=True)
+    parser.add_argument("--core-web-package-evidence", type=Path)
+    parser.add_argument("--core-web-package-evidence-sha256")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+    product_version = require_semver(args.version, "product version")
+    core_php_version = require_semver(args.core_php_version, "Core PHP version")
+    core_web_version = require_semver(args.core_web_version, "Core Web version")
+    if any(re.search(r"(?:^|[.-])dev(?:[.-]|$)", version) for version in (core_php_version, core_web_version)):
+        fail("Core versions must be fixed public releases, not development versions")
+    if not re.fullmatch(r"[0-9a-f]{40}", args.core_php_reference):
+        fail("Core PHP source reference must be a full lowercase SHA")
+    if not re.fullmatch(r"[0-9a-f]{40}", args.core_web_reference):
+        fail("Core Web source reference must be a full lowercase SHA")
+    if (args.core_web_package_evidence is None) != (args.core_web_package_evidence_sha256 is None):
+        fail("Web Core package evidence path and SHA-256 must be supplied together")
+    core_web_package_evidence = None
+    if args.core_web_package_evidence is not None:
+        if not re.fullmatch(r"[0-9a-f]{64}", args.core_web_package_evidence_sha256):
+            fail("Web Core package evidence SHA-256 must be lowercase hex")
+        read_web_package_evidence(
+            args.core_web_package_evidence,
+            args.core_web_package_evidence_sha256,
+            core_web_version,
+            args.core_web_reference,
+        )
+        core_web_package_evidence = (args.core_web_package_evidence, args.core_web_package_evidence_sha256)
+
+    check_inputs(product_version)
+    if args.dry_run:
+        print(f"DRY-RUN product version: {product_version}")
+        print(f"DRY-RUN Core PHP: peanut-admin/core {core_php_version} {args.core_php_reference}")
+        print(f"DRY-RUN Core Web: six @peanut-admin packages {core_web_version} {args.core_web_reference}")
+        run_native_lock_updates(True)
+        return
+
+    preflight_tools()
+    prepare(product_version, core_php_version, args.core_php_reference,
+            core_web_version, args.core_web_reference, core_web_package_evidence)
+
+
+if __name__ == "__main__":
+    main()

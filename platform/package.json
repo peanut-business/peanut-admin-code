@@ -1,26 +1,31 @@
 {
   "name": "peanut-admin-platform",
-  "version": "3.1.1",
+  "version": "4.0.0-rc.18",
   "private": true,
   "description": "Peanut Admin instance platform control plane",
   "author": "花生科技",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/peanut-business/peanut-admin",
+  "homepage": "https://github.com/peanut-business/peanut-admin-code",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/peanut-business/peanut-admin.git",
+    "url": "git+https://github.com/peanut-business/peanut-admin-code.git",
     "directory": "platform"
   },
   "scripts": {
     "dev": "../scripts/local-client-dev platform",
-    "build": "vue-tsc --noEmit && vite build",
-    "type:check": "vue-tsc --noEmit"
+    "build": "vue-tsc --noEmit && vite build --configLoader runner",
+    "type:check": "vue-tsc --noEmit",
+    "type:check:governance": "node scripts/check-governance-types.mjs",
+    "type:check:governance-tests": "node ../tools/quality/node_modules/typescript/bin/tsc --noEmit --project tsconfig.governance-tests.json",
+    "test:governance": "node ../tools/quality/node_modules/vitest/vitest.mjs run --config vitest.governance.config.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",
-    "@peanut-admin/admin": "3.1.1",
+    "@peanut-admin/ui-vue": "4.0.0-rc.4",
+    "@peanut-admin/vue": "4.0.0-rc.4",
     "axios": "0.33.0",
     "element-plus": "2.14.3",
+    "openapi-fetch": "0.17.0",
     "pinia": "2.0.23",
     "vue": "3.5.41",
     "vue-router": "4.0.14"

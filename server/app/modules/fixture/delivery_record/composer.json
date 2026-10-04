@@ -6,11 +6,11 @@
   "license": "Apache-2.0",
   "require": {
     "php": "^8.3",
-    "peanut-admin/core": "0.1.0-alpha.5"
+    "peanut-admin/core": "dev-dev"
   },
   "autoload": {
     "psr-4": {
-      "app\\modules\\fixture\\delivery_record\\": "./"
+      "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "src/"
     }
   }
 }

@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -13,23 +15,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / "server/tests/fixtures/consumer-upgrade-qualification/matrix.json"
-REGISTRY = ROOT / "resources/project-resources.json"
+REGISTRY = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
 VERSIONS = ROOT / "release-versions.json"
 RESOURCE_ID = "peanut-admin-consumer-upgrade-mysql84-gate"
 ADMIN_TOOL_ID = "peanut-admin-consumer-upgrade-mysql84-remote-admin-cli"
 HTTP_RESOURCE_ID = "peanut-admin-local-production-preview-gateway"
 LOCAL_STORAGE_RESOURCE_ID = "peanut-admin-consumer-upgrade-local-storage"
+SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$")
+CORE_WEB_PACKAGES = [
+    "@peanut-admin/client", "@peanut-admin/vue", "@peanut-admin/ui-vue",
+    "@peanut-admin/nuxt", "@peanut-admin/uniapp", "@peanut-admin/testing",
+]
+ENV_RUNNER = ROOT / "scripts/run-with-environment-file"
 
 class PlanError(RuntimeError):
     pass
 
 def read_json(path: Path) -> dict:
+    if path == REGISTRY and not os.environ.get("PEANUT_RESOURCE_REGISTRY"):
+        raise PlanError("CR03 requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    if path == REGISTRY and (not path.is_absolute() or path.is_symlink()):
+        raise PlanError("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
-        raise PlanError(f"cannot read {path.relative_to(ROOT)}: {error}") from error
+        raise PlanError(f"cannot read {path}: {error}") from error
     if not isinstance(value, dict):
-        raise PlanError(f"{path.relative_to(ROOT)} must have an object root")
+        raise PlanError(f"{path} must have an object root")
     return value
 
 def git(*arguments: str) -> str:
@@ -54,6 +66,59 @@ def unique_resource(items: object, resource_id: str, label: str) -> dict:
     if len(matches) != 1:
         raise PlanError(f"registry must contain exactly one {label} {resource_id}")
     return matches[0]
+
+
+def current_version_contract(versions: dict, target_version: object) -> bool:
+    if (
+        versions.get("schema_version") != 3
+        or versions.get("protocol") != "peanut.release-versions.v3"
+        or versions.get("instance_version") is not None
+        or not isinstance(target_version, str)
+        or SEMVER.fullmatch(target_version) is None
+        or versions.get("source_product_version") != target_version
+        or versions.get("scaffold_template") != target_version
+    ):
+        return False
+    php = versions.get("core_php")
+    web = versions.get("core_web")
+    if (
+        not isinstance(php, dict)
+        or list(php) != ["package", "constraint", "resolved_version", "source_type", "source_url", "source_reference"]
+        or php.get("package") != "peanut-admin/core"
+        or re.fullmatch(r"dev-[A-Za-z0-9._-]+", str(php.get("constraint", ""))) is None
+        or not str(php.get("resolved_version", "")).startswith("dev-")
+        or php.get("source_type") != "git"
+        or not str(php.get("source_url", "")).startswith("https://")
+        or re.fullmatch(r"[0-9a-f]{40}", str(php.get("source_reference", ""))) is None
+        or php.get("constraint") != php.get("resolved_version")
+        or not isinstance(web, dict)
+        or list(web) != ["source_type", "source_url", "source_reference", "packages"]
+        or web.get("source_type") != "git"
+        or not str(web.get("source_url", "")).startswith("https://")
+        or re.fullmatch(r"[0-9a-f]{40}", str(web.get("source_reference", ""))) is None
+    ):
+        return False
+    packages = web.get("packages")
+    if not isinstance(packages, dict) or list(packages) != CORE_WEB_PACKAGES:
+        return False
+    for identity in packages.values():
+        if not isinstance(identity, dict) or list(identity) != ["version", "archive", "sha256"]:
+            return False
+        archive = identity.get("archive")
+        digest = identity.get("sha256")
+        if (
+            not isinstance(identity.get("version"), str)
+            or SEMVER.fullmatch(identity["version"]) is None
+            or not isinstance(archive, str)
+            or re.fullmatch(r"packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz", archive) is None
+            or not isinstance(digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+        ):
+            return False
+        path = ROOT / archive
+        if not path.is_file() or path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            return False
+    return True
 
 
 def remote_container_command(script: str, *, receives_stdin: bool = False) -> list[str]:
@@ -88,14 +153,15 @@ def main() -> int:
         raise PlanError("candidate worktree must be clean")
     fixture, registry, versions = read_json(FIXTURE), read_json(REGISTRY), read_json(VERSIONS)
     target_version = versions.get("scaffold_template")
-    if (
-        versions.get("schema_version") != 2
-        or versions.get("protocol") != "peanut.release-versions.v2"
-        or versions.get("instance_version") is not None
-        or not isinstance(target_version, str)
-        or not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", target_version)
-        or any(versions.get(field) != target_version for field in ("source_product_version", "core_php", "core_web"))
-    ):
+    historical_v2 = (
+        versions.get("schema_version") == 2
+        and versions.get("protocol") == "peanut.release-versions.v2"
+        and versions.get("instance_version") is None
+        and isinstance(target_version, str)
+        and re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", target_version)
+        and all(versions.get(field) == target_version for field in ("source_product_version", "core_php", "core_web"))
+    )
+    if not historical_v2 and not current_version_contract(versions, target_version):
         raise PlanError("candidate release version contract is invalid")
     databases = registry.get("resources", {}).get("databases", [])
     resource = unique_resource(databases, RESOURCE_ID, "database")
@@ -122,8 +188,8 @@ def main() -> int:
     if outer != {"administrative_tooling_resource_id": ADMIN_TOOL_ID, "http_listener_resource_id": HTTP_RESOURCE_ID, "http_port": 20190, "local_object_storage_resource_id": LOCAL_STORAGE_RESOURCE_ID, "local_object_prefix_template": "cr03/<run_id>/<scenario>/", "execution_order": "serial-by-scenario"}:
         raise PlanError("consumer-upgrade fixture outer resource plan is invalid")
     source_version = fixture.get("source_release", {}).get("version")
-    if source_version != "3.0.14" or target.get("version") != target_version or target.get("minimum_source_version") != source_version or target.get("signing_resource_id") != "peanut-admin-edition-upgrade-release-signing-key" or target.get("signature_key_id") != "peanut-admin-release-2026-01":
-        raise PlanError("formal source, target, or signing contract is invalid")
+    if source_version != "3.0.14" or target.get("version") != target_version or target.get("minimum_source_version") != source_version:
+        raise PlanError("source or target release contract is invalid")
     for edition in ("standalone", "multi_tenant"):
         asset = fixture["source_release"].get("editions", {}).get(edition, {})
         if not isinstance(asset.get("installer"), str) or not re.fullmatch(r"[0-9a-f]{64}", str(asset.get("installer_sha256"))) or not re.fullmatch(r"[0-9a-f]{64}", str(asset.get("manifest_sha256"))):
@@ -140,8 +206,12 @@ def main() -> int:
     instance_roots = {scenario: cache / "instances" / scenario for scenario in scenarios}
     backup_roots = {scenario: cache / "backups" / scenario for scenario in scenarios}
     object_prefixes = {scenario: f"cr03/{args.run_id}/{scenario}/" for scenario in scenarios}
-    if any(path.exists() or path.is_symlink() for path in [*instance_roots.values(), *backup_roots.values()]):
-        raise PlanError("instance or backup root already exists for this run_id")
+    outer_guard_environment_files = {
+        scenario: ROOT / "server" / f".env.cr03-{args.run_id}-{scenario.replace('_', '-')}"
+        for scenario in scenarios
+    }
+    if any(path.exists() or path.is_symlink() for path in [*instance_roots.values(), *backup_roots.values(), *outer_guard_environment_files.values()]):
+        raise PlanError("instance, backup, or environment path already exists for this run_id")
     tree = git("rev-parse", f"{candidate}^{{tree}}")
     proof_dir = Path(git("rev-parse", "--git-common-dir"))
     if not proof_dir.is_absolute():
@@ -158,6 +228,12 @@ def main() -> int:
         {"type": "listener-resource-id", "value": HTTP_RESOURCE_ID},
         {"type": "object-storage-resource-id", "value": LOCAL_STORAGE_RESOURCE_ID},
         *({"type": "object-prefix", "value": value} for value in object_prefixes.values()),
+        *({"type": "environment-file", "value": str(path)} for path in outer_guard_environment_files.values()),
+        *(
+            {"type": "environment-file", "value": str(instance / "server" / name)}
+            for instance in instance_roots.values()
+            for name in (".env.consumer-upgrade", ".env.local-production-preview", ".env.installation")
+        ),
         {"type": "port", "value": "20190"}, {"type": "http-port", "value": "20190"},
         {"type": "cache-dir", "value": str(cache)}, {"type": "output-dir", "value": str(output)},
         {"type": "lease-proof-dir", "value": str(proof_dir)},
@@ -167,30 +243,35 @@ def main() -> int:
         database = names[scenario]
         instance = instance_roots[scenario]
         backup = backup_roots[scenario]
-        package = f"<exact-signed-{target_version}-{data['edition']}-package>"
-        upgrader = f"{package}/upgrader/scripts/scaffold-upgrade"
+        package = f"<sha256-verified-{target_version}-{data['edition']}-package>"
+        upgrader = f"{package}/scripts/upgrade"
+        adoption_tool = f"{package}/scripts/scaffold-upgrade"
         adoption_plan = instance / ".peanut/upgrades/plans/<adoption-plan_path-from-stdout>"
-        upgrade_plan = instance / ".peanut/upgrades/plans/<upgrade-plan_path-from-stdout>"
-        instance_environment = {
+        upgrade_plan = instance / ".peanut/upgrades/product-plans/<product-plan_path-from-stdout>"
+        instance_environment_values = {
             "APP_ENV": "development", "PEANUT_DEPLOYMENT_TARGET": "local-development",
             "PEANUT_DATABASE_RESOURCE_ID": f"peanut-admin-cr03-{args.run_id}-{scenario}-mysql84",
             "PEANUT_DATABASE_CONSUMER": "host", "PEANUT_DATABASE_ENDPOINT_ID": f"peanut-admin-cr03-{args.run_id}-{scenario}-mysql84-host",
             "DB_HOST": "192.168.192.2", "DB_PORT": "20183", "DB_NAME": database,
             "DEPLOYMENT_MODE": data["edition"],
         }
-        outer_guard_environment = {
+        outer_guard_environment_values = {
             "APP_ENV": "development", "PEANUT_DEPLOYMENT_TARGET": "local-development",
             "PEANUT_DATABASE_RESOURCE_ID": RESOURCE_ID, "PEANUT_DATABASE_CONSUMER": "host",
             "PEANUT_DATABASE_ENDPOINT_ID": "peanut-admin-consumer-upgrade-mysql84-gate-host-direct",
             "DB_HOST": "192.168.192.2", "DB_PORT": "20183", "DB_NAME": database,
             "DEPLOYMENT_MODE": data["edition"], "PEANUT_RESOURCE_LEASE_PROOF": str(proof_dir),
         }
+        host_environment_file = instance / "server/.env.consumer-upgrade"
+        container_environment_file = instance / "server/.env.local-production-preview"
+        installation_environment_file = instance / "server/.env.installation"
+        outer_guard_environment_file = outer_guard_environment_files[scenario]
         instance_database_resource = {
-            "stable_resource_id": instance_environment["PEANUT_DATABASE_RESOURCE_ID"],
+            "stable_resource_id": instance_environment_values["PEANUT_DATABASE_RESOURCE_ID"],
             "purpose": f"CR03 {scenario} generated instance database",
             "environments": ["development", "local-production-preview"], "owner": "active CR03 consumer-upgrade lease owner",
             "service_type": "mysql", "version": "8.4.10", "database": database, "schema": "pa_ table prefix", "namespace": database,
-            "upstream_endpoint": {"endpoint_id": instance_environment["PEANUT_DATABASE_ENDPOINT_ID"], "host": "192.168.192.2", "port": 20183, "consumers": ["host"], "network_scope": "private direct-link LAN"},
+            "upstream_endpoint": {"endpoint_id": instance_environment_values["PEANUT_DATABASE_ENDPOINT_ID"], "host": "192.168.192.2", "port": 20183, "consumers": ["host"], "network_scope": "private direct-link LAN"},
             "container_endpoint": {"endpoint_id": f"peanut-admin-cr03-{args.run_id}-{scenario}-mysql84-container", "host": "192.168.192.2", "port": 20183, "consumers": ["container"], "network_scope": "Docker Desktop direct route to private direct-link LAN"},
             "credential_ref": "mac-14:/Users/xing/.config/peanut-admin/development-db.env", "data_source": f"lease-owned synthetic formal-v{source_version} Edition instance",
             "freshness_requirement": "exact database is absent before installation and remains bound to this scenario until cleanup", "health_check": "credential-backed ping, SELECT DATABASE(), then instance environment-guard.php --current",
@@ -202,13 +283,34 @@ def main() -> int:
             "instance_database_resource": instance_database_resource,
             "outer_source_guard": {
                 "cwd": str(ROOT),
-                "environment": outer_guard_environment,
+                "environment_file": {
+                    "path": str(outer_guard_environment_file),
+                    "mode": "0600",
+                    "non_secret_values": outer_guard_environment_values,
+                    "required_secret_keys": ["DB_USER", "DB_PASS"],
+                },
                 "credential_ref": resource["credential_ref"],
-                "argv": ["/opt/homebrew/bin/php", "-r", f"require {json.dumps(str(ROOT / 'server/database/environment-guard.php'))}; guardedDatabaseConfig();"],
+                "argv": [str(ENV_RUNNER), "--env-file", str(outer_guard_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", "-r", f"require {json.dumps(str(ROOT / 'server/database/environment-guard.php'))}; guardedDatabaseConfig();"],
                 "must_run": "immediately before every database create/dump/restore/drop command; failure stops the scenario",
             },
-            "host_install_environment": instance_environment,
-            "container_runtime_environment_overrides": {**instance_environment, "APP_ENV": "production", "PEANUT_DEPLOYMENT_TARGET": "local-production-preview", "PEANUT_DATABASE_CONSUMER": "container", "PEANUT_DATABASE_ENDPOINT_ID": instance_database_resource["container_endpoint"]["endpoint_id"], "HTTP_PORT": "20190"},
+            "host_install_environment_file": {
+                "path": str(host_environment_file),
+                "mode": "0600",
+                "non_secret_values": instance_environment_values,
+                "required_secret_keys": ["DB_USER", "DB_PASS", "JWT_SECRET", "TENANT_IDENTIFIER_HMAC_KEY", "PLATFORM_IDENTIFIER_HMAC_KEY"],
+            },
+            "container_runtime_environment_file": {
+                "path": str(container_environment_file),
+                "mode": "0600",
+                "non_secret_values": {**instance_environment_values, "APP_ENV": "production", "PEANUT_DEPLOYMENT_TARGET": "local-production-preview", "PEANUT_DATABASE_CONSUMER": "container", "PEANUT_DATABASE_ENDPOINT_ID": instance_database_resource["container_endpoint"]["endpoint_id"]},
+                "required_secret_keys": ["DB_USER", "DB_PASS", "JWT_SECRET", "TENANT_IDENTIFIER_HMAC_KEY", "PLATFORM_IDENTIFIER_HMAC_KEY"],
+            },
+            "installation_environment_file": {
+                "path": str(installation_environment_file),
+                "mode": "0600",
+                "allowed_keys": ["ADMIN_INITIAL_EMAIL", "ADMIN_INITIAL_PASSWORD", "PLATFORM_INITIAL_EMAIL", "PLATFORM_INITIAL_PASSWORD"],
+                "lifecycle": "single source-instance installation; remove on success or failure",
+            },
             "database_commands": {
                 "create": remote_container_command(f"MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" exec /usr/bin/mysql -uroot -e 'CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'"),
                 "dump": {"command": remote_container_command(f"MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" exec /usr/bin/mysqldump --single-transaction --quick --routines --events --triggers --hex-blob --set-gtid-purged=OFF -uroot {database}"), "stdout_file": str(backup / "database.sql")},
@@ -216,28 +318,26 @@ def main() -> int:
                 "drop_after_evidence": remote_container_command(f"MYSQL_PWD=\"$MYSQL_ROOT_PASSWORD\" exec /usr/bin/mysql -uroot -e 'DROP DATABASE `{database}`'"),
             },
             "dependency_commands": [
-                ["/usr/local/bin/composer", "install", f"--working-dir={instance / 'server'}", "--no-interaction", "--no-dev", "--optimize-autoloader"],
-                ["/Users/xing/.nvm/versions/node/v24.13.0/bin/npm", "ci", "--prefix", str(instance / "platform")],
-                ["/Users/xing/.nvm/versions/node/v24.13.0/bin/npm", "ci", "--prefix", str(instance / "pc")],
-                ["/Users/xing/.nvm/versions/node/v24.13.0/bin/npm", "ci", "--prefix", str(instance / "uniapp")],
-                ["/bin/zsh", "-lc", f"cd {instance / 'web'} && PATH=/Users/xing/.nvm/versions/node/v24.13.0/bin:$PATH corepack pnpm install --frozen-lockfile"],
-                ["/bin/zsh", "-lc", f"cd {instance / 'docs-site'} && PATH=/Users/xing/.nvm/versions/node/v24.13.0/bin:$PATH corepack pnpm install --frozen-lockfile"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--clean-only", "--", "/usr/local/bin/composer", "install", f"--working-dir={instance / 'server'}", "--no-interaction", "--no-dev", "--optimize-autoloader"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--clean-only", "--", "/Users/xing/.nvm/versions/node/v24.13.0/bin/npm", "ci", "--prefix", str(instance / "platform")],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--clean-only", "--", "/Users/xing/.nvm/versions/node/v24.13.0/bin/npm", "ci", "--prefix", str(instance / "pc")],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--clean-only", "--", "/Users/xing/.nvm/versions/node/v24.13.0/bin/npm", "ci", "--prefix", str(instance / "uniapp")],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--clean-only", "--", "/Users/xing/.nvm/versions/node/v24.13.0/bin/corepack", "pnpm", "--dir", str(instance / "web"), "install", "--frozen-lockfile"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--clean-only", "--", "/Users/xing/.nvm/versions/node/v24.13.0/bin/corepack", "pnpm", "--dir", str(instance / "docs-site"), "install", "--frozen-lockfile"],
             ],
             "upgrade_commands": [
-                ["/opt/homebrew/bin/php", upgrader, "adoption-plan", f"--project-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01"],
-                ["/opt/homebrew/bin/php", upgrader, "adoption-apply", f"--project-root={instance}", f"--plan={adoption_plan}", "--confirm-plan-sha256=<adoption-plan_sha256-from-stdout>", "--confirm-paths=<exact-25-ordered-paths-from-stdout>"],
-                ["/opt/homebrew/bin/php", upgrader, "adoption-recover", f"--project-root={instance}", f"--plan={adoption_plan}"],
-                ["/opt/homebrew/bin/php", upgrader, "preflight", f"--project-root={instance}", f"--package={package}", "--signature-key-id=peanut-admin-release-2026-01"],
-                ["/opt/homebrew/bin/php", upgrader, "apply", f"--project-root={instance}", f"--plan={upgrade_plan}"],
-                ["/opt/homebrew/bin/php", upgrader, "verify", f"--project-root={instance}", f"--plan={upgrade_plan}"],
-                ["/opt/homebrew/bin/php", upgrader, "recover", f"--project-root={instance}", f"--plan={upgrade_plan}"],
+                ["/opt/homebrew/bin/php", adoption_tool, "adoption-plan", f"--project-root={instance}", f"--package={package}"],
+                ["/opt/homebrew/bin/php", adoption_tool, "adoption-apply", f"--project-root={instance}", f"--plan={adoption_plan}", "--confirm-plan-sha256=<adoption-plan_sha256-from-stdout>", "--confirm-paths=<exact-ordered-paths-from-stdout>"],
+                ["/opt/homebrew/bin/php", adoption_tool, "adoption-recover", f"--project-root={instance}", f"--plan={adoption_plan}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "plan", f"--instance-root={instance}", f"--package={package}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "apply", f"--instance-root={instance}", f"--package={package}", f"--plan={upgrade_plan}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "apply", f"--instance-root={instance}", f"--package={package}", f"--plan={upgrade_plan}"],
+                [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "verify", f"--instance-root={instance}", f"--package={package}", f"--plan={upgrade_plan}"],
             ],
-            "migration_commands": [
-                ["/opt/homebrew/bin/php", str(instance / "server/database/install.php"), "--migrate", f"--target-version={target_version}", "--dry-run"],
-                ["/opt/homebrew/bin/php", str(instance / "server/database/install.php"), "--migrate", f"--target-version={target_version}"],
-            ],
-            "recovery_pair": {"instance_archive": str(backup / "instance.tar"), "database_dump": str(backup / "database.sql"), "order": ["recover managed files with the distinct upgrade plan", "restore the exact instance archive", "restore the exact database dump", "read back business, Tenant, RBAC, Module and customization identities"]},
-            "http_command": {"cwd": str(instance), "environment": {"HTTP_PORT": "20190"}, "argv": ["/usr/local/bin/docker", "compose", "--project-name", f"peanut-cr03-{args.run_id}-{scenario}", "--env-file", ".env", "--env-file", "server/.env.local-production-preview", "-f", "deploy/docker-compose.prod.yml", "up", "-d", "--build"]},
+            "repeat_apply_expectation": {"status": "completed", "idempotent": True, "no_new_migration_or_business_operation": True},
+            "migration_commands": "integrated into scripts/upgrade plan/apply/verify; install.php has no upgrade mode",
+            "recovery_pair": {"instance_archive": str(backup / "instance.tar"), "database_dump": str(backup / "database.sql"), "formal_recovery_command": [str(ENV_RUNNER), "--env-file", str(host_environment_file), "--as-selector", "PEANUT_SERVER_ENV_FILE", "--", "/opt/homebrew/bin/php", upgrader, "recover", f"--instance-root={instance}", f"--package={package}", "--plan=<separate-interrupted-upgrade-plan>"], "order": ["use a separate interrupted upgrade attempt bound to its durable state", "invoke formal recovery once", "require exact host-driver recovery evidence; after migration start it must restore the state-bound database/files pair", "read back business, Tenant, RBAC, Module and customization identities"]},
+            "http_command": {"cwd": str(instance), "environment_file": str(container_environment_file), "source_identity": {"commit": candidate, "tree": tree}, "argv": [str(ENV_RUNNER), "--env-file", str(container_environment_file), "--clean-only", "--", "/usr/bin/env", f"PEANUT_SOURCE_COMMIT={candidate}", f"PEANUT_SOURCE_TREE={tree}", "/usr/local/bin/docker", "compose", "--project-name", f"peanut-cr03-{args.run_id}-{scenario}", "--env-file", ".env", "--env-file", "server/.env.local-production-preview", "-f", "deploy/docker-compose.prod.yml", "up", "-d", "--build"]},
         }
     claimed_resources = [
         *resources,
@@ -245,7 +345,7 @@ def main() -> int:
         {"type": "worktree", "value": str(ROOT)},
     ]
     claim = ["scripts/project-resource-lease", "claim", "--lease", args.lease, "--owner", "<owner>", "--thread", "<thread>", "--candidate", candidate, "--candidate-repository", str(ROOT), "--gate", fixture["gate"], "--ttl", "<seconds>"] + [part for item in resources for part in ("--resource", f"{item['type']}={item['value']}")]
-    print(json.dumps({"schema_version": 1, "gate": fixture["gate"], "status": "structural-plan-valid-not-claimable-until-main-freeze", "candidate": candidate, "candidate_tree": tree, "worktree": str(ROOT), "run_id": args.run_id, "lease": args.lease, "resource_id": RESOURCE_ID, "databases": names, "paths": {"output-dir": str(output), "cache-dir": str(cache), "lease-proof-dir": str(proof_dir), "instance-roots": {key: str(value) for key, value in instance_roots.items()}, "backup-roots": {key: str(value) for key, value in backup_roots.items()}}, "scenarios": scenarios, "operation_plans": operation_plans, "lease_metadata": {"lease": args.lease, "owner": "<owner>", "thread": "<thread>", "candidate": candidate, "candidate_repository": str(ROOT), "gate": fixture["gate"], "worktree": str(ROOT)}, "lease_resources": claimed_resources, "claim_command": claim, "dynamic_preconditions": ["root has frozen an exact origin/main candidate/tree", "official source installers/manifests and external trusted key match the fixture", "formal signing key public derivation matches UPGRADE_TRUSTED_KEYS.json", "replace each generated instance's unallocated resources/project-resources.json with only its emitted fixed instance resource before install; its app-owned environment guard remains instance-local through signed upgrade", "lease claim is active and each exact database/root/Local prefix is absent", "remote MySQL allocation and exact mysql/mysqldump tools are healthy", "HTTP 20190 is unbound and scenarios run serially"], "stop": "Plan mode performs no claim, package download, signing, database connection, instance write, HTTP start, Local object write, or cleanup."}, ensure_ascii=False, indent=2))
+    print(json.dumps({"schema_version": 1, "gate": fixture["gate"], "status": "structural-plan-valid-not-claimable-until-main-freeze", "candidate": candidate, "candidate_tree": tree, "worktree": str(ROOT), "run_id": args.run_id, "lease": args.lease, "resource_id": RESOURCE_ID, "databases": names, "paths": {"output-dir": str(output), "cache-dir": str(cache), "lease-proof-dir": str(proof_dir), "instance-roots": {key: str(value) for key, value in instance_roots.items()}, "backup-roots": {key: str(value) for key, value in backup_roots.items()}}, "scenarios": scenarios, "operation_plans": operation_plans, "lease_metadata": {"lease": args.lease, "owner": "<owner>", "thread": "<thread>", "candidate": candidate, "candidate_repository": str(ROOT), "gate": fixture["gate"], "worktree": str(ROOT)}, "lease_resources": claimed_resources, "claim_command": claim, "dynamic_preconditions": ["root has frozen an exact origin/main candidate/tree", "official source installer and manifest SHA-256 values match the fixture", "package SHA-256 inventory and manifest source commit/tree/target identity match the candidate", "replace each generated instance's unallocated resources/project-resources.json with only its emitted fixed instance resource before install; its app-owned environment guard remains instance-local through upgrade", "lease claim is active and each exact database/root/Local prefix is absent", "remote MySQL allocation and exact mysql/mysqldump tools are healthy", "HTTP 20190 is unbound and scenarios run serially"], "stop": "Plan mode performs no claim, package download, database connection, instance write, HTTP start, Local object write, or cleanup."}, ensure_ascii=False, indent=2))
     return 0
 
 if __name__ == "__main__":

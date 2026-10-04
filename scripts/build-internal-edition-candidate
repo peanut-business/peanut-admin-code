@@ -1,0 +1,617 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use app\common\infrastructure\scaffold\ApplicationCreator;
+use app\common\infrastructure\scaffold\DeterministicEditionArchive;
+use app\common\value\scaffold\VersionContract;
+
+function internalCandidateUsage(): never
+{
+    fwrite(STDERR, "Usage: php scripts/build-internal-edition-candidate --source-commit=<full-sha> --edition=<standalone|multi-tenant> --core-inputs=<absolute-release-core-inputs.json> --output=<absent-absolute-directory>\n");
+    exit(64);
+}
+
+/** @param list<string> $command @param array<string,string> $environment */
+function internalCandidateRun(array $command, ?string $cwd = null, array $environment = []): string
+{
+    $pipes = [];
+    $mergedEnvironment = null;
+    if ($environment !== []) {
+        $baseEnvironment = $_ENV;
+        foreach (['PATH', 'HOME', 'TMPDIR', 'SystemRoot', 'COMSPEC', 'PATHEXT'] as $name) {
+            $value = getenv($name);
+            if (is_string($value) && $value !== '') {
+                $baseEnvironment[$name] = $value;
+            }
+        }
+        $mergedEnvironment = array_replace($baseEnvironment, $environment);
+    }
+    $process = proc_open(
+        $command,
+        [1 => ['pipe', 'w'], 2 => ['redirect', 1]],
+        $pipes,
+        $cwd,
+        $mergedEnvironment,
+    );
+    if (!is_resource($process)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_PROCESS_FAILED');
+    }
+    $stdout = stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    if (proc_close($process) !== 0 || !is_string($stdout)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_COMMAND_FAILED: ' . implode(' ', $command) . ': ' . trim((string) $stdout));
+    }
+    return $stdout;
+}
+
+function internalCandidateDelete(string $path): void
+{
+    if (!file_exists($path) && !is_link($path)) {
+        return;
+    }
+    if (is_dir($path) && !is_link($path)) {
+        foreach (array_diff(scandir($path) ?: [], ['.', '..']) as $entry) {
+            internalCandidateDelete($path . '/' . $entry);
+        }
+        rmdir($path);
+        return;
+    }
+    unlink($path);
+}
+
+/** @param array<string,mixed> $data */
+function internalCandidateWriteJson(string $path, array $data, int $mode = 0644): void
+{
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    if ((!is_dir(dirname($path)) && !mkdir(dirname($path), 0775, true))
+        || file_put_contents($path, $json) === false
+        || !chmod($path, $mode)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_WRITE_FAILED: ' . $path);
+    }
+}
+
+function internalCandidateCopyFile(string $source, string $target, int $mode = 0644): void
+{
+    if (!is_file($source) || is_link($source)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_INPUT_FILE_INVALID: ' . $source);
+    }
+    if (file_exists($target) || is_link($target)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_OUTPUT_EXISTS: ' . $target);
+    }
+    if ((!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true))
+        || !copy($source, $target)
+        || !chmod($target, $mode)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_COPY_FAILED: ' . $target);
+    }
+}
+
+/** Reject aliases and links before reading inputs or creating output directories. */
+function internalCandidatePath(string $path, bool $allowMissing = false, bool $regularFile = false): void
+{
+    if ($path === '' || $path[0] !== '/' || str_contains($path, '\\') || str_contains($path, "\0")) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_PATH_INVALID');
+    }
+    $current = '';
+    $parts = explode('/', substr($path, 1));
+    foreach ($parts as $index => $part) {
+        if ($part === '' || $part === '.' || $part === '..') {
+            throw new RuntimeException('INTERNAL_CANDIDATE_PATH_INVALID');
+        }
+        $current .= '/' . $part;
+        clearstatcache(true, $current);
+        if (is_link($current)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_PATH_LINK_REJECTED');
+        }
+        if (!file_exists($current)) {
+            if (!$allowMissing) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_PATH_MISSING');
+            }
+            continue;
+        }
+        if ($index < count($parts) - 1 && !is_dir($current)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_PATH_PARENT_INVALID');
+        }
+    }
+    if ($regularFile) {
+        $stat = stat($path);
+        if (!is_file($path) || !is_array($stat) || $stat['nlink'] !== 1) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_INPUT_FILE_INVALID');
+        }
+    }
+}
+
+/** @return array<string,mixed> */
+function internalCandidateReadJson(string $path): array
+{
+    internalCandidatePath($path, false, true);
+    $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($data)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_JSON_INVALID: ' . $path);
+    }
+    return $data;
+}
+
+/** @return array<string,mixed> */
+function internalCandidateCoreInputs(string $path): array
+{
+    $inputs = internalCandidateReadJson($path);
+    $root = dirname($path);
+    $archive = $inputs['core_php_archive'] ?? null;
+    $core = $inputs['core_php'] ?? null;
+    $repository = $inputs['composer_repository']['package'] ?? null;
+    if (!is_array($archive) || !is_array($core) || !is_array($repository)
+        || ($inputs['status'] ?? null) !== 'frozen-core-build-inputs-not-product-release'
+        || ($core['package'] ?? null) !== 'peanut-admin/core'
+        || ($repository['name'] ?? null) !== 'peanut-admin/core') {
+        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_INPUTS_INVALID');
+    }
+    $relative = (string) ($archive['path'] ?? '');
+    if ($relative === '' || str_starts_with($relative, '/') || str_contains($relative, '\\') || in_array('..', explode('/', $relative), true)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_ARCHIVE_PATH_INVALID');
+    }
+    $zip = $root . '/' . $relative;
+    internalCandidatePath($zip, false, true);
+    if (!is_file($zip) || is_link($zip)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_ARCHIVE_MISSING');
+    }
+    $sha256 = hash_file('sha256', $zip);
+    $sha1 = hash_file('sha1', $zip);
+    if (!is_string($sha256) || !hash_equals((string) $archive['sha256'], $sha256)
+        || !is_string($sha1) || !hash_equals((string) $archive['sha1'], $sha1)
+        || ($repository['dist']['shasum'] ?? null) !== $sha1
+        || ($repository['dist']['reference'] ?? null) !== ($core['source_reference'] ?? null)
+        || ($repository['source']['reference'] ?? null) !== ($core['source_reference'] ?? null)
+        || ($repository['version'] ?? null) !== ($core['resolved_version'] ?? null)
+        || ($repository['dist']['type'] ?? null) !== 'zip'
+        || ($inputs['sources']['php']['commit'] ?? null) !== ($core['source_reference'] ?? null)
+        || ($repository['dist']['url'] ?? null) !== '../' . $relative) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_ARCHIVE_IDENTITY_INVALID');
+    }
+    return [
+        'inputs' => $inputs,
+        'archive_absolute' => $zip,
+        'archive_relative' => $relative,
+        'archive_sha256' => $sha256,
+        'archive_sha1' => $sha1,
+        'package' => $repository,
+    ];
+}
+
+/** @param array<string,mixed> $corePackage */
+function internalCandidateProjectComposer(string $application, array $corePackage, string $constraint): void
+{
+    $path = $application . '/server/composer.json';
+    $composer = internalCandidateReadJson($path);
+    if (($composer['require']['peanut-admin/core'] ?? null) === null) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_REQUIRE_MISSING');
+    }
+    $composer['require']['peanut-admin/core'] = $constraint;
+    $existing = is_array($composer['repositories'] ?? null) ? $composer['repositories'] : [];
+    $repositories = [[
+        'type' => 'package',
+        'package' => $corePackage,
+    ]];
+    foreach ($existing as $repository) {
+        if (!is_array($repository) || ($repository['type'] ?? null) === 'path') {
+            throw new RuntimeException('INTERNAL_CANDIDATE_COMPOSER_REPOSITORY_UNSUPPORTED');
+        }
+        if (($repository['url'] ?? null) === 'https://github.com/peanut-business/peanut-admin-core-php.git') {
+            continue;
+        }
+        $repositories[] = $repository;
+    }
+    $composer['repositories'] = $repositories;
+    internalCandidateWriteJson($path, $composer);
+}
+
+/** @return array<string,mixed> */
+function internalCandidateLockPackage(string $lockPath): array
+{
+    $lock = internalCandidateReadJson($lockPath);
+    foreach (($lock['packages'] ?? []) as $package) {
+        if (is_array($package) && ($package['name'] ?? null) === 'peanut-admin/core') {
+            return $package;
+        }
+    }
+    throw new RuntimeException('INTERNAL_CANDIDATE_CORE_LOCK_MISSING');
+}
+
+function internalCandidateLockRows(string $lockPath): string
+{
+    $lock = internalCandidateReadJson($lockPath);
+    $rows = [];
+    foreach ([...($lock['packages'] ?? []), ...($lock['packages-dev'] ?? [])] as $package) {
+        if (!is_array($package) || ($package['name'] ?? null) === 'peanut-admin/core') {
+            continue;
+        }
+        $rows[] = implode("\0", [
+            (string) ($package['name'] ?? ''),
+            (string) ($package['version'] ?? ''),
+            (string) ($package['source']['reference'] ?? ''),
+            (string) ($package['dist']['reference'] ?? ''),
+        ]);
+    }
+    sort($rows, SORT_STRING);
+    return hash('sha256', implode("\n", $rows));
+}
+
+/** Bind every active module declaration through the existing native artifact writer. */
+function internalCandidateProjectModules(string $application, string $version): void
+{
+    foreach (glob($application . '/server/app/modules/*/*/composer.json') ?: [] as $path) {
+        $composer = internalCandidateReadJson($path);
+        if (isset($composer['require']['peanut-admin/core'])) {
+            $composer['require']['peanut-admin/core'] = $version;
+            internalCandidateWriteJson($path, $composer);
+        }
+    }
+    $writer = new app\platform\infrastructure\plugin\PluginArtifactWriter($application . '/server', false);
+    foreach (glob($application . '/plugins/*/plugin.json') ?: [] as $path) {
+        $plugin = internalCandidateReadJson($path);
+        $specs = [];
+        foreach ($plugin['modules'] as $module) {
+            $specs[] = $module['key'] . '=' . $module['root'];
+        }
+        $writer->make($plugin['key'], $plugin['version'], $specs);
+    }
+    $writer->writeLock();
+    $writer->checkLock();
+}
+
+/** @param array<string,mixed> $core */
+function internalCandidateProjectCore(string $application, array $core, string $temporary): string
+{
+    $coreTarget = $application . '/' . $core['archive_relative'];
+    internalCandidateCopyFile($core['archive_absolute'], $coreTarget);
+    $lockBefore = internalCandidateLockRows($application . '/server/composer.lock');
+    $version = (string) $core['inputs']['core_php']['resolved_version'];
+    internalCandidateProjectComposer($application, $core['package'], $version);
+    internalCandidateProjectModules($application, $version);
+    internalCandidateRun([
+        dirname(__DIR__) . '/scripts/project-composer',
+        'update', 'peanut-admin/core',
+        '--working-dir=' . $application . '/server',
+        '--no-install', '--no-scripts', '--no-interaction', '--no-progress', '--prefer-dist',
+    ], $application, [
+        'COMPOSER_HOME' => $temporary . '/composer-home',
+        'COMPOSER_CACHE_DIR' => getenv('COMPOSER_CACHE_DIR') ?: $temporary . '/composer-cache',
+    ]);
+    $lockAfter = internalCandidateLockRows($application . '/server/composer.lock');
+    if (!hash_equals($lockBefore, $lockAfter)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_THIRD_PARTY_LOCK_CHANGED');
+    }
+    $lockedCore = internalCandidateLockPackage($application . '/server/composer.lock');
+    if (($lockedCore['version'] ?? null) !== $version
+        || ($lockedCore['source']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
+        || ($lockedCore['dist']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
+        || ($lockedCore['dist']['shasum'] ?? null) !== $core['archive_sha1']) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_CORE_LOCK_IDENTITY_INVALID');
+    }
+    return $lockAfter;
+}
+
+/**
+ * Seal the explicit upgrade projection into the generated application's own
+ * managed baseline before the scaffold release artifacts are copied out.
+ * @param array<string,mixed> $core
+ * @return array<string,mixed>
+ */
+function internalCandidateProjectScaffold(string $application, array $core, string $temporary, string $commit, string $tree, string $receipt): array
+{
+    $manifestPath = $application . '/.peanut/application-manifest.json';
+    $manifest = internalCandidateReadJson($manifestPath);
+    if (($manifest['generation_source']['commit'] ?? null) !== $commit
+        || ($manifest['generation_source']['tree'] ?? null) !== $tree
+        || !is_array($manifest['files'] ?? null)
+        || !is_string($manifest['digests']['managed_tree_sha256'] ?? null)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_SOURCE_INVALID');
+    }
+    $originalDigest = $manifest['digests']['managed_tree_sha256'];
+    $versionPath = $application . '/release-versions.json';
+    $versions = internalCandidateReadJson($versionPath);
+    $originalPhp = $versions['core_php'] ?? null;
+    if (!defined('RELEASE_APPLICATION_VERSION_TOKEN')
+        || !defined('RELEASE_PRODUCT_TOKEN')
+        || !defined('RELEASE_SLUG_TOKEN')
+        || !defined('RELEASE_PACKAGE_TOKEN')
+        || ($versions['schema_version'] ?? null) !== 3
+        || ($versions['protocol'] ?? null) !== 'peanut.release-versions.v3'
+        || !is_array($originalPhp)
+        || ($originalPhp['package'] ?? null) !== 'peanut-admin/core'
+        || ($versions['instance_version'] ?? null) !== constant('RELEASE_APPLICATION_VERSION_TOKEN')
+        || ($versions['source_product_version'] ?? null) !== ($versions['scaffold_template'] ?? null)
+        || ($versions['scaffold_template'] ?? null) !== ($manifest['template']['version'] ?? null)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_VERSION_INVALID');
+    }
+    $coreIdentity = $core['inputs']['core_php'];
+    if (($coreIdentity['source_reference'] ?? null) === ($originalPhp['source_reference'] ?? null)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_REDUNDANT');
+    }
+    $versions['core_php']['constraint'] = $coreIdentity['resolved_version'];
+    $versions['core_php']['resolved_version'] = $coreIdentity['resolved_version'];
+    $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];
+    internalCandidateWriteJson($versionPath, $versions);
+    internalCandidateProjectCore($application, $core, $temporary);
+
+    $allowed = ['release-versions.json' => true, 'server/composer.json' => true,
+        'server/composer.lock' => true, 'plugins.lock' => true];
+    $changes = [];
+    $managed = [];
+    foreach ($manifest['files'] as &$file) {
+        $path = $file['path'] ?? null;
+        if (!is_string($path) || !is_string($file['sha256'] ?? null)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_FILE_INVALID');
+        }
+        $actual = hash_file('sha256', $application . '/' . $path);
+        if (!is_string($actual)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_FILE_MISSING: ' . $path);
+        }
+        if (!hash_equals($file['sha256'], $actual)) {
+            if (!isset($allowed[$path]) && preg_match('#^server/app/modules/[a-z0-9_-]+/[a-z0-9_-]+/composer\.json$#D', $path) !== 1
+                && preg_match('#^plugins/[a-z0-9._-]+/plugin\.json$#D', $path) !== 1) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_UNEXPECTED: ' . $path);
+            }
+            if (!in_array($file['classification'], ['managed', 'generated-managed'], true)
+                || !is_string($file['baseline_path'] ?? null)) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_UNMANAGED: ' . $path);
+            }
+            $changes[] = ['path' => $path, 'before_sha256' => $file['sha256'], 'after_sha256' => $actual];
+            $baseline = $application . '/' . $file['baseline_path'];
+            if (!is_file($baseline) || is_link($baseline)
+                || hash_file('sha256', $baseline) !== $file['baseline_sha256']) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_BASELINE_INVALID: ' . $path);
+            }
+            if (!copy($application . '/' . $path, $baseline)) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_BASELINE_WRITE_FAILED: ' . $path);
+            }
+            $file['sha256'] = $actual;
+            $file['baseline_sha256'] = $actual;
+        }
+        if (in_array($file['classification'], ['managed', 'generated-managed'], true)) {
+            $managed[] = $file;
+        }
+    }
+    unset($file);
+    $corePath = $core['archive_relative'];
+    $coreBytes = file_get_contents($application . '/' . $corePath);
+    if (!is_string($coreBytes)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_READ_FAILED');
+    }
+    foreach ([constant('RELEASE_PRODUCT_TOKEN'), constant('RELEASE_SLUG_TOKEN'),
+        constant('RELEASE_PACKAGE_TOKEN'), constant('RELEASE_APPLICATION_VERSION_TOKEN')] as $token) {
+        if (str_contains($coreBytes, $token)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_TOKEN_COLLISION');
+        }
+    }
+    foreach ($manifest['files'] as $file) {
+        if ($file['path'] === $corePath) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_PATH_COLLISION');
+        }
+    }
+    $coreBaseline = $manifest['ownership']['baseline_root'] . '/' . $corePath;
+    internalCandidateCopyFile($application . '/' . $corePath, $application . '/' . $coreBaseline);
+    $coreFile = ['path' => $corePath, 'sha256' => $core['archive_sha256'], 'mode' => 0644,
+        'classification' => 'managed', 'owner' => 'host', 'source' => $corePath,
+        'baseline_path' => $coreBaseline, 'baseline_sha256' => $core['archive_sha256']];
+    $manifest['files'][] = $coreFile;
+    $managed[] = $coreFile;
+    usort($manifest['files'], static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+    $rows = array_map(static fn(array $file): string => $file['path'] . "\0" . $file['sha256'], $managed);
+    sort($rows, SORT_STRING);
+    $manifest['digests']['managed_tree_sha256'] = hash('sha256', implode("\n", $rows));
+    internalCandidateWriteJson($manifestPath, $manifest);
+    $receiptDigest = hash_file('sha256', $receipt);
+    if (!is_string($receiptDigest)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_RECEIPT_INVALID');
+    }
+    return [
+        'protocol' => 'peanut.internal-core-scaffold-projection.v1',
+        'scope' => 'internal-upgrade-target-not-formal-release',
+        'source' => ['commit' => $commit, 'tree' => $tree],
+        'core_inputs_sha256' => $receiptDigest,
+        'build_tools_sha256' => [
+            'build_scaffold_release' => hash_file('sha256', __DIR__ . '/build-scaffold-release'),
+            'build_internal_edition_candidate' => hash_file('sha256', __FILE__),
+        ],
+        'core' => ['package' => 'peanut-admin/core', 'resolved_version' => $coreIdentity['resolved_version'],
+            'source_reference' => $coreIdentity['source_reference'], 'archive_path' => $corePath,
+            'archive_sha256' => $core['archive_sha256'], 'archive_sha1' => $core['archive_sha1']],
+        'release_versions' => ['before' => $originalPhp, 'after' => $versions['core_php']],
+        'managed_tree_sha256' => ['source' => $originalDigest, 'projected' => $manifest['digests']['managed_tree_sha256']],
+        'changes' => $changes,
+        'addition' => ['path' => $corePath, 'sha256' => $core['archive_sha256']],
+    ];
+}
+
+function internalCandidateMain(array $argv): void
+{
+    $root = dirname(__DIR__);
+    require_once $root . '/server/vendor/autoload.php';
+
+    $options = [];
+    foreach (array_slice($argv, 1) as $argument) {
+        if (preg_match('/^--(source-commit|edition|core-inputs|output)=(.+)$/D', $argument, $matches) !== 1
+            || isset($options[$matches[1]])) {
+            internalCandidateUsage();
+        }
+        $options[$matches[1]] = $matches[2];
+    }
+    foreach (['source-commit', 'edition', 'core-inputs', 'output'] as $required) {
+        if (!isset($options[$required])) {
+            internalCandidateUsage();
+        }
+    }
+    if (preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
+        || !in_array($options['edition'], ['standalone', 'multi-tenant'], true)
+        || !str_starts_with($options['core-inputs'], '/')
+        || !str_starts_with($options['output'], '/')
+        || file_exists($options['output'])
+        || is_link($options['output'])) {
+        internalCandidateUsage();
+    }
+
+    internalCandidatePath($options['core-inputs'], false, true);
+    internalCandidatePath($options['output'], true);
+    internalCandidatePath(sys_get_temp_dir());
+
+    $commit = trim(internalCandidateRun(['git', '-C', $root, 'rev-parse', $options['source-commit'] . '^{commit}']));
+    if (!hash_equals($options['source-commit'], $commit)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SOURCE_NOT_COMMIT');
+    }
+    $tree = trim(internalCandidateRun(['git', '-C', $root, 'rev-parse', $commit . '^{tree}']));
+    $temporaryRoot = realpath(sys_get_temp_dir());
+    if (!is_string($temporaryRoot) || is_link($temporaryRoot)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_TEMP_ROOT_INVALID');
+    }
+    $temporary = $temporaryRoot . '/peanut-internal-candidate-' . bin2hex(random_bytes(8));
+    if (!mkdir($temporary, 0700, true)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_TEMP_FAILED');
+    }
+
+    try {
+        $sourceArchive = $temporary . '/source.tar';
+        $source = $temporary . '/source';
+        mkdir($source, 0700);
+        internalCandidateRun(['git', '-C', $root, 'archive', '--format=tar', '--output=' . $sourceArchive, $commit]);
+        (new PharData($sourceArchive))->extractTo($source);
+
+        require $source . '/server/app/common/value/scaffold/VersionContract.php';
+        require $source . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
+        require $source . '/server/app/common/value/scaffold/ScaffoldManifest.php';
+        require $source . '/server/app/common/value/scaffold/EditionProfile.php';
+        require $source . '/server/app/common/infrastructure/scaffold/EditionProjector.php';
+        require $source . '/server/app/platform/exception/plugin/PluginArtifactToolException.php';
+        require $source . '/server/app/platform/value/plugin/ModuleFrontendLayout.php';
+        require $source . '/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
+        require $source . '/server/app/platform/exception/plugin/PluginLifecycleException.php';
+        require $source . '/server/app/platform/value/plugin/PluginDescriptor.php';
+        require $source . '/server/app/platform/infrastructure/plugin/PluginLockResolver.php';
+        require $source . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php';
+        require $source . '/server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php';
+
+        $versions = VersionContract::load($source . '/release-versions.json');
+        if (!$versions->isV3()) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_VERSION_CONTRACT_INVALID');
+        }
+        $core = internalCandidateCoreInputs($options['core-inputs']);
+        $application = $temporary . '/application';
+        $manifest = (new ApplicationCreator(
+            $source,
+            $source . '/scaffold/application-template-inventory.json',
+            ['commit' => $commit, 'tree' => $tree],
+        ))->create(
+            'Peanut Admin',
+            'peanut-admin',
+            'peanut-admin/application-internal-candidate',
+            $application,
+            $options['edition'],
+            $versions->sourceProductVersion(),
+            'full',
+        );
+        // Preserve the original generated source and baseline, including empty-storage placeholders.
+        $contractTool = $root . '/scripts/internal_candidate_contract.py';
+        $captured = $temporary . '/original-tree.json';
+        internalCandidateRun(['python3', $contractTool, 'capture', $application, $captured]);
+        $lockAfter = internalCandidateProjectCore($application, $core, $temporary);
+        $coreDescriptor = [
+            'package' => $core['inputs']['core_php']['package'],
+            'constraint' => $core['inputs']['core_php']['resolved_version'],
+            'resolved_version' => $core['inputs']['core_php']['resolved_version'],
+            'source_reference' => $core['inputs']['core_php']['source_reference'],
+            'path_in_archive' => $core['archive_relative'],
+            'sha256' => $core['archive_sha256'],
+            'sha1' => $core['archive_sha1'],
+        ];
+        $coreDescriptorPath = $temporary . '/core-descriptor.json';
+        internalCandidateWriteJson($coreDescriptorPath, $coreDescriptor);
+        $sealed = json_decode(internalCandidateRun([
+            'python3', $contractTool, 'seal', $application, $captured, $coreDescriptorPath,
+        ]), true, 512, JSON_THROW_ON_ERROR);
+
+
+        $archiveRoot = 'peanut-admin-internal-' . $versions->sourceProductVersion() . '-' . $options['edition'];
+        $archiveName = $archiveRoot . '.tar.gz';
+        $archive = $temporary . '/' . $archiveName;
+        (new DeterministicEditionArchive())->write($application, $archiveRoot, $archive);
+        $candidateManifest = [
+            'schema_version' => 1,
+            'protocol' => 'peanut.internal-edition-candidate.v1',
+            'scope' => 'internal-candidate',
+            'status' => 'internal-build-input-not-formal-release',
+            'qualification_scope' => 'backend-native-dependencies-only',
+            'frontend' => ['state' => 'original-declared-inputs-preserved-not-installed-or-rebuilt'],
+            'product' => ['name' => 'Peanut Admin', 'version' => $versions->sourceProductVersion()],
+            'edition' => $manifest['edition'],
+            'source' => [
+                'repository' => 'peanut-business/peanut-admin-code',
+                'commit' => $commit,
+                'tree' => $tree,
+                'inventory_sha256' => hash_file('sha256', $source . '/scaffold/application-template-inventory.json'),
+            ],
+            'core_php_archive' => $coreDescriptor,
+            'candidate_marker' => $sealed['candidate_marker'],
+            'projection' => $sealed['projection'],
+            'build_tool_inputs' => [
+                'builder_sha256' => hash_file('sha256', __FILE__),
+                'contract_sha256' => hash_file('sha256', $contractTool),
+                'core_receipt_sha256' => hash_file('sha256', $options['core-inputs']),
+            ],
+            'dependency_locks' => [
+                'server/composer.lock' => hash_file('sha256', $application . '/server/composer.lock'),
+                'web/pnpm-lock.yaml' => hash_file('sha256', $application . '/web/pnpm-lock.yaml'),
+                'platform/package-lock.json' => hash_file('sha256', $application . '/platform/package-lock.json'),
+                'pc/package-lock.json' => hash_file('sha256', $application . '/pc/package-lock.json'),
+                'uniapp/package-lock.json' => hash_file('sha256', $application . '/uniapp/package-lock.json'),
+                'third_party_composer_rows_sha256' => $lockAfter,
+            ],
+            'application' => [
+                'digest_scope' => 'original-generated-baseline-preserved-projection-recorded-separately',
+                'manifest_sha256' => hash_file('sha256', $application . '/.peanut/application-manifest.json'),
+                'managed_tree_sha256' => $manifest['digests']['managed_tree_sha256'],
+                'app_owned_tree_sha256' => $manifest['digests']['app_owned_tree_sha256'],
+                'file_count' => count($manifest['files']),
+            ],
+            'archive' => [
+                'filename' => $archiveName,
+                'root' => $archiveRoot,
+                'format' => 'tar.gz',
+                'sha256' => hash_file('sha256', $archive),
+                'bytes' => filesize($archive),
+            ],
+            'formal_release' => [
+                'eligible' => false,
+                'reason' => 'internal candidate uses carried Core ZIP and is not a public edition installer',
+            ],
+        ];
+        if (!mkdir($options['output'], 0775, true)) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_OUTPUT_CREATE_FAILED');
+        }
+        internalCandidateCopyFile($archive, rtrim($options['output'], '/') . '/' . $archiveName);
+        internalCandidateWriteJson(rtrim($options['output'], '/') . '/' . $archiveName . '.manifest.json', $candidateManifest);
+        internalCandidateWriteJson(rtrim($options['output'], '/') . '/receipt.json', [
+            'schema_version' => 1,
+            'status' => 'built',
+            'protocol' => 'peanut.internal-edition-candidate.v1',
+            'source_commit' => $commit,
+            'source_tree' => $tree,
+            'edition' => $options['edition'],
+            'archive' => $candidateManifest['archive'],
+            'manifest_sha256' => hash_file('sha256', rtrim($options['output'], '/') . '/' . $archiveName . '.manifest.json'),
+        ]);
+        echo json_encode([
+            'status' => 'built',
+            'protocol' => 'peanut.internal-edition-candidate.v1',
+            'output' => $options['output'],
+            'archive' => $candidateManifest['archive'],
+            'manifest_sha256' => hash_file('sha256', rtrim($options['output'], '/') . '/' . $archiveName . '.manifest.json'),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    } finally {
+        internalCandidateDelete($temporary);
+    }
+}
+
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+    internalCandidateMain($argv);
+}

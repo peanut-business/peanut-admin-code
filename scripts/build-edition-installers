@@ -1,9 +1,11 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ApplicationCreator;
 use app\common\infrastructure\scaffold\DeterministicEditionArchive;
+use app\common\value\scaffold\VersionContract;
 
 function editionInstallerUsage(): never
 {
@@ -15,16 +17,14 @@ function editionInstallerUsage(): never
 function editionInstallerRun(array $command, ?string $cwd = null): string
 {
     $pipes = [];
-    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $cwd);
+    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes, $cwd);
     if (!is_resource($process)) {
         throw new RuntimeException('EDITION_BUILD_PROCESS_FAILED');
     }
     $stdout = stream_get_contents($pipes[1]);
-    $stderr = stream_get_contents($pipes[2]);
     fclose($pipes[1]);
-    fclose($pipes[2]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('EDITION_BUILD_COMMAND_FAILED: ' . trim((string)$stderr));
+        throw new RuntimeException('EDITION_BUILD_COMMAND_FAILED: ' . trim((string) $stdout));
     }
     return $stdout;
 }
@@ -72,7 +72,7 @@ foreach (['version', 'source-commit', 'output'] as $required) {
         editionInstallerUsage();
     }
 }
-if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $options['version']) !== 1
+if (preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $options['version']) !== 1
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
     || !str_starts_with($options['output'], '/')) {
     editionInstallerUsage();
@@ -99,17 +99,11 @@ try {
     editionInstallerRun(['git', '-C', $root, 'archive', '--format=tar', '--output=' . $sourceArchive, $commit]);
     (new PharData($sourceArchive))->extractTo($source);
 
-    $versions = json_decode((string)file_get_contents($source . '/release-versions.json'), true, 32, JSON_THROW_ON_ERROR);
-    if (($versions['schema_version'] ?? null) !== 2
-        || ($versions['protocol'] ?? null) !== 'peanut.release-versions.v2'
-        || ($versions['source_product_version'] ?? null) !== $options['version']
-        || !array_key_exists('instance_version', $versions)
-        || $versions['instance_version'] !== null
-        || ($versions['core_php'] ?? null) !== $options['version']
-        || ($versions['core_web'] ?? null) !== $options['version']
-        || ($versions['scaffold_template'] ?? null) !== $options['version']
-        || !is_string($versions['generated_instance_default'] ?? null)
-        || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $versions['generated_instance_default']) !== 1) {
+    require $source . '/server/app/common/value/scaffold/VersionContract.php';
+    $versions = VersionContract::load($source . '/release-versions.json');
+    if (!$versions->isV3()
+        || $versions->sourceProductVersion() !== $options['version']
+        || $versions->scaffoldTemplate() !== $options['version']) {
         throw new RuntimeException('EDITION_BUILD_VERSION_IDENTITY_MISMATCH');
     }
     require $source . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
@@ -124,7 +118,6 @@ try {
         'platform/package-lock.json',
         'pc/package-lock.json',
         'uniapp/package-lock.json',
-        'docs-site/pnpm-lock.yaml',
     ] as $lockPath) {
         $digest = hash_file('sha256', $source . '/' . $lockPath);
         if (!is_string($digest)) {
@@ -153,13 +146,49 @@ try {
             $options['version'],
             'full',
         );
+        // One native build yields the APP development source and server release.
+        // Both are Code-derived initial templates, not independent APP Git releases.
+        $assembled = $temporary . '/assembled-' . $edition;
+        $serverAssembled = $temporary . '/assembled-' . $edition . '-server';
+        editionInstallerRun([
+            'bash', $source . '/scripts/package-release.sh', $assembled,
+            '--application-root=' . $application, '--directory-only', '--generated-template',
+            '--server-output=' . $serverAssembled,
+        ], $source);
         $archiveRoot = 'peanut-admin-' . $options['version'] . '-' . $edition;
         $filename = $archiveRoot . '.tar.gz';
         $archive = $temporary . '/' . $filename;
-        (new DeterministicEditionArchive())->write($application, $archiveRoot, $archive);
-        $applicationManifestPath = $application . '/.peanut/application-manifest.json';
-        $pluginLockPath = $application . '/plugins.lock';
-        $pluginLock = json_decode((string)file_get_contents($pluginLockPath), true, 128, JSON_THROW_ON_ERROR);
+        (new DeterministicEditionArchive())->write($assembled, $archiveRoot, $archive);
+        $serverArchiveRoot = $archiveRoot . '-server';
+        $serverFilename = $serverArchiveRoot . '.tar.gz';
+        $serverArchive = $temporary . '/' . $serverFilename;
+        (new DeterministicEditionArchive())->write($serverAssembled, $serverArchiveRoot, $serverArchive);
+        $releaseIdentityPath = $serverAssembled . '/server/.peanut/release-identity.json';
+        $releaseIdentity = json_decode((string) file_get_contents($releaseIdentityPath), true, 512, JSON_THROW_ON_ERROR);
+        $applicationReleasePath = $assembled . '/.peanut/application-release.json';
+        $applicationRelease = json_decode((string) file_get_contents($applicationReleasePath), true, 512, JSON_THROW_ON_ERROR);
+        if (($releaseIdentity['application']['kind'] ?? null) !== 'generated-template'
+            || !array_key_exists('commit', $releaseIdentity['application'])
+            || $releaseIdentity['application']['commit'] !== null
+            || !array_key_exists('tree', $releaseIdentity['application'])
+            || $releaseIdentity['application']['tree'] !== null
+            || ($releaseIdentity['application']['manifest_sha256'] ?? null)
+                !== hash_file('sha256', $temporary . '/application-' . $edition . '/.peanut/application-manifest.json')
+            || ($releaseIdentity['upstream']['commit'] ?? null) !== $commit
+            || ($releaseIdentity['upstream']['tree'] ?? null) !== $tree
+            || ($applicationRelease['application']['kind'] ?? null) !== 'generated-template'
+            || !array_key_exists('commit', $applicationRelease['application'])
+            || $applicationRelease['application']['commit'] !== null
+            || !array_key_exists('tree', $applicationRelease['application'])
+            || $applicationRelease['application']['tree'] !== null
+            || ($applicationRelease['application']['manifest_sha256'] ?? null)
+                !== $releaseIdentity['application']['manifest_sha256']
+            || ($applicationRelease['files_sha256'] ?? null)
+                !== $releaseIdentity['application']['source_files_sha256']) {
+            throw new RuntimeException('EDITION_BUILD_SERVER_IDENTITY_MISMATCH');
+        }
+        $pluginLockPath = $temporary . '/application-' . $edition . '/plugins.lock';
+        $pluginLock = json_decode((string) file_get_contents($pluginLockPath), true, 128, JSON_THROW_ON_ERROR);
         $modules = [];
         foreach ($pluginLock['plugins'] ?? [] as $plugin) {
             if (!is_array($plugin) || !is_string($plugin['key'] ?? null) || !is_string($plugin['version'] ?? null)) {
@@ -187,17 +216,35 @@ try {
                 'modules' => $modules,
             ],
             'application' => [
-                'manifest_sha256' => hash_file('sha256', $applicationManifestPath),
+                'kind' => 'generated-template',
+                'manifest_sha256' => $releaseIdentity['application']['manifest_sha256'],
+                'release_identity_sha256' => hash_file('sha256', $applicationReleasePath),
+                'release_files_sha256' => $applicationRelease['files_sha256'],
+                'release_file_count' => count($applicationRelease['files']),
                 'managed_tree_sha256' => $manifest['digests']['managed_tree_sha256'],
                 'app_owned_tree_sha256' => $manifest['digests']['app_owned_tree_sha256'],
                 'file_count' => count($manifest['files']),
             ],
+            'server_release' => [
+                'identity_sha256' => hash_file('sha256', $releaseIdentityPath),
+                'files_sha256' => $releaseIdentity['files_sha256'],
+                'file_count' => count($releaseIdentity['files']),
+            ],
             'archive' => [
                 'filename' => $filename,
                 'root' => $archiveRoot,
+                'layout' => 'application-development-source',
                 'format' => 'tar.gz',
                 'sha256' => hash_file('sha256', $archive),
                 'bytes' => filesize($archive),
+            ],
+            'server_archive' => [
+                'filename' => $serverFilename,
+                'root' => $serverArchiveRoot,
+                'layout' => 'server-only',
+                'format' => 'tar.gz',
+                'sha256' => hash_file('sha256', $serverArchive),
+                'bytes' => filesize($serverArchive),
             ],
         ];
         $manifestJson = json_encode(
@@ -209,22 +256,24 @@ try {
         $artifacts[] = [
             'edition' => $edition,
             'archive' => $filename,
+            'server_archive' => $serverFilename,
             'manifest' => $manifestFilename,
             'sha256' => $artifact['archive']['sha256'],
+            'server_sha256' => $artifact['server_archive']['sha256'],
         ];
     }
-    $checksums = implode('', array_map(
-        static fn(array $artifact): string => $artifact['sha256'] . '  ' . $artifact['archive'] . "\n",
-        $artifacts,
-    ));
+    $checksums = implode('', array_map(static fn(array $artifact): string =>
+        $artifact['sha256'] . '  ' . $artifact['archive'] . "\n"
+        . $artifact['server_sha256'] . '  ' . $artifact['server_archive'] . "\n", $artifacts));
     editionInstallerWrite($temporary . '/SHA256SUMS', $checksums);
 
-    foreach ([...array_column($artifacts, 'archive'), ...array_column($artifacts, 'manifest'), 'SHA256SUMS'] as $filename) {
+    foreach ([...array_column($artifacts, 'archive'), ...array_column($artifacts, 'server_archive'),
+                 ...array_column($artifacts, 'manifest'), 'SHA256SUMS'] as $filename) {
         $built = $temporary . '/' . $filename;
         $destination = rtrim($options['output'], '/') . '/' . $filename;
         if ($check) {
             if (!is_file($destination)
-                || !hash_equals((string)hash_file('sha256', $built), (string)hash_file('sha256', $destination))) {
+                || !hash_equals((string) hash_file('sha256', $built), (string) hash_file('sha256', $destination))) {
                 throw new RuntimeException('EDITION_BUILD_ARTIFACT_STALE: ' . $filename);
             }
         } else {

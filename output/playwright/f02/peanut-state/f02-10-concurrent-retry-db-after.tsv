@@ -1,9 +1,0 @@
-section	id	status	amount/detail	result
-order	7	refund_status=1	70.70	unchanged
-member	23	-	user_money=129.30;balance=129.30;total_recharge_amount=129.30	unchanged from post-first-refund
-record	4	refund_status=2	order_id=7;refund_amount=70.70	still one record
-log	4	refund_status=2	record_id=4	first refund attempt
-log	7	refund_status=2	record_id=4	concurrent retry A created a log
-log	8	refund_status=2	record_id=4	concurrent retry B also created a log (unexpected)
-balance_log	11	change_type=101;action=2	change_amount=70.70;left_amount=129.30;source_sn=F0226080101O07	still exactly one
-conclusion	-	-	-	FAILED: two concurrent retries both reached gateway and created two retry logs; expected at most one effective attempt

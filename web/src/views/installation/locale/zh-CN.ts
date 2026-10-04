@@ -30,6 +30,8 @@ export default {
   'installation.modules.title': '官方模块',
   'installation.modules.description': '选择首次安装时启用的官方模块。',
   'installation.modules.empty': '未选择官方模块（可在安装后按需启用）。',
+  'installation.modules.catalogMissing':
+    '安装服务未返回模块能力目录，已阻止使用本地硬编码清单继续安装。',
   'installation.submit': '开始安装',
   'installation.submitting': '安装中…',
   'installation.validation.required': '此项不能为空',

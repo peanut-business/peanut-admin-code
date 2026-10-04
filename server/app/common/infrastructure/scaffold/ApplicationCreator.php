@@ -1,27 +1,33 @@
 <?php
+
 declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
 
 use app\common\value\scaffold\EditionProfile;
+use app\common\value\scaffold\ScaffoldManifest;
 use app\common\value\scaffold\VersionContract;
+use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use RuntimeException;
 
-require_once __DIR__ . '/VersionContract.php';
-require_once __DIR__ . '/EditionProfile.php';
+require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
+require_once dirname(__DIR__, 2) . '/value/scaffold/EditionProfile.php';
+require_once dirname(__DIR__, 2) . '/value/scaffold/ScaffoldManifest.php';
+require_once dirname(__DIR__, 2) . '/validation/scaffold/ScaffoldPathGuard.php';
 require_once __DIR__ . '/EditionProjector.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginArtifactToolException.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginArtifactWriter.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginLifecycleException.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginDescriptor.php';
-require_once dirname(__DIR__, 3) . '/platform/service/plugin/PluginLockResolver.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginArtifactToolException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/plugin/ModuleFrontendLayout.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginArtifactWriter.php';
+require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginLifecycleException.php';
+require_once dirname(__DIR__, 3) . '/platform/value/plugin/PluginDescriptor.php';
+require_once dirname(__DIR__, 3) . '/platform/infrastructure/plugin/PluginLockResolver.php';
 
 final class ApplicationCreator
 {
     private const CLASSIFICATIONS = ['managed', 'generated-managed', 'app-owned', 'excluded'];
-    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'ci', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'plugins-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
+    private const TRANSFORMS = ['copy', 'text', 'brand', 'brand-asset', 'changelog', 'docs-page', 'environment-guard', 'release-metadata', 'resources', 'readme', 'license', 'modules-config', 'package', 'plugins-lock', 'sbom', 'third-party-notices', 'version-contract', 'composer-lock'];
     private const VARIABLES = ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'];
     private const PROFILES = ['minimal', 'standard', 'full'];
     private const WRITABLE_DIRECTORIES = [
@@ -37,8 +43,7 @@ final class ApplicationCreator
         private readonly ?array $sourceIdentity = null,
         private readonly ?string $adoptionManifestPath = null,
         private readonly bool $projectEdition = true,
-    ) {
-    }
+    ) {}
 
     /** @return array<string,mixed> */
     public function create(
@@ -48,9 +53,8 @@ final class ApplicationCreator
         string $target,
         string $edition,
         ?string $applicationVersion = null,
-        string $profile = 'standard'
-    ): array
-    {
+        string $profile = 'standard',
+    ): array {
         $journal = $this->sourceRoot . '/.local/module-source-adoption/journal.json';
         if (file_exists($journal) || is_link($journal)) {
             throw new RuntimeException('MODULE_PACKAGE_RECOVERY_REQUIRED');
@@ -67,7 +71,7 @@ final class ApplicationCreator
             $productName,
             $slug,
             $packageIdentity,
-            $applicationVersion ?? (string)$inventory['application']['version']
+            $applicationVersion ?? (string) $inventory['application']['version'],
         );
         $generationIdentity = $this->validateSourceIdentity($this->sourceIdentity ?? $this->gitIdentity());
         $inventoryDigest = hash_file('sha256', $this->inventoryPath);
@@ -75,6 +79,10 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_INVENTORY_DIGEST_INVALID');
         }
         $adoption = $this->loadAdoptionManifest($inventory);
+        $adoptsEdition = $adoption !== null && array_key_exists('edition', $adoption->data);
+        if ($adoptsEdition && (!$this->projectEdition || $adoption->data['edition'] !== $editionProfile->identity())) {
+            throw new RuntimeException('CREATE_APP_ADOPTION_EDITION_MISMATCH');
+        }
         $target = $this->validateTarget($target);
         $parent = dirname($target);
         $stage = $parent . DIRECTORY_SEPARATOR . '.' . basename($target) . '.create-' . bin2hex(random_bytes(6));
@@ -88,9 +96,9 @@ final class ApplicationCreator
                 if ($entry['classification'] === 'excluded' || !in_array($profile, $entry['profiles'], true)) {
                     continue;
                 }
-                $source = $this->sourcePath((string)$entry['path']);
-                $actualSourceDigest = self::sourceDigest($source, (string)$entry['path'], (string)$entry['transform']);
-                if (!is_string($actualSourceDigest) || !hash_equals((string)$entry['source_sha256'], $actualSourceDigest)) {
+                $source = $this->sourcePath((string) $entry['path']);
+                $actualSourceDigest = self::sourceDigest($source, (string) $entry['path'], (string) $entry['transform']);
+                if (!is_string($actualSourceDigest) || !hash_equals((string) $entry['source_sha256'], $actualSourceDigest)) {
                     throw new RuntimeException('CREATE_APP_SOURCE_DIGEST_MISMATCH: ' . $entry['path']);
                 }
                 $content = file_get_contents($source);
@@ -98,8 +106,8 @@ final class ApplicationCreator
                     throw new RuntimeException('CREATE_APP_SOURCE_READ_FAILED: ' . $entry['path']);
                 }
                 $content = $this->transform($content, $entry, $parameters, $stage);
-                $destination = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$entry['target']);
-                $this->writeFile($destination, $content, (int)$entry['mode']);
+                $destination = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $entry['target']);
+                $this->writeFile($destination, $content, (int) $entry['mode']);
                 $files[] = [
                     'path' => $entry['target'],
                     'sha256' => hash('sha256', $content),
@@ -110,14 +118,21 @@ final class ApplicationCreator
                 ];
             }
             $this->prepareWritableDirectories($stage);
-            usort($files, static fn(array $a, array $b): int => strcmp((string)$a['path'], (string)$b['path']));
+            usort($files, static fn(array $a, array $b): int => strcmp((string) $a['path'], (string) $b['path']));
             $this->assertNoUnresolvedVariables($stage);
-            if ($adoption !== null) {
+            // 中性模板在投影前核验；明确 Edition 的发布包必须与投影后的实际文件核验。
+            if ($adoption !== null && !$adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
-            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
+            // Edition projection can rewrite Module/frontend bytes. Build the Plugin
+            // manifests and canonical lock only after those final release bytes exist,
+            // otherwise the generated lock is stale immediately after projection.
             if ($this->projectEdition) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
+            }
+            $files = $this->rebuildBundledPluginArtifacts($stage, $files);
+            if ($adoptsEdition) {
+                $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
             $templateIdentity = $adoption === null
                 ? [
@@ -170,12 +185,12 @@ final class ApplicationCreator
         $entries = [];
         foreach ($inventory['files'] as $entry) {
             if (is_array($entry) && isset($entry['target'])) {
-                $entries[(string)$entry['target']] = $entry;
+                $entries[(string) $entry['target']] = $entry;
             }
         }
         $fileIndexes = [];
         foreach ($files as $index => $file) {
-            $fileIndexes[(string)$file['path']] = $index;
+            $fileIndexes[(string) $file['path']] = $index;
         }
 
         $projector = new EditionProjector();
@@ -195,7 +210,7 @@ final class ApplicationCreator
                 $profile,
             );
         }
-        usort($files, static fn(array $a, array $b): int => strcmp((string)$a['path'], (string)$b['path']));
+        usort($files, static fn(array $a, array $b): int => strcmp((string) $a['path'], (string) $b['path']));
         return $files;
     }
 
@@ -203,8 +218,8 @@ final class ApplicationCreator
     private function validateSourceIdentity(array $identity): array
     {
         if (array_keys($identity) !== ['commit', 'tree']
-            || preg_match('/^[a-f0-9]{40}$/D', (string)$identity['commit']) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string)$identity['tree']) !== 1) {
+            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['commit']) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['tree']) !== 1) {
             throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
         }
         return $identity;
@@ -240,7 +255,7 @@ final class ApplicationCreator
         string $stage,
         ScaffoldManifest $adoption,
         array $parameters,
-        array $files
+        array $files,
     ): void {
         $release = $adoption->release();
         $tokens = $release['tokens'] ?? null;
@@ -270,7 +285,7 @@ final class ApplicationCreator
         $current = [];
         foreach ($files as $file) {
             if (in_array($file['classification'], ['managed', 'generated-managed'], true)) {
-                $current[(string)$file['path']] = $file;
+                $current[(string) $file['path']] = $file;
             }
         }
         ksort($current, SORT_STRING);
@@ -291,12 +306,12 @@ final class ApplicationCreator
             $generatedPath = ScaffoldPathGuard::existingFileWithin(
                 $stage,
                 $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path),
-                'CREATE_APP_ADOPTION_GENERATED_PATH_INVALID'
+                'CREATE_APP_ADOPTION_GENERATED_PATH_INVALID',
             );
             $generatedContent = file_get_contents($generatedPath);
             $generatedDigest = is_string($generatedContent) ? hash('sha256', $generatedContent) : null;
             if (!is_string($generatedContent) || !is_string($generatedDigest)
-                || !hash_equals((string)$generated['sha256'], $generatedDigest)
+                || !hash_equals((string) $generated['sha256'], $generatedDigest)
                 || ((fileperms($generatedPath) & 0777) !== $generated['mode'])) {
                 throw new RuntimeException('CREATE_APP_ADOPTION_GENERATED_FILE_MISMATCH: ' . $path);
             }
@@ -307,7 +322,7 @@ final class ApplicationCreator
             }
             $artifactContent = file_get_contents($artifactPath);
             if (!is_string($artifactContent)
-                || !hash_equals((string)$artifact['template_sha256'], hash('sha256', $artifactContent))) {
+                || !hash_equals((string) $artifact['template_sha256'], hash('sha256', $artifactContent))) {
                 throw new RuntimeException('CREATE_APP_ADOPTION_ARTIFACT_DIGEST_MISMATCH: ' . $path);
             }
             $rendered = $this->renderAdoptionArtifact($adoption, $artifact, $tokens, $renderParameters);
@@ -331,7 +346,7 @@ final class ApplicationCreator
     private function isDerivedPluginArtifact(string $path): bool
     {
         return $path === 'plugins.lock'
-            || preg_match('#^plugins/official\.[a-z0-9.-]+/plugin\.json$#D', $path) === 1;
+            || preg_match('#^plugins/[a-z][a-z0-9.-]*/plugin\.json$#D', $path) === 1;
     }
 
     /** @param array<string,string> $tokens @param array<string,string> $values */
@@ -360,7 +375,7 @@ final class ApplicationCreator
         }
         $composerContent = file_get_contents($adoption->artifactPath($composer));
         if (!is_string($composerContent)
-            || !hash_equals((string)($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
+            || !hash_equals((string) ($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
             throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_INVALID');
         }
         return ScaffoldManifest::renderComposerLock(
@@ -374,9 +389,8 @@ final class ApplicationCreator
         string $productName,
         string $slug,
         string $packageIdentity,
-        string $applicationVersion
-    ): array
-    {
+        string $applicationVersion,
+    ): array {
         $productName = trim($productName);
         if ($productName === '' || strlen($productName) > 80 || preg_match('/[\x00-\x1F\x7F{}]/', $productName) === 1) {
             throw new RuntimeException('CREATE_APP_PRODUCT_NAME_INVALID');
@@ -416,8 +430,8 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_INVENTORY_SCHEMA_INVALID');
         }
         $versions = $this->versionContract();
-        $versions->assertSame((string)$inventory['template_version'], $versions->scaffoldTemplate(), 'CREATE_APP_INVENTORY_TEMPLATE_VERSION_MISMATCH');
-        $versions->assertSame((string)$inventory['application']['version'], $versions->generatedInstanceDefault(), 'CREATE_APP_INVENTORY_APPLICATION_VERSION_MISMATCH');
+        $versions->assertSame((string) $inventory['template_version'], $versions->scaffoldTemplate(), 'CREATE_APP_INVENTORY_TEMPLATE_VERSION_MISMATCH');
+        $versions->assertSame((string) $inventory['application']['version'], $versions->generatedInstanceDefault(), 'CREATE_APP_INVENTORY_APPLICATION_VERSION_MISMATCH');
         $variables = $inventory['variables'];
         sort($variables, SORT_STRING);
         if ($variables !== self::VARIABLES) {
@@ -429,10 +443,20 @@ final class ApplicationCreator
             if (!is_array($entry)) {
                 throw new RuntimeException('CREATE_APP_INVENTORY_ENTRY_INVALID: ' . $index);
             }
-            $path = ScaffoldManifest::path((string)($entry['path'] ?? ''));
-            $target = ScaffoldManifest::path((string)($entry['target'] ?? $path));
-            $classification = (string)($entry['classification'] ?? '');
-            $transform = (string)($entry['transform'] ?? 'copy');
+            $path = ScaffoldManifest::path((string) ($entry['path'] ?? ''));
+            $target = ScaffoldManifest::path((string) ($entry['target'] ?? $path));
+            $classification = (string) ($entry['classification'] ?? '');
+            $transform = (string) ($entry['transform'] ?? 'copy');
+            if (str_starts_with($path, 'server/resources/scaffold-application/')) {
+                $expectedTarget = substr($path, strlen('server/resources/scaffold-application/'), -5);
+                $expectedClassification = $target === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
+                if (!str_ends_with($path, '.stub') || $target !== $expectedTarget
+                    || (!str_starts_with($target, 'docs-site/') && !in_array($target, ['SECURITY.md', 'AGENTS.md'], true))
+                    || $classification !== $expectedClassification || $transform !== 'docs-page'
+                    || ($entry['mode'] ?? null) !== 0644) {
+                    throw new RuntimeException('CREATE_APP_DOCUMENT_TEMPLATE_INVALID: ' . $path);
+                }
+            }
             if (isset($seenSource[$path]) || isset($seenTarget[$target])) {
                 throw new RuntimeException('CREATE_APP_INVENTORY_DUPLICATE_PATH: ' . $path);
             }
@@ -490,7 +514,7 @@ final class ApplicationCreator
         fclose($pipes[1]);
         fclose($pipes[2]);
         if (proc_close($process) !== 0 || !is_string($stdout)) {
-            throw new RuntimeException('CREATE_APP_GIT_FAILED: ' . trim((string)$stderr));
+            throw new RuntimeException('CREATE_APP_GIT_FAILED: ' . trim((string) $stderr));
         }
         return trim($stdout);
     }
@@ -533,7 +557,8 @@ final class ApplicationCreator
     {
         // Generated metadata is rebuilt from parameters, so source prose changes
         // must not invalidate the immutable application template identity.
-        if (in_array($transform, ['changelog', 'release-metadata', 'resources', 'readme', 'docs-page', 'version-contract'], true)) {
+        if (!str_starts_with($path, 'server/resources/scaffold-application/')
+            && in_array($transform, ['changelog', 'release-metadata', 'resources', 'readme', 'docs-page', 'version-contract'], true)) {
             return hash('sha256', "peanut.create-app-semantic-source.v1\0{$path}\0{$transform}");
         }
         $digest = hash_file('sha256', $source);
@@ -548,19 +573,18 @@ final class ApplicationCreator
     {
         return match ($entry['transform']) {
             'copy' => $content,
-            'text' => $this->textTransform($content, $parameters, (string)$entry['path']),
+            'text' => $this->textTransform($content, $parameters, (string) $entry['path']),
             'brand' => $this->brandManifest($parameters),
-            'brand-asset' => $this->brandAsset((string)$entry['path'], $parameters),
+            'brand-asset' => $this->brandAsset((string) $entry['path'], $parameters),
             'changelog' => $this->render($this->changelog($parameters['APPLICATION_VERSION']), $parameters),
-            'ci' => $this->ciTransform($content),
-            'docs-page' => $this->render($this->docsPage((string)$entry['path']), $parameters),
-            'environment-guard' => $this->environmentGuard($content),
+            'docs-page' => $this->render($content, $parameters),
+            'environment-guard' => $content,
             'release-metadata' => $this->releaseMetadata($parameters),
             'resources' => $this->resourceRegistry($parameters),
             'readme' => $this->render($this->readme(), $parameters),
             'license' => $this->render($this->license(), $parameters),
             'modules-config' => $this->modulesConfig($content),
-            'package' => $this->packageTransform($content, $parameters, (string)$entry['path']),
+            'package' => $this->packageTransform($content, $parameters, (string) $entry['path']),
             'plugins-lock' => $this->pluginsLock($content),
             'sbom' => $this->sbom($content, $parameters),
             'third-party-notices' => $this->thirdPartyNotices($content, $parameters),
@@ -587,15 +611,15 @@ final class ApplicationCreator
     private function textTransform(string $content, array $parameters, string $path): string
     {
         $content = str_replace(
-            ['Peanut Admin', 'peanut-business/peanut-admin', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
+            ['Peanut Admin', 'peanut-business/peanut-admin-code', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
             [$parameters['PRODUCT_NAME'], $parameters['PACKAGE_IDENTITY'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
-            $content
+            $content,
         );
         if ($path === 'server/database/init.sql') {
             $content = str_replace(
                 ["-- 超级管理员（密码：admin123456）", "MD5(CONCAT(MD5('admin123456'),'abcd1234'))", '系统预置角色（仅菜单管理权限，演示用）'],
                 ['-- 超级管理员（密码必须由安装器注入）', "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))", '系统预置最小权限角色'],
-                $content
+                $content,
             );
         }
         if ($path === 'server/database/install.php') {
@@ -605,7 +629,7 @@ final class ApplicationCreator
             $content = str_replace(
                 ["MD5(CONCAT(MD5('admin123456')", '密码：admin123456', 'known password expression must not reach the database', 'installer must only replace the executable seed'],
                 ["MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__')", '密码必须由安装器注入', 'placeholder password expression must not reach the database', 'installer must preserve the neutral seed comment'],
-                $content
+                $content,
             );
         }
         if ($path === 'scripts/check-local-runtime-contract') {
@@ -631,7 +655,7 @@ final class ApplicationCreator
                     'DB_NAME=' . $contractIdentity,
                     'DB_USER=' . $contractIdentity,
                 ],
-                $content
+                $content,
             );
         }
         if ($path === 'server/app/adminapi/application/WorkbenchApplicationService.php') {
@@ -649,11 +673,8 @@ final class ApplicationCreator
     /** @param array<string,string> $parameters */
     private function packageTransform(string $content, array $parameters, string $path): string
     {
-        $content = str_replace(
-            ['peanut-business/peanut-admin', 'peanut-admin-web', 'peanut-admin-pc', 'peanut-admin-uniapp', 'peanut-admin-docs'],
-            [$parameters['PACKAGE_IDENTITY'], $parameters['SLUG'] . '-web', $parameters['SLUG'] . '-pc', $parameters['SLUG'] . '-uniapp', $parameters['SLUG'] . '-docs'],
-            $this->textTransform($content, $parameters, 'package')
-        );
+        // 只转换应用元数据；全局替换包名会破坏同名 Core 归档路径及依赖身份。
+        $content = $this->textTransform($content, $parameters, 'package');
         if (!str_ends_with($path, '.json')) {
             return $content;
         }
@@ -665,10 +686,32 @@ final class ApplicationCreator
         if (!is_array($document)) {
             throw new RuntimeException('CREATE_APP_PACKAGE_JSON_INVALID: ' . $path);
         }
+        if (preg_match('#^(web|platform|pc|uniapp|docs-site)/package(?:-lock)?\\.json$#D', $path, $clientMatch) === 1) {
+            $suffix = $clientMatch[1] === 'docs-site' ? 'docs' : $clientMatch[1];
+            $applicationName = $parameters['SLUG'] . '-' . $suffix;
+            if (array_key_exists('name', $document)) {
+                $document['name'] = $applicationName;
+            }
+            if (isset($document['packages']['']) && array_key_exists('name', $document['packages'][''])) {
+                $document['packages']['']['name'] = $applicationName;
+            }
+        }
         if (str_ends_with($path, '/package.json') && array_key_exists('version', $document)) {
             $document['version'] = $parameters['APPLICATION_VERSION'];
         }
-        if (in_array($path, ['pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
+        if ($path === 'server/composer.json' && is_array($document['autoload-dev']['classmap'] ?? null)) {
+            $document['autoload-dev']['classmap'] = array_values(array_filter(
+                $document['autoload-dev']['classmap'],
+                static fn(mixed $entry): bool => !in_array($entry, ['tests/CoreIntegration/', 'tests/Modules/'], true),
+            ));
+        }
+        if ($path === 'server/composer.json' && is_array($document['autoload-dev']['files'] ?? null)) {
+            $document['autoload-dev']['files'] = array_values(array_filter(
+                $document['autoload-dev']['files'],
+                static fn(mixed $entry): bool => $entry !== 'tests/Support/ThinkPhpTestConnection.php',
+            ));
+        }
+        if (in_array($path, ['platform/package-lock.json', 'pc/package-lock.json', 'uniapp/package-lock.json'], true)) {
             if (!array_key_exists('version', $document)
                 || !is_array($document['packages'][''] ?? null)
                 || !array_key_exists('version', $document['packages'][''])) {
@@ -679,7 +722,7 @@ final class ApplicationCreator
         }
         return json_encode(
             $document,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         ) . "\n";
     }
 
@@ -697,7 +740,7 @@ final class ApplicationCreator
                 $pattern,
                 static fn(array $matches): string => preg_replace("/'[^']+'(?=\))|'[^']+'$/", "'{$version}'", $matches[0], 1) ?? $matches[0],
                 $content,
-                1
+                1,
             ) ?? $content;
         }
         return $content;
@@ -734,113 +777,29 @@ final class ApplicationCreator
                 . '<path d="M16 32 32 16l16 16-16 16Z" fill="#fff"/>'
                 . '<circle cx="47.5" cy="47.5" r="5.5" fill="#34D399"/></svg>' . "\n";
         }
-        return $this->textTransform((string)file_get_contents($this->sourcePath($path)), $parameters, $path);
-    }
-
-    private function ciTransform(string $content): string
-    {
-        $content = preg_replace('/  stale-facts:\n.*?(?=  changes:\n)/s', '', $content) ?? $content;
-        $content = preg_replace('/^      create_app:.*\n/m', '', $content) ?? $content;
-        $content = preg_replace('/^      scaffold_upgrade:.*\n/m', '', $content) ?? $content;
-        $content = str_replace('server web pc uniapp docs_site create_app scaffold_upgrade', 'server web pc uniapp docs_site', $content);
-        $content = preg_replace('/^          matches .*create_app=true.*\n/m', '', $content) ?? $content;
-        $content = preg_replace('/\n  create-app:\n.*?(?=  php:\n)/s', "\n", $content) ?? $content;
-        $content = preg_replace('/\n  scaffold-upgrade:\n.*?(?=  php:\n)/s', "\n", $content) ?? $content;
-        return $content;
-    }
-
-    private function environmentGuard(string $content): string
-    {
-        $content = preg_replace('/const PEANUT_DATABASE_RESOURCES = \[.*?\n\];\n/s', '', $content, 1) ?? $content;
-        $replacement = <<<'PHP'
-function guardedDatabaseConfig(): array
-{
-    $environment = requiredEnvironment('APP_ENV');
-    $deploymentTarget = requiredEnvironment('PEANUT_DEPLOYMENT_TARGET');
-    $resourceId = requiredEnvironment('PEANUT_DATABASE_RESOURCE_ID');
-    $endpointId = requiredEnvironment('PEANUT_DATABASE_ENDPOINT_ID');
-    $consumer = requiredEnvironment('PEANUT_DATABASE_CONSUMER');
-    $registryPath = dirname(__DIR__, 2) . '/resources/project-resources.json';
-    $raw = file_get_contents($registryPath);
-    $registry = is_string($raw) ? json_decode($raw, true) : null;
-    $databases = is_array($registry) ? ($registry['resources']['databases'] ?? null) : null;
-    if (!is_array($databases)) {
-        throw new RuntimeException('项目数据库资源登记无效');
-    }
-    $registered = null;
-    foreach ($databases as $database) {
-        if (is_array($database) && ($database['stable_resource_id'] ?? null) === $resourceId) {
-            $registered = $database;
-            break;
-        }
-    }
-    if (!is_array($registered)) {
-        throw new RuntimeException("数据库资源 {$resourceId} 未登记");
-    }
-    $environments = $registered['environments'] ?? [$registered['environment'] ?? null];
-    if (!is_array($environments) || (!in_array($environment, $environments, true) && !in_array($deploymentTarget, $environments, true))) {
-        throw new RuntimeException("数据库资源 {$resourceId} 未登记为 {$environment}/{$deploymentTarget}");
-    }
-    $actual = [
-        'host' => requiredEnvironment('DB_HOST'),
-        'port' => requiredEnvironment('DB_PORT'),
-        'database' => requiredEnvironment('DB_NAME'),
-    ];
-    $endpoint = registeredDatabaseEndpoint($registered, $consumer);
-    if (!hash_equals((string)$endpoint['endpoint_id'], $endpointId)
-        || !hash_equals((string)$endpoint['host'], $actual['host'])
-        || !hash_equals((string)$endpoint['port'], $actual['port'])
-        || !hash_equals((string)($registered['database'] ?? ''), $actual['database'])) {
-        throw new RuntimeException("数据库资源 {$resourceId} 的地址或 database 不匹配登记值");
-    }
-    if (!in_array(requiredEnvironment('DEPLOYMENT_MODE'), ['standalone', 'multi-tenant'], true)) {
-        throw new RuntimeException('DEPLOYMENT_MODE 只允许 standalone 或 multi-tenant');
-    }
-    return [
-        'environment' => $environment,
-        'deployment_target' => $deploymentTarget,
-        'resource_id' => $resourceId,
-        'endpoint_id' => $endpointId,
-        'consumer' => $consumer,
-        ...$actual,
-        'user' => requiredEnvironment('DB_USER'),
-        'password' => requiredEnvironment('DB_PASS'),
-    ];
-}
-PHP;
-        $content = preg_replace('/function guardedDatabaseConfig\([^)]*\): array\s*\{.*?\n\}\n\nfunction guardedConnection/s', $replacement . "\n\nfunction guardedConnection", $content, 1) ?? $content;
-        return $content;
-    }
-
-    /** Render the bounded application-owned documentation pages selected by the scaffold inventory. */
-    private function docsPage(string $path): string
-    {
-        return match ($path) {
-            'docs-site/index.md' => "---\nlayout: home\nhero:\n  name: \"{{PRODUCT_NAME}}\"\n  text: \"Application documentation\"\n---\n\nThis site belongs to the generated application.\n",
-            'docs-site/getting-started.md' => "# Getting started\n\nCopy root `.env.example` to `.env` for Docker ports, images and build proxies only. Copy `server/.env.example` to permission-0600 `server/.env`; it is the single source for PHP, database, identity and Tenant/Platform settings. `PHP_*` backend aliases are forbidden. Register this application's own database, ports, domains and external services in `resources/project-resources.json` before connecting anything.\n\nInstall the adopted scaffold major only into a confirmed empty database. Set `ADMIN_INITIAL_EMAIL` and a strong `ADMIN_INITIAL_PASSWORD` in `server/.env`, then run `php server/database/install.php` followed by `php server/database/environment-guard.php --current`. Later scaffold patch/minor releases use the standard update path and apply append-only files in `server/database/migrations/`; a different scaffold major requires a fresh rebuild. The application's own product version is independent and does not trigger this scaffold-major rule.\n",
-            'docs/peanut-admin-release-deployment.md' => "# Deployment\n\nOne deployment is one application instance with its own database, secrets, file storage and lifecycle. Root `.env` is Docker orchestration only; `server/.env` is the only backend configuration source. Invoke Compose with `--env-file .env --env-file server/.env` after registering this application's resources; never inherit the scaffold source environment.\n\nA fresh install creates the Core/Application baseline and then applies the current scaffold's append-only Peanut migrations plus unmarked application-owned migrations before reporting success. Normal updates preserve data, install locked dependencies, and run `php server/database/install.php --migrate --target-version=<scaffold-template>`, where the target is the adopted `release-versions.json.scaffold_template`; the application's own release tag controls deployment order and does not filter Peanut SQL. A scaffold major change must use the explicit, backed-up `--fresh` path. Plugin Module migrations keep their independent lifecycle. Multi-tenant deployments require a separate PlatformOperator identity and the `/platform/` bundle.\n",
-            'docs-site/api.md' => "# API and extensions\n\nApplication HTTP adapters and product modules are app-owned. Use `server/config/peanut.php` and `web/src/peanut.overrides.ts` as the stable Core Host extension entries.\n",
-            'docs-site/guide/application-module-lifecycle.md' => "# Create an application and deliver a Module\n\nThis guide is for an application owner and Module author. Start from one immutable scaffold release, keep the generated application in its own repository, and use the [reference index](/reference) and [support guide](/support) when a command or failure needs clarification.\n\n## 1. Create an application\n\nRun `create-app` from the selected release and use a new absolute target path:\n\n~~~bash\nphp scripts/create-app --name=<name> --slug=<slug> --package=<vendor/name> --target=<absolute-path> --profile=standard\n~~~\n\nRecord the template version, application version, source commit/tree, and managed/app-owned summaries from the generated manifest. Register the new application's database, ports, domains, and external services separately; do not inherit the source repository environment.\n\n## 2. Create and check a Module\n\nIn the generated application's `server/` directory, run `module:create` and then the read-only `module:check`:\n\n~~~bash\nphp think module:create <module.key> --vendor=<Vendor>\nphp think module:check <module.key>\n~~~\n\nComplete the backend, frontend, manifest, permissions, menus, migrations, and Tenant isolation skeleton. Repeat `module:check` until `status=ready` and every check passes.\n\n## 3. Pack the Module\n\n~~~bash\nphp think module:pack <module.key> --output=<absolute-path>/<module>-<version>.tar --signing-key-id=<key-id> --signing-secret-key-file=<secure-file>\n~~~\n\nDistribute the archive SHA-256, signature key ID, and public-key configuration through a trusted channel. Never commit the signing secret.\n\n## 4. Install the Package\n\nDevelopment or debug Standalone tooling can validate and install a trusted archive:\n\n~~~bash\nphp think module:install-package <archive> --sha256=<64-hex> --signature-key-id=<key-id>\n~~~\n\nPackage installation changes Package and ModuleInstallation state only. It does not enable a TenantModule or grant Tenant/RBAC permissions. The production worker accepts only deployment-owned opaque tasks for `update`, `retire`, and `Purge`; it has no production entry for initial `install`, `disable`, or `reactivate`. Production HTTP must not receive an archive path, URL, command, credential, or arbitrary target.\n\n## 5. Enable the Tenant and grant RBAC\n\nA PlatformOperator explicitly enables the Module for the target Tenant. A Tenant administrator then grants the Module permission and data scope to the appropriate role and member through Tenant/RBAC governance. Verify at least one enabled and one denied Tenant, plus a member without permission. Package installation must never grant Tenant access automatically.\n\n## 6. Update the Package\n\nFix the new immutable archive identity first, then run a zero-write dry-run:\n\n~~~bash\nphp think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<key-id> --dry-run\nphp think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<key-id>\n~~~\n\nOnly a strictly higher version with the same Package key and member scope may proceed. The update must have a paired verified backup, and it must stop before destructive work for a checksum/signature mismatch, dependency conflict, unknown or irreversible migration, or downgrade.\n\n## 7. Disable, reactivate, retire, and Purge\n\nDisable TenantModules and dependants before disabling the Package:\n\n~~~bash\nphp think module:disable-package <module-or-package-key>\n~~~\n\nReactivate by installing the exact same immutable archive again in the authorized development or instance-tool boundary; do not create a second reactivation path. Retire first produces a preview. Execute it only with the unchanged full `confirm_plan` file and digest. Add `--purge` only when the paired backup and double confirmation authorize deletion of Module-owned tables, migration ledger, catalog, and explicit RBAC bindings. Active TenantModules, dependants, protected Modules, or an occupied lifecycle task must stop the plan.\n\n## 8. Upgrade the application scaffold\n\nUse the Release's `scripts/scaffold-upgrade` contract:\n\n~~~bash\nphp scripts/scaffold-upgrade preflight --project-root=<application> --from-manifest=<from> --to-manifest=<to>\nphp scripts/scaffold-upgrade apply --project-root=<application> --plan=<plan>\nphp scripts/scaffold-upgrade verify --project-root=<application> --plan=<plan>\nphp scripts/scaffold-upgrade recover --project-root=<application> --plan=<plan>\n~~~\n\nOnly manifest-declared `managed` and `generated-managed` files are replaced. Module and business `app-owned` files remain under their owners. `recover` uses the same plan after a failed apply; it does not replace database migrations, Package updates, or production authorization.\n\nFor stable error fields and recovery handling, use the [reference error index](/reference#errors-and-recovery). For a versioned, redacted report, use [support](/support).\n",
-            'docs-site/reference.md' => "# Reference\n\nThis is the generated application's command, version, configuration, and recovery index. Start with [Create an application and deliver a Module](/guide/application-module-lifecycle), then use [Support and issue reporting](/support) for a redacted diagnostic bundle or a problem report.\n\n## Where to look\n\n| Need | Start here |\n| --- | --- |\n| Application and Module commands | `scripts/`, `server/think`, and each Module's public contract |\n| Version identity | annotated tag or Release, application manifest, source commit/tree, and lock files |\n| HTTP and configuration | `server/route/`, controllers, `server/.env.example`, and the configuration loader |\n| Tenant and RBAC rules | trusted Tenant context, TenantModule governance, roles, permissions, and data scopes |\n| Scaffold upgrade | `scripts/scaffold-upgrade` and the source/target scaffold manifests |\n| Diagnostics and support | [support guide](/support) and the root `SECURITY.md` |\n\n## Command index\n\n| Command | Boundary |\n| --- | --- |\n| `php scripts/create-app --name=<name> --slug=<slug> --package=<vendor/name> --target=<absolute-path> [--application-version=<semver>] [--profile=minimal\|standard\|full]` | Create a fresh application from one immutable scaffold release. |\n| `php think module:create <module.key> [--vendor=<Vendor>]` | Generate a Module skeleton without overwriting an existing target. |\n| `php think module:check <module.key> [--kernel-version=<semver>] [--package=<tar>] [--sha256=<hash>]` | Run the eight read-only author checks; it does not connect to a database. |\n| `php think module:pack <module.key> [--output=<tar>] [--signing-key-id=<id> --signing-secret-key-file=<file>]` | Produce a deterministic archive and optional Ed25519 signature. |\n| `php think module:install-package <tar> [--sha256=<hash>] [--signature-key-id=<id>]` | Development/debug/Standalone install or same-archive reactivation; it does not enable a Tenant or grant RBAC. |\n| `php think module:update-package <tar> [--sha256=<hash>] [--signature-key-id=<id>] [--dry-run]` | Plan or apply a strictly higher immutable Package update. |\n| `php think module:disable-package <module-or-package-key>` | Disable a Package after its TenantModules and dependants are stopped. |\n| `php think module:uninstall-package MODULE_OR_PACKAGE_KEY [--purge] [--confirm-plan-file=PLAN_JSON --confirm-plan-digest=PLAN_SHA256]` | Preview or double-confirm retire/Purge; never edit the plan to bypass a stop. |\n| `php think ops-module:request preview\|prepare --operation=update\|retire\|purge ...` | Deployment owner queues only an opaque update, retire, or Purge task from registered targets. |\n| `scripts/ops-module-worker --once` | Production worker for update, retire, and Purge only; it has no initial install, disable, or reactivate entry. |\n| `php scripts/scaffold-upgrade preflight\|apply\|verify\|recover ...` | Apply or recover managed scaffold files without replacing app-owned Module or business code. |\n\nProduction HTTP cannot upload a Package, choose a local path or URL, issue a command, select a target, or supply credentials.\n\n## Errors and recovery\n\nCommands return structured output with a stable error code or JSON error. Preserve Package state, maintenance state, backup, and recovery pointer after a failure. Fix the indicated precondition, then repeat the corresponding check, dry-run, or preview. Never delete files, tables, locks, or migration ledgers as an ad hoc recovery.\n\n## Validation\n\nUse each command's `--help` where available, verify the exact version identity before an upgrade, and run the affected smoke checks after a successful operation.\n",
-            'docs-site/support.md' => "# Support and issue reporting\n\nUse this page to provide a reproducible, privacy-preserving report. The [reference index](/reference) defines command boundaries; the root `SECURITY.md` defines private security contact.\n\n## Choose the channel\n\n- An ordinary defect, documentation error, compatibility question, or feature request belongs in the project's public Issue tracker.\n- Unauthorized access, Tenant boundary bypass, identity or RBAC bypass, sensitive-data exposure, arbitrary file or command execution, and signature/checksum bypass are security issues. Do not publish their details.\n- Real provider credentials, messages, payments, OAuth, or storage operations remain the responsibility of the relevant provider owner; support cannot safely run them against your production account.\n\n## Include version and a minimum reproduction\n\nFor an ordinary issue, include the exact annotated tag or Release, application version, source commit/tree from `.peanut/application-manifest.json`, deployment mode, operating system, PHP/Node versions, affected client or Module key/version, shortest reproduction, expected and actual result, stable error code, and command exit code. State whether it reproduces in a fresh independent application; if not, describe only the minimum app-owned change.\n\nDo not upload a database dump, private source, credentials, Tenant records, cookies, tokens, raw request headers, or absolute paths. Remove them from terminal excerpts.\n\n## Redacted diagnostic bundle\n\nAn authorized operator may attach a bounded diagnostic bundle when the deployment provides that capability. Check its checksum and inspect it before sharing. It may contain version identity, deployment mode, debug state, runtime status, installed Module summary, bounded failed-task codes, and structured audit messages. It must exclude raw logs, secrets, tokens, cookies, absolute paths, personal information, Tenant business records, resource registries, deployment tasks, recovery pointers, database dumps, environment files, and signing keys.\n\n## Private security contact\n\nUse the repository's **Security → Report a vulnerability** private form when available. If it is unavailable, create a public issue titled `Security contact request` containing only the affected release/tag and a private way to contact the maintainers. Do not include the component, attack steps, impact, proof of concept, credentials, diagnostic bundle, or screenshots. Wait for a private channel before sending sensitive details.\n\nOnly test systems, data, accounts, and providers that you own or are explicitly authorized to use.\n",
-            'SECURITY.md' => "# {{PRODUCT_NAME}} Security Policy\n\n## Supported versions\n\nSecurity fixes target the latest published release of this application. Before reporting, confirm the affected annotated tag or Release and whether the behavior still reproduces there. Older releases may require an application upgrade before a fix can be applied.\n\n## Reporting a vulnerability\n\nDo not disclose vulnerability details, credentials, personal data, Tenant data, exploit code, or raw logs in a public Issue, Discussion, pull request, or screenshot.\n\nUse the repository's **Security → Report a vulnerability** private form when available. If it is unavailable, open a public Issue containing only the title `Security contact request`, the affected release or tag, and a private way for maintainers to contact you. Do not include the vulnerable component, attack steps, impact details, proof of concept, secrets, or diagnostic bundle in that contact-only Issue. Wait until a maintainer establishes a private channel before sending sensitive material.\n\n## What to include privately\n\nSend the affected release/tag, complete source commit when known, deployment mode, vulnerable component and prerequisites, minimal reproduction, observed impact, whether the issue crosses Account, Tenant, permission, Module, file, or deployment boundaries, and a redacted diagnostic bundle only when necessary.\n\nFor an ordinary issue, follow the [support guide](docs-site/support.md). Only test systems, data, accounts, and providers that you own or have explicit permission to use.\n",
-            'docs-site/architecture/identity-and-tenancy.md' => "# Identity and tenancy\n\nAccount/Credential is the login identity; TenantMember is that account's membership in one Tenant; Tenant Role/RBAC grants permissions only in that Tenant. Business customers, suppliers and contacts remain application business records rather than Account fields.\n\nA PlatformOperator governs this application instance but does not become a TenantMember or gain arbitrary Tenant business-data access. Host-bound Tenant entry points restrict the session to the bound Tenant; only an explicitly configured shared Admin Host can offer Tenant switching to an account that has active memberships.\n",
-            'docs-site/architecture/official-module-qualification.md' => "# Official module qualification\n\nA module is usable only when its Plugin artifact is installed, the Tenant has the module enabled, and the current TenantMember has the required RBAC/data permission. Each module owns its schema and public contracts; it must not read or write another module's private tables.\n\nBefore declaring a module available, add its Tenant isolation, disabled-module and authorization checks. External providers such as payment, notifications and OAuth require their own production configuration and verification.\n",
-            'docs-site/capabilities.md' => "# Capability catalogue\n\nCore defaults are identity, Tenant membership, RBAC, audit, fresh installation, Module lifecycle and the Admin Shell. Files, notifications, OAuth, payment, member CRM, tasks, import/export and content are optional application capabilities, not an excuse to bypass Tenant isolation.\n\nProduct-specific domains such as Party, Store, Warehouse, Supplier relationship, Product, Pricing, Inventory, Procurement and Trade belong in this application's Modules. Add only the domains this product owns, with their data owner, public contract and acceptance tests.\n",
-            'docs-site/guide/development.md', 'docs/peanut-admin-development-guide.md' => "# Development guide\n\nCore owns generic identity, tenancy and authorization contracts. This application owns routes, product settings, pages and business Runtime. A Module owns its tables, use cases, permissions, menu contributions and public DTO/command contracts.\n\nDevelop a vertical slice through route, controller, application service and Module contract. Supply TenantContext from trusted middleware; never accept a client-supplied Tenant ID as authorization. Add a normal Tenant A case and a denied Tenant B case before enabling the Module.\n",
-            'docs-site/guide/module-development.md', 'docs/plugin-module-development.md' => "# Module development\n\nPlace an application Module under `server/app/modules/<Vendor>/<Module>/` with Domain, Application, Contracts, Infrastructure, Database, Resources and Tests. Put the matching management contribution in `web/src/modules/<module>/`.\n\nExpose commands and read-only DTOs from `Contracts`; callers must not join or mutate another Module's private tables. Plugin install, TenantModule enablement and member RBAC are separate gates. Document the Module's owner Tenant, migrations, menu/permission keys and cross-Tenant denial cases.\n",
-            'docs/peanut-admin-user-manual.md' => "# Administrator manual\n\nThis page is the product owner’s operating manual. Document the application's enabled Modules, its roles, approval and data-scope rules, and the support path for tenant owners. Do not document product-only fields as Peanut Core behavior.\n",
-            'docs-site/releases.md' => "# Releases\n\nCreate application releases from immutable application commits. Regenerate legal metadata and dependency inventory for each release.\n",
-            'docs-site/legal.md' => "# Legal\n\nReview the generated root legal files before redistribution. Dependency changes require a refreshed SBOM and third-party notices.\n",
-            'docs-site/404.md' => "# Page not found\n\nReturn to the [documentation home](/).\n",
-            default => "# {{PRODUCT_NAME}} documentation\n\nThis page is app-owned. Replace it with product-specific documentation.\n",
-        };
+        return $this->textTransform((string) file_get_contents($this->sourcePath($path)), $parameters, $path);
     }
 
     /** @param array<string,string> $parameters */
     private function releaseMetadata(array $parameters): string
     {
         $versions = $this->versionContract();
+        if ($versions->isV3()) {
+            return json_encode([
+                'schema_version' => 3,
+                'protocol' => 'peanut.release-metadata.v3',
+                'product' => $parameters['PRODUCT_NAME'],
+                'application_identity' => $parameters['PACKAGE_IDENTITY'],
+                'source_product_version' => $versions->sourceProductVersion(),
+                'instance_version' => $parameters['APPLICATION_VERSION'],
+                'status' => 'generated-application-baseline',
+                'release_policy' => 'replace this metadata from an immutable application release candidate before publishing',
+                'public_runtime_dependencies' => [
+                    'composer' => $versions->corePhpPackage(),
+                    'npm' => $versions->coreWebIdentity(),
+                ],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        }
         if ($versions->isV2()) {
             return json_encode([
                 'schema_version' => 2,
@@ -876,6 +835,18 @@ PHP;
     private function versionContractDocument(array $parameters): string
     {
         $versions = $this->versionContract();
+        if ($versions->isV3()) {
+            return json_encode([
+                'schema_version' => 3,
+                'protocol' => 'peanut.release-versions.v3',
+                'source_product_version' => $versions->sourceProductVersion(),
+                'instance_version' => $parameters['APPLICATION_VERSION'],
+                'scaffold_template' => $versions->scaffoldTemplate(),
+                'generated_instance_default' => $versions->generatedInstanceDefault(),
+                'core_php' => $versions->corePhpPackage(),
+                'core_web' => $versions->coreWebIdentity(),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        }
         if ($versions->isV2()) {
             return json_encode([
                 'schema_version' => 2,
@@ -963,21 +934,15 @@ PHP;
             'schema_version' => 1,
             'project_id' => $parameters['SLUG'],
             'authority' => [
+                'role' => 'application',
                 'owner' => $parameters['PRODUCT_NAME'] . ' maintainers', 'source' => 'this versioned file',
                 'credentials_policy' => 'references only; secrets are never stored in Git',
                 'allocation_status' => 'unallocated; register environment-specific resources before connection or startup',
             ],
             'resources' => [
                 'tooling' => [],
-                'databases' => [[
-                    'stable_resource_id' => $parameters['SLUG'] . '-mysql84-ci', 'purpose' => 'GitHub Actions server checks',
-                    'environments' => ['ci'], 'owner' => 'generated GitHub Actions workflow', 'host' => '127.0.0.1', 'port' => 3306,
-                    'database' => null, 'schema' => 'pa_ table prefix', 'namespace' => $parameters['SLUG'] . '-ci',
-                    'service_type' => 'mysql:8.4 service container', 'credential_ref' => 'ephemeral workflow environment variables',
-                    'data_source' => 'fresh ephemeral CI database', 'freshness_requirement' => 'new service container per job',
-                    'health_check' => 'mysqladmin ping', 'fallback' => 'none', 'cleanup_responsibility' => 'GitHub Actions job teardown',
-                ]],
-                'local_listeners' => [], 'containers' => [], 'optional_services' => [],
+                'databases' => [],
+                'local_listeners' => [], 'containers' => [], 'optional_services' => [], 'backups' => [],
                 'external_services' => [],
                 'queues' => ['status' => 'not_registered'], 'object_storage' => ['status' => 'not_registered'],
             ],
@@ -989,7 +954,7 @@ PHP;
     private function readme(): string
     {
         return "# {{PRODUCT_NAME}}\n\nApplication identity: `{{PACKAGE_IDENTITY}}` (`{{SLUG}}`).\n\n"
-            . "This repository was generated from a versioned application scaffold. Application business code and the stable Host override files are app-owned; `.peanut/application-manifest.json` records the exact boundary and managed baseline.\n\n"
+            . "This repository was generated from a versioned application scaffold. Product backend, frontend, database, and public documentation files are managed with baseline conflict detection. Customer code is app-owned only under `server/app/modules/custom/`, `web/src/modules/custom/`, `platform/src/modules/custom/`, `pc/modules/custom/`, and `uniapp/src/modules/custom/`; the stable app-owned files are `server/config/peanut.php`, `web/src/peanut.overrides.ts`, `resources/project-resources.json`, `SECURITY.md`, and `scripts/seed-demo-data`. Customer-added paths that do not exist in the upstream inventory remain untouched. `.peanut/application-manifest.json` records the exact boundary and managed baseline.\n\n"
             . "Before connecting a database or starting a service, register the environment resources in `resources/project-resources.json`. A fresh install requires explicit `ADMIN_INITIAL_PASSWORD`; no shared default password is supplied.\n";
     }
 
@@ -1007,7 +972,10 @@ PHP;
 
     private function modulesConfig(string $content): string
     {
-        if (substr_count($content, "'plugin_lock' => (string)env('PEANUT_PLUGIN_LOCK', '../plugins.lock')") !== 1) {
+        if (substr_count($content, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);") !== 1
+            || substr_count($content, "\$pluginLockDefault = \$serverRelease ? 'plugins.lock' : '../plugins.lock';") !== 1
+            || substr_count($content, "'plugin_lock' => (string) env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)") !== 1
+        ) {
             throw new RuntimeException('CREATE_APP_MODULES_CONFIG_SOURCE_INVALID');
         }
         return $content;
@@ -1049,7 +1017,7 @@ PHP;
         }
         return json_encode(
             ['schema_version' => 1, 'plugins' => $bundled],
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR,
         ) . "\n";
     }
 
@@ -1058,7 +1026,7 @@ PHP;
     {
         $manifestPaths = [];
         foreach ($files as $file) {
-            $path = (string)($file['path'] ?? '');
+            $path = (string) ($file['path'] ?? '');
             if (preg_match('#^plugins/([a-z][a-z0-9.-]+)/plugin\.json$#D', $path, $matches) !== 1) {
                 continue;
             }
@@ -1069,15 +1037,16 @@ PHP;
             throw new RuntimeException('CREATE_APP_PLUGIN_SET_EMPTY');
         }
 
-        // create-app is intentionally PHP/Git-only. The Writer still owns the
-        // canonical bytes, while the dependency-free Resolver verifies the
-        // completed derived artifacts without requiring Composer installation.
+        // create-app runs from the tool repository with its Composer dependencies
+        // installed. The canonical Writer uses Core Module identity/layout classes;
+        // generated applications also retain the managed canonical Writer dependencies
+        // for complete official graph projection through their native upgrader.
         $writer = new PluginArtifactWriter($stage . '/server', false);
         $rewritten = [];
         foreach ($manifestPaths as $directoryKey => $path) {
             $absolute = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
             try {
-                $manifest = json_decode((string)file_get_contents($absolute), true, 128, JSON_THROW_ON_ERROR);
+                $manifest = json_decode((string) file_get_contents($absolute), true, 128, JSON_THROW_ON_ERROR);
             } catch (\JsonException $exception) {
                 throw new RuntimeException('CREATE_APP_PLUGIN_MANIFEST_INVALID: ' . $path, 0, $exception);
             }
@@ -1114,7 +1083,7 @@ PHP;
         }
 
         foreach ($files as &$file) {
-            $path = (string)($file['path'] ?? '');
+            $path = (string) ($file['path'] ?? '');
             if (!isset($rewritten[$path])) {
                 continue;
             }
@@ -1173,7 +1142,7 @@ PHP;
     {
         $rendered = strtr($value, array_combine(
             array_map(static fn(string $key): string => '{{' . $key . '}}', array_keys($parameters)),
-            array_values($parameters)
+            array_values($parameters),
         ) ?: []);
         if (preg_match('/{{[A-Z][A-Z0-9_]*}}/', $rendered) === 1) {
             throw new RuntimeException('CREATE_APP_UNKNOWN_TEMPLATE_VARIABLE');
@@ -1202,7 +1171,7 @@ PHP;
             if (!in_array($file['classification'], ['managed', 'generated-managed'], true)) {
                 continue;
             }
-            $source = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string)$file['path']);
+            $source = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, (string) $file['path']);
             $baseline = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $baselineRoot . '/' . $file['path']);
             $content = file_get_contents($source);
             if (!is_string($content)) {

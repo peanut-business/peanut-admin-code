@@ -1,0 +1,8 @@
+---
+layout: home
+hero:
+  name: "{{PRODUCT_NAME}}"
+  text: "Application documentation"
+---
+
+This site belongs to the generated application.

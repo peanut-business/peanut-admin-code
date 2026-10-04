@@ -9,11 +9,40 @@ for command_name in jq gzip sha256sum tar openssl; do
 done
 
 project_root="$(pwd -P)"
-registry="${PEANUT_OPS_RESOURCE_REGISTRY:-$project_root/resources/project-resources.json}"
-if [[ "$registry" != "$project_root/resources/project-resources.json" \
+for name in PEANUT_OPS_RESOURCE_REGISTRY PEANUT_OPS_WORKER_IMAGE PEANUT_OPS_WORKER_CANDIDATE; do
+  if printenv "$name" >/dev/null 2>&1; then
+    die "ambient qualification configuration is forbidden: $name"
+  fi
+done
+qualification_environment="$project_root/.ops/qualification-worker.env"
+registry="${PEANUT_RESOURCE_REGISTRY:-$project_root/resources/project-resources.json}"
+[[ "$registry" == /* && ! -L "$registry" ]] || die 'PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file'
+qualification_image=''
+qualification_candidate=''
+if [[ -e "$qualification_environment" || -L "$qualification_environment" ]]; then
+  [[ -f "$qualification_environment" && ! -L "$qualification_environment" ]] \
+    || die 'qualification worker environment must be a regular file'
+  [[ "$(stat -c '%a %h' "$qualification_environment")" == '600 1' ]] \
+    || die 'qualification worker environment must have mode 0600 and one hard link'
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    [[ "$line" == *=* ]] || die 'qualification worker environment contains a malformed line'
+    name="${line%%=*}"; value="${line#*=}"
+    case "$name" in
+      PEANUT_OPS_RESOURCE_REGISTRY) registry="$value" ;;
+      PEANUT_OPS_WORKER_IMAGE) qualification_image="$value" ;;
+      PEANUT_OPS_WORKER_CANDIDATE) qualification_candidate="$value" ;;
+      *) die "qualification worker environment contains an unsupported key: $name" ;;
+    esac
+  done < "$qualification_environment"
+  [[ -n "$qualification_image" && -n "$qualification_candidate" ]] \
+    || die 'qualification worker environment is incomplete'
+fi
+if [[ "$registry" != "${PEANUT_RESOURCE_REGISTRY:-$project_root/resources/project-resources.json}" \
   && "$registry" != "$project_root/restore-verification-registry.json" ]]; then
   die 'qualification registry path is not registered'
 fi
+[[ "$registry" == /* && ! -L "$registry" ]] || die 'qualification registry must be an absolute, non-symlink file'
 [[ -f "$project_root/compose.yaml" && -f "$project_root/server/think" && -f "$registry" ]] \
   || die 'run from a registered Peanut Admin deployment root'
 
@@ -28,11 +57,9 @@ for resource_id in \
     || die "registered resource is missing: $resource_id"
 done
 
-qualification_image="${PEANUT_OPS_WORKER_IMAGE:-}"
 backend_env="$project_root/server/.env"
 if [[ -n "$qualification_image" ]]; then
   backend_env="$project_root/.env"
-  qualification_candidate="${PEANUT_OPS_WORKER_CANDIDATE:-}"
   [[ "$qualification_image" =~ ^peanut-admin-restore-verify-worker:[a-f0-9]{12}$ \
     && "$qualification_candidate" =~ ^[a-f0-9]{40}$ \
     && "${qualification_candidate:0:12}" == "${qualification_image##*:}" ]] \
@@ -134,6 +161,8 @@ failure_code='OPS_RESTORE_ARTIFACT_INVALID'
   sudo -n sha256sum -c SHA256SUMS >/dev/null
   sudo -n gzip -t database.sql.gz
   sudo -n tar -tzf php-storage.tar.gz >/dev/null
+  sudo -n tar -tzf php-private-storage.tar.gz >/dev/null
+  sudo -n tar -tzf php-installation.tar.gz >/dev/null
 )
 sudo -n cat "$backup_dir/manifest.json" \
   | "${think[@]}" verify-manifest --task-key "$task_key" --revision "$execution_revision" >/dev/null
@@ -141,7 +170,7 @@ jq -e \
   --arg reference "$backup_reference_key" \
   --arg commit "$source_commit" \
   --arg tree "$source_tree" \
-  '.schema_version == 1
+  '.schema_version == 3
    and .backup_reference_key == $reference
    and .provider_key == "peanut.paired-db-files"
    and .source.commit == $commit
@@ -151,14 +180,23 @@ jq -e \
    and .resources.application == "peanut-admin-production-application-containers"
    and .resources.backup == "peanut-admin-production-backups"
    and .runtime.database_name == "peanut_admin"
-   and .runtime.storage_volume == "peanut-admin_php-storage"
-   and ([.artifacts[].filename] | sort) == ["database.sql.gz", "php-storage.tar.gz"]' \
+   and .runtime.public_storage_volume == "peanut-admin_php-storage"
+   and .runtime.private_storage_volume == "peanut-admin_php-private-storage"
+   and .runtime.installation_volume == "peanut-admin_php-installation"
+   and ([.artifacts[].filename] | sort) == ["database.sql.gz", "php-installation.tar.gz", "php-private-storage.tar.gz", "php-storage.tar.gz"]' \
   "$backup_dir/manifest.json" >/dev/null
+for artifact in database.sql.gz php-storage.tar.gz php-private-storage.tar.gz php-installation.tar.gz; do
+  expected_sha="$(jq -r --arg filename "$artifact" '.artifacts[] | select(.filename == $filename) | .sha256' "$backup_dir/manifest.json")"
+  actual_sha="$(sudo -n sha256sum "$backup_dir/$artifact" | awk '{print $1}')"
+  [[ "$actual_sha" == "$expected_sha" ]] || false
+done
 
 target_root='/www/docker/peanut-admin/restore-verification'
 target_container='peanut-admin-restore-verify-mysql-1'
 target_mysql_volume='peanut-admin-restore-verify_mysql-data'
 target_storage_volume='peanut-admin-restore-verify_php-storage'
+target_private_storage_volume='peanut-admin-restore-verify_php-private-storage'
+target_installation_volume='peanut-admin-restore-verify_php-installation'
 target_network='peanut-admin-restore-verify_default'
 target_database='peanut_admin_restore_verify'
 
@@ -172,8 +210,8 @@ protected_runtime_identity() {
       --format 'container={{.Name}} id={{.Id}} image={{.Image}} status={{.State.Status}}'
   done
   for volume in \
-    peanut-admin_mysql-data peanut-admin_php-storage \
-    peanut-admin-candidate_mysql-data peanut-admin-candidate_php-storage; do
+    peanut-admin_mysql-data peanut-admin_php-storage peanut-admin_php-private-storage peanut-admin_php-installation \
+    peanut-admin-candidate_mysql-data peanut-admin-candidate_php-storage peanut-admin-candidate_php-private-storage peanut-admin-candidate_php-installation; do
     sudo -n docker volume inspect "$volume" --format 'volume={{.Name}} mount={{.Mountpoint}}'
   done
 }
@@ -187,6 +225,8 @@ failure_code='OPS_RESTORE_TARGET_NOT_EMPTY'
 ! sudo -n docker container inspect "$target_container" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_mysql_volume" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_storage_volume" >/dev/null 2>&1 || false
+! sudo -n docker volume inspect "$target_private_storage_volume" >/dev/null 2>&1 || false
+! sudo -n docker volume inspect "$target_installation_volume" >/dev/null 2>&1 || false
 ! sudo -n docker network inspect "$target_network" >/dev/null 2>&1 || false
 
 mysql_image="$(jq -r '.runtime.images[] | select(.role == "mysql") | .digest' "$backup_dir/manifest.json")"
@@ -196,11 +236,12 @@ php_image="$(jq -r '.runtime.images[] | select(.role == "php") | .digest' "$back
 sudo -n docker image inspect "$mysql_image" "$php_image" >/dev/null
 
 sudo -n install -d -m 0700 "$target_root"
-openssl rand -hex 32 | sudo -n tee "$target_root/mysql-root-password" >/dev/null
-sudo -n chmod 0600 "$target_root/mysql-root-password"
+mysql_root_password="$(openssl rand -hex 32)"
 sudo -n docker network create --internal "$target_network" >/dev/null
 sudo -n docker volume create "$target_mysql_volume" >/dev/null
 sudo -n docker volume create "$target_storage_volume" >/dev/null
+sudo -n docker volume create "$target_private_storage_volume" >/dev/null
+sudo -n docker volume create "$target_installation_volume" >/dev/null
 
 failure_code='OPS_RESTORE_DATABASE_FAILED'
 sudo -n docker run -d \
@@ -208,15 +249,15 @@ sudo -n docker run -d \
   --network "$target_network" \
   --network-alias mysql \
   --mount "source=$target_mysql_volume,target=/var/lib/mysql" \
-  --mount "type=bind,source=$target_root/mysql-root-password,target=/run/secrets/mysql-root-password,readonly" \
-  --env MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root-password \
+  --env "MYSQL_ROOT_PASSWORD=$mysql_root_password" \
   --env "MYSQL_DATABASE=$target_database" \
   "$mysql_image" >/dev/null
+unset mysql_root_password
 
 ready=0
 for _ in {1..60}; do
   if sudo -n docker exec "$target_container" sh -c \
-      'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" mysqladmin ping -h127.0.0.1 --protocol=TCP -uroot --silent' >/dev/null 2>&1; then
+      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin ping -h127.0.0.1 --protocol=TCP -uroot --silent' >/dev/null 2>&1; then
     ready=1
     break
   fi
@@ -226,17 +267,29 @@ done
 
 sudo -n gzip -dc "$backup_dir/database.sql.gz" \
   | sudo -n docker exec -i "$target_container" sh -c \
-      'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" exec mysql -uroot "$1"' sh "$target_database"
+      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot "$1"' sh "$target_database"
 
 failure_code='OPS_RESTORE_FILES_FAILED'
 sudo -n gzip -dc "$backup_dir/php-storage.tar.gz" \
   | sudo -n docker run --rm --network none -i \
       --mount "source=$target_storage_volume,target=/restore" \
       --entrypoint tar "$php_image" -xf - -C /restore
+sudo -n gzip -dc "$backup_dir/php-private-storage.tar.gz" \
+  | sudo -n docker run --rm --network none -i \
+      --mount "source=$target_private_storage_volume,target=/restore" \
+      --entrypoint tar "$php_image" -xf - -C /restore
+sudo -n gzip -dc "$backup_dir/php-installation.tar.gz" \
+  | sudo -n docker run --rm --network none -i \
+      --mount "source=$target_installation_volume,target=/restore" \
+      --entrypoint tar "$php_image" -xf - -C /restore
+sudo -n docker run --rm --network none \
+  --mount "source=$target_installation_volume,target=/restore,readonly" \
+  --entrypoint sh "$php_image" -c \
+  'test -f /restore/installed.json && test ! -L /restore/installed.json && test -f /restore/baseline.json && test ! -L /restore/baseline.json'
 
 mysql_scalar() {
   sudo -n docker exec "$target_container" sh -c \
-    'MYSQL_PWD="$(cat /run/secrets/mysql-root-password)" exec mysql -N -B -uroot "$1" -e "$2"' \
+    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -N -B -uroot "$1" -e "$2"' \
     sh "$target_database" "$1"
 }
 
@@ -262,6 +315,20 @@ storage_metrics="$(sudo -n docker run --rm --network none \
 storage_file_count="$(sed -n '1p' <<<"$storage_metrics" | tr -d '[:space:]')"
 storage_bytes="$(sed -n '2p' <<<"$storage_metrics" | tr -d '[:space:]')"
 [[ "$storage_file_count" =~ ^[0-9]+$ && "$storage_bytes" =~ ^[0-9]+$ ]] || false
+private_storage_metrics="$(sudo -n docker run --rm --network none \
+  --mount "source=$target_private_storage_volume,target=/restore,readonly" \
+  --entrypoint sh "$php_image" -c \
+  'find /restore -type f | wc -l; du -sb /restore | cut -f1')"
+private_storage_file_count="$(sed -n '1p' <<<"$private_storage_metrics" | tr -d '[:space:]')"
+private_storage_bytes="$(sed -n '2p' <<<"$private_storage_metrics" | tr -d '[:space:]')"
+[[ "$private_storage_file_count" =~ ^[0-9]+$ && "$private_storage_bytes" =~ ^[0-9]+$ ]] || false
+installation_metrics="$(sudo -n docker run --rm --network none \
+  --mount "source=$target_installation_volume,target=/restore,readonly" \
+  --entrypoint sh "$php_image" -c \
+  'find /restore -type f | wc -l; du -sb /restore | cut -f1')"
+installation_file_count="$(sed -n '1p' <<<"$installation_metrics" | tr -d '[:space:]')"
+installation_bytes="$(sed -n '2p' <<<"$installation_metrics" | tr -d '[:space:]')"
+[[ "$installation_file_count" =~ ^[0-9]+$ && "$installation_bytes" =~ ^[0-9]+$ ]] || false
 
 failure_code='OPS_RESTORE_ISOLATION_VIOLATION'
 published_port_count="$(sudo -n docker inspect "$target_container" \
@@ -272,13 +339,15 @@ verified_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
 
 failure_code='OPS_RESTORE_CLEANUP_FAILED'
 sudo -n docker rm -f "$target_container" >/dev/null
-sudo -n docker volume rm "$target_mysql_volume" "$target_storage_volume" >/dev/null
+sudo -n docker volume rm "$target_mysql_volume" "$target_storage_volume" "$target_private_storage_volume" "$target_installation_volume" >/dev/null
 sudo -n docker network rm "$target_network" >/dev/null
 sudo -n rm -rf -- "$target_root"
 [[ ! -e "$target_root" ]] || false
 ! sudo -n docker container inspect "$target_container" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_mysql_volume" >/dev/null 2>&1 || false
 ! sudo -n docker volume inspect "$target_storage_volume" >/dev/null 2>&1 || false
+! sudo -n docker volume inspect "$target_private_storage_volume" >/dev/null 2>&1 || false
+! sudo -n docker volume inspect "$target_installation_volume" >/dev/null 2>&1 || false
 ! sudo -n docker network inspect "$target_network" >/dev/null 2>&1 || false
 
 protected_after_sha256="$(protected_runtime_identity | sort | sha256sum | awk '{print $1}')"
@@ -298,22 +367,30 @@ evidence_json="$(jq -c -n \
   --argjson tenant_member_count "$tenant_member_count" \
   --argjson storage_file_count "$storage_file_count" \
   --argjson storage_bytes "$storage_bytes" \
+  --argjson private_storage_file_count "$private_storage_file_count" \
+  --argjson private_storage_bytes "$private_storage_bytes" \
+  --argjson installation_file_count "$installation_file_count" \
+  --argjson installation_bytes "$installation_bytes" \
   --argjson published_port_count "$published_port_count" \
   --arg protected_before_sha256 "$protected_before_sha256" \
   --arg protected_after_sha256 "$protected_after_sha256" \
   --arg verified_at "$verified_at" \
-  '{schema_version:1,backup_reference_key:$backup_reference_key,
+  '{schema_version:3,backup_reference_key:$backup_reference_key,
     provider_key:"peanut.paired-db-files",target_key:"isolated-new-target",
     manifest_sha256:$manifest_sha256,source:{commit:$source_commit,tree:$source_tree},
     target:{deployment_resource_id:"peanut-admin-production-restore-verification-deployment",
       database_resource_id:"peanut-admin-production-restore-verification-mysql84",
       runtime_resource_id:"peanut-admin-production-restore-verification-containers",
       compose_project:"peanut-admin-restore-verify",database_name:"peanut_admin_restore_verify",
-      storage_volume:"peanut-admin-restore-verify_php-storage"},
+      public_storage_volume:"peanut-admin-restore-verify_php-storage",
+      private_storage_volume:"peanut-admin-restore-verify_php-private-storage",
+      installation_volume:"peanut-admin-restore-verify_php-installation"},
     verification:{table_count:$table_count,schema_migration_count:$schema_migration_count,
       critical_table_count:$critical_table_count,account_count:$account_count,
       tenant_count:$tenant_count,tenant_member_count:$tenant_member_count,
-      storage_file_count:$storage_file_count,storage_bytes:$storage_bytes},
+      storage_file_count:$storage_file_count,storage_bytes:$storage_bytes,
+      private_storage_file_count:$private_storage_file_count,private_storage_bytes:$private_storage_bytes,
+      installation_file_count:$installation_file_count,installation_bytes:$installation_bytes},
     isolation:{published_port_count:$published_port_count,
       protected_runtime_before_sha256:$protected_before_sha256,
       protected_runtime_after_sha256:$protected_after_sha256},

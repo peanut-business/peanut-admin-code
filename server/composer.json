@@ -1,58 +1,103 @@
 {
-    "name": "peanut-business/peanut-admin",
-    "description": "Peanut Admin application backend",
-    "type": "project",
-    "keywords": [
-        "admin",
-        "scaffold",
-        "thinkphp",
-        "vue"
-    ],
-    "homepage": "https://github.com/peanut-business/peanut-admin",
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/peanut-opensource/peanut-admin-core-php.git"
-        }
-    ],
-    "license": "Apache-2.0",
-    "authors": [
-        {
-            "name": "花生科技"
-        }
-    ],
-    "require": {
-        "php": "^8.3",
-        "topthink/framework": "^8.0",
-        "topthink/think-multi-app": "^1.1.1",
-        "topthink/think-orm": "^3.0|^4.0",
-        "topthink/think-filesystem": "^2.0|^3.0",
-        "firebase/php-jwt": "^7.1",
-        "dragonmantank/cron-expression": "^3.3",
-        "qiniu/php-sdk": "^7.4",
-        "aliyuncs/oss-sdk-php": "^2.4",
-        "qcloud/cos-sdk-v5": "^2.5",
-        "peanut-admin/core": "3.1.1",
-        "symfony/html-sanitizer": "^7.3",
-        "composer/semver": "^3.4",
-        "opis/json-schema": "^2.6"
-    },
-    "require-dev": {
-        "topthink/think-dumper": "^1.0",
-        "topthink/think-trace": "^2.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "app\\": "app"
-        }
-    },
-    "config": {
-        "preferred-install": "dist"
-    },
-    "scripts": {
-        "post-autoload-dump": [
-            "@php think service:discover",
-            "@php think vendor:publish"
-        ]
+  "name": "peanut-business/peanut-admin-code",
+  "description": "Peanut Admin application backend",
+  "type": "project",
+  "keywords": [
+    "admin",
+    "scaffold",
+    "thinkphp",
+    "vue"
+  ],
+  "homepage": "https://github.com/peanut-business/peanut-admin-code",
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/peanut-business/peanut-admin-core-php.git"
     }
+  ],
+  "license": "Apache-2.0",
+  "authors": [
+    {
+      "name": "花生科技"
+    }
+  ],
+  "require": {
+    "php": "^8.3",
+    "topthink/framework": "^8.0",
+    "topthink/think-multi-app": "^1.1.1",
+    "topthink/think-orm": "^3.0|^4.0",
+    "topthink/think-filesystem": "^2.0|^3.0",
+    "firebase/php-jwt": "^7.1",
+    "dragonmantank/cron-expression": "^3.3",
+    "qiniu/php-sdk": "^7.4",
+    "aliyuncs/oss-sdk-php": "^2.4",
+    "qcloud/cos-sdk-v5": "^2.5",
+    "peanut-admin/core": "4.0.0-rc.3",
+    "symfony/html-sanitizer": "^7.3",
+    "composer/semver": "^3.4",
+    "opis/json-schema": "^2.6"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "12.5.31",
+    "topthink/think-dumper": "^1.0",
+    "topthink/think-trace": "^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "app\\": "app",
+      "PeanutAdmin\\Modules\\Article\\": "app/modules/official/article/src/",
+      "PeanutAdmin\\Modules\\File\\": "app/modules/official/file/src/",
+      "PeanutAdmin\\Modules\\Identity\\": "app/modules/official/identity/src/",
+      "PeanutAdmin\\Modules\\ImportExport\\": "app/modules/official/import_export/src/",
+      "PeanutAdmin\\Modules\\Integration\\": "app/modules/official/integration/src/",
+      "PeanutAdmin\\Modules\\Member\\": "app/modules/official/member/src/",
+      "PeanutAdmin\\Modules\\Notification\\": "app/modules/official/notification/src/",
+      "PeanutAdmin\\Modules\\OAuth\\": "app/modules/official/oauth/src/",
+      "PeanutAdmin\\Modules\\Ops\\": "app/modules/official/ops/src/",
+      "PeanutAdmin\\Modules\\Payment\\": "app/modules/official/payment/src/",
+      "PeanutAdmin\\Modules\\ReferenceCodes\\": "app/modules/official/reference_codes/src/",
+      "PeanutAdmin\\Modules\\RichText\\": "app/modules/official/rich_text/src/",
+      "PeanutAdmin\\Modules\\Settings\\": "app/modules/official/settings/src/",
+      "PeanutAdmin\\Modules\\Task\\": "app/modules/official/task/src/",
+      "PeanutAdmin\\Modules\\ArtifactRevision\\": "app/modules/peanut/artifact_revision/src/",
+      "PeanutAdmin\\Modules\\EntitlementQuota\\": "app/modules/peanut/entitlement_quota/src/",
+      "PeanutAdmin\\Modules\\Workflow\\": "app/modules/peanut/workflow/src/",
+      "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "app/modules/fixture/delivery_record/src/"
+    },
+    "classmap": [
+      "database/schema/"
+    ],
+    "exclude-from-classmap": [
+      "app/modules/*/*/database/migrations/",
+      "app/modules/*/*/*/database/migrations/",
+      "tests/Modules/Official/ImportExport/feature-harness.php",
+      "tests/Modules/Official/Notification/feature-harness.php"
+    ]
+  },
+  "config": {
+    "preferred-install": "dist"
+  },
+  "scripts": {
+    "post-autoload-dump": [
+      "@php think service:discover",
+      "@php think vendor:publish"
+    ]
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PeanutAdmin\\Testing\\": [
+        "tests/CoreIntegration/testing/src/",
+        "vendor/peanut-admin/core/testing/src/"
+      ]
+    },
+    "classmap": [
+      "tests/CoreIntegration/",
+      "tests/Modules/",
+      "vendor/peanut-admin/core/kernel/tests/",
+      "vendor/peanut-admin/core/data-permission/tests/"
+    ],
+    "files": [
+      "tests/Support/ThinkPhpTestConnection.php"
+    ]
+  }
 }

@@ -1,8 +1,0 @@
-[
-  {"name":"recharge_lists","http_status":200,"body":{"code":40300,"msg":"暂无访问权限","data":null}},
-  {"name":"recharge_refund","http_status":200,"body":{"code":40300,"msg":"暂无访问权限","data":null}},
-  {"name":"recharge_refundAgain","http_status":200,"body":{"code":40300,"msg":"暂无访问权限","data":null}},
-  {"name":"refund_record","http_status":200,"body":{"code":40300,"msg":"暂无访问权限","data":null}},
-  {"name":"refund_log","http_status":200,"body":{"code":40300,"msg":"暂无访问权限","data":null}},
-  {"name":"refund_stat_unregistered","http_status":200,"body":{"code":20000,"msg":"success","data":{"total":308,"ing":40.4,"success":0,"error":267.6}}}
-]

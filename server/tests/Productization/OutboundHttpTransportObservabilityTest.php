@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\common\execution\CurrentExecutionContext;
@@ -6,7 +7,7 @@ use app\common\execution\ExecutionContextStore;
 use app\common\service\http\GuzzleOutboundHttpTransport;
 use app\common\service\http\OutboundHttpException;
 use app\common\service\http\OutboundHttpRequest;
-use app\common\composition\storage\QcloudStorageClientFactory;
+use PeanutAdmin\Modules\File\Composition\Storage\QcloudStorageClientFactory;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\HandlerStack;
@@ -54,7 +55,7 @@ function outboundHttpEvents(OutboundHttpLogTestApp $app): array
 {
     $events = [];
     foreach ($app->log->getLog() as $record) {
-        $event = json_decode((string)$record->message, true, 512, JSON_THROW_ON_ERROR);
+        $event = json_decode((string) $record->message, true, 512, JSON_THROW_ON_ERROR);
         if (($event['event'] ?? null) === 'outbound_http_attempt') {
             $events[] = $event;
         }

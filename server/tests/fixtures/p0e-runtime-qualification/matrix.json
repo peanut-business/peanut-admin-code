@@ -9,24 +9,42 @@
     "database_template": "peanut_admin_development_p0e_<run_id>_<scenario>"
   },
   "target_release": {
-    "version": "3.1.0",
-    "source_commit": "73bc4572fd9b663ace19f074dcc65daf0b5ba877",
-    "source_tree": "5f416ef01b9e4ecea57de06a8818f407f3b48f77",
-    "manifest_sha256": "c687e6a0faac4a170d4c90bc10aefda833097fb6d77f07b3dd78b84ab8d37b5e",
-    "inventory_sha256": "16934c8c4145f3c0240e5c986286c5ace6c328cfa38fc84782b9a8b5035f7f0e",
-    "managed_tree_sha256": "06407fdde3fff6b32e1389ee726b4204bd175a76ba871300757fd683653bbd55",
-    "file_count": 441,
+    "version": "4.0.0-rc.18",
+    "source_commit": "ad951ebbe77c21352813d4697ea7e8c9e3361bc8",
+    "source_tree": "f8be81d8f51711d96779fd364472fe10f12400e9",
+    "manifest_sha256": "e2af1fd6e7be380c8cf3664afb16519140a6222ea1b88573061d7dde8eac3120",
+    "inventory_sha256": "44fe6a5fa72f8e04f6fd2629878ee6d5987b1070d57bee8c192444b80ddc4218",
+    "managed_tree_sha256": "668ccbb0fdde747d3605fb2f0d9e107c4dd1ab96b278606c0f3c0a8515c9078f",
+    "file_count": 2168,
     "application_manifest_schema": 2,
     "default_application_version": "0.1.0",
     "default_uniapp_version_code": "10"
   },
   "scenarios": {
-    "standalone_fresh": { "deployment_mode": "standalone", "action": "fresh" },
-    "multi_tenant_fresh": { "deployment_mode": "multi-tenant", "action": "fresh" },
-    "plugin_lifecycle": { "deployment_mode": "multi-tenant", "action": "plugin" },
-    "consumer_module_cycle": { "deployment_mode": "standalone", "action": "consumer-module" },
-    "standalone_browser": { "deployment_mode": "standalone", "action": "browser" },
-    "multi_tenant_browser": { "deployment_mode": "multi-tenant", "action": "browser" }
+    "standalone_fresh": {
+      "deployment_mode": "standalone",
+      "action": "fresh"
+    },
+    "multi_tenant_fresh": {
+      "deployment_mode": "multi-tenant",
+      "action": "fresh"
+    },
+    "plugin_lifecycle": {
+      "deployment_mode": "multi-tenant",
+      "action": "plugin"
+    },
+    "consumer_module_cycle": {
+      "deployment_mode": "standalone",
+      "action": "consumer-module"
+    },
+    "standalone_browser": {
+      "deployment_mode": "standalone",
+      "action": "browser"
+    },
+    "multi_tenant_browser": {
+      "deployment_mode": "multi-tenant",
+      "action": "browser"
+    }
   },
   "groups": [
     "generated-application",

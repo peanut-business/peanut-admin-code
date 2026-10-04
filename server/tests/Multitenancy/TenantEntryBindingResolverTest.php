@@ -1,18 +1,22 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
-use app\common\infrastructure\storage\StorageRepository;
+use PeanutAdmin\Modules\File\Service\Storage\StorageService;
+use PeanutAdmin\Modules\File\Composition\Storage\StorageDriverFactory;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\tenancy\MultiTenantDataScopePolicy;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
-use PeanutAdmin\Kernel\Tenancy\DefaultTenantContextResolver;
+use PeanutAdmin\Modules\Identity\Tenancy\DefaultTenantContextResolver;
 use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL')
+    ? PHPUNIT_COMPOSER_INSTALL
+    : dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/Support/ThinkPhpTestConnection.php';
 
 function entryBindingExpect(bool $condition, string $message): void
@@ -82,32 +86,60 @@ SQL);
 
 $fallbackCalls = 0;
 $resolver = new TenantEntryBindingResolver(
-    $pdo,
     static function (string $actor, string $operation, string $operationId) use (&$fallbackCalls): TenantSystemContext {
         $fallbackCalls++;
         return new TenantSystemContext(999, $actor, $operation, $operationId);
     },
+    true,
+    new \PeanutAdmin\Modules\Identity\Tenancy\Infrastructure\ThinkPhpTenantEntryBindingLookup(),
 );
 $multiTenantScope = new MultiTenantDataScopePolicy(
     new CurrentExecutionContext(new ExecutionContextStore()),
 );
 ThinkPhpTestConnection::fromPdo($pdo);
-$storage = new StorageRepository($multiTenantScope, new DefaultTenantContextResolver());
+$storage = new StorageService(
+    (new ReflectionClass(StorageDriverFactory::class))->newInstanceWithoutConstructor(),
+    $multiTenantScope,
+    new DefaultTenantContextResolver(),
+    str_repeat('s', 32),
+    'https://admin.example.test',
+    new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new CurrentExecutionContext(new ExecutionContextStore())),
+);
+$deliverable = static function (int $tenantId, string $fileKey) use ($storage): bool {
+    try {
+        $storage->accessUrlForTenant($tenantId, $fileKey);
+        return true;
+    } catch (Throwable) {
+        return false;
+    }
+};
 entryBindingExpect(
-    $storage->deliverableObjectForTenant(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') !== null,
+    $deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
     'an active Tenant file was not deliverable',
 );
 $boundRequest = new class {
-    public function host(): string { return 'ALPHA.Example.test:443'; }
+    public function host(): string
+    {
+        return 'ALPHA.Example.test:443';
+    }
 };
 $unboundRequest = new class {
-    public function host(): string { return 'unbound.example.test'; }
+    public function host(): string
+    {
+        return 'unbound.example.test';
+    }
 };
 $platformRequest = new class {
-    public function host(): string { return 'platform.example.test'; }
+    public function host(): string
+    {
+        return 'platform.example.test';
+    }
 };
 $sharedAdminRequest = new class {
-    public function host(): string { return 'admin.example.test'; }
+    public function host(): string
+    {
+        return 'admin.example.test';
+    }
 };
 
 entryBindingExpect(
@@ -147,7 +179,7 @@ entryBindingExpect(
 );
 
 $insert = $pdo->prepare(
-    'INSERT INTO pa_tenant_entry_binding (tenant_id,host,client_key,status) VALUES (?,?,?,?)'
+    'INSERT INTO pa_tenant_entry_binding (tenant_id,host,client_key,status) VALUES (?,?,?,?)',
 );
 $insert->execute([101, 'alpha.example.test', TenantEntryBindingResolver::ADMIN_CLIENT, 'active']);
 $insert->execute([101, 'alpha.example.test', TenantEntryBindingResolver::MEMBER_CLIENT, 'active']);
@@ -265,12 +297,12 @@ entryBindingRejects(
 );
 entryBindingExpect($fallbackCalls === 1, 'a configured failure reached the compatibility fallback');
 entryBindingExpect(
-    $storage->deliverableObjectForTenant(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') === null,
+    !$deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
     'a suspended Tenant file remained deliverable',
 );
 $pdo->exec("UPDATE pa_tenant SET status='active' WHERE id=101");
 entryBindingExpect(
-    $storage->deliverableObjectForTenant(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') !== null,
+    $deliverable(101, 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
     'reactivation did not restore a still-ready Tenant file',
 );
 $reactivated = $resolver->system(
@@ -285,24 +317,24 @@ entryBindingExpect(
     'reactivation did not restore the legitimate bound Tenant entry',
 );
 
-$sessionController = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/controller/auth/TenantSessionController.php'
+$sessionController = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/adminapi/controller/auth/TenantSessionController.php',
 );
-$sessionApplication = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/application/auth/TenantSessionApplicationService.php'
+$sessionApplication = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/adminapi/services/auth/TenantSessionApplicationService.php',
 );
-$loginMiddleware = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php'
+$loginMiddleware = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/adminapi/http/middleware/LoginMiddleware.php',
 );
-$storageService = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/common/services/storage/StorageService.php'
+$storageService = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/modules/official/file/src/Service/Storage/StorageService.php',
 );
-$storageController = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/app/api/controller/StorageController.php'
+$storageController = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/api/controller/StorageController.php',
 );
 $routes = peanut_route_registry_source(dirname(__DIR__, 2));
-$productionNginx = (string)file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/peanut-admin.conf');
-$developmentNginx = (string)file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/development.conf');
+$productionNginx = (string) file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/peanut-admin.conf');
+$developmentNginx = (string) file_get_contents(dirname(__DIR__, 3) . '/deploy/nginx/development.conf');
 entryBindingExpect(
     str_contains($sessionController, 'TenantSessionApplicationService')
         && str_contains($sessionApplication, 'TENANT_SWITCH_BOUND_ENTRY')
@@ -329,8 +361,8 @@ foreach ([$productionNginx, $developmentNginx] as $nginx) {
     );
 }
 
-$schema = (string)file_get_contents(
-    dirname(__DIR__, 2) . '/database/init.sql'
+$schema = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/database/init.sql',
 );
 foreach (['pa_tenant_entry_binding', '`tenant_id`', '`host`', '`client_key`', 'fk_tenant_entry_binding_tenant'] as $token) {
     entryBindingExpect(str_contains($schema, $token), 'Tenant entry schema lost contract token: ' . $token);

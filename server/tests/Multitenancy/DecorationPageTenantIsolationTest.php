@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\adminapi\application\decoration\DecorationPageApplicationService;
@@ -36,7 +37,7 @@ function decorationTenantContext(int $tenantId, int $memberId, string $requestId
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT02DECORATE' . str_pad((string)$memberId, 12, '0', STR_PAD_LEFT),
+        '01JMT02DECORATE' . str_pad((string) $memberId, 12, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 10000,
         $memberId,
@@ -63,7 +64,7 @@ function decorationTenantPdo(string $host, int $port, string $user, string $pass
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ]
+        ],
     );
 }
 
@@ -79,7 +80,7 @@ INSERT INTO pa_tenant
 VALUES
   (101, 'default', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
+    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
     expectDecorationTenant($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
 }
@@ -110,14 +111,14 @@ function decorationPcPage(string $name, int $articleId): array
 
 $serverRoot = dirname(__DIR__, 2);
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
 );
 $database = decorationTenantDatabase($admin);
 
@@ -137,15 +138,15 @@ INSERT INTO pa_article (id, tenant_id, cid, title, is_show) VALUES
   (22, 202, 12, 'Beta Article', 1);
 UPDATE pa_decorate_page SET name = 'Alpha PC' WHERE tenant_id = 101 AND type = 4;
 SQL);
-    $alphaPageId = (int)$pdo->query(
-        'SELECT id FROM pa_decorate_page WHERE tenant_id = 101 AND type = 4'
+    $alphaPageId = (int) $pdo->query(
+        'SELECT id FROM pa_decorate_page WHERE tenant_id = 101 AND type = 4',
     )->fetchColumn();
     $betaData = json_encode(decorationPcPage('Beta original', 22), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     $insertBeta = $pdo->prepare(
-        'INSERT INTO pa_decorate_page (tenant_id, type, name, data, meta) VALUES (202, 4, ?, ?, ?)'
+        'INSERT INTO pa_decorate_page (tenant_id, type, name, data, meta) VALUES (202, 4, ?, ?, ?)',
     );
     $insertBeta->execute(['Beta PC', $betaData, '[]']);
-    $betaPageId = (int)$pdo->lastInsertId();
+    $betaPageId = (int) $pdo->lastInsertId();
 
     expectDecorationTenant($alphaPageId > 0, 'fresh canonical Alpha PC page is missing');
     try {
@@ -192,12 +193,12 @@ SQL);
         'Beta page list crossed Tenant boundary',
     );
     $detailDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.detail.cross-tenant'),
-            fn() => app(DecorationPageApplicationService::class)->detail($alpha, $betaPageId, [DecorationEnum::PC_HOME]),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.detail.cross-tenant'),
+        fn() => app(DecorationPageApplicationService::class)->detail($alpha, $betaPageId, [DecorationEnum::PC_HOME]),
     ));
     $missingDetailDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.detail.missing'),
-            fn() => app(DecorationPageApplicationService::class)->detail($alpha, 999999, [DecorationEnum::PC_HOME]),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.detail.missing'),
+        fn() => app(DecorationPageApplicationService::class)->detail($alpha, 999999, [DecorationEnum::PC_HOME]),
     ));
     expectDecorationTenant($detailDenied === $missingDetailDenied, 'page detail enumerated Tenant ownership');
     expectDecorationTenant($detailDenied[0] === 'DECORATION_PAGE_NOT_FOUND', 'page detail denial code changed');
@@ -218,47 +219,47 @@ SQL);
 
     $betaBefore = $pdo->query("SELECT name, data, meta FROM pa_decorate_page WHERE id = {$betaPageId}")->fetch(PDO::FETCH_ASSOC);
     $saveDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.cross-tenant'),
-            fn() => app(DecorationPageApplicationService::class)->save($alpha, [
-                'id' => $betaPageId,
-                'tenant_id' => 101,
-                'type' => DecorationEnum::PC_HOME,
-                'data' => decorationPcPage('Cross Tenant', 21),
-                'meta' => [],
-            ], [DecorationEnum::PC_HOME]),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.cross-tenant'),
+        fn() => app(DecorationPageApplicationService::class)->save($alpha, [
+            'id' => $betaPageId,
+            'tenant_id' => 101,
+            'type' => DecorationEnum::PC_HOME,
+            'data' => decorationPcPage('Cross Tenant', 21),
+            'meta' => [],
+        ], [DecorationEnum::PC_HOME]),
     ));
     $missingSaveDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.missing'),
-            fn() => app(DecorationPageApplicationService::class)->save($alpha, [
-                'id' => 999999,
-                'tenant_id' => 101,
-                'type' => DecorationEnum::PC_HOME,
-                'data' => decorationPcPage('Missing', 21),
-                'meta' => [],
-            ], [DecorationEnum::PC_HOME]),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.missing'),
+        fn() => app(DecorationPageApplicationService::class)->save($alpha, [
+            'id' => 999999,
+            'tenant_id' => 101,
+            'type' => DecorationEnum::PC_HOME,
+            'data' => decorationPcPage('Missing', 21),
+            'meta' => [],
+        ], [DecorationEnum::PC_HOME]),
     ));
     expectDecorationTenant($saveDenied === $missingSaveDenied, 'decoration save enumerated Tenant ownership');
     expectDecorationTenant($saveDenied[0] === 'DECORATION_PAGE_NOT_FOUND', 'decoration save denial code changed');
 
     $articleDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.cross-tenant-link'),
-            fn() => app(DecorationPageApplicationService::class)->save($alpha, [
-                'id' => $alphaPageId,
-                'tenant_id' => 202,
-                'type' => DecorationEnum::PC_HOME,
-                'data' => decorationPcPage('Forged Article', 22),
-                'meta' => [],
-            ], [DecorationEnum::PC_HOME]),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.cross-tenant-link'),
+        fn() => app(DecorationPageApplicationService::class)->save($alpha, [
+            'id' => $alphaPageId,
+            'tenant_id' => 202,
+            'type' => DecorationEnum::PC_HOME,
+            'data' => decorationPcPage('Forged Article', 22),
+            'meta' => [],
+        ], [DecorationEnum::PC_HOME]),
     ));
     $missingArticleDenied = decorationFailure(fn() => app(ExecutionContextStore::class)->run(
-            new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.missing-link'),
-            fn() => app(DecorationPageApplicationService::class)->save($alpha, [
-                'id' => $alphaPageId,
-                'tenant_id' => 202,
-                'type' => DecorationEnum::PC_HOME,
-                'data' => decorationPcPage('Missing Article', 999999),
-                'meta' => [],
-            ], [DecorationEnum::PC_HOME]),
+        new \app\common\execution\AdminExecutionContext($alpha, 'test.decoration.page.save.missing-link'),
+        fn() => app(DecorationPageApplicationService::class)->save($alpha, [
+            'id' => $alphaPageId,
+            'tenant_id' => 202,
+            'type' => DecorationEnum::PC_HOME,
+            'data' => decorationPcPage('Missing Article', 999999),
+            'meta' => [],
+        ], [DecorationEnum::PC_HOME]),
     ));
     expectDecorationTenant($articleDenied === $missingArticleDenied, 'Article link validation enumerated Tenant ownership');
     expectDecorationTenant($articleDenied[0] === 'DECORATION_PAGE_INVALID', 'Article link denial code changed');
@@ -277,39 +278,39 @@ SQL);
         'Alpha decoration save failed',
     );
     expectDecorationTenant(
-        (int)$pdo->query("SELECT tenant_id FROM pa_decorate_page WHERE id = {$alphaPageId}")->fetchColumn() === 101,
-        'payload tenant_id overrode trusted decoration owner'
+        (int) $pdo->query("SELECT tenant_id FROM pa_decorate_page WHERE id = {$alphaPageId}")->fetchColumn() === 101,
+        'payload tenant_id overrode trusted decoration owner',
     );
     expectDecorationTenant(
         $pdo->query("SELECT name, data, meta FROM pa_decorate_page WHERE id = {$betaPageId}")->fetch(PDO::FETCH_ASSOC) === $betaBefore,
-        'cross-Tenant denials changed Beta decoration page'
+        'cross-Tenant denials changed Beta decoration page',
     );
 
     $publicAlpha = new TenantSystemContext(
         101,
         'peanut.decoration.public-read',
         'decoration.pc-page',
-        'fresh-decoration-public-alpha'
+        'fresh-decoration-public-alpha',
     );
     $publicBeta = new TenantSystemContext(
         202,
         'peanut.decoration.public-read',
         'decoration.pc-page',
-        'fresh-decoration-public-beta'
+        'fresh-decoration-public-beta',
     );
     expectDecorationTenant(
         app(ExecutionContextStore::class)->run(
             \app\common\execution\ConsumerExecutionContext::publicTenant($publicAlpha),
             fn() => $decorationReads->pageByType($publicAlpha, DecorationEnum::PC_HOME, 'decoration.pc-page'),
         )['name'] === 'Alpha PC',
-        'public Alpha read selected another Tenant page'
+        'public Alpha read selected another Tenant page',
     );
     expectDecorationTenant(
         app(ExecutionContextStore::class)->run(
             \app\common\execution\ConsumerExecutionContext::publicTenant($publicBeta),
             fn() => $decorationReads->pageByType($publicBeta, DecorationEnum::PC_HOME, 'decoration.pc-page'),
         )['name'] === 'Beta PC',
-        'public Beta read selected another Tenant page'
+        'public Beta read selected another Tenant page',
     );
     try {
         DecoratePage::where([])->count();

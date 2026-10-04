@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use think\Container;
@@ -13,9 +14,7 @@ use think\db\connector\Sqlite;
 /** Adapts an existing fixture PDO into the exact ThinkPHP connection used by production services. */
 final class ThinkPhpTestConnection
 {
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     public static function fromPdo(PDO $pdo): PDOConnection
     {
@@ -31,11 +30,19 @@ final class ThinkPhpTestConnection
         return $connection;
     }
 
-    public static function moduleCatalogs(PDO $pdo): \app\platform\service\plugin\ModuleCatalogApplier
+    public static function moduleCatalogs(PDO $pdo): \app\platform\infrastructure\plugin\ModuleCatalogApplier
     {
         $connection = self::fromPdo($pdo);
-        return new \app\platform\service\plugin\ModuleCatalogApplier(
-            new \PeanutAdmin\Settings\Definition\SettingDefinitionSynchronizer(),
+        return new \app\platform\infrastructure\plugin\ModuleCatalogApplier(
+            new \PeanutAdmin\Modules\Settings\Service\SettingCatalogService(
+                new \PeanutAdmin\Modules\Settings\Definition\SettingDefinitionSynchronizer(),
+            ),
+            new \PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer(
+                new \PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository(),
+            ),
+            new \PeanutAdmin\Modules\Identity\Menu\ThinkPhpMenuCatalogRepository(),
+            new \PeanutAdmin\Modules\ReferenceCodes\Service\ReferenceCodeCatalogService(),
+            new \PeanutAdmin\Modules\Identity\Authorization\CatalogLifecycleService(),
         );
     }
 }

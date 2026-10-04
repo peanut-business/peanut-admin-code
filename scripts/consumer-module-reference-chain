@@ -8,18 +8,20 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent
 LEASE_TOOL = ROOT / "scripts/project-resource-lease"
-PHP = Path("/opt/homebrew/bin/php")
-COMPOSER = Path("/usr/local/bin/composer")
+PHP = Path(os.environ.get("PEANUT_PHP_BINARY") or shutil.which("php") or "/usr/bin/php")
+COMPOSER = ROOT / "scripts/project-composer"
 MODULE_KEY = "acme.reference-chain"
 PACKAGE_KEY_ID = "cr21-author"
 BACKEND_ENVIRONMENT_KEYS = {
@@ -35,12 +37,12 @@ BACKEND_ENVIRONMENT_KEYS = {
     "DB_NAME",
     "DB_USER",
     "DB_PASS",
-    "DB_ROOT_PASS",
     "DB_PREFIX",
     "JWT_SECRET",
     "PEANUT_MODULE_KERNEL_VERSION",
     "PEANUT_MODULE_TRUSTED_KEYS_JSON",
 }
+CONFIG_VALUES: dict[str, str] = {}
 
 
 class ChainError(RuntimeError):
@@ -58,10 +60,11 @@ def command(
     env: dict[str, str] | None = None,
     log: Path | None = None,
 ) -> str:
-    merged = os.environ.copy()
-    if env and "PEANUT_SERVER_ENV_FILE" in env:
-        for name in BACKEND_ENVIRONMENT_KEYS:
-            merged.pop(name, None)
+    merged = {
+        key: value
+        for key in ("PATH", "HOME", "TMPDIR", "SystemRoot", "COMSPEC", "PATHEXT")
+        if (value := os.environ.get(key))
+    }
     if env:
         merged.update(env)
     result = subprocess.run(
@@ -186,8 +189,71 @@ def lease_fields(lease_id: str) -> tuple[dict[str, str], list[tuple[str, str]]]:
     return metadata, resources
 
 
+def registered_database(resource_id: str, endpoint_id: str, database: str) -> tuple[str, int]:
+    """Use the existing registry as authority; caller strings never grant a database."""
+    expect(bool(os.environ.get("PEANUT_RESOURCE_REGISTRY")),
+           "CR21 requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    registry_path = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
+    expect(registry_path.is_absolute() and not registry_path.is_symlink(),
+           "PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
+    registry = read_json(registry_path)
+    matches = [item for item in registry.get("resources", {}).get("databases", [])
+               if isinstance(item, dict) and item.get("stable_resource_id") == resource_id]
+    expect(len(matches) == 1, "database resource is missing or ambiguous")
+    resource = matches[0]
+    environments = resource.get("environments", [])
+    eligible_test_resource = (
+        "development-test" in environments
+        and resource.get("application_runtime") is False
+        and resource.get("lifecycle") == "ephemeral"
+    )
+    expect("development" in environments or eligible_test_resource,
+           "resource is not an authorized development or ephemeral development-test runtime")
+    endpoint = resource.get("upstream_endpoint")
+    expect(isinstance(endpoint, dict) and endpoint.get("endpoint_id") == endpoint_id
+           and "host" in endpoint.get("consumers", []), "endpoint is not the registered host endpoint")
+    declared = set()
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            declared.add(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+    collect(resource.get("database"))
+    collect(resource.get("synthetic_databases", {}))
+    expect(database in declared, "database is not explicitly registered on this resource")
+    host, port = endpoint.get("host"), endpoint.get("port")
+    expect(isinstance(host, str) and isinstance(port, int) and 1 <= port <= 65535,
+           "registered endpoint is invalid")
+    expect(required_environment("DB_HOST") == host and required_environment("DB_PORT") == str(port),
+           "credential endpoint differs from the registered endpoint")
+    return host, port
+
+
+def assert_empty_database(database: str) -> None:
+    # Read-only preflight: no connection to an unregistered target, no DROP/CREATE here.
+    code = r'''
+$c=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);
+$p=new PDO('mysql:host='.$c['host'].';port='.$c['port'].';charset=utf8mb4',$c['user'],$c['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+$q=$p->prepare('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=?');
+$q->execute([$c['database']]);
+if ((int)$q->fetchColumn()!==0) throw new RuntimeException('CONSUMER_DATABASE_NOT_EMPTY');
+echo "empty\n";
+'''
+    process = subprocess.run([str(PHP), "-r", code], text=True, input=json.dumps({
+        "host": required_environment("DB_HOST"), "port": required_environment("DB_PORT"),
+        "user": required_environment("DB_USER"), "password": required_environment("DB_PASS"),
+        "database": database,
+    }), stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    expect(process.returncode == 0 and process.stdout.strip() == "empty",
+           "database preflight failed or target contains existing data; no reset performed")
+
+
 def required_environment(name: str) -> str:
-    value = os.environ.get(name, "")
+    value = CONFIG_VALUES.get(name, "")
     if value == "":
         fail(f"missing required environment: {name}")
     return value
@@ -259,6 +325,7 @@ def backend_environment(
     public_key: str,
     resource_id: str,
     endpoint_id: str,
+    edition: str,
 ) -> dict[str, str]:
     values = {
         "APP_ENV": "development",
@@ -267,15 +334,17 @@ def backend_environment(
         "PEANUT_DATABASE_RESOURCE_ID": resource_id,
         "PEANUT_DATABASE_ENDPOINT_ID": endpoint_id,
         "PEANUT_DATABASE_CONSUMER": "host",
-        "DEPLOYMENT_MODE": "standalone",
+        "DEPLOYMENT_MODE": edition,
         "DB_HOST": required_environment("DB_HOST"),
         "DB_PORT": required_environment("DB_PORT"),
         "DB_NAME": database,
         "DB_USER": required_environment("DB_USER"),
         "DB_PASS": required_environment("DB_PASS"),
-        "DB_ROOT_PASS": "",
         "DB_PREFIX": "pa_",
-        "JWT_SECRET": "cr21-reference-chain-jwt-secret-20260828",
+        "JWT_SECRET": secrets.token_hex(32),
+        "TENANT_IDENTIFIER_HMAC_KEY": secrets.token_hex(32),
+        "PLATFORM_IDENTIFIER_HMAC_KEY": secrets.token_hex(32),
+        "ASYNC_SIGNING_KEY": secrets.token_hex(32),
         "PEANUT_MODULE_KERNEL_VERSION": "1.0.0",
         "PEANUT_MODULE_TRUSTED_KEYS_JSON": json.dumps({PACKAGE_KEY_ID: public_key}, separators=(",", ":")),
     }
@@ -287,71 +356,158 @@ def backend_environment(
     return {"PEANUT_SERVER_ENV_FILE": str(path)}
 
 
-def create_application(
-    target: Path,
-    name: str,
-    slug: str,
-    package: str,
-    candidate: str,
+def extract_installer(package: Path, artifact: dict[str, Any], target: Path) -> None:
+    archive = artifact.get("archive")
+    if not isinstance(archive, dict) or archive.get("format") != "tar.gz":
+        fail("Edition installer artifact archive contract is invalid")
+    archive_root = archive.get("root")
+    if not isinstance(archive_root, str) or not re.fullmatch(r"[A-Za-z0-9._-]+", archive_root):
+        fail("Edition installer archive root is invalid")
+    if archive.get("sha256") != sha256(package):
+        fail("Edition installer archive digest differs from its fixed manifest")
+    expect(not target.exists() and not target.is_symlink(), "Edition installer target already exists")
+    stage = target.parent / ("." + target.name + ".extract-" + secrets.token_hex(6))
+    stage.mkdir(mode=0o700)
+    try:
+        with tarfile.open(package, "r:gz") as archive_file:
+            members = archive_file.getmembers()
+            expect(bool(members), "Edition installer archive is empty")
+            expect(len({member.name for member in members}) == len(members), "Edition installer contains duplicate members")
+            for member in members:
+                parts = Path(member.name).parts
+                expect(parts and parts[0] == archive_root and ".." not in parts
+                       and not member.issym() and not member.islnk()
+                       and (member.isdir() or member.isfile()),
+                       "Edition installer contains an unsafe member")
+            archive_file.extractall(stage, filter="data")
+        extracted = stage / archive_root
+        expect(extracted.is_dir() and not extracted.is_symlink(), "Edition installer root is missing")
+        application_manifest = extracted / ".peanut/application-manifest.json"
+        expect(application_manifest.is_file() and not application_manifest.is_symlink()
+               and artifact.get("application", {}).get("manifest_sha256") == sha256(application_manifest),
+               "Edition installer application manifest digest is invalid")
+        marker = extracted / ".peanut/internal-candidate.json"
+        if artifact.get("protocol") == "peanut.internal-edition-candidate.v1":
+            import runpy
+            contract = runpy.run_path(str(ROOT / "scripts/internal_candidate_contract.py"))
+            try:
+                contract["verify"](extracted, artifact)
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                fail("internal Edition candidate integrity failed: " + str(error))
+        else:
+            expect(not marker.exists(), "formal Edition installer contains internal candidate marker")
+        expect(not target.exists() and not target.is_symlink(), "Edition installer target already exists")
+        os.replace(extracted, target)
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
+
+
+def validate_installer_artifact(
+    args: argparse.Namespace,
     candidate_tree: str,
-    formal_release_adoption: bool,
-    log: Path,
-) -> None:
-    if formal_release_adoption:
-        command(
-            [
-                str(PHP), str(ROOT / "scripts/create-app"),
-                f"--name={name}", f"--slug={slug}", f"--package={package}",
-                f"--target={target}", "--edition=standalone", "--profile=full",
-            ],
-            log=log,
-        )
-        return
-    source_builder = r'''
-$root=$argv[1];
-require $root.'/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
-require $root.'/server/app/common/value/scaffold/ScaffoldManifest.php';
-require $root.'/server/app/common/value/scaffold/VersionContract.php';
-require $root.'/server/app/common/infrastructure/scaffold/ApplicationCreator.php';
-$manifest=(new app\common\infrastructure\scaffold\ApplicationCreator(
-    $root,
-    $root.'/scaffold/application-template-inventory.json',
-    ['commit'=>$argv[2],'tree'=>$argv[3]],
-))->create($argv[4],$argv[5],$argv[6],$argv[7],'standalone',null,'full');
-echo json_encode([
-    'status'=>'created',
-    'target'=>$argv[7],
-    'template'=>$manifest['template'],
-    'generation_source'=>$manifest['generation_source'],
-],JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES),PHP_EOL;
-'''
-    command(
-        [
-            str(PHP),
-            "-r",
-            source_builder,
-            str(ROOT),
-            candidate,
-            candidate_tree,
-            name,
-            slug,
-            package,
-            str(target),
-        ],
-        log=log,
+    installer_package: Path,
+    installer_manifest: Path,
+    installer_artifact: dict[str, Any],
+) -> dict[str, Any]:
+    if not re.fullmatch(r"[a-f0-9]{64}", args.installer_sha256) \
+            or not re.fullmatch(r"[a-f0-9]{64}", args.installer_manifest_sha256) \
+            or sha256(installer_package) != args.installer_sha256 \
+            or sha256(installer_manifest) != args.installer_manifest_sha256:
+        fail("fixed Edition installer hashes do not match the lease-bound inputs")
+    protocol = installer_artifact.get("protocol")
+    common_valid = (
+        installer_artifact.get("schema_version") == 1
+        and installer_artifact.get("edition", {}).get("name") == args.edition
+        and installer_artifact.get("source", {}).get("commit") == args.candidate
+        and installer_artifact.get("source", {}).get("tree") == candidate_tree
+        and installer_artifact.get("archive", {}).get("filename") == installer_package.name
     )
+    if args.installer_mode == "formal":
+        if not common_valid or protocol != "peanut.edition-installer.v1":
+            fail("fixed Edition installer identity does not match candidate/tree/edition")
+    elif args.installer_mode == "internal-candidate":
+        core = installer_artifact.get("core_php_archive", {})
+        core_path = core.get("path_in_archive") if isinstance(core, dict) else None
+        if (
+            not common_valid
+            or protocol != "peanut.internal-edition-candidate.v1"
+            or installer_artifact.get("scope") != "internal-candidate"
+            or installer_artifact.get("status") == "formal-release"
+            or not isinstance(core, dict)
+            or core.get("package") != "peanut-admin/core"
+            or not isinstance(core_path, str)
+            or core_path.startswith("/")
+            or "\\" in core_path
+            or ".." in Path(core_path).parts
+            or not re.fullmatch(r"[a-f0-9]{64}", str(core.get("sha256", "")))
+            or not re.fullmatch(r"[a-f0-9]{40}", str(core.get("sha1", "")))
+            or not re.fullmatch(r"[a-f0-9]{40}", str(core.get("source_reference", "")))
+            or installer_artifact.get("formal_release", {}).get("eligible") is not False
+        ):
+            fail("internal Edition candidate identity does not match candidate/tree/edition")
+        archive_root = installer_artifact.get("archive", {}).get("root")
+        if not isinstance(archive_root, str):
+            fail("internal Edition candidate identity does not match candidate/tree/edition")
+        expected_member = archive_root + "/" + core_path
+        with tarfile.open(installer_package, "r:gz") as archive_file:
+            try:
+                member = archive_file.getmember(expected_member)
+            except KeyError:
+                fail("internal Edition candidate Core archive is missing")
+            expect(member.isfile() and not member.issym() and not member.islnk(),
+                   "internal Edition candidate Core archive is unsafe")
+            stream = archive_file.extractfile(member)
+            expect(stream is not None, "internal Edition candidate Core archive is unreadable")
+            with stream:
+                data = stream.read()
+            expect(hashlib.sha256(data).hexdigest() == core.get("sha256")
+                   and hashlib.sha1(data).hexdigest() == core.get("sha1"),
+                   "internal Edition candidate Core archive digest differs")
+    else:
+        fail("installer mode is invalid")
+    archive = installer_artifact.get("archive", {})
+    application = installer_artifact.get("application", {})
+    return {
+        "mode": args.installer_mode,
+        "protocol": protocol,
+        "archive_path": str(installer_package),
+        "manifest_path": str(installer_manifest),
+        "archive_sha256": args.installer_sha256,
+        "manifest_sha256": args.installer_manifest_sha256,
+        "archive_root": archive.get("root"),
+        "application_manifest_sha256": application.get("manifest_sha256"),
+        "formal_release_eligible": installer_artifact.get("formal_release", {}).get("eligible", args.installer_mode == "formal"),
+    }
 
 
 def install_dependencies(
     project: Path,
-    cache: Path,
+    _cache: Path,
     backend_env: dict[str, str],
     log: Path,
 ) -> None:
+    environment = backend_env | ({"COMPOSER_DISABLE_NETWORK": "1"} if CONFIG_VALUES.get("DEPENDENCY_NETWORK") != "allowed" else {})
+    wrapper = project / "scripts/project-composer"
+    wrapper_source = COMPOSER.read_text(encoding="utf-8")
+    version_match = re.search(r"^VERSION='([^']+)'$", wrapper_source, re.MULTILINE)
+    if version_match is None:
+        fail("source Composer wrapper has no pinned version")
+    source_tool = ROOT / ".local/toolchain" / f"composer-{version_match.group(1)}.phar"
+    if not source_tool.is_file() or source_tool.is_symlink():
+        fail("verified source Composer tool is unavailable; run scripts/project-composer prepare")
+    command([str(COMPOSER), "--version", "--no-ansi"], cwd=ROOT, env=environment, log=log)
+    target_tool = project / ".local/toolchain" / source_tool.name
+    target_tool.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    shutil.copy2(source_tool, target_tool)
+    target_tool.chmod(0o755)
+    command([str(wrapper), "--version", "--no-ansi"], cwd=project, env=environment, log=log)
     command(
-        [str(COMPOSER), "install", "--no-interaction", "--no-progress", "--prefer-dist"],
-        cwd=project / "server",
-        env=backend_env | {"COMPOSER_CACHE_DIR": str(cache)},
+        [
+            str(wrapper), "install", "--working-dir=server",
+            "--no-interaction", "--no-progress", "--prefer-dist",
+        ],
+        cwd=project,
+        env=environment,
         log=log,
     )
 
@@ -369,8 +525,197 @@ def author_module_v1(author: Path) -> tuple[Path, Path]:
     manifest_path = backend / "module.json"
     manifest = read_json(manifest_path)
     manifest["description"] = "CR21 independent consumer reference chain"
+    identity_manifest_path = author / "server/app/modules/official/identity/module.json"
+    if not identity_manifest_path.is_file():
+        fail("official.identity module manifest is unavailable in the author application")
+    identity_manifest = read_json(identity_manifest_path)
+    identity_version = identity_manifest.get("version")
+    if not isinstance(identity_version, str) or identity_version == "":
+        fail("official.identity module manifest has no valid version")
+    raw_dependencies = manifest.get("dependencies", [])
+    if not isinstance(raw_dependencies, list):
+        fail("reference-chain dependencies must be a list")
+    dependencies: list[dict[str, str]] = []
+    identity_seen = False
+    for item in raw_dependencies:
+        if not isinstance(item, dict) or not isinstance(item.get("module_key"), str) or not isinstance(item.get("version"), str):
+            fail("reference-chain dependency entries must declare module_key and version")
+        dependency = {"module_key": item["module_key"], "version": item["version"]}
+        if dependency["module_key"] == "official.identity":
+            if identity_seen:
+                fail("reference-chain dependencies contain duplicate official.identity entries")
+            dependency["version"] = identity_version
+            identity_seen = True
+        dependencies.append(dependency)
+    if not identity_seen:
+        dependencies.append({"module_key": "official.identity", "version": identity_version})
+    manifest["dependencies"] = dependencies
     manifest["database"]["owned_tables"] = ["pa_acme_reference_chain_record"]
+    manifest["contracts"]["exports"] = ["Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands"]
+    for directory in ["src/Contract", "src/Service"]:
+        (backend / directory).mkdir(parents=True, exist_ok=True)
     write_json(manifest_path, manifest)
+    (backend / "src/Contract/ReferenceChainCommands.php").write_text(
+        """<?php
+declare(strict_types=1);
+
+namespace Acme\\Modules\\ReferenceChain\\Contract;
+
+use PeanutAdmin\\Kernel\\Auth\\TenantContext;
+
+interface ReferenceChainCommands
+{
+    /** @return array{id:int,tenant_id:int,reference:string} */
+    public function create(TenantContext $context, string $reference): array;
+
+    /** @return array{items:list<array{id:int,tenant_id:int,reference:string}>,has_more:bool,next_cursor:int|null} */
+    public function list(TenantContext $context, int $limit = 50, int $afterId = 0): array;
+}
+""",
+        encoding="utf-8",
+    )
+    (backend / "src/Service/ReferenceChainService.php").write_text(
+        """<?php
+declare(strict_types=1);
+
+namespace Acme\\Modules\\ReferenceChain\\Service;
+
+use Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands;
+use app\\common\\contract\\authorization\\AdminAuthorizationQuery;
+use app\\common\\contract\\module\\ModuleQualificationQuery;
+use PeanutAdmin\\Kernel\\Auth\\TenantContext;
+use RuntimeException;
+use think\\db\\Raw;
+use think\\facade\\Db;
+
+final readonly class ReferenceChainService implements ReferenceChainCommands
+{
+    public function __construct(
+        private AdminAuthorizationQuery $authorization,
+        private ModuleQualificationQuery $modules,
+    ) {}
+
+    public function create(TenantContext $context, string $reference): array
+    {
+        $reference = trim($reference);
+        if ($reference === '' || strlen($reference) > 120) {
+            throw new RuntimeException('REFERENCE_CHAIN_REFERENCE_INVALID');
+        }
+        $this->assertPermission($context);
+        return Db::transaction(function () use ($context, $reference): array {
+            $this->assertEnabled($context->tenantId);
+            $id = $this->intId(Db::name('acme_reference_chain_record')->insertGetId([
+                'tenant_id' => $context->tenantId,
+                'reference' => $reference,
+                'created_at' => new Raw('UTC_TIMESTAMP(3)'),
+            ]));
+            return $this->row($context->tenantId, $id);
+        });
+    }
+
+    public function list(TenantContext $context, int $limit = 50, int $afterId = 0): array
+    {
+        if ($limit < 1 || $limit > 100) {
+            throw new RuntimeException('REFERENCE_CHAIN_LIST_LIMIT_INVALID');
+        }
+        if ($afterId < 0) {
+            throw new RuntimeException('REFERENCE_CHAIN_CURSOR_INVALID');
+        }
+        $this->assertPermission($context);
+        $this->assertEnabled($context->tenantId);
+        $rows = Db::name('acme_reference_chain_record')
+            ->where('tenant_id', $context->tenantId)
+            ->where('id', '>', $afterId)
+            ->field(['id', 'tenant_id', 'reference'])
+            ->order('id')->limit($limit + 1)->select()->toArray();
+        $items = array_map(fn(array $row): array => $this->normalizeRow($row), array_slice($rows, 0, $limit));
+        return [
+            'items' => $items,
+            'has_more' => count($rows) > $limit,
+            'next_cursor' => count($rows) > $limit && $items !== [] ? $items[array_key_last($items)]['id'] : null,
+        ];
+    }
+
+    private function assertEnabled(int $tenantId): void
+    {
+        if (!in_array('acme.reference-chain', $this->modules->activeTenantModuleKeys($tenantId), true)) {
+            throw new RuntimeException('REFERENCE_CHAIN_MODULE_NOT_ENABLED');
+        }
+    }
+
+    private function assertPermission(TenantContext $context): void
+    {
+        $principal = $this->authorization->principal($context);
+        if (!$this->authorization->decide($context, $principal, 'acme.reference-chain.write')->allowed) {
+            throw new RuntimeException('REFERENCE_CHAIN_PERMISSION_DENIED');
+        }
+    }
+
+    /** @return array{id:int,tenant_id:int,reference:string} */
+    private function row(int $tenantId, int $id): array
+    {
+        $row = Db::name('acme_reference_chain_record')->where('tenant_id', $tenantId)
+            ->where('id', $id)->field(['id', 'tenant_id', 'reference'])->find();
+        if (!is_array($row)) {
+            throw new RuntimeException('REFERENCE_CHAIN_RECORD_NOT_FOUND');
+        }
+        return $this->normalizeRow($row);
+    }
+
+    /** @param array<string,mixed> $row @return array{id:int,tenant_id:int,reference:string} */
+    private function normalizeRow(array $row): array
+    {
+        return [
+            'id' => $this->intId($row['id'] ?? null),
+            'tenant_id' => $this->intId($row['tenant_id'] ?? null),
+            'reference' => (string)($row['reference'] ?? ''),
+        ];
+    }
+
+    private function intId(mixed $value): int
+    {
+        $text = is_int($value) ? (string)$value : (is_string($value) ? $value : '');
+        if ($text === '' || preg_match('/^[1-9][0-9]*$/', $text) !== 1 || $this->compareUnsigned($text, (string)PHP_INT_MAX) > 0) {
+            throw new RuntimeException('REFERENCE_CHAIN_ID_OUT_OF_RANGE');
+        }
+        return (int)$text;
+    }
+
+    private function compareUnsigned(string $left, string $right): int
+    {
+        $left = ltrim($left, '0') ?: '0';
+        $right = ltrim($right, '0') ?: '0';
+        return strlen($left) <=> strlen($right) ?: strcmp($left, $right);
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    (backend / "src/ModuleProvider.php").write_text(
+        """<?php
+declare(strict_types=1);
+
+namespace Acme\\Modules\\ReferenceChain;
+
+use Acme\\Modules\\ReferenceChain\\Contract\\ReferenceChainCommands;
+use Acme\\Modules\\ReferenceChain\\Service\\ReferenceChainService;
+use PeanutAdmin\\Kernel\\Module\\ModuleProvider as ModuleProviderContract;
+
+final class ModuleProvider implements ModuleProviderContract
+{
+    public function moduleKey(): string
+    {
+        return 'acme.reference-chain';
+    }
+
+    public function bindings(): array
+    {
+        return [ReferenceChainCommands::class => ReferenceChainService::class];
+    }
+}
+""",
+        encoding="utf-8",
+    )
     write_json(backend / "resources/permissions.json", [{
         "key": "acme.reference-chain.write",
         "type": "action",
@@ -422,10 +767,25 @@ def lifecycle_helper() -> str:
     return r'''<?php
 declare(strict_types=1);
 
+// Credentials remain private even on diagnostics or retained failed runs.
+umask(0077);
+ini_set('zend.exception_ignore_args', '1');
+set_exception_handler(static function (Throwable $error): void {
+    fwrite(STDERR, json_encode([
+        'error' => 'CR21_HELPER_FAILED',
+        'exception' => get_class($error),
+        'source' => basename($error->getFile()),
+        'line' => $error->getLine(),
+    ], JSON_THROW_ON_ERROR) . PHP_EOL);
+    exit(1);
+});
+
 require $argv[1] . '/server/bootstrap/environment.php';
 require $argv[1] . '/server/vendor/autoload.php';
 
 $action = $argv[2] ?? '';
+$identityFile = $argv[3] ?? '';
+$app = (new think\App($argv[1] . '/server'))->initialize();
 $pdo = new PDO(
     'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_NAME') . ';charset=utf8mb4',
     (string)getenv('DB_USER'),
@@ -455,38 +815,359 @@ $snapshot = static function () use ($pdo, $module, $tableExists): array {
     ];
 };
 
-if ($action === 'seed') {
-    $tenantA = $pdo->query("SELECT id FROM pa_tenant WHERE code='default' AND status='active'")->fetchColumn();
-    if ($tenantA === false) throw new RuntimeException('default Tenant is unavailable');
-    $pdo->exec("INSERT INTO pa_tenant(code,name,display_name,status,activated_at,created_at,updated_at) VALUES ('tenant-b','Tenant B','Tenant B','active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
-    $tenantB = (int)$pdo->lastInsertId();
-    $roleA = $pdo->query('SELECT id FROM pa_role WHERE tenant_id=' . (int)$tenantA . " AND status='active' ORDER BY id LIMIT 1")->fetchColumn();
-    if ($roleA === false) throw new RuntimeException('Tenant A role is unavailable');
-    $role = $pdo->prepare("INSERT INTO pa_role(tenant_id,`key`,name,is_builtin,status,created_at,updated_at) VALUES (?,'reference-owner','Reference Owner',0,'active',UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
-    $role->execute([$tenantB]);
-    $roleB = (int)$pdo->lastInsertId();
-    $tenantModule = $pdo->prepare("INSERT INTO pa_tenant_module(tenant_id,module_key,status,source,config_json,config_revision,authorization_revision,effective_at,enabled_at,disabled_at,disabled_reason,created_at,updated_at) VALUES (?,'acme.reference-chain',?,'manual','{}',1,1,?,?,?, ?,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
-    $now = gmdate('Y-m-d H:i:s.v');
-    $tenantModule->execute([(int)$tenantA, 'enabled', $now, $now, null, null]);
-    $tenantModule->execute([$tenantB, 'disabled', null, null, $now, 'not-yet-enabled']);
-    $permission = $pdo->query("SELECT id FROM pa_permission WHERE `key`='acme.reference-chain.write' AND status='active'")->fetchColumn();
-    if ($permission === false) throw new RuntimeException('Module permission is unavailable');
-    $grant = $pdo->prepare('INSERT INTO pa_role_permission(tenant_id,role_id,permission_id,granted_at) VALUES (?,?,?,UTC_TIMESTAMP(3))');
-    $grant->execute([(int)$tenantA, (int)$roleA, (int)$permission]);
-    $record = $pdo->prepare('INSERT INTO pa_acme_reference_chain_record(tenant_id,reference,created_at) VALUES (?,?,UTC_TIMESTAMP(3))');
-    $record->execute([(int)$tenantA, 'tenant-a']);
-    $record->execute([$tenantB, 'tenant-b']);
-    echo json_encode($snapshot(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+$identityBundle = static function () use ($identityFile): array {
+    clearstatcache(true, $identityFile);
+    if ($identityFile === '') {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_REQUIRED');
+    }
+    if (!is_file($identityFile) || is_link($identityFile) || (fileperms($identityFile) & 0777) !== 0600) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_FILE_INVALID');
+    }
+    $decoded = json_decode((string)file_get_contents($identityFile), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_JSON_INVALID');
+    }
+    return $decoded;
+};
+$privateKeyValueFile = static function (string $path, string $label): array {
+    clearstatcache(true, $path);
+    if ($path === '' || !is_file($path) || is_link($path) || (fileperms($path) & 0777) !== 0600) {
+        throw new RuntimeException($label . '_FILE_INVALID');
+    }
+    $values = parse_ini_file($path, false, INI_SCANNER_RAW);
+    if (!is_array($values)) {
+        throw new RuntimeException($label . '_FILE_UNREADABLE');
+    }
+    return $values;
+};
+$requiredSecret = static function (array $values, string $key): string {
+    $value = $values[$key] ?? null;
+    if (!is_string($value) || trim($value) === '') {
+        throw new RuntimeException('CR21_SECRET_MISSING:' . $key);
+    }
+    return $value;
+};
+$requiredToken = static function (array $bundle, string $key): string {
+    $token = $bundle[$key] ?? null;
+    if (!is_string($token) || trim($token) === '') {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_TOKEN_MISSING:' . $key);
+    }
+    return $token;
+};
+$tenantToken = static function (array $bundle, string $tenantCode) use ($requiredToken): string {
+    $tokens = $bundle['tenant_access_tokens'] ?? null;
+    if (!is_array($tokens)) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_TENANT_TOKENS_MISSING');
+    }
+    return $requiredToken($tokens, $tenantCode);
+};
+$requestId = static function (string $audience): string {
+    return 'cr21-' . $audience . '-' . bin2hex(random_bytes(8));
+};
+$expectReferencePermissionDenied = static function (callable $operation, PDO $pdo): void {
+    $before = (int)$pdo->query('SELECT COUNT(*) FROM pa_acme_reference_chain_record')->fetchColumn();
+    try {
+        $operation();
+    } catch (RuntimeException $error) {
+        if ($error->getMessage() !== 'REFERENCE_CHAIN_PERMISSION_DENIED') {
+            throw $error;
+        }
+        $after = (int)$pdo->query('SELECT COUNT(*) FROM pa_acme_reference_chain_record')->fetchColumn();
+        if ($after !== $before) {
+            throw new RuntimeException('CR21_REFERENCE_CHAIN_DENIAL_MUTATED_DATA');
+        }
+        return;
+    }
+    throw new RuntimeException('CR21_REFERENCE_CHAIN_PERMISSION_DENIAL_MISSING');
+};
+$writeIdentityBundle = static function (string $path, array $bundle): void {
+    if ($path === '') {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_OUTPUT_REQUIRED');
+    }
+    $directory = dirname($path);
+    if (!is_dir($directory) || is_link($path)) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_OUTPUT_INVALID');
+    }
+    $temporary = $path . '.tmp-' . bin2hex(random_bytes(8));
+    try {
+        $json = json_encode($bundle, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $handle = fopen($temporary, 'x');
+        if ($handle === false) {
+            throw new RuntimeException('CR21_IDENTITY_CONTEXT_WRITE_FAILED');
+        }
+        try {
+            if (!chmod($temporary, 0600) || fwrite($handle, $json) !== strlen($json)) {
+                throw new RuntimeException('CR21_IDENTITY_CONTEXT_WRITE_FAILED');
+            }
+        } finally {
+            fclose($handle);
+        }
+        if (!rename($temporary, $path)) {
+            throw new RuntimeException('CR21_IDENTITY_CONTEXT_WRITE_FAILED');
+        }
+    } finally {
+        if (is_file($temporary) && !is_link($temporary)) {
+            unlink($temporary);
+        }
+    }
+};
+$platformContext = static function () use ($app, $identityBundle, $requiredToken, $requestId): PeanutAdmin\Kernel\Context\PlatformContext {
+    $context = $app->make(app\platform\identity\PlatformOperatorIdentityPort::class)
+        ->requireActive($requiredToken($identityBundle(), 'platform_access_token'), $requestId('platform'));
+    return $context->core;
+};
+$tenantContext = static function (string $tenantCode) use ($app, $pdo, $identityBundle, $tenantToken, $requestId): PeanutAdmin\Kernel\Auth\TenantContext {
+    $context = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class)
+        ->context($tenantToken($identityBundle(), $tenantCode), $requestId('tenant'));
+    $query = $pdo->prepare("SELECT id FROM pa_tenant WHERE code=? AND status='active'");
+    $query->execute([$tenantCode]);
+    $tenantId = $query->fetchColumn();
+    if ($tenantId === false || (int)$tenantId !== $context->tenantId) {
+        throw new RuntimeException('CR21_IDENTITY_CONTEXT_TENANT_MISMATCH:' . $tenantCode);
+    }
+    return $context;
+};
+
+if ($action === 'fixture') {
+    echo json_encode($snapshot() + ['tenant_fixture' => 'native_provision_accept_activate'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    exit(0);
+}
+if ($action === 'issue-identities') {
+    $outputIdentityFile = $argv[3] ?? '';
+    $credentialFile = $argv[4] ?? '';
+    $credentials = $privateKeyValueFile($credentialFile, 'CR21_IDENTITY_SEED');
+    foreach (['PLATFORM_INITIAL_EMAIL', 'PLATFORM_INITIAL_PASSWORD', 'ADMIN_INITIAL_EMAIL',
+        'ADMIN_INITIAL_PASSWORD', 'TENANT_B_OWNER_EMAIL', 'TENANT_B_OWNER_PASSWORD'] as $key) {
+        $requiredSecret($credentials, $key);
+    }
+    $platform = $app->make(app\platform\services\PlatformOperatorSessionService::class)
+        ->login(
+            $requiredSecret($credentials, 'PLATFORM_INITIAL_EMAIL'),
+            $requiredSecret($credentials, 'PLATFORM_INITIAL_PASSWORD'),
+            '127.0.0.1',
+            'CR21 reference chain',
+            $requestId('platform-login'),
+        );
+    $tenantAuth = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+    $default = $tenantAuth->login(
+        $requiredSecret($credentials, 'ADMIN_INITIAL_EMAIL'),
+        $requiredSecret($credentials, 'ADMIN_INITIAL_PASSWORD'),
+        'default',
+        '127.0.0.1',
+        'CR21 reference chain',
+        $requestId('tenant-login-default'),
+    );
+    if (!$default instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_DEFAULT_TENANT_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $invitation = $app->make(PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationAdminService::class)
+        ->provision(
+            $platform->context,
+            'tenant-b',
+            'Tenant B',
+            $requiredSecret($credentials, 'TENANT_B_OWNER_EMAIL'),
+            'Tenant B Owner',
+            24,
+        );
+    $acceptToken = $invitation['accept_token'] ?? null;
+    if (!is_string($acceptToken) || $acceptToken === '') {
+        throw new RuntimeException('CR21_TENANT_B_INVITATION_TOKEN_UNAVAILABLE');
+    }
+    $accepted = $app->make(PeanutAdmin\Modules\Identity\Invitation\TenantOwnerInvitationPublicService::class)
+        ->accept($acceptToken, $requiredSecret($credentials, 'TENANT_B_OWNER_PASSWORD'));
+    if (($accepted['status'] ?? null) !== 'accepted'
+        || (int)($accepted['tenant_id'] ?? 0) !== (int)($invitation['tenant_id'] ?? 0)) {
+        throw new RuntimeException('CR21_TENANT_B_ACCEPTANCE_MISMATCH');
+    }
+    // Acceptance creates the owner, but does not activate a provisioning tenant.
+    $tenantRow = $pdo->prepare("SELECT id,revision,status FROM pa_tenant WHERE id=? AND code='tenant-b'");
+    $tenantRow->execute([(int)$accepted['tenant_id']]);
+    $beforeActivation = $tenantRow->fetch();
+    if (!is_array($beforeActivation) || $beforeActivation['status'] !== 'provisioning') {
+        throw new RuntimeException('CR21_TENANT_B_ACTIVATION_BASELINE_INVALID');
+    }
+    $activated = $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
+        ->transitionTenant(
+            $platform->context,
+            (int)$beforeActivation['id'],
+            (int)$beforeActivation['revision'],
+            PeanutAdmin\Modules\Identity\Tenancy\TenantStatus::Active,
+            'CR21 activate accepted synthetic owner',
+        );
+    if (($activated['status'] ?? null) !== 'active') {
+        throw new RuntimeException('CR21_TENANT_B_ACTIVATION_FAILED');
+    }
+    $tenantB = $tenantAuth->login(
+        $requiredSecret($credentials, 'TENANT_B_OWNER_EMAIL'),
+        $requiredSecret($credentials, 'TENANT_B_OWNER_PASSWORD'),
+        'tenant-b',
+        '127.0.0.1',
+        'CR21 reference chain',
+        $requestId('tenant-login-b'),
+    );
+    if (!$tenantB instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_TENANT_B_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $writeIdentityBundle($outputIdentityFile, [
+        'schema_version' => 1,
+        'source' => 'native_auth_services_after_consumer_install',
+        'platform_access_token' => $platform->tokens->access->expose(),
+        'tenant_access_tokens' => [
+            'default' => $default->tokens->access->expose(),
+            'tenant-b' => $tenantB->tokens->access->expose(),
+        ],
+    ]);
+    echo json_encode([
+        'status' => 'issued',
+        'platform_context' => 'native_platform_login',
+        'tenant_contexts' => ['default' => 'native_tenant_login', 'tenant-b' => 'native_invitation_accept_login'],
+        'tenant_b' => 'provisioned_accepted_and_activated',
+        'identity_context_file' => 'written_0600',
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    exit(0);
+}
+if ($action === 'provision-default') {
+    $tenantId = (int)$pdo->query("SELECT id FROM pa_tenant WHERE code='default' AND status='active'")->fetchColumn();
+    $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
+        ->enableModule($platformContext(), $tenantId, $module, [], 'manual', null, null, 'CR21 formal service enablement');
+    $ownerContext = $tenantContext('default');
+    $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
+    $members = $app->make(app\common\runtime\org\TenantAdminRuntime::class)->members();
+    $authorization = $app->make(app\common\contract\authorization\AdminAuthorizationQuery::class);
+    $tenantAuth = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+    $role = $roles->create($ownerContext, 'reference-member', 'Reference Member', 'CR21 non-root member role');
+    $memberEmail = 'cr21-reference-member-' . bin2hex(random_bytes(4)) . '@example.test';
+    $memberPassword = bin2hex(random_bytes(18)) . 'Aa1!';
+    $member = $members->createAdministrator(
+        $ownerContext,
+        $memberEmail,
+        'CR21 Reference Member',
+        $memberPassword,
+        null,
+        [(int)$role['id']],
+        true,
+    );
+    $memberLogin = $tenantAuth->login(
+        $memberEmail,
+        $memberPassword,
+        'default',
+        '127.0.0.1',
+        'CR21 reference chain member',
+        $requestId('tenant-login-member'),
+    );
+    if (!$memberLogin instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $memberContext = $tenantAuth->context($memberLogin->tokens->access->expose(), $requestId('tenant-member-context'));
+    $memberPrincipal = $authorization->principal($memberContext);
+    if ($memberPrincipal->root || $memberPrincipal->tenantId !== $tenantId
+        || $memberPrincipal->id !== (int)$member['id']
+        || in_array('core.tenant-owner', array_column($memberPrincipal->roles, 'key'), true)) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_NOT_ORDINARY');
+    }
+    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class);
+    $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-a-denied-before-grant'), $pdo);
+    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['revision']);
+    $grantedPrincipal = $authorization->principal($memberContext);
+    $grantDecision = $authorization->decide($memberContext, $grantedPrincipal, 'acme.reference-chain.write');
+    if ($grantedPrincipal->root || !$grantDecision->allowed || !in_array('acme.reference-chain.write', $role['permission_keys'] ?? [], true)) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_GRANT_NOT_VISIBLE');
+    }
+    $created = $records->create($memberContext, 'tenant-a');
+    $read = $records->list($memberContext);
+    if ((int)($created['tenant_id'] ?? 0) !== $tenantId || count($read['items'] ?? []) !== 1) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_SERVICE_READ_WRITE_INVALID');
+    }
+    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], [], (int)$role['revision']);
+    $revokedPrincipal = $authorization->principal($memberContext);
+    $revokeDecision = $authorization->decide($memberContext, $revokedPrincipal, 'acme.reference-chain.write');
+    if ($revokedPrincipal->root || $revokeDecision->allowed || ($role['permission_keys'] ?? []) !== []) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_REVOKE_NOT_VISIBLE');
+    }
+    $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-a-denied-after-revoke'), $pdo);
+    $role = $roles->replacePermissions($ownerContext, (int)$role['id'], ['acme.reference-chain.write'], (int)$role['revision']);
+    echo json_encode($snapshot() + [
+        'service_write' => $created,
+        'service_read' => $read,
+        'role_service' => $role,
+        'member_authorization' => [
+            'entry' => 'native_non_root_member_grant_revoke',
+            'member_id' => (int)$member['id'],
+            'account_id' => (int)$memberContext->accountId,
+            'tenant_id' => (int)$memberContext->tenantId,
+            'root' => $memberPrincipal->root,
+            'role_keys' => array_values(array_column($memberPrincipal->roles, 'key')),
+            'before_grant_denied_zero_write' => true,
+            'grant_visible' => true,
+            'service_read_write' => true,
+            'revoke_denied_zero_write' => true,
+        ],
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
 if ($action === 'enable-b') {
-    $pdo->exec("UPDATE pa_tenant_module tm JOIN pa_tenant t ON t.id=tm.tenant_id SET tm.status='enabled',tm.effective_at=UTC_TIMESTAMP(3),tm.enabled_at=UTC_TIMESTAMP(3),tm.disabled_at=NULL,tm.disabled_reason=NULL,tm.updated_at=UTC_TIMESTAMP(3) WHERE t.code='tenant-b' AND tm.module_key='acme.reference-chain'");
-    echo json_encode($snapshot(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    $tenantId = (int)$pdo->query("SELECT id FROM pa_tenant WHERE code='tenant-b' AND status='active'")->fetchColumn();
+    $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class)
+        ->enableModule($platformContext(), $tenantId, $module, [], 'manual', null, null, 'CR21 second Tenant enablement');
+    $ownerContext = $tenantContext('tenant-b');
+    $roles = $app->make(app\common\runtime\authorization\RoleAdministrationRuntime::class)->service();
+    $members = $app->make(app\common\runtime\org\TenantAdminRuntime::class)->members();
+    $authorization = $app->make(app\common\contract\authorization\AdminAuthorizationQuery::class);
+    $tenantAuth = $app->make(PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class);
+    $role = $roles->create($ownerContext, 'reference-member-b', 'Reference Member B', 'CR21 Tenant B no-permission role');
+    $memberEmail = 'cr21-reference-member-b-' . bin2hex(random_bytes(4)) . '@example.test';
+    $memberPassword = bin2hex(random_bytes(18)) . 'Aa1!';
+    $member = $members->createAdministrator(
+        $ownerContext,
+        $memberEmail,
+        'CR21 Reference Member B',
+        $memberPassword,
+        null,
+        [(int)$role['id']],
+        true,
+    );
+    $memberLogin = $tenantAuth->login(
+        $memberEmail,
+        $memberPassword,
+        'tenant-b',
+        '127.0.0.1',
+        'CR21 reference chain member B',
+        $requestId('tenant-login-member-b'),
+    );
+    if (!$memberLogin instanceof PeanutAdmin\Modules\Identity\Auth\TenantAuthentication) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_B_LOGIN_DID_NOT_AUTHENTICATE');
+    }
+    $memberContext = $tenantAuth->context($memberLogin->tokens->access->expose(), $requestId('tenant-member-b-context'));
+    $principal = $authorization->principal($memberContext);
+    if ($principal->root || $principal->tenantId !== $tenantId
+        || $authorization->decide($memberContext, $principal, 'acme.reference-chain.write')->allowed) {
+        throw new RuntimeException('CR21_REFERENCE_MEMBER_B_CROSSTENANT_AUTHORIZATION_LEAK');
+    }
+    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class);
+    $expectReferencePermissionDenied(fn() => $records->create($memberContext, 'tenant-b-denied'), $pdo);
+    echo json_encode($snapshot() + [
+        'cross_tenant_member_authorization' => [
+            'entry' => 'native_non_root_member_cross_tenant_denied',
+            'member_id' => (int)$member['id'],
+            'tenant_id' => (int)$memberContext->tenantId,
+            'root' => $principal->root,
+            'grant_visible' => false,
+            'denied_zero_write' => true,
+        ],
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
 if ($action === 'disable-tenants') {
-    $pdo->exec("UPDATE pa_tenant_module SET status='disabled',disabled_at=UTC_TIMESTAMP(3),disabled_reason='cr21-package-operation',updated_at=UTC_TIMESTAMP(3) WHERE module_key='acme.reference-chain'");
+    $service = $app->make(PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService::class);
+    foreach ($pdo->query("SELECT tenant_id FROM pa_tenant_module WHERE module_key='acme.reference-chain' AND status='enabled' ORDER BY tenant_id")->fetchAll() as $row) {
+        $service->disableModule($platformContext(), (int)$row['tenant_id'], $module, 'CR21 Package maintenance prerequisite');
+    }
     echo json_encode($snapshot(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
+    exit(0);
+}
+if ($action === 'service-read-default') {
+    $records = $app->make(Acme\Modules\ReferenceChain\Contract\ReferenceChainCommands::class)->list($tenantContext('default'));
+    echo json_encode($snapshot() + ['service_read' => $records], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), PHP_EOL;
     exit(0);
 }
 if ($action === 'snapshot') {
@@ -503,9 +1184,15 @@ def helper_action(
     env: dict[str, str],
     action: str,
     log: Path,
+    arguments: list[str] | None = None,
 ) -> dict[str, Any]:
     return json_output(
-        command([str(PHP), str(helper), str(consumer), action], cwd=consumer, env=env, log=log),
+        command(
+            [str(PHP), str(helper), str(consumer), action, *(arguments or [])],
+            cwd=consumer,
+            env=env,
+            log=log,
+        ),
         f"consumer helper {action}",
     )
 
@@ -523,6 +1210,44 @@ def tenant_statuses(snapshot: dict[str, Any]) -> dict[str, str]:
 def rbac_counts(snapshot: dict[str, Any]) -> dict[str, int]:
     rows = snapshot.get("rbac", [])
     return {str(row["code"]): int(row["grants"]) for row in rows if isinstance(row, dict)}
+
+
+def package_install(
+    consumer: Path,
+    env: dict[str, str],
+    archive: Path,
+    digest: str,
+    log: Path,
+) -> dict[str, Any]:
+    return run_think(consumer, env, [
+        "module:install-package", str(archive), f"--sha256={digest}",
+        f"--signature-key-id={PACKAGE_KEY_ID}",
+    ], log)
+
+
+def package_update(
+    consumer: Path,
+    env: dict[str, str],
+    archive: Path,
+    digest: str,
+    dry_run: bool,
+    log: Path,
+) -> dict[str, Any]:
+    arguments = [
+        "module:update-package", str(archive), f"--sha256={digest}",
+        f"--signature-key-id={PACKAGE_KEY_ID}",
+    ]
+    if dry_run:
+        arguments.append("--dry-run")
+    return run_think(consumer, env, arguments, log)
+
+
+def package_disable(
+    consumer: Path,
+    env: dict[str, str],
+    log: Path,
+) -> dict[str, Any]:
+    return run_think(consumer, env, ["module:disable-package", MODULE_KEY], log)
 
 
 def preview_and_execute(
@@ -543,7 +1268,8 @@ def preview_and_execute(
     plan_path = output / ("purge-plan.json" if purge else "retire-plan.json")
     write_json(plan_path, plan, 0o600)
     execute = [*arguments, f"--confirm-plan-file={plan_path}", f"--confirm-plan-digest={digest}"]
-    return preview, run_think(consumer, env, execute, log)
+    result = run_think(consumer, env, execute, log)
+    return preview, result
 
 
 def run_chain(args: argparse.Namespace) -> dict[str, Any]:
@@ -556,11 +1282,25 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         fail("candidate tree identity is invalid")
     if command(["git", "status", "--porcelain", "--untracked-files=no"]).strip() != "":
         fail("candidate worktree must be clean")
-    if not re.fullmatch(
-        r"peanut_admin_development_p0e_[a-z0-9]{1,11}_(?:plugin_lifecycle|consumer_module_cycle)",
-        args.database,
-    ):
-        fail("database is not an allowed registered P0-E Module lifecycle target")
+    installer_package = Path(args.installer_package)
+    installer_manifest = Path(args.installer_manifest)
+    for path, label in ((installer_package, "--installer-package"), (installer_manifest, "--installer-manifest")):
+        if not path.is_absolute() or not path.is_file() or path.is_symlink():
+            fail(f"{label} must name one regular absolute file")
+    installer_artifact = read_json(installer_manifest)
+    artifact_input = validate_installer_artifact(
+        args,
+        candidate_tree,
+        installer_package,
+        installer_manifest,
+        installer_artifact,
+    )
+    if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", args.database):
+        fail("database name is invalid")
+    registered_database(args.database_resource, args.endpoint, args.database)
+    expect(bool(args.author_database), "--author-database is required for independent Application A")
+    expect(args.author_database != args.database, "author and consumer runtime databases must differ")
+    registered_database(args.database_resource, args.endpoint, args.author_database)
     output = Path(args.output)
     if not output.is_absolute() or output == Path("/") or output.exists() or output.is_symlink():
         fail("output must be an absent absolute path")
@@ -577,16 +1317,25 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         }
     else:
         expected_resources = {
-            ("database-resource", "peanut-admin-p0e-mysql84-gate"),
-            ("endpoint", "peanut-admin-p0e-mysql84-gate-host-direct"),
+            ("database-resource", args.database_resource),
+            ("endpoint", args.endpoint),
             ("database", args.database),
             ("output-root", str(output)),
             ("cache-root", str(output / "cache")),
         }
+    expected_resources.update({
+        ("installer-archive", str(installer_package)),
+        ("installer-archive-sha256", args.installer_sha256),
+        ("installer-manifest", str(installer_manifest)),
+        ("installer-manifest-sha256", args.installer_manifest_sha256),
+    })
     expect(metadata.get("candidate") == args.candidate and metadata.get("status") == "ACTIVE",
            "active lease candidate does not match")
     expect(metadata.get("worktree") == str(ROOT), "active lease worktree does not match")
     expect(expected_resources.issubset(resource_set), "lease is missing a consumer Module resource")
+    expect(("database", args.author_database) in resource_set, "author database is not leased")
+    assert_empty_database(args.database)
+    assert_empty_database(args.author_database)
 
     output.mkdir(mode=0o700, parents=True)
     logs = output / "logs"
@@ -595,43 +1344,43 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     cache = output / "cache/composer"
     cache.mkdir(parents=True)
     completed = False
+    identity_context = output / "consumer-identity-context.json"
+    identity_seed_path = consumer / "server/.env.cr21.identity-seed"
     try:
-        create_application(
-            author,
-            "CR21 Author",
-            "cr21-author",
-            "consumer/author",
-            args.candidate,
-            candidate_tree,
-            args.formal_release_adoption,
-            logs / "create-app-a.log",
-        )
-        create_application(
-            consumer,
-            "CR21 Consumer",
-            "cr21-consumer",
-            "consumer/runtime",
-            args.candidate,
-            candidate_tree,
-            args.formal_release_adoption,
-            logs / "create-app-b.log",
-        )
-        inventory = read_json(ROOT / "scaffold/application-template-inventory.json")
-        template_version = str(inventory.get("template_version", ""))
-        release_identity: dict[str, Any] = {}
-        if args.formal_release_adoption:
-            release = read_json(ROOT / "scaffold/releases" / f"v{template_version}" / "scaffold-manifest.json")
-            release_identity = release.get("release", {})
+        extract_installer(installer_package, installer_artifact, author)
+        extract_installer(installer_package, installer_artifact, consumer)
+        template_version = str(installer_artifact.get("product", {}).get("version", ""))
         for project in [author, consumer]:
             manifest = read_json(project / ".peanut/application-manifest.json")
-            expected_template_commit = str(release_identity.get("source_commit", "")) if args.formal_release_adoption else args.candidate
-            expected_template_tree = str(release_identity.get("source_tree", "")) if args.formal_release_adoption else candidate_tree
-            expect(manifest.get("template", {}).get("source_commit") == expected_template_commit
-                   and manifest.get("template", {}).get("source_tree") == expected_template_tree
+            expect(manifest.get("template", {}).get("source_commit") == args.candidate
+                   and manifest.get("template", {}).get("source_tree") == candidate_tree
                    and manifest.get("template", {}).get("version") == template_version
                    and manifest.get("generation_source", {}).get("commit") == args.candidate
-                   and manifest.get("generation_source", {}).get("tree") == candidate_tree,
+                   and manifest.get("generation_source", {}).get("tree") == candidate_tree
+                   and manifest.get("application", {}).get("edition") == args.edition,
                    "generated application did not use the fixed candidate")
+            expect(not (project / ".git").exists(), "generated application retained source Git metadata")
+            for relative in (
+                "scripts/project-composer",
+                "server/think",
+                "server/app/command/ModuleCreate.php",
+                "server/app/command/ModuleCheck.php",
+                "server/app/command/ModulePack.php",
+                "server/app/command/ModuleAdoptPackage.php",
+                "server/app/command/ModuleInstallPackage.php",
+                "server/app/command/ModuleUpdatePackage.php",
+                "server/app/command/ModuleDisablePackage.php",
+                "server/app/command/ModuleUninstallPackage.php",
+            ):
+                tool = project / relative
+                expect(tool.is_file() and not tool.is_symlink(), f"generated Module tool is unavailable: {relative}")
+                source = tool.read_text(encoding="utf-8")
+                expect(
+                    str(ROOT) not in source
+                    and "/peanut-admin-project/" not in source
+                    and "Project/docs" not in source,
+                    f"generated Module tool retained a maintainer-private path: {relative}",
+                )
         author_resource = "cr21-author-mysql84-development"
         author_endpoint = "cr21-author-mysql84-development-host"
         consumer_resource = "cr21-consumer-mysql84-development"
@@ -641,7 +1390,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 author,
                 author_resource,
                 author_endpoint,
-                args.database,
+                args.author_database,
             ),
             "application_b": configure_generated_database(
                 consumer,
@@ -663,10 +1412,11 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(public_key != "" and secret_key.stat().st_size > 1, "ephemeral signing key generation failed")
         author_env = backend_environment(
             author / "server/.env.cr21",
-            args.database,
+            args.author_database,
             public_key,
             author_resource,
             author_endpoint,
+            args.edition,
         )
         consumer_env = backend_environment(
             consumer / "server/.env.cr21",
@@ -674,11 +1424,29 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             public_key,
             consumer_resource,
             consumer_endpoint,
+            args.edition,
         )
         install_dependencies(author, cache, author_env, logs / "composer-a.log")
         install_dependencies(consumer, cache, consumer_env, logs / "composer-b.log")
+        author_install = author / "server/.env.cr21.installation"
+        author_credentials = "ADMIN_INITIAL_EMAIL=author@example.test\nADMIN_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
+        if args.edition == "multi-tenant":
+            author_credentials += "PLATFORM_INITIAL_EMAIL=author-platform@example.test\nPLATFORM_INITIAL_PASSWORD=" + secrets.token_urlsafe(24) + "\n"
+        author_install.write_text(author_credentials, encoding="utf-8")
+        author_install.chmod(0o600)
+        try:
+            author_initialized = json_output(command(
+                [str(PHP), "server/database/install.php"], cwd=author,
+                env=author_env | {"PEANUT_INSTALLATION_ENV_FILE": str(author_install)},
+                log=logs / "author-install.log",
+            ), "author fresh install")
+            expect(author_initialized.get("state") == "installed"
+                   and int(author_initialized.get("health", {}).get("installed_table_count", 0)) > 0,
+                   "author fixed-package application was not installed")
+        finally:
+            author_install.unlink(missing_ok=True)
 
-        created = run_think(author, author_env, ["module:create", MODULE_KEY, "--vendor=Acme"], logs / "author.log")
+        created = run_think(author, author_env, ["module:create", MODULE_KEY, "--vendor=acme", "--client=admin-web"], logs / "author.log")
         expect(created.get("module_key") == MODULE_KEY, "module:create returned another identity")
         backend, frontend = author_module_v1(author)
         check_v1 = run_think(author, author_env, ["module:check", MODULE_KEY], logs / "author.log")
@@ -696,34 +1464,128 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         ], logs / "author.log")
         expect(check_v1_package.get("status") == "ready", "module:check did not accept signed v1 package")
 
-        install_env = consumer_env | {
-            "ADMIN_INITIAL_EMAIL": "cr21-admin@example.test",
-            "ADMIN_INITIAL_PASSWORD": "cr21-admin-strong-password",
-        }
-        installed = json_output(command(
-            [str(PHP), "server/database/install.php"], cwd=consumer, env=install_env, log=logs / "consumer.log"
-        ), "consumer fresh install")
-        expect(installed.get("state") == "installed"
-               and int(installed.get("health", {}).get("installed_table_count", 0)) > 0,
-               "consumer fresh install did not create the canonical schema")
-        install_v1 = run_think(consumer, consumer_env, [
-            "module:install-package", str(v1_path), f"--sha256={v1_sha}", f"--signature-key-id={PACKAGE_KEY_ID}",
-        ], logs / "consumer.log")
-        expect(install_v1.get("operation") == "installed", "consumer v1 package install failed")
-
+        installation_path = consumer / "server/.env.cr21.installation"
+        admin_email = "cr21-admin@example.test"
+        admin_password = secrets.token_urlsafe(24)
+        platform_email = "cr21-platform@example.test"
+        platform_password = secrets.token_urlsafe(24)
+        tenant_b_email = "cr21-tenant-b-owner@example.test"
+        tenant_b_password = secrets.token_urlsafe(24)
+        installation_credentials = (
+            f"ADMIN_INITIAL_EMAIL={admin_email}\n"
+            f"ADMIN_INITIAL_PASSWORD={admin_password}\n"
+        )
+        if args.edition == "multi-tenant":
+            installation_credentials += (
+                f"PLATFORM_INITIAL_EMAIL={platform_email}\n"
+                f"PLATFORM_INITIAL_PASSWORD={platform_password}\n"
+            )
+        installation_path.write_text(
+            installation_credentials,
+            encoding="utf-8",
+        )
+        installation_path.chmod(0o600)
+        identity_seed_path.write_text(
+            (
+                f"ADMIN_INITIAL_EMAIL={admin_email}\n"
+                f"ADMIN_INITIAL_PASSWORD={admin_password}\n"
+                f"PLATFORM_INITIAL_EMAIL={platform_email}\n"
+                f"PLATFORM_INITIAL_PASSWORD={platform_password}\n"
+                f"TENANT_B_OWNER_EMAIL={tenant_b_email}\n"
+                f"TENANT_B_OWNER_PASSWORD={tenant_b_password}\n"
+            ),
+            encoding="utf-8",
+        )
+        identity_seed_path.chmod(0o600)
+        install_env = consumer_env | {"PEANUT_INSTALLATION_ENV_FILE": str(installation_path)}
         helper = output / "consumer-lifecycle.php"
         helper.write_text(lifecycle_helper(), encoding="utf-8")
         helper.chmod(0o600)
-        seeded = helper_action(helper, consumer, consumer_env, "seed", logs / "consumer.log")
-        expect(tenant_statuses(seeded) == {"default": "enabled", "tenant-b": "disabled"},
-               "Tenant A/B initial Module separation changed")
-        expect(rbac_counts(seeded) == {"default": 1}, "Tenant A/B initial RBAC separation changed")
-        expect(seeded.get("owned_rows") == 2 and seeded.get("migration_count") == 1,
-               "v1 owned data or migration state is invalid")
-        enabled_b = helper_action(helper, consumer, consumer_env, "enable-b", logs / "consumer.log")
+        try:
+            installed = json_output(command(
+                [str(PHP), "server/database/install.php"], cwd=consumer, env=install_env, log=logs / "consumer.log"
+            ), "consumer fresh install")
+            expect(installed.get("state") == "installed"
+                   and int(installed.get("health", {}).get("installed_table_count", 0)) > 0,
+                   "consumer fresh install did not create the canonical schema")
+            issued_identity = helper_action(
+                helper,
+                consumer,
+                consumer_env,
+                "issue-identities",
+                logs / "consumer.log",
+                [str(identity_context), str(identity_seed_path)],
+            )
+            expect(
+                issued_identity.get("status") == "issued"
+                and issued_identity.get("identity_context_file") == "written_0600"
+                and not identity_context.is_symlink()
+                and (identity_context.stat().st_mode & 0o777) == 0o600,
+                "native authentication did not produce a private identity context",
+            )
+        finally:
+            installation_path.unlink(missing_ok=True)
+            identity_seed_path.unlink(missing_ok=True)
+        install_v1 = package_install(
+            consumer, consumer_env, v1_path, v1_sha, logs / "consumer.log"
+        )
+        expect(install_v1.get("operation") == "installed", "consumer v1 package install failed")
+        installed_snapshot = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
+        expect(
+            tenant_statuses(installed_snapshot) == {}
+            and rbac_counts(installed_snapshot) == {}
+            and installed_snapshot.get("owned_table") is True
+            and installed_snapshot.get("owned_rows") == 0,
+            "Package installation implicitly opened a Tenant, granted RBAC, or created business data",
+        )
+
+        fixture = helper_action(helper, consumer, consumer_env, "fixture", logs / "consumer.log")
+        expect(tenant_statuses(fixture) == {} and rbac_counts(fixture) == {} and fixture.get("owned_rows") == 0,
+               "synthetic Tenant fixture changed Module, RBAC, or business state")
+        seeded = helper_action(
+            helper,
+            consumer,
+            consumer_env,
+            "provision-default",
+            logs / "consumer.log",
+            [str(identity_context)],
+        )
+        expect(tenant_statuses(seeded) == {"default": "enabled"},
+               "formal service did not preserve Tenant A/B initial Module separation")
+        expect(rbac_counts(seeded) == {"default": 1}, "Role service did not establish Tenant A RBAC")
+        expect(seeded.get("owned_rows") == 1 and seeded.get("migration_count") == 1
+               and len(seeded.get("service_read", {}).get("items", [])) == 1,
+               "v1 Module service write/read or migration state is invalid")
+        member_authorization = seeded.get("member_authorization", {})
+        expect(
+            member_authorization.get("entry") == "native_non_root_member_grant_revoke"
+            and member_authorization.get("root") is False
+            and member_authorization.get("role_keys") == ["reference-member"]
+            and member_authorization.get("before_grant_denied_zero_write") is True
+            and member_authorization.get("grant_visible") is True
+            and member_authorization.get("service_read_write") is True
+            and member_authorization.get("revoke_denied_zero_write") is True,
+            "ordinary non-root member grant/revoke runtime was not proven",
+        )
+        enabled_b = helper_action(
+            helper,
+            consumer,
+            consumer_env,
+            "enable-b",
+            logs / "consumer.log",
+            [str(identity_context)],
+        )
         expect(tenant_statuses(enabled_b) == {"default": "enabled", "tenant-b": "enabled"}
                and rbac_counts(enabled_b) == {"default": 1},
                "TenantModule enablement changed Package or RBAC state")
+        cross_tenant_member_authorization = enabled_b.get("cross_tenant_member_authorization", {})
+        expect(
+            cross_tenant_member_authorization.get("entry") == "native_non_root_member_cross_tenant_denied"
+            and cross_tenant_member_authorization.get("root") is False
+            and cross_tenant_member_authorization.get("grant_visible") is False
+            and cross_tenant_member_authorization.get("denied_zero_write") is True,
+            "ordinary non-root member cross-Tenant denial was not proven",
+        )
 
         author_module_v2(backend, frontend)
         check_v2 = run_think(author, author_env, ["module:check", MODULE_KEY], logs / "author.log")
@@ -739,55 +1601,70 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             "module:check", MODULE_KEY, f"--package={v2_path}", f"--sha256={v2_sha}",
         ], logs / "author.log")
         expect(check_v2_package.get("status") == "ready", "module:check did not accept signed v2 package")
-        dry_run = run_think(consumer, consumer_env, [
-            "module:update-package", str(v2_path), f"--sha256={v2_sha}",
-            f"--signature-key-id={PACKAGE_KEY_ID}", "--dry-run",
-        ], logs / "consumer.log")
+        dry_run = package_update(
+            consumer, consumer_env, v2_path, v2_sha, True, logs / "consumer.log"
+        )
         expect(dry_run.get("operation") == "update" and dry_run.get("dry_run") is True,
                "v2 update dry-run did not return a zero-write plan")
         before_update = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
         expect(before_update == enabled_b, "v2 update dry-run changed consumer state")
-        updated = run_think(consumer, consumer_env, [
-            "module:update-package", str(v2_path), f"--sha256={v2_sha}", f"--signature-key-id={PACKAGE_KEY_ID}",
-        ], logs / "consumer.log")
+        updated = package_update(
+            consumer, consumer_env, v2_path, v2_sha, False, logs / "consumer.log"
+        )
         expect(updated.get("operation") == "upgraded", "consumer v2 package update failed")
-        after_update = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
+        after_update = helper_action(
+            helper,
+            consumer,
+            consumer_env,
+            "service-read-default",
+            logs / "consumer.log",
+            [str(identity_context)],
+        )
         expect(after_update.get("plugin", {}).get("installed_version") == "2.0.0"
                and after_update.get("migration_count") == 2 and after_update.get("v2_column") is True,
                "v2 package, migration, and schema identity diverged")
         expect(tenant_statuses(after_update) == tenant_statuses(enabled_b)
                and rbac_counts(after_update) == rbac_counts(enabled_b)
-               and after_update.get("owned_rows") == 2,
-               "v2 update changed TenantModule, RBAC, or business data")
+               and after_update.get("owned_rows") == 1
+               and len(after_update.get("service_read", {}).get("items", [])) == 1,
+               "v2 update changed TenantModule/RBAC data or broke the Module service read")
 
-        disabled_tenants = helper_action(helper, consumer, consumer_env, "disable-tenants", logs / "consumer.log")
-        expect(set(tenant_statuses(disabled_tenants).values()) == {"disabled"}, "TenantModules were not disabled")
-        disabled_package = run_think(
+        disabled_tenants = helper_action(
+            helper,
             consumer,
             consumer_env,
-            ["module:disable-package", MODULE_KEY],
+            "disable-tenants",
             logs / "consumer.log",
+            [str(identity_context)],
+        )
+        expect(set(tenant_statuses(disabled_tenants).values()) == {"disabled"}, "TenantModules were not disabled")
+        disabled_package = package_disable(
+            consumer, consumer_env, logs / "consumer.log"
         )
         after_disable = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
         expect(disabled_package.get("operation") == "disabled"
                and after_disable.get("module_installation", {}).get("status") == "maintenance",
                "Package disable did not enter maintenance")
-        reactivated = run_think(consumer, consumer_env, [
-            "module:install-package", str(v2_path), f"--sha256={v2_sha}", f"--signature-key-id={PACKAGE_KEY_ID}",
-        ], logs / "consumer.log")
+        reactivated = package_install(
+            consumer, consumer_env, v2_path, v2_sha, logs / "consumer.log"
+        )
         expect(reactivated.get("operation") == "reactivated", "same-artifact Package reactivation failed")
         after_reactivate = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
         expect(after_reactivate.get("module_installation", {}).get("status") == "active"
                and rbac_counts(after_reactivate) == {"default": 1},
                "Package reactivation changed RBAC or Module state")
 
-        retire_preview, retired = preview_and_execute(consumer, consumer_env, output, False, logs / "consumer.log")
+        retire_preview, retired = preview_and_execute(
+            consumer, consumer_env, output, False, logs / "consumer.log"
+        )
         expect(retired.get("operation") == "retired", "Package retire failed")
         after_retire = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
-        expect(after_retire.get("owned_table") is True and after_retire.get("owned_rows") == 2
+        expect(after_retire.get("owned_table") is True and after_retire.get("owned_rows") == 1
                and after_retire.get("migration_count") == 2 and rbac_counts(after_retire) == {"default": 1},
                "retire did not preserve business data, migration ledger, and RBAC")
-        purge_preview, purged = preview_and_execute(consumer, consumer_env, output, True, logs / "consumer.log")
+        purge_preview, purged = preview_and_execute(
+            consumer, consumer_env, output, True, logs / "consumer.log"
+        )
         expect(purged.get("operation") == "purged", "Package Purge failed")
         after_purge = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
         expect(after_purge.get("plugin", {}).get("status") == "uninstalled"
@@ -804,9 +1681,16 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             "status": "passed",
             "candidate": args.candidate,
             "candidate_tree": candidate_tree,
+            "installer_archive_sha256": sha256(installer_package),
+            "installer_manifest_sha256": sha256(installer_manifest),
+            "artifact_input": artifact_input,
+            "formal_installer_input": args.installer_mode == "formal",
             "lease": args.lease,
-            "database_resource_id": "peanut-admin-p0e-mysql84-gate",
+            "database_resource_id": args.database_resource,
+            "endpoint_id": args.endpoint,
+            "author_database": args.author_database,
             "database": args.database,
+            "edition": args.edition,
             "applications": {
                 "author_manifest_sha256": sha256(author / ".peanut/application-manifest.json"),
                 "consumer_manifest_sha256": sha256(consumer / ".peanut/application-manifest.json"),
@@ -822,7 +1706,8 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "signature_key_id": PACKAGE_KEY_ID,
             },
             "gates": {
-                "create": "passed",
+                "application_a_direct_installer_extract_and_fresh_install": "passed",
+                "application_b_direct_installer_extract_and_fresh_install": "passed",
                 "check_v1_v2": "passed",
                 "signed_pack_v1_v2": "passed",
                 "install_update": "passed",
@@ -830,9 +1715,16 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "disable_reactivate": "passed",
                 "retire_purge": "passed",
                 "app_owned_preservation": "passed",
+                "runtime_mutation_entry": "generated_application_module_cli",
+                "identity_context_entry": "native_auth_service_access_tokens_from_private_file",
+                "tenant_fixture_entry": "native_provision_accept_activate",
+                "tenant_module_entry": "platform_tenant_admin_service",
+                "rbac_entry": "role_admin_service",
+                "member_authorization_entry": "native_non_root_member_grant_revoke_cross_tenant_denied",
+                "business_data_entry": "module_contract_service",
                 "source_private_fixture_copy": "not_used",
-                "generation_mode": "formal_release_adoption" if args.formal_release_adoption else "development_source_candidate",
-                "formal_release_adoption": "passed" if args.formal_release_adoption else "deferred_to_cr31",
+                "generation_mode": ("internal_candidate_backend_package_direct" if args.installer_mode == "internal-candidate"
+                                    else "fixed_edition_installer_package_direct"),
             },
             "snapshots": {
                 "after_update": after_update,
@@ -848,6 +1740,9 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         completed = True
         return summary
     finally:
+        # Retain diagnostics, never retained login tokens or seed passwords.
+        identity_context.unlink(missing_ok=True)
+        identity_seed_path.unlink(missing_ok=True)
         if completed and not args.keep:
             shutil.rmtree(output)
 
@@ -857,10 +1752,34 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--candidate", required=True)
     parser.add_argument("--lease", required=True)
     parser.add_argument("--database", required=True)
+    parser.add_argument("--database-resource", required=True, help="Explicit registered development database resource")
+    parser.add_argument("--endpoint", required=True, help="Explicit endpoint in that resource")
+    parser.add_argument("--author-database", required=True, help="Separately registered and leased Application A runtime database")
     parser.add_argument("--output", required=True)
-    parser.add_argument("--formal-release-adoption", action="store_true")
+    parser.add_argument("--env-file", required=True)
+    parser.add_argument("--installer-package", required=True, help="Absolute fixed Edition installer archive used directly for both applications")
+    parser.add_argument("--installer-manifest", required=True, help="Absolute external manifest for the fixed installer archive")
+    parser.add_argument("--installer-sha256", required=True, help="Lease-bound SHA-256 of the fixed installer archive")
+    parser.add_argument("--installer-manifest-sha256", required=True, help="Lease-bound SHA-256 of the external installer manifest")
+    parser.add_argument("--installer-mode", choices=("formal", "internal-candidate"), default="formal")
+    parser.add_argument("--edition", choices=("multi-tenant",), default="multi-tenant")
+    parser.add_argument("--allow-dependency-network", action="store_true", help="Permit locked package downloads; no dependency updates")
     parser.add_argument("--keep", action="store_true", help="Keep the lease-owned output after success")
-    return parser.parse_args()
+    args = parser.parse_args()
+    path = Path(args.env_file)
+    if not path.is_absolute() or not path.is_file() or path.is_symlink() or (path.stat().st_mode & 0o777) != 0o600:
+        fail("--env-file must name an absolute permission-0600 file")
+    allowed = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASS"}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        name, separator, value = line.partition("=")
+        if not separator or name not in allowed or name in CONFIG_VALUES or value == "":
+            fail("--env-file has an invalid schema")
+        CONFIG_VALUES[name] = value
+    if CONFIG_VALUES.keys() != allowed:
+        fail("--env-file is missing a required database value")
+    if args.allow_dependency_network:
+        CONFIG_VALUES["DEPENDENCY_NETWORK"] = "allowed"
+    return args
 
 
 def main() -> int:

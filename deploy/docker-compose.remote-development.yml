@@ -11,7 +11,7 @@ services:
       MYSQL_DATABASE: ${DB_NAME:?set DB_NAME}
       MYSQL_USER: ${DB_USER:?set DB_USER}
       MYSQL_PASSWORD: ${DB_PASS:?set DB_PASS}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:?set DB_ROOT_PASS}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
       TZ: Asia/Shanghai
     ports:
       - "192.168.192.2:20183:3306"

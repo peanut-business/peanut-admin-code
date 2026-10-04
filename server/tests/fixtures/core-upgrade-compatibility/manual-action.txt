@@ -1,0 +1,1 @@
+Manual upgrade action fixture for combined-upgrade policy validation.

@@ -3,11 +3,22 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { isAbsolute } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { readFileSync, writeFileSync } from 'node:fs'
+import { dependencyMode, verifyDependencyLocks, lockedYamlParser } from './release-dependency-locks.mjs'
+
+// 解析锁的工具依赖来自当前可信检查器，不从被检查候选加载执行代码。
+const toolRoot = fileURLToPath(new URL('..', import.meta.url))
+const prereleaseRequiredGroups = [
+  'generated-application',
+  'standalone-fresh',
+  'multi-tenant-fresh',
+  'production-compose',
+]
 
 const options = {
   tag: '', candidate: '', qualification: '', remote: '', writeLock: '', requireMain: false,
-  staticOnly: false, editionManifests: [], releaseEvidence: '',
+  staticOnly: false, editionManifests: [], releaseEvidence: '', prerelease: false,
 }
 const args = process.argv.slice(2)
 for (let index = 0; index < args.length;) {
@@ -23,21 +34,29 @@ for (let index = 0; index < args.length;) {
     index += 1
     continue
   }
+  if (argument === '--prerelease') {
+    options.prerelease = true
+    index += 1
+    continue
+  }
   if (argument === '--help' || argument === '-h') {
     console.log(`Usage:
-  scripts/check-release-consistency --candidate <full-commit> --qualification <summary.json> [--require-main]
+  scripts/check-release-consistency --candidate <full-commit> --qualification <summary.json> [--prerelease] [--require-main]
   scripts/check-release-consistency --tag vX.Y.Z [--qualification <summary.json>] [--remote origin]
-      [--write-lock <absolute-file>]
+      [--write-lock <absolute-file>] [--prerelease]
   scripts/check-release-consistency --static-only [--edition-manifest <absolute-file>]...
       [--release-evidence <absolute-file>]
 
 The candidate mode is the pre-tag release preflight. The tag mode verifies the
-immutable release identity. --require-main is the final-release gate and
+immutable release identity. Stable tag mode accepts only vX.Y.Z. Prerelease tag
+mode must be explicit with --prerelease and accepts only strict
+vX.Y.Z-<prerelease>. --require-main is the final-release gate and
 requires the candidate to be the current origin/main commit. --write-lock
 requires qualification evidence and creates an external, non-self-referential
-candidate lock. --static-only reads the current checkout, performs no network,
-resource, qualification or lock operation, and reports evidence completeness;
-it never establishes release readiness.`)
+candidate lock. --static-only without evidence is the development check: it
+reports unpublished Core/lock/scaffold closure as pending. With supplied seal
+evidence it validates that evidence strictly. It performs no publication and
+never establishes release readiness.`)
     process.exit(0)
   }
   if (argument === '--tag' && value) options.tag = value
@@ -66,18 +85,33 @@ if (!options.staticOnly && (options.editionManifests.length || options.releaseEv
   console.error('check-release-consistency: Edition and release evidence inputs are only valid with --static-only')
   process.exit(64)
 }
+if (options.prerelease && !options.tag && !options.candidate) {
+  console.error('check-release-consistency: --prerelease is only valid with --tag or --candidate')
+  process.exit(64)
+}
 for (const path of [...options.editionManifests, ...(options.releaseEvidence ? [options.releaseEvidence] : [])]) {
   if (!isAbsolute(path)) {
     console.error('check-release-consistency: static evidence paths must be absolute')
     process.exit(64)
   }
 }
-if (options.tag && !/^v\d+\.\d+\.\d+$/.test(options.tag)) {
+const stableTagPattern = /^v\d+\.\d+\.\d+$/
+const prereleaseIdentifier = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)'
+const prereleaseTagPattern = new RegExp(`^v(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-${prereleaseIdentifier}(?:\\.${prereleaseIdentifier})*$`)
+if (options.tag && options.prerelease && !prereleaseTagPattern.test(options.tag)) {
+  console.error('check-release-consistency: --prerelease tag must be strict annotated semver such as v2.1.4-rc.1')
+  process.exit(64)
+}
+if (options.tag && !options.prerelease && !stableTagPattern.test(options.tag)) {
   console.error('check-release-consistency: --tag must be an annotated stable tag such as v2.1.4')
   process.exit(64)
 }
 if (options.candidate && !/^[0-9a-f]{40}$/.test(options.candidate)) {
   console.error('check-release-consistency: --candidate must be a full lowercase commit SHA')
+  process.exit(64)
+}
+if (options.candidate && !options.qualification) {
+  console.error('check-release-consistency: --candidate requires --qualification; use --static-only for structural checks')
   process.exit(64)
 }
 if (options.writeLock && (!options.qualification || !isAbsolute(options.writeLock))) {
@@ -97,8 +131,79 @@ const gitSucceeds = (command) => {
   try { execFileSync('git', command, { stdio: 'ignore' }); return true } catch { return false }
 }
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
+const versionCompare = (left, right) => {
+  const leftParts = left.split('-', 1)[0].split('.').map(Number)
+  const rightParts = right.split('-', 1)[0].split('.').map(Number)
+  for (let index = 0; index < 3; index += 1) {
+    if (leftParts[index] !== rightParts[index]) return leftParts[index] - rightParts[index]
+  }
+  return 0
+}
 const failures = []
 const reference = options.staticOnly ? 'working-tree' : (options.tag || options.candidate)
+
+// Daily development may name the next product version before its Core packages
+// exist in public registries.  Keep this no-evidence static check structural and
+// report release-only closure as pending; candidate/tag modes below remain strict.
+if (options.staticOnly && options.editionManifests.length === 0 && !options.releaseEvidence) {
+  const pending = []
+  const developmentFailures = []
+  const readJson = (path) => {
+    try { return JSON.parse(readFileSync(path, 'utf8')) }
+    catch (error) { developmentFailures.push(`${path} is invalid: ${error.message}`); return {} }
+  }
+  const versions = readJson('release-versions.json')
+  const metadata = readJson('RELEASE_METADATA.json')
+  const inventory = readJson('scaffold/application-template-inventory.json')
+  const fixture = readJson('server/tests/fixtures/p0e-runtime-qualification/matrix.json')
+  const target = versions.source_product_version ?? ''
+  const baseline = metadata.source_product_version ?? ''
+  const stableVersion = /^\d+\.\d+\.\d+$/
+  const strictSemver = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+  const currentV3 = versions.schema_version === 3 && versions.protocol === 'peanut.release-versions.v3'
+  if (!currentV3 || !strictSemver.test(target) || versions.instance_version !== null
+    || versions.scaffold_template !== target) developmentFailures.push('development version contract is invalid')
+  let dependencyIdentity = null
+  try {
+    const mode = dependencyMode(versions)
+    dependencyIdentity = verifyDependencyLocks(versions, path => readFileSync(path),
+      mode === 'registry' ? lockedYamlParser(toolRoot) : undefined)
+  } catch (error) { developmentFailures.push(error.message) }
+  if (![2, 3].includes(metadata.schema_version) || metadata.protocol !== `peanut.release-metadata.v${metadata.schema_version}`
+    || !stableVersion.test(baseline) || metadata.instance_version !== null
+    || metadata.expected_tag !== `v${baseline}` || versionCompare(baseline, target) > 0) {
+    developmentFailures.push('published release metadata is invalid or newer than the development target')
+  }
+
+  pending.push(dependencyIdentity?.mode === 'registry'
+    ? 'public channel availability and four native frozen installs/builds remain required'
+    : 'four clean client installs and builds must qualify the fixed Core Web candidate tarballs')
+  if (baseline !== target) pending.push(`release metadata ${baseline} -> ${target} during candidate sealing`)
+  if (inventory.template_version !== target) pending.push(`application inventory -> ${target}`)
+  if (fixture.target_release?.version !== target) pending.push(`P0-E fixture -> ${target}`)
+  if (!gitSucceeds(['cat-file', '-e', `HEAD:scaffold/releases/v${target}/scaffold-manifest.json`])) {
+    pending.push(`sealed scaffold v${target}`)
+  }
+  if (!(readFileSync('CHANGELOG.md', 'utf8')).includes(`## [${target}]`)) pending.push(`CHANGELOG ${target} section`)
+
+  if (developmentFailures.length) {
+    console.error('check-release-consistency: FAIL development working-tree')
+    developmentFailures.forEach((failure) => console.error(`- ${failure}`))
+    process.exit(1)
+  }
+  console.log(JSON.stringify({
+    status: 'passed',
+    mode: 'development-static',
+    dependency_identity: dependencyIdentity,
+    target_version: target,
+    published_baseline: baseline,
+    release_dependency_closure: pending.length === 0 ? 'closed' : 'pending',
+    product_release_ready: false,
+    pending,
+    limitation: 'Development validation does not publish Core packages, rewrite locks, qualify a candidate, create a tag, or publish a Release.',
+  }, null, 2))
+  process.exit(0)
+}
 
 if (options.tag && gitOptional(['cat-file', '-t', options.tag]) !== 'tag') {
   failures.push(`tag is not annotated: ${options.tag}`)
@@ -108,13 +213,11 @@ let commit = ''
 let tree = ''
 let metadataText = ''
 let versionContractText = ''
-let ledgerText = ''
 let inventoryText = ''
 let scaffoldText = ''
 let fixtureText = ''
 let metadata = null
 let versionContract = null
-let ledger = null
 let inventory = null
 let scaffold = null
 let fixture = null
@@ -144,13 +247,11 @@ try {
   }
   metadataText = show('RELEASE_METADATA.json')
   versionContractText = show('release-versions.json')
-  ledgerText = show('docs/product-status/capability-ledger.json')
   inventoryText = show('scaffold/application-template-inventory.json')
   metadata = JSON.parse(metadataText)
   versionContract = JSON.parse(versionContractText)
-  ledger = JSON.parse(ledgerText)
   inventory = JSON.parse(inventoryText)
-  version = metadata.schema_version === 2 && metadata.protocol === 'peanut.release-metadata.v2'
+  version = [2, 3].includes(metadata.schema_version) && metadata.protocol === `peanut.release-metadata.v${metadata.schema_version}`
     ? (metadata.instance_version ?? metadata.source_product_version ?? '')
     : (metadata.version ?? '')
   scaffoldText = show(`scaffold/releases/v${version}/scaffold-manifest.json`)
@@ -180,27 +281,34 @@ try {
 
 const expectedTag = `v${version}`
 const strictSemver = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
+const stableReleaseVersion = /^\d+\.\d+\.\d+$/
+const prereleaseReleaseVersion = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*$/
+const expectedReleaseVersion = options.prerelease ? prereleaseReleaseVersion : stableReleaseVersion
 const historicalV1 = options.tag && versionContract?.schema_version === 1
   && versionContract?.protocol === 'peanut.release-versions.v1'
 const currentV2 = versionContract?.schema_version === 2
   && versionContract?.protocol === 'peanut.release-versions.v2'
   && versionContract?.instance_version === null
-const contractProductVersion = currentV2
+const currentV3 = versionContract?.schema_version === 3
+  && versionContract?.protocol === 'peanut.release-versions.v3'
+  && versionContract?.instance_version === null
+const currentContract = currentV2 || currentV3
+const contractProductVersion = currentContract
   ? versionContract?.source_product_version
   : historicalV1 ? versionContract?.product_release : ''
-const metadataV2 = metadata?.schema_version === 2
-  && metadata?.protocol === 'peanut.release-metadata.v2'
-const metadataSourceVersion = metadataV2 ? metadata?.source_product_version : null
-const metadataInstanceVersion = metadataV2 ? metadata?.instance_version : null
-const metadataReleaseVersion = metadataV2
+const metadataCurrent = [2, 3].includes(metadata?.schema_version)
+  && metadata?.protocol === `peanut.release-metadata.v${metadata?.schema_version}`
+const metadataSourceVersion = metadataCurrent ? metadata?.source_product_version : null
+const metadataInstanceVersion = metadataCurrent ? metadata?.instance_version : null
+const metadataReleaseVersion = metadataCurrent
   ? (metadataInstanceVersion ?? metadataSourceVersion ?? '')
   : (metadata?.version ?? '')
-if (versionContract && ((!historicalV1 && !currentV2)
-  || !/^\d+\.\d+\.\d+$/.test(contractProductVersion ?? '')
-  || contractProductVersion !== (currentV2 ? metadataSourceVersion : metadataReleaseVersion)
+if (versionContract && ((!historicalV1 && !currentContract)
+  || !expectedReleaseVersion.test(contractProductVersion ?? '')
+  || contractProductVersion !== (currentContract ? metadataSourceVersion : metadataReleaseVersion)
   || versionContract.scaffold_template !== inventory?.template_version
-  || (currentV2 && versionContract.generated_instance_default !== inventory?.application?.version)
-  || (currentV2 && !strictSemver.test(versionContract.generated_instance_default ?? ''))
+  || (currentContract && versionContract.generated_instance_default !== inventory?.application?.version)
+  || (currentContract && !strictSemver.test(versionContract.generated_instance_default ?? ''))
   || (currentV2 && (versionContract.core_php !== contractProductVersion
     || versionContract.core_web !== contractProductVersion
     || versionContract.scaffold_template !== contractProductVersion
@@ -216,13 +324,25 @@ if (versionContract && ((!historicalV1 && !currentV2)
     || metadata?.public_runtime_dependencies?.uniapp_npm !== `@peanut-admin/admin@${contractProductVersion}`)))) {
   failures.push('release version contract does not match metadata and inventory')
 }
-if (currentV2 && (!metadataV2
+if (currentContract && (!metadataCurrent
     || metadataSourceVersion !== versionContract?.source_product_version
     || metadataInstanceVersion !== versionContract?.instance_version
     || metadataReleaseVersion !== version)) {
   failures.push('release metadata does not preserve the source product and root instance identities')
 }
-if (!/^\d+\.\d+\.\d+$/.test(version)) failures.push(`metadata version is invalid: ${version || 'missing'}`)
+if (currentV3) {
+  try {
+    if (dependencyMode(versionContract) !== 'registry') throw new Error('formal V3 candidate requires fixed native registry identities')
+    verifyDependencyLocks(versionContract, path => Buffer.from(show(path)), lockedYamlParser(toolRoot))
+    if (versionContract.scaffold_template !== contractProductVersion
+      || Object.values(declaredClientVersions).some(value => value !== contractProductVersion)
+      || JSON.stringify(metadata?.public_runtime_dependencies?.composer) !== JSON.stringify(versionContract.core_php)
+      || JSON.stringify(metadata?.public_runtime_dependencies?.npm) !== JSON.stringify(versionContract.core_web)) {
+      throw new Error('V3 metadata or client product identity does not match the fixed dependency contract')
+    }
+  } catch (error) { failures.push(error.message) }
+}
+if (!expectedReleaseVersion.test(version)) failures.push(`metadata version is invalid for ${options.prerelease ? 'prerelease' : 'stable'} mode: ${version || 'missing'}`)
 if (metadata && metadata.expected_tag !== expectedTag) failures.push(`metadata expected_tag does not match ${expectedTag}`)
 if (options.tag && options.tag !== expectedTag) failures.push(`tag ${options.tag} does not match embedded version ${version}`)
 for (const [path, expected] of Object.entries({
@@ -268,7 +388,7 @@ if (scaffold && inventory && fixture) {
       const sealedInventory = execFileSync(
         'git',
         ['show', `${release.source_commit}:scaffold/application-template-inventory.json`],
-        { encoding: 'utf8' },
+        { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
       )
       if (sha256(inventoryText) !== release.inventory_sha256) {
         failures.push('candidate application inventory does not match the scaffold seal')
@@ -280,14 +400,6 @@ if (scaffold && inventory && fixture) {
       failures.push(`scaffold source inventory is unreadable: ${error.message}`)
     }
   }
-}
-
-if (ledger && commit) {
-  const baseline = ledger.facts_baseline ?? {}
-  if (!/^[0-9a-f]{40}$/.test(baseline.commit ?? '') || !gitSucceeds(['merge-base', '--is-ancestor', baseline.commit, commit])) {
-    failures.push(`capability ledger baseline ${baseline.commit ?? 'missing'} is not an ancestor of candidate ${commit}`)
-  }
-  if (!(ledger.overall?.summary ?? '').includes(version)) failures.push(`capability ledger overall summary does not describe ${version}`)
 }
 
 if (options.staticOnly) {
@@ -327,12 +439,15 @@ if (options.staticOnly) {
       const evidence = JSON.parse(readFileSync(options.releaseEvidence, 'utf8'))
       const editions = evidence.edition_artifacts ?? {}
       const qualification = evidence.technical_qualification ?? {}
+      const qualificationStatusValid = options.prerelease
+        ? ['passed', 'partial-passed'].includes(qualification.status)
+        : qualification.status === 'passed'
       staticReleaseEvidence.valid = evidence.schema_version === 1
         && evidence.product === metadata?.product
         && evidence.version === contractProductVersion
         && evidence.tag === expectedTag
         && evidence.commit === commit
-        && qualification.status === 'passed'
+        && qualificationStatusValid
         && ['standalone', 'multi-tenant'].every((edition) => typeof editions?.[edition]?.installer === 'string')
       if (!staticReleaseEvidence.valid) failures.push('static release evidence is incomplete or belongs to another candidate')
     } catch (error) {
@@ -354,10 +469,37 @@ if (options.qualification) {
     if (!isAbsolute(options.qualification)) throw new Error('qualification path must be absolute')
     qualificationText = readFileSync(options.qualification, 'utf8')
     qualification = JSON.parse(qualificationText)
-    if (qualification.status !== 'passed') failures.push(`qualification status is ${qualification.status ?? 'missing'}`)
+    const expectedStatuses = options.prerelease ? ['passed', 'partial-passed'] : ['passed']
+    if (!expectedStatuses.includes(qualification.status)) {
+      failures.push(`qualification status is ${qualification.status ?? 'missing'}`)
+    }
     if (qualification.candidate !== commit) failures.push(`qualification commit ${qualification.candidate ?? 'missing'} does not match candidate ${commit}`)
     if (qualification.candidate_tree !== tree) failures.push(`qualification tree ${qualification.candidate_tree ?? 'missing'} does not match candidate tree ${tree}`)
-    const requiredGroups = fixture?.groups ?? []
+    const requiredGroups = options.prerelease ? prereleaseRequiredGroups : (fixture?.groups ?? [])
+    if (options.prerelease && qualification.status === 'partial-passed'
+      && !['selected-groups', 'through-group'].includes(qualification.scope)) {
+      failures.push(`prerelease qualification scope is invalid: ${qualification.scope ?? 'missing'}`)
+    }
+    if (!options.prerelease && qualification.scope !== 'full') {
+      failures.push(`stable qualification scope is ${qualification.scope ?? 'missing'} instead of full`)
+    }
+    if (options.prerelease && qualification.status === 'partial-passed') {
+      const minimum = qualification.minimum_release_gate ?? {}
+      if (minimum.protocol !== 'peanut.minimum-release-gate.v1'
+        || minimum.candidate !== commit || minimum.candidate_tree !== tree
+        || minimum.release_version !== version
+        || minimum.ready_for_first_prerelease !== true
+        || minimum.full_p0e_passed !== false
+        || minimum.startup_health !== 'passed'
+        || minimum.business?.standalone?.status !== 'passed'
+        || minimum.business?.['multi-tenant']?.status !== 'passed'
+        || minimum.upgrade_retention?.status !== 'reused'
+        || !/^[a-f0-9]{64}$/.test(minimum.upgrade_retention?.evidence_sha256 ?? '')
+        || !Array.isArray(minimum.artifacts) || minimum.artifacts.length !== 4
+        || minimum.artifacts.some(item => !/^[a-f0-9]{64}$/.test(item.sha256 ?? ''))) {
+        failures.push('prerelease Minimum Release Gate receipt is incomplete or belongs to another candidate')
+      }
+    }
     for (const group of requiredGroups) {
       if (qualification.groups?.[group]?.status !== 'passed') failures.push(`qualification group is not passed: ${group}`)
     }
@@ -416,15 +558,19 @@ if (options.writeLock) {
     candidate: { commit, tree },
     qualification: {
       status: qualification.status,
+      scope: qualification.scope,
       run_id: qualification.run_id,
       summary_sha256: sha256(qualificationText),
-      groups: Object.fromEntries((fixture.groups ?? []).map((group) => [group, 'passed'])),
+      planned_groups: qualification.planned_groups,
+      groups: Object.fromEntries((fixture.groups ?? []).map((group) => [
+        group,
+        qualification.groups?.[group]?.status ?? 'not-run',
+      ])),
       cleanup: qualification.cleanup,
     },
     inputs: {
       release_metadata_sha256: sha256(metadataText),
       version_contract_sha256: sha256(versionContractText),
-      capability_ledger_sha256: sha256(ledgerText),
       application_template_inventory_sha256: sha256(inventoryText),
       scaffold_manifest_sha256: sha256(scaffoldText),
       p0e_fixture_sha256: sha256(fixtureText),

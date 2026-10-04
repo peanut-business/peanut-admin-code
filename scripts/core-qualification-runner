@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNNER_ID=''
 CANDIDATE=''
+ENV_RUNNER="$ROOT/scripts/run-with-environment-file"
 
 usage() {
   cat <<'EOF'
@@ -43,9 +44,20 @@ if [[ ! "$RUNNER_ID" =~ ^[a-z0-9][a-z0-9-]+$ ]] || [[ ! "$CANDIDATE" =~ ^[0-9a-f
   exit 2
 fi
 
-while IFS='=' read -r name value; do
-  export "$name=$value"
-done < <("$ROOT/scripts/project-resource-registry" qualification-env --runner-id "$RUNNER_ID")
+qualification_env="$(mktemp "${TMPDIR:-/tmp}/peanut-core-qualification.XXXXXX.env")"
+trap 'rm -f "$qualification_env"' EXIT
+"$ROOT/scripts/project-resource-registry" qualification-env --runner-id "$RUNNER_ID" > "$qualification_env"
+chmod 600 "$qualification_env"
+read_value() { awk -F= -v name="$1" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$qualification_env"; }
+PEANUT_QUALIFICATION_WORKTREE="$(read_value PEANUT_QUALIFICATION_WORKTREE)"
+PEANUT_QUALIFICATION_OUTPUT_ROOT="$(read_value PEANUT_QUALIFICATION_OUTPUT_ROOT)"
+COMPOSE_PROJECT_NAME="$(read_value COMPOSE_PROJECT_NAME)"
+MYSQL_PORT="$(read_value MYSQL_PORT)"
+CACHE_PORT="$(read_value CACHE_PORT)"
+PEANUT_BROWSER_BACKEND_PORT="$(read_value PEANUT_BROWSER_BACKEND_PORT)"
+PEANUT_BROWSER_FRONTEND_PORT="$(read_value PEANUT_BROWSER_FRONTEND_PORT)"
+PEANUT_STARTER_BACKEND_PORT="$(read_value PEANUT_STARTER_BACKEND_PORT)"
+PEANUT_STARTER_FRONTEND_PORT="$(read_value PEANUT_STARTER_FRONTEND_PORT)"
 
 cd "$PEANUT_QUALIFICATION_WORKTREE"
 if [[ "$(git rev-parse HEAD)" != "$CANDIDATE" ]] || ! git diff --quiet || ! git diff --cached --quiet; then
@@ -74,7 +86,7 @@ if [[ -n "$(docker ps -aq --filter "name=^/${COMPOSE_PROJECT_NAME}-")" \
   exit 1
 fi
 
-composer install --no-interaction --prefer-dist
-./scripts/bootstrap-worktree-dependencies
+env -i PATH="$PATH" HOME="$HOME" composer install --no-interaction --prefer-dist
+env -i PATH="$PATH" HOME="$HOME" ./scripts/bootstrap-worktree-dependencies
 mkdir -p "$PEANUT_QUALIFICATION_OUTPUT_ROOT"
-./scripts/check 2>&1 | tee "$PEANUT_QUALIFICATION_OUTPUT_ROOT/check.log"
+"$ENV_RUNNER" --env-file "$qualification_env" -- ./scripts/check 2>&1 | tee "$PEANUT_QUALIFICATION_OUTPUT_ROOT/check.log"

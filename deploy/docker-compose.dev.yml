@@ -13,79 +13,78 @@ x-node-environment: &node-environment
 
 services:
   web:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/web
-    command: ["sh", "-c", "test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts --host 0.0.0.0 --port 5173"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts --host 0.0.0.0 --port 5173"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      VITE_API_PROXY_TARGET: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
-      VITE_OPEN_BROWSER: "false"
+      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
     volumes:
       - ../web:/workspace/web
+      - ../.local/container-client.env:/run/peanut/client.env:ro
       - web-node-modules:/workspace/web/node_modules
     ports:
       - "127.0.0.1:${VITE_PORT:?set the registered admin port}:5173"
 
   platform:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/platform
-    command: ["sh", "-c", "test -x node_modules/.bin/vite || npm ci --legacy-peer-deps; exec node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5177"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || npm ci; exec node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5177"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      VITE_API_PROXY_TARGET: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
+      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
     volumes:
       - ../platform:/workspace/platform
+      - ../.local/container-client.env:/run/peanut/client.env:ro
       - platform-node-modules:/workspace/platform/node_modules
     ports:
       - "127.0.0.1:${PLATFORM_PORT:?set the registered platform port}:5177"
 
   pc:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/pc
-    command: ["sh", "-c", "test -x node_modules/.bin/nuxt || npm ci; exec node node_modules/nuxt/bin/nuxt.mjs dev --port 3100 --host 0.0.0.0"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/nuxt || npm ci; exec node node_modules/nuxt/bin/nuxt.mjs dev --port 3100 --host 0.0.0.0"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      NUXT_DEV_PROXY_TARGET: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}/api
-      NUXT_DEV_PROXY_ORIGIN: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
+      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
+      NUXT_UPSTREAM_ORIGIN: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
+      NUXT_FORWARDED_PROTO: http
     volumes:
       - ../pc:/workspace/pc
+      - ../.local/container-client.env:/run/peanut/client.env:ro
       - pc-node-modules:/workspace/pc/node_modules
     ports:
       - "127.0.0.1:${PC_PORT:?set the registered PC port}:3100"
 
   mobile:
-    image: node:20.19.4-bookworm-slim
+    image: node:22.22.0-bookworm-slim
     working_dir: /workspace/uniapp
-    command: ["sh", "-c", "test -x node_modules/.bin/uni || npm ci; exec node node_modules/@dcloudio/vite-plugin-uni/bin/uni.js --host 0.0.0.0 --port 5174"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/uni || npm ci; exec node node_modules/@dcloudio/vite-plugin-uni/bin/uni.js --host 0.0.0.0 --port 5174"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      VITE_API_PROXY_TARGET: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
+      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
     volumes:
       - ../uniapp:/workspace/uniapp
+      - ../.local/container-client.env:/run/peanut/client.env:ro
       - mobile-node-modules:/workspace/uniapp/node_modules
     ports:
       - "127.0.0.1:${MOBILE_PORT:?set the registered mobile port}:5174"
 
   docs:
-    image: node:20.19.4-bookworm-slim
-    working_dir: /workspace/docs-site
-    command: ["sh", "-c", "test -x node_modules/.bin/vitepress || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); node scripts/sync-legal-assets.mjs; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
+    image: node:22.22.0-bookworm-slim
+    working_dir: /workspace/peanut-admin-project/docs-site
+    command: ["sh", "-c", "set -e; corepack enable; corepack prepare pnpm@9.15.6 --activate; test -x node_modules/.bin/vitepress || pnpm install --frozen-lockfile; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
     environment:
       <<: *node-environment
-      VITEPRESS_DISABLE_GIT: "true"
+      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
     volumes:
-      - ../docs-site:/workspace/docs-site
-      - ../LICENSE:/workspace/LICENSE:ro
-      - ../NOTICE:/workspace/NOTICE:ro
-      - ../THIRD_PARTY_NOTICES.md:/workspace/THIRD_PARTY_NOTICES.md:ro
-      - ../RELEASE_SBOM.spdx.json:/workspace/RELEASE_SBOM.spdx.json:ro
-      - ../CHANGELOG.md:/workspace/CHANGELOG.md:ro
-      - ../RELEASE_METADATA.json:/workspace/RELEASE_METADATA.json:ro
-      - docs-node-modules:/workspace/docs-site/node_modules
+      - ../../peanut-admin-project:/workspace/peanut-admin-project
+      - ../.local/container-client.env:/run/peanut/client.env:ro
+      - docs-node-modules:/workspace/peanut-admin-project/docs-site/node_modules
     ports:
       - "127.0.0.1:${DOCS_PORT:?set the registered docs port}:4173"
 
@@ -99,7 +98,15 @@ services:
     environment:
       PEANUT_API_HOST: host.docker.internal
       PEANUT_API_PORT: ${PHP_PORT:?set the registered host PHP port}
-      NGINX_ENVSUBST_FILTER: ^PEANUT_API_
+      PEANUT_WEB_HOST: web
+      PEANUT_WEB_PORT: "5173"
+      PEANUT_PLATFORM_HOST: platform
+      PEANUT_PLATFORM_PORT: "5177"
+      PEANUT_PC_HOST: pc
+      PEANUT_PC_PORT: "3100"
+      PEANUT_MOBILE_HOST: mobile
+      PEANUT_MOBILE_PORT: "5174"
+      NGINX_ENVSUBST_FILTER: ^PEANUT_(API|WEB|PLATFORM|PC|MOBILE)_
     depends_on:
       - web
       - platform

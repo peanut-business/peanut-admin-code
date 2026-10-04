@@ -4,10 +4,11 @@ set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 state_dir="$repo_dir/.local"
-env_file=${PEANUT_LOCAL_ENV_FILE:-"$state_dir/stack.env"}
-backend_env=${PEANUT_SERVER_ENV_FILE:-"$repo_dir/server/.env"}
-pid_file=${PEANUT_PHP_PID_FILE:-"$state_dir/php-runtime.pid"}
-log_file=${PEANUT_PHP_LOG_FILE:-"$state_dir/php-runtime.log"}
+env_file="$state_dir/stack.env"
+backend_env="$repo_dir/server/.env"
+pid_file="$state_dir/php-runtime.pid"
+log_file="$state_dir/php-runtime.log"
+log_lines=100
 php_bin=/opt/homebrew/bin/php
 composer_bin="$repo_dir/scripts/project-composer"
 expected_php_version=8.3.24
@@ -186,11 +187,25 @@ status_runtime() {
     printf 'PHP runtime healthy (pid=%s, port=%s, log=%s)\n' "$(runtime_pid)" "$(read_env PHP_PORT)" "$log_file"
 }
 
-case "${1:-}" in
+command=${1:-}
+[ $# -gt 0 ] && shift
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --env-file) [ $# -ge 2 ] || die '--env-file requires a value'; env_file=$2; shift 2 ;;
+        --backend-env) [ $# -ge 2 ] || die '--backend-env requires a value'; backend_env=$2; shift 2 ;;
+        --pid-file) [ $# -ge 2 ] || die '--pid-file requires a value'; pid_file=$2; shift 2 ;;
+        --log-file) [ $# -ge 2 ] || die '--log-file requires a value'; log_file=$2; shift 2 ;;
+        --log-lines) [ $# -ge 2 ] || die '--log-lines requires a value'; log_lines=$2; shift 2 ;;
+        *) die "unsupported argument: $1" ;;
+    esac
+done
+case "$log_lines" in ''|*[!0-9]*) die '--log-lines must be a positive integer' ;; esac
+
+case "$command" in
     start) start_runtime ;;
     stop) stop_runtime ;;
     restart) stop_runtime; start_runtime ;;
     status) status_runtime ;;
-    logs) [ -f "$log_file" ] || die "log does not exist: $log_file"; tail -n "${LOG_LINES:-100}" "$log_file" ;;
-    *) printf 'Usage: %s {start|stop|restart|status|logs}\n' "$0" >&2; exit 2 ;;
+    logs) [ -f "$log_file" ] || die "log does not exist: $log_file"; tail -n "$log_lines" "$log_file" ;;
+    *) printf 'Usage: %s {start|stop|restart|status|logs} [--env-file path] [--backend-env path] [--pid-file path] [--log-file path] [--log-lines n]\n' "$0" >&2; exit 2 ;;
 esac

@@ -5,7 +5,7 @@
   "authority": {
     "owner": "Peanut Admin P0-E qualification owner",
     "source": "this versioned source-only registry",
-    "project_resource_registry": "resources/project-resources.json",
+    "project_resource_registry": "PEANUT_RESOURCE_REGISTRY (explicit private Project resources/project-resources.json)",
     "live_resource_validation": "the registered mac-14 resource must pass the exact remote preflight before mutation",
     "credentials_policy": "references only; secrets are never stored in Git"
   },
@@ -25,9 +25,10 @@
     "runtime_resource_id": "peanut-admin-mysql84-development",
     "administrative_tooling_resource_id": "peanut-admin-mysql84-remote-admin-cli",
     "credential_ref": "mac-14:/Users/xing/.config/peanut-admin/development-db.env",
-    "data_source": "resources/project-resources.json plus the live registered mac-14 resource",
+    "data_source": "explicit private Project resource registry plus the live registered mac-14 resource",
     "freshness_requirement": "after claim and before mutation, both project registries and the live resource must agree on the resource, image, endpoint and version",
     "health_check": "scripts/p0e-runtime-qualification run/resume remote administration preflight",
+    "failure_policy": "credential, SSH, Docker daemon or allocation health failures fail closed; P0-E never stops or restarts Docker Desktop and never recreates the persistent MySQL allocation",
     "fallback": "none",
     "cleanup_responsibility": "the active P0-E lease owner drops only its exact run_id databases"
   },
@@ -68,10 +69,11 @@
         "container_name": "peanut-admin-mysql84-development",
         "container_image": "mysql:8.4.10@sha256:8dbcf531a03aade657e181b9cf2f1d1803ce621a1d55610cb44cb531ab7d7db6",
         "mysql_command": "/usr/bin/mysql",
-        "credential_ref": "the registered container's MYSQL_ROOT_PASSWORD environment; never transferred to the workstation",
+        "credential_ref": "mac-14:/Users/xing/.config/peanut-admin/development-db.env",
         "data_source": "live Peanut Admin resource peanut-admin-mysql84-development on mac-14",
         "freshness_requirement": "after claim and before any database mutation, verify the exact container image, running/healthy state and MySQL CLI version",
         "health_check": "scripts/p0e-runtime-qualification run/resume remote administration preflight",
+        "failure_policy": "credential, SSH, Docker daemon or allocation health failures fail closed; P0-E never stops or restarts Docker Desktop and never recreates the persistent MySQL allocation",
         "fallback": "none; host mysql commands are forbidden",
         "cleanup_responsibility": "not applicable; the tooling runs inside the existing persistent allocation"
       },

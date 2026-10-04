@@ -1,19 +1,21 @@
 <?php
+
 declare(strict_types=1);
 
 require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
 use app\common\persistence\AdvisoryLockExecution;
 use app\common\persistence\AdvisoryLockUnavailable;
-use app\common\service\runtime\RuntimeNamespace;
-use app\platform\service\plugin\DeterministicTarArchive;
-use app\platform\service\plugin\PluginLifecycleException;
-use app\platform\service\plugin\PluginPackageArchiveService;
-use app\platform\service\plugin\PluginPackageInstaller;
-use app\platform\service\plugin\PlatformModuleRuntimeService;
-use app\platform\service\plugin\PluginCatalogSyncService;
-use app\platform\service\plugin\PluginRuntimeGovernanceService;
-use app\platform\service\plugin\PluginReleaseCompositionGuard;
+use app\common\value\runtime\RuntimeNamespace;
+use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\exception\plugin\PluginPackageException;
+use app\platform\infrastructure\plugin\DeterministicTarArchive;
+use app\platform\infrastructure\plugin\PluginPackageInstaller;
+use app\platform\services\plugin\PlatformModuleRuntimeService;
+use app\platform\services\plugin\PluginCatalogSyncService;
+use app\platform\services\plugin\PluginPackageArchiveService;
+use app\platform\services\plugin\PluginRuntimeGovernanceService;
+use app\platform\validation\plugin\PluginReleaseCompositionGuard;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -39,6 +41,17 @@ function moduleBundleExpectLifecycleError(callable $operation, string $errorCode
     throw new RuntimeException($message . ': no error');
 }
 
+function moduleBundleExpectPackageError(callable $operation, string $errorCode, string $message): void
+{
+    try {
+        $operation();
+    } catch (PluginPackageException $exception) {
+        moduleBundleExpect($exception->errorCode === $errorCode, $message . ': ' . $exception->errorCode);
+        return;
+    }
+    throw new RuntimeException($message . ': no error');
+}
+
 function moduleBundleCopyTree(string $source, string $target): void
 {
     if (!is_dir($target)) {
@@ -52,7 +65,9 @@ function moduleBundleCopyTree(string $source, string $target): void
         $relative = substr($entry->getPathname(), strlen($source) + 1);
         $destination = $target . '/' . $relative;
         if ($entry->isDir()) {
-            if (!is_dir($destination)) mkdir($destination, 0777, true);
+            if (!is_dir($destination)) {
+                mkdir($destination, 0777, true);
+            }
         } else {
             copy($entry->getPathname(), $destination);
         }
@@ -61,22 +76,72 @@ function moduleBundleCopyTree(string $source, string $target): void
 
 function moduleBundleRemoveTree(string $path): void
 {
-    if (!is_dir($path)) return;
+    if (is_link($path) || is_file($path)) {
+        unlink($path);
+        return;
+    }
+    if (!is_dir($path)) {
+        return;
+    }
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
         RecursiveIteratorIterator::CHILD_FIRST,
     );
     foreach ($iterator as $entry) {
-        $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+        if ($entry->isLink() || !$entry->isDir()) {
+            unlink($entry->getPathname());
+        } else {
+            rmdir($entry->getPathname());
+        }
     }
     rmdir($path);
 }
 
+/** @return array{0:\Composer\Autoload\ClassLoader,1:\Composer\Autoload\ClassLoader} */
+function moduleBundleSwapTargetComposerLoader(string $serverRoot, string $target): array
+{
+    $vendorRoot = realpath($serverRoot . '/vendor');
+    $hostLoader = null;
+    foreach (\Composer\Autoload\ClassLoader::getRegisteredLoaders() as $registeredVendor => $loader) {
+        if ($vendorRoot !== false && realpath($registeredVendor) === $vendorRoot) {
+            $hostLoader = $loader;
+            break;
+        }
+    }
+    moduleBundleExpect($hostLoader instanceof \Composer\Autoload\ClassLoader, 'verified host Composer loader is unavailable');
+    $targetLoader = clone $hostLoader;
+    $targetModuleRoots = [
+        'app/modules/official/article/src',
+        'app/modules/official/file/src',
+        'app/modules/official/identity/src',
+        'app/modules/official/integration/src',
+        'app/modules/official/notification/src',
+        'app/modules/official/ops/src',
+        'app/modules/official/task/src',
+        'app/modules/fixture/delivery_record/src',
+    ];
+    foreach ($targetLoader->getPrefixesPsr4() as $prefix => $directories) {
+        $mapped = [];
+        foreach ($directories as $directory) {
+            $resolved = realpath($directory);
+            $relative = $resolved === false ? '' : substr($resolved, strlen($serverRoot) + 1);
+            $mapped[] = in_array($relative, $targetModuleRoots, true)
+                ? $target . '/server/' . $relative
+                : $directory;
+        }
+        $targetLoader->setPsr4($prefix, $mapped);
+    }
+    $hostLoader->unregister();
+    $targetLoader->register(true);
+    return [$hostLoader, $targetLoader];
+}
+
 function moduleBundleSetVersion(string $root, string $module, string $version): void
 {
-    $backend = $root . '/server/app/Modules/Official/' . $module;
+    $directory = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
+    $backend = $root . '/server/app/modules/official/' . $directory;
     foreach ([$backend . '/module.json', $backend . '/composer.json'] as $path) {
-        $document = json_decode((string)file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        $document = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
         $document['version'] = $version;
         if ($module === 'Article' && str_ends_with($path, '/module.json')) {
             $document['dependencies'][0]['version'] = '^' . explode('.', $version)[0] . '.0';
@@ -84,7 +149,7 @@ function moduleBundleSetVersion(string $root, string $module, string $version): 
         file_put_contents($path, json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     }
     $frontend = $root . '/web/src/modules/official-' . strtolower($module) . '/package.json';
-    $document = json_decode((string)file_get_contents($frontend), true, 64, JSON_THROW_ON_ERROR);
+    $document = json_decode((string) file_get_contents($frontend), true, 64, JSON_THROW_ON_ERROR);
     $document['version'] = $version;
     file_put_contents($frontend, json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
 }
@@ -94,7 +159,9 @@ function moduleBundleTables(array $affectedModules): array
 {
     $tables = [];
     foreach ($affectedModules as $module) {
-        foreach ((array)($module['owned_tables'] ?? []) as $table) $tables[] = (string)$table;
+        foreach ((array) ($module['owned_tables'] ?? []) as $table) {
+            $tables[] = (string) $table;
+        }
     }
     sort($tables, SORT_STRING);
     return $tables;
@@ -103,13 +170,15 @@ function moduleBundleTables(array $affectedModules): array
 /** @param list<string> $tables */
 function moduleBundleExistingTableCount(PDO $pdo, array $tables): int
 {
-    if ($tables === []) return 0;
+    if ($tables === []) {
+        return 0;
+    }
     $statement = $pdo->prepare(
         'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('
-        . implode(',', array_fill(0, count($tables), '?')) . ')'
+        . implode(',', array_fill(0, count($tables), '?')) . ')',
     );
     $statement->execute($tables);
-    return (int)$statement->fetchColumn();
+    return (int) $statement->fetchColumn();
 }
 
 /** @param list<string> $moduleKeys */
@@ -118,16 +187,30 @@ function moduleBundleCount(PDO $pdo, string $table, array $moduleKeys, ?string $
     $statement = $pdo->prepare(
         "SELECT COUNT(*) FROM {$table} WHERE module_key IN ("
         . implode(',', array_fill(0, count($moduleKeys), '?')) . ')'
-        . ($status === null ? '' : ' AND status=?')
+        . ($status === null ? '' : ' AND status=?'),
     );
     $statement->execute($status === null ? $moduleKeys : [...$moduleKeys, $status]);
-    return (int)$statement->fetchColumn();
+    return (int) $statement->fetchColumn();
 }
 
-$database = $argv[1] ?? '';
+$serverRoot = dirname(__DIR__, 2);
+$projectRoot = dirname($serverRoot);
+$resourceId = IsolatedBackendEnvironment::required('PEANUT_DATABASE_RESOURCE_ID');
+$resource = IsolatedBackendEnvironment::requireRegisteredDatabase(
+    $projectRoot . '/resources/project-resources.json',
+    $resourceId,
+);
+$database = $argv[1] ?? IsolatedBackendEnvironment::required('DB_NAME');
+moduleBundleExpect($database === IsolatedBackendEnvironment::required('DB_NAME'), 'test database must match the selected backend environment');
 moduleBundleExpect(
-    preg_match('/^peanut_admin_development_p0e_([a-z0-9]{1,11})_plugin_lifecycle$/D', $database, $databaseMatch) === 1,
-    'registered isolated plugin-lifecycle database name is required',
+    ($resource['upstream_endpoint']['endpoint_id'] ?? null) === IsolatedBackendEnvironment::required('PEANUT_DATABASE_ENDPOINT_ID'),
+    'registered database endpoint identity is required',
+);
+$namespaceDatabase = (string) ($resource['synthetic_databases']['module_bundle_multi'][0] ?? '');
+moduleBundleExpect(
+    preg_match('/^peanut_admin_dual_20260922_bundle_multi_namespace$/D', $namespaceDatabase) === 1
+        && $namespaceDatabase !== $database,
+    'registered bundle namespace database is required',
 );
 
 $host = IsolatedBackendEnvironment::required('DB_HOST');
@@ -142,19 +225,18 @@ $admin = new PDO(
 );
 $exists = $admin->prepare('SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name=?');
 $exists->execute([$database]);
-moduleBundleExpect((int)$exists->fetchColumn() === 0, 'isolated bundle database already exists');
+moduleBundleExpect((int) $exists->fetchColumn() === 0, 'isolated bundle database already exists');
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
-$namespaceDatabase = "peanut_admin_development_p0e_{$databaseMatch[1]}_consumer_module_cycle";
 $exists->execute([$namespaceDatabase]);
-moduleBundleExpect((int)$exists->fetchColumn() === 0, 'isolated namespace database already exists');
+moduleBundleExpect((int) $exists->fetchColumn() === 0, 'isolated namespace database already exists');
 $admin->exec("CREATE DATABASE `{$namespaceDatabase}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
 
 IsolatedBackendEnvironment::activate([
     'APP_ENV' => 'development',
     'APP_DEBUG' => 'true',
     'DEPLOYMENT_MODE' => 'multi-tenant',
-    'PEANUT_DATABASE_RESOURCE_ID' => 'peanut-admin-p0e-mysql84-gate',
-    'PEANUT_DATABASE_ENDPOINT_ID' => 'peanut-admin-p0e-mysql84-gate-host-direct',
+    'PEANUT_DATABASE_RESOURCE_ID' => $resourceId,
+    'PEANUT_DATABASE_ENDPOINT_ID' => IsolatedBackendEnvironment::required('PEANUT_DATABASE_ENDPOINT_ID'),
     'PEANUT_DATABASE_CONSUMER' => 'host',
     'DB_HOST' => $host,
     'DB_PORT' => $port,
@@ -174,7 +256,9 @@ $pdo = new PDO(
         PDO::ATTR_EMULATE_PREPARES => false,
     ],
 );
-moduleBundleExpect((string)$pdo->query('SELECT DATABASE()')->fetchColumn() === $database, 'isolated database selection changed');
+moduleBundleExpect((string) $pdo->query('SELECT DATABASE()')->fetchColumn() === $database, 'isolated database selection changed');
+$app = new think\App($serverRoot);
+$app->initialize();
 $catalogs = ThinkPhpTestConnection::moduleCatalogs($pdo);
 $contender = new PDO(
     "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
@@ -191,16 +275,16 @@ $otherDatabase = new PDO(
 moduleBundleExpect(
     ThinkPhpTestConnection::fromPdo($pdo) instanceof \think\db\PDOConnection
         &&
-    RuntimeNamespace::fromResourceId('peanut-admin-mysql84-development', 'development')
+    RuntimeNamespace::fromResourceId($resourceId, 'development')
         ->advisoryLockName('module-bundle-lock-environment')
-        !== RuntimeNamespace::fromResourceId('peanut-admin-mysql84-development', 'production')
+        !== RuntimeNamespace::fromResourceId($resourceId, 'production')
             ->advisoryLockName('module-bundle-lock-environment'),
     'runtime environment is absent from the advisory-lock namespace',
 );
 moduleBundleExpect(
-    RuntimeNamespace::fromResourceId('peanut-admin-mysql84-development', 'development')
+    RuntimeNamespace::fromResourceId($resourceId, 'development')
         ->advisoryLockName('module-bundle-lock-resource')
-        !== RuntimeNamespace::fromResourceId('peanut-admin-p0e-mysql84-gate', 'development')
+        !== RuntimeNamespace::fromResourceId('peanut-admin-a1-review-mysql84', 'development')
             ->advisoryLockName('module-bundle-lock-resource'),
     'database resource identity is absent from the advisory-lock namespace',
 );
@@ -247,10 +331,10 @@ moduleBundleExpect($callbackFailed, 'advisory-lock callback failure contract cha
 moduleBundleExpect(
     ThinkPhpTestConnection::fromPdo($contender) instanceof \think\db\PDOConnection
         && (new AdvisoryLockExecution())->run(
-        'module-bundle-lock-release',
-        0,
-        static fn(): bool => true,
-    ),
+            'module-bundle-lock-release',
+            0,
+            static fn(): bool => true,
+        ),
     'callback failure did not release the advisory lock',
 );
 ThinkPhpTestConnection::fromPdo($pdo);
@@ -259,32 +343,48 @@ initializeCoreIdentity(
     'module-bundle@example.test',
     'module-bundle-test-password',
     null,
-    new \app\common\service\DemoAccountPolicy(false, []),
+    new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []),
+    [
+        'kind' => 'real-default-tenant',
+        'code' => 'default',
+        'tenant_identity' => 'required',
+        'rbac' => 'required',
+        'execution_context' => \PeanutAdmin\Kernel\Context\TenantSystemContext::class,
+        'module_lifecycle' => 'required',
+    ],
 );
-$serverRoot = dirname(__DIR__, 2);
 $lockSqlOwners = [];
 $applicationFiles = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator($serverRoot . '/app', FilesystemIterator::SKIP_DOTS),
 );
 foreach ($applicationFiles as $file) {
-    if (!$file->isFile() || $file->getExtension() !== 'php') continue;
-    $source = (string)file_get_contents($file->getPathname());
+    if (!$file->isFile() || $file->getExtension() !== 'php') {
+        continue;
+    }
+    $source = (string) file_get_contents($file->getPathname());
     if (str_contains($source, 'GET_LOCK') || str_contains($source, 'RELEASE_LOCK')) {
         $lockSqlOwners[] = substr($file->getPathname(), strlen($serverRoot) + 1);
     }
 }
 sort($lockSqlOwners, SORT_STRING);
 moduleBundleExpect(
-    $lockSqlOwners === ['app/common/persistence/AdvisoryLockExecution.php'],
-    'production application retained another advisory-lock SQL executor',
+    $lockSqlOwners === [
+        'app/common/persistence/AdvisoryLockExecution.php',
+        'app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php',
+        'app/modules/official/identity/src/Platform/Bootstrap/BootstrapService.php',
+    ],
+    'production application advisory-lock SQL owners changed unexpectedly',
 );
 executeSqlFiles($pdo, [$serverRoot . '/database/init.sql']);
 $applicationMigrations = glob($serverRoot . '/database/migrations/*.sql') ?: [];
 sort($applicationMigrations, SORT_STRING);
 executeSqlFiles($pdo, $applicationMigrations);
+executeSqlFiles($pdo, [
+    $serverRoot . '/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql',
+]);
 
 $projectRoot = dirname($serverRoot);
-$temporary = realpath(sys_get_temp_dir()) . '/pa-module-bundle-' . $databaseMatch[1];
+$temporary = realpath(sys_get_temp_dir()) . '/pa-module-bundle-' . substr(hash('sha256', $database), 0, 11);
 moduleBundleExpect(!file_exists($temporary), 'isolated bundle output path already exists');
 $source = $temporary . '/source';
 $target = $temporary . '/target';
@@ -294,19 +394,68 @@ $conflictArchivePath = $temporary . '/official-content-bundle-v2-conflict.tar';
 $recoverableArchivePath = $temporary . '/official-runtime-bundle.tar';
 $releaseV1 = $temporary . '/release-v1';
 $releaseV2 = $temporary . '/release-v2';
+$hostLoader = null;
+$targetLoader = null;
 $completed = false;
 
 try {
-    foreach (['Article', 'File', 'Notification', 'Task'] as $module) {
+    foreach (['Article', 'File', 'Integration', 'Notification', 'Task'] as $module) {
+        $directory = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $module));
         moduleBundleCopyTree(
-            $projectRoot . "/server/app/Modules/Official/{$module}",
-            $source . "/server/app/Modules/Official/{$module}",
+            $projectRoot . "/server/app/modules/official/{$directory}",
+            $source . "/server/app/modules/official/{$directory}",
         );
         $slug = 'official-' . strtolower($module);
         moduleBundleCopyTree($projectRoot . "/web/src/modules/{$slug}", $source . "/web/src/modules/{$slug}");
     }
+    // File declares official.identity; model the generated consumer's installed base instead of hiding that dependency in the bundle.
+    moduleBundleCopyTree(
+        $projectRoot . '/server/app/modules/official/identity',
+        $source . '/server/app/modules/official/identity',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/server/app/modules/official/identity',
+        $target . '/server/app/modules/official/identity',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/server/app/modules/official/ops',
+        $target . '/server/app/modules/official/ops',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/server/app/modules/official/integration',
+        $target . '/server/app/modules/official/integration',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/web/src/modules/official-integration',
+        $target . '/web/src/modules/official-integration',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/plugins/official.identity',
+        $target . '/plugins/official.identity',
+    );
+    moduleBundleCopyTree(
+        $projectRoot . '/plugins/official.integration',
+        $target . '/plugins/official.integration',
+    );
+    moduleBundleExpect(
+        symlink($serverRoot . '/vendor', $target . '/server/vendor'),
+        'isolated target must use the verified host Composer vendor root',
+    );
+    $baseLock = json_decode((string) file_get_contents($projectRoot . '/plugins.lock'), true, 64, JSON_THROW_ON_ERROR);
+    $baselineEntries = array_values(array_filter(
+        (array) ($baseLock['plugins'] ?? []),
+        static fn(mixed $entry): bool => is_array($entry)
+            && in_array($entry['key'] ?? null, ['official.identity', 'official.integration'], true),
+    ));
+    moduleBundleExpect(count($baselineEntries) === 2, 'installed identity/integration baseline is missing from the source lock');
+    file_put_contents(
+        $target . '/plugins.lock',
+        json_encode(['schema_version' => 1, 'plugins' => $baselineEntries], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n",
+    );
     foreach ([$source, $target] as $root) {
-        if (!is_dir($root . '/server/resources/schemas')) mkdir($root . '/server/resources/schemas', 0777, true);
+        if (!is_dir($root . '/server/resources/schemas')) {
+            mkdir($root . '/server/resources/schemas', 0777, true);
+        }
         copy(
             $serverRoot . '/resources/schemas/plugin.schema.json',
             $root . '/server/resources/schemas/plugin.schema.json',
@@ -330,21 +479,43 @@ try {
     moduleBundleExpect(($plugin['key'] ?? null) === 'official-content-bundle', 'bundle package key changed');
     moduleBundleExpect(($plugin['key'] ?? null) !== 'official.article' && ($plugin['key'] ?? null) !== 'official.file', 'bundle impersonates a member Module');
     moduleBundleExpect(
-        array_column((array)($plugin['modules'] ?? []), 'key') === ['official.article', 'official.file'],
+        array_column((array) ($plugin['modules'] ?? []), 'key') === ['official.article', 'official.file'],
         'bundle plugin manifest lost a member Module',
     );
 
     $moduleConfig = ['kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web']];
     $installer = new PluginPackageInstaller($target . '/server', $moduleConfig, [], $catalogs);
+    $connection = (string) \think\facade\Config::get('database.default', 'mysql');
+    $databaseConfig = \think\facade\Config::get('database', []);
+    $prefix = $databaseConfig['connections'][$connection]['prefix'] ?? null;
+    moduleBundleExpect(is_string($prefix) && $prefix !== '', 'database prefix is unavailable for installation precondition check');
+    $missingPrefixConfig = $databaseConfig;
+    $missingPrefixConfig['connections'][$connection]['prefix'] = 'missing_';
+    \think\facade\Config::set($missingPrefixConfig, 'database');
+    try {
+        moduleBundleExpectPackageError(
+            static fn() => $installer->install($archivePath, $packed['sha256'], null),
+            'INSTALLATION_REQUIRED',
+            'package delivery did not reject an uninstalled configured table namespace',
+        );
+    } finally {
+        $databaseConfig['connections'][$connection]['prefix'] = $prefix;
+        \think\facade\Config::set($databaseConfig, 'database');
+    }
+    moduleBundleExpect(
+        (glob($source . '/.local/module-staging/*') ?: []) === [],
+        'installation precondition failure left a verified archive staging directory',
+    );
+    [$hostLoader, $targetLoader] = moduleBundleSwapTargetComposerLoader($serverRoot, $target);
     $installed = $installer->install($archivePath, $packed['sha256'], null);
     moduleBundleExpect(($installed['operation'] ?? null) === 'installed', 'bundle was not installed');
-    moduleBundleExpect(array_column((array)$installed['modules'], 'module_key') === ['official.article', 'official.file'], 'bundle install returned another scope');
+    moduleBundleExpect(array_column((array) $installed['modules'], 'module_key') === ['official.article', 'official.file'], 'bundle install returned another scope');
     $unchangedInstall = $installer->install($archivePath, $packed['sha256'], null);
     moduleBundleExpect(($unchangedInstall['operation'] ?? null) === 'unchanged', 'repeated bundle install was not idempotent');
     moduleBundleCopyTree($target, $releaseV1);
 
-    $lockBeforeDryRun = (string)file_get_contents($target . '/plugins.lock');
-    $databaseBeforeDryRun = (string)json_encode([
+    $lockBeforeDryRun = (string) file_get_contents($target . '/plugins.lock');
+    $databaseBeforeDryRun = (string) json_encode([
         'plugin' => $pdo->query("SELECT * FROM pa_plugin_installation WHERE plugin_key='official-content-bundle'")->fetchAll(),
         'modules' => $pdo->query("SELECT * FROM pa_module_installation WHERE module_key IN ('official.article','official.file') ORDER BY module_key")->fetchAll(),
         'migrations' => $pdo->query("SELECT * FROM pa_module_migration WHERE module_key IN ('official.article','official.file') ORDER BY id")->fetchAll(),
@@ -362,8 +533,8 @@ try {
     moduleBundleExpect(($dryRun['operation'] ?? null) === 'update' && ($dryRun['dry_run'] ?? null) === true, 'bundle update dry-run did not return its plan');
     moduleBundleExpect(($dryRun['source']['version'] ?? null) === '1.0.0', 'bundle update dry-run source identity changed');
     moduleBundleExpect(($dryRun['target']['version'] ?? null) === '2.0.0', 'bundle update dry-run target identity changed');
-    moduleBundleExpect((string)file_get_contents($target . '/plugins.lock') === $lockBeforeDryRun, 'bundle update dry-run changed plugins.lock');
-    moduleBundleExpect((string)json_encode([
+    moduleBundleExpect((string) file_get_contents($target . '/plugins.lock') === $lockBeforeDryRun, 'bundle update dry-run changed plugins.lock');
+    moduleBundleExpect((string) json_encode([
         'plugin' => $pdo->query("SELECT * FROM pa_plugin_installation WHERE plugin_key='official-content-bundle'")->fetchAll(),
         'modules' => $pdo->query("SELECT * FROM pa_module_installation WHERE module_key IN ('official.article','official.file') ORDER BY module_key")->fetchAll(),
         'migrations' => $pdo->query("SELECT * FROM pa_module_migration WHERE module_key IN ('official.article','official.file') ORDER BY id")->fetchAll(),
@@ -372,9 +543,9 @@ try {
     $updated = $installer->update($updateArchivePath, $updatedPacked['sha256'], null, false);
     moduleBundleExpect(($updated['operation'] ?? null) === 'upgraded', 'bundle package update did not execute');
     moduleBundleExpect(($updated['dry_run'] ?? null) === false, 'bundle package update reported dry-run');
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND installed_version='2.0.0' AND status='active'")->fetchColumn() === 1, 'bundle Package identity did not update');
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_module_installation WHERE module_key IN ('official.article','official.file') AND installed_version='2.0.0' AND status='active'")->fetchColumn() === 2, 'bundle Module identities did not update');
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key IN ('official.article','official.file')")->fetchColumn() === 0, 'bundle update changed TenantModule enablement');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND installed_version='2.0.0' AND status='active'")->fetchColumn() === 1, 'bundle Package identity did not update');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_module_installation WHERE module_key IN ('official.article','official.file') AND installed_version='2.0.0' AND status='active'")->fetchColumn() === 2, 'bundle Module identities did not update');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key IN ('official.article','official.file')")->fetchColumn() === 0, 'bundle update changed TenantModule enablement');
     moduleBundleCopyTree($target, $releaseV2);
     $composition = (new PluginReleaseCompositionGuard($target, $moduleConfig, $catalogs))->verify($releaseV2);
     moduleBundleExpect(
@@ -416,7 +587,7 @@ try {
     $missingRelease = $temporary . '/release-v2-missing';
     moduleBundleCopyTree($releaseV2, $missingRelease);
     $missingLockPath = $missingRelease . '/plugins.lock';
-    $missingLock = json_decode((string)file_get_contents($missingLockPath), true, 64, JSON_THROW_ON_ERROR);
+    $missingLock = json_decode((string) file_get_contents($missingLockPath), true, 64, JSON_THROW_ON_ERROR);
     $missingLock['plugins'] = [];
     file_put_contents($missingLockPath, json_encode($missingLock, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     moduleBundleExpectLifecycleError(
@@ -428,10 +599,10 @@ try {
     $identityConflictRelease = $temporary . '/release-v2-identity-conflict';
     moduleBundleCopyTree($releaseV2, $identityConflictRelease);
     $conflictLockPath = $identityConflictRelease . '/plugins.lock';
-    $conflictLock = json_decode((string)file_get_contents($conflictLockPath), true, 64, JSON_THROW_ON_ERROR);
+    $conflictLock = json_decode((string) file_get_contents($conflictLockPath), true, 64, JSON_THROW_ON_ERROR);
     $conflictEntry = &$conflictLock['plugins'][0];
     $conflictManifestPath = $identityConflictRelease . '/' . $conflictEntry['manifest'];
-    $conflictManifest = json_decode((string)file_get_contents($conflictManifestPath), true, 64, JSON_THROW_ON_ERROR);
+    $conflictManifest = json_decode((string) file_get_contents($conflictManifestPath), true, 64, JSON_THROW_ON_ERROR);
     $conflictManifest['trust']['license']['identifier'] = 'MIT';
     $conflictEntry['trust']['license']['identifier'] = 'MIT';
     file_put_contents($conflictManifestPath, json_encode($conflictManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
@@ -446,10 +617,10 @@ try {
     try {
         $installer->update($archivePath, $packed['sha256'], null, false);
         throw new RuntimeException('bundle downgrade unexpectedly executed');
-    } catch (\app\platform\service\plugin\PluginPackageException $exception) {
+    } catch (\app\platform\exception\plugin\PluginPackageException $exception) {
         moduleBundleExpect($exception->errorCode === 'PLUGIN_DOWNGRADE_REJECTED', 'bundle downgrade returned another error');
     }
-    file_put_contents($source . '/server/app/Modules/Official/Article/Module.php', "\n", FILE_APPEND);
+    file_put_contents($source . '/server/app/modules/official/article/Module.php', "\n", FILE_APPEND);
     $conflictPacked = $archive->packBundle(
         'official-content-bundle',
         '2.0.0',
@@ -459,14 +630,14 @@ try {
     try {
         $installer->update($conflictArchivePath, $conflictPacked['sha256'], null, false);
         throw new RuntimeException('same-version conflicting bundle update unexpectedly executed');
-    } catch (\app\platform\service\plugin\PluginPackageException $exception) {
+    } catch (\app\platform\exception\plugin\PluginPackageException $exception) {
         moduleBundleExpect($exception->errorCode === 'PACKAGE_VERSION_IDENTITY_CONFLICT', 'same-version conflict returned another error');
     }
 
     $moduleKeys = ['official.article', 'official.file'];
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND status='active'")->fetchColumn() === 1, 'bundle installation row is invalid');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND status='active'")->fetchColumn() === 1, 'bundle installation row is invalid');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_installation', $moduleKeys, 'active') === 2, 'bundle Module installation rows are invalid');
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_module WHERE plugin_key='official-content-bundle'")->fetchColumn() === 2, 'bundle ownership rows are invalid');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_module WHERE plugin_key='official-content-bundle'")->fetchColumn() === 2, 'bundle ownership rows are invalid');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_tenant_module', $moduleKeys) === 0, 'package install changed TenantModule enablement');
 
     $catalogTables = [
@@ -476,18 +647,18 @@ try {
     ];
     $catalogExpected = array_fill_keys(array_keys($catalogTables), 0);
     foreach ($moduleKeys as $moduleKey) {
-        $root = $target . '/server/app/Modules/Official/' . ($moduleKey === 'official.article' ? 'Article' : 'File');
+        $root = $target . '/server/app/modules/official/' . ($moduleKey === 'official.article' ? 'article' : 'file');
         $manifest = (new ManifestLoader())->load($root);
-        $catalogExpected['permissions'] += count((array)($manifest->data['catalog']['permissions'] ?? []));
-        $catalogExpected['menus'] += count((array)($manifest->data['catalog']['menus'] ?? []));
-        $definitions = json_decode((string)file_get_contents($root . '/Resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
-        $catalogExpected['settings'] += count((array)$definitions);
+        $catalogExpected['permissions'] += count((array) ($manifest->data['catalog']['permissions'] ?? []));
+        $catalogExpected['menus'] += count((array) ($manifest->data['catalog']['menus'] ?? []));
+        $definitions = json_decode((string) file_get_contents($root . '/resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
+        $catalogExpected['settings'] += count((array) $definitions);
     }
     foreach ($catalogTables as $name => $table) {
         moduleBundleExpect(moduleBundleCount($pdo, $table, $moduleKeys, 'active') === $catalogExpected[$name], "bundle {$name} catalog is not active");
     }
 
-    $governance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs);
+    $governance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries());
     $retirePreview = $governance->preview('official.article', false);
     moduleBundleExpect(($retirePreview['confirm_plan']['package_key'] ?? null) === 'official-content-bundle', 'member key did not resolve the bundle package');
     moduleBundleExpect(array_column($retirePreview['affected_modules'], 'module_key') === $moduleKeys, 'retire preview did not display the complete bundle scope');
@@ -506,7 +677,7 @@ try {
     } catch (PluginLifecycleException $exception) {
         moduleBundleExpect($exception->errorCode === 'MODULE_UNINSTALL_BLOCKED', 'protected content bundle retire returned another blocker error');
     }
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND status='active'")->fetchColumn() === 1, 'blocked content bundle retire changed package state');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND status='active'")->fetchColumn() === 1, 'blocked content bundle retire changed package state');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_installation', $moduleKeys, 'active') === 2, 'blocked content bundle retire changed Module state');
     moduleBundleExpect(moduleBundleExistingTableCount($pdo, $ownedTables) === count($ownedTables), 'blocked content bundle retire changed owned tables');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_migration', $moduleKeys) === $migrationCount, 'blocked content bundle retire changed migration ledger');
@@ -526,7 +697,7 @@ try {
     moduleBundleExpect(
         in_array(
             'pa_customer_service_setting.fk_customer_service_setting_qr_file->pa_file',
-            (array)$externalReferenceBlockers[0]['identifiers'],
+            (array) $externalReferenceBlockers[0]['identifiers'],
             true,
         ),
         'content bundle purge lost the customer-service file reference blocker',
@@ -537,17 +708,23 @@ try {
     } catch (PluginLifecycleException $exception) {
         moduleBundleExpect($exception->errorCode === 'MODULE_UNINSTALL_BLOCKED', 'protected content bundle purge returned another blocker error');
     }
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND status='active'")->fetchColumn() === 1, 'blocked content bundle purge changed package state');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-content-bundle' AND status='active'")->fetchColumn() === 1, 'blocked content bundle purge changed package state');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_installation', $moduleKeys, 'active') === 2, 'blocked content bundle purge changed Module state');
     moduleBundleExpect(moduleBundleExistingTableCount($pdo, $ownedTables) === count($ownedTables), 'blocked content bundle purge changed owned tables');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_migration', $moduleKeys) === $migrationCount, 'blocked content bundle purge changed migration ledger');
 
-    $taskManifestPath = $source . '/server/app/Modules/Official/Task/module.json';
-    $taskManifest = json_decode((string)file_get_contents($taskManifestPath), true, 64, JSON_THROW_ON_ERROR);
-    $taskManifest['dependencies'] = [[
-        'module_key' => 'official.file',
-        'version' => '^2.0',
-    ]];
+    $taskManifestPath = $source . '/server/app/modules/official/task/module.json';
+    $taskManifest = json_decode((string) file_get_contents($taskManifestPath), true, 64, JSON_THROW_ON_ERROR);
+    $taskManifest['dependencies'] = [
+        [
+            'module_key' => 'official.file',
+            'version' => '^2.0',
+        ],
+        [
+            'module_key' => 'official.identity',
+            'version' => '4.0.0-dev',
+        ],
+    ];
     $taskManifest['tenant']['requires'] = ['official.article'];
     file_put_contents($taskManifestPath, json_encode($taskManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
     $recoverablePacked = $archive->packBundle(
@@ -561,25 +738,25 @@ try {
     $recoverableInstalled = $installer->install($recoverableArchivePath, $recoverablePacked['sha256'], null);
     moduleBundleExpect(($recoverableInstalled['operation'] ?? null) === 'installed', 'recoverable bundle was not installed');
     moduleBundleExpect(
-        array_column((array)$recoverableInstalled['modules'], 'module_key') === $recoverableModuleKeys,
+        array_column((array) $recoverableInstalled['modules'], 'module_key') === $recoverableModuleKeys,
         'recoverable bundle install returned another scope',
     );
     $recoverableUnchanged = $installer->install($recoverableArchivePath, $recoverablePacked['sha256'], null);
     moduleBundleExpect(($recoverableUnchanged['operation'] ?? null) === 'unchanged', 'repeated recoverable bundle install was not idempotent');
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-runtime-bundle' AND status='active'")->fetchColumn() === 1, 'recoverable bundle installation row is invalid');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_installation WHERE plugin_key='official-runtime-bundle' AND status='active'")->fetchColumn() === 1, 'recoverable bundle installation row is invalid');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_installation', $recoverableModuleKeys, 'active') === 2, 'recoverable bundle Module installation rows are invalid');
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_module WHERE plugin_key='official-runtime-bundle'")->fetchColumn() === 2, 'recoverable bundle ownership rows are invalid');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_module WHERE plugin_key='official-runtime-bundle'")->fetchColumn() === 2, 'recoverable bundle ownership rows are invalid');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_tenant_module', $recoverableModuleKeys) === 0, 'recoverable package install changed TenantModule enablement');
 
     $recoverableCatalogExpected = array_fill_keys(array_keys($catalogTables), 0);
-    $recoverableDirectories = ['official.notification' => 'Notification', 'official.task' => 'Task'];
+    $recoverableDirectories = ['official.notification' => 'notification', 'official.task' => 'task'];
     foreach ($recoverableModuleKeys as $moduleKey) {
-        $root = $target . '/server/app/Modules/Official/' . $recoverableDirectories[$moduleKey];
+        $root = $target . '/server/app/modules/official/' . $recoverableDirectories[$moduleKey];
         $manifest = (new ManifestLoader())->load($root);
-        $recoverableCatalogExpected['permissions'] += count((array)($manifest->data['catalog']['permissions'] ?? []));
-        $recoverableCatalogExpected['menus'] += count((array)($manifest->data['catalog']['menus'] ?? []));
-        $definitions = json_decode((string)file_get_contents($root . '/Resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
-        $recoverableCatalogExpected['settings'] += count((array)$definitions);
+        $recoverableCatalogExpected['permissions'] += count((array) ($manifest->data['catalog']['permissions'] ?? []));
+        $recoverableCatalogExpected['menus'] += count((array) ($manifest->data['catalog']['menus'] ?? []));
+        $definitions = json_decode((string) file_get_contents($root . '/resources/setting-definitions.json'), true, 64, JSON_THROW_ON_ERROR);
+        $recoverableCatalogExpected['settings'] += count((array) $definitions);
     }
     foreach ($catalogTables as $name => $table) {
         moduleBundleExpect(
@@ -595,12 +772,16 @@ try {
         $governance,
         new PluginCatalogSyncService($target . '/server', $moduleConfig, $catalogs),
         $catalogs,
+        new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
     );
     $runtimeProjection = $moduleRuntime->modules(1, 100, 'official.task');
     $runtimeTask = $runtimeProjection['items'][0] ?? null;
     moduleBundleExpect(is_array($runtimeTask), 'runtime Module projection lost the Task member');
     moduleBundleExpect(
-        ($runtimeTask['dependencies'] ?? null) === [['module_key' => 'official.file', 'version' => '^2.0']],
+        ($runtimeTask['dependencies'] ?? null) === [
+            ['module_key' => 'official.file', 'version' => '^2.0'],
+            ['module_key' => 'official.identity', 'version' => '4.0.0-dev'],
+        ],
         'runtime dependency projection did not distinguish explicit business dependencies from tenant requires',
     );
     $dependentPreview = $governance->preview('official.file', false);
@@ -641,7 +822,7 @@ try {
         'same-identity application release did not preserve a disabled Package',
     );
 
-    $recoverableGovernance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs);
+    $recoverableGovernance = new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries());
     $recoverableRetirePreview = $recoverableGovernance->preview('official.task', false);
     moduleBundleExpect(($recoverableRetirePreview['confirm_plan']['package_key'] ?? null) === 'official-runtime-bundle', 'recoverable member key did not resolve its bundle');
     moduleBundleExpect(array_column($recoverableRetirePreview['affected_modules'], 'module_key') === $recoverableModuleKeys, 'recoverable retire preview split its bundle scope');
@@ -671,7 +852,7 @@ try {
     );
     moduleBundleExpect(($recoverableRepeatRetire['operation'] ?? null) === 'unchanged', 'repeated recoverable bundle retire was not idempotent');
 
-    $recoverablePurgePreview = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs))
+    $recoverablePurgePreview = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))
         ->preview('official.notification', true);
     moduleBundleExpect(($recoverablePurgePreview['confirm_plan']['package_key'] ?? null) === 'official-runtime-bundle', 'retired recoverable member key lost its bundle');
     moduleBundleExpect(array_column($recoverablePurgePreview['affected_modules'], 'module_key') === $recoverableModuleKeys, 'recoverable purge preview split its bundle scope');
@@ -682,8 +863,11 @@ try {
             $target . '/server',
             $moduleConfig,
             $catalogs,
+            new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
             static function (string $point): void {
-                if ($point === 'after-first-module-drop') throw new RuntimeException('injected bundle interruption');
+                if ($point === 'after-first-module-drop') {
+                    throw new RuntimeException('injected bundle interruption');
+                }
             },
         ))->uninstall(
             'official.notification',
@@ -705,7 +889,7 @@ try {
     moduleBundleExpect($interruptedModuleTableCounts[0] === 0 && $interruptedModuleTableCounts[1] > 0, 'bundle interruption did not stop between member completion points');
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_migration', $recoverableModuleKeys) === $recoverableMigrationCount, 'interrupted bundle purge deleted migration ledger early');
 
-    $purged = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs))
+    $purged = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))
         ->uninstall(
             'official.notification',
             true,
@@ -719,8 +903,8 @@ try {
         moduleBundleExpect(moduleBundleCount($pdo, $table, $recoverableModuleKeys) === 0, 'bundle purge left catalog rows');
     }
     moduleBundleExpect(moduleBundleCount($pdo, 'pa_module_installation', $recoverableModuleKeys) === 0, 'bundle purge left Module installation rows');
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_plugin_module WHERE plugin_key='official-runtime-bundle'")->fetchColumn() === 2, 'bundle purge deleted ownership history');
-    $repeatPurge = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs))
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_plugin_module WHERE plugin_key='official-runtime-bundle'")->fetchColumn() === 2, 'bundle purge deleted ownership history');
+    $repeatPurge = (new PluginRuntimeGovernanceService($target . '/server', $moduleConfig, $catalogs, new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries()))
         ->uninstall(
             'official.notification',
             true,
@@ -732,20 +916,22 @@ try {
     $privateArchive = $temporary . '/private-fixture.tar';
     $privatePackage = (new PluginPackageArchiveService($projectRoot . '/server'))->packModule('fixture.delivery-record', $privateArchive);
     (new PluginPackageInstaller($target . '/server', $moduleConfig, [], $catalogs))->install($privateArchive, $privatePackage['sha256'], null);
-    $privateLock = new \app\platform\service\plugin\PluginLockResolver($target . '/server', '../plugins.lock');
-    $profile = new \app\platform\service\module\ProductTenantModuleProfileService(
-        new \PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository(true),
-        new \app\platform\service\module\ThinkPhpModuleGovernanceProvider(
-            $target . '/server',
-            $moduleConfig + ['plugin_lock' => '../plugins.lock'],
-            $catalogs,
-        ),
-        new \app\common\service\audit\AuditContractHost(null),
+    $privateLock = new \app\platform\infrastructure\plugin\PluginLockResolver($target . '/server', '../plugins.lock');
+    $moduleGovernance = new \app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider(
+        $target . '/server',
+        $moduleConfig + ['plugin_lock' => '../plugins.lock'],
+        $catalogs,
+    );
+    $profile = new \app\platform\services\module\ProductTenantModuleProfileService(
+        new \PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository($moduleGovernance->registry()->compiled(), true),
+        $moduleGovernance,
+        new \app\common\services\audit\AuditContractHost(null),
+        new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new \app\common\execution\CurrentExecutionContext(new \app\common\execution\ExecutionContextStore())),
     );
     foreach ([
-        [['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::MultiTenant, 'PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED'],
-        [['official.file'], \app\common\service\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
-        [['acme.absent'], \app\common\service\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
+        [['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::MultiTenant, 'PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED'],
+        [['official.file'], \app\common\enum\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
+        [['acme.absent'], \app\common\enum\instance\DeploymentMode::Standalone, 'PRIVATE_TENANT_MODULE_NOT_LOCKED'],
     ] as [$selection, $edition, $error]) {
         try {
             $profile->applyAdditionalInstallationSelection($selection, $edition, $privateLock);
@@ -759,24 +945,28 @@ try {
     // A real database failure after enable proves row/revision/audit changes share the transaction.
     $pdo->exec("ALTER TABLE pa_tenant_audit_event ADD CONSTRAINT private_adoption_audit_failure CHECK (event_type <> 'tenant-module.profile-enabled')");
     try {
-        $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::Standalone, $privateLock);
+        $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::Standalone, $privateLock);
         throw new RuntimeException('private additive audit failure was not injected');
-    } catch (\PDOException $exception) {
+    } catch (\think\db\exception\PDOException $exception) {
         moduleBundleExpect(str_contains($exception->getMessage(), 'private_adoption_audit_failure'), 'unexpected additive failure');
     } finally {
         $pdo->exec('ALTER TABLE pa_tenant_audit_event DROP CHECK private_adoption_audit_failure');
     }
-    moduleBundleExpect((int)$pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchColumn() === 0, 'failed additive enable left a TenantModule row');
+    moduleBundleExpect((int) $pdo->query("SELECT COUNT(*) FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchColumn() === 0, 'failed additive enable left a TenantModule row');
     moduleBundleExpect($pdo->query("SELECT authorization_revision FROM pa_tenant WHERE code='default'")->fetchColumn() === $tenantRevision, 'failed additive enable changed Tenant revision');
-    $selection = $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::Standalone, $privateLock);
+    $selection = $profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::Standalone, $privateLock);
     moduleBundleExpect($selection['binding_count'] === 1, 'private additive selection was not enabled');
     $openingBefore = $pdo->query("SELECT * FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchAll();
-    moduleBundleExpect($profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\service\instance\DeploymentMode::Standalone, $privateLock)['binding_count'] === 0, 'private selection rewrote an effective opening');
+    moduleBundleExpect($profile->applyAdditionalInstallationSelection(['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::Standalone, $privateLock)['binding_count'] === 0, 'private selection rewrote an effective opening');
     moduleBundleExpect($pdo->query("SELECT * FROM pa_tenant_module WHERE module_key='fixture.delivery-record'")->fetchAll() === $openingBefore, 'private selection changed existing opening configuration');
     moduleBundleExpect($pdo->query('SELECT * FROM pa_role_permission ORDER BY role_id,permission_id')->fetchAll() === $rbacBefore, 'private selection granted RBAC');
     $completed = true;
     echo "MODULE-BUNDLE-LIFECYCLE-001 passed database={$database} content_sha256={$packed['sha256']} recoverable_sha256={$recoverablePacked['sha256']}\n";
 } finally {
+    if ($targetLoader instanceof \Composer\Autoload\ClassLoader && $hostLoader instanceof \Composer\Autoload\ClassLoader) {
+        $targetLoader->unregister();
+        $hostLoader->register(true);
+    }
     moduleBundleRemoveTree($temporary);
     IsolatedBackendEnvironment::cleanup();
     $pdo = null;

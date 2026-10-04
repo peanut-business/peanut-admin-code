@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "commands": {
+    "node": ["/absolute/path/to/node"],
+    "npm": ["/absolute/path/to/node", "/absolute/path/to/npm-cli.js"],
+    "pnpm": ["/absolute/path/to/node", "/absolute/path/to/pnpm.cjs"],
+    "php": ["/absolute/path/to/php"],
+    "composer": ["/absolute/path/to/php", "/absolute/path/to/composer.phar"],
+    "python3": ["/absolute/path/to/python3"]
+  },
+  "extra_path": ["/usr/bin", "/bin", "/usr/sbin", "/sbin"],
+  "caches": {
+    "pnpm": "/absolute/existing/pnpm/store",
+    "npm": "/absolute/existing/npm/cache",
+    "composer": "/absolute/existing/composer/cache"
+  },
+  "watch_paths": []
+}

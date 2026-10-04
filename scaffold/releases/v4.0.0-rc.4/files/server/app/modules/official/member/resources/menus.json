@@ -1,0 +1,5 @@
+[
+  {"key":"official.member.list","scope":"tenant","type":"page","name":"会员列表","route_name":"MemberList","route_path":"/member/list","component_key":"official.member.list","required_permission":"official.member.list","icon":"icon-user","sort_order":80,"client_keys":["admin-web"]},
+  {"key":"official.member.tag","scope":"tenant","type":"page","name":"会员标签","route_name":"MemberTag","route_path":"/member/tag","component_key":"official.member.tag","required_permission":"official.member.tag.list","icon":"icon-tag","sort_order":70,"client_keys":["admin-web"]},
+  {"key":"official.member.account-log","scope":"tenant","type":"page","name":"余额明细","route_name":"FinanceAccountLog","route_path":"/finance/account-log","component_key":"official.member.account-log","required_permission":"official.member.account-log.list","icon":"icon-list","sort_order":60,"client_keys":["admin-web"]}
+]

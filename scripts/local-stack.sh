@@ -4,9 +4,22 @@ set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 state_dir="$repo_dir/.local"
-orchestration_env=${PEANUT_LOCAL_ENV_FILE:-"$state_dir/stack.env"}
-backend_env=${PEANUT_SERVER_ENV_FILE:-"$repo_dir/server/.env"}
-preview_backend_env=${PEANUT_PREVIEW_SERVER_ENV_FILE:-"$repo_dir/server/.env.local-production-preview"}
+orchestration_env="$state_dir/stack.env"
+backend_env="$repo_dir/server/.env"
+preview_backend_env="$repo_dir/server/.env.local-production-preview"
+preview_registry="$repo_dir/.local/application-resource-registry.json"
+if [ "${PEANUT_LOCAL_ENV_FILE+x}" = x ]; then
+    case "$PEANUT_LOCAL_ENV_FILE" in /*) ;; *) printf 'local-stack: PEANUT_LOCAL_ENV_FILE must be absolute\n' >&2; exit 1 ;; esac
+    orchestration_env=$PEANUT_LOCAL_ENV_FILE
+    state_dir=$(dirname "$orchestration_env")
+fi
+if [ "${PEANUT_SERVER_ENV_FILE+x}" = x ]; then
+    case "$PEANUT_SERVER_ENV_FILE" in /*) ;; *) printf 'local-stack: PEANUT_SERVER_ENV_FILE must be absolute\n' >&2; exit 1 ;; esac
+    backend_env=$PEANUT_SERVER_ENV_FILE
+    preview_backend_env="$(dirname "$backend_env")/.env.local-production-preview"
+fi
+container_client_env="$state_dir/container-client.env"
+host_client_env="$state_dir/host-client.env"
 env_dir=$(dirname "$orchestration_env")
 dev_compose="$repo_dir/deploy/docker-compose.dev.yml"
 prod_compose="$repo_dir/deploy/docker-compose.prod.yml"
@@ -27,19 +40,35 @@ set_env_value() (
     value=$3
     target_dir=$(dirname "$target")
     temporary=$(mktemp "$target_dir/environment.XXXXXX")
-    awk -F= -v name="$name" '$1 != name { print }' "$target" > "$temporary"
-    printf '%s=%s\n' "$name" "$value" >> "$temporary"
+    found=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            "$name="*)
+                if [ "$found" -eq 0 ]; then
+                    printf '%s=%s\n' "$name" "$value"
+                    found=1
+                fi
+                ;;
+            *) printf '%s\n' "$line" ;;
+        esac
+    done < "$target" > "$temporary"
+    if [ "$found" -eq 0 ]; then
+        printf '%s=%s\n' "$name" "$value" >> "$temporary"
+    fi
     chmod 600 "$temporary"
     mv "$temporary" "$target"
 )
 
 clear_env_value() (
+    set_env_value "$1" "$2" ''
+)
+
+remove_env_value() (
     target=$1
     name=$2
     target_dir=$(dirname "$target")
     temporary=$(mktemp "$target_dir/environment.XXXXXX")
     awk -F= -v name="$name" '$1 != name { print }' "$target" > "$temporary"
-    printf '%s=\n' "$name" >> "$temporary"
     chmod 600 "$temporary"
     mv "$temporary" "$target"
 )
@@ -51,16 +80,52 @@ set_env_default() (
     grep -q "^${name}=." "$target" || set_env_value "$target" "$name" "$value"
 )
 
+# 两份文件都从同一 stack.env 派生；不是可独立修改的配置源。
+# 宿主机访问回环地址，容器通过 Docker Desktop 访问宿主机 PHP。
+write_client_environment() (
+    target=$1
+    api_host=$2
+    temporary=$(mktemp "$state_dir/client-environment.XXXXXX")
+    trap 'rm -f "$temporary"' 0
+    trap 'exit 1' 1 2 3 15
+    {
+        for name in PHP_PORT VITE_PORT PLATFORM_PORT MOBILE_PORT PC_PORT DOCS_PORT DEV_HTTP_PORT HTTP_PORT REDIS_PORT; do
+            value=$(awk -F= -v name="$name" '$1 == name { print $2; exit }' "$orchestration_env")
+            [ -z "$value" ] || printf '%s=%s\n' "$name" "$value"
+        done
+        printf 'VITE_API_PROXY_TARGET=http://%s:%s\n' "$api_host" "$php_port"
+        printf 'NUXT_DEV_PROXY_TARGET=http://%s:%s/api\n' "$api_host" "$php_port"
+        printf 'NUXT_DEV_PROXY_ORIGIN=http://%s:%s\n' "$api_host" "$php_port"
+        printf '%s\n' 'VITE_OPEN_BROWSER=false' 'VITEPRESS_DISABLE_GIT=true'
+    } > "$temporary"
+    chmod 600 "$temporary"
+    mv "$temporary" "$target"
+)
+
 ensure_env() {
+    source_commit=$(git -C "$repo_dir" rev-parse HEAD) || die 'cannot resolve the local source commit'
+    source_tree=$(git -C "$repo_dir" rev-parse 'HEAD^{tree}') || die 'cannot resolve the local source tree'
+    case "$source_commit$source_tree" in *[!0-9a-f]*|'') die 'local source commit/tree identity is invalid' ;; esac
+    [ "${#source_commit}" -eq 40 ] && [ "${#source_tree}" -eq 40 ] \
+        || die 'local source commit/tree identity is invalid'
+    [ ! -L "$orchestration_env" ] || die "orchestration environment must not be a symlink: $orchestration_env"
+    [ ! -L "$backend_env" ] || die "backend environment must not be a symlink: $backend_env"
+    for target in "$container_client_env" "$host_client_env"; do
+        [ ! -L "$target" ] || die "generated client environment must not be a symlink: $target"
+        [ ! -e "$target" ] || [ -f "$target" ] || die "generated client environment must be a regular file: $target"
+    done
+    if [ -f "$orchestration_env" ] &&
+        grep -Eq '^(PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE|PUBLIC_DEFAULT|PLATFORM_|TENANT_|ADMIN_|OWNER_|PEANUT_)|APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_(HOSTS|IDENTIFIER_HMAC_KEY|INITIAL_EMAIL|INITIAL_PASSWORD)=|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|RESOURCE_LEASE_PROOF|STORAGE_|DEMO_|MODULE_))' "$orchestration_env"; then
+        die "orchestration environment contains backend configuration: $orchestration_env"
+    fi
+    effective_ports=$("$resource_registry" local-stack-ports --env-file "$orchestration_env") \
+        || die 'local listener configuration failed preflight'
     umask 077
     mkdir -p "$state_dir" "$env_dir" "$(dirname "$backend_env")"
     if [ ! -f "$orchestration_env" ]; then
         : > "$orchestration_env"
         chmod 600 "$orchestration_env"
         printf 'Created local orchestration environment in %s\n' "$orchestration_env"
-    fi
-    if grep -Eq '^(PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE|PUBLIC_DEFAULT|PLATFORM_|TENANT_|ADMIN_|OWNER_|PEANUT_)|APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_(HOSTS|IDENTIFIER_HMAC_KEY|INITIAL_EMAIL|INITIAL_PASSWORD)=|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|RESOURCE_LEASE_PROOF|STORAGE_|DEMO_|MODULE_))' "$orchestration_env"; then
-        die "orchestration environment contains backend configuration: $orchestration_env"
     fi
     if [ ! -f "$backend_env" ]; then
         {
@@ -71,39 +136,40 @@ ensure_env() {
         chmod 600 "$backend_env"
         printf 'Created backend environment in %s\n' "$backend_env"
     fi
-    [ ! -L "$backend_env" ] || die "backend environment must not be a symlink: $backend_env"
     chmod 600 "$orchestration_env" "$backend_env"
 
     set_env_value "$backend_env" APP_ENV development
     set_env_value "$backend_env" APP_DEBUG true
+    set_env_value "$backend_env" PEANUT_INSTALLATION_SOURCE_MODE development
     set_env_value "$backend_env" PEANUT_DEPLOYMENT_TARGET local-development
     set_env_value "$backend_env" DEPLOYMENT_MODE standalone
     set_env_value "$backend_env" DB_PREFIX pa_
-    clear_env_value "$backend_env" DB_ROOT_PASS
     grep -q '^JWT_SECRET=..' "$backend_env" || set_env_value "$backend_env" JWT_SECRET "$(make_secret 32)"
     grep -q '^TENANT_IDENTIFIER_HMAC_KEY=..' "$backend_env" || set_env_value "$backend_env" TENANT_IDENTIFIER_HMAC_KEY "$(make_secret 32)"
     grep -q '^PLATFORM_IDENTIFIER_HMAC_KEY=..' "$backend_env" || set_env_value "$backend_env" PLATFORM_IDENTIFIER_HMAC_KEY "$(make_secret 32)"
-    clear_env_value "$backend_env" ADMIN_INITIAL_EMAIL
-    clear_env_value "$backend_env" ADMIN_INITIAL_PASSWORD
-    clear_env_value "$backend_env" PLATFORM_INITIAL_EMAIL
-    clear_env_value "$backend_env" PLATFORM_INITIAL_PASSWORD
-    set_env_default "$backend_env" PEANUT_PLUGIN_LOCK ../plugins.lock
+    remove_env_value "$backend_env" ADMIN_INITIAL_EMAIL
+    remove_env_value "$backend_env" ADMIN_INITIAL_PASSWORD
+    remove_env_value "$backend_env" PLATFORM_INITIAL_EMAIL
+    remove_env_value "$backend_env" PLATFORM_INITIAL_PASSWORD
+    set_env_value "$backend_env" PEANUT_PLUGIN_LOCK ../plugins.lock
     set_env_default "$backend_env" PEANUT_MODULE_KERNEL_VERSION 1.0.0
     set_env_default "$backend_env" PEANUT_MODULE_TRUSTED_KEYS_JSON '{}'
-    "$resource_registry" local-stack-env --deployment-target local-development |
+    printf '%s\n' "$effective_ports" |
         while IFS='=' read -r name value; do
             set_env_default "$orchestration_env" "$name" "$value"
         done
-    "$resource_registry" local-stack-env --deployment-target local-production-preview |
-        while IFS='=' read -r name value; do
-            set_env_default "$orchestration_env" "$name" "$value"
-        done
+    set_env_value "$orchestration_env" PEANUT_SOURCE_COMMIT "$source_commit"
+    set_env_value "$orchestration_env" PEANUT_SOURCE_TREE "$source_tree"
+    php_port=$(awk -F= '$1 == "PHP_PORT" { print $2; exit }' "$orchestration_env")
+    [ -n "$php_port" ] || die 'registered PHP_PORT is missing from the orchestration environment'
+    write_client_environment "$container_client_env" host.docker.internal
+    write_client_environment "$host_client_env" 127.0.0.1
     # Daily development uses the registered host endpoint and host PHP runtime.
     "$resource_registry" database-env --deployment-target local-development --consumer host |
         while IFS='=' read -r name value; do set_env_value "$backend_env" "$name" "$value"; done
     if ! grep -q '^DB_USER=peanut_admin_development$' "$backend_env" ||
         ! grep -q '^DB_PASS=..' "$backend_env"; then
-        PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/project-development-database.sh" sync-credentials
+        "$repo_dir/scripts/project-development-database.sh" sync-credentials --backend-env "$backend_env"
     fi
 }
 
@@ -111,7 +177,7 @@ prepare_preview_backend_env() {
     [ -f "$backend_env" ] || die "backend environment is missing: $backend_env"
     [ ! -L "$backend_env" ] || die "backend environment must not be a symlink: $backend_env"
     umask 077
-    temporary=$(mktemp "$repo_dir/server/.env.preview.XXXXXX")
+    temporary=$(mktemp "$(dirname "$preview_backend_env")/.env.preview.XXXXXX")
     cp "$backend_env" "$temporary"
     chmod 600 "$temporary"
     set_env_value "$temporary" APP_ENV production
@@ -121,14 +187,25 @@ prepare_preview_backend_env() {
         while IFS='=' read -r name value; do set_env_value "$temporary" "$name" "$value"; done
     mv "$temporary" "$preview_backend_env"
     chmod 600 "$preview_backend_env"
+    database_id=$(awk -F= '$1 == "PEANUT_DATABASE_RESOURCE_ID" { print $2; exit }' "$preview_backend_env")
+    [ -n "$database_id" ] || die 'preview database resource ID is missing'
+    mkdir -p "$repo_dir/.local/tmp"
+    projected=$(mktemp "$repo_dir/.local/tmp/application-resource-registry.XXXXXX")
+    "$resource_registry" application-registry --resource-id "$database_id" \
+        --application-registry "$repo_dir/resources/project-resources.json" > "$projected" \
+        || die 'cannot project the selected preview application resource'
+    [ ! -L "$preview_registry" ] || die 'preview application resource registry must not be a symlink'
+    chmod 644 "$projected"
+    mv "$projected" "$preview_registry"
 }
 
 compose_dev() {
-    docker compose --env-file "$orchestration_env" -f "$dev_compose" "$@"
+    env -i PATH="$PATH" HOME="$HOME" docker compose --env-file "$orchestration_env" -f "$dev_compose" "$@"
 }
 
 compose_prod() {
-    PEANUT_SERVER_ENV_FILE="$preview_backend_env" \
+    env -i PATH="$PATH" HOME="$HOME" PEANUT_SERVER_ENV_FILE="$preview_backend_env" \
+        PEANUT_APPLICATION_RESOURCE_REGISTRY_FILE="$preview_registry" \
         docker compose --env-file "$orchestration_env" --env-file "$preview_backend_env" -f "$prod_compose" "$@"
 }
 
@@ -142,11 +219,12 @@ show_urls() {
     docs_port=$(awk -F= '$1 == "DOCS_PORT" { print $2 }' "$orchestration_env")
     production_port=$(awk -F= '$1 == "HTTP_PORT" { print $2 }' "$orchestration_env")
     printf '%s\n' \
-        "Development: http://127.0.0.1:$development_port/admin/" \
+        "Development: http://127.0.0.1:$development_port/" \
+        "Admin gateway:http://127.0.0.1:$development_port/admin/" \
         "API direct:  http://127.0.0.1:$php_port/" \
         "Admin direct:http://127.0.0.1:$admin_port/admin/" \
         "Platform direct:http://127.0.0.1:$platform_port/platform/" \
-        "PC direct:   http://127.0.0.1:$pc_port/pc/" \
+        "PC direct:   http://127.0.0.1:$pc_port/" \
         "Mobile direct:http://127.0.0.1:$mobile_port/mobile/" \
         "Docs:        http://127.0.0.1:$docs_port/" \
         "Production:  http://127.0.0.1:$production_port/admin/"
@@ -161,18 +239,18 @@ show_urls() {
 case "${1:-}" in
     dev-up)
         ensure_env
-        PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" start
+        "$repo_dir/scripts/local-php-runtime" start --env-file "$orchestration_env" --backend-env "$backend_env"
         if ! compose_dev up -d --remove-orphans; then
-            PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" stop
+            "$repo_dir/scripts/local-php-runtime" stop --env-file "$orchestration_env" --backend-env "$backend_env"
             exit 1
         fi
         show_urls
         ;;
     dev-build)
         ensure_env
-        PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" start
+        "$repo_dir/scripts/local-php-runtime" start --env-file "$orchestration_env" --backend-env "$backend_env"
         if ! compose_dev up -d --build --remove-orphans; then
-            PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" stop
+            "$repo_dir/scripts/local-php-runtime" stop --env-file "$orchestration_env" --backend-env "$backend_env"
             exit 1
         fi
         show_urls
@@ -181,7 +259,7 @@ case "${1:-}" in
         ensure_env
         compose_status=0
         compose_dev down --remove-orphans || compose_status=$?
-        PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" stop
+        "$repo_dir/scripts/local-php-runtime" stop --env-file "$orchestration_env" --backend-env "$backend_env"
         exit "$compose_status"
         ;;
     prod-up)
@@ -204,7 +282,7 @@ case "${1:-}" in
         ;;
     status)
         ensure_env
-        PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" status
+        "$repo_dir/scripts/local-php-runtime" status --env-file "$orchestration_env" --backend-env "$backend_env"
         compose_dev ps
         if [ -f "$preview_backend_env" ]; then
             compose_prod ps
@@ -213,11 +291,11 @@ case "${1:-}" in
         ;;
     credentials)
         ensure_env
-        printf '%s\n' 'Fresh-install identities are process-only; use the guided installer or inject them into the automatic installer command.'
+        printf '%s\n' 'Fresh-install identities use a dedicated permission-0600 file selected only for the automatic installer command.'
         ;;
     database-status)
         ensure_env
-        PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" status
+        "$repo_dir/scripts/local-php-runtime" status --env-file "$orchestration_env" --backend-env "$backend_env"
         "$0" database-host-status
         ;;
     database-host-status)
@@ -229,8 +307,10 @@ case "${1:-}" in
         mkdir -p "$repo_dir/output/local-diagnostics"
         log_file="$repo_dir/output/local-diagnostics/backend-live.log"
         printf 'Backend log: %s\n' "$log_file"
-        PEANUT_SERVER_ENV_FILE="$backend_env" "$repo_dir/scripts/local-php-runtime" logs
-        compose_dev logs --no-color --since "${LOG_SINCE:-10m}" -f nginx web platform pc mobile docs | tee -a "$log_file"
+        "$repo_dir/scripts/local-php-runtime" logs --env-file "$orchestration_env" --backend-env "$backend_env"
+        log_since=$(awk -F= '$1 == "LOG_SINCE" { print $2; exit }' "$orchestration_env")
+        [ -n "$log_since" ] || log_since=10m
+        compose_dev logs --no-color --since "$log_since" -f nginx web platform pc mobile docs | tee -a "$log_file"
         ;;
     urls)
         ensure_env

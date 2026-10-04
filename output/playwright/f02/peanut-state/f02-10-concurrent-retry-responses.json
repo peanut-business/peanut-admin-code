@@ -1,4 +1,0 @@
-[
-  {"request":"concurrent_retry_A","http_status":200,"body":{"code":40000,"msg":"微信支付未开启","data":null}},
-  {"request":"concurrent_retry_B","http_status":200,"body":{"code":40000,"msg":"微信支付未开启","data":null}}
-]

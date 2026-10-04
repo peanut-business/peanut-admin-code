@@ -1,10 +1,20 @@
 <?php
+
 declare(strict_types=1);
 
 $root = dirname(__DIR__, 3);
 $runner = $root . '/scripts/p0e-runtime-qualification';
 $fixturePath = $root . '/server/tests/fixtures/p0e-runtime-qualification/matrix.json';
-$registryPath = $root . '/resources/project-resources.json';
+$registryPath = getenv('PEANUT_RESOURCE_REGISTRY');
+if (
+    !is_string($registryPath)
+    || $registryPath === ''
+    || !str_starts_with($registryPath, '/')
+    || !is_file($registryPath)
+    || is_link($registryPath)
+) {
+    throw new RuntimeException('PEANUT_RESOURCE_REGISTRY must point to the explicit private maintainer registry');
+}
 $p0eRegistryPath = $root . '/resources/p0e-runtime-qualification.json';
 $releaseMetadataPath = $root . '/RELEASE_METADATA.json';
 
@@ -16,23 +26,28 @@ $expect = static function (bool $condition, string $message): void {
 $run = static function (array $arguments) use ($runner): array {
     $command = escapeshellarg($runner);
     foreach ($arguments as $argument) {
-        $command .= ' ' . escapeshellarg((string)$argument);
+        $command .= ' ' . escapeshellarg((string) $argument);
     }
     exec($command . ' 2>&1', $output, $code);
     return [$code, implode("\n", $output)];
 };
 
-$fixture = json_decode((string)file_get_contents($fixturePath), true, 512, JSON_THROW_ON_ERROR);
-$registry = json_decode((string)file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
-$p0eRegistry = json_decode((string)file_get_contents($p0eRegistryPath), true, 512, JSON_THROW_ON_ERROR);
-$releaseMetadata = json_decode((string)file_get_contents($releaseMetadataPath), true, 512, JSON_THROW_ON_ERROR);
-$releaseVersion = ($releaseMetadata['schema_version'] ?? null) === 2
-    && ($releaseMetadata['protocol'] ?? null) === 'peanut.release-metadata.v2'
-    ? (string)($releaseMetadata['instance_version'] ?? $releaseMetadata['source_product_version'] ?? '')
-    : (string)($releaseMetadata['version'] ?? '');
+$fixture = json_decode((string) file_get_contents($fixturePath), true, 512, JSON_THROW_ON_ERROR);
+$registry = json_decode((string) file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
+$p0eRegistry = json_decode((string) file_get_contents($p0eRegistryPath), true, 512, JSON_THROW_ON_ERROR);
+$releaseMetadata = json_decode((string) file_get_contents($releaseMetadataPath), true, 512, JSON_THROW_ON_ERROR);
+$expect(
+    ($releaseMetadata['schema_version'] ?? null) === 3
+    && ($releaseMetadata['protocol'] ?? null) === 'peanut.release-metadata.v3',
+    'release metadata contract changed',
+);
+$releaseVersion = (string) ($releaseMetadata['source_product_version'] ?? '');
+$expect($releaseVersion !== '', 'release metadata source product version is unavailable');
 $scaffoldManifestPath = $root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json';
-$scaffoldManifestText = (string)file_get_contents($scaffoldManifestPath);
+$scaffoldManifestText = (string) file_get_contents($scaffoldManifestPath);
 $scaffoldManifest = json_decode($scaffoldManifestText, true, 512, JSON_THROW_ON_ERROR);
+$candidateInventorySha256 = hash_file('sha256', $root . '/scaffold/application-template-inventory.json');
+$expect(is_string($candidateInventorySha256) && $candidateInventorySha256 !== '', 'candidate inventory SHA is unavailable');
 
 $expectedScenarios = [
     'standalone_fresh',
@@ -79,7 +94,7 @@ $expect(!array_key_exists('migrations', $releaseMetadata), 'release metadata ret
 
 $registered = array_values(array_filter(
     $registry['resources']['databases'] ?? [],
-    static fn (array $item): bool => ($item['stable_resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-gate'
+    static fn(array $item): bool => ($item['stable_resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-gate',
 ));
 $expect(count($registered) === 1, 'P0-E resource registration is not unique');
 $expect(($registered[0]['application_runtime'] ?? null) === false, 'P0-E resource became a default runtime');
@@ -90,6 +105,8 @@ $binding = $p0eRegistry['database_administration_binding'] ?? null;
 $expect(is_array($binding), 'P0-E remote administration binding is missing');
 $expect(($binding['database_resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-gate', 'P0-E database resource is not fixed');
 $expect(($binding['runtime_resource_id'] ?? null) === ($registered[0]['runtime_resource_id'] ?? null), 'P0-E runtime resource diverged');
+$expect(($binding['credential_ref'] ?? null) === ($registered[0]['credential_ref'] ?? null), 'P0-E binding credential provenance diverged');
+$expect(str_contains((string) ($binding['failure_policy'] ?? ''), 'never stops or restarts Docker Desktop'), 'P0-E binding failure policy may escalate into Docker Desktop recovery');
 $browserHosts = $p0eRegistry['browser_host_binding'] ?? null;
 $expect(is_array($browserHosts), 'P0-E browser Host binding is missing');
 $expect(($browserHosts['platform_host'] ?? null) === 'platform.p0e.localhost', 'P0-E Platform browser Host changed');
@@ -99,11 +116,13 @@ $expect(($browserHosts['fallback'] ?? null) === 'none', 'P0-E browser Host bindi
 $tooling = $p0eRegistry['resources']['tooling'][0] ?? null;
 $expect(is_array($tooling), 'P0-E remote administration tooling is missing');
 $expect(($tooling['mysql_command'] ?? null) === '/usr/bin/mysql', 'P0-E MySQL CLI path changed');
+$expect(($tooling['credential_ref'] ?? null) === ($binding['credential_ref'] ?? null), 'P0-E tooling credential provenance diverged');
+$expect(($tooling['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'P0-E tooling failure policy diverged');
 $expect(!array_key_exists('mysqldump_command', $tooling), 'fresh-only P0-E retained backup tooling');
 $expect(($tooling['fallback'] ?? null) === 'none; host mysql commands are forbidden', 'P0-E tooling fallback changed');
 $browserTooling = array_values(array_filter(
     $p0eRegistry['resources']['tooling'] ?? [],
-    static fn (array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-p0e-playwright-cli'
+    static fn(array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-p0e-playwright-cli',
 ));
 $expect(count($browserTooling) === 1, 'P0-E fixed Playwright tooling registration is missing');
 $expect(($browserTooling[0]['package'] ?? null) === '@playwright/cli', 'P0-E Playwright package changed');
@@ -112,7 +131,7 @@ $expect(($browserTooling[0]['relative_path'] ?? null) === '.local/p0e-browser-cl
 $expect(($browserTooling[0]['fallback'] ?? null) === 'none', 'P0-E Playwright tooling must fail closed');
 $databaseTunnel = array_values(array_filter(
     $p0eRegistry['resources']['tooling'] ?? [],
-    static fn (array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-p0e-mysql84-container-tunnel'
+    static fn(array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-p0e-mysql84-container-tunnel',
 ));
 $expect(count($databaseTunnel) === 1, 'P0-E database tunnel registration is missing');
 $expect(($databaseTunnel[0]['transport'] ?? null) === 'ssh-local-forward', 'P0-E database tunnel transport changed');
@@ -121,10 +140,10 @@ $expect(($databaseTunnel[0]['local_port'] ?? null) === 20189, 'P0-E database tun
 $expect(($databaseTunnel[0]['container_host'] ?? null) === 'host.docker.internal', 'P0-E database tunnel container Host changed');
 $expect(($databaseTunnel[0]['fallback'] ?? null) === 'none', 'P0-E database tunnel must fail closed');
 
-$candidate = trim((string)shell_exec('git -C ' . escapeshellarg($root) . ' rev-parse HEAD'));
+$candidate = trim((string) shell_exec('git -C ' . escapeshellarg($root) . ' rev-parse HEAD'));
 $runId = 'p0e' . bin2hex(random_bytes(4));
 $outputPath = $root . '/output/p0e-' . $runId;
-$cachePath = rtrim((string)getenv('HOME'), '/') . '/.cache/peanut-admin/p0e-' . $runId;
+$cachePath = rtrim((string) getenv('HOME'), '/') . '/.cache/peanut-admin/p0e-' . $runId;
 $arguments = [
     'plan',
     '--candidate', $candidate,
@@ -139,31 +158,101 @@ $arguments = [
 $expect($code === 0, "P0-E no-resource plan failed: {$output}");
 $plan = json_decode($output, true, 512, JSON_THROW_ON_ERROR);
 $expect(($plan['candidate'] ?? null) === $candidate, 'plan candidate is not exact HEAD');
+$expect(($plan['candidate_inventory_sha256'] ?? null) === $candidateInventorySha256, 'plan did not bind the current candidate inventory');
 $expect(($plan['resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-gate', 'plan resource identity changed');
 $expect(($plan['environment'] ?? null) === 'development', 'plan environment changed');
 $expect(($plan['endpoint'] ?? null) === 'host.docker.internal:20189', 'plan container endpoint changed');
 $expect(($plan['host_endpoint'] ?? null) === '192.168.192.2:20183', 'plan Host endpoint changed');
 $expect(($plan['database_tunnel']['stable_resource_id'] ?? null) === 'peanut-admin-p0e-mysql84-container-tunnel', 'plan tunnel identity changed');
+$expect(($plan['database_admin_tooling']['credential_ref'] ?? null) === ($registered[0]['credential_ref'] ?? null), 'plan lost registered DB root credential provenance');
+$expect(($plan['database_admin_tooling']['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'plan lost fail-closed remote administration policy');
 $expect(($plan['target_release'] ?? null) === $expectedTarget, 'plan did not bind the 3.0 scaffold release');
 $expect(($plan['groups'] ?? null) === $expectedGroups, 'plan did not bind the fresh-only closure');
+$expect(($plan['full_gate_groups'] ?? null) === $expectedGroups, 'plan lost the full P0-E group definition');
+$expect(($plan['through_group'] ?? null) === null, 'full plan unexpectedly became a bounded run');
 $expect(!array_key_exists('legacy_application', $plan), 'plan retained a legacy application');
 $expect(!array_key_exists('backup-dir', $plan['paths'] ?? []), 'plan retained a recovery backup path');
 $expect(!file_exists($outputPath) && !file_exists($cachePath), 'no-resource plan created a path');
 
 $resourceCounts = [];
+$resourceValues = [];
 foreach ($plan['lease_resources'] ?? [] as $resource) {
-    $type = (string)($resource['type'] ?? '');
+    $type = (string) ($resource['type'] ?? '');
     $resourceCounts[$type] = ($resourceCounts[$type] ?? 0) + 1;
+    $resourceValues[$type][] = (string) ($resource['value'] ?? '');
 }
-$expect(count($plan['lease_resources'] ?? []) === 30, 'manual lease resources must have 30 exact rows');
+$expect(count($plan['lease_resources'] ?? []) === 31, 'manual lease resources must have 31 exact rows');
 $expect(($resourceCounts['mysql-db'] ?? null) === 6, 'claim must bind six exact fresh-only databases');
+$expect(($resourceValues['qualification-group'] ?? null) === ['multi-tenant-browser'], 'full claim lost its exact qualification cutoff');
 $expect(($resourceCounts['deployment-mode'] ?? null) === 2, 'claim must bind both deployment modes');
 $expect(($resourceCounts['port'] ?? null) === 3, 'claim must bind all generic port conflicts');
 $expect(($resourceCounts['database-tunnel'] ?? null) === 1, 'claim must bind the database tunnel');
 $expect(($resourceCounts['browser-host'] ?? null) === 2, 'claim must bind the separate browser Host boundaries');
 $expect(($resourceCounts['endpoint'] ?? null) === 2, 'claim must bind Host and container database endpoints');
 
-$runnerSource = (string)file_get_contents($runner);
+$boundedArguments = $arguments;
+$boundedArguments[] = '--through-group';
+$boundedArguments[] = 'multi-tenant-fresh';
+[$boundedCode, $boundedOutput] = $run($boundedArguments);
+$expect($boundedCode === 0, "P0-E bounded no-resource plan failed: {$boundedOutput}");
+$boundedPlan = json_decode($boundedOutput, true, 512, JSON_THROW_ON_ERROR);
+$expect(
+    ($boundedPlan['groups'] ?? null) === array_slice($expectedGroups, 0, 3),
+    'bounded P0-E plan did not select the exact dependency-preserving prefix',
+);
+$expect(($boundedPlan['full_gate_groups'] ?? null) === $expectedGroups, 'bounded plan changed the full Gate definition');
+$expect(($boundedPlan['through_group'] ?? null) === 'multi-tenant-fresh', 'bounded plan lost its exact cutoff group');
+$boundedResourceCounts = [];
+$boundedResourceValues = [];
+foreach ($boundedPlan['lease_resources'] ?? [] as $resource) {
+    $type = (string) ($resource['type'] ?? '');
+    $boundedResourceCounts[$type] = ($boundedResourceCounts[$type] ?? 0) + 1;
+    $boundedResourceValues[$type][] = (string) ($resource['value'] ?? '');
+}
+$expect(($boundedResourceCounts['mysql-db'] ?? null) === 2, 'bounded plan must reserve only the two fresh databases');
+$expect(($boundedResourceValues['qualification-group'] ?? null) === ['multi-tenant-fresh'], 'bounded plan lost its exact qualification cutoff');
+$expect(!array_key_exists('browser-host', $boundedResourceCounts), 'bounded plan unexpectedly reserved browser Hosts');
+$expect(!array_key_exists('browser-session', $boundedResourceCounts), 'bounded plan unexpectedly reserved a browser session');
+$expect(!array_key_exists('port', $boundedResourceCounts), 'bounded fresh-only plan unexpectedly reserved listener ports');
+$expect(($boundedPlan['listener_ports'] ?? null) === [], 'bounded fresh-only plan retained listener port dependencies');
+$expect(($boundedPlan['compose_required'] ?? null) === false, 'bounded fresh-only plan retained Compose execution');
+$expect(($boundedPlan['browser_required'] ?? null) === false, 'bounded fresh-only plan retained browser execution');
+
+$selectedArguments = $arguments;
+$selectedArguments[] = '--groups';
+$selectedArguments[] = 'generated-application,standalone-fresh,multi-tenant-fresh,production-compose,standalone-browser';
+[$selectedCode, $selectedOutput] = $run($selectedArguments);
+$expect($selectedCode === 0, "P0-E selected-group no-resource plan failed: {$selectedOutput}");
+$selectedPlan = json_decode($selectedOutput, true, 512, JSON_THROW_ON_ERROR);
+$expectedPrereleaseGroups = [
+    'generated-application',
+    'standalone-fresh',
+    'multi-tenant-fresh',
+    'production-compose',
+    'standalone-browser',
+];
+$expect(($selectedPlan['groups'] ?? null) === $expectedPrereleaseGroups, 'selected P0-E plan did not preserve the exact canonical group set');
+$expect(($selectedPlan['selection_scope'] ?? null) === 'selected-groups', 'selected P0-E plan lost its selection scope');
+$expect(($selectedPlan['through_group'] ?? null) === null, 'selected P0-E plan unexpectedly retained a prefix cutoff');
+$selectedQualificationResources = array_values(array_map(
+    static fn (array $resource): string => (string) ($resource['value'] ?? ''),
+    array_filter(
+        $selectedPlan['lease_resources'] ?? [],
+        static fn (array $resource): bool => ($resource['type'] ?? null) === 'qualification-group',
+    ),
+));
+$expect($selectedQualificationResources === ['standalone-browser'], 'selected P0-E lease did not bind its canonical resource cutoff');
+$expect(($selectedPlan['compose_required'] ?? null) === true, 'selected prerelease plan lost Compose execution');
+$expect(($selectedPlan['browser_required'] ?? null) === true, 'selected prerelease plan lost browser execution');
+
+$invalidSelectedArguments = $arguments;
+$invalidSelectedArguments[] = '--groups';
+$invalidSelectedArguments[] = 'generated-application,standalone-browser';
+[$invalidSelectedCode, $invalidSelectedOutput] = $run($invalidSelectedArguments);
+$expect($invalidSelectedCode !== 0, 'selected P0-E accepted standalone-browser without production-compose');
+$expect(str_contains($invalidSelectedOutput, 'standalone-browser requires production-compose'), 'selected P0-E dependency refusal changed');
+
+$runnerSource = (string) file_get_contents($runner);
 $unsupportedRunnerFragments = [
     'ensure_legacy_source',
     'create_legacy_application',
@@ -196,13 +285,21 @@ $expect(
     && str_contains($runnerSource, 'self.generated["multi-tenant"]')
     && str_contains($runnerSource, 'artifact_manifest.get("application", {}).get("managed_tree_sha256") != manifest.get("digests", {}).get("managed_tree_sha256")')
     && str_contains($runnerSource, 'plugin_lock_restored_sha256'),
-    'formal Edition installer qualification lost its projected application identity or Plugin lifecycle'
+    'formal Edition installer qualification lost its projected application identity or Plugin lifecycle',
 );
 $expect(str_contains($runnerSource, 'consumer-module-reference-chain'), 'consumer Module lifecycle does not use the independent application driver');
 $expect(str_contains($runnerSource, '--formal-release-adoption'), 'consumer Module lifecycle does not require the sealed scaffold adoption path');
 $expect(str_contains($runnerSource, 'consumer_module_cycle'), 'consumer Module lifecycle does not own a length-safe isolated database scenario');
 $expect(str_contains($runnerSource, 'passed != required'), 'Gate completion closure is not enforced');
+$expect(str_contains($runnerSource, 'required = set(self.plan["groups"])'), 'runner does not close against the explicitly planned group prefix');
+$expect(str_contains($runnerSource, '"partial-passed"'), 'bounded qualification is not distinguished from a full Gate pass');
+$expect(str_contains($runnerSource, '"selected-groups"'), 'runner does not distinguish selected-group qualification from prefix qualification');
 $expect(str_contains($runnerSource, 'preflight_database_admin_tooling'), 'remote database administration does not fail fast');
+$expect(str_contains($runnerSource, 'registered database credential is missing or ambiguous: MYSQL_ROOT_PASSWORD'), 'remote administration does not fail closed on a missing registered root credential');
+$expect(str_contains($runnerSource, '--defaults-extra-file="$path"'), 'remote administration does not use a container-private MySQL option file');
+$expect(str_contains($runnerSource, "trap 'rm -f -- ") && str_contains($runnerSource, 'EXIT HUP INT TERM'), 'remote administration does not clean its container-private credential file');
+$expect(!str_contains($runnerSource, 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD"'), 'remote administration still depends on the container MYSQL_ROOT_PASSWORD environment');
+$expect(!str_contains($runnerSource, 'docker desktop restart') && !str_contains($runnerSource, 'docker desktop stop'), 'P0-E runner contains Docker Desktop recovery escalation');
 $expect(str_contains($runnerSource, 'start_database_tunnel'), 'container database tunnel is not lifecycle-managed');
 $expect(str_contains($runnerSource, 'stop_database_tunnel'), 'container database tunnel cleanup is missing');
 $expect(str_contains($runnerSource, 'preflight_browser_tooling'), 'browser tooling does not fail before resource claim');
@@ -217,16 +314,16 @@ $expect(str_contains($runnerSource, 'PERSISTENT_DATABASE'), 'persistent database
 $expect(!str_contains($runnerSource, '["mysql"'), 'runner reintroduced a bare host MySQL client');
 $expect(
     str_contains($runnerSource, '["php", "server/database/environment-guard.php", "--current"]'),
-    'P0-E install does not qualify the complete fresh schema through the environment guard'
+    'P0-E install does not qualify the complete fresh schema through the environment guard',
 );
 $expect(!str_contains($runnerSource, 'server/database/migrate.php'), 'P0-E runner retained the application migration runner');
 
-$pluginFixture = (string)file_get_contents($root . '/server/fixtures/plugin-module-lifecycle/run.php');
+$pluginFixture = (string) file_get_contents($root . '/server/fixtures/plugin-module-lifecycle/run.php');
 $expect(str_contains($pluginFixture, "upgrade('fixture.delivery-record', true)"), 'Plugin upgrade dry-run capability left the Gate fixture');
 $expect(str_contains($pluginFixture, "rollbackPlan('fixture.delivery-record')"), 'Plugin rollback-plan capability left the Gate fixture');
 $expect(str_contains($pluginFixture, "uninstall('fixture.delivery-record')"), 'Plugin preserve-data uninstall capability left the Gate fixture');
 
-$browserFixture = (string)file_get_contents($root . '/server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js');
+$browserFixture = (string) file_get_contents($root . '/server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js');
 $expect(str_contains($browserFixture, "await page.locator('input').nth(0).fill(adminEmail);"), 'browser smoke must submit an email in both deployment modes');
 $expect(str_contains($browserFixture, 'P0E_BROWSER_TENANT_ADMIN_URL') && str_contains($browserFixture, 'P0E_BROWSER_PLATFORM_URL'), 'browser smoke must use separate Tenant Admin and Platform Hostnames');
 $expect(str_contains($browserFixture, '${platformUrl}/platform/'), 'browser smoke must enter the standalone Platform frontend');

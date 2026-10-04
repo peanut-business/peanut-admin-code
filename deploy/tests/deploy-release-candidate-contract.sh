@@ -1,0 +1,355 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+SCRIPT="$ROOT_DIR/scripts/deploy-release"
+
+fail() { printf 'candidate-contract: %s\n' "$1" >&2; exit 1; }
+expect_fail() {
+  local name="$1" pattern="$2"
+  shift 2
+  local output rc
+  set +e
+  output="$($SCRIPT "$@" 2>&1)"
+  rc=$?
+  set -e
+  [[ $rc -ne 0 ]] || fail "$name unexpectedly succeeded"
+  [[ "$output" == *"$pattern"* ]] || fail "$name did not report $pattern"
+  printf 'passed=%s\n' "$name"
+}
+
+cd "$ROOT_DIR"
+[[ -x "$SCRIPT" ]] || fail 'deploy-release is not executable'
+bash -n "$SCRIPT"
+# ssh concatenates argv through a remote shell; an empty candidate tag must occupy its position.
+rg -Fq '"$DEPLOYMENT_KIND" "$(encode_remote_arg "$TAG")"' "$SCRIPT" || fail 'candidate tag is not transport encoded'
+rg -Fq 'tag="$(decode_remote_arg "$2")"' "$SCRIPT" || fail 'remote candidate tag is not decoded'
+encoder="$(sed -n '/^encode_remote_arg() {/,/^}/p' "$SCRIPT")"
+decoder="$(sed -n '/^decode_remote_arg() {/,/^}/p' "$SCRIPT")"
+transport="$(bash -c "$encoder; encode_remote_arg \"\"")"
+[[ "$transport" == __PEANUT_EMPTY__ ]] || fail 'empty tag lost its transport sentinel'
+roundtrip="$(bash -c "$decoder; value=\$(decode_remote_arg \"\$1\"); [[ -z \"\$value\" ]] && printf preserved" -- "$transport")"
+[[ "$roundtrip" == preserved ]] || fail 'candidate empty tag did not round trip'
+printf 'passed=candidate-empty-tag-ssh-roundtrip\n'
+# 合同测试只依赖已跟踪的正式资源登记，不依赖维护者本机的临时提案。
+jq empty "$ROOT_DIR/resources/project-resources.json"
+
+legacy_helper="$ROOT_DIR/deploy/legacy-env-migrate"
+[[ -x "$legacy_helper" ]] || fail 'legacy environment helper is not executable'
+bash -n "$legacy_helper"
+legacy_fixture="$(mktemp -d "${TMPDIR:-/tmp}/peanut-legacy-layout-contract.XXXXXX")"
+trap 'rm -rf -- "$legacy_fixture"' EXIT
+
+run_legacy_helper() {
+  local root_env="$1" target="$2" root_output="$3" backend_output="$4"
+  local port project database_resource database_name deployment_mode platform_hosts tenant_hosts owner_mode scheme hosts
+  shift 4
+  port="$1"; project="$2"; database_resource="$3"; database_name="$4"; deployment_mode="$5"
+  platform_hosts="$6"; tenant_hosts="$7"; owner_mode="$8"; scheme="$9"; hosts="${10}"
+  shift 10
+  "$legacy_helper" --target "$target" --root-env "$root_env" \
+    --expected-port "$port" --expected-project "$project" --expected-database-resource "$database_resource" \
+    --expected-database-name "$database_name" --expected-mode "$deployment_mode" \
+    --expected-platform-hosts "$platform_hosts" --expected-tenant-admin-hosts "$tenant_hosts" \
+    --expected-owner-invitation-mode "$owner_mode" --public-scheme "$scheme" --trusted-hosts "$hosts" \
+    --allow-secret-rotation --root-output "$root_output" --backend-output "$backend_output" "$@"
+}
+
+prod_root="$legacy_fixture/production-root.env"
+prod_output_root="$legacy_fixture/production-staged.env"
+prod_output_backend="$legacy_fixture/production-staged-backend.env"
+{
+  printf '%s\n' \
+    'APP_ENV=production' 'APP_DEBUG=false' \
+    'PEANUT_DEPLOYMENT_TARGET=production' \
+    'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-production-bundled-mysql84' \
+    'DEPLOYMENT_MODE=standalone' 'DB_HOST=mysql' 'DB_PORT=3306' \
+    'DB_NAME=peanut_admin' 'DB_USER=peanut_admin' \
+    'DB_PASS=legacy-db-secret' 'MYSQL_ROOT_PASSWORD=legacy-root-secret' \
+    'JWT_SECRET=legacy-jwt-secret' \
+    'TENANT_IDENTIFIER_HMAC_KEY=legacy-tenant-hmac' \
+    'PLATFORM_IDENTIFIER_HMAC_KEY=legacy-platform-hmac' \
+    'COMPOSE_PROFILES=bundled-db' 'HTTP_PORT=18092' \
+    'PHP_IMAGE=peanut-admin-php:3.0.5' 'NGINX_IMAGE=peanut-admin-nginx:3.0.5'
+} >"$prod_root"
+chmod 600 "$prod_root"
+prod_output="$(run_legacy_helper "$prod_root" production "$prod_output_root" "$prod_output_backend" \
+  18092 peanut-admin peanut-admin-production-bundled-mysql84 peanut_admin standalone '' '' auto https \
+  peanut-admin.007345.xyz)" || fail 'root-only legacy layout was rejected'
+[[ "$prod_output" == 'legacy_layout=converted' ]] || fail 'root-only helper output is not sanitized'
+! rg -q '^(APP_|DB_|JWT_|DEPLOYMENT_MODE=|PEANUT_DEPLOYMENT_TARGET=)' "$prod_output_root" \
+  || fail 'root-only conversion left backend configuration in the orchestration file'
+rg -Fq 'MYSQL_ROOT_PASSWORD=legacy-root-secret' "$prod_output_root" \
+  || fail 'MYSQL_ROOT_PASSWORD was not retained in Docker orchestration output'
+! rg -Fq 'MYSQL_ROOT_PASSWORD' "$prod_output_backend" || fail 'Docker root credential leaked into backend output'
+! rg -Fq 'DB_ROOT_PASS' "$prod_output_backend" || fail 'legacy DB_ROOT_PASS survived backend migration'
+! rg -Fq 'legacy-root-secret' <<<"$prod_output" || fail 'helper output exposed a secret'
+
+split_root="$legacy_fixture/candidate-root.env"
+split_backend="$legacy_fixture/candidate-server.env"
+split_output_root="$legacy_fixture/candidate-staged.env"
+split_output_backend="$legacy_fixture/candidate-staged-backend.env"
+{
+  printf '%s\n' 'COMPOSE_PROFILES=bundled-db' 'COMPOSE_PROJECT_NAME=peanut-admin-candidate' \
+    'HTTP_PORT=18093' 'MYSQL_ROOT_PASSWORD=split-root-secret' \
+    'PHP_IMAGE=peanut-admin-php:3.0.14' 'NGINX_IMAGE=peanut-admin-nginx:3.0.14'
+} >"$split_root"
+{
+  printf '%s\n' \
+    'APP_ENV=production' 'APP_DEBUG=false' \
+    'PEANUT_DEPLOYMENT_TARGET=production-candidate' \
+    'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-production-candidate-mysql84' \
+    'DEPLOYMENT_MODE=multi-tenant' 'DB_HOST=mysql' 'DB_PORT=3306' \
+    'DB_NAME=peanut_admin_candidate' 'DB_USER=peanut_admin_candidate' \
+    'DB_PASS=split-db-secret' 'DB_ROOT_PASS=split-root-secret' \
+    'JWT_SECRET=split-jwt-secret' \
+    'TENANT_IDENTIFIER_HMAC_KEY=split-tenant-hmac' \
+    'PLATFORM_IDENTIFIER_HMAC_KEY=split-platform-hmac' \
+    'PEANUT_STORAGE_CREDENTIAL_MASTER_KEY=split-storage-key' \
+    'PLATFORM_HOSTS=pa-platform.007345.xyz' \
+    'TENANT_ADMIN_HOSTS=pa-admin.007345.xyz' \
+    'OWNER_INVITATION_DELIVERY_MODE=manual'
+} >"$split_backend"
+chmod 600 "$split_root" "$split_backend"
+split_output="$(run_legacy_helper "$split_root" production-candidate "$split_output_root" "$split_output_backend" \
+  18093 peanut-admin-candidate peanut-admin-production-candidate-mysql84 peanut_admin_candidate multi-tenant \
+  pa-platform.007345.xyz pa-admin.007345.xyz manual https \
+  pa-platform.007345.xyz,pa-admin.007345.xyz,pa-tenant-a.007345.xyz,pa-tenant-b.007345.xyz \
+  --backend-env "$split_backend")" || fail 'split legacy layout was rejected'
+[[ "$split_output" == 'legacy_layout=converted' ]] || fail 'split helper output is not sanitized'
+! rg -q '^(DB_|JWT_|DEPLOYMENT_MODE=|PEANUT_DEPLOYMENT_TARGET=)' "$split_output_root" \
+  || fail 'split conversion left backend configuration in the orchestration file'
+rg -Fq 'MYSQL_ROOT_PASSWORD=split-root-secret' "$split_output_root" \
+  || fail 'split conversion did not retain MYSQL_ROOT_PASSWORD in Docker orchestration output'
+! rg -Fq 'DB_ROOT_PASS' "$split_output_backend" || fail 'matching legacy DB_ROOT_PASS was not consumed'
+! rg -Fq 'MYSQL_ROOT_PASSWORD' "$split_output_backend" || fail 'Docker root credential leaked into split backend output'
+
+expect_legacy_fail() {
+  local name="$1" pattern="$2" root_env="$3" output_root="$4" output_backend="$5"
+  shift 5
+  local before after output rc target="$1"
+  shift
+  before="$(shasum -a 256 "$root_env" | awk '{print $1}')"
+  set +e
+  output="$(run_legacy_helper "$root_env" "$target" "$output_root" "$output_backend" "$@" 2>&1)"
+  rc=$?
+  set -e
+  [[ $rc -ne 0 ]] || fail "$name unexpectedly succeeded"
+  [[ "$output" == *"$pattern"* ]] || fail "$name did not report $pattern"
+  after="$(shasum -a 256 "$root_env" | awk '{print $1}')"
+  [[ "$before" == "$after" ]] || fail "$name modified the source environment"
+  [[ ! -e "$output_root" && ! -e "$output_backend" ]] || fail "$name wrote output files after rejection"
+  printf 'passed=%s\n' "$name"
+}
+
+duplicate_root="$legacy_fixture/duplicate.env"
+cp "$prod_root" "$duplicate_root"
+printf '%s\n' 'HTTP_PORT=18092' >>"$duplicate_root"
+chmod 600 "$duplicate_root"
+expect_legacy_fail 'duplicate legacy key' 'duplicate key HTTP_PORT' "$duplicate_root" \
+  "$legacy_fixture/duplicate-out.env" "$legacy_fixture/duplicate-backend.env" \
+  production 18092 peanut-admin peanut-admin-production-bundled-mysql84 peanut_admin standalone '' '' auto https \
+  peanut-admin.007345.xyz
+
+wrong_endpoint="$legacy_fixture/wrong-endpoint.env"
+sed 's/^DB_HOST=mysql$/DB_HOST=unregistered-host/' "$prod_root" >"$wrong_endpoint"
+chmod 600 "$wrong_endpoint"
+expect_legacy_fail 'wrong endpoint selector' 'registered selector mismatch: DB_HOST' "$wrong_endpoint" \
+  "$legacy_fixture/wrong-out.env" "$legacy_fixture/wrong-backend.env" \
+  production 18092 peanut-admin peanut-admin-production-bundled-mysql84 peanut_admin standalone '' '' auto https \
+  peanut-admin.007345.xyz
+
+symlink_root="$legacy_fixture/symlink.env"
+ln -s "$prod_root" "$symlink_root"
+set +e
+symlink_output="$(run_legacy_helper "$symlink_root" production "$legacy_fixture/symlink-out.env" "$legacy_fixture/symlink-backend.env" \
+  18092 peanut-admin peanut-admin-production-bundled-mysql84 peanut_admin standalone '' '' auto https peanut-admin.007345.xyz 2>&1)"
+symlink_rc=$?
+set -e
+[[ $symlink_rc -ne 0 && "$symlink_output" == *'not a symlink'* ]] || fail 'symlink environment was accepted'
+
+conflict_backend="$legacy_fixture/conflict-server.env"
+sed 's/^DB_ROOT_PASS=split-root-secret$/DB_ROOT_PASS=conflicting-root-secret/' "$split_backend" >"$conflict_backend"
+chmod 600 "$conflict_backend"
+set +e
+conflict_output="$(run_legacy_helper "$split_root" production-candidate "$legacy_fixture/conflict-out.env" "$legacy_fixture/conflict-backend.env" \
+  18093 peanut-admin-candidate peanut-admin-production-candidate-mysql84 peanut_admin_candidate multi-tenant \
+  pa-platform.007345.xyz pa-admin.007345.xyz manual https \
+  pa-platform.007345.xyz,pa-admin.007345.xyz,pa-tenant-a.007345.xyz,pa-tenant-b.007345.xyz \
+  --backend-env "$conflict_backend" 2>&1)"
+conflict_rc=$?
+set -e
+[[ $conflict_rc -ne 0 && "$conflict_output" == *'MYSQL_ROOT_PASSWORD and legacy DB_ROOT_PASS conflict'* ]] \
+  || fail 'conflicting root/database root credentials were accepted'
+printf 'passed=legacy-secret-conflict\n'
+
+candidate_commit="$(git rev-parse HEAD)"
+candidate_tree="$(git rev-parse HEAD^{tree})"
+candidate_sha="$(printf '%s' "$candidate_commit" | cut -c1-12)"
+candidate_version="$(git show "$candidate_commit:release-versions.json" | jq -r '.source_product_version // empty')"
+candidate_scaffold_version="$(git show "$candidate_commit:release-versions.json" | jq -r '.scaffold_template // empty')"
+[[ -n "$candidate_version" && -n "$candidate_scaffold_version" ]] \
+  || fail 'candidate release versions are unavailable'
+valid_env="$(mktemp /tmp/peanut-candidate-contract-env.XXXXXX)"
+trap 'rm -rf -- "$legacy_fixture"; rm -f -- "$valid_env"' EXIT
+chmod 600 "$valid_env"
+printf '%s\n' \
+  'PEANUT_GENERATED_ADMIN_EMAIL=admin@example.test' \
+  'PEANUT_GENERATED_ADMIN_PASSWORD=contract-test-password' \
+  'PEANUT_GENERATED_PLATFORM_EMAIL=platform@example.test' \
+  'PEANUT_GENERATED_PLATFORM_PASSWORD=contract-test-password' >"$valid_env"
+
+expect_fail 'candidate tree identity mismatch' 'candidate commit tree differs from --expected-tree' \
+  --candidate-commit="$candidate_commit" --expected-tree="$(printf '0%.0s' {1..40})" \
+  --target production --install --env-file="$valid_env" --dry-run
+
+expect_fail 'candidate requires tree' 'candidate deployment requires --expected-tree' \
+  --candidate-commit="$candidate_commit" --target production --install \
+  --env-file="$valid_env" --dry-run
+
+expect_fail 'unknown target' 'target must be production or production-candidate' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target unknown --install --dry-run
+
+expect_fail 'candidate tag is mutually exclusive' 'candidate deployment cannot carry a formal release tag' \
+  v4.0.0 --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --install --dry-run
+
+expect_fail 'fresh requires exact confirmation' 'requires --confirm-destroy production' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --dry-run
+
+expect_fail 'fresh requires exact backup' 'safe exact --paired-backup identifier' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --confirm-destroy=production --paired-backup='../latest' \
+  --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" --dry-run
+
+expect_fail 'fresh requires manifest binding' 'exact paired backup manifest SHA-256' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --confirm-destroy=production --paired-backup=exact-backup \
+  --paired-backup-manifest-sha256=not-a-sha --dry-run
+
+expect_fail 'candidate rejects formal overlay' 'candidate deployment does not accept a formal demo overlay' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --install --overlay /tmp/no-overlay.tar --dry-run
+
+dirty_marker="$ROOT_DIR/deploy/.candidate-contract-dirty-marker"
+touch "$dirty_marker"
+expect_fail 'dirty source is rejected' 'source checkout has untracked files' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --install --env-file="$valid_env" --dry-run
+rm -f "$dirty_marker"
+
+valid_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --install \
+  --env-file="$valid_env" --dry-run 2>&1)" || fail 'valid candidate dry-run was rejected'
+[[ "$valid_output" == *'deployment_identity=candidate'* ]] || fail 'candidate identity was not printed'
+[[ "$valid_output" == *"product_version=$candidate_version"* ]] || fail 'candidate product version was not preserved'
+[[ "$valid_output" == *"schema_source=$candidate_scaffold_version"* ]] || fail 'candidate scaffold migration target was not preserved'
+[[ "$valid_output" != *'schema_source=3.1.0'* ]] || fail 'candidate dry-run used the old release metadata as its migration target'
+rg -Fq 'release-versions.scaffold_template' "$SCRIPT" \
+  || fail 'candidate receipt does not identify the scaffold migration authority'
+printf 'passed=valid-candidate-dry-run\n'
+
+expect_fail 'candidate fresh requires Edition package' \
+  'candidate fresh replacement requires the fixed Edition installer package and manifest' \
+  --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --confirm-destroy=production \
+  --paired-backup=20260922T071025Z-e57ebf326ac3-final \
+  --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" \
+  --env-file="$valid_env" --dry-run
+
+edition_root="peanut-admin-$candidate_version-standalone"
+edition_stage="$legacy_fixture/$edition_root"
+edition_archive="$legacy_fixture/$edition_root.tar.gz"
+edition_manifest="$edition_archive.manifest.json"
+mkdir -p "$edition_stage"
+printf 'name: candidate-edition-contract\n' >"$edition_stage/compose.yaml"
+tar -czf "$edition_archive" -C "$legacy_fixture" "$edition_root"
+edition_sha="$(shasum -a 256 "$edition_archive" | awk '{print $1}')"
+edition_bytes="$(wc -c <"$edition_archive" | tr -d ' ')"
+jq -n \
+  --arg version "$candidate_version" --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
+  --arg filename "$(basename "$edition_archive")" --arg root "$edition_root" \
+  --arg sha "$edition_sha" --argjson bytes "$edition_bytes" \
+  '{schema_version:1,protocol:"peanut.edition-installer.v1",product:{version:$version},
+    edition:{name:"standalone"},source:{commit:$commit,tree:$tree},
+    archive:{filename:$filename,root:$root,sha256:$sha,bytes:$bytes}}' >"$edition_manifest"
+edition_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --fresh --confirm-destroy=production \
+  --paired-backup=20260922T071025Z-e57ebf326ac3-final \
+  --paired-backup-manifest-sha256="$(printf 'a%.0s' {1..64})" \
+  --edition-package="$edition_archive" --edition-manifest="$edition_manifest" \
+  --env-file="$valid_env" --dry-run 2>&1)" \
+  || fail "candidate Edition dry-run was rejected: $(tail -n 1 <<<"$edition_output")"
+[[ "$edition_output" == *'deployment_artifact=edition'* ]] \
+  || fail 'candidate Edition artifact identity was not selected'
+printf 'passed=candidate-edition-dry-run\n'
+
+upgrade_root="peanut-admin-$candidate_version-standalone-upgrade"
+upgrade_stage="$legacy_fixture/$upgrade_root"
+upgrade_archive="$legacy_fixture/$upgrade_root.tar.gz"
+upgrade_manifest="$upgrade_archive.manifest.json"
+mkdir -p "$upgrade_stage/META-INF" "$upgrade_stage/scripts/upgrade-runtime" "$upgrade_stage/target/files"
+printf '#!/usr/bin/env php\n' >"$upgrade_stage/scripts/scaffold-upgrade"
+chmod 755 "$upgrade_stage/scripts/scaffold-upgrade"
+printf '#!/usr/bin/env bash\nexit 1\n' >"$upgrade_stage/scripts/upgrade-runtime/product-upgrade-host"
+chmod 755 "$upgrade_stage/scripts/upgrade-runtime/product-upgrade-host"
+printf '#!/usr/bin/env php\n' >"$upgrade_stage/scripts/upgrade-runtime/product-upgrade-database"
+chmod 755 "$upgrade_stage/scripts/upgrade-runtime/product-upgrade-database"
+printf 'name: candidate-upgrade-contract\n' >"$upgrade_stage/target/files/compose.yaml"
+printf '{}\n' >"$upgrade_stage/target/scaffold-manifest.json"
+printf '{"schema_version":1,"protocol":"peanut.edition-upgrade-package.v1","build_source":{"commit":"%s","tree":"%s"},"target":{"version":"%s"}}\n' \
+  "$candidate_commit" "$candidate_tree" "$candidate_version" >"$upgrade_stage/upgrade-manifest.json"
+upgrade_inventory="$upgrade_stage/META-INF/files.sha256"
+: >"$upgrade_inventory"
+while IFS= read -r upgrade_file; do
+  upgrade_relative="${upgrade_file#"$upgrade_stage/"}"
+  upgrade_file_sha="$(shasum -a 256 "$upgrade_file" | awk '{print $1}')"
+  printf '%s\0%s\n' "$upgrade_relative" "$upgrade_file_sha" >>"$upgrade_inventory"
+done < <(find "$upgrade_stage" -type f ! -path "$upgrade_inventory" | LC_ALL=C sort)
+upgrade_inventory_sha="$(shasum -a 256 "$upgrade_inventory" | awk '{print $1}')"
+upgrade_package_manifest_sha="$(shasum -a 256 "$upgrade_stage/upgrade-manifest.json" | awk '{print $1}')"
+tar -czf "$upgrade_archive" -C "$legacy_fixture" "$upgrade_root"
+upgrade_sha="$(shasum -a 256 "$upgrade_archive" | awk '{print $1}')"
+upgrade_bytes="$(wc -c <"$upgrade_archive" | tr -d ' ')"
+jq -n \
+  --arg version "$candidate_version" --arg commit "$candidate_commit" --arg tree "$candidate_tree" \
+  --arg filename "$(basename "$upgrade_archive")" --arg root "$upgrade_root" \
+  --arg sha "$upgrade_sha" --argjson bytes "$upgrade_bytes" \
+  --arg inventory_sha "sha256:$upgrade_inventory_sha" \
+  --arg manifest_sha "sha256:$upgrade_package_manifest_sha" \
+  '{schema_version:1,protocol:"peanut.edition-upgrade-artifact.v1",product:{version:$version},
+    edition:{name:"standalone"},source:{commit:$commit,tree:$tree},
+    package:{inventory_sha256:$inventory_sha,manifest_sha256:$manifest_sha},
+    archive:{filename:$filename,root:$root,sha256:$sha,bytes:$bytes}}' >"$upgrade_manifest"
+upgrade_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree="$candidate_tree" \
+  --target production --update \
+  --upgrade-package="$upgrade_archive" --upgrade-manifest="$upgrade_manifest" \
+  --dry-run 2>&1)" || fail 'candidate upgrade dry-run was rejected'
+[[ "$upgrade_output" == *'deployment_artifact=upgrade'* \
+  && "$upgrade_output" == *'validate the SHA-256 inventory'* ]] \
+  || fail 'candidate upgrade plan did not select the SHA-256 upgrade lifecycle'
+printf 'passed=candidate-upgrade-dry-run\n'
+
+compose_file="$ROOT_DIR/deploy/docker-compose.prod.yml"
+nginx_file="$ROOT_DIR/deploy/nginx/peanut-admin.conf"
+for required in \
+  'PC_IMAGE' 'PEANUT_PUBLIC_SCHEME' 'PEANUT_TRUSTED_HOSTS' \
+  'NUXT_UPSTREAM_ORIGIN: http://nginx' 'proxy_set_header Host $http_host' \
+  'proxy_set_header X-Forwarded-Proto $scheme' \
+  'DEPLOYMENT_RECEIPT_FILE'; do
+  case "$required" in
+    proxy_*) rg -Fq "$required" "$nginx_file" || fail "Nginx SSR contract missing $required" ;;
+    *) rg -Fq "$required" "$compose_file" || fail "Compose contract missing $required" ;;
+  esac
+done
+rg -Fq 'wildcard host' "$SCRIPT" || fail 'remote SSR wildcard rejection is missing'
+rg -Fq 'candidate image IDs are not immutable Docker IDs' "$SCRIPT" || fail 'three-image identity gate is missing'
+rg -Fq 'candidate image source labels do not match the fixed commit/tree' "$SCRIPT" || fail 'image source label gate is missing'
+rg -Fq 'runtime_image_receipt_binding=valid' "$SCRIPT" || fail 'runtime image receipt binding gate is missing'
+rg -Fq 'host and running PHP deployment receipts differ' "$SCRIPT" || fail 'host/runtime receipt equality gate is missing'
+printf 'passed=ssr-pc-receipt-static-contract\n'
+
+printf 'candidate-contract: all checks passed (commit12=%s)\n' "$candidate_sha"

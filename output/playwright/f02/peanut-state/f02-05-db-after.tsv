@@ -1,7 +1,0 @@
-section	id	user_id/pay_status	refund_status/balance	amount/total_recharge	detail
-order	1	21/0	0	10.10	unchanged
-order	4	21/1	1	40.40	unchanged
-order	5	22/1	0	50.50	unchanged
-member	21	-	439.40	439.40	balance=439.40;unchanged
-member	22	-	5.00	100.00	balance=5.00;unchanged
-aggregate	-	-	-	-	records(O01,O04,O05)=1;logs=1;balance_logs=0;all unchanged from baseline

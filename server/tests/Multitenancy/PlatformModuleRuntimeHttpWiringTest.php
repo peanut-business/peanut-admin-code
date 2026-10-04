@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
@@ -7,12 +8,12 @@ require dirname(__DIR__, 2) . '/bootstrap/environment.php';
 
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Authorization\AuthorizationException;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalog;
-use PeanutAdmin\Kernel\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Kernel\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Context\PlatformContext;
-use PeanutAdmin\Kernel\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
+use PeanutAdmin\Modules\Identity\Platform\Authorization\ThinkPhpPlatformAuthorizationRepository;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
@@ -21,7 +22,9 @@ require_once dirname(__DIR__) . '/Support/IsolatedBackendEnvironment.php';
 
 function platformModuleHttpExpect(bool $condition, string $message): void
 {
-    if (!$condition) throw new RuntimeException($message);
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
 }
 
 function platformModuleHttpDenied(
@@ -51,14 +54,14 @@ function platformModuleHttpContext(int $operatorId, int $accountId, string $sess
 
 $serverRoot = dirname(__DIR__, 2);
 $routeSource = peanut_route_registry_source($serverRoot);
-$controllerSource = (string)file_get_contents($serverRoot . '/app/platform/controller/PlatformModuleLifecycleController.php');
-$middlewareSource = (string)file_get_contents($serverRoot . '/app/platform/http/middleware/PlatformInstanceToolMiddleware.php');
-$serviceSource = (string)file_get_contents($serverRoot . '/app/platform/service/plugin/PlatformModuleRuntimeService.php');
-$commandSource = (string)file_get_contents($serverRoot . '/app/command/ModuleSync.php');
-$consoleSource = (string)file_get_contents($serverRoot . '/config/console.php');
-$moduleConfigSource = (string)file_get_contents($serverRoot . '/config/modules.php');
-$webRouteSource = (string)file_get_contents(dirname($serverRoot) . '/web/src/router/routes/modules/dev-tools.ts');
-$webApiSource = (string)file_get_contents(dirname($serverRoot) . '/web/src/api/dev-tools/modules.ts');
+$controllerSource = (string) file_get_contents($serverRoot . '/app/platform/controller/PlatformModuleLifecycleController.php');
+$middlewareSource = (string) file_get_contents($serverRoot . '/app/platform/http/middleware/PlatformInstanceToolMiddleware.php');
+$serviceSource = (string) file_get_contents($serverRoot . '/app/platform/service/plugin/PlatformModuleRuntimeService.php');
+$commandSource = (string) file_get_contents($serverRoot . '/app/command/ModuleSync.php');
+$consoleSource = (string) file_get_contents($serverRoot . '/config/console.php');
+$moduleConfigSource = (string) file_get_contents($serverRoot . '/config/modules.php');
+$webRouteSource = (string) file_get_contents(dirname($serverRoot) . '/web/src/router/routes/modules/dev-tools.ts');
+$webApiSource = (string) file_get_contents(dirname($serverRoot) . '/web/src/api/dev-tools/modules.ts');
 
 $routes = [
     ['get', 'instance-tools/modules', 'lists', 'platform.module.read'],
@@ -134,7 +137,7 @@ $admin = new PDO(
 );
 $exists = $admin->prepare('SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name=?');
 $exists->execute([$database]);
-platformModuleHttpExpect((int)$exists->fetchColumn() === 0, 'isolated Platform Module HTTP database already exists');
+platformModuleHttpExpect((int) $exists->fetchColumn() === 0, 'isolated Platform Module HTTP database already exists');
 $admin->exec("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci");
 
 $completed = false;
@@ -160,13 +163,13 @@ try {
         $password,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false],
     );
-    platformModuleHttpExpect((int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn() === 0, 'Platform Module HTTP test database must start empty');
+    platformModuleHttpExpect((int) $pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn() === 0, 'Platform Module HTTP test database must start empty');
     $identity = initializeCoreIdentity(
         $pdo,
         'module-http-owner@example.test',
         'ModuleHttpOwnerPassword2026',
         null,
-        new \app\common\service\DemoAccountPolicy(false, []),
+        new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(false, []),
     );
     executeSqlFiles($pdo, [$serverRoot . '/database/init.sql']);
     (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
@@ -184,26 +187,32 @@ try {
 
     $now = '2026-08-26 00:00:00.000';
     $pdo->exec("INSERT INTO pa_account (display_name,status,created_at,updated_at) VALUES ('Module HTTP Scoped','active','{$now}','{$now}')");
-    $scopedAccountId = (int)$pdo->lastInsertId();
+    $scopedAccountId = (int) $pdo->lastInsertId();
     $pdo->exec("INSERT INTO pa_platform_operator (account_id,display_name,status,created_at,updated_at) VALUES ({$scopedAccountId},'Module HTTP Scoped','active','{$now}','{$now}')");
-    $scopedOperatorId = (int)$pdo->lastInsertId();
+    $scopedOperatorId = (int) $pdo->lastInsertId();
     $scopedContext = platformModuleHttpContext($scopedOperatorId, $scopedAccountId, 'module-http-scoped');
     $repository = new ThinkPhpPlatformAuthorizationRepository();
     $evaluator = new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache());
-    foreach ($permissionKeys as $permission) platformModuleHttpDenied($evaluator, $scopedContext, $permission);
+    foreach ($permissionKeys as $permission) {
+        platformModuleHttpDenied($evaluator, $scopedContext, $permission);
+    }
 
     $pdo->exec("INSERT INTO pa_platform_role (`key`,name,is_builtin,status,created_at,updated_at) VALUES ('platform.module-runtime-operator','Module Runtime Operator',0,'active','{$now}','{$now}')");
-    $roleId = (int)$pdo->lastInsertId();
+    $roleId = (int) $pdo->lastInsertId();
     $pdo->exec("INSERT INTO pa_platform_operator_role (platform_operator_id,platform_role_id,assigned_at) VALUES ({$scopedOperatorId},{$roleId},'{$now}')");
     $permissionIds = $pdo->prepare("SELECT id FROM pa_permission WHERE `key` IN ({$placeholders}) ORDER BY `key`");
     $permissionIds->execute($permissionKeys);
     $bind = $pdo->prepare('INSERT INTO pa_platform_role_permission (platform_role_id,permission_id,granted_at) VALUES (?,?,?)');
-    foreach ($permissionIds->fetchAll(PDO::FETCH_COLUMN) as $permissionId) $bind->execute([$roleId, (int)$permissionId, $now]);
+    foreach ($permissionIds->fetchAll(PDO::FETCH_COLUMN) as $permissionId) {
+        $bind->execute([$roleId, (int) $permissionId, $now]);
+    }
     $evaluator = new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache());
-    foreach ($permissionKeys as $permission) $evaluator->assertAllowed($scopedContext, $permission);
+    foreach ($permissionKeys as $permission) {
+        $evaluator->assertAllowed($scopedContext, $permission);
+    }
 
-    $ownerAccountId = (int)$pdo->query('SELECT account_id FROM pa_platform_operator WHERE id=' . (int)$identity['operator_id'])->fetchColumn();
-    $ownerContext = platformModuleHttpContext((int)$identity['operator_id'], $ownerAccountId, 'module-http-owner');
+    $ownerAccountId = (int) $pdo->query('SELECT account_id FROM pa_platform_operator WHERE id=' . (int) $identity['operator_id'])->fetchColumn();
+    $ownerContext = platformModuleHttpContext((int) $identity['operator_id'], $ownerAccountId, 'module-http-owner');
     platformModuleHttpDenied(
         new PlatformAuthorizationEvaluator($repository, new RevisionPermissionCache()),
         $ownerContext,

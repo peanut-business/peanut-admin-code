@@ -1,7 +1,0 @@
-section	id	status	amount/detail	comparison_to_before
-order	6	refund_status=1	60.60	unchanged
-member	21	-	user_money=439.40;balance=439.40;total_recharge_amount=439.40	unchanged
-record	3	refund_status=2	order_id=6;refund_amount=60.60	same single record
-log	3	refund_status=2	record_id=3;refund_amount=60.60	existing first attempt
-log	5	refund_status=2	record_id=3;refund_amount=60.60	exactly one new retry log
-balance_log	10	change_type=101;action=2	change_amount=60.60;left_amount=439.40;source_sn=F0226080101O06	still exactly one

@@ -2,7 +2,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import {
   collectPluginContributions,
   routesForTenantModules,
-} from '@peanut-admin/admin/core';
+} from '@peanut-admin/vue';
 import articleContribution from '../../src/modules/official-article/contribution';
 
 function expect(condition: boolean, message: string): void {
@@ -33,12 +33,8 @@ expect(
   'a deployed Module became visible before TenantModule enablement'
 );
 expect(
-  routesForTenantModules(
-    contributions,
-    ['fixture.delivery-record'],
-    [],
-    exact
-  ).length === 0,
+  routesForTenantModules(contributions, ['fixture.delivery-record'], [], exact)
+    .length === 0,
   'an enabled TenantModule became visible without member permission'
 );
 expect(
@@ -58,6 +54,15 @@ expect(
     exact
   ).length === 1,
   'enabled and authorized official Article Module was not visible'
+);
+expect(
+  routesForTenantModules(
+    [articleContribution],
+    ['official.article'],
+    ['official.article.category.list'],
+    exact
+  ).length === 1,
+  'category-only permission could not enter the official Article Module'
 );
 expect(
   routesForTenantModules([articleContribution], [], ['*'], exact).length === 0,

@@ -1,72 +1,103 @@
 name: CI
 
+# Synchronization is not a validation request. Select a completed batch explicitly.
 on:
-  pull_request:
-    branches:
-      - dev
-      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  COMPOSER_CACHE_DIR: ${{ github.workspace }}/../.peanut-composer-cache
+
+concurrency:
+  group: application-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   stale-facts:
     name: Stale facts
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Reject retired current guidance
-        run: ./scripts/check-stale-facts.sh
+        run: |
+          ./scripts/check-environment-sources
+      - name: Validate registered project resources
+        run: ./scripts/project-resource-registry validate
 
   changes:
     name: Changed paths
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
+      validation: ${{ steps.checkpoint.outputs.validation }}
       server: ${{ steps.paths.outputs.server }}
       web: ${{ steps.paths.outputs.web }}
       platform: ${{ steps.paths.outputs.platform }}
       pc: ${{ steps.paths.outputs.pc }}
       uniapp: ${{ steps.paths.outputs.uniapp }}
-      docs_site: ${{ steps.paths.outputs.docs_site }}
       create_app: ${{ steps.paths.outputs.create_app }}
+      integration: ${{ steps.paths.outputs.integration }}
+      api: ${{ steps.paths.outputs.api }}
+      docs: ${{ steps.paths.outputs.docs }}
+      conservative: ${{ steps.paths.outputs.conservative }}
+      baseline: ${{ steps.paths.outputs.baseline }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Select validation checkpoint
+        id: checkpoint
+        run: >-
+          python3 scripts/ci-checkpoint
+          --event-name "$GITHUB_EVENT_NAME"
+          --event-file "$GITHUB_EVENT_PATH"
+          --github-output "$GITHUB_OUTPUT"
+          --github-summary "$GITHUB_STEP_SUMMARY"
+      - name: Test checkpoint and summary decisions
+        run: python3 scripts/tests/ci-checkpoint-test.py
+
       - name: Classify affected products
+        if: steps.checkpoint.outputs.validation == 'required'
         id: paths
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            for output in server web platform pc uniapp docs_site create_app; do
-              echo "${output}=true" >> "$GITHUB_OUTPUT"
-            done
-            exit 0
+            ./scripts/ci-change-classifier \
+              --all \
+              --reason='manual workflow dispatch' \
+              --github-output="$GITHUB_OUTPUT"
+          else
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              base_ref='${{ github.event.pull_request.base.sha }}'
+              head_ref='${{ github.event.pull_request.head.sha }}'
+              comparison='merge-base'
+            else
+              base_ref='${{ github.event.before }}'
+              head_ref='${{ github.sha }}'
+              comparison='direct'
+            fi
+            ./scripts/ci-change-classifier \
+              --base="$base_ref" \
+              --head="$head_ref" \
+              --comparison="$comparison" \
+              --fallback-full \
+              --github-output="$GITHUB_OUTPUT"
           fi
-
-          changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD")"
-          matches() {
-            grep -Eq "$1" <<< "$changed"
-          }
-
-          server_changed="$(grep -E '^server/' <<< "$changed" | grep -Ev '^(server/app/common/service/scaffold/.*|server/tests/Productization/CreateApplicationTest\.php)$' || true)"
-          [[ -n "$server_changed" || "$(grep -E '^(scripts/ci-server-check\.sh|scripts/check-admin-api-permissions\.php)$' <<< "$changed" || true)" != "" ]] && echo 'server=true' >> "$GITHUB_OUTPUT" || echo 'server=false' >> "$GITHUB_OUTPUT"
-          matches '^(web/|scripts/sync-brand-assets\.mjs$)' && echo 'web=true' >> "$GITHUB_OUTPUT" || echo 'web=false' >> "$GITHUB_OUTPUT"
-          matches '^platform/' && echo 'platform=true' >> "$GITHUB_OUTPUT" || echo 'platform=false' >> "$GITHUB_OUTPUT"
-          matches '^pc/' && echo 'pc=true' >> "$GITHUB_OUTPUT" || echo 'pc=false' >> "$GITHUB_OUTPUT"
-          matches '^uniapp/' && echo 'uniapp=true' >> "$GITHUB_OUTPUT" || echo 'uniapp=false' >> "$GITHUB_OUTPUT"
-          matches '^(docs-site/|docs/|scripts/docs-governance$)' && echo 'docs_site=true' >> "$GITHUB_OUTPUT" || echo 'docs_site=false' >> "$GITHUB_OUTPUT"
-          matches '^(scaffold/application-template-inventory\.json|scaffold/releases/v2\.0\.0/|scripts/create-app|scripts/build-application-template-inventory|scripts/build-scaffold-release|server/app/common/service/scaffold/ApplicationCreator\.php|server/tests/Productization/CreateApplicationTest\.php|docs/create-application\.md)$' && echo 'create_app=true' >> "$GITHUB_OUTPUT" || echo 'create_app=false' >> "$GITHUB_OUTPUT"
+      - name: Exercise classifier mappings and fail-closed cases
+        run: ./scripts/tests/ci-change-classifier-test
 
   create-app:
     name: Create app
     needs: changes
-    if: needs.changes.outputs.create_app == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.create_app == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,29 +105,22 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          tools: composer:2.10.2
           coverage: none
-      - name: Verify inventory and create-app contract
-        run: |
-          php scripts/build-application-template-inventory --check
-          php server/tests/Productization/CreateApplicationTest.php
+      - name: Install the tool's locked dependencies
+        working-directory: server
+        run: composer install --no-interaction --no-progress --prefer-dist --no-scripts
+      - name: Verify source inventory after locked dependencies
+        run: php scripts/build-application-template-inventory --check
+      - name: Verify create-app contract
+        run: php server/tests/Productization/CreateApplicationTest.php
 
   php:
     name: PHP 8.3
     needs: changes
-    if: needs.changes.outputs.server == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_ROOT_PASSWORD: mt02_root
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -pmt02_root"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -110,6 +134,19 @@ jobs:
           tools: composer:2.10.2
           coverage: none
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.6
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
       - name: Create isolated backend environment
         shell: bash
         run: |
@@ -119,20 +156,19 @@ jobs:
             'APP_ENV=development' \
             'APP_DEBUG=false' \
             'PEANUT_DEPLOYMENT_TARGET=local-development' \
-            'DEPLOYMENT_MODE=standalone' \
+            'DEPLOYMENT_MODE=multi-tenant' \
             'DB_HOST=127.0.0.1' \
             'DB_PORT=3306' \
             'DB_NAME=peanut_admin_ci' \
             'DB_USER=root' \
             'DB_PASS=mt02_root' \
-            'DB_ROOT_PASS=mt02_root' \
+            'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-static' \
             'DB_PREFIX=pa_' > "$backend_env"
-          printf 'PEANUT_SERVER_ENV_FILE=%s\n' "$backend_env" >> "$GITHUB_ENV"
 
       - name: Cache Composer downloads
         uses: actions/cache@v4
         with:
-          path: ~/.composer/cache/files
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
           key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-php-8.3-composer-
@@ -143,46 +179,143 @@ jobs:
 
       - name: Install Composer dependencies
         working-directory: server
+        env:
+          PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-${{ github.run_id }}
         run: composer install --no-interaction --no-progress --prefer-dist
 
-      - name: Run focused server gates
-        if: github.event_name == 'pull_request'
+      - name: Install locked API generator dependencies
+        working-directory: web
         env:
-          CI_BASE_REF: ${{ github.event.pull_request.base.sha }}
-          CI_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
-          CI_HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: ./scripts/ci-server-check.sh --fast
+          HUSKY: '0'
+        run: pnpm install --frozen-lockfile
 
-      - name: Run stage server gates
+      - name: Run daily server gates
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          CI_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          CI_COMPARISON: ${{ github.event_name == 'push' && 'direct' || 'merge-base' }}
+        run: |
+          mode='--daily'
+          if [[ '${{ needs.changes.outputs.baseline }}' == 'fallback-full' ]]; then
+            mode='--broad'
+          fi
+          ./scripts/ci-server-check.sh "$mode" --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+
+      - name: Run broad server gates
         if: github.event_name == 'workflow_dispatch'
-        run: ./scripts/ci-server-check.sh --full
+        run: ./scripts/ci-server-check.sh --broad --env-file "$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
 
       - name: Remove isolated backend environment
         if: always()
         shell: bash
         run: |
-          case "$PEANUT_SERVER_ENV_FILE" in
-            "$GITHUB_WORKSPACE"/server/.env.ci-*) rm -f -- "$PEANUT_SERVER_ENV_FILE" ;;
-            *) exit 1 ;;
-          esac
+          backend_env="$GITHUB_WORKSPACE/server/.env.ci-${GITHUB_RUN_ID}"
+          [[ "$backend_env" == "$GITHUB_WORKSPACE"/server/.env.ci-* ]]
+          rm -f -- "$backend_env"
+
+  integration:
+    name: Integration / MySQL 8.4
+    needs: changes
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.integration == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.4.10@sha256:c831a0f11348d402b43d77453e17d770be2eef356615a2823fe0f5a0d6c8b9af
+        env:
+          MYSQL_ROOT_PASSWORD: mt02_root
+        ports:
+          - 3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pmt02_root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:2.10.2
+          coverage: none
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.COMPOSER_CACHE_DIR }}/files
+          key: ${{ runner.os }}-php-8.3-composer-${{ hashFiles('server/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-8.3-composer-
+      - name: Create isolated registered MySQL environment
+        shell: bash
+        run: |
+          registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+          mysql_port='${{ job.services.mysql.ports[3306] }}'
+          jwt_secret="$(php -r 'echo bin2hex(random_bytes(32));')"
+          umask 077
+          printf '%s\n' \
+            'APP_ENV=development' \
+            'APP_DEBUG=false' \
+            'PEANUT_DEPLOYMENT_TARGET=local-development' \
+            'DEPLOYMENT_MODE=multi-tenant' \
+            'DB_HOST=127.0.0.1' \
+            "DB_PORT=${mysql_port}" \
+            'DB_NAME=peanut_admin_ci_registered_mysql' \
+            'DB_USER=root' \
+            'DB_PASS=mt02_root' \
+            "JWT_SECRET=${jwt_secret}" \
+            'DB_PREFIX=pa_' \
+            'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-ci-real-mysql84' \
+            'PEANUT_DATABASE_ENDPOINT_ID=peanut-admin-ci-real-mysql84-host' \
+            'PEANUT_DATABASE_CONSUMER=host' > "$registered_mysql_env"
+      - name: Install Composer dependencies
+        working-directory: server
+        env:
+          PEANUT_SERVER_ENV_FILE: ${{ github.workspace }}/server/.env.ci-mysql-${{ github.run_id }}
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Run lease-bound real MySQL 8.4 gate
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
+          DB_NAME: peanut_admin_ci_registered_mysql
+          PEANUT_DATABASE_RESOURCE_ID: peanut-admin-ci-real-mysql84
+          PEANUT_DATABASE_ENDPOINT_ID: peanut-admin-ci-real-mysql84-host
+          PEANUT_DATABASE_CONSUMER: host
+          PEANUT_DATABASE_ENVIRONMENT: continuous-integration
+          PEANUT_DATABASE_RESOURCE_SCOPE: github-actions-job:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
+          PEANUT_DATABASE_LEASE_ID: ci-mysql-${{ github.run_id }}-${{ github.run_attempt }}
+          PEANUT_DATABASE_LEASE_OWNER: github-actions:${{ github.repository_id }}:${{ github.run_id }}:${{ github.run_attempt }}
+          PEANUT_DATABASE_LEASE_GATE: real-mysql
+          PEANUT_MYSQL_RESOURCE_MODE: --ci-service
+        run: ./scripts/ci-server-check.sh --integration --env-file "$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+      - name: Remove isolated registered MySQL environment
+        if: always()
+        shell: bash
+        run: |
+          registered_mysql_env="$GITHUB_WORKSPACE/server/.env.ci-mysql-${GITHUB_RUN_ID}"
+          [[ "$registered_mysql_env" == "$GITHUB_WORKSPACE"/server/.env.ci-mysql-* ]]
+          rm -f -- "$registered_mysql_env"
 
   web:
     name: Web
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.6
           run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - name: Install dependencies
@@ -209,6 +342,9 @@ jobs:
             logLevel: 'error',
             resolve: { alias: { '@': path.resolve(process.cwd(), 'src') } },
             optimizeDeps: { disabled: true },
+            ssr: {
+              noExternal: ['@peanut-admin/vue', '@peanut-admin/ui-vue'],
+            },
             server: { middlewareMode: true },
             appType: 'custom',
           })
@@ -229,23 +365,22 @@ jobs:
   platform:
     name: Platform
     needs: changes
-    if: needs.changes.outputs.platform == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.platform == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: npm
           cache-dependency-path: platform/package-lock.json
       - name: Install dependencies
         working-directory: platform
         run: npm ci
-      - name: Typecheck
-        working-directory: platform
-        run: npm run type:check
+      # The native build script already runs vue-tsc before Vite.
       - name: Build
         working-directory: platform
         run: npm run build
@@ -253,15 +388,16 @@ jobs:
   pc:
     name: PC
     needs: changes
-    if: needs.changes.outputs.pc == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.pc == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: npm
           cache-dependency-path: pc/package-lock.json
       - name: Install dependencies
@@ -270,22 +406,23 @@ jobs:
       - name: Typecheck
         working-directory: pc
         run: npm run typecheck
-      - name: Generate
+      - name: Build the server-rendered website
         working-directory: pc
-        run: npm run generate
+        run: npm run build
 
   uniapp:
     name: UniApp
     needs: changes
-    if: needs.changes.outputs.uniapp == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.uniapp == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.23.2'
           cache: npm
           cache-dependency-path: uniapp/package-lock.json
       - name: Install dependencies
@@ -297,30 +434,60 @@ jobs:
       - name: Build H5
         working-directory: uniapp
         run: npm run build:h5
+      - name: Build the supported WeChat client
+        working-directory: uniapp
+        run: npm run build:mp-weixin
 
-  docs-site:
-    name: Docs site
+  docs:
+    name: Public docs
     needs: changes
-    if: needs.changes.outputs.docs_site == 'true'
+    if: needs.changes.outputs.validation == 'required' && needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
         with:
-          version: 9
-          run_install: false
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: docs-site/pnpm-lock.yaml
-      - name: Install dependencies
-        working-directory: docs-site
-        run: pnpm install --frozen-lockfile
-      - name: Build
+          php-version: '8.3'
+          coverage: none
+      - name: Check public consumer documentation
+        run: ./scripts/check-public-docs
+
+  summary:
+    name: CI summary
+    # Missing, failed or cancelled required jobs still fail the explicit run.
+    if: always()
+    needs:
+      - stale-facts
+      - changes
+      - create-app
+      - php
+      - integration
+      - web
+      - platform
+      - pc
+      - uniapp
+      - docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Report and enforce required results
         run: |
-          ./scripts/docs-governance check
-          pnpm --dir docs-site run build
+          checks=(
+            "--candidate=${{ github.sha }}"
+            "--check=stale-facts:${{ needs.stale-facts.result }}:required"
+            "--check=changes:${{ needs.changes.result }}:required"
+            "--check=create-app:${{ needs.create-app.result }}:${{ needs.changes.outputs.create_app || 'false' }}"
+            "--check=server:${{ needs.php.result }}:${{ needs.changes.outputs.server || 'false' }}"
+            "--check=integration:${{ needs.integration.result }}:${{ needs.changes.outputs.integration || 'false' }}"
+            "--check=web:${{ needs.web.result }}:${{ needs.changes.outputs.web || 'false' }}"
+            "--check=platform:${{ needs.platform.result }}:${{ needs.changes.outputs.platform || 'false' }}"
+            "--check=pc:${{ needs.pc.result }}:${{ needs.changes.outputs.pc || 'false' }}"
+            "--check=uniapp:${{ needs.uniapp.result }}:${{ needs.changes.outputs.uniapp || 'false' }}"
+            "--check=docs:${{ needs.docs.result }}:${{ needs.changes.outputs.docs || 'false' }}"
+          )
+          ./scripts/ci-summary "${checks[@]}"

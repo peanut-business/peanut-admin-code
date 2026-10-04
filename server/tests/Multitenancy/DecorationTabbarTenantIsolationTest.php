@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use app\adminapi\application\decoration\DecorationTabbarApplicationService;
@@ -25,7 +26,7 @@ function tabbarTenantContext(int $tenantId, int $memberId, string $requestId): T
 {
     return TenantContext::fromValidatedSession(new ValidatedTenantSession(
         $memberId,
-        '01JMT03TABBAR' . str_pad((string)$memberId, 13, '0', STR_PAD_LEFT),
+        '01JMT03TABBAR' . str_pad((string) $memberId, 13, '0', STR_PAD_LEFT),
         $tenantId,
         $memberId + 10000,
         $memberId,
@@ -48,7 +49,7 @@ function tabbarPdo(string $host, int $port, string $user, string $password, stri
         "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",
         $user,
         $password,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true]
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::MYSQL_ATTR_MULTI_STATEMENTS => true],
     );
 }
 
@@ -64,7 +65,7 @@ INSERT INTO pa_tenant
 VALUES
   (101, 'default', 'Alpha', 'Alpha', 'active', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3), UTC_TIMESTAMP(3));
 SQL);
-    $schema = (string)file_get_contents($serverRoot . '/database/init.sql');
+    $schema = (string) file_get_contents($serverRoot . '/database/init.sql');
     expectTabbarTenant($schema !== '', 'canonical application schema is missing');
     $pdo->exec($schema);
 }
@@ -86,14 +87,14 @@ function tabbarItems(string $prefix): array
 
 $serverRoot = dirname(__DIR__, 2);
 $host = IsolatedBackendEnvironment::required('DB_HOST');
-$port = (int)IsolatedBackendEnvironment::required('DB_PORT');
+$port = (int) IsolatedBackendEnvironment::required('DB_PORT');
 $user = IsolatedBackendEnvironment::required('DB_USER');
 $password = IsolatedBackendEnvironment::required('DB_PASS');
 $admin = new PDO(
     "mysql:host={$host};port={$port};charset=utf8mb4",
     $user,
     $password,
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
 );
 $database = tabbarDatabase($admin);
 
@@ -113,13 +114,13 @@ INSERT INTO pa_decorate_tabbar (tenant_id, position, name, selected, unselected,
 SQL);
 
     expectTabbarTenant(
-        (int)$pdo->query('SELECT COUNT(*) FROM pa_decorate_tabbar WHERE tenant_id = 101')->fetchColumn() === 3,
-        'fresh canonical Tabbar seed is missing'
+        (int) $pdo->query('SELECT COUNT(*) FROM pa_decorate_tabbar WHERE tenant_id = 101')->fetchColumn() === 3,
+        'fresh canonical Tabbar seed is missing',
     );
     expectTabbarTenant(
-        (string)$pdo->query('SELECT style FROM pa_decorate_tabbar_setting WHERE tenant_id = 101')->fetchColumn()
+        (string) $pdo->query('SELECT style FROM pa_decorate_tabbar_setting WHERE tenant_id = 101')->fetchColumn()
             === '{"default_color":"#666666","selected_color":"#2F80ED"}',
-        'fresh canonical Tabbar style is missing'
+        'fresh canonical Tabbar style is missing',
     );
     try {
         $pdo->exec("INSERT INTO pa_decorate_tabbar (tenant_id, position, name, link) VALUES (202, 1, 'Duplicate', '{}')");
@@ -140,8 +141,8 @@ SQL);
     $decorationReads = app(DecorationReadService::class);
     $alpha = tabbarTenantContext(101, 11, 'fresh-tabbar-alpha');
     $beta = tabbarTenantContext(202, 22, 'fresh-tabbar-beta');
-    $alphaFirstId = (int)$pdo->query(
-        'SELECT id FROM pa_decorate_tabbar WHERE tenant_id = 101 ORDER BY position, id LIMIT 1'
+    $alphaFirstId = (int) $pdo->query(
+        'SELECT id FROM pa_decorate_tabbar WHERE tenant_id = 101 ORDER BY position, id LIMIT 1',
     )->fetchColumn();
 
     expectTabbarTenant(
@@ -177,7 +178,7 @@ SQL);
                 tabbarItems('Saved Alpha'),
             ),
         ),
-        'Alpha Tabbar save failed'
+        'Alpha Tabbar save failed',
     );
     expectTabbarTenant(
         app(ExecutionContextStore::class)->run(
@@ -189,7 +190,7 @@ SQL);
     expectTabbarTenant(
         $pdo->query('SELECT id, tenant_id, position, name, link, is_show FROM pa_decorate_tabbar WHERE tenant_id = 202 ORDER BY position')
             ->fetchAll(PDO::FETCH_ASSOC) === $betaBefore,
-        'Alpha save changed Beta rows'
+        'Alpha save changed Beta rows',
     );
     expectTabbarTenant(
         app(ExecutionContextStore::class)->run(
@@ -203,14 +204,14 @@ SQL);
         101,
         'peanut.decoration.public-read',
         'decoration.config',
-        'fresh-tabbar-public-alpha'
+        'fresh-tabbar-public-alpha',
     );
     expectTabbarTenant(
         app(ExecutionContextStore::class)->run(
             \app\common\execution\ConsumerExecutionContext::publicTenant($publicAlpha),
             fn() => $decorationReads->tabbar($publicAlpha, true, 'decoration.config'),
         )['list'][0]['name'] === 'Saved Alpha Home',
-        'trusted public Tabbar read selected another Tenant'
+        'trusted public Tabbar read selected another Tenant',
     );
     try {
         DecorateTabbar::where([])->count();

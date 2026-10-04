@@ -16,10 +16,10 @@ die() {
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 DEFAULT_FIXTURE="$ROOT/server/tests/fixtures/core-upgrade-compatibility/combined-upgrade.json"
-PHP_BIN="${PEANUT_PHP:-php}"
-COMPOSER_BIN="${PEANUT_COMPOSER:-composer}"
-PNPM_BIN="${PEANUT_PNPM:-pnpm}"
-NPM_BIN="${PEANUT_NPM:-npm}"
+PHP_BIN="/opt/homebrew/bin/php"
+COMPOSER_BIN="$ROOT/scripts/project-composer"
+PNPM_BIN="pnpm"
+NPM_BIN="npm"
 
 validate_fixture() {
   local fixture="$1"

@@ -1,0 +1,348 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Scaffold Product Token project resource lease registry
+
+Usage:
+  scripts/project-resource-lease claim \
+    --lease <run-id> --owner <owner> [--thread <thread-id>] \
+    --candidate <40-hex-commit> [--candidate-repository <absolute-path>] \
+    --gate <gate-name> [--ttl <seconds>] \
+    --resource <type=value> [--resource <type=value> ...]
+  scripts/project-resource-lease renew --lease <run-id> --owner <owner> [--ttl <seconds>]
+  scripts/project-resource-lease release --lease <run-id> --owner <owner>
+  scripts/project-resource-lease list
+  scripts/project-resource-lease show --lease <run-id>
+  scripts/project-resource-lease prune-expired
+
+Examples:
+  scripts/project-resource-lease claim \
+    --lease mt05-browser-a1b2c3d --owner 019f-thread-id \
+    --candidate 0123456789abcdef0123456789abcdef01234567 \
+    --gate mt05-browser --ttl 14400 \
+    --resource mysql-db=pa_mt05_browser_a1b2c3d \
+    --resource port=18158 \
+    --resource port=15183 \
+    --resource output-dir=/absolute/path/to/evidence
+
+The registry is local to this repository's Git common directory and is shared by
+all Scaffold Product Token worktrees. It stores identities only; never pass credentials as
+resource values.
+EOF
+}
+
+die() {
+  printf 'resource-lease: %s\n' "$*" >&2
+  exit 1
+}
+
+[[ $# -ge 1 ]] || { usage; exit 2; }
+COMMAND="$1"
+shift
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || die 'run inside the Scaffold Product Token Git repository'
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null)" || die 'Git common directory is unavailable'
+if [[ "$COMMON_DIR" != /* ]]; then
+  COMMON_DIR="$REPO_ROOT/$COMMON_DIR"
+fi
+COMMON_DIR="$(cd "$COMMON_DIR" && pwd -P)"
+REGISTRY_ROOT="$COMMON_DIR/peanut-admin-resource-leases"
+LEASES_DIR="$REGISTRY_ROOT/leases"
+RESOURCES_DIR="$REGISTRY_ROOT/resources"
+MUTEX_DIR="$REGISTRY_ROOT/mutex"
+
+umask 077
+mkdir -p "$LEASES_DIR" "$RESOURCES_DIR"
+
+LOCK_HELD=0
+CLAIM_TMP_DIR=""
+CREATED_RESOURCES_FILE=""
+SEEN_FILE=""
+
+remove_resource_dir() {
+  local resource_dir="$1"
+  [[ "$resource_dir" == "$RESOURCES_DIR/"* ]] || die 'refusing to remove a resource outside the registry'
+  rm -f "$resource_dir/lease" "$resource_dir/type" "$resource_dir/value"
+  rmdir "$resource_dir" 2>/dev/null || true
+}
+
+cleanup() {
+  local status=$?
+  if [[ -n "$CREATED_RESOURCES_FILE" && -f "$CREATED_RESOURCES_FILE" ]]; then
+    while IFS= read -r resource_dir; do
+      [[ -n "$resource_dir" ]] && remove_resource_dir "$resource_dir"
+    done < "$CREATED_RESOURCES_FILE"
+    rm -f "$CREATED_RESOURCES_FILE"
+  fi
+  if [[ -n "$CLAIM_TMP_DIR" && -d "$CLAIM_TMP_DIR" ]]; then
+    rm -f "$CLAIM_TMP_DIR/metadata.tsv" "$CLAIM_TMP_DIR/resources.tsv"
+    rmdir "$CLAIM_TMP_DIR" 2>/dev/null || true
+  fi
+  if [[ -n "$SEEN_FILE" && -f "$SEEN_FILE" ]]; then
+    rm -f "$SEEN_FILE"
+  fi
+  if [[ "$LOCK_HELD" == '1' ]]; then
+    rm -f "$MUTEX_DIR/pid"
+    rmdir "$MUTEX_DIR" 2>/dev/null || true
+  fi
+  exit "$status"
+}
+trap cleanup EXIT INT TERM
+
+acquire_mutex() {
+  local attempt holder
+  for attempt in $(seq 1 100); do
+    if mkdir "$MUTEX_DIR" 2>/dev/null; then
+      printf '%s\n' "$$" > "$MUTEX_DIR/pid"
+      LOCK_HELD=1
+      return 0
+    fi
+    holder="$(cat "$MUTEX_DIR/pid" 2>/dev/null || true)"
+    if [[ "$holder" =~ ^[0-9]+$ ]] && ! kill -0 "$holder" 2>/dev/null; then
+      rm -f "$MUTEX_DIR/pid"
+      rmdir "$MUTEX_DIR" 2>/dev/null || true
+      continue
+    fi
+    sleep 0.05
+  done
+  die 'registry is busy; retry after the current claim/release operation finishes'
+}
+
+release_mutex() {
+  if [[ "$LOCK_HELD" == '1' ]]; then
+    rm -f "$MUTEX_DIR/pid"
+    rmdir "$MUTEX_DIR" 2>/dev/null || true
+    LOCK_HELD=0
+  fi
+}
+
+validate_lease_id() {
+  [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || die 'lease id must be 1-64 letters, digits, dot, underscore, or hyphen'
+}
+
+validate_owner() {
+  [[ -n "$1" && "$1" != *$'\n'* && "$1" != *$'\t'* ]] || die 'owner must be non-empty and contain no tabs/newlines'
+}
+
+validate_resource() {
+  local resource="$1" type value
+  [[ "$resource" == *=* ]] || die "resource must use type=value: $resource"
+  type="${resource%%=*}"
+  value="${resource#*=}"
+  [[ "$type" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "invalid resource type: $type"
+  [[ -n "$value" && "$value" != *$'\n'* && "$value" != *$'\t'* ]] || die "resource value must be non-empty and contain no tabs/newlines: $type"
+}
+
+resource_hash() {
+  printf '%s\t%s' "$1" "$2" | shasum -a 256 | awk '{print $1}'
+}
+
+metadata_value() {
+  local file="$1" key="$2"
+  awk -F '\t' -v wanted="$key" '$1 == wanted {sub(/^[^\t]*\t/, ""); print; exit}' "$file"
+}
+
+lease_expired() {
+  local lease_dir="$1" expires_at now
+  expires_at="$(metadata_value "$lease_dir/metadata.tsv" expires_at 2>/dev/null || true)"
+  now="$(date +%s)"
+  [[ "$expires_at" =~ ^[0-9]+$ && "$expires_at" -le "$now" ]]
+}
+
+release_lease_locked() {
+  local lease_id="$1" expected_owner="${2:-}" lease_dir owner hash type value resource_dir
+  lease_dir="$LEASES_DIR/$lease_id"
+  [[ -d "$lease_dir" ]] || die "lease does not exist: $lease_id"
+  owner="$(metadata_value "$lease_dir/metadata.tsv" owner)"
+  if [[ -n "$expected_owner" && "$owner" != "$expected_owner" ]]; then
+    die "lease $lease_id belongs to $owner, not $expected_owner"
+  fi
+  while IFS=$'\t' read -r hash type value; do
+    [[ -n "$hash" ]] || continue
+    resource_dir="$RESOURCES_DIR/$hash"
+    if [[ -d "$resource_dir" && "$(cat "$resource_dir/lease" 2>/dev/null || true)" == "$lease_id" ]]; then
+      remove_resource_dir "$resource_dir"
+    fi
+  done < "$lease_dir/resources.tsv"
+  rm -f "$lease_dir/metadata.tsv" "$lease_dir/resources.tsv"
+  rmdir "$lease_dir"
+}
+
+case "$COMMAND" in
+  claim)
+    LEASE_ID=""
+    OWNER=""
+    THREAD_ID=""
+    CANDIDATE=""
+    CANDIDATE_REPOSITORY="$REPO_ROOT"
+    GATE=""
+    TTL=14400
+    RESOURCES=()
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --lease) [[ $# -ge 2 ]] || die '--lease requires a value'; LEASE_ID="$2"; shift 2 ;;
+        --owner) [[ $# -ge 2 ]] || die '--owner requires a value'; OWNER="$2"; shift 2 ;;
+        --thread) [[ $# -ge 2 ]] || die '--thread requires a value'; THREAD_ID="$2"; shift 2 ;;
+        --candidate) [[ $# -ge 2 ]] || die '--candidate requires a value'; CANDIDATE="$2"; shift 2 ;;
+        --candidate-repository) [[ $# -ge 2 ]] || die '--candidate-repository requires a value'; CANDIDATE_REPOSITORY="$2"; shift 2 ;;
+        --gate) [[ $# -ge 2 ]] || die '--gate requires a value'; GATE="$2"; shift 2 ;;
+        --ttl) [[ $# -ge 2 ]] || die '--ttl requires a value'; TTL="$2"; shift 2 ;;
+        --resource) [[ $# -ge 2 ]] || die '--resource requires a value'; RESOURCES+=("$2"); shift 2 ;;
+        --help|-h) usage; exit 0 ;;
+        *) die "unknown claim option: $1" ;;
+      esac
+    done
+    validate_lease_id "$LEASE_ID"
+    validate_owner "$OWNER"
+    [[ -n "$THREAD_ID" ]] || THREAD_ID="$OWNER"
+    validate_owner "$THREAD_ID"
+    [[ "$CANDIDATE" =~ ^[0-9a-f]{40}$ ]] || die 'candidate must be an exact lowercase 40-hex commit'
+    [[ "$CANDIDATE_REPOSITORY" == /* && -d "$CANDIDATE_REPOSITORY" ]] \
+      || die 'candidate repository must be an existing absolute directory'
+    CANDIDATE_REPOSITORY="$(cd "$CANDIDATE_REPOSITORY" && pwd -P)"
+    git -C "$CANDIDATE_REPOSITORY" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+      || die "candidate repository is not a Git worktree: $CANDIDATE_REPOSITORY"
+    git -C "$CANDIDATE_REPOSITORY" cat-file -e "${CANDIDATE}^{commit}" 2>/dev/null \
+      || die "candidate is unavailable in $CANDIDATE_REPOSITORY: $CANDIDATE"
+    [[ "$GATE" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]] || die 'gate has an invalid name'
+    [[ "$TTL" =~ ^[0-9]+$ && "$TTL" -ge 60 && "$TTL" -le 86400 ]] || die 'ttl must be 60-86400 seconds'
+    WORKTREE="$(cd "$REPO_ROOT" && pwd -P)"
+    RESOURCES+=("gate=$GATE" "worktree=$WORKTREE")
+    for resource in "${RESOURCES[@]}"; do validate_resource "$resource"; done
+
+    acquire_mutex
+    LEASE_DIR="$LEASES_DIR/$LEASE_ID"
+    [[ ! -e "$LEASE_DIR" ]] || die "lease already exists: $LEASE_ID"
+    NOW="$(date +%s)"
+    EXPIRES_AT=$((NOW + TTL))
+    CLAIM_TMP_DIR="$LEASES_DIR/.claim-${LEASE_ID}-$$"
+    CREATED_RESOURCES_FILE="$REGISTRY_ROOT/.created-${LEASE_ID}-$$"
+    mkdir "$CLAIM_TMP_DIR"
+    : > "$CLAIM_TMP_DIR/resources.tsv"
+    : > "$CREATED_RESOURCES_FILE"
+    SEEN_FILE="$REGISTRY_ROOT/.seen-${LEASE_ID}-$$"
+    : > "$SEEN_FILE"
+
+    for resource in "${RESOURCES[@]}"; do
+      TYPE="${resource%%=*}"
+      VALUE="${resource#*=}"
+      HASH="$(resource_hash "$TYPE" "$VALUE")"
+      if grep -Fxq "$HASH" "$SEEN_FILE"; then
+        continue
+      fi
+      printf '%s\n' "$HASH" >> "$SEEN_FILE"
+      RESOURCE_DIR="$RESOURCES_DIR/$HASH"
+      if [[ -d "$RESOURCE_DIR" ]]; then
+        HOLDER="$(cat "$RESOURCE_DIR/lease" 2>/dev/null || printf 'unknown')"
+        die "resource conflict: $TYPE=$VALUE is held by lease $HOLDER"
+      fi
+      mkdir "$RESOURCE_DIR"
+      printf '%s\n' "$LEASE_ID" > "$RESOURCE_DIR/lease"
+      printf '%s\n' "$TYPE" > "$RESOURCE_DIR/type"
+      printf '%s\n' "$VALUE" > "$RESOURCE_DIR/value"
+      printf '%s\n' "$RESOURCE_DIR" >> "$CREATED_RESOURCES_FILE"
+      printf '%s\t%s\t%s\n' "$HASH" "$TYPE" "$VALUE" >> "$CLAIM_TMP_DIR/resources.tsv"
+    done
+    rm -f "$SEEN_FILE"
+    SEEN_FILE=""
+    printf 'lease\t%s\nowner\t%s\nthread\t%s\ncandidate\t%s\ncandidate_repository\t%s\ngate\t%s\nworktree\t%s\ncreated_at\t%s\nexpires_at\t%s\nstatus\tACTIVE\n' \
+      "$LEASE_ID" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$GATE" "$WORKTREE" "$NOW" "$EXPIRES_AT" > "$CLAIM_TMP_DIR/metadata.tsv"
+    mv "$CLAIM_TMP_DIR" "$LEASE_DIR"
+    CLAIM_TMP_DIR=""
+    rm -f "$CREATED_RESOURCES_FILE"
+    CREATED_RESOURCES_FILE=""
+    release_mutex
+    printf 'lease=%s\nowner=%s\ncandidate=%s\ngate=%s\nexpires_at=%s\n' "$LEASE_ID" "$OWNER" "$CANDIDATE" "$GATE" "$EXPIRES_AT"
+    ;;
+
+  renew)
+    LEASE_ID=""; OWNER=""; TTL=14400
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --lease) LEASE_ID="${2:-}"; shift 2 ;;
+        --owner) OWNER="${2:-}"; shift 2 ;;
+        --ttl) TTL="${2:-}"; shift 2 ;;
+        *) die "unknown renew option: $1" ;;
+      esac
+    done
+    validate_lease_id "$LEASE_ID"; validate_owner "$OWNER"
+    [[ "$TTL" =~ ^[0-9]+$ && "$TTL" -ge 60 && "$TTL" -le 86400 ]] || die 'ttl must be 60-86400 seconds'
+    acquire_mutex
+    LEASE_DIR="$LEASES_DIR/$LEASE_ID"
+    [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
+    [[ "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" == "$OWNER" ]] || die "lease $LEASE_ID belongs to another owner"
+    NOW="$(date +%s)"; EXPIRES_AT=$((NOW + TTL)); TMP_METADATA="$LEASE_DIR/.metadata.$$"
+    awk -F '\t' -v expires="$EXPIRES_AT" 'BEGIN{OFS="\t"} $1=="expires_at"{$2=expires} {print}' "$LEASE_DIR/metadata.tsv" > "$TMP_METADATA"
+    mv "$TMP_METADATA" "$LEASE_DIR/metadata.tsv"
+    release_mutex
+    printf 'lease=%s\nexpires_at=%s\n' "$LEASE_ID" "$EXPIRES_AT"
+    ;;
+
+  release)
+    LEASE_ID=""; OWNER=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --lease) LEASE_ID="${2:-}"; shift 2 ;;
+        --owner) OWNER="${2:-}"; shift 2 ;;
+        *) die "unknown release option: $1" ;;
+      esac
+    done
+    validate_lease_id "$LEASE_ID"; validate_owner "$OWNER"
+    acquire_mutex
+    release_lease_locked "$LEASE_ID" "$OWNER"
+    release_mutex
+    printf 'released=%s\n' "$LEASE_ID"
+    ;;
+
+  list)
+    printf 'LEASE\tSTATUS\tOWNER\tGATE\tCANDIDATE\tWORKTREE\tEXPIRES_AT\n'
+    shopt -s nullglob
+    for LEASE_DIR in "$LEASES_DIR"/*; do
+      [[ -d "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || continue
+      STATUS=ACTIVE
+      if lease_expired "$LEASE_DIR"; then STATUS=EXPIRED; fi
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" lease)" "$STATUS" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" "$(metadata_value "$LEASE_DIR/metadata.tsv" gate)" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate)" "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)" \
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" expires_at)"
+    done
+    ;;
+
+  show)
+    LEASE_ID=""
+    [[ "${1:-}" == '--lease' && -n "${2:-}" && $# -eq 2 ]] || die 'show requires --lease <run-id>'
+    LEASE_ID="$2"; validate_lease_id "$LEASE_ID"; LEASE_DIR="$LEASES_DIR/$LEASE_ID"
+    [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
+    cat "$LEASE_DIR/metadata.tsv"
+    printf 'resources\n'
+    awk -F '\t' '{printf "%s\t%s\n", $2, $3}' "$LEASE_DIR/resources.tsv"
+    ;;
+
+  prune-expired)
+    [[ $# -eq 0 ]] || die 'prune-expired takes no options'
+    acquire_mutex
+    COUNT=0
+    shopt -s nullglob
+    for LEASE_DIR in "$LEASES_DIR"/*; do
+      [[ -d "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || continue
+      if lease_expired "$LEASE_DIR"; then
+        LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
+        release_lease_locked "$LEASE_ID"
+        COUNT=$((COUNT + 1))
+      fi
+    done
+    release_mutex
+    printf 'pruned=%s\n' "$COUNT"
+    ;;
+
+  --help|-h|help)
+    usage
+    ;;
+  *)
+    die "unknown command: $COMMAND"
+    ;;
+esac

@@ -25,7 +25,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
-REGISTRY_PATH = ROOT / "resources/project-resources.json"
+REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
 P0E_REGISTRY_PATH = ROOT / "resources/p0e-runtime-qualification.json"
 LEASE_TOOL = ROOT / "scripts/project-resource-lease"
 REGISTRY_TOOL = ROOT / "scripts/project-resource-registry"
@@ -40,7 +40,12 @@ RESOURCE_ID = "peanut-admin-p0e-mysql84-gate"
 ADMIN_TOOLING_ID = "peanut-admin-mysql84-remote-admin-cli"
 BROWSER_TOOLING_ID = "peanut-admin-p0e-playwright-cli"
 DATABASE_TUNNEL_ID = "peanut-admin-p0e-mysql84-container-tunnel"
+REMOTE_ADMIN_FAILURE_POLICY = (
+    "credential, SSH, Docker daemon or allocation health failures fail closed; "
+    "P0-E never stops or restarts Docker Desktop and never recreates the persistent MySQL allocation"
+)
 GROUP_RESULT = re.compile(r"^[a-z0-9][a-z0-9.-]{0,63}$")
+RUNTIME_VALUES: dict[str, str] = {}
 
 
 class GateError(RuntimeError):
@@ -49,6 +54,14 @@ class GateError(RuntimeError):
 
 def fail(message: str) -> None:
     raise GateError(message)
+
+
+def operating_system_environment() -> dict[str, str]:
+    return {
+        key: value
+        for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "PEANUT_RESOURCE_REGISTRY", "SystemRoot", "COMSPEC", "PATHEXT")
+        if (value := os.environ.get(key))
+    }
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -70,7 +83,7 @@ def command(
     capture: bool = False,
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    merged = os.environ.copy()
+    merged = operating_system_environment()
     if env:
         merged.update(env)
     if log is not None:
@@ -116,7 +129,7 @@ def sha256(path: Path) -> str:
 
 
 def required_environment(name: str) -> str:
-    value = os.environ.get(name, "")
+    value = RUNTIME_VALUES.get(name, "")
     if not value:
         fail(f"missing required environment: {name}")
     return value
@@ -140,12 +153,11 @@ def read_private_environment(path: Path, required: set[str]) -> dict[str, str]:
 
 def prepare_database_credentials() -> None:
     command(
-        [str(DEVELOPMENT_DATABASE_SYNC), "sync-credentials"],
-        env={"PEANUT_SERVER_ENV_FILE": str(LOCAL_BACKEND_ENV)},
+        [str(DEVELOPMENT_DATABASE_SYNC), "sync-credentials", "--backend-env", str(LOCAL_BACKEND_ENV)],
     )
     values = read_private_environment(LOCAL_BACKEND_ENV, {"DB_USER", "DB_PASS"})
-    os.environ["P0E_DB_USER"] = values["DB_USER"]
-    os.environ["P0E_DB_PASSWORD"] = values["DB_PASS"]
+    RUNTIME_VALUES["P0E_DB_USER"] = values["DB_USER"]
+    RUNTIME_VALUES["P0E_DB_PASSWORD"] = values["DB_PASS"]
 
 
 def registered_browser_cli_path(p0e_registry: dict[str, Any] | None = None) -> Path:
@@ -202,8 +214,14 @@ def validate_fixture() -> tuple[
     dict[str, Any],
     dict[str, Any],
 ]:
+    if not os.environ.get("PEANUT_RESOURCE_REGISTRY"):
+        fail("P0-E requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
+    if not REGISTRY_PATH.is_absolute() or REGISTRY_PATH.is_symlink():
+        fail("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
     fixture = read_json(FIXTURE_PATH)
     registry = read_json(REGISTRY_PATH)
+    if registry.get("authority", {}).get("role") != "maintainer":
+        fail("P0-E requires the explicit maintainer resource registry")
     p0e_registry = read_json(P0E_REGISTRY_PATH)
     if fixture.get("schema_version") != 1 or fixture.get("gate") != "p0e-runtime-qualification":
         fail("unsupported P0-E fixture")
@@ -233,6 +251,8 @@ def validate_fixture() -> tuple[
         "database": registered.get("database"),
         "namespace": registered.get("namespace"),
         "version": registered.get("version"),
+        "credential_ref": registered.get("credential_ref"),
+        "failure_policy": REMOTE_ADMIN_FAILURE_POLICY,
         "fallback": "none",
     }
     for key, value in expected_binding.items():
@@ -253,12 +273,16 @@ def validate_fixture() -> tuple[
         "container_name": "peanut-admin-mysql84-development",
         "container_image": "mysql:8.4.10@sha256:8dbcf531a03aade657e181b9cf2f1d1803ce621a1d55610cb44cb531ab7d7db6",
         "mysql_command": "/usr/bin/mysql",
+        "credential_ref": binding.get("credential_ref"),
+        "failure_policy": REMOTE_ADMIN_FAILURE_POLICY,
     }
     for key, value in expected_tool.items():
         if admin_tool.get(key) != value:
             fail(f"registered P0-E administrative tooling disagrees on {key}")
     if admin_tool.get("fallback") != "none; host mysql commands are forbidden":
         fail("P0-E administrative tooling must forbid a host MySQL fallback")
+    if registered.get("credential_ref") != binding.get("credential_ref"):
+        fail("P0-E database credential source diverged from the maintainer registry")
     browser_matches = [item for item in tooling if item.get("stable_resource_id") == BROWSER_TOOLING_ID]
     if len(browser_matches) != 1:
         fail(f"registry must contain exactly one {BROWSER_TOOLING_ID}")
@@ -401,13 +425,20 @@ def absolute_path(value: str, label: str, run_id: str) -> Path:
     return normalized
 
 
-def database_names(fixture: dict[str, Any], run_id: str) -> dict[str, str]:
+def database_names(
+    fixture: dict[str, Any],
+    run_id: str,
+    scenarios: list[str] | None = None,
+) -> dict[str, str]:
     if not re.fullmatch(r"[a-z0-9]{1,11}", run_id):
         fail("run_id must match ^[a-z0-9]{1,11}$")
     template = fixture["database_resource"]["database_template"]
+    requested = scenarios if scenarios is not None else list(fixture["scenarios"])
+    if any(scenario not in fixture["scenarios"] for scenario in requested):
+        fail("qualification selected an unknown database scenario")
     names = {
         scenario: template.replace("<run_id>", run_id).replace("<scenario>", scenario)
-        for scenario in fixture["scenarios"]
+        for scenario in requested
     }
     for name in names.values():
         if name == PERSISTENT_DATABASE or not re.fullmatch(r"[a-z0-9_]{1,64}", name):
@@ -416,9 +447,61 @@ def database_names(fixture: dict[str, Any], run_id: str) -> dict[str, str]:
 
 
 def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
-    preflight_browser_tooling()
     fixture, registry, registered, admin_tool, browser_hosts, database_tunnel = validate_fixture()
-    names = database_names(fixture, args.run_id)
+    fixture_groups = list(fixture["groups"])
+    through_group = getattr(args, "through_group", None)
+    selected_group_argument = getattr(args, "groups", None)
+    if through_group is not None and selected_group_argument is not None:
+        fail("through-group and groups are mutually exclusive")
+    selection_scope = "full"
+    if getattr(args, "minimum_release", False):
+        if through_group is not None or selected_group_argument is not None:
+            fail("minimum-release cannot be combined with another group selection")
+        selected_group_argument = "generated-application,standalone-fresh,multi-tenant-fresh,production-compose"
+    if selected_group_argument is not None:
+        requested_groups = selected_group_argument.split(",")
+        if (
+            not requested_groups
+            or any(not group for group in requested_groups)
+            or len(set(requested_groups)) != len(requested_groups)
+            or any(group not in fixture_groups for group in requested_groups)
+        ):
+            fail("groups must be a unique comma-separated set of registered qualification groups")
+        requested_group_set = set(requested_groups)
+        selected_groups = [group for group in fixture_groups if group in requested_group_set]
+        if "generated-application" not in selected_groups:
+            fail("selected qualification groups must include generated-application")
+        if "standalone-browser" in selected_groups and "production-compose" not in selected_groups:
+            fail("standalone-browser requires production-compose")
+        selection_scope = "selected-groups"
+    elif through_group is None:
+        selected_groups = fixture_groups
+    else:
+        if through_group not in fixture_groups:
+            fail(f"through-group is not a registered qualification group: {through_group}")
+        selected_groups = fixture_groups[:fixture_groups.index(through_group) + 1]
+        selection_scope = "through-group"
+    group_scenarios = {
+        "generated-application": ("standalone_fresh", "multi_tenant_fresh"),
+        "standalone-fresh": ("standalone_fresh",),
+        "multi-tenant-fresh": ("multi_tenant_fresh",),
+        "plugin-lifecycle": ("plugin_lifecycle",),
+        "consumer-module-lifecycle": ("consumer_module_cycle",),
+        "production-compose": ("standalone_browser",),
+        "standalone-browser": ("standalone_browser",),
+        "multi-tenant-browser": ("multi_tenant_browser",),
+    }
+    selected_scenarios: list[str] = []
+    # Preserve the released guard's prefix-shaped resource proof. Reserving a
+    # namespace does not execute its qualification group or create its database.
+    lease_groups = fixture_groups[:fixture_groups.index(selected_groups[-1]) + 1]
+    for group in lease_groups:
+        for scenario in group_scenarios[group]:
+            if scenario not in selected_scenarios:
+                selected_scenarios.append(scenario)
+    names = database_names(fixture, args.run_id, selected_scenarios)
+    compose_required = "production-compose" in selected_groups
+    browser_required = any(group in selected_groups for group in ("standalone-browser", "multi-tenant-browser"))
     paths = {
         "output-dir": str(absolute_path(args.output_dir, "output-dir", args.run_id)),
         "cache-dir": str(absolute_path(args.cache_dir, "cache-dir", args.run_id)),
@@ -450,41 +533,52 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         common_dir = ROOT / common_dir
     common_dir = Path(os.path.realpath(common_dir))
     lease_proof_dir = common_dir / "peanut-admin-resource-leases/leases" / args.lease
+    qualification_resources = [selected_groups[-1]]
     resources: list[tuple[str, str]] = [
         ("resource-id", RESOURCE_ID),
         ("environment", "development"),
         ("deployment-target", "local-production-preview"),
+        *(("qualification-group", group) for group in qualification_resources),
         ("consumer", "host"),
-        ("consumer", "container"),
         (
             "endpoint",
             f"{registered['upstream_endpoint']['host']}:"
             f"{registered['upstream_endpoint']['port']}",
-        ),
-        (
-            "endpoint",
-            f"{registered['container_endpoint']['host']}:"
-            f"{registered['container_endpoint']['port']}",
         ),
         ("run-id", args.run_id),
         ("candidate-tree", tree),
         *(("mysql-db", value) for value in names.values()),
         ("deployment-mode", "standalone"),
         ("deployment-mode", "multi-tenant"),
-        (("port", str(args.http_port))),
-        (("port", str(args.docs_port))),
-        (("port", str(database_tunnel["local_port"]))),
-        ("http-port", str(args.http_port)),
-        ("docs-port", str(args.docs_port)),
-        ("database-tunnel", DATABASE_TUNNEL_ID),
         ("cache-dir", paths["cache-dir"]),
         ("output-dir", paths["output-dir"]),
-        ("compose-project", compose_project),
-        ("browser-session", f"p0e-{args.run_id}"),
-        ("browser-host", browser_hosts["tenant_admin_host"]),
-        ("browser-host", browser_hosts["platform_host"]),
-        ("lease-proof-dir", str(lease_proof_dir)),
     ]
+    listener_ports: list[int] = []
+    if compose_required:
+        resources.extend([
+            ("consumer", "container"),
+            (
+                "endpoint",
+                f"{registered['container_endpoint']['host']}:"
+                f"{registered['container_endpoint']['port']}",
+            ),
+            ("port", str(args.http_port)),
+            ("port", str(database_tunnel["local_port"])),
+            ("http-port", str(args.http_port)),
+            ("database-tunnel", DATABASE_TUNNEL_ID),
+            ("compose-project", compose_project),
+            ("lease-proof-dir", str(lease_proof_dir)),
+        ])
+        listener_ports.extend([args.http_port, int(database_tunnel["local_port"])])
+    if browser_required:
+        resources.extend([
+            ("port", str(args.docs_port)),
+            ("docs-port", str(args.docs_port)),
+            ("browser-session", f"p0e-{args.run_id}"),
+            ("browser-host", browser_hosts["tenant_admin_host"]),
+            ("browser-host", browser_hosts["platform_host"]),
+        ])
+        listener_ports.append(args.docs_port)
     return {
         "schema_version": 1,
         "gate": fixture["gate"],
@@ -498,7 +592,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
             for key in (
                 "stable_resource_id", "version", "host", "transport", "ssh_alias",
                 "ssh_command", "docker_command", "container_name", "container_image",
-                "mysql_command", "fallback",
+                "mysql_command", "credential_ref", "failure_policy", "fallback",
             )
         },
         "database_tunnel": {
@@ -517,6 +611,9 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "host_endpoint": f"{fixture['database_resource']['host']}:{fixture['database_resource']['port']}",
         "databases": names,
         "ports": {"http": args.http_port, "docs": args.docs_port},
+        "listener_ports": listener_ports,
+        "compose_required": compose_required,
+        "browser_required": browser_required,
         "browser_hosts": {
             "tenant_admin": browser_hosts["tenant_admin_host"],
             "platform": browser_hosts["platform_host"],
@@ -525,7 +622,12 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "compose_project": compose_project,
         "lease_proof_dir": str(lease_proof_dir),
         "lease_proof_container_path": "/run/peanut-admin/resource-lease",
-        "groups": fixture["groups"],
+        "groups": selected_groups,
+        "full_gate_groups": fixture_groups,
+        "through_group": through_group,
+        "selection_scope": selection_scope,
+        "parent_lease": getattr(args, "parent_lease", None),
+        "candidate_inventory_sha256": sha256(ROOT / "scaffold/application-template-inventory.json"),
         "target_release": fixture["target_release"],
         "lease_resources": [{"type": kind, "value": value} for kind, value in resources],
     }
@@ -557,6 +659,8 @@ def expected_resources(plan_data: dict[str, Any]) -> set[tuple[str, str]]:
 
 
 def claim(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
+    if plan_data["browser_required"]:
+        preflight_browser_tooling()
     for path in plan_data["paths"].values():
         if Path(path).exists():
             fail(f"claim path already exists: {path}")
@@ -565,6 +669,8 @@ def claim(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
         "--thread", args.thread, "--candidate", args.candidate, "--gate", plan_data["gate"],
         "--ttl", str(args.ttl),
     ]
+    if args.parent_lease:
+        invocation.extend(["--parent-lease", args.parent_lease])
     for item in plan_data["lease_resources"]:
         invocation.extend(["--resource", f"{item['type']}={item['value']}"])
     command(invocation)
@@ -580,6 +686,7 @@ def verify_lease(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
         "thread": args.thread,
         "candidate": args.candidate,
         "candidate_repository": plan_data["worktree"],
+        "parent_lease": args.parent_lease or "",
         "gate": plan_data["gate"],
         "worktree": plan_data["worktree"],
         "status": "ACTIVE",
@@ -593,6 +700,16 @@ def verify_lease(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
         missing = sorted(expected_resources(plan_data) - resources)
         extra = sorted(resources - expected_resources(plan_data))
         fail(f"lease resource set mismatch; missing={missing}, extra={extra}")
+    locks = Path(plan_data["lease_proof_dir"]).parent.parent / "resources"
+    for kind, value in resources:
+        holder = args.parent_lease if kind == "worktree" and args.parent_lease else args.lease
+        lock = locks / hashlib.sha256(f"{kind}\t{value}".encode()).hexdigest()
+        if lock.is_symlink() or not lock.is_dir():
+            fail(f"lease resource lock is unavailable: {kind}")
+        for field, expected in (("lease", holder), ("type", kind), ("value", value)):
+            path = lock / field
+            if path.is_symlink() or not path.is_file() or path.read_text().rstrip("\n") != expected:
+                fail(f"lease resource lock ownership mismatch: {kind}")
 
 
 class Runner:
@@ -626,6 +743,8 @@ class Runner:
             "candidate_tree": plan_data["candidate_tree"],
             "run_id": args.run_id,
             "lease": args.lease,
+            "parent_lease": args.parent_lease,
+            "planned_groups": plan_data["groups"],
             "owned_candidate_vendor": self.created_candidate_vendor,
             "groups": {},
         }
@@ -660,15 +779,10 @@ class Runner:
                 encoding="utf-8",
             )
             self.runtime_credentials.chmod(0o600)
-        os.environ.update(values)
+        RUNTIME_VALUES.update(values)
 
     def playwright_cli(self) -> str:
-        explicit = os.environ.get("P0E_PLAYWRIGHT_CLI", "")
         registered = registered_browser_cli_path()
-        if explicit:
-            if Path(os.path.realpath(explicit)) != registered or not os.access(explicit, os.X_OK):
-                fail("P0E_PLAYWRIGHT_CLI must equal the registered fixed Playwright CLI path")
-            return explicit
         if not registered.is_file() or not os.access(registered, os.X_OK):
             fail(f"P0-E Playwright CLI is unavailable; run {BROWSER_TOOLING} install")
         return str(registered)
@@ -684,17 +798,23 @@ class Runner:
     ) -> subprocess.CompletedProcess[bytes]:
         tool = self.plan["database_admin_tooling"]
         remote_command = shlex.join([tool["docker_command"], *arguments])
-        result = subprocess.run(
-            [
-                tool["ssh_command"], "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
-                tool["ssh_alias"], remote_command,
-            ],
-            input=input_bytes,
-            stdin=stdin,
-            stdout=stdout,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                [
+                    tool["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                    "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=5",
+                    "-o", "ServerAliveCountMax=3", tool["ssh_alias"], remote_command,
+                ],
+                input=input_bytes,
+                stdin=stdin,
+                stdout=stdout,
+                stderr=subprocess.PIPE,
+                env=operating_system_environment(),
+                check=False,
+                timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            fail("registered remote Docker administration timed out; P0-E does not restart Docker Desktop")
         if check and result.returncode != 0:
             detail = result.stderr.decode("utf-8", errors="replace").strip()
             fail(f"registered remote database administration failed ({result.returncode}): {detail}")
@@ -723,6 +843,8 @@ class Runner:
         expected_user = required_environment("P0E_DB_USER")
         if f"user={expected_user}\n" not in probe:
             fail("P0-E application database identity does not match the registered allocation")
+        if self.remote_mysql("SELECT 1").strip() != "1":
+            fail("registered MySQL root credential preflight failed")
 
     def start_database_tunnel(self) -> None:
         if self.database_tunnel_process is not None and self.database_tunnel_process.poll() is None:
@@ -749,6 +871,7 @@ class Runner:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True,
+            env=operating_system_environment(),
         )
         deadline = time.time() + 10
         while time.time() < deadline:
@@ -778,23 +901,65 @@ class Runner:
 
     def remote_mysql(self, sql: str, *, database: str | None = None) -> str:
         tool = self.plan["database_admin_tooling"]
-        client_script = (
-            'export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"; unset MYSQL_ROOT_PASSWORD; '
-            'if [ "$#" -eq 2 ]; then '
-            'exec "$1" --protocol=SOCKET --user=root --batch --raw --skip-column-names "$2"; '
-            'fi; exec "$1" --protocol=SOCKET --user=root --batch --raw --skip-column-names'
+        credential_host, separator, credential_path = tool["credential_ref"].partition(":")
+        if (
+            not separator
+            or credential_host != tool["ssh_alias"]
+            or not credential_path.startswith("/")
+        ):
+            fail("registered database credential reference is invalid")
+        container_script = (
+            'set -eu; client="$1"; database="$2"; '
+            'path="/tmp/.peanut-p0e-mysql-$$.cnf"; umask 077; test ! -e "$path"; '
+            'set -C; : > "$path"; set +C; '
+            "trap 'rm -f -- \"$path\"' EXIT HUP INT TERM; "
+            'IFS= read -r root; test -n "$root"; '
+            '{ printf "[client]\\n"; printf "user=root\\n"; printf "password=%s\\n" "$root"; } > "$path"; '
+            'chmod 600 "$path"; unset root MYSQL_ROOT_PASSWORD MYSQL_PWD; '
+            'if [ -n "$database" ]; then '
+            '"$client" --defaults-extra-file="$path" --protocol=SOCKET --batch --raw --skip-column-names "$database"; '
+            'else "$client" --defaults-extra-file="$path" --protocol=SOCKET --batch --raw --skip-column-names; fi'
         )
-        arguments = [
-            "exec", "-i", tool["container_name"], "/bin/sh", "-ceu", client_script,
-            "p0e-mysql", tool["mysql_command"],
-        ]
-        if database is not None:
-            arguments.append(database)
-        result = self.remote_docker(arguments, input_bytes=(sql + "\n").encode("utf-8"))
+        remote_script = (
+            'set -eu; credential="$1"; docker="$2"; container="$3"; client="$4"; database="$5"; payload="$6"; '
+            'test -f "$credential"; test ! -L "$credential"; '
+            'test "$(/usr/bin/stat -f %u "$credential")" = "$(/usr/bin/id -u)"; '
+            'test "$(/usr/bin/stat -f %Lp "$credential")" = 600; '
+            'test "$(/usr/bin/stat -f %l "$credential")" = 1; '
+            'count=$(/usr/bin/awk -F= \'$1 == "MYSQL_ROOT_PASSWORD" && length(substr($0, index($0, "=") + 1)) > 0 { count++ } END { print count + 0 }\' "$credential"); '
+            'test "$count" -eq 1 || { printf "%s\\n" "registered database credential is missing or ambiguous: MYSQL_ROOT_PASSWORD" >&2; exit 65; }; '
+            'root=$(/usr/bin/awk -F= \'$1 == "MYSQL_ROOT_PASSWORD" { sub(/^[^=]*=/, ""); print; exit }\' "$credential"); '
+            '{ printf "%s\\n" "$root"; /bin/cat; } | '
+            '"$docker" exec -i "$container" /bin/sh -ceu "$payload" p0e-mysql "$client" "$database"'
+        )
+        remote_command = shlex.join([
+            "/bin/sh", "-ceu", remote_script, "p0e-remote-admin",
+            credential_path, tool["docker_command"], tool["container_name"],
+            tool["mysql_command"], database or "", container_script,
+        ])
+        try:
+            result = subprocess.run(
+                [
+                    tool["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                    "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=5",
+                    "-o", "ServerAliveCountMax=3", tool["ssh_alias"], remote_command,
+                ],
+                input=(sql + "\n").encode("utf-8"),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=operating_system_environment(),
+                check=False,
+                timeout=60,
+            )
+        except subprocess.TimeoutExpired:
+            fail("registered remote database administration timed out; P0-E does not restart Docker Desktop")
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            fail(f"registered remote database administration failed ({result.returncode}): {detail}")
         return result.stdout.decode("utf-8", errors="strict")
 
     def initialize(self) -> None:
-        for port in [*self.plan["ports"].values(), self.plan["database_tunnel"]["local_port"]]:
+        for port in self.plan["listener_ports"]:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
                 probe.settimeout(0.5)
                 if probe.connect_ex(("127.0.0.1", int(port))) == 0:
@@ -817,6 +982,8 @@ class Runner:
             "candidate_tree": self.plan["candidate_tree"],
             "run_id": self.args.run_id,
             "lease": self.args.lease,
+            "parent_lease": self.args.parent_lease,
+            "planned_groups": self.plan["groups"],
         }.items():
             if checkpoint.get(key) != expected:
                 fail(f"checkpoint {key} mismatch")
@@ -855,6 +1022,17 @@ class Runner:
         self.save_checkpoint()
 
     def prepare_retry(self, group: str) -> None:
+        if group == "production-compose" and self.args.minimum_release:
+            receipt = self.output / "groups/native-server-fresh-standalone.json"
+            if receipt.is_file() and read_json(receipt).get("candidate") == self.args.candidate:
+                if self.compose_env.exists() and self.compose_overlay.exists():
+                    self.compose("down", "--volumes", "--remove-orphans", check=False, project_root=self.active_compose_root)
+                business = self.output / "minimum-business-standalone.json"
+                multi_fresh = self.output / "groups/native-server-fresh-multi-tenant.json"
+                database = self.plan["databases"]["multi_tenant_fresh"]
+                if business.is_file() and not multi_fresh.is_file() and self.database_exists(database):
+                    self.drop_database(database)
+                return
         scenarios = {
             "standalone-fresh": ["standalone_fresh"],
             "multi-tenant-fresh": ["multi_tenant_fresh"],
@@ -904,6 +1082,7 @@ class Runner:
         values.update({
             "APP_ENV": "production",
             "APP_DEBUG": "false",
+            "PEANUT_INSTALLATION_MODE": "automatic",
             "PEANUT_DEPLOYMENT_TARGET": "local-production-preview",
             "DB_USER": required_environment("P0E_DB_USER"),
             "DB_PASS": required_environment("P0E_DB_PASSWORD"),
@@ -936,6 +1115,8 @@ class Runner:
         )
         if container_runtime:
             values["PEANUT_RESOURCE_LEASE_PROOF"] = self.plan["lease_proof_container_path"]
+        else:
+            values["P0E_HOST_LEASE_PROOF"] = self.plan["lease_proof_dir"]
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(
             "".join(f"{key}={value}\n" for key, value in sorted(values.items())),
@@ -953,22 +1134,33 @@ class Runner:
         mode: str,
     ) -> Any:
         path = self.write_backend_env(project_root, database, mode)
-        environment = {
-            "PEANUT_SERVER_ENV_FILE": str(path),
-            "P0E_HOST_LEASE_PROOF": self.plan["lease_proof_dir"],
+        installation_path = path.with_name(path.name + ".installation")
+        installation_values = {
             "ADMIN_INITIAL_EMAIL": required_environment("P0E_ADMIN_INITIAL_EMAIL"),
             "ADMIN_INITIAL_PASSWORD": required_environment("P0E_ADMIN_INITIAL_PASSWORD"),
         }
         if mode == "multi-tenant":
-            environment.update({
+            installation_values.update({
                 "PLATFORM_INITIAL_EMAIL": required_environment("P0E_PLATFORM_INITIAL_EMAIL"),
                 "PLATFORM_INITIAL_PASSWORD": required_environment("P0E_PLATFORM_INITIAL_PASSWORD"),
             })
+        installation_path.write_text(
+            "".join(f"{key}={value}\n" for key, value in sorted(installation_values.items())),
+            encoding="utf-8",
+        )
+        installation_path.chmod(0o600)
+        environment = {
+            "PEANUT_SERVER_ENV_FILE": str(path),
+            "PEANUT_INSTALLATION_ENV_FILE": str(installation_path),
+            "PEANUT_RESOURCE_REGISTRY": "" if (project_root / "server/.peanut/release-identity.json").is_file()
+                else str(self.application_registry(project_root, database)),
+        }
         try:
             yield environment
         finally:
-            with contextlib.suppress(FileNotFoundError):
-                path.unlink()
+            for owned_path in (path, installation_path):
+                with contextlib.suppress(FileNotFoundError):
+                    owned_path.unlink()
 
     def database_exists(self, database: str) -> bool:
         escaped = database.replace("'", "''")
@@ -1007,8 +1199,52 @@ class Runner:
             self.remote_mysql(f"REVOKE ALL PRIVILEGES ON `{database}`.* FROM '{escaped_user}'@'%'")
         self.remote_mysql(f"DROP DATABASE IF EXISTS `{database}`")
 
+    def application_registry(self, project_root: Path, database: str) -> Path:
+        if database not in self.plan["databases"].values():
+            fail("P0-E application registry database is outside the fixed plan")
+        maintainer = read_json(REGISTRY_PATH)
+        matches = [item for item in maintainer.get("resources", {}).get("databases", [])
+                   if item.get("stable_resource_id") == RESOURCE_ID]
+        if len(matches) != 1:
+            fail("P0-E maintainer database resource is missing or ambiguous")
+        source = project_root / "resources/project-resources.json"
+        if not source.is_file() or source.is_symlink():
+            fail("P0-E application resource registry is unavailable")
+        application = read_json(source)
+        if not isinstance(application.get("project_id"), str) or not application["project_id"]:
+            fail("P0-E application resource identity is invalid")
+        if application.get("authority", {}).get("role") != "application":
+            fail("P0-E source must be an application-owned resource registry")
+        if not isinstance(application.get("resources"), dict) or not isinstance(application["resources"].get("databases"), list):
+            fail("P0-E application resource shape is invalid")
+        resource = dict(matches[0])
+        resource.pop("credential_ref", None)
+        registry = {
+            "schema_version": 1,
+            "project_id": application["project_id"],
+            "authority": {
+                "owner": resource["owner"],
+                "role": "application",
+                "source": "P0-E fixed plan and explicitly selected maintainer resource",
+                "run_id": self.args.run_id,
+                "database_name": database,
+                "resource_id": RESOURCE_ID,
+            },
+            "resources": {key: ([resource] if key == "databases" else [] if isinstance(value, list) else {"status": "unallocated", "resources": []})
+                          for key, value in application["resources"].items()},
+        }
+        target = self.cache / "application-resource-registry.json"
+        self.write_json(target, registry)
+        target.chmod(0o644)
+        return target
+
     @contextlib.contextmanager
-    def generated_install_bridge(self, project_root: Path) -> Any:
+    def generated_install_bridge(self, project_root: Path, database: str) -> Any:
+        # Current released applications consume their own explicit registry and
+        # native environment guard. Minimum qualification never patches code.
+        if self.args.minimum_release:
+            yield
+            return
         if project_root == ROOT:
             yield
             return
@@ -1025,9 +1261,9 @@ class Runner:
             originals.append((target, target.read_bytes(), target.stat().st_mode & 0o777))
         for relative in bridged_files:
             target = project_root / relative
-            source = ROOT / relative
+            source = self.application_registry(project_root, database) if relative == "resources/project-resources.json" else ROOT / relative
             target.write_bytes(source.read_bytes())
-            target.chmod(source.stat().st_mode & 0o777)
+            target.chmod(0o644 if relative == "resources/project-resources.json" else source.stat().st_mode & 0o777)
         try:
             yield
         finally:
@@ -1040,8 +1276,16 @@ class Runner:
 
     def install_current(self, database: str, mode: str, log: Path, project_root: Path = ROOT) -> None:
         self.reset_generated_installation_state(project_root)
-        with self.generated_install_bridge(project_root):
+        with self.generated_install_bridge(project_root, database):
             with self.backend_process_environment(project_root, database, mode) as env:
+                preflight = command(
+                    ["php", "server/database/install.php", "--preflight"],
+                    cwd=project_root, env=env, capture=True, check=False,
+                )
+                log.with_suffix(".preflight.stdout").write_text(preflight.stdout, encoding="utf-8")
+                log.with_suffix(".preflight.stderr").write_text(preflight.stderr, encoding="utf-8")
+                if preflight.returncode != 0:
+                    fail(f"installer preflight failed ({preflight.returncode}): {preflight.stdout.strip()} {preflight.stderr.strip()}")
                 command(["php", "server/database/install.php"], cwd=project_root, env=env, log=log)
         self.assert_up_to_date(database, mode, log, project_root=project_root)
 
@@ -1050,13 +1294,16 @@ class Runner:
             return
         if project_root not in self.generated.values():
             fail("refusing to reset installation state outside a generated Edition application")
-        state_root = project_root / "server/runtime/installation"
-        for name in ("executing.json", "installed.json", "execution.lock"):
-            state = state_root / name
-            if state.is_symlink() or (state.exists() and not state.is_file()):
-                fail(f"generated installation state identity changed: {state}")
-            with contextlib.suppress(FileNotFoundError):
-                state.unlink()
+        # Each fresh namespace needs fresh instance state in this owned,
+        # disposable APP. Released native installation protection stays intact.
+        for directory in ("private/installation", "runtime/installation"):
+            state_root = project_root / "server" / directory
+            for name in ("executing.json", "installed.json", "baseline.json", "migration.json", "execution.lock"):
+                state = state_root / name
+                if state.is_symlink() or (state.exists() and not state.is_file()):
+                    fail(f"generated installation state identity changed: {state}")
+                with contextlib.suppress(FileNotFoundError):
+                    state.unlink()
 
     def assert_up_to_date(self, database: str, mode: str, log: Path, project_root: Path = ROOT) -> None:
         # The container entrypoint keeps the released command contract:
@@ -1079,7 +1326,7 @@ class Runner:
             "$result+=assertCurrentDatabase($pdo);"
             "echo json_encode($result,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT),PHP_EOL;"
         )
-        with self.generated_install_bridge(project_root):
+        with self.generated_install_bridge(project_root, database):
             with self.backend_process_environment(project_root, database, mode) as env:
                 result = command(
                     ["php", "-r", guard_php],
@@ -1150,7 +1397,7 @@ class Runner:
         composer_env = {"COMPOSER_CACHE_DIR": str(self.cache / "composer")}
         if self.created_candidate_vendor:
             command(
-                ["/usr/local/bin/composer", "install", "--no-interaction", "--no-progress", "--prefer-dist"],
+                ["/usr/local/bin/composer", "install", "--no-scripts", "--no-interaction", "--no-progress", "--prefer-dist"],
                 cwd=ROOT / "server",
                 env=composer_env,
                 log=log,
@@ -1177,7 +1424,7 @@ class Runner:
                 or artifact_manifest.get("source") != {
                     "commit": self.args.candidate,
                     "tree": self.plan["candidate_tree"],
-                    "inventory_sha256": target["inventory_sha256"],
+                    "inventory_sha256": self.plan["candidate_inventory_sha256"],
                 }
                 or artifact_manifest.get("archive", {}).get("filename") != filename
                 or artifact_manifest.get("archive", {}).get("sha256") != sha256(archive)
@@ -1202,31 +1449,34 @@ class Runner:
             build_database = self.plan["databases"][f"{'multi_tenant' if edition == 'multi-tenant' else 'standalone'}_fresh"]
             with self.backend_process_environment(generated, build_database, edition) as backend_env:
                 command(
-                    ["/usr/local/bin/composer", "install", "--no-interaction", "--no-progress", "--prefer-dist"],
+                    ["/usr/local/bin/composer", "install", "--no-scripts", "--no-interaction", "--no-progress", "--prefer-dist"],
                     cwd=generated / "server",
                     env=composer_env | backend_env,
                     log=log,
                 )
             command(["php", "-r", "require 'vendor/autoload.php'; echo 'autoload=ok\\n';"], cwd=generated / "server", log=log)
-            command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "web", log=log)
-            command(["pnpm", "run", "build"], cwd=generated / "web", log=log)
-            if edition == "multi-tenant":
-                command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "platform", log=log)
-                command(["npm", "run", "build"], cwd=generated / "platform", log=log)
-            command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "pc", log=log)
-            command(["npm", "run", "typecheck"], cwd=generated / "pc", log=log)
-            command(["npm", "run", "generate"], cwd=generated / "pc", log=log)
-            command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "uniapp", log=log)
-            command(["npm", "run", "type-check"], cwd=generated / "uniapp", log=log)
-            command(["npm", "run", "build:h5"], cwd=generated / "uniapp", log=log)
-            command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "docs-site", log=log)
-            command(["pnpm", "run", "build"], cwd=generated / "docs-site", log=log)
+            # The native Edition builder has already built these shipped bytes.
+            # Full P0-E retains its independent source-build contract.
+            if not self.args.minimum_release:
+                command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "web", log=log)
+                command(["pnpm", "run", "build"], cwd=generated / "web", log=log)
+                if edition == "multi-tenant":
+                    command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "platform", log=log)
+                    command(["npm", "run", "build"], cwd=generated / "platform", log=log)
+                command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "pc", log=log)
+                command(["npm", "run", "typecheck"], cwd=generated / "pc", log=log)
+                command(["npm", "run", "generate"], cwd=generated / "pc", log=log)
+                command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "uniapp", log=log)
+                command(["npm", "run", "type-check"], cwd=generated / "uniapp", log=log)
+                command(["npm", "run", "build:h5"], cwd=generated / "uniapp", log=log)
+                command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "docs-site", log=log)
+                command(["pnpm", "run", "build"], cwd=generated / "docs-site", log=log)
 
             manifest_path = generated / ".peanut/application-manifest.json"
             manifest = read_json(manifest_path)
             expected_template = {
                 "version": target["version"],
-                "inventory_sha256": target["inventory_sha256"],
+                "inventory_sha256": self.plan["candidate_inventory_sha256"],
                 "source_commit": self.args.candidate,
                 "source_tree": self.plan["candidate_tree"],
             }
@@ -1240,7 +1490,7 @@ class Runner:
                 or manifest.get("template") != expected_template
                 or generation.get("commit") != self.args.candidate
                 or generation.get("tree") != self.plan["candidate_tree"]
-                or generation.get("inventory_sha256") != target["inventory_sha256"]
+                or generation.get("inventory_sha256") != self.plan["candidate_inventory_sha256"]
                 or artifact_manifest.get("application", {}).get("manifest_sha256") != sha256(manifest_path)
                 or artifact_manifest.get("application", {}).get("managed_tree_sha256") != manifest.get("digests", {}).get("managed_tree_sha256")
             ):
@@ -1478,17 +1728,26 @@ class Runner:
             "--output", str(output),
             "--formal-release-adoption",
         ]
-        result = command(
-            arguments,
-            env=self.create_app_environment() | {
+        consumer_environment = self.cache / "consumer-module-environment.env"
+        consumer_environment.write_text(
+            "".join(f"{name}={value}\n" for name, value in {
                 "DB_HOST": host,
                 "DB_PORT": port,
                 "DB_USER": required_environment("P0E_DB_USER"),
                 "DB_PASS": required_environment("P0E_DB_PASSWORD"),
-            },
+            }.items()),
+            encoding="utf-8",
+        )
+        consumer_environment.chmod(0o600)
+        arguments.extend(["--env-file", str(consumer_environment)])
+        result = command(
+            arguments,
+            env=self.create_app_environment(),
             capture=True,
             check=False,
         )
+        with contextlib.suppress(FileNotFoundError):
+            consumer_environment.unlink()
         with log.open("a", encoding="utf-8") as stream:
             stream.write("$ " + shlex.join(arguments) + "\n")
             stream.write(result.stdout)
@@ -1511,7 +1770,129 @@ class Runner:
             fail("consumer Module lifecycle summary identity diverged")
         self.write_json(self.output / "groups/consumer-module-lifecycle.json", summary)
 
+    def native_server_compose_env(self, project_root: Path, database: str, mode: str) -> None:
+        registration = read_json(REGISTRY_PATH)
+        matches = [item for item in registration["resources"]["tooling"]
+                   if item.get("stable_resource_id") == "peanut-admin-phase1-image-preparation"]
+        if len(matches) != 1:
+            fail("registered native server runtime is unavailable")
+        runtime = matches[0]
+        image = runtime["built_output"]
+        if sha256(project_root / "server/docker/Dockerfile") != image["dockerfile_sha256"]:
+            fail("prepared native PHP runtime Dockerfile identity changed")
+        actual = command(["docker", "image", "inspect", image["tag"], "--format", "{{.Id}}"], capture=True).stdout.strip()
+        if actual != image["image_id"]:
+            fail("prepared native PHP runtime image identity changed")
+        nginx = runtime["input_images"]["nginx"]
+        command(["docker", "image", "inspect", nginx], capture=True)
+        archive = self.edition_artifacts / f"peanut-admin-{self.fixture['target_release']['version']}-{mode}-server.tar.gz"
+        if not archive.is_file():
+            archive = Path(getattr(self.args, "consumer_server_archive", ""))
+        if not archive.is_file():
+            fail("native startup requires its real server-only archive")
+        native = self.cache / f"native-server-{mode}"
+        if not native.exists():
+            native.mkdir()
+            with tarfile.open(archive, "r:gz") as package:
+                members = package.getmembers()
+                for member in members:
+                    if Path(member.name).is_absolute() or ".." in Path(member.name).parts or not (member.isdir() or member.isfile()):
+                        fail("unsafe native server archive member")
+                    member.name = "/".join(member.name.split("/")[1:])
+                package.extractall(native, members=[member for member in members if member.name])
+        server = native / "server"
+        for relative in ("runtime", "public/storage", "private/storage", "private/resources", "private/installation"):
+            directory = server / relative
+            if directory.is_symlink():
+                fail("native instance directory is a symlink")
+            directory.mkdir(parents=True, exist_ok=True)
+        vendor_check = command(["python3", str(server / "docker/scripts/vendor-state.py"), "check", "--server", str(server)], capture=True, check=False)
+        if vendor_check.returncode != 0:
+            if (server / "private/installation").exists():
+                shutil.rmtree(server / "private/installation")
+            if (server / "vendor").exists():
+                shutil.rmtree(server / "vendor")
+            (server / "runtime").mkdir(exist_ok=True)
+            command(["bash", str(server / "docker/scripts/prepare-vendor.sh"), "start", str(server), image["image_id"]], log=self.group_log("production-compose"))
+        docker_env = server / "docker/.env"
+        if not docker_env.exists():
+            state = server / "private/installation"
+            if state.exists():
+                shutil.rmtree(state)
+            command(["python3", str(server / "docker/scripts/configure-runtime.py"), "--php-image", image["image_id"],
+                     "--project", self.plan["compose_project"], "--http-port", str(self.plan["ports"]["http"]),
+                     "--mysql-host-port", str(self.plan["database_tunnel"]["local_port"])], log=self.group_log("production-compose"))
+        # Install the real server-only identity itself. Source-APP installation
+        # receipts cannot be carried across the native server release boundary.
+        registry = self.application_registry(project_root, database)
+        private_registry = server / "private/resources/project-resources.json"
+        private_registry.parent.mkdir(exist_ok=True)
+        shutil.copyfile(registry, private_registry)
+        private_registry.chmod(0o600)
+        original = self.generated[mode]
+        self.generated[mode] = native
+        try:
+            fresh_receipt = self.output / "groups" / f"native-server-fresh-{mode}.json"
+            reuse = read_json(fresh_receipt) if fresh_receipt.is_file() else {}
+            if not (reuse.get("status") == "passed" and reuse.get("candidate") == self.args.candidate
+                    and reuse.get("database") == database and reuse.get("archive_sha256") == sha256(archive)
+                    and reuse.get("server_release_identity_sha256") == sha256(server / ".peanut/release-identity.json")
+                    and (server / "private/installation/installed.json").is_file()
+                    and reuse.get("installed_receipt_sha256") == sha256(server / "private/installation/installed.json")
+                    and self.database_exists(database)):
+                self.install_current(database, mode, self.group_log("production-compose"), project_root=native)
+                self.write_json(fresh_receipt, {"status": "passed", "candidate": self.args.candidate, "database": database,
+                    "archive_sha256": sha256(archive), "server_release_identity_sha256": sha256(server / ".peanut/release-identity.json"),
+                    "installed_receipt_sha256": sha256(server / "private/installation/installed.json")})
+        finally:
+            self.generated[mode] = original
+        # This cache is an owned fresh qualification instance, never an upgrade
+        # instance. Discard only a stale closed initial-start marker after a
+        # completed matching fresh install; native startup revalidates identity
+        # and grants traffic itself. No readiness grant is manufactured.
+        traffic = server / "runtime/upgrade"
+        initialized = traffic / ".traffic-initialized"
+        if initialized.is_file() and not (traffic / ".traffic-ready").exists():
+            if any((traffic / name).exists() for name in ("maintenance.json", "current-update.json")):
+                fail("native fresh instance unexpectedly contains update state")
+            self.write_json(self.output / "groups" / f"initial-traffic-reset-{mode}.json", {
+                "scope": "owned fresh qualification instance only", "old_marker_sha256": sha256(initialized),
+                "reason": "earlier unsuccessful initial startup; completed matching native fresh install"})
+            initialized.unlink()
+        registry = self.application_registry(project_root, database)
+        private_registry = server / "private/resources/project-resources.json"
+        private_registry.parent.mkdir(exist_ok=True)
+        shutil.copyfile(registry, private_registry)
+        private_registry.chmod(0o600)
+        backend = self.backend_values(database, mode, consumer="container")
+        backend.update({"PEANUT_INSTALLATION_MODE": "automatic", "PEANUT_RESOURCE_LEASE_PROOF": self.plan["lease_proof_container_path"],
+                        "PLATFORM_HOSTS": self.plan["browser_hosts"]["platform"], "TENANT_ADMIN_HOSTS": self.plan["browser_hosts"]["tenant_admin"]})
+        env_file = native / "server/.env"
+        env_file.write_text("".join(f"{key}={value}\n" for key, value in sorted(backend.items())))
+        env_file.chmod(0o600)
+        self.compose_backend_env = env_file
+        values = {"COMPOSE_PROJECT_NAME": self.plan["compose_project"], "HTTP_PORT": str(self.plan["ports"]["http"]),
+                  "PHP_IMAGE": image["image_id"], "NGINX_IMAGE": nginx,
+                  "MYSQL_IMAGE": self.plan["database_admin_tooling"]["container_image"], "MYSQL_ROOT_PASSWORD": secrets.token_hex(32),
+                  "NATIVE_COMPOSE_FILE": str(native / "server/docker/compose.yaml"), "PEANUT_SERVER_ENV_FILE": str(env_file)}
+        self.compose_env.write_text("".join(f"{key}={value}\n" for key, value in sorted(values.items())))
+        self.compose_env.chmod(0o600)
+        # Native Compose's optional bundled MySQL is replaced by the explicitly
+        # registered external allocation, not started as another database.
+        text = "services:\n  php:\n    depends_on: !reset {}\n"
+        text += "    volumes:\n      - " + self.plan["lease_proof_dir"] + ":" + self.plan["lease_proof_container_path"] + ":ro\n"
+        text += "  mysql:\n    profiles: [bundled-db]\nnetworks:\n  default:\n    ipam:\n      config:\n        - subnet: 192.168.224.0/20\n"
+        self.compose_overlay.write_text(text); self.compose_overlay.chmod(0o600)
+        self.write_json(self.output / "groups" / f"native-server-runtime-{mode}.json", {
+            "status": "prepared", "archive_sha256": sha256(archive), "php_runtime_resource": runtime["stable_resource_id"],
+            "php_image_id": actual, "dockerfile_sha256": image["dockerfile_sha256"], "nginx_image": nginx,
+            "server_release_identity_sha256": sha256(native / "server/.peanut/release-identity.json"), "native_compose": values["NATIVE_COMPOSE_FILE"]})
+
     def write_compose_env(self, project_root: Path, database: str, mode: str) -> None:
+        if self.args.minimum_release:
+            self.native_server_compose_env(project_root, database, mode)
+            return
+        application_registry = self.application_registry(project_root, database)
         self.compose_backend_env = self.write_backend_env(
             project_root,
             database,
@@ -1538,7 +1919,10 @@ class Runner:
             "HTTP_PORT": str(self.plan["ports"]["http"]),
             "PHP_IMAGE": f"peanut-p0e-php:{self.args.run_id}",
             "NGINX_IMAGE": f"peanut-p0e-nginx:{self.args.run_id}",
+            "PEANUT_SOURCE_COMMIT": self.args.candidate,
+            "PEANUT_SOURCE_TREE": self.plan["candidate_tree"],
             "PEANUT_SERVER_ENV_FILE": str(self.compose_backend_env),
+            "PEANUT_APPLICATION_RESOURCE_REGISTRY_FILE": str(application_registry),
         }
         temporary = self.compose_env.with_suffix(".tmp")
         temporary.write_text("".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8")
@@ -1547,20 +1931,27 @@ class Runner:
         proof_dir = Path(self.plan["lease_proof_dir"])
         if not proof_dir.is_dir():
             fail(f"active lease proof directory is unavailable: {proof_dir}")
+        parent_mount = ""
+        if self.args.parent_lease:
+            verify_lease(self.args, self.plan)
+            parent_dir = proof_dir.parent / self.args.parent_lease
+            if parent_dir.is_symlink() or not parent_dir.is_dir():
+                fail("active parent lease proof directory is unavailable")
+            parent_mount = (
+                "      - type: bind\n"
+                f"        source: {parent_dir}\n"
+                "        target: /run/peanut-admin/resource-lease-parent\n"
+                "        read_only: true\n"
+            )
         overlay = (
             "services:\n"
             "  php:\n"
-            "    environment:\n"
-            f"      PEANUT_RESOURCE_LEASE_PROOF: {self.plan['lease_proof_container_path']}\n"
             "    volumes:\n"
             "      - type: bind\n"
             f"        source: {proof_dir}\n"
             f"        target: {self.plan['lease_proof_container_path']}\n"
             "        read_only: true\n"
-            "      - type: bind\n"
-            f"        source: {ROOT / 'resources/project-resources.json'}\n"
-            "        target: /var/www/peanut-admin/resources/project-resources.json\n"
-            "        read_only: true\n"
+            f"{parent_mount}"
             "      - type: bind\n"
             f"        source: {ROOT / 'server/database/environment-guard.php'}\n"
             "        target: /var/www/peanut-admin/server/database/environment-guard.php\n"
@@ -1571,10 +1962,7 @@ class Runner:
             f"        source: {proof_dir}\n"
             f"        target: {self.plan['lease_proof_container_path']}\n"
             "        read_only: true\n"
-            "      - type: bind\n"
-            f"        source: {ROOT / 'resources/project-resources.json'}\n"
-            "        target: /var/www/peanut-admin/resources/project-resources.json\n"
-            "        read_only: true\n"
+            f"{parent_mount}"
             "networks:\n"
             "  default:\n"
             "    ipam:\n"
@@ -1611,6 +1999,22 @@ class Runner:
         project_root: Path = ROOT,
     ) -> subprocess.CompletedProcess[str]:
         environment = self.compose_environment()
+        if self.args.minimum_release:
+            native_file = environment.get("NATIVE_COMPOSE_FILE")
+            if not native_file:
+                if not check:
+                    return subprocess.CompletedProcess(["docker"], 0, "", "")
+                fail("native server Compose identity is unavailable")
+            selected = [item for item in arguments if item not in ("--build", "cron")]
+            if "--rmi" in selected:
+                index = selected.index("--rmi")
+                del selected[index:index + 2]
+            if selected and selected[0] == "up":
+                return command(["bash", str(Path(native_file).parent / "scripts/start.sh"), "-f", str(self.compose_overlay)],
+                               cwd=Path(native_file).parent, env=environment, log=log, capture=log is None, check=check)
+            return command(["docker", "compose", "--project-name", self.plan["compose_project"],
+                            "--env-file", str(self.compose_env), "-f", native_file, "-f", str(self.compose_overlay),
+                            *selected], cwd=Path(native_file).parent, env=environment, log=log, capture=log is None, check=check)
         if self.compose_backend_env is None or not self.compose_backend_env.is_file():
             fail("P0-E backend Compose environment is unavailable")
         return command([
@@ -1638,7 +2042,19 @@ class Runner:
     def production_compose_at(self, project_root: Path, scenario: str, group: str) -> None:
         database = self.plan["databases"][scenario]
         log = self.group_log(group)
-        self.create_database(database)
+        if not (self.args.minimum_release and (self.output / "groups/native-server-fresh-standalone.json").is_file() and self.database_exists(database)):
+            self.create_database(database)
+        if self.args.minimum_release:
+            self.start_database_tunnel()
+            self.write_compose_env(project_root, database, "standalone")
+            self.compose("up", "-d", "php", "nginx", log=log, project_root=project_root)
+            self.active_compose_root = project_root
+            self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
+            self.write_json(self.output / "groups" / f"{group}.json", {
+                "schema_version": 1, "candidate": self.args.candidate,
+                "application_root": str(project_root), "mode": "standalone",
+                "runtime_shape": "native-server-only", "status": "passed"})
+            return
         self.install_current(database, "standalone", log, project_root=project_root)
         with self.backend_process_environment(project_root, database, "standalone") as env:
             command(
@@ -1664,7 +2080,97 @@ class Runner:
         })
 
     def production_compose(self) -> None:
-        self.production_compose_at(self.generated["standalone"], "standalone_browser", "production-compose")
+        business_path = self.output / "minimum-business-standalone.json"
+        standalone = read_json(business_path) if self.args.minimum_release and business_path.is_file() else {}
+        if not (standalone.get("status") == "passed" and standalone.get("candidate") == self.args.candidate):
+            self.production_compose_at(self.generated["standalone"], "standalone_browser", "production-compose")
+            if self.args.minimum_release:
+                standalone = self.minimum_business("standalone") | {"candidate": self.args.candidate}
+                self.write_json(business_path, standalone)
+                self.compose("down", "--volumes", "--remove-orphans", project_root=self.generated["standalone"])
+        if self.args.minimum_release:
+            results = {"standalone": standalone}
+            generated = self.generated["multi-tenant"]
+            database = self.plan["databases"]["multi_tenant_fresh"]
+            if not ((self.output / "groups/native-server-fresh-multi-tenant.json").is_file() and self.database_exists(database)):
+                self.create_database(database)
+            self.start_database_tunnel()
+            self.write_compose_env(generated, database, "multi-tenant")
+            self.seed_multi_tenant_browser_binding(database, self.group_log("production-compose"))
+            self.compose("up", "-d", "--build", "php", "nginx", "cron", log=self.group_log("production-compose"), project_root=generated)
+            self.active_compose_root = generated
+            self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
+            results["multi-tenant"] = self.minimum_business("multi-tenant")
+            self.write_json(self.output / "minimum-business.json", results)
+
+    def minimum_business(self, mode: str) -> dict[str, Any]:
+        base = f"http://127.0.0.1:{self.plan['ports']['http']}"
+        host = self.plan["browser_hosts"]["tenant_admin"] if mode == "multi-tenant" else f"127.0.0.1:{self.plan['ports']['http']}"
+
+        def request(path: str, body: Any = None, token: str | None = None, selected_host: str = host) -> Any:
+            headers = {"Content-Type": "application/json", "Accept": "application/json", "Host": selected_host, "Origin": f"http://{selected_host}"}
+            if token:
+                headers["Authorization"] = "Bearer " + token
+            req = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
+            try:
+                response = urllib.request.urlopen(req, timeout=30)
+            except urllib.error.HTTPError as error:
+                text = error.read().decode("utf-8", errors="replace")[:1200]
+                for key in ("P0E_ADMIN_INITIAL_PASSWORD", "P0E_PLATFORM_INITIAL_PASSWORD", "P0E_JWT_SECRET"):
+                    text = text.replace(required_environment(key), "[redacted]")
+                self.write_json(self.output / "groups/minimum-business-response-error.json", {
+                    "path": path, "mode": mode, "status": error.code, "body": text})
+                raise
+            with response:
+                raw = response.read()
+                try:
+                    result = json.loads(raw)
+                except json.JSONDecodeError:
+                    text = raw.decode("utf-8", errors="replace")[:1200]
+                    for key in ("P0E_ADMIN_INITIAL_PASSWORD", "P0E_PLATFORM_INITIAL_PASSWORD", "P0E_JWT_SECRET"):
+                        text = text.replace(required_environment(key), "[redacted]")
+                    self.write_json(self.output / "groups/minimum-business-response-error.json", {
+                        "path": path, "mode": mode, "status": response.status, "content_type": response.headers.get("Content-Type"), "body": text})
+                    fail(f"minimum business returned non-JSON: {mode} {path}")
+            if result.get("code") != 20000:
+                fail(f"minimum business API failed: {mode} {path} code={result.get('code')}")
+            return result["data"]
+
+        auth = request("/adminapi/user/login", {
+            "username": required_environment("P0E_ADMIN_INITIAL_EMAIL"),
+            "password": required_environment("P0E_ADMIN_INITIAL_PASSWORD"), "terminal": 1,
+        })
+        token = auth.get("token") or auth.get("access_token")
+        if not isinstance(token, str) or not token:
+            fail("minimum business login did not return a token")
+        info = request("/adminapi/user/info", {}, token)
+        if not info.get("root"):
+            fail("minimum business owner identity is invalid")
+        if mode == "multi-tenant":
+            request("/adminapi/user/menu", {}, token=token)
+        else:
+            request("/adminapi/menu/lists", token=token)
+        request("/adminapi/config/website", token=token)
+        public = request("/api/article/lists?page_no=1&page_size=10")
+        if not isinstance(public, dict) or not isinstance(public.get("lists"), list):
+            fail("minimum public API response is invalid")
+        result = {"status": "passed", "login": True, "owner_identity": True,
+                  "backend_reads": ["user/menu" if mode == "multi-tenant" else "menu/lists", "config/website"], "public_api": "article/lists"}
+        if mode == "multi-tenant":
+            req = urllib.request.Request(base + "/adminapi/user/info", data=b"{}", headers={
+                "Content-Type": "application/json", "Host": self.plan["browser_hosts"]["platform"],
+                "Authorization": "Bearer " + token,
+            })
+            try:
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    rejected = json.load(response)
+                    if rejected.get("code") == 20000:
+                        fail("tenant identity accepted on platform Host")
+            except urllib.error.HTTPError as error:
+                if error.code not in (400, 401, 403, 404):
+                    raise
+            result["tenant_on_platform_host_rejected"] = True
+        return result
 
     def start_docs(self, project_root: Path) -> None:
         if self.docs_process is not None and self.docs_process.poll() is None and self.docs_root == project_root:
@@ -1674,7 +2180,8 @@ class Runner:
         self.docs_process = subprocess.Popen([
             "pnpm", "exec", "vitepress", "preview", ".", "--host", "127.0.0.1",
             "--port", str(self.plan["ports"]["docs"]),
-        ], cwd=project_root / "docs-site", stdout=log, stderr=subprocess.STDOUT, text=True)
+        ], cwd=project_root / "docs-site", stdout=log, stderr=subprocess.STDOUT, text=True,
+            env=operating_system_environment())
         self.docs_root = project_root
         self.wait_http(f"http://127.0.0.1:{self.plan['ports']['docs']}/")
 
@@ -1709,13 +2216,6 @@ class Runner:
             self.active_compose_root = project_root
             self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
         self.start_docs(project_root)
-        env = {
-            "P0E_PLAYWRIGHT_CLI": self.playwright_cli(),
-            "P0E_ADMIN_INITIAL_EMAIL": required_environment("P0E_ADMIN_INITIAL_EMAIL"),
-            "P0E_ADMIN_INITIAL_PASSWORD": required_environment("P0E_ADMIN_INITIAL_PASSWORD"),
-            "P0E_PLATFORM_INITIAL_EMAIL": required_environment("P0E_PLATFORM_INITIAL_EMAIL"),
-            "P0E_PLATFORM_INITIAL_PASSWORD": required_environment("P0E_PLATFORM_INITIAL_PASSWORD"),
-        }
         browser_output = self.output / "browser" / output_scope
         browser_output.mkdir(parents=True, exist_ok=True)
         command([
@@ -1725,7 +2225,9 @@ class Runner:
             "--docs-url", f"http://127.0.0.1:{self.plan['ports']['docs']}",
             "--output-dir", str(browser_output),
             "--session", f"p0e-{self.args.run_id}",
-        ], env=env, log=self.group_log(group))
+            "--env-file", str(self.runtime_credentials),
+            "--playwright-cli", self.playwright_cli(),
+        ], log=self.group_log(group))
 
     def browser(self, mode: str) -> None:
         group = f"{mode}-browser"
@@ -1746,7 +2248,7 @@ class Runner:
 
     def cleanup_success(self) -> None:
         self.stop_docs()
-        if self.compose_env.exists():
+        if self.plan["compose_required"] and self.compose_env.exists():
             self.compose(
                 "down", "--volumes", "--remove-orphans", "--rmi", "local",
                 check=False,
@@ -1758,19 +2260,20 @@ class Runner:
         residual = [name for name in self.plan["databases"].values() if self.database_exists(name)]
         if residual:
             fail(f"lease-owned database cleanup incomplete: {residual}")
-        project = self.plan["compose_project"]
-        docker_residuals = {
-            "containers": command(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
-            "volumes": command(["docker", "volume", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
-            "networks": command(["docker", "network", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
-        }
-        for tag in (f"peanut-p0e-php:{self.args.run_id}", f"peanut-p0e-nginx:{self.args.run_id}"):
-            result = command(["docker", "image", "inspect", tag], capture=True, check=False)
-            if result.returncode == 0:
-                docker_residuals.setdefault("images", []).append(tag)
-        if any(docker_residuals.values()):
-            fail(f"compose cleanup residuals remain: {docker_residuals}")
-        for port in [*self.plan["ports"].values(), self.plan["database_tunnel"]["local_port"]]:
+        if self.plan["compose_required"]:
+            project = self.plan["compose_project"]
+            docker_residuals = {
+                "containers": command(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
+                "volumes": command(["docker", "volume", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
+                "networks": command(["docker", "network", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"], capture=True).stdout.split(),
+            }
+            for tag in (f"peanut-p0e-php:{self.args.run_id}", f"peanut-p0e-nginx:{self.args.run_id}"):
+                result = command(["docker", "image", "inspect", tag], capture=True, check=False)
+                if result.returncode == 0:
+                    docker_residuals.setdefault("images", []).append(tag)
+            if any(docker_residuals.values()):
+                fail(f"compose cleanup residuals remain: {docker_residuals}")
+        for port in self.plan["listener_ports"]:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
                 probe.settimeout(0.5)
                 if probe.connect_ex(("127.0.0.1", int(port))) == 0:
@@ -1780,24 +2283,30 @@ class Runner:
         if self.compose_backend_env is not None:
             with contextlib.suppress(FileNotFoundError):
                 self.compose_backend_env.unlink()
+        if self.args.minimum_release:
+            shutil.copytree(self.edition_artifacts, self.output / "edition-artifacts")
         shutil.rmtree(self.cache)
         if self.created_candidate_vendor and (ROOT / "server/vendor").exists():
             shutil.rmtree(ROOT / "server/vendor")
-        playwright_cli = Path(self.playwright_cli())
-        lease_proof_dir = Path(self.plan["lease_proof_dir"])
-        if playwright_cli.parent == lease_proof_dir and playwright_cli.name == "playwright-cli":
-            if not playwright_cli.is_file() or playwright_cli.is_symlink():
-                fail("lease-owned Playwright CLI wrapper identity changed")
-            playwright_cli.unlink()
+        if self.plan["browser_required"]:
+            playwright_cli = Path(self.playwright_cli())
+            lease_proof_dir = Path(self.plan["lease_proof_dir"])
+            if playwright_cli.parent == lease_proof_dir and playwright_cli.name == "playwright-cli":
+                if not playwright_cli.is_file() or playwright_cli.is_symlink():
+                    fail("lease-owned Playwright CLI wrapper identity changed")
+                playwright_cli.unlink()
         self.write_json(self.summary_path, {
             "schema_version": 1,
-            "status": "passed",
+            "status": "passed" if self.plan["groups"] == self.fixture["groups"] else "partial-passed",
+            "scope": "full" if self.plan["groups"] == self.fixture["groups"] else self.plan["selection_scope"],
             "candidate": self.args.candidate,
             "candidate_tree": self.plan["candidate_tree"],
             "run_id": self.args.run_id,
             "resource_id": RESOURCE_ID,
             "environment": "development",
             "endpoint": self.plan["endpoint"],
+            "planned_groups": self.plan["groups"],
+            "full_gate_groups": self.fixture["groups"],
             "groups": self.checkpoint["groups"],
             "fresh_only_2_0": {
                 "generated_application": "groups/generated-application.json",
@@ -1830,15 +2339,23 @@ class Runner:
         self.write_json(self.summary_path, summary)
 
     def run(self) -> None:
-        self.run_group("generated-application", self.generated_application)
-        self.run_group("standalone-fresh", lambda: self.fresh("standalone_fresh", "standalone-fresh", "standalone"))
-        self.run_group("multi-tenant-fresh", lambda: self.fresh("multi_tenant_fresh", "multi-tenant-fresh", "multi-tenant"))
-        self.run_group("plugin-lifecycle", self.plugin_lifecycle)
-        self.run_group("consumer-module-lifecycle", self.consumer_module_lifecycle)
-        self.run_group("production-compose", self.production_compose)
-        self.run_group("standalone-browser", lambda: self.browser("standalone"))
-        self.run_group("multi-tenant-browser", lambda: self.browser("multi-tenant"))
-        required = set(self.fixture["groups"])
+        required = set(self.plan["groups"])
+        if "generated-application" in required:
+            self.run_group("generated-application", self.generated_application)
+        if "standalone-fresh" in required:
+            self.run_group("standalone-fresh", lambda: self.fresh("standalone_fresh", "standalone-fresh", "standalone"))
+        if "multi-tenant-fresh" in required:
+            self.run_group("multi-tenant-fresh", lambda: self.fresh("multi_tenant_fresh", "multi-tenant-fresh", "multi-tenant"))
+        if "plugin-lifecycle" in required:
+            self.run_group("plugin-lifecycle", self.plugin_lifecycle)
+        if "consumer-module-lifecycle" in required:
+            self.run_group("consumer-module-lifecycle", self.consumer_module_lifecycle)
+        if "production-compose" in required:
+            self.run_group("production-compose", self.production_compose)
+        if "standalone-browser" in required:
+            self.run_group("standalone-browser", lambda: self.browser("standalone"))
+        if "multi-tenant-browser" in required:
+            self.run_group("multi-tenant-browser", lambda: self.browser("multi-tenant"))
         passed = {name for name, value in self.checkpoint["groups"].items() if value.get("status") == "passed"}
         if passed != required:
             fail(f"qualification group closure is incomplete: {sorted(required - passed)}")
@@ -1878,6 +2395,16 @@ def add_fixed_arguments(parser: argparse.ArgumentParser, with_lease: bool = True
     parser.add_argument("--cache-dir", required=True)
     parser.add_argument("--http-port", required=True, type=int)
     parser.add_argument("--docs-port", required=True, type=int)
+    parser.add_argument("--parent-lease", help="active controller lease that owns this worktree")
+    parser.add_argument("--minimum-release", action="store_true", help="first prerelease: generated applications, both fresh installs, startup and minimum real business only")
+    parser.add_argument(
+        "--through-group",
+        help="run the registered qualification group prefix through this exact group; omit for the full Gate",
+    )
+    parser.add_argument(
+        "--groups",
+        help="run this exact comma-separated registered group set in canonical order; mutually exclusive with --through-group",
+    )
     if with_lease:
         parser.add_argument("--lease", required=True)
         parser.add_argument("--owner", required=True)
@@ -1929,7 +2456,8 @@ def main() -> int:
     except Exception as exception:
         runner.preserve_failure(exception)
         raise
-    print(json.dumps({"status": "passed", "summary": str(runner.summary_path)}))
+    summary = read_json(runner.summary_path)
+    print(json.dumps({"status": summary["status"], "summary": str(runner.summary_path)}))
     return 0
 
 

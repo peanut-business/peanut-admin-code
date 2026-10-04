@@ -1,0 +1,100 @@
+{
+    "schema_version": 1,
+    "key": "official.task",
+    "version": "1.0.0",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "10c6a47571d15d945ecf6697ef2773bc13807b50cc7b131b0ec9cba9a36ecd7c"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "official.task",
+                    "version": "1.0.0",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "1b56ee05df1fb24c69f2d0c2374c47f4c3785e4a8ba3b7bffe64f26457f07647"
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "official.task:20260826-namespace-permission-keys",
+                                "sha256": "81bff457523333ad56c1d30fb84094fbf3941902c37a56f27fe291c09145d131"
+                            },
+                            {
+                                "key": "official.task:20260921-adopt-task-job-schema",
+                                "sha256": "f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/official-task",
+            "version": "1.0.0",
+            "sha256": "748bfcb2e8a4983415fcd47a403d9e50f057cff9c888c16aa9729c5c6a7252b1"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/official-task",
+            "version": "1.0.0",
+            "integrity": "sha256-vnnJy2DhRwYm8Zeg1kz+I3FmArgkng/HDNyVtjIqhhQ="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/official-task",
+            "version": "1.0.0",
+            "entry": "web/src/modules/official-task/contribution.ts",
+            "sha256": "973efb4a55feba39510935dddad887e02af16f163e250090b22fcc0add71f638"
+        }
+    ],
+    "modules": [
+        {
+            "key": "official.task",
+            "root": "server/app/modules/official/task"
+        }
+    ]
+}

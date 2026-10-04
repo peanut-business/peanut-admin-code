@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 $root = dirname(__DIR__, 2);
@@ -18,7 +19,7 @@ $wrapperSource = (string) file_get_contents($wrapper);
 $expect(
     str_contains($wrapperSource, "require dirname(__DIR__) . '/server/database/seed-demo-data.php';")
         && !str_contains($wrapperSource, 'function demoPlan'),
-    'demo seed compatibility wrapper must only delegate to the managed implementation'
+    'demo seed compatibility wrapper must only delegate to the managed implementation',
 );
 $inventoryBuilderSource = (string) file_get_contents($inventoryBuilder);
 $managedSeederRule = strpos($inventoryBuilderSource, "\$path === 'server/database/seed-demo-data.php'");
@@ -27,18 +28,18 @@ $expect(
     $managedSeederRule !== false
         && $appOwnedDatabaseRule !== false
         && $managedSeederRule < $appOwnedDatabaseRule,
-    'demo seed implementation must be classified as managed before the general app-owned database rule'
+    'demo seed implementation must be classified as managed before the general app-owned database rule',
 );
 $dockerfile = (string) file_get_contents($productionDockerfile);
 $expect(
     str_contains($dockerfile, 'COPY server/database server/database')
         && !str_contains($dockerfile, 'COPY scripts/seed-demo-data'),
-    'production PHP image must install the managed demo seed implementation without the root wrapper'
+    'production PHP image must install the managed demo seed implementation without the root wrapper',
 );
 $expect(
     str_contains($dockerfile, 'chmod +x server/think server/database/seed-demo-data.php /usr/local/bin/peanut-php-entrypoint')
         && str_contains($dockerfile, 'ln -s /var/www/peanut-admin/server/database/seed-demo-data.php /usr/local/bin/peanut-seed-demo-data'),
-    'production PHP image does not expose the managed demo seed implementation as a stable command'
+    'production PHP image does not expose the managed demo seed implementation as a stable command',
 );
 $planOutput = [];
 $planExit = 0;
@@ -57,7 +58,7 @@ exec(escapeshellarg($script) . ' --apply 2>&1', $applyOutput, $applyExit);
 $expect($applyExit !== 0, 'demo seed apply unexpectedly ran without explicit opt-in');
 $expect(
     str_contains(implode("\n", $applyOutput), 'PEANUT_DEMO_MODE=enabled is required'),
-    'demo seed apply did not fail at its explicit opt-in gate'
+    'demo seed apply did not fail at its explicit opt-in gate',
 );
 
 $source = (string) file_get_contents($script);

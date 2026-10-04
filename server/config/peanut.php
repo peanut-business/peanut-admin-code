@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 return [
@@ -7,8 +8,8 @@ return [
     'environment' => env('APP_ENV', 'production'),
     'demo' => [
         'enabled' => env('PEANUT_DEMO_MODE', 'disabled') === 'enabled',
-        'admin_initial_email' => env('ADMIN_INITIAL_EMAIL', ''),
-        'platform_initial_email' => env('PLATFORM_INITIAL_EMAIL', ''),
+        'admin_email' => env('PEANUT_DEMO_ADMIN_EMAIL', ''),
+        'platform_email' => env('PEANUT_DEMO_PLATFORM_EMAIL', ''),
         'tenant_a_email' => env('PEANUT_DEMO_TENANT_A_EMAIL', ''),
         'tenant_b_email' => env('PEANUT_DEMO_TENANT_B_EMAIL', ''),
         'tenant_a_host' => env('PEANUT_DEMO_TENANT_A_HOST', ''),

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Peanut Admin 安装</title><style>
+body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:48px auto;padding:0 20px;line-height:1.5}
+fieldset{border:1px solid #ddd;border-radius:10px;padding:20px}label{display:block;margin:12px 0 4px}
+input,select{width:100%;box-sizing:border-box;padding:10px}button{margin-top:18px;padding:10px 18px}button+button{margin-left:8px}
+pre{white-space:pre-wrap;background:#f6f6f6;padding:14px;border-radius:8px}.warn{color:#8a4b00}
+</style></head><body>
+<h1>Peanut Admin 首次安装</h1>
+<p class="warn">Setup Token 只用于本次首次配置和安装。数据库业务账号与应用密钥由系统生成；MySQL root 密码不会进入应用配置。</p>
+<fieldset><legend>实例配置</legend>
+<label>Setup Token</label><input id="token" autocomplete="off">
+<label>部署环境</label><select id="deploymentTarget">
+<option value="local-production-preview">本机生产预览</option>
+<option value="production-candidate">非生产线上候选</option>
+<option value="production">正式生产</option>
+</select>
+<label>数据库名（可留空自动生成）</label><input id="databaseName" autocomplete="off" pattern="[A-Za-z0-9_]+">
+<label>Platform Hosts（多租户必填，逗号分隔）</label><input id="platformHosts" autocomplete="off" placeholder="platform.example.com">
+<label>Tenant Admin Hosts（多租户必填，逗号分隔）</label><input id="tenantAdminHosts" autocomplete="off" placeholder="admin.example.com">
+<button id="configure" type="button">保存实例配置</button>
+</fieldset>
+<fieldset><legend>管理员</legend>
+<label>管理员邮箱</label><input id="adminEmail" type="email">
+<label>管理员密码</label><input id="adminPassword" type="password" autocomplete="new-password">
+<label>平台管理员邮箱（多租户）</label><input id="platformEmail" type="email">
+<label>平台管理员密码（多租户）</label><input id="platformPassword" type="password" autocomplete="new-password">
+<button id="install" type="button">执行数据库安装</button>
+</fieldset>
+<h2>当前状态</h2><pre id="status">读取中…</pre>
+<script>
+const $=id=>document.getElementById(id)
+const status=$('status')
+const headers=()=>({'Content-Type':'application/json','Authorization':'Bearer '+$('token').value})
+async function jsonRequest(url,options={}){
+ const response=await fetch(url,{credentials:'same-origin',...options})
+ const data=await response.json()
+ if(!response.ok) throw new Error(JSON.stringify(data,null,2))
+ return data.data
+}
+async function refresh(){
+ try{
+  const configuration=await jsonRequest('/installapi/configuration')
+  let installation=null
+  if(configuration.configured){
+   try{installation=await jsonRequest('/installapi/status')}catch(error){installation={state:'reloading',message:String(error)}}
+  }
+  status.textContent=JSON.stringify({configuration,installation},null,2)
+  $('configure').disabled=configuration.configured||configuration.state==='installed'
+  $('install').disabled=installation?.state!=='uninstalled'
+ }catch(error){status.textContent=String(error)}
+}
+$('configure').addEventListener('click',async()=>{
+ try{
+  const body={
+   deployment_target:$('deploymentTarget').value,
+   database_name:$('databaseName').value,
+   platform_hosts:$('platformHosts').value,
+   tenant_admin_hosts:$('tenantAdminHosts').value
+  }
+  status.textContent=JSON.stringify(await jsonRequest('/installapi/configure',{method:'POST',headers:headers(),body:JSON.stringify(body)}),null,2)
+  await new Promise(resolve=>setTimeout(resolve,3500))
+  await refresh()
+ }catch(error){status.textContent=String(error)}
+})
+$('install').addEventListener('click',async()=>{
+ try{
+  const body={admin_email:$('adminEmail').value,admin_password:$('adminPassword').value}
+  if($('platformEmail').value) body.platform_email=$('platformEmail').value
+  if($('platformPassword').value) body.platform_password=$('platformPassword').value
+  status.textContent=JSON.stringify(await jsonRequest('/installapi/execute',{method:'POST',headers:headers(),body:JSON.stringify(body)}),null,2)
+  await new Promise(resolve=>setTimeout(resolve,3500))
+  await refresh()
+ }catch(error){status.textContent=String(error)}
+})
+refresh()
+</script></body></html>

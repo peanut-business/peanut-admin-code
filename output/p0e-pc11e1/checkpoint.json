@@ -1,9 +1,0 @@
-{
-  "schema_version": 1,
-  "candidate": "7684a5fcb4bd23cdd966ab760d16a8130ba41ced",
-  "candidate_tree": "e7116e1df291a38715c69107119cc15a47973193",
-  "run_id": "pc11e1",
-  "lease": "p0e-runtime-pc11e1",
-  "owned_candidate_vendor": false,
-  "groups": {}
-}

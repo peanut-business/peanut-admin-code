@@ -1,0 +1,82 @@
+{
+    "schema_version": 1,
+    "key": "peanut.entitlement-quota",
+    "version": "4.0.0-dev",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "b388cbe3d2ee75c223716f973dcdea1e28610ae946f1fc0dde547dc15cd9cd10"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "peanut.entitlement-quota",
+                    "version": "4.0.0-dev",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
+                        }
+                    ],
+                    "permissions": {
+                        "path": null,
+                        "sha256": null
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "peanut.entitlement-quota:20260921-register-module-schema",
+                                "sha256": "3e02b033e1da54869fe90a3e255e3f364f313cf16d6a2423e95667abbd89b787"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/entitlement-quota",
+            "version": "4.0.0-dev",
+            "sha256": "f1ea290bc25bc26c6df14780f2f3667c2fcd3ee3a123e8560326edd14e9c5136"
+        }
+    ],
+    "npm": [],
+    "frontend": [],
+    "modules": [
+        {
+            "key": "peanut.entitlement-quota",
+            "root": "server/app/modules/peanut/entitlement_quota"
+        }
+    ]
+}

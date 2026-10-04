@@ -1,23 +1,26 @@
 <?php
+
 declare(strict_types=1);
 
-use app\common\application\BusinessException;
+use app\common\exception\BusinessException;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\ApiProblemMapper;
 use app\common\http\PageResult;
 use app\common\validate\InputValidator;
 use app\common\model\TenantOwnedModel;
-use app\common\service\module\ModuleExecutionBoundary;
+use app\common\model\dept\Jobs;
+use app\common\services\XlsxExportService;
+use app\adminapi\services\dept\JobsApplicationService;
+use app\common\infrastructure\module\ModuleExecutionBoundary;
 use app\common\tenancy\DataScopePolicy;
 use app\common\tenancy\MultiTenantDataScopePolicy;
 use app\common\tenancy\PlatformTenantDataGateway;
-use app\common\tenancy\StandaloneDataScopePolicy;
-use app\adminapi\service\generator\GeneratorRenderService;
+use app\adminapi\services\generator\GeneratorRenderService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Module\ModuleException;
-use PeanutAdmin\Kernel\Module\Persistence\ThinkPhpModuleRuntimeRepository;
+use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use think\Container;
 use think\DbManager;
 use think\Model;
@@ -28,7 +31,9 @@ use think\App;
 use think\exception\ValidateException;
 use think\Validate;
 
-require dirname(__DIR__, 2) . '/vendor/autoload.php';
+require_once defined('PHPUNIT_COMPOSER_INSTALL')
+    ? PHPUNIT_COMPOSER_INSTALL
+    : dirname(__DIR__, 2) . '/vendor/autoload.php';
 require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
 
 function expectTpq51(bool $condition, string $message): void
@@ -80,6 +85,29 @@ final class Tpq51RecordingMysql extends Mysql
         $query->parseOptions();
         $this->record('delete', $query, $this->builder->delete($query));
         return 1;
+    }
+
+    /** 提供本测试读取所需的元数据；未知表不得触发真实数据库连接。 */
+    public function getFields(string $tableName): array
+    {
+        if (trim($tableName, '`') !== 'pa_jobs') {
+            throw new RuntimeException('Unexpected recording-connector schema lookup: ' . $tableName);
+        }
+        $types = [
+            'id' => 'int', 'tenant_id' => 'int', 'name' => 'varchar(50)',
+            'code' => 'varchar(64)', 'sort' => 'int', 'status' => 'int',
+            'is_disable' => 'int', 'remark' => 'varchar(200)',
+            'create_time' => 'int', 'update_time' => 'int', 'delete_time' => 'int',
+        ];
+        $fields = [];
+        foreach ($types as $name => $type) {
+            $fields[$name] = [
+                'name' => $name, 'type' => $type, 'notnull' => false,
+                'default' => null, 'primary' => $name === 'id',
+                'autoinc' => false, 'comment' => '',
+            ];
+        }
+        return $fields;
     }
 
     public function getAutoInc($tableName)
@@ -252,7 +280,7 @@ expectTpq51(
 );
 $insertSql = $connection->statements[0]['sql'] ?? '';
 expectTpq51(
-    (int)$created->getData('tenant_id') === 101 && tpq51SqlCount($insertSql, 'tenant_id') === 1,
+    (int) $created->getData('tenant_id') === 101 && tpq51SqlCount($insertSql, 'tenant_id') === 1,
     'before-insert Tenant ownership hook did not populate the trusted Tenant',
 );
 
@@ -311,7 +339,7 @@ expectTpq51(
     'explicit Platform Tenant gateway did not preserve its audited scope bypass',
 );
 
-tpq51InstallDataScopePolicy(new StandaloneDataScopePolicy());
+tpq51InstallDataScopePolicy(new MultiTenantDataScopePolicy($current));
 $connection->resetStatements();
 $standalone = new Tpq51Child([
     'id' => 5,
@@ -327,13 +355,13 @@ $store->run(
     static fn() => Tpq51Child::alias('child')->where('child.id', '>', 0)->select(),
 );
 expectTpq51(
-    !array_key_exists('tenant_id', $standalone->getData())
-        && tpq51SqlCount($connection->statements[0]['sql'] ?? '', 'tenant_id') === 0,
-    'Standalone write unexpectedly referenced the projected Tenant column',
+    (int) $standalone->getData('tenant_id') === 101
+        && tpq51SqlCount($connection->statements[0]['sql'] ?? '', 'tenant_id') === 1,
+    'Standalone write lost the shared Tenant ownership column',
 );
 expectTpq51(
-    tpq51SqlCount($connection->statements[1]['sql'] ?? '', 'tenant_id') === 0,
-    'Standalone read unexpectedly added a Tenant predicate',
+    tpq51SqlCount($connection->statements[1]['sql'] ?? '', 'tenant_id') === 1,
+    'Standalone read lost the shared Tenant predicate',
 );
 
 $paginator = new Bootstrap([
@@ -366,27 +394,65 @@ expectTpq51(
 );
 expectTpq51($mapper->map(new RuntimeException('unknown')) === null, 'unknown exception was exposed as a public problem');
 
-$applicationRoot = dirname(__DIR__, 2) . '/app/adminapi/application';
-foreach ([
-    dirname(__DIR__, 2) . '/app/adminapi/services/generator/GeneratorService.php',
-    $applicationRoot . '/dept/JobsApplicationService.php',
-] as $applicationFile) {
-    $applicationSource = (string)file_get_contents($applicationFile);
-    expectTpq51(
-        preg_match('/^\s*use\s+app\\\\[^;]+\\\\model\\\\/mi', $applicationSource) !== 1,
-        basename($applicationFile) . ' imports a persistence Model',
-    );
-}
-$jobsApplicationSource = (string)file_get_contents($applicationRoot . '/dept/JobsApplicationService.php');
+$applicationRoot = dirname(__DIR__, 2) . '/app/adminapi/services';
+$generatorSource = (string) file_get_contents($applicationRoot . '/generator/GeneratorService.php');
+expectTpq51(
+    preg_match('/^\s*use\s+app\\\\[^;]+\\\\model\\\\/mi', $generatorSource) !== 1,
+    'Generator orchestration imports a persistence Model',
+);
+$jobsApplicationSource = (string) file_get_contents($applicationRoot . '/dept/JobsApplicationService.php');
+// 岗位服务负责本应用 CRUD；验证其租户/软删除模型，而非恢复已合并的空转发层。
+preg_match_all('/^\s*use\s+(app\\\\[^;]+\\\\model\\\\[^;]+);/mi', $jobsApplicationSource, $jobsModelImports);
+expectTpq51(
+    ($jobsModelImports[1] ?? []) === [Jobs::class]
+        && is_subclass_of(Jobs::class, TenantOwnedModel::class)
+        && in_array(think\model\concern\SoftDelete::class, class_uses(Jobs::class) ?: [], true),
+    'Jobs CRUD must use its own Tenant-scoped soft-delete Model',
+);
 expectTpq51(
     preg_match('/catch\s*\(\\\\Throwable[^)]*\)\s*\{\s*throw\s+\$[A-Za-z_][A-Za-z0-9_]*\s*;\s*\}/s', $jobsApplicationSource) !== 1,
     'JobsApplicationService retained a no-op catch/rethrow block',
 );
 
-$generatedFiles = GeneratorRenderService::render([
-    'table_name' => 'pa_demo_article',
-    'module_name' => 'demo',
-    'entity_name' => 'Article',
+// 仅执行真实 all() 查询链；导出器不执行，记录连接器不证明数据库事务或导出资格。
+$jobsService = new JobsApplicationService(
+    (new ReflectionClass(XlsxExportService::class))->newInstanceWithoutConstructor(),
+);
+foreach ([101, 202] as $jobsTenantId) {
+    $jobsContext = tpq51TenantContext($jobsTenantId);
+    $connection->resetStatements();
+    $jobsRows = $store->run(
+        new \app\common\execution\AdminExecutionContext($jobsContext, 'tpq51.jobs.read'),
+        static fn() => $jobsService->all($jobsContext),
+    );
+    $jobsSql = $connection->statements[0]['sql'] ?? '';
+    expectTpq51(
+        $jobsRows === [] && count($connection->statements) === 1
+            && ($connection->statements[0]['operation'] ?? '') === 'select'
+            && str_contains($jobsSql, '`pa_jobs`')
+            && tpq51SqlCount($jobsSql, 'tenant_id') === 1
+            && preg_match('/`tenant_id`\s*=\s*\'?' . $jobsTenantId . '\b/', $jobsSql) === 1
+            && preg_match('/`delete_time`\s+IS\s+NULL/i', $jobsSql) === 1,
+        'Jobs query lost its current Tenant, soft-delete scope, or public list shape: ' . $jobsSql,
+    );
+    expectTpq51($store->isEmpty(), 'Jobs query leaked the Tenant execution context');
+}
+$connection->resetStatements();
+$jobsMissingContextRejected = false;
+try {
+    $jobsService->all($tenantContext);
+} catch (DomainException $exception) {
+    $jobsMissingContextRejected = $exception->getMessage() === 'EXECUTION_CONTEXT_REQUIRED';
+}
+expectTpq51(
+    $jobsMissingContextRejected && $connection->statements === [],
+    'Jobs query accepted a bare Tenant argument without an active trusted execution context',
+);
+
+$generatorDefinition = [
+    'table_name' => 'pa_fixture_matrix_article',
+    'module_name' => 'fixture.delivery-record',
+    'entity_name' => 'MatrixArticle',
     'data_owner' => 'tenant',
     'target_edition' => 'multi-tenant',
     'columns' => [
@@ -394,45 +460,66 @@ $generatedFiles = GeneratorRenderService::render([
         ['column_name' => 'tenant_id', 'php_type' => 'int', 'is_required' => true],
         ['column_name' => 'title', 'php_type' => 'string', 'is_required' => true, 'is_insert' => true, 'is_update' => true],
     ],
-]);
+];
+$generatedFiles = GeneratorRenderService::render($generatorDefinition);
 $assertGeneratedServiceOutput = static function (array $files): void {
+    $backend = 'server/app/modules/fixture/delivery_record';
+    $frontend = 'web/src/modules/fixture-delivery-record';
+    $expected = [
+        $backend . '/src/Model/MatrixArticle.php',
+        $backend . '/src/Service/MatrixArticleService.php',
+        $backend . '/src/Controller/MatrixArticleController.php',
+        $backend . '/src/Validation/MatrixArticleValidate.php',
+        $frontend . '/generated/matrix-article/api.ts',
+        $frontend . '/generated/matrix-article/index.vue',
+        $frontend . '/generated/matrix-article/contribution.ts',
+        $backend . '/route/generated/matrix-article.php',
+        $backend . '/api/metadata/generated/matrix-article.php',
+        $backend . '/module.json',
+        $backend . '/resources/permissions.json',
+        $backend . '/route/app.php',
+        $frontend . '/contribution.ts',
+        $backend . '/api/metadata/openapi.php',
+        'server/app/adminapi/route/app.php',
+    ];
     $byPath = array_column($files, 'content', 'path');
-    $servicePath = 'server/app/adminapi/services/demo/ArticleService.php';
-    if (count($files) !== 7
-        || !isset($byPath[$servicePath])
-        || !str_contains($byPath[$servicePath], 'namespace app\\adminapi\\services\\demo;')
-        || !str_contains($byPath[$servicePath], 'class ArticleService')
-        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'use app\\adminapi\\services\\demo\\ArticleService;')
-        || !str_contains($byPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '', 'ArticleService $service')) {
+    $actual = array_keys($byPath);
+    sort($actual, SORT_STRING);
+    sort($expected, SORT_STRING);
+    $servicePath = $backend . '/src/Service/MatrixArticleService.php';
+    $controller = $byPath[$backend . '/src/Controller/MatrixArticleController.php'] ?? '';
+    if (count($files) !== count($expected) || $actual !== $expected
+        || !str_contains($byPath[$servicePath] ?? '', 'namespace PeanutAdmin\\Fixtures\\DeliveryRecord\\Service;')
+        || !str_contains($byPath[$servicePath] ?? '', 'class MatrixArticleService')
+        || !str_contains($controller, 'use PeanutAdmin\\Fixtures\\DeliveryRecord\\Service\\MatrixArticleService;')
+        || !str_contains($controller, 'protected string $crudClass = MatrixArticleService::class;')
+        || !str_contains($controller, '@property-read MatrixArticleService $crud')
+        || str_contains($controller, 'function service()')) {
         throw new RuntimeException('generator services output contract violated');
     }
-    foreach (array_keys($byPath) as $path) {
+    foreach ($files as $file) {
+        $path = $file['path'];
         if (str_contains($path, 'adminapi/' . 'application') || str_contains($path, 'Application' . 'Service.php')) {
             throw new RuntimeException('generator services output contract violated');
         }
+        if (($file['operation'] ?? '') === 'merge') {
+            $source = dirname(__DIR__, 3) . '/' . $path;
+            if (!is_file($source) || !hash_equals(hash_file('sha256', $source), $file['base_sha256'] ?? '')) {
+                throw new RuntimeException('generator services output contract violated');
+            }
+        }
+    }
+    $route = $byPath[$backend . '/route/generated/matrix-article.php'];
+    if (!str_contains($route, 'OfficialModuleMiddleware::class') || !str_contains($route, 'AuthMiddleware::class')
+        || !str_contains($byPath[$backend . '/route/app.php'], "require __DIR__ . '/generated/matrix-article.php';")
+        || !str_contains($byPath['server/app/adminapi/route/app.php'], "'{$backend}/route/app.php',")) {
+        throw new RuntimeException('generator services output contract violated');
     }
 };
 $assertGeneratedServiceOutput($generatedFiles);
-$generatedByPath = array_column($generatedFiles, 'content', 'path');
-$servicePath = 'server/app/adminapi/services/demo/ArticleService.php';
-expectTpq51(count($generatedFiles) === 7 && isset($generatedByPath[$servicePath]), 'generator did not render the services output path');
-expectTpq51(
-    str_contains($generatedByPath[$servicePath], 'namespace app\\adminapi\\services\\demo;')
-        && str_contains($generatedByPath[$servicePath], 'class ArticleService'),
-    'generator service output retained the application namespace or class',
-);
-$controllerContent = $generatedByPath['server/app/adminapi/controller/demo/ArticleController.php'] ?? '';
-expectTpq51(
-    str_contains($controllerContent, 'use app\\adminapi\\services\\demo\\ArticleService;')
-        && str_contains($controllerContent, 'ArticleService $service'),
-    'generator controller did not import the services class',
-);
-foreach (array_keys($generatedByPath) as $path) {
-    expectTpq51(!str_contains($path, 'adminapi/application') && !str_contains($path, 'ApplicationService.php'), 'generator reintroduced the retired application output path');
-}
 $legacyFiles = array_map(static function (array $file): array {
-    $file['path'] = str_replace('services/demo/ArticleService.php', 'application/demo/ArticleApplicationService.php', $file['path']);
-    $file['content'] = str_replace('services\\demo\\ArticleService', 'application\\demo\\ArticleApplicationService', $file['content']);
+    $file['path'] = str_replace('src/Service/MatrixArticleService.php', 'application/demo/ArticleApplicationService.php', $file['path']);
+    $file['content'] = str_replace('Service\\MatrixArticleService', 'application\\demo\\ArticleApplicationService', $file['content']);
     return $file;
 }, $generatedFiles);
 try {
@@ -440,6 +527,25 @@ try {
     throw new RuntimeException('legacy generated output was accepted');
 } catch (RuntimeException $exception) {
     expectTpq51($exception->getMessage() === 'generator services output contract violated', 'legacy generated output did not fail the services output contract');
+}
+foreach (['module.json', 'resources/permissions.json', 'route/app.php'] as $missingContribution) {
+    $incomplete = array_values(array_filter(
+        $generatedFiles,
+        static fn(array $file): bool =>
+        $file['path'] !== 'server/app/modules/fixture/delivery_record/' . $missingContribution,
+    ));
+    try {
+        $assertGeneratedServiceOutput($incomplete);
+        throw new RuntimeException('incomplete generated Module was accepted');
+    } catch (RuntimeException $exception) {
+        expectTpq51($exception->getMessage() === 'generator services output contract violated', 'missing Module assembly contribution was not rejected');
+    }
+}
+try {
+    GeneratorRenderService::render(array_replace($generatorDefinition, ['module_name' => 'demo']));
+    throw new RuntimeException('unregistered Module was accepted');
+} catch (RuntimeException $exception) {
+    expectTpq51(str_contains($exception->getMessage(), '目标模块未登记'), 'generator did not reject the unregistered Module');
 }
 
 $scannerProbe = <<<'PY'
@@ -456,39 +562,55 @@ scanner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(scanner)
 cases = {
     "host_application": (
-        "server/app/adminapi/application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Application\\CrontabApplicationService;\n",
+        "server/app/adminapi/services/ProbeService.php",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Service\\CrontabApplicationService;\n",
     ),
     "platform_adapter_model": (
         "server/app/platform/infrastructure/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Model\\Crontab;\n",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Model\\Crontab;\n",
     ),
     "host_contract": (
-        "server/app/api/application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Contracts\\TaskJobRuntime;\n",
+        "server/app/api/services/ProbeService.php",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Contract\\TaskJobRuntime;\n",
     ),
     "module_internal": (
-        "server/app/Modules/Official/Task/Application/Probe.php",
-        "<?php\nuse app\\Modules\\Official\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
+        "server/app/modules/official/task/src/Service/Probe.php",
+        "<?php\nuse PeanutAdmin\\Modules\\Task\\Infrastructure\\Runtime\\ThinkPhpTaskJobRuntime;\n",
     ),
     "application_console": (
-        "server/app/adminapi/application/ConsoleProbe.php",
+        "server/app/adminapi/services/ConsoleProbeService.php",
         "<?php\nuse think\\Console;\n",
     ),
     "services_console": (
         "server/app/adminapi/services/ConsoleProbe.php",
         "<?php\nuse think\\Console;\n",
     ),
+    "services_model": (
+        "server/app/adminapi/services/JobsProbe.php",
+        "<?php\nuse app\\common\\model\\dept\\Jobs;\nJobs::where([]);\n",
+    ),
+    "services_transaction": (
+        "server/app/adminapi/services/JobsProbe.php",
+        "<?php\nDb::transaction(function () { Jobs::where([]); });\n",
+    ),
+    "services_raw_db": (
+        "server/app/adminapi/services/JobsProbe.php",
+        "<?php\nDb::name('jobs')->select();\n",
+    ),
+    "services_scope_bypass": (
+        "server/app/adminapi/services/JobsProbe.php",
+        "<?php\nJobs::withoutGlobalScope()->select();\n",
+    ),
     "application_transport": (
-        "server/app/Modules/Official/Oauth/Application/TransportProbe.php",
+        "server/app/modules/official/oauth/src/Service/TransportProbe.php",
         "<?php\nfinal class TransportProbe { public function run(): void { new WechatOAuthTransport(); } }\n",
     ),
     "tenant_join_missing": (
-        "server/app/Modules/Official/Article/Application/JoinProbe.php",
+        "server/app/modules/official/article/src/Service/JoinProbe.php",
         "<?php\n$query->join('article a', 'a.id = c.article_id');\n",
     ),
     "tenant_join_scoped": (
-        "server/app/Modules/Official/Article/Application/ScopedJoinProbe.php",
+        "server/app/modules/official/article/src/Service/ScopedJoinProbe.php",
         "<?php\n$query->leftJoin('article a', 'a.tenant_id = c.tenant_id AND a.id = c.article_id');\n",
     ),
     "tenant_join_global": (
@@ -552,9 +674,22 @@ expectTpq51(
     'Global system-table JOIN was incorrectly rejected',
 );
 
+expectTpq51(
+    !in_array('application_raw_persistence', $probeHits['services_model'] ?? [], true)
+        && !in_array('application_raw_persistence', $probeHits['services_transaction'] ?? [], true),
+    'Tenant Model and native transaction use was incorrectly rejected in a CRUD service',
+);
+expectTpq51(
+    in_array('application_raw_persistence', $probeHits['services_raw_db'] ?? [], true)
+        && in_array('global_scope_bypass', $probeHits['services_scope_bypass'] ?? [], true),
+    'Plural services path escaped raw-persistence or global-scope-bypass detection',
+);
+
 $contextFailure = false;
 try {
-    (new ModuleExecutionBoundary($current, new ThinkPhpModuleRuntimeRepository()))->assertWorker('official.article');
+    $emptyRegistry = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([], [], [], [], hash('sha256', ''));
+    (new ModuleExecutionBoundary($current, new ThinkPhpModuleRuntimeRepository($emptyRegistry), new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery($current)))
+        ->assertWorker('official.article');
 } catch (DomainException $exception) {
     $contextFailure = $exception->getMessage() === 'EXECUTION_CONTEXT_REQUIRED';
 }
@@ -582,4 +717,10 @@ try {
 }
 expectTpq51($store->isEmpty(), 'long-running execution context leaked after failure');
 
+echo json_encode([
+    'evidence_scope' => 'framework-query-and-contracts-only',
+    'jobs_tenant_reads' => 2,
+    'generator_files' => count($generatedFiles),
+    'scanner_probes' => count($probeHits),
+], JSON_UNESCAPED_SLASHES) . PHP_EOL;
 echo "TPQ51-THINKPHP-ARCHITECTURE-BEHAVIOR-MATRIX passed\n";

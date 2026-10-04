@@ -1,5 +1,6 @@
 #!/usr/bin/env php
 <?php
+
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
@@ -7,7 +8,33 @@ $output = $root . '/scaffold/application-template-inventory.json';
 require_once $root . '/server/app/common/value/scaffold/VersionContract.php';
 $versions = \app\common\value\scaffold\VersionContract::load($root . '/release-versions.json');
 
-function inventoryGitFiles(string $root): array
+/** @return array<string,true> */
+function declaredCoreWebArchives(\app\common\value\scaffold\VersionContract $versions): array
+{
+    $packages = $versions->coreWebIdentity()['packages'] ?? null;
+    if (!is_array($packages)) {
+        throw new RuntimeException('application inventory Core Web package identity is invalid');
+    }
+    $archives = [];
+    foreach ($packages as $package => $identity) {
+        if (!is_string($package) || !is_array($identity)) {
+            throw new RuntimeException('application inventory Core Web package identity is invalid');
+        }
+        $archive = $identity['archive'] ?? null;
+        if ($archive === null) {
+            continue;
+        }
+        if (!is_string($archive)
+            || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\\.tgz$#D', $archive) !== 1
+            || isset($archives[$archive])) {
+            throw new RuntimeException('application inventory Core Web archive identity is invalid: ' . $package);
+        }
+        $archives[$archive] = true;
+    }
+    return $archives;
+}
+
+function inventoryGitFiles(string $root, array $declaredCoreWebArchives): array
 {
     $command = ['git', '-C', $root, '-c', 'core.quotepath=false', 'ls-files', '--cached', '--others', '--exclude-standard'];
     $pipes = [];
@@ -20,12 +47,19 @@ function inventoryGitFiles(string $root): array
     fclose($pipes[1]);
     fclose($pipes[2]);
     if (proc_close($process) !== 0 || !is_string($stdout)) {
-        throw new RuntimeException('git ls-files failed: ' . trim((string)$stderr));
+        throw new RuntimeException('git ls-files failed: ' . trim((string) $stderr));
     }
     $files = array_values(array_filter(explode("\n", trim($stdout)), 'strlen'));
     $files = array_values(array_filter($files, static fn(string $path): bool => $path !== 'scaffold/application-template-inventory.json'
         && !str_starts_with($path, 'scaffold/')
+        && $path !== 'SECURITY.md' // Generated applications receive their own declared security template.
+        && $path !== 'AGENTS.md' // The generated entry is public; never distribute the maintainer entry.
         && !str_starts_with($path, 'output/')
+        // Local Core Web archives are development inputs only while the active
+        // release identity explicitly declares that exact archive. Registry-backed
+        // product candidates must not inherit stale local tarballs into APP baselines.
+        && (!str_starts_with($path, 'packages/core-web/') || !str_ends_with($path, '.tgz')
+            || isset($declaredCoreWebArchives[$path]))
         && (file_exists($root . '/' . $path) || is_link($root . '/' . $path))));
     sort($files, SORT_STRING);
     return $files;
@@ -33,8 +67,33 @@ function inventoryGitFiles(string $root): array
 
 function excluded(string $path): bool
 {
+    // Generated APPs must retain the minimal deterministic archive writer used by
+    // their own package-release entry. Other maintainer scaffold implementation
+    // stays source-only.
+    if ($path === 'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php') {
+        return false;
+    }
+    // Both locations contain instance installation state, never template source.
+    if (str_starts_with($path, 'server/runtime/installation/')
+        || str_starts_with($path, 'server/private/installation/')) {
+        return true;
+    }
+    // The public upgrader ships the existing authenticated upgrade runtime.
+    if (in_array($path, [
+        'scripts/scaffold-runtime/ScaffoldPathGuard.php',
+        'scripts/scaffold-runtime/ScaffoldManifest.php',
+        'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php',
+        'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
+        'scripts/scaffold-runtime/EditionUpgradePackage.php',
+        'scripts/scaffold-runtime/Semver.php',
+        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
+    ], true)) {
+        return false;
+    }
     // Repository delivery/editor settings do not belong to generated applications.
-    if (str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')) {
+    if (str_starts_with($path, '.github/') || str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
+        || str_starts_with($path, 'evidence/')
+        || str_starts_with($path, 'deploy/tests/')) {
         return true;
     }
     if (str_starts_with($path, 'server/tests/') && !in_array($path, [
@@ -59,9 +118,31 @@ function excluded(string $path): bool
             'docs/peanut-admin-release-deployment.md',
             'docs/peanut-admin-user-manual.md',
             'docs/plugin-module-development.md',
+            'docs/module-layout.md',
+            'docs/development/standard.md',
+            'docs/README.md',
+            'docs/development/application-conventions.md',
+            'docs/development/controller-access-and-namespaces.md',
+            'docs/development/developer-center-and-documentation.md',
+            'docs/development/php-thinkphp-guidelines.md',
+            'docs/development/current-code-lifecycle.md',
+            'docs/development/project-toolchain.md',
+            'docs/architecture/overview.md',
+            'docs/architecture/cli-and-recipes.md',
+            'docs/architecture/default-delivery-and-ownership.md',
+            'docs/architecture/identity-organization-access.md',
+            'docs/architecture/tenant-modules-and-data-scopes.md',
+            'docs/architecture/module-development-delivery.md',
+            'docs/architecture/service-bindings.md',
+            'docs/architecture/events-and-tasks.md',
+            'docs/public/README.md',
+            'docs/public/release-channels.md',
+            'docs/public/installation.md',
+            'docs/public/api-and-sdk.md',
+            'docs/public/module-development.md',
         ], true))
         || in_array($path, [
-            'AGENTS.md', 'AGENT_EXECUTION_RULES.md',
+            'AGENTS.md', 'AGENT_EXECUTION_RULES.md', 'SECURITY.md',
             'resources/codegraph-registry.json', 'resources/service-registry.json',
             'resources/consumer-ready-control.json',
             'scripts/create-app', 'scripts/build-application-template-inventory', 'scripts/build-scaffold-release',
@@ -74,6 +155,14 @@ function excluded(string $path): bool
             'scripts/test-core-upgrade-public-entry-gate',
             'scripts/check-product-capability-ledger',
             'scripts/check-release-consistency', 'scripts/generate-release-legal.mjs', 'scripts/publish-github-release',
+            'scripts/release-metadata-version.cjs', 'scripts/continue-product-release',
+            'scripts/tests/continue_product_release_test.py',
+            'scripts/tests/release_metadata_version_test.py',
+            'scripts/tests/scaffold-recipe-ownership-transition-test.py',
+            'scripts/tests/project_resource_lease_parent_test.py',
+            'scripts/prepare-product-release-candidate', 'scripts/tests/prepare_product_release_candidate_test.py',
+            'scripts/deploy-release', 'scripts/ops-backup-worker', 'scripts/ops-restore-worker',
+            'scripts/ops-upgrade-worker', 'scripts/ops-module-worker',
             'server/database/seed-multi-tenant-demo.php',
             'docs-site/.vitepress/theme/ProductStatus.vue',
             'server/tests/Productization/CreateApplicationTest.php',
@@ -87,7 +176,7 @@ function excluded(string $path): bool
             'server/tests/Productization/ScaffoldUpgradeRunnerTest.php',
             'scripts/scaffold-upgrade',
         ], true)
-        || str_starts_with($path, 'server/app/common/service/scaffold/')
+        || str_starts_with($path, 'server/app/common/infrastructure/scaffold/')
         || str_starts_with($path, 'scripts/scaffold-runtime/')
         || str_starts_with($path, 'web/.claude/')
         || str_starts_with($path, 'plugins/fixture.delivery-record/')
@@ -103,6 +192,32 @@ function classification(string $path): string
 {
     $managedHostPaths = [
         'server/app/AppService.php',
+        'server/app/BaseController.php',
+        'server/app/middleware.php',
+        'server/app/adminapi/middleware.php',
+        'server/app/api/middleware.php',
+        'server/app/installation/middleware.php',
+        'server/app/platform/middleware.php',
+        'server/app/adminapi/http/middleware/AuthMiddleware.php',
+        'server/app/adminapi/http/middleware/LoginMiddleware.php',
+        'server/app/adminapi/http/middleware/OperationLogMiddleware.php',
+        'server/app/api/middleware/CheckTokenMiddleware.php',
+        'server/app/api/middleware/PublicTenantModuleMiddleware.php',
+        'server/app/common/http/middleware/InstallationStateMiddleware.php',
+        'server/app/common/http/middleware/MaintenanceWriteGateMiddleware.php',
+        'server/app/common/traits/ApiResponseTrait.php',
+        'server/app/common/traits/CrudTrait.php',
+        'server/app/common/validate/InputValidator.php',
+        'server/app/common/validate/ListsValidate.php',
+        'server/app/common/validate/MemberProfileSelfFieldValidate.php',
+        'server/app/common/validate/PageSizeRule.php',
+        'server/app/common/validate/TenantContextValidate.php',
+        'server/app/common/validate/ValidatedInput.php',
+        'server/app/installation/http/middleware/InstallationExecutionMiddleware.php',
+        'server/app/platform/http/middleware/PlatformHostMiddleware.php',
+        'server/app/platform/http/middleware/PlatformInstanceToolMiddleware.php',
+        'server/app/platform/http/middleware/PlatformLoginMiddleware.php',
+        'server/app/platform/http/middleware/PlatformPermissionMiddleware.php',
         'server/app/common/contract/module/ModuleGovernanceProvider.php',
         'server/app/common/contract/module/PluginLifecycleCommands.php',
         'server/app/common/contract/module/ModuleQualificationQuery.php',
@@ -110,10 +225,13 @@ function classification(string $path): string
         'server/app/common/contract/module/TenantModuleState.php',
         'server/app/common/persistence/AdvisoryLockExecution.php',
         'server/app/common/persistence/AdvisoryLockUnavailable.php',
-        'server/app/common/persistence/CoreTenantRepositoryFactory.php',
-        'server/app/platform/service/module/ThinkPhpModuleGovernanceProvider.php',
+        'server/app/common/persistence/TenantPersistenceConfiguration.php',
+        'server/app/common/infrastructure/module/ModuleHostLayoutFactory.php',
+        'server/app/common/value/module/ModulePhpNamespace.php',
+        'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
         'server/app/platform/infrastructure/module/DeployedTenantModuleRegistry.php',
         'server/app/platform/services/module/ModuleQualificationQueryService.php',
+        'server/app/platform/validation/module/ModulePublicSurfacePolicy.php',
         'server/app/platform/validation/module/OpisManifestSchemaValidator.php',
         'server/app/platform/validation/module/ReflectionContractInspector.php',
         'server/app/platform/validation/module/StrictVersionConstraintMatcher.php',
@@ -121,6 +239,11 @@ function classification(string $path): string
         'server/app/platform/exception/plugin/PluginLifecycleException.php',
         'server/app/platform/value/plugin/PluginDescriptor.php',
         'server/app/platform/infrastructure/plugin/PluginLockResolver.php',
+        'server/app/platform/exception/plugin/PluginArtifactToolException.php',
+        'server/app/platform/exception/plugin/PluginPackageException.php',
+        'server/app/platform/value/plugin/ModuleFrontendLayout.php',
+        'server/app/platform/infrastructure/plugin/PluginArtifactWriter.php',
+        'server/app/platform/validation/plugin/ModulePackagePreflight.php',
         'server/app/platform/composition/plugin/PluginModuleRegistryFactory.php',
         'server/app/platform/composition/plugin/ModuleDefinitionRegistryFactory.php',
         'server/app/platform/policy/plugin/ModuleLifecyclePolicy.php',
@@ -131,12 +254,16 @@ function classification(string $path): string
     if (in_array($path, $managedHostPaths, true)) {
         return 'managed';
     }
+    // Official Modules remain governed by their package/lock projection; customer extensions stay app-owned.
+    if (str_starts_with($path, 'server/app/modules/official/')) {
+        return 'managed';
+    }
     if (excluded($path)) {
         return 'excluded';
     }
     if (in_array($path, [
         'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json',
-        'CHANGELOG.md', 'RELEASE_METADATA.json', 'resources/project-resources.json',
+        'CHANGELOG.md', 'RELEASE_METADATA.json',
         'server/config/brand.json', 'web/src/generated/brand.json', 'pc/generated/brand.json',
         'uniapp/src/generated/brand.json', 'docs-site/generated/brand.json',
     ], true)) {
@@ -164,12 +291,17 @@ function classification(string $path): string
     if ($path === 'SECURITY.md') {
         return 'app-owned';
     }
-    if (str_starts_with($path, 'docs-site/') || str_starts_with($path, 'platform/src/')
-        || str_starts_with($path, 'server/app/') || str_starts_with($path, 'server/database/')
-        || str_starts_with($path, 'server/tests/') || str_starts_with($path, 'web/src/views/')
-        || str_starts_with($path, 'web/tests/') || str_starts_with($path, 'pc/pages/')
-        || str_starts_with($path, 'pc/components/') || str_starts_with($path, 'uniapp/src/')
-        || in_array($path, ['server/config/peanut.php', 'web/src/peanut.overrides.ts'], true)) {
+    // Product source remains eligible for upstream fixes. Local edits to managed
+    // files are protected by the recorded baseline and three-way conflict check;
+    // ownership must not silently freeze whole application/client directories.
+    // Explicit extension/configuration surfaces belong to the instance. New
+    // customer files absent from the upstream manifest are never adopted here.
+    if (str_starts_with($path, 'server/app/modules/custom/')
+        || str_starts_with($path, 'web/src/modules/custom/')
+        || str_starts_with($path, 'platform/src/modules/custom/')
+        || str_starts_with($path, 'pc/modules/custom/')
+        || str_starts_with($path, 'uniapp/src/modules/custom/')
+        || in_array($path, ['server/config/peanut.php', 'web/src/peanut.overrides.ts', 'resources/project-resources.json'], true)) {
         return 'app-owned';
     }
     return 'managed';
@@ -180,27 +312,66 @@ function transform(string $path, string $classification): string
     if ($classification === 'excluded') {
         return 'copy';
     }
-    if ($path === 'README.md') return 'readme';
-    if ($path === 'LICENSE' || $path === 'NOTICE') return 'license';
-    if ($path === 'CHANGELOG.md') return 'changelog';
-    if ($path === 'THIRD_PARTY_NOTICES.md') return 'third-party-notices';
-    if ($path === 'RELEASE_SBOM.spdx.json') return 'sbom';
-    if ($path === 'RELEASE_METADATA.json') return 'release-metadata';
-    if ($path === 'resources/project-resources.json') return 'resources';
-    if ($path === 'plugins.lock') return 'plugins-lock';
-    if ($path === 'server/composer.lock') return 'composer-lock';
-    if ($path === 'release-versions.json') return 'version-contract';
-    if ($path === 'server/config/modules.php') return 'modules-config';
-    if ($path === '.github/workflows/ci.yml') return 'ci';
-    if ($path === 'server/database/environment-guard.php') return 'environment-guard';
+    if ($path === 'README.md') {
+        return 'readme';
+    }
+    if ($path === 'LICENSE' || $path === 'NOTICE') {
+        return 'license';
+    }
+    if ($path === 'CHANGELOG.md') {
+        return 'changelog';
+    }
+    if ($path === 'THIRD_PARTY_NOTICES.md') {
+        return 'third-party-notices';
+    }
+    if ($path === 'RELEASE_SBOM.spdx.json') {
+        return 'sbom';
+    }
+    if ($path === 'RELEASE_METADATA.json') {
+        return 'release-metadata';
+    }
+    if ($path === 'resources/project-resources.json') {
+        return 'resources';
+    }
+    if ($path === 'plugins.lock') {
+        return 'plugins-lock';
+    }
+    if ($path === 'server/composer.lock') {
+        return 'composer-lock';
+    }
+    if ($path === 'release-versions.json') {
+        return 'version-contract';
+    }
+    if ($path === 'server/config/modules.php') {
+        return 'modules-config';
+    }
+    if ($path === 'server/database/environment-guard.php') {
+        return 'environment-guard';
+    }
     if ((str_starts_with($path, 'server/app/modules/') && basename($path) === 'composer.json')
         || (str_starts_with($path, 'web/src/modules/') && basename($path) === 'package.json')) {
         return 'text';
     }
-    if ($path === 'SECURITY.md' || ((str_starts_with($path, 'docs-site/') || str_starts_with($path, 'docs/')) && str_ends_with($path, '.md'))) return 'docs-page';
-    if (preg_match('#(^|/)(config/brand|generated/brand)\.json$#', $path) === 1) return 'brand';
-    if (preg_match('#/brand/(logo|favicon)\.svg$#', $path) === 1) return 'brand-asset';
-    if (preg_match('#(^|/)(composer\.json|package\.json|package-lock\.json|pnpm-lock\.yaml)$#', $path) === 1) return 'package';
+    // Public guides are real source inputs, so their bytes (not a constant
+    // semantic placeholder digest) participate in the release baseline.
+    if (str_starts_with($path, 'docs/public/')
+        || str_starts_with($path, 'docs/development/')
+        || str_starts_with($path, 'docs/architecture/')
+        || in_array($path, ['docs/README.md', 'docs/module-layout.md'], true)) {
+        return 'text';
+    }
+    if ($path === 'SECURITY.md' || ((str_starts_with($path, 'docs-site/') || str_starts_with($path, 'docs/')) && str_ends_with($path, '.md'))) {
+        return 'docs-page';
+    }
+    if (preg_match('#(^|/)(config/brand|generated/brand)\.json$#', $path) === 1) {
+        return 'brand';
+    }
+    if (preg_match('#/brand/(logo|favicon)\.svg$#', $path) === 1) {
+        return 'brand-asset';
+    }
+    if (preg_match('#(^|/)(composer\.json|package\.json|package-lock\.json|pnpm-lock\.yaml)$#', $path) === 1) {
+        return 'package';
+    }
     $basename = basename($path);
     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
     $textExtensions = ['php', 'json', 'md', 'sql', 'stub', 'ts', 'tsx', 'js', 'mjs', 'cjs', 'sh', 'lock', 'vue', 'css', 'less', 'scss', 'html', 'xml', 'yaml', 'yml', 'toml', 'txt', 'svg', 'conf', 'ini', 'env', 'example', 'dockerfile'];
@@ -217,29 +388,23 @@ function adapterKind(string $path): ?string
 {
     return match ($path) {
         'server/app/common/policy/permission/RegisteredAdminPermissionPolicy.php',
-        'server/app/common/infrastructure/dict/ThinkPhpTenantDictionaryProvider.php',
-        'server/app/common/infrastructure/dict/ThinkPhpSystemDictionaryProvider.php',
-        'server/app/common/service/crontab/CrontabSchedulerService.php',
-        'server/app/common/service/crontab/CrontabTenantContext.php',
-        'server/app/common/service/crontab/CrontabTenantRepository.php',
-        'server/app/common/service/file/FileTenantRepository.php',
-        'server/app/common/infrastructure/config/TenantSettingWebsiteStore.php',
-        'server/app/common/service/export/AppFileMediaGateway.php',
+        'server/app/modules/official/reference_codes/src/Infrastructure/ThinkPhpTenantDictionaryProvider.php',
+        'server/app/modules/official/reference_codes/src/Infrastructure/ThinkPhpSystemDictionaryProvider.php',
+        'server/app/modules/official/task/src/Service/CrontabSchedulerService.php',
+        'server/app/modules/official/settings/src/Infrastructure/TenantSettingWebsiteStore.php',
+        'server/app/modules/official/import_export/src/Infrastructure/File/AppFileMediaGateway.php',
         'server/app/common/infrastructure/notice/ApplicationNoticeSmsSender.php',
         'server/app/common/services/notice/NoticeChannelService.php',
         'server/app/common/context/notice/NoticeTenantContext.php',
-        'server/app/common/service/notice/NoticeTenantRepository.php',
-        'server/app/common/service/notice/VerificationCodeService.php',
-        'server/app/common/service/oauth/OAuthTenantRepository.php',
-        'server/app/common/infrastructure/org/OrgTenantRepository.php' => 'framework-adapter',
-        'server/app/common/infrastructure/config/BrandDefaults.php',
-        'server/app/common/services/config/WebsiteConfigService.php',
+        'server/app/modules/official/notification/src/Service/VerificationCodeService.php' => 'framework-adapter',
+        'server/app/modules/official/settings/src/Infrastructure/BrandDefaults.php',
+        'server/app/modules/official/settings/src/Service/WebsiteConfigService.php',
         'server/app/common/infrastructure/crontab/CrontabTenantLock.php',
         'server/app/common/infrastructure/export/OperationLogExportProvider.php',
         'server/app/common/contract/notice/sms/SmsDriver.php',
         'server/app/common/infrastructure/notice/sms/AliyunSms.php',
         'server/app/common/infrastructure/notice/sms/TencentSms.php',
-        'server/app/common/services/oauth/OAuthBrowserCallbackService.php',
+        'server/app/modules/official/oauth/src/Service/OAuthBrowserCallbackService.php',
         'server/app/common/infrastructure/oauth/WechatOAuthTransport.php',
         'web/src/core/tenant-session.ts',
         'web/src/core/runtime.ts' => 'application-provider',
@@ -250,10 +415,9 @@ function adapterKind(string $path): ?string
 /** @return list<string> */
 function profilesForPath(string $path): array
 {
-    if (str_starts_with($path, 'platform/')
-        || str_starts_with($path, 'docs-site/')
-        || str_starts_with($path, 'server/app/platform/')
-        || $path === 'server/route/platform.php') {
+    // 已装配的官方模块包含运营端贡献；任何 profile 都不能丢失其声明的源码或宿主。
+    // 是否构建/暴露运营入口仍由 EditionProjector 决定，不靠删除依赖文件实现。
+    if (str_starts_with($path, 'docs-site/')) {
         return ['full'];
     }
     if (str_starts_with($path, 'pc/') || str_starts_with($path, 'uniapp/')) {
@@ -266,7 +430,8 @@ function sourceDigest(string $absolute, string $path, string $transform): string
 {
     // These transforms intentionally rebuild the target from application parameters;
     // their source prose is not part of the generated bytes or adoption contract.
-    if (in_array($transform, ['changelog', 'release-metadata', 'resources', 'readme', 'docs-page', 'version-contract'], true)) {
+    if (!str_starts_with($path, 'server/resources/scaffold-application/')
+        && in_array($transform, ['changelog', 'release-metadata', 'resources', 'readme', 'docs-page', 'version-contract'], true)) {
         return hash('sha256', "peanut.create-app-semantic-source.v1\0{$path}\0{$transform}");
     }
     $digest = hash_file('sha256', $absolute);
@@ -277,9 +442,15 @@ function sourceDigest(string $absolute, string $path, string $transform): string
 }
 
 $entries = [];
-foreach (inventoryGitFiles($root) as $path) {
+$coreWebArchives = declaredCoreWebArchives($versions);
+foreach (inventoryGitFiles($root, $coreWebArchives) as $path) {
     $absolute = $root . '/' . $path;
-    $classification = classification($path);
+    $templatePrefix = 'server/resources/scaffold-application/';
+    $isApplicationTemplate = str_starts_with($path, $templatePrefix) && str_ends_with($path, '.stub');
+    $target = $isApplicationTemplate ? substr($path, strlen($templatePrefix), -5) : $path;
+    $classification = $isApplicationTemplate
+        ? ($target === 'SECURITY.md' ? 'app-owned' : 'generated-managed')
+        : classification($path);
     if (!file_exists($absolute) && $classification === 'excluded') {
         continue;
     }
@@ -288,12 +459,12 @@ foreach (inventoryGitFiles($root) as $path) {
     }
     $entry = [
         'path' => $path,
-        'target' => $path,
+        'target' => $target,
         'classification' => $classification,
         'owner' => $classification === 'app-owned' ? 'application' : ($classification === 'excluded' ? 'template-source-only' : 'scaffold'),
-        'transform' => transform($path, $classification),
+        'transform' => $isApplicationTemplate ? 'docs-page' : transform($path, $classification),
         'mode' => is_file($absolute) && (fileperms($absolute) & 0111) !== 0 ? 0755 : 0644,
-        'profiles' => profilesForPath($path),
+        'profiles' => $isApplicationTemplate ? ['minimal', 'standard', 'full'] : profilesForPath($path),
     ];
     if ($classification !== 'excluded') {
         $entry['source_sha256'] = sourceDigest($absolute, $path, $entry['transform']);
@@ -312,9 +483,13 @@ $inventory = [
     'application' => ['version' => $versions->generatedInstanceDefault()],
     'variables' => ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'],
     'untracked_exclusions' => [
-        '.git/**', '.local/**', '.env', 'server/.env', '**/vendor/**', '**/node_modules/**',
-        '**/dist/**', '**/runtime/**', '**/.cache/**', 'server/public/uploads/**',
-        'server/public/storage/**', 'output/**', '*.log', '.DS_Store',
+        '.git/**', '.local/**', '.ops/**', '.env', 'server/.env', '**/vendor/**', '**/node_modules/**',
+        '**/dist/**', '**/runtime/**', 'server/private/installation/**', 'server/private/resources/**',
+        'server/public/uploads/**', 'server/public/storage/**', 'server/private/storage/**',
+        'server/docker/mysql/**', 'server/docker/secrets/**', 'updates/**', 'backups/**',
+        '.peanut/application-release.json', 'release-manifest.txt', 'server/public/admin/**',
+        'server/public/platform/**', 'server/public/pc/**', 'server/public/mobile/**',
+        '**/.cache/**', 'output/**', '*.log', '.DS_Store',
     ],
     'files' => $entries,
 ];

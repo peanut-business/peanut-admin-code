@@ -1,13 +1,13 @@
 {
   "name": "peanut-admin-uniapp",
   "description": "Peanut Admin UniApp/H5 consumer client",
-  "version": "3.1.1",
+  "version": "4.0.0-rc.18",
   "private": true,
   "author": "花生科技",
-  "homepage": "https://github.com/peanut-business/peanut-admin",
+  "homepage": "https://github.com/peanut-business/peanut-admin-code",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/peanut-business/peanut-admin.git",
+    "url": "git+https://github.com/peanut-business/peanut-admin-code.git",
     "directory": "uniapp"
   },
   "license": "Apache-2.0",
@@ -63,7 +63,8 @@
     "@dcloudio/uni-mp-weixin": "3.0.0-5010520260709002",
     "@dcloudio/uni-mp-xhs": "3.0.0-5010520260709002",
     "@dcloudio/uni-quickapp-webview": "3.0.0-5010520260709002",
-    "@peanut-admin/admin": "3.1.1",
+    "@peanut-admin/client": "4.0.0-rc.4",
+    "@peanut-admin/uniapp": "4.0.0-rc.4",
     "pinia": "^2.1.7",
     "vue": "^3.4.21",
     "vue-i18n": "9.14.5",

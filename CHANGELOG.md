@@ -3,6 +3,15 @@
 All notable Peanut Admin application changes are recorded here. The application
 and the two public core packages have independent version histories.
 
+## [4.0.0-rc.18] - 2026-10-04
+
+### Changed
+
+- First public 4.0 prerelease with fixed public PHP Core rc.3 and Web Core rc.4 dependencies.
+- Standalone and Multi-tenant development-source and server archives, native application creation, fresh installation and SHA-256 integrity manifests.
+- Official module source absorption, stable menu identities, PC public pages in SPA mode, and native same-instance upgrades preserving application data and customization.
+- This prerelease uses the Minimum Release Gate. Full P0-E, full browser matrices, SSR, performance and extended recovery/fault qualification remain deferred; this is not a stable release or production deployment qualification.
+
 ## [Unreleased]
 
 ### Changed
@@ -10,6 +19,16 @@ and the two public core packages have independent version histories.
 - Relicensed the current Peanut Admin source repository and its application
   components under Apache-2.0. Existing immutable tags and Releases keep the
   license files originally published with those artifacts.
+
+## [4.0.0-dev] - 未发布
+
+### Changed
+
+- A1 将账号、组织、权限管理、设置、字典、文件、任务、通知、集成和运营业务迁入 Code 模块；保留既有数据编号和历史迁移身份。
+- PHP Core 使用固定真实 Git 提交的 Composer 分支身份；Web Core 改为 client、vue、ui-vue、nuxt、uniapp、testing 六个公共包，业务页面与 SDK 由对应模块负责。
+- 模块前后端源码继续分别开发；现有清单支持按模块汇集四类客户端贡献。开发者中心读取同一模块目录及生成 API 元数据。
+- 新版本下载链接使用签名 token，旧 expires/signature 链接不再接受；file_key 不迁号。
+- 当前为开发检查点。部分数据库、权限撤销、跨来源 Scope、HTTP、固定候选安装及合成升级资格尚未通过，不表示已发布或可投入生产。
 
 ## [3.1.0] - 2026-09-11
 

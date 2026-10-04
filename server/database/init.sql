@@ -18,6 +18,9 @@ CREATE TABLE `pa_schema_migration` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用追加迁移账本';
 
 CREATE TABLE `pa_system_menu` (
+  `menu_key` VARCHAR(160) NULL,
+  `parent_key` VARCHAR(160) NULL,
+  `module_key` VARCHAR(96) NOT NULL DEFAULT 'application',
   `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `pid`        INT UNSIGNED NOT NULL DEFAULT 0,
   `type`       CHAR(1)      NOT NULL DEFAULT 'C' COMMENT 'M目录 C菜单 A按钮',
@@ -30,6 +33,8 @@ CREATE TABLE `pa_system_menu` (
   `is_cache`   TINYINT(1)   NOT NULL DEFAULT 0,
   `is_show`    TINYINT(1)   NOT NULL DEFAULT 1,
   `is_disable` TINYINT(1)   NOT NULL DEFAULT 0,
+  `upstream_defaults_json` JSON NULL,
+  `menu_conflict_json` JSON NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统菜单';
 
@@ -1305,6 +1310,9 @@ CREATE TABLE `pa_resource_operation_condition` (
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `pa_menu_definition` (
+  `is_show` TINYINT NOT NULL DEFAULT 1,
+  `is_cache` TINYINT NOT NULL DEFAULT 0,
+  `is_disable` TINYINT NOT NULL DEFAULT 0,
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `key` VARCHAR(160) NOT NULL,
   `module_key` VARCHAR(96) NOT NULL,
@@ -1321,6 +1329,8 @@ CREATE TABLE `pa_menu_definition` (
   `client_keys_json` JSON NOT NULL,
   `status` VARCHAR(16) NOT NULL DEFAULT 'active',
   `manifest_digest` CHAR(64) NOT NULL,
+  `upstream_defaults_json` JSON NULL,
+  `menu_conflict_json` JSON NULL,
   `created_at` DATETIME(3) NOT NULL,
   `updated_at` DATETIME(3) NOT NULL,
   PRIMARY KEY (`id`),
@@ -1575,7 +1585,7 @@ SELECT @pa_default_tenant_id, 'website',
          'slogan', '连接管理端、PC 与移动端的中性应用基线',
          'copyright', '花生科技',
          'official_url', '',
-         'github_url', 'https://github.com/peanut-business/peanut-admin'
+         'github_url', 'https://github.com/peanut-business/peanut-admin-code'
        ),
        1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
 WHERE @pa_default_tenant_id IS NOT NULL;
