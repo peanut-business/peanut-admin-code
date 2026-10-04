@@ -332,6 +332,7 @@ def validate_fixture() -> tuple[
         "stable_resource_id": "peanut-admin-p0e-browser-hosts",
         "platform_host": "platform.p0e.localhost",
         "tenant_admin_host": "admin.p0e.localhost",
+        "tenant_beta_host": "beta.p0e.localhost",
         "port": 20190,
         "fallback": "none",
     }
@@ -339,6 +340,12 @@ def validate_fixture() -> tuple[
         browser_hosts.get(key) != value for key, value in expected_browser_hosts.items()
     ):
         fail("P0-E browser Host binding is invalid")
+    registered_browser_hosts = [item for item in registry.get("resources", {}).get("local_listeners", [])
+                                if item.get("stable_resource_id") == "peanut-admin-p0e-browser-hosts"]
+    if len(registered_browser_hosts) != 1 or any(
+        registered_browser_hosts[0].get(key) != value for key, value in expected_browser_hosts.items()
+    ):
+        fail("P0-E browser Hosts do not match the maintainer registry")
     expected = {
         "stable_resource_id": registered.get("stable_resource_id"),
         "environment": (registered.get("environments") or [None])[0],
@@ -583,6 +590,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
             ("docs-port", str(args.docs_port)),
             ("browser-session", f"p0e-{args.run_id}"),
             ("browser-host", browser_hosts["tenant_admin_host"]),
+            ("browser-host", browser_hosts["tenant_beta_host"]),
             ("browser-host", browser_hosts["platform_host"]),
         ])
         listener_ports.append(args.docs_port)
@@ -593,6 +601,10 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "candidate_tree": tree,
         "worktree": str(ROOT),
         "run_id": args.run_id,
+        "lease": args.lease,
+        "owner": getattr(args, "owner", None),
+        "thread": getattr(args, "thread", None),
+        "registry_path": str(REGISTRY_PATH),
         "resource_id": RESOURCE_ID,
         "registry_sha256": sha256(REGISTRY_PATH),
         "database_resource_scope": registered["namespace"].replace("<run_id>", args.run_id),
@@ -625,6 +637,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "browser_required": browser_required,
         "browser_hosts": {
             "tenant_admin": browser_hosts["tenant_admin_host"],
+            "tenant_beta": browser_hosts["tenant_beta_host"],
             "platform": browser_hosts["platform_host"],
         },
         "paths": paths,
@@ -686,7 +699,7 @@ def claim(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
 
 
 def verify_lease(args: argparse.Namespace, plan_data: dict[str, Any]) -> None:
-    raw = command([str(LEASE_TOOL), "show", "--lease", args.lease], capture=True).stdout
+    raw = command([str(LEASE_TOOL), "show", "--lease", args.lease, "--verify-locks"], capture=True).stdout
     metadata, resources = parse_lease(raw)
     now = int(time.time())
     expected_metadata = {
@@ -764,6 +777,10 @@ class Runner:
             "P0E_ADMIN_INITIAL_PASSWORD",
             "P0E_PLATFORM_INITIAL_EMAIL",
             "P0E_PLATFORM_INITIAL_PASSWORD",
+            "P0E_TENANT_BETA_EMAIL",
+            "P0E_TENANT_BETA_PASSWORD",
+            "P0E_TENANT_RESTRICTED_EMAIL",
+            "P0E_TENANT_RESTRICTED_PASSWORD",
             "P0E_JWT_SECRET",
             "P0E_TENANT_IDENTIFIER_HMAC_KEY",
             "P0E_PLATFORM_IDENTIFIER_HMAC_KEY",
@@ -779,6 +796,10 @@ class Runner:
                 "P0E_ADMIN_INITIAL_PASSWORD": "P0eOwner" + secrets.token_urlsafe(18) + "9",
                 "P0E_PLATFORM_INITIAL_EMAIL": f"platform-{suffix}@p0e.invalid",
                 "P0E_PLATFORM_INITIAL_PASSWORD": "P0ePlatform" + secrets.token_urlsafe(18) + "9",
+                "P0E_TENANT_BETA_EMAIL": f"beta-{suffix}@p0e.invalid",
+                "P0E_TENANT_BETA_PASSWORD": "P0eBeta" + secrets.token_urlsafe(18) + "9",
+                "P0E_TENANT_RESTRICTED_EMAIL": f"restricted-{suffix}@p0e.invalid",
+                "P0E_TENANT_RESTRICTED_PASSWORD": "P0eRestricted" + secrets.token_urlsafe(18) + "9",
                 "P0E_JWT_SECRET": secrets.token_hex(32),
                 "P0E_TENANT_IDENTIFIER_HMAC_KEY": secrets.token_hex(32),
                 "P0E_PLATFORM_IDENTIFIER_HMAC_KEY": secrets.token_hex(32),
@@ -1101,6 +1122,10 @@ class Runner:
             "TENANT_IDENTIFIER_HMAC_KEY": required_environment("P0E_TENANT_IDENTIFIER_HMAC_KEY"),
             "PLATFORM_IDENTIFIER_HMAC_KEY": required_environment("P0E_PLATFORM_IDENTIFIER_HMAC_KEY"),
         })
+        if mode == "multi-tenant" and database == self.plan["databases"].get("multi_tenant_browser"):
+            # Only the lease-owned synthetic browser database uses the product's
+            # explicit manual invitation delivery contract; production defaults stay auto.
+            values["OWNER_INVITATION_DELIVERY_MODE"] = "manual"
         return values
 
     def backend_env_path(self, project_root: Path) -> Path:
@@ -1922,7 +1947,7 @@ class Runner:
         backend_values = self.backend_values(database, mode)
         backend_values.update({
             "PLATFORM_HOSTS": self.plan["browser_hosts"]["platform"],
-            "TENANT_ADMIN_HOSTS": self.plan["browser_hosts"]["tenant_admin"],
+            "TENANT_ADMIN_HOSTS": ",".join([self.plan["browser_hosts"]["tenant_admin"], self.plan["browser_hosts"]["tenant_beta"]]),
             "JWT_SECRET": required_environment("P0E_JWT_SECRET"),
             "TENANT_IDENTIFIER_HMAC_KEY": required_environment("P0E_TENANT_IDENTIFIER_HMAC_KEY"),
             "PLATFORM_IDENTIFIER_HMAC_KEY": required_environment("P0E_PLATFORM_IDENTIFIER_HMAC_KEY"),
@@ -2240,7 +2265,10 @@ class Runner:
         browser_output.mkdir(parents=True, exist_ok=True)
         command([
             str(BROWSER_RUNNER), "--mode", mode,
+            "--profile", "baseline",
+            "--qualification-plan", str(self.output / "plan.json"),
             "--tenant-admin-url", f"http://{self.plan['browser_hosts']['tenant_admin']}:{self.plan['ports']['http']}",
+            "--tenant-beta-url", f"http://{self.plan['browser_hosts']['tenant_beta']}:{self.plan['ports']['http']}",
             "--platform-url", f"http://{self.plan['browser_hosts']['platform']}:{self.plan['ports']['http']}",
             "--docs-url", f"http://127.0.0.1:{self.plan['ports']['docs']}",
             "--output-dir", str(browser_output),
@@ -2338,6 +2366,12 @@ class Runner:
                 "browser": {
                     "standalone": "browser/standalone",
                     "multi_tenant": "browser/multi-tenant",
+                    "profile": "baseline",
+                    "required_business_scope": ["navigation", "role-permissions", "website-save-read-restore", "category-crud-recycle", "file-upload-download-delete", "public-pc-h5", "tenant-boundaries"],
+                    "business_receipts": {mode: f"browser/{mode}/business-summary.json"
+                                          for mode in ("standalone", "multi-tenant")
+                                          if f"{mode}-browser" in self.plan["groups"]},
+                    "execution_order": "live browser groups before cleanup_success",
                 },
             },
             "cleanup": {

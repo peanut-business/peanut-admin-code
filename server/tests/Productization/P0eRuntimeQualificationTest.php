@@ -111,6 +111,7 @@ $browserHosts = $p0eRegistry['browser_host_binding'] ?? null;
 $expect(is_array($browserHosts), 'P0-E browser Host binding is missing');
 $expect(($browserHosts['platform_host'] ?? null) === 'platform.p0e.localhost', 'P0-E Platform browser Host changed');
 $expect(($browserHosts['tenant_admin_host'] ?? null) === 'admin.p0e.localhost', 'P0-E Tenant Admin browser Host changed');
+$expect(($browserHosts['tenant_beta_host'] ?? null) === 'beta.p0e.localhost', 'P0-E Tenant Beta browser Host changed');
 $expect(($browserHosts['port'] ?? null) === 20190, 'P0-E browser Host port changed');
 $expect(($browserHosts['fallback'] ?? null) === 'none', 'P0-E browser Host binding must fail closed');
 $tooling = $p0eRegistry['resources']['tooling'][0] ?? null;
@@ -181,14 +182,15 @@ foreach ($plan['lease_resources'] ?? [] as $resource) {
     $resourceCounts[$type] = ($resourceCounts[$type] ?? 0) + 1;
     $resourceValues[$type][] = (string) ($resource['value'] ?? '');
 }
-$expect(count($plan['lease_resources'] ?? []) === 31, 'manual lease resources must have 31 exact rows');
+$expect(count($plan['lease_resources'] ?? []) === 43, 'manual lease resources must have 43 exact rows');
 $expect(($resourceCounts['mysql-db'] ?? null) === 6, 'claim must bind six exact fresh-only databases');
 $expect(($resourceValues['qualification-group'] ?? null) === ['multi-tenant-browser'], 'full claim lost its exact qualification cutoff');
 $expect(($resourceCounts['deployment-mode'] ?? null) === 2, 'claim must bind both deployment modes');
-$expect(($resourceCounts['port'] ?? null) === 3, 'claim must bind all generic port conflicts');
+$expect(($resourceCounts['port'] ?? null) === 4, 'claim must bind database, HTTP, tunnel and docs port conflicts');
 $expect(($resourceCounts['database-tunnel'] ?? null) === 1, 'claim must bind the database tunnel');
-$expect(($resourceCounts['browser-host'] ?? null) === 2, 'claim must bind the separate browser Host boundaries');
-$expect(($resourceCounts['endpoint'] ?? null) === 2, 'claim must bind Host and container database endpoints');
+$expect(($resourceCounts['browser-host'] ?? null) === 3, 'claim must bind all three separate browser Host boundaries');
+$expect(($resourceValues['browser-host'] ?? null) === ['admin.p0e.localhost', 'beta.p0e.localhost', 'platform.p0e.localhost'], 'claim lost an exact browser Host');
+$expect(($resourceCounts['endpoint'] ?? null) === 4, 'claim must bind registered endpoint IDs and exact Host/container endpoint values');
 
 $boundedArguments = $arguments;
 $boundedArguments[] = '--through-group';
@@ -213,7 +215,7 @@ $expect(($boundedResourceCounts['mysql-db'] ?? null) === 2, 'bounded plan must r
 $expect(($boundedResourceValues['qualification-group'] ?? null) === ['multi-tenant-fresh'], 'bounded plan lost its exact qualification cutoff');
 $expect(!array_key_exists('browser-host', $boundedResourceCounts), 'bounded plan unexpectedly reserved browser Hosts');
 $expect(!array_key_exists('browser-session', $boundedResourceCounts), 'bounded plan unexpectedly reserved a browser session');
-$expect(!array_key_exists('port', $boundedResourceCounts), 'bounded fresh-only plan unexpectedly reserved listener ports');
+$expect(($boundedResourceValues['port'] ?? null) === ['20183'], 'bounded fresh-only plan must bind only its registered MySQL port');
 $expect(($boundedPlan['listener_ports'] ?? null) === [], 'bounded fresh-only plan retained listener port dependencies');
 $expect(($boundedPlan['compose_required'] ?? null) === false, 'bounded fresh-only plan retained Compose execution');
 $expect(($boundedPlan['browser_required'] ?? null) === false, 'bounded fresh-only plan retained browser execution');
@@ -324,11 +326,11 @@ $expect(str_contains($pluginFixture, "rollbackPlan('fixture.delivery-record')"),
 $expect(str_contains($pluginFixture, "uninstall('fixture.delivery-record')"), 'Plugin preserve-data uninstall capability left the Gate fixture');
 
 $browserFixture = (string) file_get_contents($root . '/server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js');
-$expect(str_contains($browserFixture, "await page.locator('input').nth(0).fill(adminEmail);"), 'browser smoke must submit an email in both deployment modes');
+$expect(str_contains($browserFixture, "loginTenant(page, tenantAdminUrl, adminEmail, adminPassword, 'admin')"), 'baseline must use the real Tenant email login in both deployment modes');
 $expect(str_contains($browserFixture, 'P0E_BROWSER_TENANT_ADMIN_URL') && str_contains($browserFixture, 'P0E_BROWSER_PLATFORM_URL'), 'browser smoke must use separate Tenant Admin and Platform Hostnames');
 $expect(str_contains($browserFixture, '${platformUrl}/platform/'), 'browser smoke must enter the standalone Platform frontend');
 $expect(str_contains($browserFixture, "getByText('概览', { exact: true }).first()"), 'browser smoke must wait for the visible Platform overview label');
-$expect(str_contains($browserFixture, "page.locator('.login-form .el-select').waitFor"), 'multi-tenant browser smoke must not mistake the navbar selector for the login selector');
+$expect(str_contains($browserFixture, "form.locator('.el-select').waitFor"), 'multi-tenant browser smoke must not mistake the navbar selector for the login selector');
 $expect(str_contains($browserFixture, ".el-select-dropdown:visible .el-select-dropdown__item').first().click()"), 'multi-tenant browser smoke must select a tenant before its second login submission');
 
 echo "P0E-RUNTIME-QUALIFICATION-CONTRACT-001 passed\n";
