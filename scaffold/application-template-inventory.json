@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e19ddf6dfd9bdfc3da2c4b02b41b5eb760abe9169a67dc14a55f200c0343ac0"
+            "source_sha256": "a991e66c97718833f3f1e016f047220cf8d5165b2fc5fbcb7f544da7a32c87cb"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -23908,7 +23908,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "995d7afd76586e83f25b89a093a82f9b6bca4a75e52d199abccb9ae9c1aec55e"
+            "source_sha256": "47e4ca10eee89c1145820fc802004d0022f04cd2108c8528fd084fc9a7c9acf5"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -23950,7 +23950,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f43af4d7a0d5fedb823f116c8a39af9052384e9800bc70c21eedbd3e04073415"
+            "source_sha256": "5ee7e1b43a7ab3f41ace22a382ce693bcd2d8090edfc19320af9dbc237c61fd3"
         },
         {
             "path": "server/docker/scripts/vendor-state.py",

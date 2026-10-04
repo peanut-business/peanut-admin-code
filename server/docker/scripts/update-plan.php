@@ -2021,6 +2021,7 @@ final class PeanutServerUpdatePlan
         foreach ($actual as $path => $row) {
             $actualComparable[$path] = ['path' => $path, 'sha256' => $row['sha256'], 'mode' => $row['mode']];
         }
+        ksort($actualComparable, SORT_STRING);
         if ($declared !== $actualComparable) {
             throw new RuntimeException('target archive files differ from release identity');
         }
