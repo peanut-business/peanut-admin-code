@@ -82,8 +82,10 @@ final class ScaffoldUpgradeRunner
         if (Semver::greaterThanOrEqualTo($from->version(), '3.0.0')) {
             $pluginProjection = $this->pluginProjection($root);
             $targetPlugins = $this->targetPluginIndex($to, $targetParameters, $versionContract);
-            $pluginTarget = $this->officialPluginProjection($root, $pluginProjection,
-                $from->files(),
+            $managedUpstreamProofs = $this->managedBundledUpstreamProofs($root, $application, $pluginProjection,
+                $this->targetPluginIndex($from, $fromParameters, $versionContract), $from->files(), $targetPlugins, $to->files());
+            $pluginTarget = $this->upstreamPluginProjection($root, $pluginProjection,
+                $from->files(), $managedUpstreamProofs,
                 $targetPlugins, $to, $targetParameters, $versionContract);
             $actions = $this->projectPluginBoundary($actions, $pluginProjection, $targetPlugins, $pluginTarget);
         }
@@ -917,6 +919,7 @@ final class ScaffoldUpgradeRunner
                 'manifest' => $manifest,
                 'manifest_sha256' => $descriptor->manifestDigest,
                 'source_sha256' => $descriptor->source['sha256'],
+                'source_contract' => ['type' => $descriptor->source['type'], 'channel' => $descriptor->trust['channel'], 'origin' => $descriptor->trust['origin']],
                 'module_roots' => $moduleRoots,
                 'module_keys' => array_keys($descriptor->moduleRoots),
                 'frontend_roots' => $frontendRoots,
@@ -1014,6 +1017,7 @@ final class ScaffoldUpgradeRunner
                 'manifest' => $manifestPath,
                 'version' => $entry['version'] ?? null,
                 'source_sha256' => $entry['source']['sha256'] ?? null,
+                'source_contract' => ['type' => $entry['source']['type'] ?? null, 'channel' => $entry['trust']['channel'] ?? null, 'origin' => $entry['trust']['origin'] ?? null],
                 'manifest_sha256' => $entry['manifest_sha256'] ?? null,
                 'module_keys' => $moduleKeys,
                 'module_roots' => array_keys($moduleRoots),
@@ -1026,11 +1030,84 @@ final class ScaffoldUpgradeRunner
         return $plugins;
     }
 
-    /** Materialize only the selected official graph and the validated customer graph, then use the native canonical writer. */
-    private function officialPluginProjection(
+    /** A namespace or bundled label alone never grants upstream ownership of a private/customer package. */
+    private function managedBundledUpstreamProofs(
+        string $root,
+        array $application,
+        array $current,
+        array $from,
+        array $fromFiles,
+        array $target,
+        array $targetFiles,
+    ): array {
+        $baselineRoot = '.peanut/scaffold-baseline/' . $application['template']['version'] . '/files';
+        if (($application['ownership']['baseline_root'] ?? null) !== $baselineRoot) {
+            return [];
+        }
+        $applicationFiles = array_column($application['files'], null, 'path');
+        $contract = ['type' => 'canonical-contents', 'channel' => 'bundled',
+            'origin' => ['type' => 'repository-contents', 'reference' => 'canonical-plugin-contents-v1']];
+        $proofs = [];
+        foreach ($target as $key => $plugin) {
+            if (str_starts_with($key, 'official.') || !isset($current['plugins'][$key], $from[$key])
+                || $plugin['manifest'] !== 'plugins/' . $key . '/plugin.json') {
+                continue;
+            }
+            $installed = $current['plugins'][$key];
+            $baseline = $from[$key];
+            $sameOwner = true;
+            foreach (['manifest', 'module_keys', 'module_roots', 'frontend_roots'] as $field) {
+                $sameOwner = $sameOwner && $installed[$field] === $plugin[$field] && $baseline[$field] === $plugin[$field];
+            }
+            foreach ([$installed, $baseline, $plugin] as $identity) {
+                $sameOwner = $sameOwner && ($identity['source_contract'] ?? null) === $contract;
+            }
+            if (!$sameOwner) {
+                continue;
+            }
+            $paths = $this->pluginSourceFiles($root, [...$installed['module_roots'], ...$installed['frontend_roots']]);
+            $paths[$installed['manifest']] = $installed['manifest_sha256'];
+            ksort($paths, SORT_STRING);
+            $evidence = [];
+            foreach ($paths as $path => $digest) {
+                $file = $applicationFiles[$path] ?? null;
+                $old = $fromFiles[$path] ?? null;
+                $next = $targetFiles[$path] ?? null;
+                if (!is_array($file) || !is_array($old)
+                    || !in_array($file['classification'] ?? null, ['managed', 'generated-managed'], true)
+                    || ($file['owner'] ?? null) !== 'scaffold'
+                    || ($file['source'] ?? null) !== $path
+                    || !in_array($old['classification'] ?? null, ['managed', 'generated-managed'], true)
+                    || ($next !== null && !in_array($next['classification'] ?? null, ['managed', 'generated-managed'], true))
+                    || ($file['sha256'] ?? null) !== $digest
+                    || ($file['baseline_path'] ?? null) !== $baselineRoot . '/' . $path
+                    || ($file['baseline_sha256'] ?? null) !== $digest) {
+                    $sameOwner = false;
+                    break;
+                }
+                $actual = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $path), $path);
+                $saved = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['baseline_path']), $file['baseline_path']);
+                if (!$saved['present'] || $saved['sha256'] !== $digest || $actual['sha256'] !== $digest
+                    || $actual['mode'] !== ($file['mode'] ?? null)) {
+                    $sameOwner = false;
+                    break;
+                }
+                $evidence[$path] = ['sha256' => $digest, 'mode' => $actual['mode'], 'baseline_path' => $file['baseline_path']];
+            }
+            if ($sameOwner) {
+                $proofs[$key] = ['baseline_root' => $baselineRoot, 'files' => count($evidence),
+                    'ownership_sha256' => 'sha256:' . hash('sha256', self::canonicalJson($evidence))];
+            }
+        }
+        return $proofs;
+    }
+
+    /** Materialize the selected upstream graph and validated customer graph through the native canonical writer. */
+    private function upstreamPluginProjection(
         string $root,
         array $current,
         array $fromFiles,
+        array $managedUpstreamProofs,
         array $target,
         ScaffoldManifest $release,
         array $parameters,
@@ -1038,12 +1115,14 @@ final class ScaffoldUpgradeRunner
     ): array {
         $keys = [];
         foreach ($target as $key => $plugin) {
-            if (!str_starts_with($key, 'official.')) {
+            $official = str_starts_with($key, 'official.');
+            if (!$official && !isset($managedUpstreamProofs[$key])) {
                 continue;
             }
             if ($plugin['manifest'] !== 'plugins/' . $key . '/plugin.json'
-                || array_filter($plugin['module_keys'], static fn(string $module): bool => !str_starts_with($module, 'official.')) !== []) {
-                throw new RuntimeException('SCAFFOLD_OFFICIAL_OWNERSHIP_INVALID');
+                || ($official && array_filter($plugin['module_keys'], static fn(string $module): bool => !str_starts_with($module, 'official.')) !== [])
+                || (!$official && array_filter($plugin['module_keys'], static fn(string $module): bool => str_starts_with($module, 'official.')) !== [])) {
+                throw new RuntimeException('SCAFFOLD_UPSTREAM_OWNERSHIP_INVALID');
             }
             $installed = $current['plugins'][$key] ?? null;
             if (is_array($installed)) {
@@ -1167,6 +1246,7 @@ final class ScaffoldUpgradeRunner
             }
             $preflight->dependencyOrder($modules, []);
             return ['keys' => $keys, 'source_projection' => $sourceProjection,
+                'managed_upstream_proofs' => $managedUpstreamProofs,
                 'manifest_contents' => $manifestContents, 'lock_contents' => $built['contents'], 'projection' => $projection];
         } finally {
             $this->removePluginProjectionStage($stage);
@@ -1206,7 +1286,7 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SCAFFOLD_RAW_PLUGIN_TARGET_IDENTITY_MISMATCH');
         }
         foreach ($target as $key => $plugin) {
-            foreach (['version', 'manifest', 'manifest_sha256', 'source_sha256', 'module_keys', 'module_roots', 'frontend_roots'] as $field) {
+            foreach (['version', 'manifest', 'manifest_sha256', 'source_sha256', 'source_contract', 'module_keys', 'module_roots', 'frontend_roots'] as $field) {
                 if ($projection['plugins'][$key][$field] !== $plugin[$field]) {
                     throw new RuntimeException('SCAFFOLD_RAW_PLUGIN_TARGET_IDENTITY_MISMATCH: ' . $key);
                 }
@@ -1289,9 +1369,15 @@ final class ScaffoldUpgradeRunner
         $adoptionRequired = [];
         $officialArtifacts = [];
         $officialRoots = [];
+        $managedArtifacts = [];
+        $managedRoots = [];
         foreach ($official['keys'] as $key) {
             $officialArtifacts[$target[$key]['manifest']] = true;
             array_push($officialRoots, ...$target[$key]['module_roots'], ...$target[$key]['frontend_roots']);
+            if (isset($official['managed_upstream_proofs'][$key])) {
+                $managedArtifacts[$target[$key]['manifest']] = true;
+                array_push($managedRoots, ...$target[$key]['module_roots'], ...$target[$key]['frontend_roots']);
+            }
         }
         foreach ($target as $key => $plugin) {
             $targetArtifacts[$plugin['manifest']] = $key;
@@ -1319,7 +1405,8 @@ final class ScaffoldUpgradeRunner
                         ? ($present ? (($action['current']['sha256'] === $action['target_sha256']
                             && $action['current']['mode'] === $action['mode']) ? 'preserve' : 'replace') : 'create')
                         : ($present ? 'delete' : 'omit');
-                    $action['reason'] = 'official_module_complete_projection';
+                    $action['reason'] = isset($managedArtifacts[$path]) || $this->withinAnyRoot($path, $managedRoots)
+                        ? 'managed_bundled_module_complete_projection' : 'official_module_complete_projection';
                     $action['conflict'] = false;
                 }
                 continue;
