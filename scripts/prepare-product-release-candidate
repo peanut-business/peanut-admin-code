@@ -19,7 +19,9 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-from urllib.parse import urlparse
+from functools import lru_cache
+from urllib.parse import unquote, urlparse
+from urllib.request import Request, urlopen
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -281,11 +283,11 @@ def pnpm_lock_package(name: str, expected_version: str) -> dict[str, str]:
     return result
 
 
-def npm_registry_package(name: str, expected_version: str) -> dict[str, str]:
+def npm_registry_package(name: str, expected_version: str) -> dict[str, Any]:
     npm = npm_command()
     output = subprocess.check_output(
         [npm, "view", f"{name}@{expected_version}", "version", "dist.tarball", "dist.integrity",
-         "repository.url", "gitHead", "--json", "--registry=https://registry.npmjs.org"],
+         "repository.url", "gitHead", "dist.attestations", "--json", "--registry=https://registry.npmjs.org"],
         cwd=ROOT,
         text=True,
     )
@@ -300,8 +302,11 @@ def npm_registry_package(name: str, expected_version: str) -> dict[str, str]:
     repository = data.get("repository.url")
     if repository is None and isinstance(data.get("repository"), dict):
         repository = data["repository"].get("url")
+    attestations = data.get("dist.attestations") or {}
+    provenance = (npm_provenance(name, expected_version, attestations.get("url"))
+                  if data.get("gitHead") is None else None)
     return {"version": expected_version, "resolved": resolved, "integrity": integrity,
-            "repository": repository, "gitHead": data.get("gitHead")}
+            "repository": repository, "gitHead": data.get("gitHead"), "provenance": provenance}
 
 
 def official_web_repository(value: Any) -> bool:
@@ -313,8 +318,121 @@ def official_web_repository(value: Any) -> bool:
             and parsed.path in ("/peanut-business/peanut-admin-core-web", "/peanut-business/peanut-admin-core-web.git"))
 
 
+def provenance_url(value: Any, name: str, version: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    parsed = urlparse(value)
+    return (parsed.scheme == "https" and parsed.hostname == "registry.npmjs.org" and parsed.port is None
+            and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment
+            and unquote(parsed.path) == f"/-/npm/v1/attestations/{name}@{version}")
+
+
+@lru_cache(maxsize=64)
+def public_json(url: str) -> dict[str, Any]:
+    try:
+        with urlopen(Request(url, headers={"User-Agent": "Peanut-release-coordinator"}), timeout=30) as stream:
+            value = json.load(stream)
+    except (OSError, ValueError) as error:
+        fail(f"public source evidence lookup failed: {url}: {type(error).__name__}")
+    if not isinstance(value, dict):
+        fail("public source evidence must be a JSON object")
+    return value
+
+
+def npm_provenance(name: str, version: str, url: Any) -> dict[str, Any]:
+    if not provenance_url(url, name, version):
+        fail(f"npm provenance URL is missing or wrong for {name}")
+    document = public_json(url)
+    matches = [entry.get("bundle") for entry in document.get("attestations", [])
+               if isinstance(entry, dict) and entry.get("predicateType") == "https://slsa.dev/provenance/v1"]
+    if len(matches) != 1 or not isinstance(matches[0], dict):
+        fail(f"npm provenance is absent or ambiguous for {name}")
+    bundle = matches[0]
+    canonical = json.dumps(bundle, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return {"url": url, "bundle_sha256": hashlib.sha256(canonical).hexdigest(), "bundle": bundle}
+
+
+@lru_cache(maxsize=64)
+def verify_npm_provenance_signature(canonical_bundle: str, version: str) -> None:
+    """Use npm's existing public Sigstore trust and verifier, never a project signing key."""
+    node = shutil.which("node")
+    if not node:
+        fail("Node is required for npm provenance verification")
+    try:
+        npm_root = subprocess.check_output([npm_command(), "root", "--global"], cwd=ROOT, text=True, timeout=30).strip()
+        program = r"""
+const fs = require('node:fs');
+const path = require('node:path');
+const sigstore = require(path.join(process.argv[1], 'npm/node_modules/sigstore'));
+const bundle = JSON.parse(fs.readFileSync(0, 'utf8'));
+sigstore.verify(bundle, {
+  certificateIdentityURI: `https://github.com/peanut-business/peanut-admin-core-web/.github/workflows/release.yml@refs/tags/v${process.argv[2]}`,
+  certificateIssuer: 'https://token.actions.githubusercontent.com',
+  tufForceCache: true,
+}).catch(error => { console.error(error.message); process.exitCode = 1; });
+"""
+        result = subprocess.run([node, "-e", program, npm_root, version], input=canonical_bundle,
+                                cwd=ROOT, text=True, capture_output=True, timeout=90)
+    except (OSError, subprocess.SubprocessError) as error:
+        fail(f"npm provenance verifier failed: {type(error).__name__}")
+    if result.returncode != 0:
+        fail(f"npm provenance signature verification failed: {result.stderr.strip()}")
+
+
+def validate_web_source(name: str, version: str, reference: str, registry: dict[str, Any],
+                        action_run: int | None = None) -> dict[str, Any]:
+    """Shared registry/evidence source binding for candidate and live coordinator."""
+    if registry.get("gitHead") is not None and registry["gitHead"] != reference:
+        fail(f"npm registry gitHead differs from fixed Core Web source for {name}")
+    provenance = registry.get("provenance")
+    if provenance is None:
+        if registry.get("gitHead") != reference:
+            fail(f"npm registry gitHead is missing and verified provenance is required for {name}")
+        return {"type": "npm-gitHead", "source_reference": reference}
+    if not isinstance(provenance, dict) or set(provenance) != {"url", "bundle_sha256", "bundle"} \
+            or not provenance_url(provenance.get("url"), name, version) or not isinstance(provenance.get("bundle"), dict):
+        fail(f"npm provenance record shape or URL differs for {name}")
+    canonical = json.dumps(provenance["bundle"], sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    if hashlib.sha256(canonical.encode()).hexdigest() != provenance["bundle_sha256"]:
+        fail(f"npm provenance bundle SHA-256 differs for {name}")
+    try:
+        envelope = provenance["bundle"]["dsseEnvelope"]
+        if envelope["payloadType"] != "application/vnd.in-toto+json":
+            fail(f"npm provenance payload type differs for {name}")
+        statement = json.loads(base64.b64decode(envelope["payload"], validate=True))
+        expected_digest = base64.b64decode(registry["integrity"].removeprefix("sha512-"), validate=True).hex()
+        if (statement["_type"] != "https://in-toto.io/Statement/v1"
+                or statement["predicateType"] != "https://slsa.dev/provenance/v1"
+                or statement["subject"] != [{"name": f"pkg:npm/{name.replace('@', '%40')}@{version}", "digest": {"sha512": expected_digest}}]):
+            fail(f"npm provenance subject/integrity differs for {name}")
+        definition = statement["predicate"]["buildDefinition"]
+        workflow = definition["externalParameters"]["workflow"]
+        official = "https://github.com/peanut-business/peanut-admin-core-web"
+        if (definition["buildType"] != "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1"
+                or workflow != {"ref": f"refs/tags/v{version}", "repository": official, "path": ".github/workflows/release.yml"}
+                or definition["resolvedDependencies"] != [{"uri": f"git+{official}@refs/tags/v{version}", "digest": {"gitCommit": reference}}]):
+            fail(f"npm provenance source/workflow differs for {name}")
+        invocation = statement["predicate"]["runDetails"]["metadata"]["invocationId"]
+        match = re.fullmatch(re.escape(official) + r"/actions/runs/([1-9][0-9]*)/attempts/([1-9][0-9]*)", invocation)
+        if not match or (action_run is not None and int(match[1]) != action_run):
+            fail(f"npm provenance Action run differs for {name}")
+        run_id = int(match[1])
+    except (KeyError, TypeError, ValueError) as error:
+        fail(f"npm provenance statement is invalid for {name}: {type(error).__name__}")
+    verify_npm_provenance_signature(canonical, version)
+    if action_run is None:
+        live = public_json(f"https://api.github.com/repos/peanut-business/peanut-admin-core-web/actions/runs/{run_id}")
+        if (live.get("id") != run_id or live.get("path") != ".github/workflows/release.yml"
+                or live.get("head_sha") != reference or live.get("head_branch") != f"v{version}"
+                or live.get("conclusion") != "success"):
+            fail(f"npm provenance live successful Action differs for {name}")
+    return {"type": "npm-provenance", "source_reference": reference, "action_run": run_id,
+            "bundle_sha256": provenance["bundle_sha256"], "signature_verified": True}
+
+
 def read_web_package_evidence(path: Path, expected_sha256: str, expected_version: str,
-                              expected_reference: str) -> dict[str, dict[str, str]]:
+                              expected_reference: str, *, expected_release_id: int | None = None,
+                              expected_action_run: int | None = None) -> dict[str, dict[str, Any]]:
     if not path.is_absolute() or path.is_symlink():
         fail("Web Core package evidence must be an absolute real regular file")
     try:
@@ -337,14 +455,17 @@ def read_web_package_evidence(path: Path, expected_sha256: str, expected_version
     required = {"schema_version", "protocol", "repository", "tag", "version", "source_reference",
                 "release_id", "action_run", "packages"}
     if (not isinstance(data, dict) or set(data) != required
-            or data.get("schema_version") != 1
-            or data.get("protocol") != "peanut.web-core-package-evidence.v1"
+            or data.get("schema_version") != 2
+            or data.get("protocol") != "peanut.web-core-package-evidence.v2"
             or data.get("repository") != "peanut-business/peanut-admin-core-web"
             or data.get("tag") != f"v{expected_version}" or data.get("version") != expected_version
             or data.get("source_reference") != expected_reference
             or not isinstance(data.get("release_id"), int) or data["release_id"] < 1
             or not isinstance(data.get("action_run"), int) or data["action_run"] < 1):
         fail("Web Core package evidence identity differs")
+    if ((expected_release_id is not None and data["release_id"] != expected_release_id)
+            or (expected_action_run is not None and data["action_run"] != expected_action_run)):
+        fail("Web Core package evidence identity differs from live release")
     records = data.get("packages")
     if not isinstance(records, dict) or set(records) != set(CORE_WEB_PACKAGES):
         fail("Web Core package evidence package set differs")
@@ -352,23 +473,27 @@ def read_web_package_evidence(path: Path, expected_sha256: str, expected_version
     for name in CORE_WEB_PACKAGES:
         item = records.get(name)
         if not isinstance(item, dict) or set(item) != {
-                "version", "repository", "source_reference", "gitHead", "tarball", "integrity"}:
+                "version", "repository", "source_reference", "gitHead", "tarball", "integrity", "provenance"}:
             fail(f"Web Core package evidence record shape differs: {name}")
         repository = item.get("repository")
         tarball = item.get("tarball")
         integrity = item.get("integrity")
         validate_integrity(integrity, f"evidence:{name}")
         if (item.get("version") != expected_version or item.get("source_reference") != expected_reference
-                or item.get("gitHead") != expected_reference or not official_web_repository(repository)
+                or not official_web_repository(repository)
                 or not registry_tarball(tarball)):
             fail(f"Web Core package evidence metadata differs: {name}")
         registry[name] = {"version": expected_version, "resolved": tarball, "integrity": integrity,
-                          "repository": repository, "gitHead": expected_reference}
+                          "repository": repository, "gitHead": item["gitHead"], "provenance": item["provenance"]}
+        binding = validate_web_source(name, expected_version, expected_reference, registry[name], expected_action_run)
+        if binding["type"] == "npm-provenance" and binding["action_run"] != data["action_run"]:
+            fail(f"Web Core package evidence Action metadata differs: {name}")
+        registry[name]["source_binding"] = binding
     return registry
 
 
 def read_core_web(expected_version: str, expected_reference: str,
-                  registry_packages: dict[str, dict[str, str]] | None = None) -> dict[str, Any]:
+                  registry_packages: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     packages: dict[str, dict[str, str]] = {}
     for name in CORE_WEB_PACKAGES:
         observations = []
@@ -384,8 +509,7 @@ def read_core_web(expected_version: str, expected_reference: str,
                     else npm_registry_package(name, expected_version))
         if not official_web_repository(registry.get("repository")):
             fail(f"npm registry repository is missing or wrong for {name}")
-        if registry.get("gitHead") != expected_reference:
-            fail(f"npm registry gitHead is missing or differs from fixed Core Web source for {name}")
+        validate_web_source(name, expected_version, expected_reference, registry)
         verified = {key: registry[key] for key in ("version", "resolved", "integrity")}
         for item in observations:
             if item["version"] != verified["version"] or item["integrity"] != verified["integrity"]:

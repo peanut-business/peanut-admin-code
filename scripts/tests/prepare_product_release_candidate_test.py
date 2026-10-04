@@ -25,6 +25,28 @@ def sri(seed: str) -> str:
     return "sha512-" + base64.b64encode(hashlib.sha512(seed.encode()).digest()).decode()
 
 
+def provenance_fixture(name: str, version: str, reference: str, integrity: str, run: int = 36565142424) -> dict:
+    official = "https://github.com/peanut-business/peanut-admin-core-web"
+    statement = {
+        "_type": "https://in-toto.io/Statement/v1", "predicateType": "https://slsa.dev/provenance/v1",
+        "subject": [{"name": f"pkg:npm/{name.replace('@', '%40')}@{version}",
+                     "digest": {"sha512": base64.b64decode(integrity[7:]).hex()}}],
+        "predicate": {"buildDefinition": {
+            "buildType": "https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1",
+            "externalParameters": {"workflow": {"ref": f"refs/tags/v{version}", "repository": official, "path": ".github/workflows/release.yml"}},
+            "resolvedDependencies": [{"uri": f"git+{official}@refs/tags/v{version}", "digest": {"gitCommit": reference}}],
+        }, "runDetails": {"metadata": {"invocationId": f"{official}/actions/runs/{run}/attempts/1"}}},
+    }
+    return provenance_statement(name, version, statement)
+
+
+def provenance_statement(name: str, version: str, statement: dict) -> dict:
+    bundle = {"dsseEnvelope": {"payloadType": "application/vnd.in-toto+json", "payload": base64.b64encode(json.dumps(statement).encode()).decode()}}
+    raw = json.dumps(bundle, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return {"url": f"https://registry.npmjs.org/-/npm/v1/attestations/{name.replace('/', '%2f')}@{version}",
+            "bundle_sha256": hashlib.sha256(raw).hexdigest(), "bundle": bundle}
+
+
 class PrepareProductReleaseCandidateTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
@@ -127,14 +149,15 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
                 "repository": row["repository"],
                 "source_reference": reference,
                 "gitHead": row["gitHead"],
+                "provenance": row.get("provenance"),
                 "tarball": row["resolved"],
                 "integrity": row["integrity"],
             }
             for name, row in self.registry.items()
         }
         value = {
-            "schema_version": 1,
-            "protocol": "peanut.web-core-package-evidence.v1",
+            "schema_version": 2,
+            "protocol": "peanut.web-core-package-evidence.v2",
             "repository": "peanut-business/peanut-admin-core-web",
             "tag": "v4.0.0-rc.4",
             "version": "4.0.0-rc.4",
@@ -419,6 +442,83 @@ class PrepareProductReleaseCandidateTest(unittest.TestCase):
         self.assertEqual(result["repository"], data["repository.url"])
         self.assertIn("--registry=https://registry.npmjs.org", command.call_args.args[0])
         self.assertIn("repository.url", command.call_args.args[0])
+
+    def test_null_git_head_uses_verified_provenance_for_all_six_packages_and_bound_evidence(self) -> None:
+        self.write_native_locks()
+        reference = "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
+        for name, row in self.registry.items():
+            row["gitHead"] = None
+            row["provenance"] = provenance_fixture(name, row["version"], reference, row["integrity"])
+        live = {"id": 36565142424, "path": ".github/workflows/release.yml", "head_sha": reference,
+                "head_branch": "v4.0.0-rc.4", "conclusion": "success"}
+        path, evidence_sha = self.write_web_evidence()
+        with patch.object(candidate, "verify_npm_provenance_signature") as verifier, \
+                patch.object(candidate, "public_json", return_value=live):
+            registry = candidate.read_web_package_evidence(path, evidence_sha, "4.0.0-rc.4", reference)
+            result = candidate.read_core_web("4.0.0-rc.4", reference, registry)
+        self.assertEqual(len(result["packages"]), 6)
+        self.assertEqual(set(registry), set(candidate.CORE_WEB_PACKAGES))
+        self.assertTrue(all(row["gitHead"] is None for row in registry.values()))
+        self.assertTrue(all(row["source_binding"]["signature_verified"] for row in registry.values()))
+        self.assertEqual(verifier.call_count, 12)
+
+    def test_provenance_rejects_source_subject_workflow_action_hash_and_signature_changes(self) -> None:
+        name, version, reference = "@peanut-admin/client", "4.0.0-rc.4", "e7e00110b999d5f91ecf7b5861415810a5fcb14c"
+        row = {"gitHead": None, "integrity": sri(name), "provenance": provenance_fixture(name, version, reference, sri(name))}
+        mutations = [
+            lambda value: value["subject"][0]["digest"].__setitem__("sha512", "0" * 128),
+            lambda value: value["subject"][0].__setitem__("name", "pkg:npm/%40other/client@4.0.0-rc.4"),
+            lambda value: value["predicate"]["buildDefinition"]["resolvedDependencies"][0]["digest"].__setitem__("gitCommit", "0" * 40),
+            lambda value: value["predicate"]["buildDefinition"]["externalParameters"]["workflow"].__setitem__("repository", "https://github.com/other/core"),
+            lambda value: value["predicate"]["buildDefinition"]["externalParameters"]["workflow"].__setitem__("ref", "refs/tags/v4.0.0-rc.3"),
+            lambda value: value["predicate"]["buildDefinition"]["externalParameters"]["workflow"].__setitem__("path", ".github/workflows/other.yml"),
+            lambda value: value["predicate"]["runDetails"]["metadata"].__setitem__("invocationId", "https://github.com/peanut-business/peanut-admin-core-web/actions/runs/99/attempts/1"),
+        ]
+        for mutate in mutations:
+            statement = json.loads(base64.b64decode(row["provenance"]["bundle"]["dsseEnvelope"]["payload"]))
+            mutate(statement)
+            invalid = {**row, "provenance": provenance_statement(name, version, statement)}
+            with self.subTest(mutation=mutate), patch.object(candidate, "verify_npm_provenance_signature") as verifier:
+                with self.assertRaises(SystemExit):
+                    candidate.validate_web_source(name, version, reference, invalid, 36565142424)
+                verifier.assert_not_called()
+        with self.assertRaisesRegex(SystemExit, "gitHead"):
+            candidate.validate_web_source(name, version, reference, {**row, "gitHead": "0" * 40}, 36565142424)
+        with self.assertRaisesRegex(SystemExit, "SHA-256"):
+            candidate.validate_web_source(name, version, reference, {**row, "provenance": {**row["provenance"], "bundle_sha256": "0" * 64}}, 36565142424)
+        with patch.object(candidate, "verify_npm_provenance_signature", side_effect=SystemExit("signature verification failed")):
+            with self.assertRaisesRegex(SystemExit, "signature verification failed"):
+                candidate.validate_web_source(name, version, reference, row, 36565142424)
+        with patch.object(candidate, "verify_npm_provenance_signature"), patch.object(candidate, "public_json", return_value={"conclusion": "failure"}):
+            with self.assertRaisesRegex(SystemExit, "live successful Action"):
+                candidate.validate_web_source(name, version, reference, row)
+
+    def test_registry_preserves_missing_git_head_and_fetches_official_provenance(self) -> None:
+        name, version = "@peanut-admin/client", "4.0.0-rc.4"
+        url = f"https://registry.npmjs.org/-/npm/v1/attestations/@peanut-admin%2fclient@{version}"
+        data = {"version": version, "dist.tarball": f"https://registry.npmjs.org/@peanut-admin/client/-/client-{version}.tgz",
+                "dist.integrity": sri(name), "repository.url": "git+https://github.com/peanut-business/peanut-admin-core-web.git",
+                "dist.attestations": {"url": url}}
+        with patch.object(candidate, "npm_command", return_value="npm"), patch.object(candidate.subprocess, "check_output", return_value=json.dumps(data)), \
+                patch.object(candidate, "npm_provenance", return_value={"bundle": "fixture"}) as fetch:
+            result = candidate.npm_registry_package(name, version)
+        self.assertIsNone(result["gitHead"])
+        fetch.assert_called_once_with(name, version, url)
+
+    def test_provenance_verifier_uses_npm_sigstore_with_exact_signer_policy_and_stdin(self) -> None:
+        result = type("Result", (), {"returncode": 0})()
+        candidate.verify_npm_provenance_signature.cache_clear()
+        with patch.object(candidate, "npm_command", return_value="npm"), patch.object(candidate.shutil, "which", return_value="node"), \
+                patch.object(candidate.subprocess, "check_output", return_value="/registered/lib/node_modules\n"), \
+                patch.object(candidate.subprocess, "run", return_value=result) as run:
+            candidate.verify_npm_provenance_signature('{"fixture":true}', "4.0.0-rc.4")
+        argv = run.call_args.args[0]
+        self.assertIn("npm/node_modules/sigstore", argv[2])
+        self.assertIn("certificateIdentityURI", argv[2])
+        self.assertIn("certificateIssuer: 'https://token.actions.githubusercontent.com'", argv[2])
+        self.assertEqual(argv[-2:], ["/registered/lib/node_modules", "4.0.0-rc.4"])
+        self.assertEqual(run.call_args.kwargs["input"], '{"fixture":true}')
+        candidate.verify_npm_provenance_signature.cache_clear()
 
     def test_rejects_existing_candidate_and_local_repository_before_writes(self) -> None:
         self.write_manifests()
