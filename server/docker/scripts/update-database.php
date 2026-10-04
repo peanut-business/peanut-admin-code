@@ -85,9 +85,15 @@ try {
     ];
     $backup = json_decode((string) file_get_contents($workspace . '/backup.json'), true, 128, JSON_THROW_ON_ERROR);
     $assertSigned($workspace . '/backup.json');
+    $backupDatabaseIdentity = $backup['database_identity'] ?? null;
+    if (!is_array($backupDatabaseIdentity)) {
+        throw new RuntimeException('migration recovery database identity is invalid');
+    }
+    ksort($backupDatabaseIdentity, SORT_STRING);
+    ksort($databaseIdentity, SORT_STRING);
     if (($backup['plan_sha256'] ?? null) !== $planSha
         || ($backup['update_id'] ?? null) !== $plan['update_id']
-        || ($backup['database_identity'] ?? null) !== $databaseIdentity
+        || $backupDatabaseIdentity !== $databaseIdentity
         || ($backup['snapshots']['private/installation/installed.json'] ?? null) !== $plan['source']['installed_receipt_sha256']
         || ($backup['snapshots']['private/installation/baseline.json'] ?? null) !== $plan['source']['baseline_sha256']
         || ($backup['database_dump_sha256'] ?? null) !== hash_file('sha256', $workspace . '/recovery/database.sql.gz')) {
@@ -104,6 +110,8 @@ try {
         'password' => (string) $config['password'],
     ]);
     $version = (string) $identity['application']['version'];
+    require_once $server . '/database/install.php';
+    $migrationTargetVersion = applicationMigrationTargetVersion($server, applicationReleaseVersions($server));
     $migrationPath = $workspace . '/migration.json';
     if ($operation === 'migrate') {
         if (file_exists($migrationPath) || is_link($migrationPath)) {
@@ -130,7 +138,7 @@ try {
             throw new RuntimeException('native migration result is missing or bound to another recovery point');
         }
     }
-    $migration = $runner->run($files, $version, $version, $operation === 'verify');
+    $migration = $runner->run($files, $migrationTargetVersion, $version, $operation === 'verify');
     $ids = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
     $statuses = $runner->statuses($ids);
     if ($operation === 'migrate') {
