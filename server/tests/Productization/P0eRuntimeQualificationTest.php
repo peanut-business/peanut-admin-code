@@ -195,6 +195,9 @@ foreach ($plan['lease_resources'] ?? [] as $resource) {
 }
 $expect(count($plan['lease_resources'] ?? []) === 43, 'manual lease resources must have 43 exact rows');
 $expect(($resourceCounts['mysql-db'] ?? null) === 6, 'claim must bind six exact fresh-only databases');
+$expect(($resourceValues['database'] ?? null) === ($resourceValues['mysql-db'] ?? null), 'claim database locks diverge from exact MySQL namespaces');
+$expect(($resourceValues['registry-sha256'] ?? null) === [hash_file('sha256', $registryPath)], 'claim did not bind the actual private registry bytes');
+$expect(($resourceValues['resource-scope'] ?? null) === [str_replace('<run_id>', $runId, $registered[0]['namespace'])], 'claim lost its registered database scope');
 $expect(($resourceValues['qualification-group'] ?? null) === ['multi-tenant-browser'], 'full claim lost its exact qualification cutoff');
 $expect(($resourceCounts['deployment-mode'] ?? null) === 2, 'claim must bind both deployment modes');
 $expect(($resourceCounts['port'] ?? null) === 4, 'claim must bind database, HTTP, tunnel and docs port conflicts');
@@ -308,6 +311,17 @@ $expect(str_contains($runnerSource, 'required = set(self.plan["groups"])'), 'run
 $expect(str_contains($runnerSource, '"partial-passed"'), 'bounded qualification is not distinguished from a full Gate pass');
 $expect(str_contains($runnerSource, '"selected-groups"'), 'runner does not distinguish selected-group qualification from prefix qualification');
 $expect(str_contains($runnerSource, 'preflight_database_admin_tooling'), 'remote database administration does not fail fast');
+$expect(str_contains($runnerSource, 'self.preflight_group_environments()')
+    && strpos($runnerSource, 'self.preflight_group_environments()') < strpos($runnerSource, 'self.run_group("generated-application"')
+    && str_contains($runnerSource, 'guardedDatabaseConfig($argv[1])')
+    && str_contains($runnerSource, 'container_runtime=consumer == "container"'),
+    'actual PHP resource guard does not preflight all groups before generated builds');
+$expect(str_contains($runnerSource, 'self.prepare_registry_proof()') && str_contains($runnerSource, 'self.prepare_registry_proof(resume=True)')
+    && str_contains($runnerSource, 'path.read_bytes() != raw'), 'native lease proof lost its fixed original registry bytes');
+$expect(str_contains($runnerSource, 'if "generated-application" in self.plan["groups"]:')
+    && str_contains($runnerSource, 'shutil.copytree(self.edition_artifacts, preserved)')
+    && str_contains($runnerSource, 'preserved edition artifact bytes differ from qualified originals'),
+    'full qualification cleanup does not retain its original generated artifacts');
 $expect(str_contains($runnerSource, 'registered database credential is missing or ambiguous: MYSQL_ROOT_PASSWORD'), 'remote administration does not fail closed on a missing registered root credential');
 $expect(str_contains($runnerSource, '--defaults-extra-file="$path"'), 'remote administration does not use a container-private MySQL option file');
 $expect(str_contains($runnerSource, "trap 'rm -f -- ") && str_contains($runnerSource, 'EXIT HUP INT TERM'), 'remote administration does not clean its container-private credential file');
@@ -348,5 +362,42 @@ $expect(str_contains($browserFixture, '${platformUrl}/platform/'), 'browser smok
 $expect(str_contains($browserFixture, "getByText('概览', { exact: true }).first()"), 'browser smoke must wait for the visible Platform overview label');
 $expect(str_contains($browserFixture, "form.locator('.el-select').waitFor"), 'multi-tenant browser smoke must not mistake the navbar selector for the login selector');
 $expect(str_contains($browserFixture, ".el-select-dropdown:visible .el-select-dropdown__item').first().click()"), 'multi-tenant browser smoke must select a tenant before its second login submission');
+
+$nativeProofCode = <<<'PY'
+import hashlib, pathlib, runpy, tempfile
+namespace = runpy.run_path("scripts/p0e-runtime-qualification")
+Runner = namespace["Runner"]
+registry = namespace["REGISTRY_PATH"]
+with tempfile.TemporaryDirectory(prefix="p0e-registry-proof-", dir=".local/tmp") as directory:
+    runner = Runner.__new__(Runner)
+    runner.plan = {"lease_proof_dir": directory, "registry_sha256": hashlib.sha256(registry.read_bytes()).hexdigest()}
+    proof = pathlib.Path(directory) / "registry.json"
+    runner.prepare_registry_proof()
+    assert proof.read_bytes() == registry.read_bytes()
+    runner.prepare_registry_proof(resume=True)
+    def reject(operation):
+        try:
+            operation()
+        except (namespace["GateError"], FileExistsError):
+            return
+        raise AssertionError("native registry proof accepted invalid input")
+    reject(lambda: runner.prepare_registry_proof())
+    proof.write_bytes(proof.read_bytes() + b"\n")
+    reject(lambda: runner.prepare_registry_proof(resume=True))
+    proof.unlink()
+    reject(lambda: runner.prepare_registry_proof(resume=True))
+    proof.symlink_to(registry)
+    reject(lambda: runner.prepare_registry_proof(resume=True))
+    proof.unlink()
+    runner.plan["registry_sha256"] = "f" * 64
+    reject(lambda: runner.prepare_registry_proof())
+    assert not proof.exists()
+print("native registry proof export passed; cases=7")
+PY;
+$nativeOutput = [];
+$nativeCode = 0;
+exec('python3 -c ' . escapeshellarg($nativeProofCode) . ' 2>&1', $nativeOutput, $nativeCode);
+$expect($nativeCode === 0, 'native registry proof export failed: ' . implode("\n", $nativeOutput));
+echo implode("\n", $nativeOutput), "\n";
 
 echo "P0E-RUNTIME-QUALIFICATION-CONTRACT-001 passed\n";

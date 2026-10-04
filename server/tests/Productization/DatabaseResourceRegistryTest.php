@@ -623,6 +623,7 @@ function resourceGuardConsumerRepository(string $root, string $lease): array
  */
 function resourceGuardWriteProof(string $directory, string $runId, int $now, ?callable $mutate = null): void
 {
+    global $registryPath, $qualificationDatabase;
     mkdir($directory, 0700, true);
     $worktree = '/Users/xing/Documents/company-projects/peanut-admin-p0e-runtime';
     $lease = 'p0e-runtime-' . $runId;
@@ -646,15 +647,22 @@ function resourceGuardWriteProof(string $directory, string $runId, int $now, ?ca
         'deployment-target' => ['local-production-preview'],
         'qualification-group' => ['multi-tenant-browser'],
         'consumer' => ['host', 'container'],
-        'endpoint' => ['192.168.192.2:20183', 'host.docker.internal:20189'],
+        'endpoint' => [$qualificationDatabase['upstream_endpoint']['endpoint_id'], '192.168.192.2:20183',
+            $qualificationDatabase['container_endpoint']['endpoint_id'], 'host.docker.internal:20189'],
+        'registry-sha256' => [hash_file('sha256', $registryPath)],
+        'resource-scope' => [str_replace('<run_id>', $runId, $qualificationDatabase['namespace'])],
         'run-id' => [$runId],
         'candidate-tree' => [str_repeat('b', 40)],
         'mysql-db' => array_map(
             static fn(string $scenario): string => 'peanut_admin_development_p0e_' . $runId . '_' . $scenario,
             $scenarios,
         ),
+        'database' => array_map(
+            static fn(string $scenario): string => 'peanut_admin_development_p0e_' . $runId . '_' . $scenario,
+            $scenarios,
+        ),
         'deployment-mode' => ['standalone', 'multi-tenant'],
-        'port' => ['20190', '20189', '20186'],
+        'port' => ['20183', '20190', '20189', '20186'],
         'http-port' => ['20190'],
         'docs-port' => ['20186'],
         'database-tunnel' => ['peanut-admin-p0e-mysql84-container-tunnel'],
@@ -662,7 +670,7 @@ function resourceGuardWriteProof(string $directory, string $runId, int $now, ?ca
         'output-dir' => [$worktree . '/output/p0e-' . $runId],
         'compose-project' => ['peanut-p0e-' . $runId],
         'browser-session' => ['p0e-' . $runId],
-        'browser-host' => ['admin.p0e.localhost', 'platform.p0e.localhost'],
+        'browser-host' => ['admin.p0e.localhost', 'beta.p0e.localhost', 'platform.p0e.localhost'],
         'lease-proof-dir' => [
             '/Users/xing/Documents/company-projects/peanut-admin/.git/peanut-admin-resource-leases/leases/' . $lease,
         ],
@@ -887,10 +895,11 @@ try {
         static function (array &$metadata, array &$resources): void {
             $resources['qualification-group'] = ['multi-tenant-fresh'];
             $resources['consumer'] = ['host'];
-            $resources['endpoint'] = ['192.168.192.2:20183'];
+            $resources['endpoint'] = ['peanut-admin-p0e-mysql84-gate-host-direct', '192.168.192.2:20183'];
             $resources['mysql-db'] = array_slice($resources['mysql-db'], 0, 2);
+            $resources['database'] = array_slice($resources['database'], 0, 2);
+            $resources['port'] = ['20183'];
             foreach ([
-                'port',
                 'http-port',
                 'docs-port',
                 'database-tunnel',
@@ -938,6 +947,27 @@ try {
         'missing-db' => static function (array &$metadata, array &$resources): void {
             array_pop($resources['mysql-db']);
         },
+        'missing-database-lock' => static function (array &$metadata, array &$resources): void {
+            array_pop($resources['database']);
+        },
+        'foreign-database-lock' => static function (array &$metadata, array &$resources): void {
+            $resources['database'][0] = 'peanut_admin_development';
+        },
+        'registry-sha256' => static function (array &$metadata, array &$resources): void {
+            $resources['registry-sha256'] = [str_repeat('f', 64)];
+        },
+        'resource-scope' => static function (array &$metadata, array &$resources): void {
+            $resources['resource-scope'] = ['foreign-namespace'];
+        },
+        'missing-host-port' => static function (array &$metadata, array &$resources): void {
+            $resources['port'] = ['20190', '20189', '20186'];
+        },
+        'missing-endpoint-id' => static function (array &$metadata, array &$resources): void {
+            array_shift($resources['endpoint']);
+        },
+        'foreign-endpoint-id' => static function (array &$metadata, array &$resources): void {
+            $resources['endpoint'][0] = 'foreign-endpoint';
+        },
         'missing-browser-host' => static function (array &$metadata, array &$resources): void {
             array_pop($resources['browser-host']);
         },
@@ -960,6 +990,26 @@ try {
         resourceGuardSetEnvironment(resourceGuardP0eEnvironment($guardRunId, 'standalone_fresh', 'standalone'));
         resourceGuardMustFail(static fn(): array => guardedDatabaseConfig($proof, $guardNow), $case);
     }
+
+    $applicationRegistry = $registry;
+    $applicationRegistry['authority']['role'] = 'application';
+    $projection = $qualificationDatabase;
+    unset($projection['credential_ref']);
+    resourceGuardMustFail(static fn(): string => p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored'), 'missing original registry proof');
+    file_put_contents($activeProof . '/registry.json', $registryJson);
+    $expect(p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored') === hash('sha256', $registryJson),
+        'APP proof did not hash the original registry bytes');
+    $changedProjection = $projection;
+    $changedProjection['namespace'] = 'foreign';
+    resourceGuardMustFail(static fn(): string => p0eRegistryProofSha256($activeProof, $applicationRegistry, $changedProjection, 'ignored'), 'changed application database projection');
+    file_put_contents($activeProof . '/registry.json', $registryJson . "\n");
+    $changedSha = p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored');
+    $expect($changedSha !== hash('sha256', $registryJson), 'original registry byte changes were hidden');
+    resourceGuardMustFail(static fn() => assertLeaseResourceValues(activeLeaseResources($activeProof), 'registry-sha256', [$changedSha]), 'changed original registry bytes');
+    unlink($activeProof . '/registry.json');
+    symlink($registryPath, $activeProof . '/registry.json');
+    resourceGuardMustFail(static fn(): string => p0eRegistryProofSha256($activeProof, $applicationRegistry, $projection, 'ignored'), 'symlink original registry proof');
+    unlink($activeProof . '/registry.json');
 
     $tampered = $temporary . '/tampered';
     resourceGuardWriteProof($tampered, $guardRunId, $guardNow);

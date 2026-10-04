@@ -1052,6 +1052,7 @@ class Runner:
             path.mkdir(parents=True, exist_ok=False)
             path.chmod(0o700)
         self.prepare_runtime_credentials()
+        self.prepare_registry_proof()
         (self.output / "groups").mkdir()
         self.write_json(self.output / "plan.json", self.plan)
         self.save_checkpoint()
@@ -1074,6 +1075,61 @@ class Runner:
         self.checkpoint = checkpoint
         self.created_candidate_vendor = bool(checkpoint.get("owned_candidate_vendor"))
         self.prepare_runtime_credentials(resume=True)
+        self.prepare_registry_proof(resume=True)
+
+    def prepare_registry_proof(self, resume: bool = False) -> None:
+        # The original bytes are lease-bound, never an ordinary APP dependency.
+        # The existing read-only lease mount carries this proof to Compose too.
+        path = Path(self.plan["lease_proof_dir"]) / "registry.json"
+        raw = REGISTRY_PATH.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != self.plan["registry_sha256"]:
+            fail("P0-E registry proof source changed after the fixed plan")
+        if resume:
+            if path.is_symlink() or not path.is_file() or path.read_bytes() != raw:
+                fail("P0-E original registry proof changed or is unavailable")
+            return
+        with path.open("xb") as stream:
+            stream.write(raw)
+        path.chmod(0o644)
+
+    def preflight_group_environments(self) -> dict[str, Any]:
+        # Use the real Host guard before generated APPs exist. It validates the
+        # complete resolved lease. Both actual Host and Container configurations
+        # use the same environment producer as execution, with an explicit local
+        # proof lookup for this no-PDO check. This does not execute a container.
+        scenarios = {
+            "generated-application": [("standalone_fresh", "standalone"), ("multi_tenant_fresh", "multi-tenant")],
+            "standalone-fresh": [("standalone_fresh", "standalone")],
+            "multi-tenant-fresh": [("multi_tenant_fresh", "multi-tenant")],
+            "plugin-lifecycle": [("plugin_lifecycle", "multi-tenant")],
+            "consumer-module-lifecycle": [("consumer_module_cycle", "standalone")],
+            "production-compose": [("standalone_browser", "standalone")],
+            "standalone-browser": [("standalone_browser", "standalone")],
+            "multi-tenant-browser": [("multi_tenant_browser", "multi-tenant")],
+        }
+        if self.args.minimum_release:
+            scenarios["production-compose"].append(("multi_tenant_fresh", "multi-tenant"))
+        guard_php = (
+            "require 'server/database/environment-guard.php';"
+            "$config=guardedDatabaseConfig($argv[1]);"
+            "echo json_encode(['status'=>'validated','resource_id'=>$config['resource_id'],"
+            "'endpoint_id'=>$config['endpoint_id'],'consumer'=>$config['consumer'],"
+            "'database'=>$config['database'],'deployment_target'=>$config['deployment_target']]);"
+        )
+        results = {}
+        for group in self.plan["groups"]:
+            results[group] = []
+            for scenario, mode in scenarios[group]:
+                consumers = ("host", "container") if group in ("production-compose", "standalone-browser", "multi-tenant-browser") else ("host",)
+                for consumer in consumers:
+                    with self.backend_process_environment(ROOT, self.plan["databases"][scenario], mode,
+                            container_runtime=consumer == "container") as env:
+                        result = command(["php", "-r", guard_php, self.plan["lease_proof_dir"]], cwd=ROOT, env=env, capture=True)
+                    validated = json.loads(result.stdout)
+                    if validated.get("status") != "validated" or validated.get("consumer") != consumer:
+                        fail(f"{group} PHP resource environment preflight did not validate {consumer}")
+                    results[group].append(validated)
+        return results
 
     @staticmethod
     def write_json(path: Path, value: Any) -> None:
@@ -1231,10 +1287,12 @@ class Runner:
         project_root: Path,
         database: str,
         mode: str,
+        *,
+        container_runtime: bool = False,
     ) -> Any:
         if sha256(REGISTRY_PATH) != self.plan["registry_sha256"]:
             fail("P0-E resource registry changed after the fixed plan")
-        path = self.write_backend_env(project_root, database, mode)
+        path = self.write_backend_env(project_root, database, mode, container_runtime=container_runtime)
         installation_path = path.with_name(path.name + ".installation")
         installation_values = {
             "ADMIN_INITIAL_EMAIL": required_environment("P0E_ADMIN_INITIAL_EMAIL"),
@@ -1262,7 +1320,8 @@ class Runner:
             "PEANUT_DATABASE_REGISTRY_SHA256": self.plan["registry_sha256"],
             "PEANUT_SERVER_ENV_FILE": str(path),
             "PEANUT_INSTALLATION_ENV_FILE": str(installation_path),
-            "PEANUT_RESOURCE_REGISTRY": "" if (project_root / "server/.peanut/release-identity.json").is_file()
+            "PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH) if project_root == ROOT else
+                "" if (project_root / "server/.peanut/release-identity.json").is_file()
                 else str(self.application_registry(project_root, database)),
         }
         try:
@@ -2399,8 +2458,19 @@ class Runner:
         if self.compose_backend_env is not None:
             with contextlib.suppress(FileNotFoundError):
                 self.compose_backend_env.unlink()
-        if self.args.minimum_release:
-            shutil.copytree(self.edition_artifacts, self.output / "edition-artifacts")
+        if "generated-application" in self.plan["groups"]:
+            originals = {}
+            for path in self.edition_artifacts.rglob("*"):
+                if path.is_symlink() or not (path.is_file() or path.is_dir()):
+                    fail("generated edition artifact contains an unsafe file")
+                if path.is_file():
+                    originals[str(path.relative_to(self.edition_artifacts))] = sha256(path)
+            if not originals:
+                fail("generated edition artifacts are missing before cleanup")
+            preserved = self.output / "edition-artifacts"
+            shutil.copytree(self.edition_artifacts, preserved)
+            if {str(path.relative_to(preserved)): sha256(path) for path in preserved.rglob("*") if path.is_file()} != originals:
+                fail("preserved edition artifact bytes differ from qualified originals")
         shutil.rmtree(self.cache)
         if self.created_candidate_vendor and (ROOT / "server/vendor").exists():
             shutil.rmtree(ROOT / "server/vendor")
@@ -2461,6 +2531,7 @@ class Runner:
         self.write_json(self.summary_path, summary)
 
     def run(self) -> None:
+        self.write_json(self.output / "group-environment-preflight.json", self.preflight_group_environments())
         required = set(self.plan["groups"])
         if "generated-application" in required:
             self.run_group("generated-application", self.generated_application)

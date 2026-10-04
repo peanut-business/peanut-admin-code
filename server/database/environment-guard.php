@@ -23,7 +23,7 @@ function requiredEnvironment(string $name): string
 }
 
 /** @return array<string,mixed> */
-function projectResourceRegistry(): array
+function projectResourceRegistry(?string &$registrySha256 = null): array
 {
     $root = dirname(__DIR__, 2);
     $serverRoot = dirname(__DIR__);
@@ -96,6 +96,7 @@ function projectResourceRegistry(): array
         || $registry['project_id'] !== 'peanut-admin') {
         throw new RuntimeException('维护者登记只允许在 Code 维护入口显式使用');
     }
+    $registrySha256 = hash('sha256', $raw);
     return $registry;
 }
 
@@ -271,12 +272,15 @@ function resolvedP0eLeaseResources(string $proofPath, array $metadata, int $now,
     if (isset($resources['worktree']) || $metadata['candidate_repository'] !== $metadata['worktree']) {
         throw new RuntimeException('child lease 不能自行声明或越界继承 worktree');
     }
-    if ($consumer === 'container') {
-        if ($proofPath !== '/run/peanut-admin/resource-lease') {
+    $containerMount = $proofPath === '/run/peanut-admin/resource-lease';
+    if ($containerMount) {
+        if ($consumer !== 'container') {
             throw new RuntimeException('P0-E child proof mount 不匹配');
         }
         $parentPath = '/run/peanut-admin/resource-lease-parent';
-    } elseif ($consumer === 'host') {
+    } elseif (in_array($consumer, ['host', 'container'], true)) {
+        // An explicit native Host proof also permits no-PDO preflight of the
+        // real Container configuration, with the same Git/parent/lock checks.
         $repository = realpath($metadata['candidate_repository']);
         if ($repository !== $metadata['candidate_repository'] || !is_dir($repository)) {
             throw new RuntimeException('P0-E parent candidate repository 不是可信实体');
@@ -309,7 +313,7 @@ function resolvedP0eLeaseResources(string $proofPath, array $metadata, int $now,
     }
     $parentResources = activeLeaseResources($parentPath);
     assertLeaseResourceValues($parentResources, 'worktree', [$metadata['worktree']]);
-    if ($consumer === 'host') {
+    if (!$containerMount) {
         $locks = dirname($leases) . '/resources';
         foreach ([$metadata['lease'] => $resources, $parent['lease'] => ['worktree' => [$metadata['worktree']]]] as $lease => $owned) {
             foreach ($owned as $type => $values) {
@@ -460,6 +464,46 @@ function assertConsumerUpgradeCandidateLeaseIdentity(
 }
 
 /**
+ * Qualification APP registries are projections of the fixed maintainer file.
+ * Its original bytes travel only in the qualification's read-only lease mount;
+ * ordinary APP runtime never reads or requires this private proof.
+ *
+ * @param array<string,mixed> $registry
+ * @param array<string,mixed> $database
+ */
+function p0eRegistryProofSha256(string $proofPath, array $registry, array $database, string $registrySha256): string
+{
+    if ($registry['authority']['role'] === 'maintainer') {
+        return $registrySha256;
+    }
+    $path = $proofPath . '/registry.json';
+    if (!is_file($path) || is_link($path)) {
+        throw new RuntimeException('P0-E application registry 缺少原始登记 proof');
+    }
+    $raw = file_get_contents($path);
+    if (!is_string($raw)) {
+        throw new RuntimeException('P0-E 原始登记 proof 无法读取');
+    }
+    try {
+        $original = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException $exception) {
+        throw new RuntimeException('P0-E 原始登记 proof 无效', 0, $exception);
+    }
+    if (!is_array($original) || ($original['schema_version'] ?? null) !== 1
+        || ($original['project_id'] ?? null) !== 'peanut-admin'
+        || ($original['authority']['role'] ?? null) !== 'maintainer'
+        || !is_array($original['resources']['databases'] ?? null)) {
+        throw new RuntimeException('P0-E 原始登记 proof 不是维护者事实源');
+    }
+    $expected = registeredDatabase($original, 'peanut-admin-p0e-mysql84-gate');
+    unset($expected['credential_ref']);
+    if ($database !== $expected) {
+        throw new RuntimeException('P0-E application database 与原始登记投影不匹配');
+    }
+    return hash('sha256', $raw);
+}
+
+/**
  * @param array<string,string> $metadata
  * @param array<string,list<string>> $resources
  * @param array<string,mixed> $database
@@ -475,6 +519,7 @@ function assertP0eLeaseContract(
     string $resourceId,
     string $deploymentTarget,
     string $deploymentMode,
+    string $registrySha256,
 ): void {
     $runId = $identity['run_id'];
     $allowedScenarios = $database['allowed_scenarios'] ?? null;
@@ -527,16 +572,20 @@ function assertP0eLeaseContract(
         'cache-dir' => 1,
         'candidate-tree' => 1,
         'consumer' => $hasComposeResources ? 2 : 1,
+        'database' => $selectedScenarioCount,
         'deployment-mode' => 2,
         'deployment-target' => 1,
-        'endpoint' => $hasComposeResources ? 2 : 1,
+        'endpoint' => $hasComposeResources ? 4 : 2,
         'environment' => 1,
         'gate' => 1,
         'mysql-db' => $selectedScenarioCount,
         'output-dir' => 1,
         'qualification-group' => 1,
+        'registry-sha256' => 1,
         'resource-id' => 1,
+        'resource-scope' => 1,
         'run-id' => 1,
+        'port' => $hasComposeResources ? ($hasBrowserResources ? 4 : 3) : 1,
         'worktree' => 1,
     ];
     if ($hasComposeResources) {
@@ -545,12 +594,11 @@ function assertP0eLeaseContract(
             'database-tunnel' => 1,
             'http-port' => 1,
             'lease-proof-dir' => 1,
-            'port' => $hasBrowserResources ? 3 : 2,
         ];
     }
     if ($hasBrowserResources) {
         $expectedCounts += [
-            'browser-host' => 2,
+            'browser-host' => 3,
             'browser-session' => 1,
             'docs-port' => 1,
         ];
@@ -566,6 +614,8 @@ function assertP0eLeaseContract(
     }
 
     assertLeaseResourceValues($resources, 'resource-id', [$resourceId]);
+    assertLeaseResourceValues($resources, 'registry-sha256', [$registrySha256]);
+    assertLeaseResourceValues($resources, 'resource-scope', [str_replace('<run_id>', $runId, (string) $database['namespace'])]);
     assertLeaseResourceValues($resources, 'environment', ['development']);
     assertLeaseResourceValues($resources, 'deployment-target', [$deploymentTarget]);
     assertLeaseResourceValues(
@@ -579,19 +629,24 @@ function assertP0eLeaseContract(
         if (!is_array($registered)) {
             throw new RuntimeException("P0-E database {$endpointKey} 登记缺失");
         }
+        $registeredEndpoints[] = (string) $registered['endpoint_id'];
         $registeredEndpoints[] = (string) $registered['host'] . ':' . (string) $registered['port'];
     }
     assertLeaseResourceValues($resources, 'endpoint', $registeredEndpoints);
     assertLeaseResourceValues($resources, 'run-id', [$runId]);
     assertLeaseResourceValues($resources, 'mysql-db', array_slice($allExpectedDatabases, 0, $selectedScenarioCount));
+    assertLeaseResourceValues($resources, 'database', array_slice($allExpectedDatabases, 0, $selectedScenarioCount));
     assertLeaseResourceValues($resources, 'qualification-group', [$qualificationGroup]);
     assertLeaseResourceValues($resources, 'deployment-mode', ['multi-tenant', 'standalone']);
+    $ports = [(string) $database['upstream_endpoint']['port']];
     if ($hasComposeResources) {
-        assertLeaseResourceValues(
-            $resources,
-            'port',
-            $hasBrowserResources ? ['20186', '20189', '20190'] : ['20189', '20190'],
-        );
+        $ports = [...$ports, (string) $database['container_endpoint']['port'], '20190'];
+    }
+    if ($hasBrowserResources) {
+        $ports[] = '20186';
+    }
+    assertLeaseResourceValues($resources, 'port', $ports);
+    if ($hasComposeResources) {
         assertLeaseResourceValues($resources, 'http-port', ['20190']);
         assertLeaseResourceValues(
             $resources,
@@ -603,7 +658,7 @@ function assertP0eLeaseContract(
     if ($hasBrowserResources) {
         assertLeaseResourceValues($resources, 'docs-port', ['20186']);
         assertLeaseResourceValues($resources, 'browser-session', ['p0e-' . $runId]);
-        assertLeaseResourceValues($resources, 'browser-host', ['admin.p0e.localhost', 'platform.p0e.localhost']);
+        assertLeaseResourceValues($resources, 'browser-host', ['admin.p0e.localhost', 'beta.p0e.localhost', 'platform.p0e.localhost']);
     }
     assertLeaseResourceValues($resources, 'gate', [$metadata['gate']]);
     assertLeaseResourceValues($resources, 'worktree', [$metadata['worktree']]);
@@ -746,7 +801,7 @@ function assertConsumerUpgradeLeaseContract(
 /** 源码与生成 APP 共用此门禁；资源路径只由严格的项目／实例身份读取器选择。 */
 function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null): array
 {
-    $registry = projectResourceRegistry();
+    $registry = projectResourceRegistry($registrySha256);
     $environment = requiredEnvironment('APP_ENV');
     $deploymentTarget = requiredEnvironment('PEANUT_DEPLOYMENT_TARGET');
     $target = deploymentTargetContract($deploymentTarget);
@@ -807,7 +862,8 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
             }
             $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), 'p0e-runtime-qualification');
             $resources = resolvedP0eLeaseResources($leaseProofPath, $metadata, $now ?? time(), $consumer);
-            assertP0eLeaseContract($metadata, $resources, $database, $endpoint, $identity, $resourceId, $deploymentTarget, $deploymentMode);
+            $registrySha256 = p0eRegistryProofSha256($leaseProofPath, $registry, $database, $registrySha256);
+            assertP0eLeaseContract($metadata, $resources, $database, $endpoint, $identity, $resourceId, $deploymentTarget, $deploymentMode, $registrySha256);
         } elseif ($resourceId === 'peanut-admin-consumer-upgrade-mysql84-gate') {
             if ($deploymentTarget !== 'local-development' || $consumer !== 'host') {
                 throw new RuntimeException('consumer-upgrade 只允许 lease-bound local-development Host execution');
