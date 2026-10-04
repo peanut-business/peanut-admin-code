@@ -1,0 +1,142 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
+use app\common\infrastructure\scaffold\EditionUpgradePackage;
+
+$root = dirname(__DIR__);
+require $root . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
+require $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
+require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php';
+require $root . '/scripts/scaffold-runtime/Semver.php';
+
+function usage(): never
+{
+    fwrite(STDERR, "Usage:\n"
+        . "  php scripts/scaffold-upgrade preflight --project-root=<path> --from-manifest=<path> --to-manifest=<path>\n"
+        . "  php scripts/scaffold-upgrade preflight --project-root=<path> --package=<extracted-package>\n"
+        . "  php scripts/scaffold-upgrade resolve --project-root=<path> --plan=<path> --confirm-plan-sha256=<sha256:...> --preserve-paths=<comma-separated-paths|-> --replace-paths=<comma-separated-paths|->\n"
+        . "  php scripts/scaffold-upgrade adoption-plan --project-root=<path> --package=<extracted-package>\n"
+        . "  php scripts/scaffold-upgrade adoption-apply --project-root=<path> --plan=<path> --confirm-plan-sha256=<sha256:...> --confirm-paths=<comma-separated-exact-paths>\n"
+        . "  php scripts/scaffold-upgrade adoption-recover --project-root=<path> --plan=<path>\n"
+        . "  php scripts/scaffold-upgrade apply|verify|recover|rollback --project-root=<path> --plan=<path>\n");
+    exit(64);
+}
+
+/** @return list<string> */
+function upgradePathList(string $value): array
+{
+    if ($value === '-') {
+        return [];
+    }
+    $paths = explode(',', $value);
+    if ($paths === [] || array_filter($paths, static fn(string $path): bool => $path === '') !== []
+        || count(array_unique($paths)) !== count($paths)) {
+        throw new RuntimeException('SCAFFOLD_RESOLUTION_PATHS_INVALID');
+    }
+    return $paths;
+}
+
+$command = $argv[1] ?? null;
+if (!in_array($command, ['preflight', 'resolve', 'adoption-plan', 'adoption-apply', 'adoption-recover', 'apply', 'verify', 'recover', 'rollback'], true)) {
+    usage();
+}
+$options = [];
+foreach (array_slice($argv, 2) as $argument) {
+    if (preg_match('/^--(project-root|from-manifest|to-manifest|package|plan|confirm-plan-sha256|confirm-paths|preserve-paths|replace-paths)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+        usage();
+    }
+    $options[$matches[1]] = $matches[2];
+}
+$packagePreflight = $command === 'preflight' && isset($options['package']);
+$requiredOptions = match ($command) {
+    'preflight' => $packagePreflight ? ['project-root', 'package'] : ['project-root', 'from-manifest', 'to-manifest'],
+    'resolve' => ['project-root', 'plan', 'confirm-plan-sha256', 'preserve-paths', 'replace-paths'],
+    'adoption-plan' => ['project-root', 'package'],
+    'adoption-apply' => ['project-root', 'plan', 'confirm-plan-sha256', 'confirm-paths'],
+    default => ['project-root', 'plan'],
+};
+foreach ($requiredOptions as $required) {
+    if (!isset($options[$required]) || !is_string($options[$required]) || $options[$required] === '') {
+        usage();
+    }
+}
+$allowedOptions = $requiredOptions;
+sort($allowedOptions, SORT_STRING);
+$actualOptions = array_keys($options);
+sort($actualOptions, SORT_STRING);
+if ($actualOptions !== $allowedOptions) {
+    usage();
+}
+
+$projectRoot = \app\common\validation\scaffold\ScaffoldPathGuard::projectRoot($options['project-root']);
+$installedAutoload = $projectRoot . '/server/vendor/autoload.php';
+if (!is_file($installedAutoload)) {
+    throw new RuntimeException('SCAFFOLD_UPGRADE_DEPENDENCIES_MISSING');
+}
+require_once $installedAutoload;
+foreach ([
+    ['/server/app/platform/exception/plugin/PluginLifecycleException.php', '/scripts/upgrade-runtime/PluginLifecycleException.php'],
+    ['/server/app/platform/value/plugin/PluginDescriptor.php', '/scripts/upgrade-runtime/PluginDescriptor.php'],
+    ['/server/app/platform/infrastructure/plugin/PluginLockResolver.php', '/scripts/upgrade-runtime/PluginLockResolver.php'],
+    ['/server/app/platform/exception/plugin/PluginArtifactToolException.php', '/scripts/upgrade-runtime/PluginArtifactToolException.php'],
+    ['/server/app/platform/exception/plugin/PluginPackageException.php', '/scripts/upgrade-runtime/PluginPackageException.php'],
+    ['/server/app/platform/value/plugin/ModuleFrontendLayout.php', '/scripts/upgrade-runtime/ModuleFrontendLayout.php'],
+    ['/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php', '/scripts/upgrade-runtime/PluginArtifactWriter.php'],
+    ['/server/app/platform/validation/module/ModulePublicSurfacePolicy.php', '/scripts/upgrade-runtime/ModulePublicSurfacePolicy.php'],
+    ['/server/app/platform/validation/module/OpisManifestSchemaValidator.php', '/scripts/upgrade-runtime/OpisManifestSchemaValidator.php'],
+    ['/server/app/platform/validation/module/StrictVersionConstraintMatcher.php', '/scripts/upgrade-runtime/StrictVersionConstraintMatcher.php'],
+    ['/server/app/platform/validation/plugin/ModulePackagePreflight.php', '/scripts/upgrade-runtime/ModulePackagePreflight.php'],
+] as $candidates) {
+    foreach ($candidates as $candidate) {
+        if (is_file($root . $candidate)) {
+            require_once $root . $candidate;
+            continue 2;
+        }
+    }
+    throw new RuntimeException('SCAFFOLD_UPGRADE_RUNTIME_MISSING');
+}
+require $root . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
+require $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
+
+try {
+    $runner = new ScaffoldUpgradeRunner();
+    $manifests = $packagePreflight
+        ? (new EditionUpgradePackage())->prepare($options['project-root'], $options['package'])
+        : null;
+    $result = match ($command) {
+        'preflight' => $runner->preflight(
+            $options['project-root'],
+            $manifests['from_manifest'] ?? $options['from-manifest'],
+            $manifests['to_manifest'] ?? $options['to-manifest'],
+        ),
+        'resolve' => $runner->resolve(
+            $options['project-root'],
+            $options['plan'],
+            $options['confirm-plan-sha256'],
+            upgradePathList($options['preserve-paths']),
+            upgradePathList($options['replace-paths']),
+        ),
+        'adoption-plan' => $runner->adoptionPlan($options['project-root'], $options['package']),
+        'adoption-apply' => $runner->adoptionApply(
+            $options['project-root'],
+            $options['plan'],
+            $options['confirm-plan-sha256'],
+            explode(',', $options['confirm-paths']),
+        ),
+        'adoption-recover' => $runner->adoptionRecover($options['project-root'], $options['plan']),
+        'apply' => $runner->apply($options['project-root'], $options['plan']),
+        'verify' => $runner->verify($options['project-root'], $options['plan']),
+        'recover', 'rollback' => $runner->recover($options['project-root'], $options['plan']),
+    };
+    fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    exit(($result['status'] ?? null) === 'blocked' ? 2 : 0);
+} catch (Throwable $exception) {
+    fwrite(STDERR, json_encode([
+        'status' => 'error',
+        'error' => $exception->getMessage(),
+    ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    exit(1);
+}
