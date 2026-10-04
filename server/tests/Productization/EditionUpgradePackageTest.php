@@ -400,7 +400,10 @@ try {
     }
     editionUpgradeFile($package . '/META-INF/files.sha256', $inventoryBytes);
     require_once __DIR__ . '/../Support/ProductUpgradeCoordinatorProbe.php';
-    productCoordinatorProbe($root, $temporary, $project, $package);
+    $coordinator = productCoordinatorProbe($root, $temporary, $project, $package);
+    editionUpgradeExpect(in_array('pause-health', $coordinator['cases'], true)
+        && in_array('pause-activate', $coordinator['cases'], true) && $coordinator['failures'] === [],
+        'native maintenance pause/resume contracts were not exercised');
 
     $prepared = (new EditionUpgradePackage())->prepare($project, $package);
     $runner = new ScaffoldUpgradeRunner();
@@ -435,13 +438,18 @@ try {
         }
     }
     foreach ($pluginActions as $path => $action) {
+        $expectedDigest = $path === 'plugins.lock'
+            ? hash('sha256', $plan['identity']['plugin_target']['lock_contents']) : $pluginDigests[$path];
         editionUpgradeExpect(
-            $action['action'] === 'preserve'
-                && $action['reason'] === 'installed_plugin_projection'
-                && $action['target_sha256'] === $pluginDigests[$path],
+            $action['action'] === ($expectedDigest === $pluginDigests[$path] ? 'preserve' : 'replace')
+                && $action['reason'] === ($path === 'plugins.lock' ? 'official_plugin_lock_projection' : 'installed_plugin_projection')
+                && $action['target_sha256'] === $expectedDigest,
             'installed Plugin projection was not frozen: ' . $path,
         );
     }
+    editionUpgradeExpect($plan['identity']['plugin_target']['keys'] === []
+        && $plan['identity']['plugin_target']['projection'] === $plan['identity']['plugin_projection'],
+        'app-owned customer Module was reinterpreted as an upstream package');
     $planPath = $project . '/' . $plan['plan_path'];
     $modulePath = $currentPlugin['module_root'] . '/module.json';
     $moduleBytes = (string) file_get_contents($project . '/' . $modulePath);
@@ -457,14 +465,16 @@ try {
     editionUpgradeExpect(hash_equals((string) $secretDigest, (string) hash_file('sha256', $project . '/server/.env')), 'secret changed');
     editionUpgradeExpect(hash_equals((string) $thirdPartyDigest, (string) hash_file('sha256', $project . '/server/app/Modules/ThirdParty/Custom.php')), 'third-party Module changed');
     foreach ($pluginDigests as $path => $digest) {
-        editionUpgradeExpect(hash_equals((string) $digest, (string) hash_file('sha256', $project . '/' . $path)), 'installed Plugin changed: ' . $path);
+        $expectedDigest = $path === 'plugins.lock'
+            ? hash('sha256', $plan['identity']['plugin_target']['lock_contents']) : $digest;
+        editionUpgradeExpect(hash_equals((string) $expectedDigest, (string) hash_file('sha256', $project . '/' . $path)), 'installed Plugin changed: ' . $path);
     }
     editionUpgradeExpect(
         hash_equals(
-            (string) $pluginDigests['plugins.lock'],
+            hash('sha256', $plan['identity']['plugin_target']['lock_contents']),
             (string) hash_file('sha256', $project . '/.peanut/scaffold-baseline/4.0.0-dev.1/files/plugins.lock'),
         ),
-        'next Plugin lock baseline did not use the validated installed bytes',
+        'next Plugin lock baseline did not use the canonical planned graph bytes',
     );
     editionUpgradeExpect(
         array_keys((new PluginLockResolver($project . '/server', '../plugins.lock'))->all()) === ['fixture.upgrade-boundary'],
@@ -477,6 +487,8 @@ try {
         }
     }
     editionUpgradeExpect($runner->recover($project, $planPath)['status'] === 'recovered', 'package recovery failed');
+    editionUpgradeExpect(hash_equals((string) $pluginDigests['plugins.lock'],
+        (string) hash_file('sha256', $project . '/plugins.lock')), 'recovery did not restore the original customer lock bytes');
     editionUpgradeExpect((string) file_get_contents($project . '/managed.txt') === "old managed\n", 'managed recovery did not restore the source');
     editionUpgradeExpect(!is_file($project . '/server/database/migrations/20260830-edition-upgrade.sql'), 'recovery retained a target-only migration');
     editionUpgradeExpect(hash_equals((string) $businessDigest, (string) hash_file('sha256', $project . '/business.php')), 'recovery changed app-owned file');

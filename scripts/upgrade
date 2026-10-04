@@ -48,7 +48,8 @@ function productUpgradeUsage(): never
 {
     fwrite(STDERR, "Set PEANUT_SERVER_ENV_FILE to the absolute mode-0600 instance backend environment.\nUsage:\n"
         . "  php scripts/upgrade plan --instance-root=<absolute-path> --package=<absolute-extracted-package>\n"
-        . "  php scripts/upgrade apply|verify|recover --instance-root=<absolute-path> --package=<absolute-extracted-package> --plan=<absolute-product-plan>\n");
+        . "  php scripts/upgrade apply|verify|recover --instance-root=<absolute-path> --package=<absolute-extracted-package> --plan=<absolute-product-plan>\n"
+        . "  apply alone accepts --stop-before=health|activate\n");
     exit(64);
 }
 
@@ -355,7 +356,7 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover'], true)) {
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
@@ -364,6 +365,12 @@ foreach (array_slice($argv, 2) as $argument) {
 $required = ['instance-root', 'package'];
 if ($command !== 'plan') {
     $required[] = 'plan';
+}
+if (isset($options['stop-before'])) {
+    if ($command !== 'apply' || !in_array($options['stop-before'], ['health', 'activate'], true)) {
+        productUpgradeUsage();
+    }
+    $required[] = 'stop-before';
 }
 $actual = array_keys($options);
 sort($actual, SORT_STRING);
@@ -466,6 +473,14 @@ try {
             if ($state['phase'] === 'recovering' || array_key_exists('recovery_context', $state)) {
                 throw new RuntimeException('PRODUCT_UPGRADE_RECOVERY_IN_PROGRESS');
             }
+            $stopBefore = $options['stop-before'] ?? null;
+            if ($stopBefore !== null && ($state['activation_started']
+                || $state['phase_in_progress'] === 'activate' || isset($state['evidence']['activate'])
+                || in_array($state['phase'], ['activating', 'completed'], true)
+                || ($stopBefore === 'health' && ($state['phase_in_progress'] === 'health'
+                    || isset($state['evidence']['health']) || $state['phase'] === 'healthy')))) {
+                throw new RuntimeException('PRODUCT_UPGRADE_STOP_BOUNDARY_PASSED:' . $stopBefore);
+            }
             $packageService = new EditionUpgradePackage();
             $managedFilesMayHaveChanged = isset($state['evidence']['managed_files'])
                 || $state['phase_in_progress'] === 'managed_files'
@@ -524,29 +539,51 @@ try {
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'switch', 'switched');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'reload-safe', 'reloaded_safe');
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'migration-verify', 'migration_verified');
-                $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'health', 'healthy');
-                $code = $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
-
-                if (!isset($state['evidence']['activate'])) {
-                    // Opening traffic is the irreversible recovery boundary. Persist it before
-                    // the driver can start any public writer. Thereafter only forward repair is safe.
-                    $state['phase'] = 'activating';
-                    $state['phase_in_progress'] = 'activate';
-                    $state['activation_started'] = true;
-                    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
-                    $activation = productUpgradeHostPhase($packageRoot, 'activate', $plan, $state);
-                    $state = productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], 'activate', 'completed', $activation);
+                if ($stopBefore !== 'health') {
+                    $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'health', 'healthy');
+                    $code = $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
                 }
-                $state['completed_at'] ??= gmdate(DATE_ATOM);
-                $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
-                $result = [
-                    'status' => 'completed', 'candidate' => $plan['candidate'], 'phase' => 'completed',
-                    'plan_sha256' => $plan['plan_sha256'], 'idempotent' => false, 'code' => $code,
-                    'state_sha256' => $state['state_sha256'],
-                    'host_evidence' => array_map(static fn(array $entry): string => $entry['sha256'], $state['evidence']),
-                    'health_evidence_sha256' => $state['evidence']['health']['sha256'],
-                    'activation_evidence_sha256' => $state['evidence']['activate']['sha256'],
-                ];
+
+                if ($stopBefore !== null) {
+                    if ($state['phase'] !== ($stopBefore === 'health' ? 'migration_verified' : 'healthy')
+                        || $state['phase_in_progress'] !== null || !$state['database_recovery_required']
+                        || !$state['migration_completed'] || $state['activation_started']) {
+                        throw new RuntimeException('PRODUCT_UPGRADE_STOP_STATE_INVALID:' . $stopBefore);
+                    }
+                    $result = [
+                        'status' => 'paused', 'stop_before' => $stopBefore, 'candidate' => $plan['candidate'],
+                        'phase' => $state['phase'], 'plan_sha256' => $plan['plan_sha256'],
+                        'state_sha256' => $state['state_sha256'],
+                        'database_recovery_required' => $state['database_recovery_required'],
+                        'activation_started' => $state['activation_started'],
+                        'host_evidence' => array_map(static fn(array $entry): string => $entry['sha256'], $state['evidence']),
+                    ];
+                    if ($stopBefore === 'activate') {
+                        $result['code'] = $code;
+                        $result['health_evidence_sha256'] = $state['evidence']['health']['sha256'];
+                    }
+                } else {
+                    if (!isset($state['evidence']['activate'])) {
+                        // Opening traffic is the irreversible recovery boundary. Persist it before
+                        // the driver can start any public writer. Thereafter only forward repair is safe.
+                        $state['phase'] = 'activating';
+                        $state['phase_in_progress'] = 'activate';
+                        $state['activation_started'] = true;
+                        $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
+                        $activation = productUpgradeHostPhase($packageRoot, 'activate', $plan, $state);
+                        $state = productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], 'activate', 'completed', $activation);
+                    }
+                    $state['completed_at'] ??= gmdate(DATE_ATOM);
+                    $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
+                    $result = [
+                        'status' => 'completed', 'candidate' => $plan['candidate'], 'phase' => 'completed',
+                        'plan_sha256' => $plan['plan_sha256'], 'idempotent' => false, 'code' => $code,
+                        'state_sha256' => $state['state_sha256'],
+                        'host_evidence' => array_map(static fn(array $entry): string => $entry['sha256'], $state['evidence']),
+                        'health_evidence_sha256' => $state['evidence']['health']['sha256'],
+                        'activation_evidence_sha256' => $state['evidence']['activate']['sha256'],
+                    ];
+                }
             }
         } elseif ($command === 'verify') {
             $prepared = (new EditionUpgradePackage())->reauthenticate(

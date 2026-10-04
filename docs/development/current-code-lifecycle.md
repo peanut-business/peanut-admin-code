@@ -104,6 +104,10 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 首次安装使用 `server/database/install.php`。产品升级使用已经安装的 `scripts/upgrade`，入口分plan、apply、verify和recover；入口先核包内 inventory、逐文件 SHA-256、版本兼容及来源/目标身份，不能先运行未校验目标包代码，也不是git pull或无约束composer update。后端环境通过 `PEANUT_SERVER_ENV_FILE` 指定。
 
+已安装入口默认连续执行。需要新版维护能力时，可使用另行核验固定源码身份及工具 SHA-256 的可信外部维护工具；它必须自带已安装的 Composer/Core 依赖，`--instance-root` 仍指向原完整实例，不能加载尚未认证目标包的依赖，也不能向旧应用手工植入新脚本。
+
+`apply` 可单次指定 `--stop-before=health` 或 `--stop-before=activate`，其他命令不接受该参数，重复或未知值拒绝。前者在真实迁移核验完成后停于 `migration_verified`，后者在真实健康检查及受管文件 verify 完成后停于 `healthy`；所有前置阶段回执和文件核验账本均已持久化。两者仍要求数据库恢复、保持写入关闭且 `activation_started=false`，返回 `status=paused`、边界、真实阶段、candidate、计划/状态 SHA-256 及已有证据，不产生新阶段或失败回执。同计划不带暂停参数的 `apply` 继续执行；已开始或越过请求边界时拒绝，不能回退或抹去进行中的阶段。暂停不证明恢复验收，`recover` 仍按原配对恢复合同执行，激活开始后只允许前向修复。
+
 官方模块随维护者明确选择和审阅的固定 scaffold 来源整体吸收，绑定真实源码 commit/tree、release manifest、逐文件摘要与 canonical 模块 manifest/lock；这些摘要证明选定输入的内容，不认证发布者，不要求签名私钥。预检以已安装且通过生产 canonical 核验的官方图为起点，投影目标官方模块的完整控制器、服务、迁移及客户端贡献，先以原生 `PluginArtifactWriter::checkLock()` 核固定模板原文的完整 canonical 图；产品名称等参数渲染改变源文件字节后，按原生 make → lock 重建 APP 派生 manifest 和含原客户模块的锁并核依赖。计划同时固定原文图、渲染参数、APP 派生图与派生字节，应用及新基线使用同一派生字节，不要求渲染后摘要等于模板原文摘要。官方包与模块的变化必须提升各自版本，同版本内容不得变化；模块成员、根路径及官方归属不能借升级转给客户包。非官方 bundled 包只有在当前应用受管清单、固定 from/target 声明中的包/成员/根路径与来源合同一致，完整包文件均为 scaffold owner 且当前内容、权限、受管基线摘要全部吻合时，才能按上游整体吸收；命名空间或 bundled 标签不能替代归属证明。客户模块、app-owned 重叠和未登记的额外官方根文件受到保护，冲突不得靠单文件填入或手改摘要解决。应用/核验检查目标完整插件图，恢复检查原图；`module:adopt-package` 保持私有模块源码入口，不用于接收 official.*。
 
 server-only Compose 实例使用 `server/docker/scripts/update.sh plan|apply|recover`。维护者使用另行核验提交与脚本 SHA-256 的上游维护工具时，可显式传 `--instance-server=/absolute/instance/server`；Compose、数据库和私有配置仍取这个原实例，工具来自已核源码，目标归档只按外部可信 SHA-256 校验后消费。plan 将实际维护工具固化到 workspace，apply/recover 复核工具哈希，不需要在运行实例内手工修补升级器。归档文件按路径排序后严格比较路径、内容 SHA-256 和权限；归档遍历顺序不作为内容身份。
