@@ -200,18 +200,32 @@ for (const edition of ['standalone', 'multi-tenant']) {
         previous = path
         inventory.set(path, sha)
       }
-      const members = cp.execFileSync('tar', ['-tzf', archivePath], { encoding: 'utf8' }).trimEnd().split('\n')
+      const members = JSON.parse(cp.execFileSync('python3', ['-c',
+        `import hashlib,json,sys,tarfile
+members=[]
+with tarfile.open(sys.argv[1]) as archive:
+    for member in archive:
+        item={"name":member.name,"kind":"directory" if member.isdir() else "file" if member.isfile() else "unsupported"}
+        if member.isfile():
+            digest=hashlib.sha256()
+            with archive.extractfile(member) as source:
+                for chunk in iter(lambda: source.read(1024*1024), b''):
+                    digest.update(chunk)
+            item["sha256"]=digest.hexdigest()
+        members.append(item)
+print(json.dumps(members))`,
+        archivePath], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }))
       const prefix = `${root}/`
       const actualFiles = []
       for (const member of members) {
-        if (!member.startsWith(prefix) || member.split('/').includes('..')) throw new Error(`Edition upgrade archive path is unsafe: ${archive}`)
-        const relative = member.slice(prefix.length)
+        if (!member.name.startsWith(prefix) || member.name.split('/').includes('..')) throw new Error(`Edition upgrade archive path is unsafe: ${archive}`)
+        if (member.kind === 'directory') continue
+        if (member.kind !== 'file') throw new Error(`Edition upgrade archive member type is unsafe: ${archive}:${member.name}`)
+        const relative = member.name.slice(prefix.length)
         if (relative === 'META-INF/files.sha256') continue
         if (relative.startsWith('META-INF/signatures/')) throw new Error(`Edition upgrade contains forbidden signature files: ${archive}`)
-        if (relative.endsWith('/')) continue
         actualFiles.push(relative)
-        const bytes = cp.execFileSync('tar', ['-xOzf', archivePath, `${root}/${relative}`])
-        if (inventory.get(relative) !== digest(bytes)) throw new Error(`Edition upgrade file digest mismatch: ${archive}:${relative}`)
+        if (inventory.get(relative) !== member.sha256) throw new Error(`Edition upgrade file digest mismatch: ${archive}:${relative}`)
       }
       actualFiles.sort()
       const declaredFiles = [...inventory.keys()].sort()

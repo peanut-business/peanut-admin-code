@@ -9,12 +9,12 @@
     "database_template": "peanut_admin_development_p0e_<run_id>_<scenario>"
   },
   "target_release": {
-    "version": "4.0.0-rc.19",
-    "source_commit": "44a7df3bdcf36ea72141d612e11bb79e48ff196a",
-    "source_tree": "593a55c643bcd30fab01f6aae1ae0e52f4b9985a",
-    "manifest_sha256": "3b01e0e2f9ac6c6705af7923d72d429ccde29963796ce873a7c0d6e1bc00225c",
-    "inventory_sha256": "179b1aa0e8f92aca0ac847e93cb9221245dc0bbfe4e5ce80f85afaa828bbac6b",
-    "managed_tree_sha256": "1e8e0440ec5db86dfd776abb7a792df82047df6245595c01fd5282ba810226f0",
+    "version": "4.0.0-rc.20",
+    "source_commit": "11fbe0d0b932785fcc691f8b2a0d9e4c4413c5e6",
+    "source_tree": "53a411750028f123ede30cad325e0592d7f5e2f5",
+    "manifest_sha256": "676d482287fcf24a614c00085c0a7a40179687bef39bae6c8aa659c77ba8d36a",
+    "inventory_sha256": "dd03bcecf8cdcbcfe8f69e3d2bcfd0111fd25bc2af3ee58f397f28abc27df7a7",
+    "managed_tree_sha256": "1f7b6eeb8c95c73198fefa92d976be2d6e5fe4bc2ab8b8745214494729bdebf3",
     "file_count": 2169,
     "application_manifest_schema": 2,
     "default_application_version": "0.1.0",

@@ -2,9 +2,9 @@
   "schema_version": 3,
   "protocol": "peanut.release-metadata.v3",
   "product": "Peanut Admin",
-  "source_product_version": "4.0.0-rc.19",
+  "source_product_version": "4.0.0-rc.20",
   "instance_version": null,
-  "expected_tag": "v4.0.0-rc.19",
+  "expected_tag": "v4.0.0-rc.20",
   "release_date": "2026-10-04",
   "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
@@ -77,9 +77,9 @@
   "lockfiles": {
     "server/composer.lock": "2840094664a4ccc19ce692150d9f124b9dd3d72274c6c687d0593d332e2b4181",
     "web/pnpm-lock.yaml": "4d24185186edf6c7d3f0c747671a7ba94d5b35de38e9c57a3a0d8e6be50fb28b",
-    "platform/package-lock.json": "fea4efe7460f706a7ba11578cca45a2eed23f2840732754c058b31806de36f4a",
-    "pc/package-lock.json": "82ce3b27426cea3f64249cef849ec806065ff25a037885d535327ae0020cfa25",
-    "uniapp/package-lock.json": "f02a37f2fae725e0c67a54fc36aaf967c16ec87e99de2e0ea451d84eb6f836b3"
+    "platform/package-lock.json": "4e7e0ab22ac1abbadc30f47196ec3992d8436d081e9af44b4fa051f3413efe34",
+    "pc/package-lock.json": "cb0724bb33a1a3487ee8e9c6c4947fd7dbec6096360cc2ab9d9dc6329d451ebd",
+    "uniapp/package-lock.json": "e800a0349a20fdcd7e1d94f970b18421bb07bc20b3ea8817fda00c51857d2ff4"
   },
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
@@ -88,7 +88,7 @@
     "RELEASE_SBOM.spdx.json": "7d0738b553d3115612ced8496469e60bc259ea026b433eb52b56b07857ddccd7"
   },
   "technical_qualification": {
-    "phase": "4.0.0-rc.19-prerelease-candidate",
+    "phase": "4.0.0-rc.20-prerelease-candidate",
     "result": "pending",
     "final_candidate_commit": null,
     "final_candidate_tree": null,
@@ -98,10 +98,10 @@
     "cleanup_residual_count": null,
     "lease_released": false,
     "migrations": 10,
-    "scaffold_version": "4.0.0-rc.19",
+    "scaffold_version": "4.0.0-rc.20",
     "application_initial_version": "0.1.0",
     "evidence": "P1 prerelease candidate identity is prepared from public Core registry locks; qualification remains pending.",
-    "release_delta": "Fixes application-owned menu permission assignment, preserves atomic role-edit and revision behavior, applies compatible runtime dependency security patches, documents native CLI upstream upgrade and independent APP/production release contracts, and verifies published Web Core package source through exact gitHead or public npm provenance. Remaining Stable qualification is pending."
+    "release_delta": "Fix actual historical public APP upgrade false refusal: compare both module.json identities as raw file SHA-256; identical same-version content accepted while downgrade and changed same-version content remain rejected. Publisher uses typed tar entries and streamed file hashes. Published RC19 remains immutable."
   },
   "self_reference_policy": "This file intentionally omits its own commit SHA and archive digest. RELEASE_MANIFEST.json is generated from the immutable tag and carries those values."
 }
