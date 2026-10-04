@@ -480,7 +480,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 ## License handling
 
 - MIT, ISC, BSD, 0BSD, MIT-0, Apache-2.0 and Zlib notices are preserved through this file, the SPDX inventory and the upstream package sources recorded there.
-- MPL-2.0 entries are build inputs in the current Nuxt lock graph; no standalone package or modified MPL source is shipped as a release attachment. If a future release distributes those files, it must add the MPL source/notice obligations for that artifact.
+- MPL-2.0 entries are build inputs in the current Nuxt and development-tool lock graphs; no standalone package or modified MPL source is shipped as a release attachment. If a future release distributes those files, it must add the MPL source/notice obligations for that artifact.
 - CC0, CC-BY, BlueOak-1.0.0 and Python-2.0 entries are identified below and in the SPDX inventory; attribution-bearing data must keep its upstream credit when redistributed.
 - Compound expressions retain the upstream choice exactly. \`node-forge@1.4.0\` is recorded as \`BSD-3-Clause OR GPL-2.0\`; this release relies on the permissive BSD-3-Clause option and does not claim a GPL grant for Peanut Admin.
 - \`@tybys/wasm-util@0.10.3\` and \`@napi-rs/lzma-linux-x64-gnu@1.5.1\` publish MIT metadata but no separate copyright line or NOTICE in the inspected upstream artifact. Their package/version/source is recorded without inventing an attribution.
