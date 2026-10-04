@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,55 @@ SAFE_VALUE = re.compile(r"^[A-Za-z0-9._:/-]+$")
 
 def fail(message: str) -> None:
     raise SystemExit(f"project-resource-registry: {message}")
+
+
+def p0e_maintainer_source(expected_sha256: str) -> Path:
+    """Resolve only the maintainer qualification source from the registered workspace."""
+    def git(root: Path, *arguments: str) -> bytes:
+        result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True, check=False)
+        if result.returncode != 0 or result.stderr.strip():
+            fail("P0-E maintainer source Git identity is unavailable")
+        return result.stdout
+
+    if re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None:
+        fail("P0-E registry SHA-256 is invalid")
+    common = Path(git(REPO, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip()).resolve()
+    primary = common.parent
+    if common.name != ".git" or Path(git(primary, "rev-parse", "--show-toplevel").decode().strip()).resolve() != primary:
+        fail("P0-E primary checkout mapping is invalid")
+    project = primary.parent / "peanut-admin-project"
+    mapping = project / "repos.yaml"
+    target = project / "resources/project-resources.json"
+    if project.is_symlink() or mapping.is_symlink() or target.parent.is_symlink() or target.is_symlink() or not mapping.is_file() or not target.is_file():
+        fail("P0-E maintainer source must be the real registered Project checkout")
+    if Path(git(project, "rev-parse", "--show-toplevel").decode().strip()).resolve() != project.resolve():
+        fail("P0-E Project checkout identity is invalid")
+    mapping_bytes = mapping.read_bytes()
+    if git(project, "show", "HEAD:repos.yaml") != mapping_bytes:
+        fail("P0-E repository mapping is not the tracked HEAD content")
+    text = mapping_bytes.decode("utf-8")
+    if re.search(r"^schema_version: 3$", text, re.M) is None or re.search(r"^project_id: peanut-admin$", text, re.M) is None:
+        fail("P0-E repository mapping schema is invalid")
+    for role, root, identity in [("project", project, "peanut-admin-project"), ("application", primary, "peanut-admin-code")]:
+        blocks = re.findall(r"^  " + role + r":\n((?:    [^\n]*\n)+)", text, re.M)
+        if len(blocks) != 1:
+            fail("P0-E repository mapping role is ambiguous")
+        ids = re.findall(r"^    repository_id: ([^\s]+)$", blocks[0], re.M)
+        remotes = re.findall(r"^    remote: ([^\s]+)$", blocks[0], re.M)
+        if ids != [identity] or len(remotes) != 1 or root.name != identity:
+            fail("P0-E repository mapping identity is invalid")
+        expected_remote = f"https://github.com/peanut-business/{identity}.git"
+        actual_remote = git(root, "remote", "get-url", "origin").decode().strip()
+        if remotes[0] != expected_remote or actual_remote not in (
+            expected_remote, f"git@github.com:peanut-business/{identity}.git",
+        ):
+            fail("P0-E repository origin disagrees with the tracked mapping")
+    contents = target.read_bytes()
+    if REGISTRY_PATH.resolve() != target.resolve() or git(project, "show", "HEAD:resources/project-resources.json") != contents:
+        fail("P0-E registry must be the exact tracked Project HEAD content")
+    if hashlib.sha256(contents).hexdigest() != expected_sha256:
+        fail("P0-E registry changed from its fixed SHA-256")
+    return target.resolve()
 
 
 def load_registry() -> dict[str, Any]:
@@ -236,6 +287,8 @@ def effective_local_stack_ports(registry: dict[str, Any], env_file: Path) -> dic
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
+    p0e_source_parser = subparsers.add_parser("p0e-maintainer-source")
+    p0e_source_parser.add_argument("--sha256", required=True)
 
     database_parser = subparsers.add_parser("database-env")
     database_parser.add_argument("--deployment-target", required=True)
@@ -263,6 +316,13 @@ def main() -> int:
     subparsers.add_parser("validate")
     args = parser.parse_args()
     registry = load_registry()
+
+    if args.command == "p0e-maintainer-source":
+        source = p0e_maintainer_source(args.sha256)
+        if registry["authority"]["role"] != "maintainer":
+            fail("P0-E registry must declare the maintainer role")
+        print(source)
+        return 0
 
     if args.command == "application-registry":
         if registry["authority"]["role"] != "maintainer":

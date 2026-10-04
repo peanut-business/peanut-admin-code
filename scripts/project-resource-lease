@@ -16,7 +16,7 @@ Usage:
   scripts/project-resource-lease renew --lease <run-id> --owner <owner> [--ttl <seconds>]
   scripts/project-resource-lease release --lease <run-id> --owner <owner>
   scripts/project-resource-lease list
-  scripts/project-resource-lease show --lease <run-id>
+  scripts/project-resource-lease show --lease <run-id> [--verify-locks]
   scripts/project-resource-lease prune-expired
 
 Examples:
@@ -414,12 +414,14 @@ case "$COMMAND" in
 
   show)
     LEASE_ID=""
-    [[ "${1:-}" == '--lease' && -n "${2:-}" && $# -eq 2 ]] || die 'show requires --lease <run-id>'
+    VERIFY_LOCKS=0
+    if [[ $# -eq 3 && "${3:-}" == --verify-locks ]]; then VERIFY_LOCKS=1; set -- "$1" "$2"; fi
+    [[ "${1:-}" == '--lease' && -n "${2:-}" && $# -eq 2 ]] || die 'show requires --lease <run-id> [--verify-locks]'
     LEASE_ID="$2"; validate_lease_id "$LEASE_ID"; LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
     PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease 2>/dev/null || true)"
+    if [[ -n "$PARENT_LEASE" || "$VERIFY_LOCKS" == 1 ]]; then acquire_mutex; fi
     if [[ -n "$PARENT_LEASE" ]]; then
-      acquire_mutex
       validate_parent_lease_locked \
         "$PARENT_LEASE" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" \
@@ -428,13 +430,42 @@ case "$COMMAND" in
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate_repository)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
     fi
+    if [[ "$VERIFY_LOCKS" == 1 ]]; then
+      [[ ! -L "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" && ! -L "$LEASE_DIR/metadata.tsv" \
+        && -f "$LEASE_DIR/resources.tsv" && ! -L "$LEASE_DIR/resources.tsv" ]] || die 'lease proof is invalid'
+      awk -F '\t' '
+        BEGIN {split("lease owner thread candidate candidate_repository parent_lease gate worktree created_at expires_at status", keys, " "); for (i in keys) allowed[keys[i]]=1}
+        NF != 2 || !($1 in allowed) || seen[$1]++ || ($1 != "parent_lease" && $2 == "") {bad=1}
+        END {exit bad || NR != 11 ? 1 : 0}
+      ' "$LEASE_DIR/metadata.tsv" || die 'lease metadata schema is invalid'
+      [[ "$(metadata_value "$LEASE_DIR/metadata.tsv" lease)" == "$LEASE_ID" \
+        && "$(metadata_value "$LEASE_DIR/metadata.tsv" status)" == ACTIVE ]] || die 'lease identity/status is invalid'
+      CREATED="$(metadata_value "$LEASE_DIR/metadata.tsv" created_at)"
+      EXPIRES="$(metadata_value "$LEASE_DIR/metadata.tsv" expires_at)"
+      NOW="$(date +%s)"
+      [[ "$CREATED" =~ ^[0-9]+$ && "$EXPIRES" =~ ^[0-9]+$ \
+        && "$CREATED" -le "$NOW" && "$EXPIRES" -gt "$NOW" && "$EXPIRES" -gt "$CREATED" ]] || die 'lease timestamps are invalid'
+      awk -F '\t' 'NF != 3 || $1 == "" || $2 == "" || $3 == "" || seen[$1]++ {bad=1} END {exit bad || NR == 0 ? 1 : 0}' \
+        "$LEASE_DIR/resources.tsv" || die 'lease resources schema is invalid'
+      while IFS=$'\t' read -r HASH TYPE VALUE; do
+        validate_resource "$TYPE=$VALUE"
+        [[ "$HASH" == "$(resource_hash "$TYPE" "$VALUE")" ]] || die 'lease resource hash is invalid'
+        LOCK_DIR="$RESOURCES_DIR/$HASH"
+        [[ -d "$LOCK_DIR" && ! -L "$LOCK_DIR" ]] || die 'lease resource lock is invalid'
+        for LOCK_FILE in lease type value; do
+          [[ -f "$LOCK_DIR/$LOCK_FILE" && ! -L "$LOCK_DIR/$LOCK_FILE" ]] || die 'lease resource lock proof is invalid'
+        done
+        [[ "$(cat "$LOCK_DIR/lease")" == "$LEASE_ID" && "$(cat "$LOCK_DIR/type")" == "$TYPE" \
+          && "$(cat "$LOCK_DIR/value")" == "$VALUE" ]] || die 'lease resource lock holder mismatch'
+      done < "$LEASE_DIR/resources.tsv"
+    fi
     cat "$LEASE_DIR/metadata.tsv"
     printf 'resources\n'
     awk -F '\t' '{printf "%s\t%s\n", $2, $3}' "$LEASE_DIR/resources.tsv"
     if [[ -n "$PARENT_LEASE" ]]; then
       printf 'worktree\t%s\n' "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
-      release_mutex
     fi
+    if [[ -n "$PARENT_LEASE" || "$VERIFY_LOCKS" == 1 ]]; then release_mutex; fi
     ;;
 
   prune-expired)

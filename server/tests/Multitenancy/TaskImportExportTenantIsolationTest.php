@@ -104,7 +104,7 @@ expectAsyncTenant($taskVersion !== '' && $taskManifestDigest !== '', 'official.t
 expectAsyncTenant($importExportVersion !== '' && $importExportManifestDigest !== '', 'official.import-export Module manifest is unavailable');
 $host = (string) getenv('DB_HOST');
 $port = (int) getenv('DB_PORT');
-$database = (string) getenv('DB_NAME');
+$database = RegisteredMysqlTestResource::configuredDatabaseName();
 $user = (string) getenv('DB_USER');
 $password = (string) getenv('DB_PASS');
 $runId = strtolower(bin2hex(random_bytes(6)));
@@ -113,12 +113,14 @@ $signingKey = hash('sha256', 'fresh-async-' . $runId) . hash('sha256', 'second-'
 
 expectAsyncTenant($host !== '' && $port > 0 && $user !== '' && $password !== '', 'registered A1 database credentials are required');
 expectAsyncTenant(
-    $database === TASK_NOTIFICATION_MYSQL_DATABASE,
-    'Task async Gate requires its exact registered Task/Notification database',
+    $database === TASK_NOTIFICATION_MYSQL_DATABASE
+        || ((string) getenv('PEANUT_DATABASE_RESOURCE_ID') === 'peanut-admin-p0e-mysql84-gate'
+            && preg_match('/^peanut_admin_development_p0e_[a-z0-9]{1,11}_plugin_lifecycle$/D', $database) === 1),
+    'Task async Gate requires its registered Task/Notification or lease-owned P0-E Plugin database',
 );
 expectAsyncTenant($privateRoot !== '' && !file_exists($privateRoot), 'lease-owned async private root must be absent');
 
-[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase(TASK_NOTIFICATION_MYSQL_DATABASE);
+[$pdo, $createdDatabase] = RegisteredMysqlTestResource::openEmptyDatabase($database);
 try {
     asyncTenantSchema($pdo, $serverRoot);
     $now = '2030-01-01 00:00:00.000';
@@ -442,7 +444,7 @@ SQL);
             rmdir($privateRoot);
         }
     } finally {
-        RegisteredMysqlTestResource::cleanup($pdo, TASK_NOTIFICATION_MYSQL_DATABASE, $createdDatabase);
+        RegisteredMysqlTestResource::cleanup($pdo, $database, $createdDatabase);
     }
 }
 

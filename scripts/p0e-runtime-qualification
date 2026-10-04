@@ -218,6 +218,7 @@ def validate_fixture() -> tuple[
         fail("P0-E requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
     if not REGISTRY_PATH.is_absolute() or REGISTRY_PATH.is_symlink():
         fail("PEANUT_RESOURCE_REGISTRY must be an absolute, non-symlink file")
+    command([str(REGISTRY_TOOL), "p0e-maintainer-source", "--sha256", sha256(REGISTRY_PATH)], capture=True)
     fixture = read_json(FIXTURE_PATH)
     registry = read_json(REGISTRY_PATH)
     if registry.get("authority", {}).get("role") != "maintainer":
@@ -540,6 +541,10 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         ("deployment-target", "local-production-preview"),
         *(("qualification-group", group) for group in qualification_resources),
         ("consumer", "host"),
+        ("endpoint", registered["upstream_endpoint"]["endpoint_id"]),
+        ("port", str(registered["upstream_endpoint"]["port"])),
+        ("resource-scope", registered["namespace"].replace("<run_id>", args.run_id)),
+        ("registry-sha256", sha256(REGISTRY_PATH)),
         (
             "endpoint",
             f"{registered['upstream_endpoint']['host']}:"
@@ -548,6 +553,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         ("run-id", args.run_id),
         ("candidate-tree", tree),
         *(("mysql-db", value) for value in names.values()),
+        *(("database", value) for value in names.values()),
         ("deployment-mode", "standalone"),
         ("deployment-mode", "multi-tenant"),
         ("cache-dir", paths["cache-dir"]),
@@ -557,6 +563,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
     if compose_required:
         resources.extend([
             ("consumer", "container"),
+            ("endpoint", registered["container_endpoint"]["endpoint_id"]),
             (
                 "endpoint",
                 f"{registered['container_endpoint']['host']}:"
@@ -587,6 +594,8 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "worktree": str(ROOT),
         "run_id": args.run_id,
         "resource_id": RESOURCE_ID,
+        "registry_sha256": sha256(REGISTRY_PATH),
+        "database_resource_scope": registered["namespace"].replace("<run_id>", args.run_id),
         "database_admin_tooling": {
             key: admin_tool[key]
             for key in (
@@ -1133,6 +1142,8 @@ class Runner:
         database: str,
         mode: str,
     ) -> Any:
+        if sha256(REGISTRY_PATH) != self.plan["registry_sha256"]:
+            fail("P0-E resource registry changed after the fixed plan")
         path = self.write_backend_env(project_root, database, mode)
         installation_path = path.with_name(path.name + ".installation")
         installation_values = {
@@ -1150,6 +1161,15 @@ class Runner:
         )
         installation_path.chmod(0o600)
         environment = {
+            "PEANUT_DATABASE_ENVIRONMENT": self.plan["environment"],
+            "PEANUT_DATABASE_RESOURCE_SCOPE": self.plan["database_resource_scope"],
+            "PEANUT_DATABASE_LEASE_ID": self.args.lease,
+            "PEANUT_DATABASE_LEASE_OWNER": self.args.owner,
+            "PEANUT_DATABASE_LEASE_THREAD": self.args.thread,
+            "PEANUT_DATABASE_LEASE_GATE": self.plan["gate"],
+            "PEANUT_DATABASE_REGISTRY_FILE": str(REGISTRY_PATH),
+            "PEANUT_DATABASE_REGISTRY_TOOL": str(REGISTRY_TOOL),
+            "PEANUT_DATABASE_REGISTRY_SHA256": self.plan["registry_sha256"],
             "PEANUT_SERVER_ENV_FILE": str(path),
             "PEANUT_INSTALLATION_ENV_FILE": str(installation_path),
             "PEANUT_RESOURCE_REGISTRY": "" if (project_root / "server/.peanut/release-identity.json").is_file()
