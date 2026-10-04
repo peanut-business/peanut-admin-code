@@ -142,11 +142,21 @@ try {
     $ids = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
     $statuses = $runner->statuses($ids);
     if ($operation === 'migrate') {
+        // The child bootstrap must load its own controlled file, rather than
+        // inheriting the managed values already loaded by this adapter.
+        $commandEnvironment = getenv();
+        if (!is_array($commandEnvironment)) {
+            throw new RuntimeException('module reconciliation environment is unavailable');
+        }
+        foreach (array_merge(peanutBackendEnvironmentKeys(), peanutTransientInstallationKeys()) as $name) {
+            unset($commandEnvironment[$name]);
+        }
         $process = proc_open(
             [PHP_BINARY, $server . '/think', 'plugin:reconcile', '--release-locked'],
             [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $server,
+            $commandEnvironment,
         );
         if (!is_resource($process)) {
             throw new RuntimeException('module reconciliation could not start');
