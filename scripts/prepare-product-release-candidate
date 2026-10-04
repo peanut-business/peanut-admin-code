@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare a product prerelease candidate from public registry Core packages.
+"""Prepare a product release candidate from public registry Core packages.
 
 The script intentionally derives Composer/npm identities from native manifests
 and lockfiles after running the package managers. Loose tarball/SRI strings are
@@ -542,6 +542,7 @@ def update_release_versions(product_version: str, core_php: dict[str, str], core
 
 
 def update_release_metadata(product_version: str, core_php: dict[str, str], core_web: dict[str, Any]) -> None:
+    channel = "prerelease" if "-" in product_version.split("+", 1)[0] else "stable"
     data = read_json(ROOT / "RELEASE_METADATA.json")
     data["schema_version"] = 3
     data["protocol"] = "peanut.release-metadata.v3"
@@ -564,7 +565,7 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
     data.setdefault("technical_qualification", {})
     data["technical_qualification"].update(
         {
-            "phase": f"{product_version}-prerelease-candidate",
+            "phase": f"{product_version}-{channel}-candidate",
             "result": "pending",
             "final_candidate_commit": None,
             "final_candidate_tree": None,
@@ -575,7 +576,7 @@ def update_release_metadata(product_version: str, core_php: dict[str, str], core
             "lease_released": False,
             "scaffold_version": product_version,
             "application_initial_version": read_json(ROOT / "release-versions.json")["generated_instance_default"],
-            "evidence": "P1 prerelease candidate identity is prepared from public Core registry locks; qualification remains pending.",
+            "evidence": f"Product {channel} candidate identity is prepared from public Core registry locks; qualification remains pending.",
             "release_delta": RELEASE_DELTA,
         }
     )
