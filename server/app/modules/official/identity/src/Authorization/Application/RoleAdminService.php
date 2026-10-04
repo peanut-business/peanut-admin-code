@@ -224,7 +224,8 @@ final readonly class RoleAdminService
 
         /** @var list<array{id: int, key: string}> $permissions */
         $permissions = Permission::whereIn('key', $permissionKeys)->where('status', 'active')
-            ->whereNotLike('key', 'platform.%')->whereIn('module_key', array_values(array_unique(['core', ...$modules])))
+            // Application permissions are shipped by the host, not tenant-enabled Modules.
+            ->whereNotLike('key', 'platform.%')->whereIn('module_key', array_values(array_unique(['core', 'peanut.admin', ...$modules])))
             ->field('id,key')->order('key')->select()->toArray();
 
         return $permissions;
