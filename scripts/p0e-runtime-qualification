@@ -1382,9 +1382,9 @@ class Runner:
         composer_env = {"COMPOSER_CACHE_DIR": str(self.cache / "composer")}
         if self.created_candidate_vendor:
             command(
-                ["/usr/local/bin/composer", "install", "--no-interaction", "--no-progress", "--prefer-dist"],
+                ["/usr/local/bin/composer", "install", "--no-scripts", "--no-interaction", "--no-progress", "--prefer-dist"],
                 cwd=ROOT / "server",
-                env=composer_env | {"APP_ENV": "development", "PEANUT_DATABASE_RESOURCE_ID": RESOURCE_ID},
+                env=composer_env,
                 log=log,
             )
         target = self.fixture["target_release"]
@@ -1434,7 +1434,7 @@ class Runner:
             build_database = self.plan["databases"][f"{'multi_tenant' if edition == 'multi-tenant' else 'standalone'}_fresh"]
             with self.backend_process_environment(generated, build_database, edition) as backend_env:
                 command(
-                    ["/usr/local/bin/composer", "install", "--no-interaction", "--no-progress", "--prefer-dist"],
+                    ["/usr/local/bin/composer", "install", "--no-scripts", "--no-interaction", "--no-progress", "--prefer-dist"],
                     cwd=generated / "server",
                     env=composer_env | backend_env,
                     log=log,
