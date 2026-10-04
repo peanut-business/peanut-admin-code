@@ -1384,7 +1384,7 @@ class Runner:
             command(
                 ["/usr/local/bin/composer", "install", "--no-interaction", "--no-progress", "--prefer-dist"],
                 cwd=ROOT / "server",
-                env=composer_env,
+                env=composer_env | {"APP_ENV": "development", "PEANUT_DATABASE_RESOURCE_ID": RESOURCE_ID},
                 log=log,
             )
         target = self.fixture["target_release"]
