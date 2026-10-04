@@ -1188,7 +1188,7 @@ class Runner:
             "standalone-fresh": ["standalone_fresh"],
             "multi-tenant-fresh": ["multi_tenant_fresh"],
             "plugin-lifecycle": ["plugin_lifecycle"],
-            "consumer-module-lifecycle": ["consumer_module_cycle"],
+            "consumer-module-lifecycle": ["consumer_module_cycle", "multi_tenant_fresh"],
             "production-compose": ["standalone_browser"],
             "multi-tenant-browser": ["multi_tenant_browser"],
         }
@@ -1884,17 +1884,32 @@ class Runner:
     def consumer_module_lifecycle(self) -> None:
         group = "consumer-module-lifecycle"
         database = self.plan["databases"]["consumer_module_cycle"]
+        author_database = self.plan["databases"]["multi_tenant_fresh"]
         output = self.cache / group
         log = self.group_log(group)
         self.create_database(database)
+        self.create_database(author_database)
         host, port = self.plan["host_endpoint"].rsplit(":", 1)
+        filename = f"peanut-admin-{self.fixture['target_release']['version']}-multi-tenant.tar.gz"
+        installer = self.edition_artifacts / filename
+        installer_manifest = self.edition_artifacts / f"{filename}.manifest.json"
+        registration = read_json(REGISTRY_PATH)
+        resource = next(item for item in registration["resources"]["databases"]
+                        if item.get("stable_resource_id") == self.plan["resource_id"])
         arguments = [
             str(CONSUMER_MODULE_CHAIN),
             "--candidate", self.args.candidate,
             "--lease", self.args.lease,
             "--database", database,
+            "--database-resource", self.plan["resource_id"],
+            "--endpoint", resource["upstream_endpoint"]["endpoint_id"],
+            "--author-database", author_database,
             "--output", str(output),
-            "--formal-release-adoption",
+            "--installer-package", str(installer),
+            "--installer-manifest", str(installer_manifest),
+            "--installer-sha256", sha256(installer),
+            "--installer-manifest-sha256", sha256(installer_manifest),
+            "--qualification-plan", str(self.output / "plan.json"),
         ]
         consumer_environment = self.cache / "consumer-module-environment.env"
         consumer_environment.write_text(
@@ -1933,7 +1948,14 @@ class Runner:
             or summary.get("candidate") != self.args.candidate
             or summary.get("candidate_tree") != self.plan["candidate_tree"]
             or summary.get("database") != database
-            or summary.get("gates", {}).get("formal_release_adoption") != "passed"
+            or summary.get("author_database") != author_database
+            or summary.get("formal_installer_input") is not True
+            or summary.get("installer_archive_sha256") != sha256(installer)
+            or summary.get("installer_manifest_sha256") != sha256(installer_manifest)
+            or any(summary.get("gates", {}).get(gate) != "passed" for gate in (
+                "application_a_direct_installer_extract_and_fresh_install",
+                "application_b_direct_installer_extract_and_fresh_install",
+            ))
         ):
             fail("consumer Module lifecycle summary identity diverged")
         self.write_json(self.output / "groups/consumer-module-lifecycle.json", summary)

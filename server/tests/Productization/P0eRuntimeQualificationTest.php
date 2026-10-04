@@ -304,7 +304,19 @@ $expect(
     'formal Edition installer qualification lost its projected application identity or Plugin lifecycle',
 );
 $expect(str_contains($runnerSource, 'consumer-module-reference-chain'), 'consumer Module lifecycle does not use the independent application driver');
-$expect(str_contains($runnerSource, '--formal-release-adoption'), 'consumer Module lifecycle does not require the sealed scaffold adoption path');
+$expect(!str_contains($runnerSource, '--formal-release-adoption'), 'consumer Module lifecycle retained an exited CLI option');
+$consumerSource = (string) file_get_contents($root . '/scripts/consumer-module-reference-chain');
+foreach (['sodium_crypto_sign_keypair', 'author-signing-key.base64', 'PEANUT_MODULE_TRUSTED_KEYS_JSON', '--signing-key-id', '--signing-secret-key-file', '--signature-key-id', 'signed_pack_v1_v2'] as $exitedInput) {
+    $expect(!str_contains($consumerSource, $exitedInput), "consumer fixture retained mandatory signing input {$exitedInput}");
+}
+$expect(str_contains($consumerSource, '"canonical_pack_v1_v2": "passed"'), 'consumer package evidence does not describe canonical integrity');
+foreach (['--database-resource', '--endpoint', '--author-database', '--installer-package', '--installer-manifest', '--installer-sha256', '--installer-manifest-sha256', '--qualification-plan'] as $option) {
+    $expect(str_contains($runnerSource, $option) && str_contains($consumerSource, $option), "consumer CLI contract omitted {$option}");
+}
+$expect(str_contains($runnerSource, '"consumer-module-lifecycle": ["consumer_module_cycle", "multi_tenant_fresh"]'), 'consumer retry does not clean both owned application databases');
+foreach (['installer-archive', 'installer-archive-sha256', 'installer-manifest', 'installer-manifest-sha256'] as $resource) {
+    $expect(str_contains($consumerSource, '("' . $resource . '",'), "independent consumer lost direct lease protection {$resource}");
+}
 $expect(str_contains($runnerSource, 'consumer_module_cycle'), 'consumer Module lifecycle does not own a length-safe isolated database scenario');
 $expect(str_contains($runnerSource, 'passed != required'), 'Gate completion closure is not enforced');
 $expect(str_contains($runnerSource, 'required = set(self.plan["groups"])'), 'runner does not close against the explicitly planned group prefix');
@@ -399,5 +411,173 @@ $nativeCode = 0;
 exec('python3 -c ' . escapeshellarg($nativeProofCode) . ' 2>&1', $nativeOutput, $nativeCode);
 $expect($nativeCode === 0, 'native registry proof export failed: ' . implode("\n", $nativeOutput));
 echo implode("\n", $nativeOutput), "\n";
+
+$consumerContractCode = <<<'PY'
+import argparse, ast, copy, json, os, runpy, shutil, subprocess, tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+root = Path.cwd()
+consumer_path = root / 'scripts/consumer-module-reference-chain'
+consumer = runpy.run_path(str(consumer_path))
+tree = ast.parse(consumer_path.read_text())
+function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'parse_arguments')
+body = []
+for statement in function.body:
+    if isinstance(statement, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'args' for t in statement.targets): break
+    body.append(statement)
+namespace = {'argparse': argparse, '__doc__': 'actual consumer parser'}
+exec(compile(ast.fix_missing_locations(ast.Module(body=body, type_ignores=[])), str(consumer_path), 'exec'), namespace)
+parser = namespace['parser']
+runner_tree = ast.parse((root / 'scripts/p0e-runtime-qualification').read_text())
+method = next(n for n in ast.walk(runner_tree) if isinstance(n, ast.FunctionDef) and n.name == 'consumer_module_lifecycle')
+options = {n.value for n in ast.walk(method) if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value.startswith('--')}
+assert options <= set(parser._option_string_actions), options - set(parser._option_string_actions)
+assert {a.option_strings[0] for a in parser._actions if a.required} <= options
+
+def reject(operation):
+    try: operation()
+    except consumer['ChainError']: return
+    raise AssertionError('invalid derived proof accepted')
+
+with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-') as temporary:
+    base = Path(temporary).resolve()
+    cache, output = base / 'cache', base / 'output'
+    artifacts = cache / 'edition-artifacts'
+    artifacts.mkdir(parents=True)
+    (output / 'groups').mkdir(parents=True)
+    archive = artifacts / 'peanut-admin-1.0.0-multi-tenant.tar.gz'
+    manifest = artifacts / (archive.name + '.manifest.json')
+    archive.write_bytes(b'fixed test bytes')
+    manifest.write_text(json.dumps({'application': {'manifest_sha256': 'a' * 64}}))
+    sha = consumer['sha256']
+    value = dict(selection_scope='full', run_id='run', lease='lease', owner='owner', thread='thread', parent_lease='parent',
+        paths={'cache-dir': str(cache), 'output-dir': str(output)}, ports={'http': 20190, 'docs': 20186},
+        groups=['generated-application', 'consumer-module-lifecycle'], through_group=None, candidate_tree='b' * 40,
+        target_release={'version': '1.0.0'}, databases={'multi_tenant_fresh': 'author', 'consumer_module_cycle': 'consumer'})
+    plan = output / 'plan.json'
+    plan.write_text(json.dumps(value))
+    receipt = dict(schema_version=1, status='passed', candidate='c' * 40, candidate_tree='b' * 40, target_release=value['target_release'],
+        editions={'multi-tenant': {'archive_sha256': sha(archive), 'installer_manifest_sha256': sha(manifest), 'application_manifest_sha256': 'a' * 64}})
+    receipt_path = output / 'groups/generated-application.json'
+    receipt_path.write_text(json.dumps(receipt))
+    checkpoint = dict(schema_version=1, candidate='c' * 40, candidate_tree='b' * 40, lease='lease', parent_lease='parent', run_id='run',
+        planned_groups=value['groups'], groups={'generated-application': {'status': 'passed'}})
+    checkpoint_path = output / 'checkpoint.json'
+    checkpoint_path.write_text(json.dumps(checkpoint))
+    args = argparse.Namespace(qualification_plan=str(plan), candidate='c' * 40, lease='lease', installer_mode='formal', edition='multi-tenant',
+        database='consumer', author_database='author', installer_package=str(archive), installer_manifest=str(manifest),
+        installer_sha256=sha(archive), installer_manifest_sha256=sha(manifest))
+    observed = []
+    def native_plan(native_args, require_clean):
+        assert require_clean and native_args.groups is None and native_args.through_group is None
+        return value
+    native = {'plan': native_plan, 'verify_lease': lambda a, p: observed.append((a.lease, p))}
+    verify = consumer['p0e_installer_inputs']
+    with patch('runpy.run_path', return_value=native):
+        assert verify(args, 'b' * 40) == value and observed
+        for field, bad in [('author_database', 'consumer'), ('database', 'outside'), ('installer_mode', 'internal-candidate')]:
+            altered = copy.copy(args); setattr(altered, field, bad)
+            reject(lambda: verify(altered, 'b' * 40))
+        for field in ['candidate', 'candidate_tree', 'lease', 'parent_lease', 'run_id', 'planned_groups']:
+            altered = dict(checkpoint); altered[field] = 'wrong'
+            checkpoint_path.write_text(json.dumps(altered))
+            reject(lambda: verify(args, 'b' * 40))
+        checkpoint_path.write_text(json.dumps(checkpoint))
+        bad = copy.deepcopy(receipt); bad['editions']['multi-tenant']['archive_sha256'] = 'd' * 64
+        receipt_path.write_text(json.dumps(bad)); reject(lambda: verify(args, 'b' * 40))
+        receipt_path.write_text(json.dumps(receipt))
+        archive.write_bytes(b'tampered'); reject(lambda: verify(args, 'b' * 40))
+        archive.write_bytes(b'fixed test bytes')
+        receipt_path.unlink(); receipt_path.symlink_to(manifest)
+        reject(lambda: verify(args, 'b' * 40))
+        receipt_path.unlink(); receipt_path.write_text(json.dumps(receipt))
+        groups = output / 'groups'; moved = output / 'groups-real'
+        groups.rename(moved); groups.symlink_to(moved, target_is_directory=True)
+        reject(lambda: verify(args, 'b' * 40))
+        groups.unlink(); moved.rename(groups)
+    independent = copy.copy(args)
+    independent.qualification_plan = None
+    independent.database_resource = 'fixture-resource'
+    independent.endpoint = 'fixture-host'
+    independent.output = str(base / 'independent-output')
+    direct = {('database-resource', independent.database_resource), ('endpoint', independent.endpoint),
+        ('database', independent.database), ('database', independent.author_database),
+        ('output-root', independent.output), ('cache-root', independent.output + '/cache'),
+        ('installer-archive', independent.installer_package), ('installer-archive-sha256', independent.installer_sha256),
+        ('installer-manifest', independent.installer_manifest), ('installer-manifest-sha256', independent.installer_manifest_sha256)}
+    metadata = dict(gate='consumer-reference-chain', candidate=independent.candidate, status='ACTIVE', worktree=str(root))
+    def git_command(arguments, **kwargs):
+        assert arguments[0] == 'git'
+        return ('b' * 40 if arguments[-1] == 'HEAD^{tree}' else 'c' * 40) if arguments[1] == 'rev-parse' else ''
+    class ReachedRegistration(Exception): pass
+    def registration(*arguments):
+        assert arguments[-1] is None, 'independent consumer acquired P0-E projection'
+        raise ReachedRegistration()
+    chain = consumer['run_chain']
+    replacements = dict(command=git_command, validate_installer_artifact=lambda *a: {}, registered_database=registration)
+    with patch.dict(chain.__globals__, replacements):
+        for kind in ['installer-archive', 'installer-archive-sha256', 'installer-manifest', 'installer-manifest-sha256']:
+            with patch.dict(chain.__globals__, {'lease_fields': lambda _: (metadata, [(k, v) for k, v in direct if k != kind])}):
+                reject(lambda: chain(independent))
+        with patch.dict(chain.__globals__, {'lease_fields': lambda _: (metadata, list(direct))}):
+            try: chain(independent)
+            except ReachedRegistration: pass
+            else: raise AssertionError('valid direct lease did not reach registered preflight')
+            altered = copy.copy(independent); altered.qualification_plan = str(plan)
+            reject(lambda: chain(altered))
+        p0e_metadata = dict(metadata, gate='p0e-runtime-qualification')
+        with patch.dict(chain.__globals__, {'lease_fields': lambda _: (p0e_metadata, list(direct))}):
+            reject(lambda: chain(independent))
+    package_calls = []
+    def package_command(project, environment, arguments, log):
+        package_calls.append(arguments)
+        return {'status': 'verified'}
+    with patch.dict(consumer['package_install'].__globals__, {'run_think': package_command}):
+        consumer['package_install'](base, {}, archive, 'f' * 64, base / 'package.log')
+        consumer['package_update'](base, {}, archive, 'f' * 64, True, base / 'package.log')
+        consumer['package_update'](base, {}, archive, 'f' * 64, False, base / 'package.log')
+    assert package_calls == [
+        ['module:install-package', str(archive), '--sha256=' + 'f' * 64],
+        ['module:update-package', str(archive), '--sha256=' + 'f' * 64, '--dry-run'],
+        ['module:update-package', str(archive), '--sha256=' + 'f' * 64],
+    ], 'canonical install/update lost its pinned archive digest or acquired signing input'
+    consumer['CONFIG_VALUES'].update(DB_HOST='127.0.0.1', DB_PORT='21306', DB_USER='fixture', DB_PASS='fixture')
+    for label in ('author', 'consumer'):
+        app = base / label
+        (app / 'resources').mkdir(parents=True)
+        (app / 'server/database').mkdir(parents=True)
+        (app / 'server/bootstrap').mkdir()
+        (app / 'server/vendor').mkdir()
+        (app / '.peanut').mkdir()
+        registry = app / 'resources/project-resources.json'
+        registry.write_text(json.dumps({'schema_version': 1, 'project_id': label, 'authority': {'role': 'application'}, 'resources': {'databases': []}}))
+        (app / '.peanut/application-manifest.json').write_text(json.dumps({'application': {'slug': label}}))
+        consumer['configure_generated_database'](app, 'cr21-' + label, 'cr21-' + label + '-host', label)
+        resource = json.loads(registry.read_text())['resources']['databases'][0]
+        assert resource['database'] == label and resource['deployment_modes'] == ['multi-tenant']
+        shutil.copyfile(root / 'server/database/environment-guard.php', app / 'server/database/environment-guard.php')
+        shutil.copyfile(root / 'server/bootstrap/environment.php', app / 'server/bootstrap/environment.php')
+        (app / 'server/vendor/autoload.php').symlink_to(root / 'server/vendor/autoload.php')
+        backend_path = app / 'server/.env.cr21'
+        backend = consumer['backend_environment'](backend_path, label, 'cr21-' + label, 'cr21-' + label + '-host', 'multi-tenant')
+        assert 'PEANUT_MODULE_TRUSTED_KEYS_JSON' not in backend_path.read_text()
+        environment = {key: os.environ[key] for key in ('PATH', 'HOME', 'TMPDIR') if key in os.environ}
+        environment.update(backend)
+        code = "require $argv[1]; echo json_encode(guardedDatabaseConfig(), JSON_THROW_ON_ERROR);"
+        result = subprocess.run(['php', '-r', code, str(app / 'server/database/environment-guard.php')], env=environment, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        configured = json.loads(result.stdout)
+        assert configured['database'] == label and configured['resource_id'] == 'cr21-' + label and configured['deployment_target'] == 'local-development'
+        backend_path.write_text(backend_path.read_text().replace('DB_NAME="' + label + '"', 'DB_NAME="foreign"'))
+        result = subprocess.run(['php', '-r', code, str(app / 'server/database/environment-guard.php')], env=environment, capture_output=True, text=True)
+        assert result.returncode != 0, 'foreign application database accepted'
+print('consumer actual CLI parser and derived proof negative contracts passed')
+PY;
+$consumerOutput = [];
+$consumerCode = 0;
+exec('python3 -c ' . escapeshellarg($consumerContractCode) . ' 2>&1', $consumerOutput, $consumerCode);
+$expect($consumerCode === 0, 'consumer CLI/derived input contract failed: ' . implode("\n", $consumerOutput));
+echo implode("\n", $consumerOutput), "\n";
 
 echo "P0E-RUNTIME-QUALIFICATION-CONTRACT-001 passed\n";
