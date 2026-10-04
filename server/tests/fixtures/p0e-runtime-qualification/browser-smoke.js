@@ -154,6 +154,14 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
     || deliveryUrl.hostname === 'localhost' || deliveryUrl.hostname.endsWith('.localhost'))) {
     throw new Error('qualification file delivery left the registered local instance');
   }
+  if (profile === 'baseline') {
+    const allowedHosts = new Set(['127.0.0.1', 'localhost',
+      ...[tenantAdminUrl, tenantBetaUrl, platformUrl].map((origin) => new URL(origin).hostname)]);
+    if (deliveryUrl.protocol !== 'http:' || deliveryUrl.port !== new URL(tenantAdminUrl).port
+      || !allowedHosts.has(deliveryUrl.hostname) || deliveryUrl.username || deliveryUrl.password) {
+      throw new Error('baseline file delivery left the lease-bound HTTP endpoint');
+    }
+  }
   const delivered = await alpha.page.request.get(deliveryUrl.toString(), { failOnStatusCode: false });
   const downloaded = await delivered.body();
   const deliveredBytes = downloaded.length;
