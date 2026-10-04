@@ -1,0 +1,58 @@
+name: ${COMPOSE_PROJECT_NAME:-peanut-app}
+
+services:
+  php:
+    image: ${PHP_IMAGE:?set PHP_IMAGE in server/docker/.env}
+    restart: unless-stopped
+    working_dir: /var/www/peanut-admin/server
+    command: ["/bin/sh", "/var/www/peanut-admin/server/docker/scripts/php-entrypoint.sh"]
+    volumes:
+      - ../:/var/www/peanut-admin/server
+      - ./conf/php.ini:/usr/local/etc/php/conf.d/zz-peanut.ini:ro
+      - ./conf/php-fpm.conf:/usr/local/etc/php-fpm.d/zz-peanut.conf:ro
+      - ./conf/crontab:/etc/cron.d/peanut-app:ro
+      - ./scripts/schedule.sh:/usr/local/bin/peanut-schedule:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t >/dev/null 2>&1 && test -f /var/www/peanut-admin/server/vendor/autoload.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  nginx:
+    image: ${NGINX_IMAGE:?set NGINX_IMAGE in server/docker/.env}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-21080}:80"
+    volumes:
+      - ../public:/var/www/peanut-admin/server/public:ro
+      - ../runtime/upgrade:/var/www/peanut-admin/server/runtime/upgrade:ro
+      - ./conf/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      php:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  mysql:
+    image: ${MYSQL_IMAGE:?set MYSQL_IMAGE in server/docker/.env}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in server/docker/.env}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./mysql:/var/lib/mysql
+      - ./conf/mysql.cnf:/etc/mysql/conf.d/peanut.cnf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h 127.0.0.1 -u root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
