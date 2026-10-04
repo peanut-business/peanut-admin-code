@@ -463,8 +463,10 @@ final class RegisteredMysqlTestResource
             : realpath(dirname($toolPath, 2) . '/resources/project-resources.json');
         // P0-E explicitly binds the private maintainer registry digest to its
         // candidate lease and uses this candidate's unchanged native selector.
-        $p0eRegistry = getenv('PEANUT_DATABASE_RESOURCE_ID') === 'peanut-admin-p0e-mysql84-gate'
-            && $toolPath === realpath($canonicalTool);
+        $p0eRegistry = getenv('PEANUT_DATABASE_RESOURCE_ID') === 'peanut-admin-p0e-mysql84-gate';
+        if ($p0eRegistry && $toolPath !== realpath($canonicalTool)) {
+            throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
+        }
         if ($registryPath === false || $toolPath === false || $expectedRegistry === false
             || (!$p0eRegistry && $registryPath !== $expectedRegistry)
             || !is_file($registryPath) || is_link($registryPath)
@@ -520,10 +522,14 @@ final class RegisteredMysqlTestResource
                 $resolved[$parts[0]] = $parts[1];
             }
         }
-        foreach ([
+        $resolvedKeys = [
             'PEANUT_DATABASE_RESOURCE_ID', 'PEANUT_DATABASE_ENDPOINT_ID',
-            'PEANUT_DATABASE_CONSUMER', 'DB_HOST', 'DB_PORT', 'DB_NAME',
-        ] as $key) {
+            'PEANUT_DATABASE_CONSUMER', 'DB_HOST', 'DB_PORT',
+        ];
+        if ($environment['PEANUT_DATABASE_RESOURCE_ID'] === 'peanut-admin-p0e-mysql84-gate') {
+            $resolvedKeys[] = 'DB_NAME';
+        }
+        foreach ($resolvedKeys as $key) {
             if (($resolved[$key] ?? null) !== $environment[$key]) {
                 throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_TOOL_MISMATCH');
             }
