@@ -271,6 +271,7 @@ try {
             'server/app/platform/exception/plugin/PluginPackageException.php' => ['scripts/upgrade-runtime/PluginPackageException.php', 0644],
             'server/app/platform/value/plugin/ModuleFrontendLayout.php' => ['scripts/upgrade-runtime/ModuleFrontendLayout.php', 0644],
             'server/app/platform/infrastructure/plugin/PluginArtifactWriter.php' => ['scripts/upgrade-runtime/PluginArtifactWriter.php', 0644],
+            'server/app/platform/validation/module/ModulePublicSurfacePolicy.php' => ['scripts/upgrade-runtime/ModulePublicSurfacePolicy.php', 0644],
             'server/app/platform/validation/module/OpisManifestSchemaValidator.php' => ['scripts/upgrade-runtime/OpisManifestSchemaValidator.php', 0644],
             'server/app/platform/validation/module/StrictVersionConstraintMatcher.php' => ['scripts/upgrade-runtime/StrictVersionConstraintMatcher.php', 0644],
             'server/app/platform/validation/plugin/ModulePackagePreflight.php' => ['scripts/upgrade-runtime/ModulePackagePreflight.php', 0644],

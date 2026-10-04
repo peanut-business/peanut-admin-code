@@ -52,6 +52,7 @@ final class EditionUpgradePackage
         'server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php',
         'server/app/platform/infrastructure/module/DeployedTenantModuleRegistry.php',
         'server/app/platform/services/module/ModuleQualificationQueryService.php',
+        'server/app/platform/validation/module/ModulePublicSurfacePolicy.php',
         'server/app/platform/validation/module/OpisManifestSchemaValidator.php',
         'server/app/platform/validation/module/ReflectionContractInspector.php',
         'server/app/platform/validation/module/StrictVersionConstraintMatcher.php',
