@@ -28,27 +28,37 @@ usage() {
     printf '%s\n' "  server/docker/scripts/update.sh plan --archive=/absolute/server.tar.gz --expected-sha256=<trusted-64-hex> --workspace=/absolute/update-workspace" >&2
     printf '%s\n' "  server/docker/scripts/update.sh apply --workspace=/absolute/update-workspace" >&2
     printf '%s\n' "  server/docker/scripts/update.sh recover --workspace=/absolute/update-workspace" >&2
+    printf '%s\n' "  All commands accept --instance-server=/absolute/server for a separately verified maintenance tool." >&2
     exit 64
 }
 
 case "${1:-}" in
-    plan) [ "$#" -eq 4 ] || usage ;;
-    apply|recover) [ "$#" -eq 2 ] || usage ;;
+    plan) [ "$#" -ge 4 ] && [ "$#" -le 5 ] || usage ;;
+    apply|recover) [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage ;;
     *) usage ;;
 esac
 command=$1
 archive=
 expected=
 workspace=
+instance_server=
 shift
 for argument in "$@"; do
     case "$argument" in
         --archive=/*) [ "$command" = plan ] || usage; archive=${argument#*=} ;;
         --expected-sha256=*) [ "$command" = plan ] || usage; expected=${argument#*=} ;;
         --workspace=/*) workspace=${argument#*=} ;;
+        --instance-server=/*) [ -z "$instance_server" ] || usage; instance_server=${argument#*=} ;;
         *) usage ;;
     esac
 done
+if [ -n "$instance_server" ]; then
+    [ -d "$instance_server" ] && [ ! -L "$instance_server" ] || { echo "instance server is unavailable" >&2; exit 1; }
+    server_real=$(CDPATH= cd -- "$instance_server" && pwd -P)
+    [ "$server_real" = "$instance_server" ] || { echo "instance server must be canonical" >&2; exit 1; }
+    SERVER_DIR=$server_real
+    DOCKER_DIR=$SERVER_DIR/docker
+fi
 [ -n "$workspace" ] || usage
 if [ "$command" = plan ]; then
     [ -n "$archive" ] || usage
