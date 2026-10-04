@@ -3,6 +3,17 @@
 All notable Peanut Admin application changes are recorded here. The application
 and the two public core packages have independent version histories.
 
+## [4.0.0-rc.19] - 2026-10-04
+
+### Changed
+
+- Allow active application-owned `peanut.admin` menu permissions in role assignment while preserving module availability and platform boundaries.
+- Preserve the existing atomic role-edit transaction and stale-revision protection; directly affected rollback and concurrency checks confirm the current behavior.
+- Fix compatible Axios, DOMPurify, devalue and Flysystem dependency advisories; remaining toolchain and output risks require Stable Readiness classification.
+- Support Peanut CLI native upstream-upgrade orchestration and distinguish Peanut source upgrades, independent APP releases and production deployment upgrades.
+- Verify published Web Core packages through exact gitHead or public npm provenance, including the official workflow signer, source commit/tag, package integrity and successful Action.
+- This prerelease uses the Minimum Release Gate; full P0-E and remaining security/recovery qualification remain pending for the final Stable candidate.
+
 ## [4.0.0-rc.18] - 2026-10-04
 
 ### Changed

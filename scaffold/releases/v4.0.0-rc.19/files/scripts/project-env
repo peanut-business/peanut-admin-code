@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""Select registered project tools; never install tools or dependencies implicitly."""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+
+SUPPORTED = {"node", "npm", "pnpm", "php", "composer", "python3"}
+CACHE_ENV = {"pnpm": "npm_config_store_dir", "npm": "npm_config_cache", "composer": "COMPOSER_CACHE_DIR"}
+
+
+def fail(message: str) -> None:
+    raise ValueError(message)
+
+
+def read_json(path: Path) -> dict:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        fail(f"unsupported configuration: {path}")
+    return value
+
+
+def within(root: Path, name: str) -> Path:
+    path = root / name
+    try:
+        path.resolve().relative_to(root)
+    except ValueError:
+        fail(f"path escapes project: {name}")
+    current = path
+    while current != root:
+        if current.is_symlink():
+            fail(f"linked project configuration/output: {current}")
+        current = current.parent
+    return path
+
+
+def metadata(path: Path) -> list:
+    stat = path.stat()
+    return [str(path.resolve()), stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns]
+
+
+def requirements(root: Path) -> tuple:
+    source = within(root, "tools/toolchain.json")
+    document = read_json(source)
+    tools = document.get("tools", {})
+    if not isinstance(tools, dict) or set(tools) != SUPPORTED:
+        fail("toolchain must declare node, npm, pnpm, php, composer and python3")
+    inputs = {str(source): hashlib.sha256(source.read_bytes()).hexdigest()}
+    resolved = {}
+    for name, spec in tools.items():
+        if not isinstance(spec, dict):
+            fail(f"invalid requirement: {name}")
+        item = dict(spec)
+        if "package_manager_file" in spec:
+            if name != "pnpm" or "version" in spec:
+                fail("pnpm has one version authority: packageManager")
+            path = within(root, spec["package_manager_file"])
+            manager = json.loads(path.read_text()).get("packageManager", "")
+            match = re.fullmatch(r"pnpm@(\d+\.\d+\.\d+)(?:\+sha(?:224|256|384|512)\.[a-fA-F0-9]+)?", manager)
+            if not match:
+                fail("packageManager must pin an exact pnpm version")
+            item["version"] = match.group(1)
+            inputs[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+        if "project_composer_file" in spec:
+            if name != "composer" or "version" in spec:
+                fail("Composer has one version authority: project-composer")
+            path = within(root, spec["project_composer_file"])
+            text = path.read_text()
+            version = re.search(r"^VERSION='(\d+\.\d+\.\d+)'$", text, re.M)
+            digest = re.search(r"^SHA256='([a-f0-9]{64})'$", text, re.M)
+            if not version or not digest:
+                fail("cannot read the existing project-composer pin")
+            item.update(version=version.group(1), sha256=digest.group(1))
+            inputs[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+        if not re.fullmatch(r"\d+\.\d+\.\d+", str(item.get("version", ""))):
+            fail(f"exact tool version required: {name}")
+        resolved[name] = item
+    return resolved, inputs
+
+
+def configuration(root: Path, host_path: Path) -> tuple:
+    required, inputs = requirements(root)
+    host = read_json(host_path)
+    commands = host.get("commands", {})
+    if not isinstance(commands, dict) or set(commands) != set(required):
+        fail("host commands must match the declared tools exactly")
+    watched = []
+    for name, argv in commands.items():
+        if not isinstance(argv, list) or not argv:
+            fail(f"absolute argv required for {name}")
+        for index, value in enumerate(argv):
+            if not isinstance(value, str) or any(ord(c) < 32 for c in value):
+                fail(f"invalid argv for {name}")
+            path = Path(value)
+            if not path.is_absolute() or not path.is_file() or (index == 0 and not os.access(path, os.X_OK)):
+                fail(f"missing absolute tool file for {name}: {value}")
+            watched.append(metadata(path))
+    # Package-manager scripts must use the same registered interpreter as children.
+    for name, interpreter in (("npm", "node"), ("pnpm", "node"), ("composer", "php")):
+        if len(commands[name]) != 2 or Path(commands[name][0]).resolve() != Path(commands[interpreter][0]).resolve():
+            fail(f"{name} must bind [registered {interpreter}, absolute CLI file]")
+    for name in ("node", "php", "python3"):
+        if len(commands[name]) != 1:
+            fail(f"{name} must bind one native executable")
+    extra = host.get("extra_path", [])
+    if not isinstance(extra, list) or any(not isinstance(p, str) or not Path(p).is_absolute() or not Path(p).is_dir() for p in extra):
+        fail("extra_path must contain existing absolute directories")
+    caches = host.get("caches", {})
+    if not isinstance(caches, dict) or set(caches) != set(CACHE_ENV):
+        fail("register pnpm, npm and composer cache directories")
+    for name, value in caches.items():
+        if not isinstance(value, str) or not Path(value).is_absolute() or not Path(value).is_dir() or not os.access(value, os.W_OK):
+            fail(f"cache must already exist and be writable: {name}")
+    for value in host.get("watch_paths", []):
+        path = Path(value)
+        if not path.is_absolute() or not path.exists():
+            fail(f"missing watched configuration: {value}")
+        watched.append(metadata(path))
+        if path.is_dir():
+            watched.extend(metadata(p) for p in sorted(path.iterdir()) if p.is_file())
+    digest = hashlib.sha256(Path(commands["composer"][1]).read_bytes()).hexdigest()
+    if digest != required["composer"]["sha256"]:
+        fail("registered Composer PHAR does not match project-composer SHA-256")
+    inputs.update(host=hashlib.sha256(host_path.read_bytes()).hexdigest(), runner=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+    inherited = {k: os.environ.get(k) for k in ("PHPRC", "PHP_INI_SCAN_DIR", "NODE_OPTIONS", "PYTHONPATH", "PYTHONHOME")}
+    fingerprint = hashlib.sha256(json.dumps([str(root), required, inputs, watched, inherited], sort_keys=True).encode()).hexdigest()
+    return required, host, fingerprint
+
+
+def environment(root: Path, host: dict, bin_path: Path) -> dict:
+    env = dict(os.environ)
+    # Keep the registered Node bin visible after the prepared shims so globally installed
+    # Node tools such as the independent Peanut CLI can be invoked without copying them here.
+    path_entries = [str(bin_path), str(Path(host["commands"]["node"][0]).parent), *host["extra_path"]]
+    env["PATH"] = os.pathsep.join(dict.fromkeys(path_entries))
+    for name, variable in CACHE_ENV.items():
+        for key in list(env):
+            if key.lower() == variable.lower():
+                del env[key]
+        env[variable] = host["caches"][name]
+    env["COREPACK_ENABLE_NETWORK"] = "0"
+    env["COREPACK_ENABLE_AUTO_PIN"] = "0"
+    env["TMPDIR"] = str(within(root, ".local/tmp/project-env"))
+    return env
+
+
+def probe(root: Path, required: dict, host: dict, env: dict) -> dict:
+    # Probes use registered argv directly; no shell, global changes or downloads.
+    probe_env = dict(env)
+    probe_env.update(NODE_DISABLE_COMPILE_CACHE="1", DISABLE_V8_COMPILE_CACHE="1", PYTHONDONTWRITEBYTECODE="1")
+    probe_env["PATH"] = os.pathsep.join([str(Path(host["commands"]["node"][0]).parent), *host["extra_path"]])
+    result = {}
+    for name, argv in host["commands"].items():
+        options = ["--no-plugins", "--no-scripts", "--version"] if name == "composer" else ["--version"]
+        process = subprocess.run([*argv, *options], cwd=root, env=probe_env, text=True, capture_output=True, timeout=10)
+        output = process.stdout + process.stderr
+        if process.returncode:
+            fail(f"{name} version probe exited {process.returncode}: {output.strip()[-4000:]}")
+        match = re.search(r"(?<![\d.])v?(\d+\.\d+\.\d+)(?![\d.])", output)
+        actual = match.group(1) if match else None
+        if actual != required[name]["version"]:
+            fail(f"{name}: expected {required[name]['version']}, observed {actual}, exit {process.returncode}")
+        result[name] = {"version": actual, "argv": argv}
+    code = "echo json_encode(get_loaded_extensions(), JSON_THROW_ON_ERROR);"
+    process = subprocess.run([*host["commands"]["php"], "-r", code], cwd=root, env=probe_env, text=True, capture_output=True, timeout=10)
+    if process.returncode:
+        fail("cannot inspect registered PHP extensions")
+    missing = set(required["php"].get("extensions", [])) - set(json.loads(process.stdout))
+    if missing:
+        fail("missing PHP extensions: " + ", ".join(sorted(missing)))
+    return result
+
+
+def shim(argv: list) -> str:
+    return "#!/bin/sh\nexec " + " ".join(shlex.quote(value) for value in argv) + ' "$@"\n'
+
+
+def check_prepared(directory: Path, fingerprint: str, host: dict) -> dict:
+    state = read_json(directory / "prepared.json")
+    if state.get("fingerprint") != fingerprint:
+        fail("prepared environment does not match current registration")
+    for name, argv in host["commands"].items():
+        path = directory / "bin" / name
+        if path.is_symlink() or not path.is_file() or not os.access(path, os.X_OK) or path.read_text() != shim(argv):
+            fail(f"prepared tool entry changed: {name}")
+    return state
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parent.parent)
+    parser.add_argument("--host", type=Path)
+    parser.add_argument("action", choices=("requirements", "doctor", "prepare", "exec"))
+    parser.add_argument("command", nargs=argparse.REMAINDER)
+    args = parser.parse_args()
+    root = args.root.resolve(strict=True)
+    if args.action != "exec" and args.command:
+        fail("only exec accepts a child command")
+    if args.action == "requirements":
+        print(json.dumps(requirements(root)[0], indent=2))
+        return
+    if os.name != "posix":
+        fail("this first implementation requires a POSIX host; no Windows support has been validated")
+    host_path = args.host.resolve(strict=True) if args.host else within(root, ".local/toolchain/host.json")
+    required, host, fingerprint = configuration(root, host_path)
+    parent = within(root, ".local/toolchain/project-env")
+    directory = within(root, str((parent / fingerprint).relative_to(root)))
+    env = environment(root, host, directory / "bin")
+    if args.action == "doctor":
+        if not Path(env["TMPDIR"]).is_dir():
+            fail("project temporary directory missing; run prepare explicitly (doctor never creates it)")
+        print(json.dumps({"status": "ok", "fingerprint": fingerprint, "tools": probe(root, required, host, env), "caches": host["caches"], "writes": False}, indent=2))
+        return
+    if args.action == "prepare":
+        # Version probes such as pnpm resolve TMPDIR before printing a version.
+        # Creating this directory belongs to explicit prepare, never doctor.
+        within(root, ".local/tmp/project-env").mkdir(parents=True, exist_ok=True, mode=0o700)
+        if directory.exists():
+            state = check_prepared(directory, fingerprint, host)
+            state["reused"] = True
+        else:
+            observed = probe(root, required, host, env)
+            parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            staging = Path(tempfile.mkdtemp(prefix=".prepare-", dir=parent))
+            try:
+                (staging / "bin").mkdir(mode=0o700)
+                for name, argv in host["commands"].items():
+                    path = staging / "bin" / name
+                    path.write_text(shim(argv), encoding="utf-8")
+                    path.chmod(0o700)
+                state = {"schema_version": 1, "fingerprint": fingerprint, "tools": observed, "caches": host["caches"], "reused": False}
+                (staging / "prepared.json").write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+                if directory.exists():
+                    state = check_prepared(directory, fingerprint, host)
+                else:
+                    staging.rename(directory)
+            finally:
+                if staging.exists():
+                    shutil.rmtree(staging)
+        print(json.dumps({"status": "prepared", "path": str(directory), **state}, indent=2))
+        return
+    check_prepared(directory, fingerprint, host)
+    if not Path(env["TMPDIR"]).is_dir():
+        fail("project temporary directory missing; run prepare explicitly")
+    command = args.command[1:] if args.command[:1] == ["--"] else args.command
+    if not command:
+        fail("exec requires a command after --")
+    print("project-env: using registered environment " + fingerprint[:12], file=sys.stderr, flush=True)
+    os.execvpe(command[0], command, env)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        print(f"project-env: {error}; correct the registration and run prepare explicitly", file=sys.stderr)
+        raise SystemExit(2)

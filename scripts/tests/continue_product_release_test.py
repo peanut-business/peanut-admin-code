@@ -119,14 +119,15 @@ class ContinuationTest(unittest.TestCase):
                 "repository": "git+https://github.com/peanut-business/peanut-admin-core-web.git",
                 "source_reference": reference,
                 "gitHead": reference,
+                "provenance": None,
                 "tarball": f"https://registry.npmjs.org/{name}/-/{name}-4.0.0-rc.4.tgz",
                 "integrity": sri,
             }
             for name in release.PACKAGES
         }
         evidence = {
-            "schema_version": 1,
-            "protocol": "peanut.web-core-package-evidence.v1",
+            "schema_version": 2,
+            "protocol": "peanut.web-core-package-evidence.v2",
             "repository": "peanut-business/peanut-admin-core-web",
             "tag": "v4.0.0-rc.4",
             "version": "4.0.0-rc.4",
@@ -465,7 +466,7 @@ class ContinuationTest(unittest.TestCase):
             raise AssertionError(argv)
         with patch.object(release, "remote_refs", return_value=(reference, "tag-object", reference)), \
                 patch.object(release, "command", fake):
-            with self.assertRaisesRegex(release.Stop, "gitHead"):
+            with self.assertRaisesRegex(release.Stop, "provenance"):
                 release.public_core("web", "4.0.0", reference, self.web)
             missing_head = False
             evidence = release.public_core("web", "4.0.0", reference, self.web)
@@ -494,6 +495,41 @@ class ContinuationTest(unittest.TestCase):
         self.assertEqual(result["action_run"], 12)
         self.assertFalse(any(argv[0] == "npm" for argv in calls))
 
+    def test_public_npm_missing_git_head_delegates_shared_provenance_and_live_action_binding(self) -> None:
+        reference = git(self.web, "rev-parse", "HEAD")
+        sri = "sha512-" + base64.b64encode(hashlib.sha512(b"fixture").digest()).decode()
+        validation = release.web_validation()
+
+        def fake(argv: list[str], *, cwd: Path | None = None, phase: str, allow_missing: bool = False) -> str:
+            if argv[0] == "gh" and "/actions/runs?" in argv[2]:
+                return json.dumps({"workflow_runs": [{"path": ".github/workflows/release.yml",
+                    "head_branch": "v4.0.0-rc.4", "head_sha": reference, "conclusion": "success", "id": 12}]})
+            if argv[0] == "gh":
+                return json.dumps({"tag_name": "v4.0.0-rc.4", "draft": False, "prerelease": True, "id": 14})
+            if argv[0] == "npm":
+                full = argv[2].rsplit("@", 1)[0]
+                return json.dumps({"version": "4.0.0-rc.4", "repository.url":
+                    "git+https://github.com/peanut-business/peanut-admin-core-web.git",
+                    "dist.integrity": sri, "dist.tarball": "https://registry.npmjs.org/example.tgz",
+                    "dist.attestations": {"url": f"https://registry.npmjs.org/-/npm/v1/attestations/{full}@4.0.0-rc.4"}})
+            raise AssertionError(argv)
+
+        def source_binding(name, version, expected_reference, registry, action_run=None):
+            self.assertIsNone(registry["gitHead"])
+            self.assertEqual(expected_reference, reference)
+            self.assertEqual(action_run, 12)
+            return {"type": "npm-provenance", "source_reference": reference, "action_run": 12,
+                    "signature_verified": True, "bundle_sha256": "a" * 64}
+
+        with patch.object(release, "remote_refs", return_value=(reference, "tag-object", reference)), \
+                patch.object(release, "command", fake), patch.object(validation, "npm_provenance", return_value={"bundle": "fixture"}) as provenance, \
+                patch.object(validation, "validate_web_source", side_effect=source_binding) as binding:
+            result = release.public_core("web", "4.0.0-rc.4", reference, self.web)
+        self.assertEqual(provenance.call_count, 6)
+        self.assertEqual(binding.call_count, 6)
+        self.assertTrue(all(row["gitHead"] is None for row in result["packages"].values()))
+        self.assertTrue(all(row["source_binding"]["signature_verified"] for row in result["packages"].values()))
+
     def test_web_package_evidence_rejects_release_package_and_source_mismatch(self) -> None:
         reference = git(self.web, "rev-parse", "HEAD")
 
@@ -512,7 +548,7 @@ class ContinuationTest(unittest.TestCase):
                 dict(value["packages"]["@peanut-admin/testing"]))),
             ("metadata differs", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
                 "source_reference", "0" * 40)),
-            ("integrity invalid", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
+            ("integrity", lambda value: value["packages"]["@peanut-admin/vue"].__setitem__(
                 "integrity", "sha512-invalid")),
         ]
         for expected, mutation in mutations:

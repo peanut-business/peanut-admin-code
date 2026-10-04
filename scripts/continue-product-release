@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from functools import lru_cache
 from urllib.request import urlopen
 
 PACKAGES = ("client", "vue", "ui-vue", "nuxt", "uniapp", "testing")
@@ -169,41 +170,27 @@ def bound_readonly_json(path: Path, *, expected_sha256: str | None = None) -> tu
     return value, sha256
 
 
+@lru_cache(maxsize=1)
+def web_validation() -> object:
+    loader = importlib.machinery.SourceFileLoader("peanut_candidate_validation", str(Path(__file__).with_name("prepare-product-release-candidate")))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    validation = importlib.util.module_from_spec(spec)
+    loader.exec_module(validation)
+    return validation
+
+
 def web_packages_from_evidence(path: Path, expected_sha256: str, version: str, reference: str,
                                release_id: int, action_run: int, validation: object) -> dict[str, dict]:
-    evidence, _ = bound_readonly_json(path, expected_sha256=expected_sha256)
-    required_top = {"schema_version", "protocol", "repository", "tag", "version", "source_reference",
-                    "release_id", "action_run", "packages"}
-    if set(evidence) != required_top or evidence.get("schema_version") != 1 \
-            or evidence.get("protocol") != "peanut.web-core-package-evidence.v1" \
-            or evidence.get("repository") != REPOS["web"] \
-            or evidence.get("tag") != f"v{version}" or evidence.get("version") != version \
-            or evidence.get("source_reference") != reference \
-            or evidence.get("release_id") != release_id or evidence.get("action_run") != action_run:
-        raise Stop("core-web", "Web Core package evidence identity differs from live release")
-    records = evidence.get("packages")
-    expected_names = {f"@peanut-admin/{name}" for name in PACKAGES}
-    if not isinstance(records, dict) or set(records) != expected_names:
-        raise Stop("core-web", "Web Core package evidence package set differs")
-    packages: dict[str, dict] = {}
-    for full in sorted(expected_names):
-        item = records.get(full)
-        if not isinstance(item, dict) or set(item) != {
-                "version", "repository", "source_reference", "gitHead", "tarball", "integrity"}:
-            raise Stop("core-web", f"Web Core package evidence record shape differs: {full}")
-        source = item.get("repository")
-        integrity, tarball = item.get("integrity"), item.get("tarball")
-        try:
-            validation.validate_integrity(integrity, full)
-        except SystemExit as error:
-            raise Stop("core-web", f"Web Core package evidence integrity invalid: {full}") from error
-        if item.get("version") != version or item.get("source_reference") != reference \
-                or item.get("gitHead") != reference or not validation.official_web_repository(source) \
-                or not validation.registry_tarball(tarball):
-            raise Stop("core-web", f"Web Core package evidence metadata differs: {full}")
-        packages[full] = {"version": version, "repository": source, "gitHead": reference,
-                          "tarball": tarball, "integrity": integrity}
-    return packages
+    try:
+        registry = validation.read_web_package_evidence(
+            path, expected_sha256, version, reference,
+            expected_release_id=release_id, expected_action_run=action_run,
+        )
+    except SystemExit as error:
+        raise Stop("core-web", str(error)) from error
+    return {name: {"version": item["version"], "repository": item["repository"],
+                   "gitHead": item["gitHead"], "tarball": item["resolved"], "integrity": item["integrity"],
+                   "source_binding": item["source_binding"]} for name, item in registry.items()}
 
 
 def public_core(kind: str, version: str, reference: str, root: Path,
@@ -252,10 +239,7 @@ def public_core(kind: str, version: str, reference: str, root: Path,
             raise Stop(phase, "Packagist source URL/reference differs")
         packages["peanut-admin/core"] = {"version": tag, "source_url": source["url"], "source_reference": reference}
     else:
-        loader = importlib.machinery.SourceFileLoader("peanut_candidate_validation", str(Path(__file__).with_name("prepare-product-release-candidate")))
-        spec = importlib.util.spec_from_loader(loader.name, loader)
-        validation = importlib.util.module_from_spec(spec)
-        loader.exec_module(validation)
+        validation = web_validation()
         if web_package_evidence is not None:
             packages = web_packages_from_evidence(
                 web_package_evidence[0], web_package_evidence[1], version, reference,
@@ -265,7 +249,7 @@ def public_core(kind: str, version: str, reference: str, root: Path,
             for name in PACKAGES:
                 full = f"@peanut-admin/{name}"
                 raw = command(["npm", "view", f"{full}@{version}", "version", "dist.integrity", "dist.tarball",
-                               "repository.url", "gitHead", "--json", "--registry=https://registry.npmjs.org"], phase=phase)
+                               "repository.url", "gitHead", "dist.attestations", "--json", "--registry=https://registry.npmjs.org"], phase=phase)
                 try:
                     item = json.loads(raw)
                 except ValueError as error:
@@ -276,12 +260,20 @@ def public_core(kind: str, version: str, reference: str, root: Path,
                     validation.validate_integrity(integrity, full)
                 except SystemExit as error:
                     raise Stop(phase, f"npm integrity invalid: {full}") from error
-                if (item.get("version") != version or item.get("gitHead") != reference
+                if (item.get("version") != version
                         or not validation.official_web_repository(source)
                         or not validation.registry_tarball(tarball)):
-                    raise Stop(phase, f"npm exact version, repository, gitHead, or integrity differs: {full}")
-                packages[full] = {"version": version, "repository": source, "gitHead": reference,
-                                  "tarball": tarball, "integrity": integrity}
+                    raise Stop(phase, f"npm exact version, repository, or integrity differs: {full}")
+                try:
+                    provenance = (validation.npm_provenance(full, version, (item.get("dist.attestations") or {}).get("url"))
+                                  if item.get("gitHead") is None else None)
+                    registry = {"gitHead": item.get("gitHead"), "integrity": integrity, "provenance": provenance}
+                    binding = validation.validate_web_source(full, version, reference, registry,
+                                                             min(run["id"] for run in successful))
+                except SystemExit as error:
+                    raise Stop(phase, str(error)) from error
+                packages[full] = {"version": version, "repository": source, "gitHead": item.get("gitHead"),
+                                  "tarball": tarball, "integrity": integrity, "source_binding": binding}
     return {"repository": repo, "tag": tag, "tag_object": tag_object, "commit": commit,
             "action_run": min(run["id"] for run in successful), "packages": packages,
             "release_id": release.get("id"), "digest": digest(packages)}
