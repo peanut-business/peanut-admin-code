@@ -26,6 +26,30 @@ const assertPage = async (targetPage, url, label, minimumText = 20) => {
   return { url: targetPage.url(), status: response.status(), text_length: text.length };
 };
 
+const checkPublicDocuments = async (targetPage) => {
+  const contract = JSON.parse(required('P0E_BROWSER_DOCUMENTATION_CONTRACT'));
+  if (contract.delivery !== 'versioned-markdown-and-openapi'
+    || !contract.browser_documents || Object.keys(contract.browser_documents).length !== 5) throw new Error('invalid released documentation contract');
+  const index = await assertPage(targetPage, `${docsUrl}/`, 'docs');
+  await targetPage.getByRole('link', { name: 'README.md', exact: true }).waitFor({ state: 'visible' });
+  const documents = [];
+  for (const [path, expected] of Object.entries(contract.browser_documents)) {
+    if (!/^(?:README\.md|public\/(?:installation|api-and-sdk|release-channels)\.md|development\/standard\.md)$/u.test(path)
+      || !/^[0-9a-f]{64}$/u.test(expected)) throw new Error('invalid public document identity');
+    const response = await targetPage.request.get(`${docsUrl}/${path}`, { maxRedirects: 0 });
+    if (response.status() !== 200 || response.url() !== `${docsUrl}/${path}`) throw new Error(`public document unavailable: ${path}`);
+    const text = await response.text();
+    const actual = await targetPage.evaluate(async (value) => Array.from(new Uint8Array(
+      await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)),
+    )).map((byte) => byte.toString(16).padStart(2, '0')).join(''), text);
+    if (actual !== expected || !text.startsWith('# ')) throw new Error(`released document bytes differ: ${path}`);
+    documents.push({ path, sha256: actual });
+  }
+  return { ...index, delivery: contract.delivery, released_bytes_verified: true, documents,
+    api_contract: { version: contract.api_version, openapi_sha256: contract.files['server/generated/openapi.json'],
+      catalog_sha256: contract.files['server/generated/api-catalog.json'] } };
+};
+
 const loginTenant = async (targetPage, url, email, password, label, menu = null) => {
   await targetPage.goto(`${url}/admin/login`, { waitUntil: 'networkidle' });
   const form = targetPage.locator('.login-form');
@@ -340,7 +364,7 @@ if (profile === 'baseline') {
     }
     results.website = { browser_saved: true, read_back: true, public_read: true, original_restored: true, beta_unchanged: beta !== null };
     await checkCategoryAndFile(alpha, beta, tenantBetaUrl, marker, results);
-    results.docs = await assertPage(page, `${docsUrl}/`, 'docs');
+    results.docs = await checkPublicDocuments(page);
     console.log(JSON.stringify({ schema_version: 1, mode, profile, status: 'passed', results }));
   } finally {
     await Promise.all(businessContexts.map((context) => context.close().catch(() => undefined)));

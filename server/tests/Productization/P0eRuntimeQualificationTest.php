@@ -169,6 +169,17 @@ $expect(($plan['database_admin_tooling']['credential_ref'] ?? null) === ($regist
 $expect(($plan['database_admin_tooling']['failure_policy'] ?? null) === ($binding['failure_policy'] ?? null), 'plan lost fail-closed remote administration policy');
 $expect(($plan['target_release'] ?? null) === $expectedTarget, 'plan did not bind the 3.0 scaffold release');
 $expect(($plan['groups'] ?? null) === $expectedGroups, 'plan did not bind the fresh-only closure');
+$expect(array_keys($plan['group_inputs'] ?? []) === $expectedGroups, 'plan did not preflight every selected group source input');
+foreach ($plan['group_inputs'] as $group => $inputs) {
+    $expect(($inputs['source_files'] ?? []) !== [] && count($inputs['runtime_value_names'] ?? []) === 13,
+        "group {$group} lost its explicit source/runtime-value preflight contract");
+}
+$documents = $plan['group_inputs']['generated-application']['documentation'] ?? [];
+$expect(($documents['delivery'] ?? null) === 'versioned-markdown-and-openapi'
+    && ($documents['api_version'] ?? null) === $releaseVersion
+    && count($documents['files'] ?? []) === 7
+    && count($documents['browser_documents'] ?? []) === 5,
+    'plan did not bind the actual public Markdown and API documents');
 $expect(($plan['full_gate_groups'] ?? null) === $expectedGroups, 'plan lost the full P0-E group definition');
 $expect(($plan['through_group'] ?? null) === null, 'full plan unexpectedly became a bounded run');
 $expect(!array_key_exists('legacy_application', $plan), 'plan retained a legacy application');
@@ -305,6 +316,11 @@ $expect(!str_contains($runnerSource, 'docker desktop restart') && !str_contains(
 $expect(str_contains($runnerSource, 'start_database_tunnel'), 'container database tunnel is not lifecycle-managed');
 $expect(str_contains($runnerSource, 'stop_database_tunnel'), 'container database tunnel cleanup is missing');
 $expect(str_contains($runnerSource, 'preflight_browser_tooling'), 'browser tooling does not fail before resource claim');
+$expect(str_contains($runnerSource, 'preflight_group_inputs(selected_groups)')
+    && !str_contains($runnerSource, 'docs-site') && !str_contains($runnerSource, 'vitepress')
+    && str_contains($runnerSource, '"-m", "http.server"')
+    && str_contains($runnerSource, 'documentation_contract(generated, generated=True)'),
+    'qualification retained an exited document site instead of authenticating released public documents');
 $expect(str_contains($runnerSource, 'registered_browser_cli_path'), 'browser tooling does not use the fixed registered path');
 $expect(!str_contains($runnerSource, 'pwcli-cache-*'), 'browser tooling retained temporary cache glob discovery');
 $expect(str_contains($runnerSource, 'prepare_database_credentials()'), 'P0-E runner does not synchronize the registered database credential source');

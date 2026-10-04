@@ -9,6 +9,8 @@ TENANT_ADMIN_URL=""
 TENANT_BETA_URL=""
 PLATFORM_URL=""
 DOCS_URL=""
+DOCUMENTATION_ROOT=""
+DOCUMENTATION_CONTRACT=''
 OUTPUT_DIR=""
 SESSION=""
 ENV_FILE=""
@@ -23,6 +25,7 @@ while [[ $# -gt 0 ]]; do
     --tenant-beta-url) TENANT_BETA_URL="${2:-}"; shift 2 ;;
     --platform-url) PLATFORM_URL="${2:-}"; shift 2 ;;
     --docs-url) DOCS_URL="${2:-}"; shift 2 ;;
+    --documentation-root) DOCUMENTATION_ROOT="${2:-}"; shift 2 ;;
     --output-dir) OUTPUT_DIR="${2:-}"; shift 2 ;;
     --session) SESSION="${2:-}"; shift 2 ;;
     --env-file) ENV_FILE="${2:-}"; shift 2 ;;
@@ -68,10 +71,10 @@ if [[ "$PROFILE" == baseline ]]; then
     local_url "${TENANT_BETA_URL%/}/" || die '--tenant-beta-url must name the registered Beta origin'
   fi
   [[ "$QUALIFICATION_PLAN" == /* && -f "$QUALIFICATION_PLAN" && ! -L "$QUALIFICATION_PLAN" ]] || die 'baseline business writes require the native qualification plan'
-  python3 - "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)" "$QUALIFICATION_PLAN" "$MODE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$SESSION" "$ENV_FILE" "$OUTPUT_DIR" <<'PY' || die 'baseline qualification plan or active resource lease is invalid'
+  DOCUMENTATION_CONTRACT="$(python3 - "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)" "$QUALIFICATION_PLAN" "$MODE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$SESSION" "$ENV_FILE" "$OUTPUT_DIR" "$DOCUMENTATION_ROOT" <<'PY'
 import argparse, json, os, runpy, sys
 from pathlib import Path
-tool_root, path, mode, alpha, beta, platform, docs, session, environment, output = sys.argv[1:]
+tool_root, path, mode, alpha, beta, platform, docs, session, environment, output, documentation_root = sys.argv[1:]
 root = Path(tool_root)
 value = json.loads(Path(path).read_text())
 os.environ['PEANUT_RESOURCE_REGISTRY'] = value['registry_path']
@@ -85,7 +88,7 @@ if not args.owner or not args.thread or value['worktree'] != str(root):
     raise ValueError('qualification owner/thread/worktree mismatch')
 actual = native['plan'](args, require_clean=True)
 for key in ['gate','candidate','candidate_tree','registry_sha256','database_resource_scope','databases',
-            'browser_hosts','paths','ports','lease_resources','worktree','resource_id']:
+            'browser_hosts','paths','ports','lease_resources','worktree','resource_id','group_inputs']:
     if value[key] != actual[key]: raise ValueError('qualification plan mismatch: ' + key)
 native['verify_lease'](args, actual)
 http = value['ports']['http']
@@ -102,7 +105,19 @@ if Path(output).resolve() != Path(value['paths']['output-dir']) / 'browser' / mo
     raise ValueError('browser output mismatch')
 if mode + '-browser' not in value['groups']:
     raise ValueError('browser group not selected')
+expected_root = Path(value['paths']['cache-dir']) / f"peanut-admin-{value['target_release']['version']}-{mode}"
+if Path(documentation_root).is_symlink() or Path(documentation_root).resolve() != expected_root:
+    raise ValueError('released documentation root mismatch')
+manifest = native['read_json'](expected_root / '.peanut/application-manifest.json')
+if (manifest.get('template') != {'version': value['target_release']['version'],
+    'inventory_sha256': value['candidate_inventory_sha256'], 'source_commit': value['candidate'], 'source_tree': value['candidate_tree']}
+    or manifest.get('application', {}).get('edition') != mode
+    or manifest.get('generation_source', {}).get('commit') != value['candidate']
+    or manifest.get('generation_source', {}).get('tree') != value['candidate_tree']):
+    raise ValueError('released documentation source identity mismatch')
+print(json.dumps(native['documentation_contract'](expected_root, generated=True)))
 PY
+)" || die 'baseline qualification plan, active resource lease or released documentation is invalid'
 fi
 if [[ "$PROFILE" == release ]]; then
   if [[ "$MODE" == multi-tenant ]]; then
@@ -227,9 +242,9 @@ cli open "$TENANT_ADMIN_URL/admin/login" >"$LOG" 2>&1
 OPENED=1
 cli resize 1440 1000 >>"$LOG" 2>&1
 cli snapshot >"$OUTPUT_DIR/$MODE-initial-snapshot.txt" 2>>"$LOG"
-browser_environment="$(node - "$ENV_FILE" "$MODE" "$PROFILE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$OUTPUT_DIR" "$IDENTITY_FILE" "$SESSION" <<'NODE'
+browser_environment="$(node - "$ENV_FILE" "$MODE" "$PROFILE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$OUTPUT_DIR" "$IDENTITY_FILE" "$SESSION" "$DOCUMENTATION_CONTRACT" <<'NODE'
 const fs = require('node:fs');
-const [path, mode, profile, tenantAdminUrl, tenantBetaUrl, platformUrl, docsUrl, outputDir, identityPath, session] = process.argv.slice(2);
+const [path, mode, profile, tenantAdminUrl, tenantBetaUrl, platformUrl, docsUrl, outputDir, identityPath, session, documentationContract] = process.argv.slice(2);
 const values = Object.fromEntries(fs.readFileSync(path, 'utf8').trim().split(/\r?\n/u).map((line) => line.split(/=(.*)/s, 2)));
 process.stdout.write(JSON.stringify({
   P0E_BROWSER_MODE: mode,
@@ -238,6 +253,7 @@ process.stdout.write(JSON.stringify({
   P0E_BROWSER_TENANT_BETA_URL: tenantBetaUrl,
   P0E_BROWSER_PLATFORM_URL: platformUrl,
   P0E_BROWSER_DOCS_URL: docsUrl,
+  P0E_BROWSER_DOCUMENTATION_CONTRACT: documentationContract,
   P0E_BROWSER_OUTPUT_DIR: outputDir,
   P0E_BROWSER_RUN_ID: session.startsWith('p0e-') ? session.slice(4) : '',
   P0E_BROWSER_IDENTITY_JSON: identityPath ? fs.readFileSync(identityPath, 'utf8') : '',
@@ -307,6 +323,8 @@ if (len(result.get('navigation', [])) != 3 or not result.get('permissions', {}).
     or len(result['permissions'].get('denied', [])) != 5 or not result.get('website', {}).get('original_restored')
     or not result.get('lifecycle', {}).get('cleaned') or not result.get('file', {}).get('download_exact')
     or not all(key in result for key in ['pc', 'h5', 'docs'])
+    or result['docs'].get('delivery') != 'versioned-markdown-and-openapi'
+    or result['docs'].get('released_bytes_verified') is not True
     or (mode == 'multi-tenant' and not result.get('tenant_boundary', {}).get('cross_host_rejected'))):
     raise ValueError('incomplete actual business scope')
 plan_bytes = Path(plan_path).read_bytes()

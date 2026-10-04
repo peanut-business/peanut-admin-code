@@ -794,7 +794,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c76b6e3f22792094e90c0985b483a896af1958f3020e80e78879d75803ac3b91"
+            "source_sha256": "e5c53822dffdf4cd692a1dfc56f7421466ba5029c38a7d683dff87d7ecf3bac7"
         },
         {
             "path": "docs/development/menu-navigation.md",
@@ -24170,7 +24170,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88ef95011534955b9483a0c73c40569d13e06ac17f4809ec3760bf93cd9f2bcd"
+            "source_sha256": "4bc56da38bdec15fa6da3b8acef1d379576ab599b7b4017a64dcef60bc9ca226"
         },
         {
             "path": "server/generated/openapi.json",
@@ -24184,7 +24184,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf77e993161cb0c8e61a451c0a563f13a1d3c2bdf85e4f70e06800dfebf69178"
+            "source_sha256": "2aa8beed9f02fbe716782fb7e2acfc9a457c22c73aa72a9ac17c8323d01045a6"
         },
         {
             "path": "server/private/storage/.gitkeep",
