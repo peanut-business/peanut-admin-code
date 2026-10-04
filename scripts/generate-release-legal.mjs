@@ -11,12 +11,13 @@ const rootDir = resolve(scriptDir, '..');
 const checkOnly = process.argv.includes('--check');
 
 const expectedCounts = {
-  'composer': 43,
-  'web': 849,
-  'platform': 151,
-  'pc': 923,
-  'uniapp': 1007,
-  'docs-site': 174,
+  'composer': 68,
+  'web': 847,
+  'platform': 152,
+  'pc': 922,
+  'uniapp': 1012,
+  'quality-composer': 38,
+  'quality-js': 144,
 };
 
 const readJson = (relativePath) =>
@@ -130,7 +131,7 @@ const makePackage = ({
       referenceCategory: 'PACKAGE-MANAGER',
       referenceType: 'purl',
       referenceLocator:
-        ecosystem === 'composer'
+        (ecosystem === 'composer' || ecosystem === 'quality-composer')
           ? `pkg:composer/${name}@${encodeURIComponent(version)}`
           : npmPurl(name, version),
     },
@@ -139,13 +140,14 @@ const makePackage = ({
   _scope: scope,
 });
 
-const composerLock = readJson('server/composer.lock');
-const composerPackages = [
+const readComposerLock = (ecosystem, relativePath, developmentOnly = false) => {
+const composerLock = readJson(relativePath);
+return [
   ...composerLock.packages.map((pkg) => ({ pkg, scope: 'runtime' })),
   ...composerLock['packages-dev'].map((pkg) => ({ pkg, scope: 'development' })),
 ].map(({ pkg, scope }) =>
   makePackage({
-    ecosystem: 'composer',
+    ecosystem,
     name: pkg.name,
     version: pkg.version,
     location: `${pkg.name}@${pkg.version}`,
@@ -153,9 +155,11 @@ const composerPackages = [
       ? pkg.license.join(' AND ')
       : pkg.license,
     source: pkg.source?.url || pkg.dist?.url,
-    scope,
+    scope: developmentOnly ? 'development-tool-input' : scope,
   })
 );
+};
+const composerPackages = readComposerLock('composer', 'server/composer.lock');
 
 const npmNameFromPath = (packagePath) => {
   const marker = 'node_modules/';
@@ -191,10 +195,21 @@ const yamlUnquote = (value) => {
 };
 
 const readPnpmLicenses = (relativeDir) => {
+  const cwd = resolve(rootDir, relativeDir);
+  const manager = readJson(`${relativeDir}/package.json`).packageManager;
+  const expected = relativeDir === 'tools/quality' ? 'pnpm@10.15.0' : 'pnpm@9.15.6';
+  if (manager !== expected) throw new Error(`undeclared license package manager for ${relativeDir}`);
+  const command = relativeDir === 'tools/quality' ? 'corepack' : 'pnpm';
+  const prefix = relativeDir === 'tools/quality' ? ['pnpm'] : [];
+  const version = spawnSync(command, [...prefix, '--version'], { cwd, encoding: 'utf8' });
+  if (version.status !== 0 || version.stdout.trim() !== expected.slice(5)) {
+    throw new Error(`license inventory requires ${expected} for ${relativeDir}`);
+  }
   const result = spawnSync(
-    'pnpm',
-    ['--dir', resolve(rootDir, relativeDir), 'licenses', 'list', '--json'],
+    command,
+    [...prefix, 'licenses', 'list', '--json'],
     {
+      cwd,
       encoding: 'utf8',
     }
   );
@@ -248,8 +263,8 @@ const readPnpmLock = (ecosystem, relativeDir) => {
         name
       )}/${encodeURIComponent(version)}`,
       scope:
-        ecosystem === 'docs-site'
-          ? 'documentation-build-input'
+        ecosystem === 'quality-js'
+          ? 'development-tool-input'
           : 'static-build-input',
     });
   });
@@ -261,7 +276,8 @@ const allPackages = [
   ...readNpmLock('platform', 'platform/package-lock.json'),
   ...readNpmLock('pc', 'pc/package-lock.json'),
   ...readNpmLock('uniapp', 'uniapp/package-lock.json'),
-  ...readPnpmLock('docs-site', 'docs-site'),
+  ...readComposerLock('quality-composer', 'tools/quality/composer.lock', true),
+  ...readPnpmLock('quality-js', 'tools/quality'),
 ].sort(
   (a, b) =>
     a._ecosystem.localeCompare(b._ecosystem) ||
@@ -405,7 +421,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 
 - The normative GitHub Release distributes this repository's source. It does not attach prebuilt PHP/Nginx images; the fixed core packages are published separately in their public registries.
 - Production Compose builds static management, PC and H5 assets and installs the ${composerRuntime.length} Composer production packages listed below. No \`node_modules\` directory is copied into the final images.
-- The exhaustive package/version/license/source inventory for the six locked dependency graphs is \`RELEASE_SBOM.spdx.json\` (SPDX 2.3). Build-only entries are retained there so source-release recipients can reproduce the build and its notices.
+- The exhaustive package/version/license/source inventory for the seven locked dependency graphs is \`RELEASE_SBOM.spdx.json\` (SPDX 2.3). The two quality-tool graphs are development inputs, separate from product runtime. Build-only entries are retained there so source-release recipients can reproduce the build and its notices.
 - Each installed dependency may include additional license or notice files. Those files remain authoritative for that dependency and must not be removed from redistributed dependency archives.
 
 ## Material source and framework attributions
