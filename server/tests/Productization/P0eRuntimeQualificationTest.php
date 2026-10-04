@@ -241,7 +241,7 @@ $selectedQualificationResources = array_values(array_map(
         static fn (array $resource): bool => ($resource['type'] ?? null) === 'qualification-group',
     ),
 ));
-$expect($selectedQualificationResources === $expectedPrereleaseGroups, 'selected P0-E lease did not bind every requested qualification group');
+$expect($selectedQualificationResources === ['standalone-browser'], 'selected P0-E lease did not bind its canonical resource cutoff');
 $expect(($selectedPlan['compose_required'] ?? null) === true, 'selected prerelease plan lost Compose execution');
 $expect(($selectedPlan['browser_required'] ?? null) === true, 'selected prerelease plan lost browser execution');
 
