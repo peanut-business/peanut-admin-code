@@ -224,6 +224,7 @@ foreach ([
     'server/app/common/services/installation/InstallationExecutionHost.php',
     'server/app/common/services/upgrade/ApplicationMigrationRunner.php',
     'scripts/upgrade',
+    'scripts/scaffold-upgrade',
     'scripts/product-upgrade-host',
     'scripts/product-upgrade-database',
     'scripts/scaffold-runtime/Semver.php',
@@ -590,6 +591,7 @@ try {
         'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => false,
         'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php' => false,
         'scripts/upgrade' => true,
+        'scripts/scaffold-upgrade' => true,
         'scripts/product-upgrade-host' => true,
         'scripts/product-upgrade-database' => true,
         'scripts/scaffold-runtime/ScaffoldPathGuard.php' => false,
@@ -667,9 +669,8 @@ try {
         $package = json_decode((string) file_get_contents($first . "/{$client}/package.json"), true, 512, JSON_THROW_ON_ERROR);
         createApplicationExpect(($package['version'] ?? null) === '0.1.0', "{$client} root package must use application.version");
         foreach ($packageNames as $packageName) {
-            $archive = $coreWebPackages[$packageName]['archive'] ?? null;
-            createApplicationExpect(is_string($archive) && $archive !== '', "{$packageName} archive identity is unavailable");
-            $expected = 'file:../' . $archive;
+            $expected = $coreWebPackages[$packageName]['version'] ?? null;
+            createApplicationExpect(is_string($expected) && $expected !== '', "{$packageName} public version identity is unavailable");
             createApplicationExpect(
                 ($package['dependencies'][$packageName] ?? null) === $expected,
                 "{$client} dependency {$packageName} must remain {$expected}",
@@ -683,10 +684,19 @@ try {
             "{$client} root lock metadata must use application.version",
         );
         foreach ($clientCorePackages[$client] as $packageName) {
-            $expected = 'file:../' . $coreWebPackages[$packageName]['archive'];
+            $coreWebIdentity = $coreWebPackages[$packageName];
+            $expected = $coreWebIdentity['version'];
             createApplicationExpect(
                 ($lock['packages']['']['dependencies'][$packageName] ?? null) === $expected,
                 "{$client} lock dependency {$packageName} must remain {$expected}",
+            );
+            $locked = $lock['packages']['node_modules/' . $packageName] ?? null;
+            createApplicationExpect(
+                is_array($locked)
+                    && ($locked['version'] ?? null) === $expected
+                    && ($locked['resolved'] ?? null) === ($coreWebIdentity['resolved'] ?? null)
+                    && ($locked['integrity'] ?? null) === ($coreWebIdentity['integrity'] ?? null),
+                "{$client} installed lock identity {$packageName} must preserve the public version, tarball and SRI",
             );
         }
     }
@@ -697,7 +707,8 @@ try {
         );
     }
     createApplicationExpect(
-        str_contains((string) file_get_contents($first . '/server/config/project.php'), 'release-versions.json')
+        str_contains((string) file_get_contents($first . '/server/config/project.php'), 'ApplicationReleaseVersions::runningVersion')
+            && \app\common\value\installation\ApplicationReleaseVersions::runningVersion($first . '/server') === '0.1.0'
             && str_contains((string) file_get_contents($first . '/uniapp/src/pages/as_us/as_us.vue'), "'0.1.0'"),
         'generated Runtime version surfaces must use the application version authority',
     );

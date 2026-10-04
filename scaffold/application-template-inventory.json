@@ -933,7 +933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6873c8a3e7001f4ed7a35caa978881c2eca76a3c566f94f9b048486429ed26a4"
+            "source_sha256": "691c5864d2fdaff83afe85dd90fcf19828caed1d5dcc4c130243135d13b43291"
         },
         {
             "path": "pc/.env.example",
@@ -3689,15 +3689,16 @@
         {
             "path": "scripts/scaffold-upgrade",
             "target": "scripts/scaffold-upgrade",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
             "mode": 493,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ]
+            ],
+            "source_sha256": "c6665dd586194e21db6cb71dbda7232090c5d68f7deb89a882f563f0bcce5231"
         },
         {
             "path": "scripts/seed-demo-data",

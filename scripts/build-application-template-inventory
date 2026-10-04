@@ -80,6 +80,7 @@ function excluded(string $path): bool
     }
     // The public upgrader ships the existing authenticated upgrade runtime.
     if (in_array($path, [
+        'scripts/scaffold-upgrade',
         'scripts/scaffold-runtime/ScaffoldPathGuard.php',
         'scripts/scaffold-runtime/ScaffoldManifest.php',
         'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php',
@@ -174,7 +175,6 @@ function excluded(string $path): bool
             '.github/workflows/resource-registry.yml',
             '.github/pull_request_template.md',
             'server/tests/Productization/ScaffoldUpgradeRunnerTest.php',
-            'scripts/scaffold-upgrade',
         ], true)
         || str_starts_with($path, 'server/app/common/infrastructure/scaffold/')
         || str_starts_with($path, 'scripts/scaffold-runtime/')
