@@ -1440,19 +1440,22 @@ class Runner:
                     log=log,
                 )
             command(["php", "-r", "require 'vendor/autoload.php'; echo 'autoload=ok\\n';"], cwd=generated / "server", log=log)
-            command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "web", log=log)
-            command(["pnpm", "run", "build"], cwd=generated / "web", log=log)
-            if edition == "multi-tenant":
-                command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "platform", log=log)
-                command(["npm", "run", "build"], cwd=generated / "platform", log=log)
-            command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "pc", log=log)
-            command(["npm", "run", "typecheck"], cwd=generated / "pc", log=log)
-            command(["npm", "run", "generate"], cwd=generated / "pc", log=log)
-            command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "uniapp", log=log)
-            command(["npm", "run", "type-check"], cwd=generated / "uniapp", log=log)
-            command(["npm", "run", "build:h5"], cwd=generated / "uniapp", log=log)
-            command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "docs-site", log=log)
-            command(["pnpm", "run", "build"], cwd=generated / "docs-site", log=log)
+            # The native Edition builder has already built these shipped bytes.
+            # Full P0-E retains its independent source-build contract.
+            if not self.args.minimum_release:
+                command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "web", log=log)
+                command(["pnpm", "run", "build"], cwd=generated / "web", log=log)
+                if edition == "multi-tenant":
+                    command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "platform", log=log)
+                    command(["npm", "run", "build"], cwd=generated / "platform", log=log)
+                command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "pc", log=log)
+                command(["npm", "run", "typecheck"], cwd=generated / "pc", log=log)
+                command(["npm", "run", "generate"], cwd=generated / "pc", log=log)
+                command(["npm", "ci", "--cache", str(self.cache / "npm")], cwd=generated / "uniapp", log=log)
+                command(["npm", "run", "type-check"], cwd=generated / "uniapp", log=log)
+                command(["npm", "run", "build:h5"], cwd=generated / "uniapp", log=log)
+                command(["pnpm", "install", "--frozen-lockfile", "--store-dir", str(self.cache / "pnpm-store")], cwd=generated / "docs-site", log=log)
+                command(["pnpm", "run", "build"], cwd=generated / "docs-site", log=log)
 
             manifest_path = generated / ".peanut/application-manifest.json"
             manifest = read_json(manifest_path)
@@ -2089,6 +2092,8 @@ class Runner:
         if self.compose_backend_env is not None:
             with contextlib.suppress(FileNotFoundError):
                 self.compose_backend_env.unlink()
+        if self.args.minimum_release:
+            shutil.copytree(self.edition_artifacts, self.output / "edition-artifacts")
         shutil.rmtree(self.cache)
         if self.created_candidate_vendor and (ROOT / "server/vendor").exists():
             shutil.rmtree(ROOT / "server/vendor")
