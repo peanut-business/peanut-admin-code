@@ -9,6 +9,12 @@ import { dependencyMode, verifyDependencyLocks, lockedYamlParser } from './relea
 
 // 解析锁的工具依赖来自当前可信检查器，不从被检查候选加载执行代码。
 const toolRoot = fileURLToPath(new URL('..', import.meta.url))
+const prereleaseRequiredGroups = [
+  'generated-application',
+  'standalone-fresh',
+  'multi-tenant-fresh',
+  'production-compose',
+]
 
 const options = {
   tag: '', candidate: '', qualification: '', remote: '', writeLock: '', requireMain: false,
@@ -433,12 +439,15 @@ if (options.staticOnly) {
       const evidence = JSON.parse(readFileSync(options.releaseEvidence, 'utf8'))
       const editions = evidence.edition_artifacts ?? {}
       const qualification = evidence.technical_qualification ?? {}
+      const qualificationStatusValid = options.prerelease
+        ? ['passed', 'partial-passed'].includes(qualification.status)
+        : qualification.status === 'passed'
       staticReleaseEvidence.valid = evidence.schema_version === 1
         && evidence.product === metadata?.product
         && evidence.version === contractProductVersion
         && evidence.tag === expectedTag
         && evidence.commit === commit
-        && qualification.status === 'passed'
+        && qualificationStatusValid
         && ['standalone', 'multi-tenant'].every((edition) => typeof editions?.[edition]?.installer === 'string')
       if (!staticReleaseEvidence.valid) failures.push('static release evidence is incomplete or belongs to another candidate')
     } catch (error) {
@@ -460,10 +469,37 @@ if (options.qualification) {
     if (!isAbsolute(options.qualification)) throw new Error('qualification path must be absolute')
     qualificationText = readFileSync(options.qualification, 'utf8')
     qualification = JSON.parse(qualificationText)
-    if (qualification.status !== 'passed') failures.push(`qualification status is ${qualification.status ?? 'missing'}`)
+    const expectedStatuses = options.prerelease ? ['passed', 'partial-passed'] : ['passed']
+    if (!expectedStatuses.includes(qualification.status)) {
+      failures.push(`qualification status is ${qualification.status ?? 'missing'}`)
+    }
     if (qualification.candidate !== commit) failures.push(`qualification commit ${qualification.candidate ?? 'missing'} does not match candidate ${commit}`)
     if (qualification.candidate_tree !== tree) failures.push(`qualification tree ${qualification.candidate_tree ?? 'missing'} does not match candidate tree ${tree}`)
-    const requiredGroups = fixture?.groups ?? []
+    const requiredGroups = options.prerelease ? prereleaseRequiredGroups : (fixture?.groups ?? [])
+    if (options.prerelease && qualification.status === 'partial-passed'
+      && !['selected-groups', 'through-group'].includes(qualification.scope)) {
+      failures.push(`prerelease qualification scope is invalid: ${qualification.scope ?? 'missing'}`)
+    }
+    if (!options.prerelease && qualification.scope !== 'full') {
+      failures.push(`stable qualification scope is ${qualification.scope ?? 'missing'} instead of full`)
+    }
+    if (options.prerelease && qualification.status === 'partial-passed') {
+      const minimum = qualification.minimum_release_gate ?? {}
+      if (minimum.protocol !== 'peanut.minimum-release-gate.v1'
+        || minimum.candidate !== commit || minimum.candidate_tree !== tree
+        || minimum.release_version !== version
+        || minimum.ready_for_first_prerelease !== true
+        || minimum.full_p0e_passed !== false
+        || minimum.startup_health !== 'passed'
+        || minimum.business?.standalone?.status !== 'passed'
+        || minimum.business?.['multi-tenant']?.status !== 'passed'
+        || minimum.upgrade_retention?.status !== 'reused'
+        || !/^[a-f0-9]{64}$/.test(minimum.upgrade_retention?.evidence_sha256 ?? '')
+        || !Array.isArray(minimum.artifacts) || minimum.artifacts.length !== 4
+        || minimum.artifacts.some(item => !/^[a-f0-9]{64}$/.test(item.sha256 ?? ''))) {
+        failures.push('prerelease Minimum Release Gate receipt is incomplete or belongs to another candidate')
+      }
+    }
     for (const group of requiredGroups) {
       if (qualification.groups?.[group]?.status !== 'passed') failures.push(`qualification group is not passed: ${group}`)
     }
@@ -522,9 +558,14 @@ if (options.writeLock) {
     candidate: { commit, tree },
     qualification: {
       status: qualification.status,
+      scope: qualification.scope,
       run_id: qualification.run_id,
       summary_sha256: sha256(qualificationText),
-      groups: Object.fromEntries((fixture.groups ?? []).map((group) => [group, 'passed'])),
+      planned_groups: qualification.planned_groups,
+      groups: Object.fromEntries((fixture.groups ?? []).map((group) => [
+        group,
+        qualification.groups?.[group]?.status ?? 'not-run',
+      ])),
       cleanup: qualification.cleanup,
     },
     inputs: {

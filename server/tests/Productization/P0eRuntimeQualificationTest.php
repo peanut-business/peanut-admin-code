@@ -218,6 +218,40 @@ $expect(($boundedPlan['listener_ports'] ?? null) === [], 'bounded fresh-only pla
 $expect(($boundedPlan['compose_required'] ?? null) === false, 'bounded fresh-only plan retained Compose execution');
 $expect(($boundedPlan['browser_required'] ?? null) === false, 'bounded fresh-only plan retained browser execution');
 
+$selectedArguments = $arguments;
+$selectedArguments[] = '--groups';
+$selectedArguments[] = 'generated-application,standalone-fresh,multi-tenant-fresh,production-compose,standalone-browser';
+[$selectedCode, $selectedOutput] = $run($selectedArguments);
+$expect($selectedCode === 0, "P0-E selected-group no-resource plan failed: {$selectedOutput}");
+$selectedPlan = json_decode($selectedOutput, true, 512, JSON_THROW_ON_ERROR);
+$expectedPrereleaseGroups = [
+    'generated-application',
+    'standalone-fresh',
+    'multi-tenant-fresh',
+    'production-compose',
+    'standalone-browser',
+];
+$expect(($selectedPlan['groups'] ?? null) === $expectedPrereleaseGroups, 'selected P0-E plan did not preserve the exact canonical group set');
+$expect(($selectedPlan['selection_scope'] ?? null) === 'selected-groups', 'selected P0-E plan lost its selection scope');
+$expect(($selectedPlan['through_group'] ?? null) === null, 'selected P0-E plan unexpectedly retained a prefix cutoff');
+$selectedQualificationResources = array_values(array_map(
+    static fn (array $resource): string => (string) ($resource['value'] ?? ''),
+    array_filter(
+        $selectedPlan['lease_resources'] ?? [],
+        static fn (array $resource): bool => ($resource['type'] ?? null) === 'qualification-group',
+    ),
+));
+$expect($selectedQualificationResources === $expectedPrereleaseGroups, 'selected P0-E lease did not bind every requested qualification group');
+$expect(($selectedPlan['compose_required'] ?? null) === true, 'selected prerelease plan lost Compose execution');
+$expect(($selectedPlan['browser_required'] ?? null) === true, 'selected prerelease plan lost browser execution');
+
+$invalidSelectedArguments = $arguments;
+$invalidSelectedArguments[] = '--groups';
+$invalidSelectedArguments[] = 'generated-application,standalone-browser';
+[$invalidSelectedCode, $invalidSelectedOutput] = $run($invalidSelectedArguments);
+$expect($invalidSelectedCode !== 0, 'selected P0-E accepted standalone-browser without production-compose');
+$expect(str_contains($invalidSelectedOutput, 'standalone-browser requires production-compose'), 'selected P0-E dependency refusal changed');
+
 $runnerSource = (string) file_get_contents($runner);
 $unsupportedRunnerFragments = [
     'ensure_legacy_source',
@@ -259,6 +293,7 @@ $expect(str_contains($runnerSource, 'consumer_module_cycle'), 'consumer Module l
 $expect(str_contains($runnerSource, 'passed != required'), 'Gate completion closure is not enforced');
 $expect(str_contains($runnerSource, 'required = set(self.plan["groups"])'), 'runner does not close against the explicitly planned group prefix');
 $expect(str_contains($runnerSource, '"partial-passed"'), 'bounded qualification is not distinguished from a full Gate pass');
+$expect(str_contains($runnerSource, '"selected-groups"'), 'runner does not distinguish selected-group qualification from prefix qualification');
 $expect(str_contains($runnerSource, 'preflight_database_admin_tooling'), 'remote database administration does not fail fast');
 $expect(str_contains($runnerSource, 'registered database credential is missing or ambiguous: MYSQL_ROOT_PASSWORD'), 'remote administration does not fail closed on a missing registered root credential');
 $expect(str_contains($runnerSource, '--defaults-extra-file="$path"'), 'remote administration does not use a container-private MySQL option file');

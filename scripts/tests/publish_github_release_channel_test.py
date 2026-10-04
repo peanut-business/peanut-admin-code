@@ -73,6 +73,22 @@ class PublishGithubReleaseChannelTest(unittest.TestCase):
         self.assertIn("options.prerelease && !prereleaseTagPattern.test(options.tag)", source)
         self.assertIn("options.prerelease ? prereleaseReleaseVersion : stableReleaseVersion", source)
 
+    def test_prerelease_gate_has_explicit_minimum_groups_without_weakening_stable_gate(self):
+        source = (ROOT / 'scripts/check-release-consistency').read_text()
+        for group in [
+            'generated-application',
+            'standalone-fresh',
+            'multi-tenant-fresh',
+            'production-compose',
+        ]:
+            self.assertIn(f"'{group}'", source)
+        self.assertIn("options.prerelease ? prereleaseRequiredGroups : (fixture?.groups ?? [])", source)
+        self.assertIn("options.prerelease ? ['passed', 'partial-passed'] : ['passed']", source)
+        self.assertIn("qualification.scope !== 'full'", source)
+        self.assertIn("qualification.groups?.[group]?.status ?? 'not-run'", source)
+        self.assertIn("minimum.ready_for_first_prerelease !== true", source)
+        self.assertIn("minimum.full_p0e_passed !== false", source)
+
     def test_github_prerelease_create_path_cannot_also_mark_the_release_latest(self):
         source = (ROOT / 'scripts/publish-github-release').read_text()
         self.assertIn('release_flags+=(--prerelease)', source)

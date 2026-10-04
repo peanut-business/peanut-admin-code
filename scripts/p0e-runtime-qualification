@@ -450,12 +450,37 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
     fixture, registry, registered, admin_tool, browser_hosts, database_tunnel = validate_fixture()
     fixture_groups = list(fixture["groups"])
     through_group = getattr(args, "through_group", None)
-    if through_group is None:
+    selected_group_argument = getattr(args, "groups", None)
+    if through_group is not None and selected_group_argument is not None:
+        fail("through-group and groups are mutually exclusive")
+    selection_scope = "full"
+    if getattr(args, "minimum_release", False):
+        if through_group is not None or selected_group_argument is not None:
+            fail("minimum-release cannot be combined with another group selection")
+        selected_group_argument = "generated-application,standalone-fresh,multi-tenant-fresh,production-compose"
+    if selected_group_argument is not None:
+        requested_groups = selected_group_argument.split(",")
+        if (
+            not requested_groups
+            or any(not group for group in requested_groups)
+            or len(set(requested_groups)) != len(requested_groups)
+            or any(group not in fixture_groups for group in requested_groups)
+        ):
+            fail("groups must be a unique comma-separated set of registered qualification groups")
+        requested_group_set = set(requested_groups)
+        selected_groups = [group for group in fixture_groups if group in requested_group_set]
+        if "generated-application" not in selected_groups:
+            fail("selected qualification groups must include generated-application")
+        if "standalone-browser" in selected_groups and "production-compose" not in selected_groups:
+            fail("standalone-browser requires production-compose")
+        selection_scope = "selected-groups"
+    elif through_group is None:
         selected_groups = fixture_groups
     else:
         if through_group not in fixture_groups:
             fail(f"through-group is not a registered qualification group: {through_group}")
         selected_groups = fixture_groups[:fixture_groups.index(through_group) + 1]
+        selection_scope = "through-group"
     group_scenarios = {
         "generated-application": ("standalone_fresh", "multi_tenant_fresh"),
         "standalone-fresh": ("standalone_fresh",),
@@ -505,11 +530,16 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         common_dir = ROOT / common_dir
     common_dir = Path(os.path.realpath(common_dir))
     lease_proof_dir = common_dir / "peanut-admin-resource-leases/leases" / args.lease
+    qualification_resources = (
+        selected_groups
+        if selection_scope == "selected-groups"
+        else [selected_groups[-1]]
+    )
     resources: list[tuple[str, str]] = [
         ("resource-id", RESOURCE_ID),
         ("environment", "development"),
         ("deployment-target", "local-production-preview"),
-        ("qualification-group", selected_groups[-1]),
+        *(("qualification-group", group) for group in qualification_resources),
         ("consumer", "host"),
         (
             "endpoint",
@@ -596,6 +626,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         "groups": selected_groups,
         "full_gate_groups": fixture_groups,
         "through_group": through_group,
+        "selection_scope": selection_scope,
         "parent_lease": getattr(args, "parent_lease", None),
         "candidate_inventory_sha256": sha256(ROOT / "scaffold/application-template-inventory.json"),
         "target_release": fixture["target_release"],
@@ -1197,6 +1228,11 @@ class Runner:
 
     @contextlib.contextmanager
     def generated_install_bridge(self, project_root: Path, database: str) -> Any:
+        # Current released applications consume their own explicit registry and
+        # native environment guard. Minimum qualification never patches code.
+        if self.args.minimum_release:
+            yield
+            return
         if project_root == ROOT:
             yield
             return
@@ -1878,6 +1914,69 @@ class Runner:
 
     def production_compose(self) -> None:
         self.production_compose_at(self.generated["standalone"], "standalone_browser", "production-compose")
+        if self.args.minimum_release:
+            results = {"standalone": self.minimum_business("standalone")}
+            self.compose("down", "--volumes", "--remove-orphans", project_root=self.generated["standalone"])
+            generated = self.generated["multi-tenant"]
+            database = self.plan["databases"]["multi_tenant_fresh"]
+            self.create_database(database)
+            self.install_current(database, "multi-tenant", self.group_log("production-compose"), project_root=generated)
+            self.seed_multi_tenant_browser_binding(database, self.group_log("production-compose"))
+            self.start_database_tunnel()
+            self.write_compose_env(generated, database, "multi-tenant")
+            self.compose("up", "-d", "--build", "php", "nginx", "cron", log=self.group_log("production-compose"), project_root=generated)
+            self.active_compose_root = generated
+            self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
+            results["multi-tenant"] = self.minimum_business("multi-tenant")
+            self.write_json(self.output / "minimum-business.json", results)
+
+    def minimum_business(self, mode: str) -> dict[str, Any]:
+        base = f"http://127.0.0.1:{self.plan['ports']['http']}"
+        host = self.plan["browser_hosts"]["tenant_admin"] if mode == "multi-tenant" else f"127.0.0.1:{self.plan['ports']['http']}"
+
+        def request(path: str, body: Any = None, token: str | None = None, selected_host: str = host) -> Any:
+            headers = {"Content-Type": "application/json", "Host": selected_host, "Origin": f"http://{selected_host}"}
+            if token:
+                headers["Authorization"] = "Bearer " + token
+            req = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as response:
+                result = json.load(response)
+            if result.get("code") != 20000:
+                fail(f"minimum business API failed: {mode} {path} code={result.get('code')}")
+            return result["data"]
+
+        auth = request("/adminapi/user/login", {
+            "username": required_environment("P0E_ADMIN_INITIAL_EMAIL"),
+            "password": required_environment("P0E_ADMIN_INITIAL_PASSWORD"), "terminal": 1,
+        })
+        token = auth.get("token") or auth.get("access_token")
+        if not isinstance(token, str) or not token:
+            fail("minimum business login did not return a token")
+        info = request("/adminapi/user/info", {}, token)
+        if not info.get("root"):
+            fail("minimum business owner identity is invalid")
+        request("/adminapi/menu/lists", token=token)
+        request("/adminapi/config/website", token=token)
+        public = request("/api/article/lists?page_no=1&page_size=10")
+        if not isinstance(public, dict) or not isinstance(public.get("lists"), list):
+            fail("minimum public API response is invalid")
+        result = {"status": "passed", "login": True, "owner_identity": True,
+                  "backend_reads": ["menu/lists", "config/website"], "public_api": "article/lists"}
+        if mode == "multi-tenant":
+            req = urllib.request.Request(base + "/adminapi/user/info", data=b"{}", headers={
+                "Content-Type": "application/json", "Host": self.plan["browser_hosts"]["platform"],
+                "Authorization": "Bearer " + token,
+            })
+            try:
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    rejected = json.load(response)
+                    if rejected.get("code") == 20000:
+                        fail("tenant identity accepted on platform Host")
+            except urllib.error.HTTPError as error:
+                if error.code not in (400, 401, 403, 404):
+                    raise
+            result["tenant_on_platform_host_rejected"] = True
+        return result
 
     def start_docs(self, project_root: Path) -> None:
         if self.docs_process is not None and self.docs_process.poll() is None and self.docs_root == project_root:
@@ -2003,7 +2102,7 @@ class Runner:
         self.write_json(self.summary_path, {
             "schema_version": 1,
             "status": "passed" if self.plan["groups"] == self.fixture["groups"] else "partial-passed",
-            "scope": "full" if self.plan["groups"] == self.fixture["groups"] else "through-group",
+            "scope": "full" if self.plan["groups"] == self.fixture["groups"] else self.plan["selection_scope"],
             "candidate": self.args.candidate,
             "candidate_tree": self.plan["candidate_tree"],
             "run_id": self.args.run_id,
@@ -2101,9 +2200,14 @@ def add_fixed_arguments(parser: argparse.ArgumentParser, with_lease: bool = True
     parser.add_argument("--http-port", required=True, type=int)
     parser.add_argument("--docs-port", required=True, type=int)
     parser.add_argument("--parent-lease", help="active controller lease that owns this worktree")
+    parser.add_argument("--minimum-release", action="store_true", help="first prerelease: generated applications, both fresh installs, startup and minimum real business only")
     parser.add_argument(
         "--through-group",
         help="run the registered qualification group prefix through this exact group; omit for the full Gate",
+    )
+    parser.add_argument(
+        "--groups",
+        help="run this exact comma-separated registered group set in canonical order; mutually exclusive with --through-group",
     )
     if with_lease:
         parser.add_argument("--lease", required=True)
