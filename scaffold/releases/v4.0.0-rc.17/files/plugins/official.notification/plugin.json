@@ -1,0 +1,108 @@
+{
+    "schema_version": 1,
+    "key": "official.notification",
+    "version": "1.0.1",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "524c5f7e71791e0d880b979c5ef73dbfb71bcd29a550e064fb7a101fdc9dbdaa"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "official.notification",
+                    "version": "1.0.1",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-dev"
+                        },
+                        {
+                            "module_key": "official.integration",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.task",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "768d5b2d563064798ec2409e16254d8a60f3d5bd78e4b11099d248406720fe63"
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "official.notification:20260826-namespace-permission-keys",
+                                "sha256": "8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606"
+                            },
+                            {
+                                "key": "official.notification:20260921-adopt-notification-delivery-schema",
+                                "sha256": "eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/official-notification",
+            "version": "1.0.1",
+            "sha256": "b2f9a37a5ab0934acb48085c21a224aad1a9aa7f44bef4241ed3f6eb638318ed"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/official-notification",
+            "version": "1.0.0",
+            "integrity": "sha256-MVboFu9DkwjtxuB+3rEROj7R5nZ6yP4UtdDeQr3XJzQ="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/official-notification",
+            "version": "1.0.0",
+            "entry": "web/src/modules/official-notification/contribution.ts",
+            "sha256": "f67e29d7bd0bdf528441634f3ed0f491d7999acebcbb4a24a92a9280e2ff1988"
+        }
+    ],
+    "modules": [
+        {
+            "key": "official.notification",
+            "root": "server/app/modules/official/notification"
+        }
+    ]
+}
