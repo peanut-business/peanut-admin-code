@@ -5381,7 +5381,17 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/AdminMenuWriteRequest"
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/AdminMenuWriteRequest"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "required": [
+                                            "menu_key"
+                                        ]
+                                    }
+                                ]
                             }
                         }
                     }

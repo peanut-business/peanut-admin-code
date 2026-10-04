@@ -271,6 +271,18 @@ foreach ($scenarios as $scenario) {
             menuExpect(true, 'parent cycle rejected');
         }
         $management->delete($createdMenu['menu_key']);
+        // The first replay records legacy customization diagnostics; business fields must already be stable.
+        $presentationSnapshot = static function (array $rows): array {
+            return array_map(static function (array $row): array {
+                unset($row['conflict']);
+                return $row;
+            }, $rows);
+        };
+        $presentationBefore = $presentationSnapshot($management->records());
+        $pdo->exec(file_get_contents($grouping));
+        $pdo->exec(file_get_contents($identity));
+        $applier->apply($registry);
+        menuExpect($presentationSnapshot($management->records()) === $presentationBefore, 'first replay changed managed presentation, IDs, parent keys or permission identity');
         $stable = menuStable($pdo);
         menuExpect($migration->run([$grouping, $identity], $targetVersion, $targetVersion)['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
         $pdo->exec(file_get_contents($grouping));

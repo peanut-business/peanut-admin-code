@@ -8,7 +8,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "9a91218592e1c2787ee45960c750472339fd32c1e6a2ae8ac0e379c25240e768"
+            "sha256": "1c5722cb090143abb7185a4e294f360b5ad6680f793b3e7fa9c0688c2a8921bc"
         },
         {
             "path": "server/app/api/metadata/application/common.php",

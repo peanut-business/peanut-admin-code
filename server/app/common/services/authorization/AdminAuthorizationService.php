@@ -82,10 +82,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         $native = $bridge->accessData($tenantContext);
         $permissions = $native['permissions'];
         $menus = array_values(array_replace(
-            array_column(array_filter(
-                $this->compatibilityMenus($tenantContext, $admin, $permissions),
-                static fn(array $row): bool => !in_array((int) $row['id'], array_column($native['menu'], 'legacy_menu_id'), true),
-            ), null, 'menu_key'),
+            array_column($this->compatibilityMenus($tenantContext, $admin, $permissions), null, 'menu_key'),
             array_column($native['menu'], null, 'menu_key'),
         ));
         do {

@@ -5706,7 +5706,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a91218592e1c2787ee45960c750472339fd32c1e6a2ae8ac0e379c25240e768"
+            "source_sha256": "1c5722cb090143abb7185a4e294f360b5ad6680f793b3e7fa9c0688c2a8921bc"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -7598,7 +7598,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5918738fa41b5ec787ea2b8f0ca697a771d7a01c63ece4c52e61e1516b84d17c"
+            "source_sha256": "e52e1c2d9903da708454287743d12150462958009ecc3fa4b5a050b56abb89de"
         },
         {
             "path": "server/app/common/infrastructure/crontab/CrontabTenantLock.php",
@@ -8483,7 +8483,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81f73530a65597f8830407c89ada047f388874b5c84660f24b1345ba9cc9474d"
+            "source_sha256": "983e8e45ab4c74acf9e2b8db612e3ddf40fe225bd6cda561c84049bd979ef5d4"
         },
         {
             "path": "server/app/common/services/authorization/MenuPermissionUsageQuery.php",
@@ -24169,7 +24169,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "449f9e4a0014d046c73a7fd4009fbc80f918066cc43f9853c2b4c142fc525d5a"
+            "source_sha256": "2a59c5d6edf6e1ac18c8734ed1303f81b3ce79a105fda88824d9710b3c33b92d"
         },
         {
             "path": "server/generated/openapi.json",
@@ -24183,7 +24183,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38e66399a0e1f9057d07d9d7bb108bc0577761fcc48357f34c79409323c75c88"
+            "source_sha256": "2317704b045e0c5ca2039a88c41b39e2906f9b37dc28db72e3b809bdfb55c030"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -31542,7 +31542,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "176de5d7ad6f0bdf3ed7786873e351ec0d970923cdd9eb4b838e80f43769c095"
+            "source_sha256": "46c4fc52858d1cda40adcc15777294079ea950c4418a56668d4b5f9ee30bc8c9"
         },
         {
             "path": "web/src/hooks/chart-option.ts",

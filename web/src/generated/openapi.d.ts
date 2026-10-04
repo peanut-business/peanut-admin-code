@@ -11272,7 +11272,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AdminMenuWriteRequest"];
+                "application/json": components["schemas"]["AdminMenuWriteRequest"] & Record<string, never>;
             };
         };
         responses: {

@@ -215,7 +215,6 @@ final readonly class CoreTenantModuleAdminBridge
             if ($presentation !== null && !$this->legacyPresentationVisible($presentation, $legacy, $permissions)) {
                 continue;
             }
-            $legacyId = $presentation['id'] ?? null;
             if ($presentation !== null && !$this->legacyCustomized($presentation, $legacy)) {
                 $presentation = null;
             }
@@ -237,7 +236,6 @@ final readonly class CoreTenantModuleAdminBridge
                 'module_key' => $definition->moduleKey,
                 'required_permission' => $definition->requiredPermission,
                 'menu_key' => $definition->key,
-                'legacy_menu_id' => $legacyId,
                 'children' => [],
             ];
         }
