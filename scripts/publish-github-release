@@ -201,8 +201,20 @@ for (const edition of ['standalone', 'multi-tenant']) {
         inventory.set(path, sha)
       }
       const members = JSON.parse(cp.execFileSync('python3', ['-c',
-        'import json,sys,tarfile; archive=tarfile.open(sys.argv[1]); print(json.dumps([{ "name": member.name, "kind": "directory" if member.isdir() else "file" if member.isfile() else "unsupported" } for member in archive.getmembers()]))',
-        archivePath], { encoding: 'utf8' }))
+        `import hashlib,json,sys,tarfile
+members=[]
+with tarfile.open(sys.argv[1]) as archive:
+    for member in archive:
+        item={"name":member.name,"kind":"directory" if member.isdir() else "file" if member.isfile() else "unsupported"}
+        if member.isfile():
+            digest=hashlib.sha256()
+            with archive.extractfile(member) as source:
+                for chunk in iter(lambda: source.read(1024*1024), b''):
+                    digest.update(chunk)
+            item["sha256"]=digest.hexdigest()
+        members.append(item)
+print(json.dumps(members))`,
+        archivePath], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }))
       const prefix = `${root}/`
       const actualFiles = []
       for (const member of members) {
@@ -213,8 +225,7 @@ for (const edition of ['standalone', 'multi-tenant']) {
         if (relative === 'META-INF/files.sha256') continue
         if (relative.startsWith('META-INF/signatures/')) throw new Error(`Edition upgrade contains forbidden signature files: ${archive}`)
         actualFiles.push(relative)
-        const bytes = cp.execFileSync('tar', ['-xOzf', archivePath, `${root}/${relative}`])
-        if (inventory.get(relative) !== digest(bytes)) throw new Error(`Edition upgrade file digest mismatch: ${archive}:${relative}`)
+        if (inventory.get(relative) !== member.sha256) throw new Error(`Edition upgrade file digest mismatch: ${archive}:${relative}`)
       }
       actualFiles.sort()
       const declaredFiles = [...inventory.keys()].sort()
