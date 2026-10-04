@@ -1,0 +1,59 @@
+# Git ignore for Scaffold Product Token
+
+# Each subproject owns its dependencies, build output and local configuration
+# in its own .gitignore, including when that subproject is opened separately.
+# Match dependency directories and development symlinks alike.
+**/vendor
+**/node_modules
+
+# Production deployment secrets
+deploy/production.env
+/.env
+/.local/
+/.ops/
+/updates/
+/backups/
+/.peanut/application-release.json
+/.peanut/upgrades/
+/release-manifest.txt
+/server/public/admin/
+/server/public/platform/
+/server/public/pc/
+/server/public/mobile/
+/server/docker/mysql/*
+!/server/docker/mysql/.gitkeep
+/server/docker/secrets/*
+!/server/docker/secrets/.gitkeep
+**/__pycache__/
+*.py[cod]
+/docs/maintenance/fact-audit-2026-09-09/conversation-coverage.json
+/docs/maintenance/fact-audit-2026-09-09/execution-state.json
+
+# Shared package-manager cache
+**/.pnpm-store/
+
+# System
+.DS_Store
+*.log
+
+# Claude / AI tooling
+.claude/
+web/.claude/
+/.vscode/*
+!/.vscode/settings.json
+
+# Generated indexes & tool caches (regenerable — not source)
+.codegraph/
+.playwright-cli/
+.playwright-mcp/
+
+# Ad-hoc comparison screenshots (not referenced by docs)
+/likeadmin-dept-list.png
+/peanut-dept-list.png
+
+# Runtime/test output is not repository source
+/output/
+
+# Generated applications retain their managed documentation source and lock.
+/docs-site/.vitepress/cache/
+/docs-site/.vitepress/dist/
