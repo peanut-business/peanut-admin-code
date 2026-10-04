@@ -1039,7 +1039,8 @@ final class ApplicationCreator
 
         // create-app runs from the tool repository with its Composer dependencies
         // installed. The canonical Writer uses Core Module identity/layout classes;
-        // generated applications receive only the completed derived artifacts.
+        // generated applications also retain the managed canonical Writer dependencies
+        // for complete official graph projection through their native upgrader.
         $writer = new PluginArtifactWriter($stage . '/server', false);
         $rewritten = [];
         foreach ($manifestPaths as $directoryKey => $path) {

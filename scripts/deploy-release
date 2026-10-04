@@ -1010,6 +1010,13 @@ if [[ "$mode" == update ]]; then
     'server/app/platform/exception/plugin/PluginLifecycleException.php|scripts/upgrade-runtime/PluginLifecycleException.php'
     'server/app/platform/value/plugin/PluginDescriptor.php|scripts/upgrade-runtime/PluginDescriptor.php'
     'server/app/platform/infrastructure/plugin/PluginLockResolver.php|scripts/upgrade-runtime/PluginLockResolver.php'
+    'server/app/platform/exception/plugin/PluginArtifactToolException.php|scripts/upgrade-runtime/PluginArtifactToolException.php'
+    'server/app/platform/exception/plugin/PluginPackageException.php|scripts/upgrade-runtime/PluginPackageException.php'
+    'server/app/platform/value/plugin/ModuleFrontendLayout.php|scripts/upgrade-runtime/ModuleFrontendLayout.php'
+    'server/app/platform/infrastructure/plugin/PluginArtifactWriter.php|scripts/upgrade-runtime/PluginArtifactWriter.php'
+    'server/app/platform/validation/module/OpisManifestSchemaValidator.php|scripts/upgrade-runtime/OpisManifestSchemaValidator.php'
+    'server/app/platform/validation/module/StrictVersionConstraintMatcher.php|scripts/upgrade-runtime/StrictVersionConstraintMatcher.php'
+    'server/app/platform/validation/plugin/ModulePackagePreflight.php|scripts/upgrade-runtime/ModulePackagePreflight.php'
   )
   [[ -f "$trusted_upgrade_entrypoint" && ! -L "$trusted_upgrade_entrypoint" ]] \
     || fail 'installed trusted upgrade coordinator is unavailable'
