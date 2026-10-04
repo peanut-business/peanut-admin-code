@@ -25,7 +25,7 @@ SET @menu_identity_ddl=(SELECT IF(COUNT(*)=0,'ALTER TABLE `pa_menu_definition` A
 PREPARE menu_identity_stmt FROM @menu_identity_ddl;
 EXECUTE menu_identity_stmt;
 DEALLOCATE PREPARE menu_identity_stmt;
-CREATE TEMPORARY TABLE menu_identity_seed (type CHAR(1), paths VARCHAR(200), perms VARCHAR(100), menu_key VARCHAR(160), module_key VARCHAR(96));
+CREATE TEMPORARY TABLE menu_identity_seed (type CHAR(1), paths VARCHAR(200), perms VARCHAR(100), menu_key VARCHAR(160), module_key VARCHAR(96)) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 INSERT INTO menu_identity_seed VALUES ('M','/system','','core.organization','core');
 INSERT INTO menu_identity_seed VALUES ('C','/system/menu','menu/lists','system.menu.lists','peanut.admin');
 INSERT INTO menu_identity_seed VALUES ('A','','menu/add','system.menu.add','peanut.admin');
@@ -121,7 +121,7 @@ INSERT INTO menu_identity_seed VALUES ('C','/system/dept','dept/lists','system.d
 INSERT INTO menu_identity_seed VALUES ('A','','dept/add','system.dept.add','peanut.admin');
 INSERT INTO menu_identity_seed VALUES ('A','','dept/edit','system.dept.edit','peanut.admin');
 INSERT INTO menu_identity_seed VALUES ('A','','dept/delete','system.dept.delete','peanut.admin');
-CREATE TEMPORARY TABLE menu_identity_matches AS SELECT m.id,s.menu_key,s.module_key FROM pa_system_menu m JOIN menu_identity_seed s ON m.type=s.type AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(m.upstream_defaults_json,'$.paths')),m.paths)=s.paths AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(m.upstream_defaults_json,'$.perms')),m.perms)=s.perms;
+CREATE TEMPORARY TABLE menu_identity_matches AS SELECT m.id,s.menu_key,s.module_key FROM pa_system_menu m JOIN menu_identity_seed s ON m.type COLLATE utf8mb4_unicode_ci=s.type AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(m.upstream_defaults_json,'$.paths')),m.paths) COLLATE utf8mb4_unicode_ci=s.paths AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(m.upstream_defaults_json,'$.perms')),m.perms) COLLATE utf8mb4_unicode_ci=s.perms;
 CREATE TEMPORARY TABLE menu_identity_unique AS SELECT menu_key,MIN(id) AS id FROM menu_identity_matches GROUP BY menu_key HAVING COUNT(*)=1;
 UPDATE pa_system_menu m JOIN menu_identity_matches s ON s.id=m.id JOIN menu_identity_unique u ON u.id=s.id AND u.menu_key=s.menu_key SET m.menu_key=s.menu_key,m.module_key=s.module_key WHERE m.menu_key IS NULL;
 UPDATE pa_system_menu SET menu_key=CONCAT('custom.',REPLACE(UUID(),'-','')) WHERE menu_key IS NULL;
