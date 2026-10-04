@@ -388,7 +388,7 @@ if (scaffold && inventory && fixture) {
       const sealedInventory = execFileSync(
         'git',
         ['show', `${release.source_commit}:scaffold/application-template-inventory.json`],
-        { encoding: 'utf8' },
+        { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
       )
       if (sha256(inventoryText) !== release.inventory_sha256) {
         failures.push('candidate application inventory does not match the scaffold seal')

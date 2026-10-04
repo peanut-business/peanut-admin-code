@@ -3,6 +3,15 @@
 All notable Peanut Admin application changes are recorded here. The application
 and the two public core packages have independent version histories.
 
+## [4.0.0-rc.18] - 2026-10-04
+
+### Changed
+
+- First public 4.0 prerelease with fixed public PHP Core rc.3 and Web Core rc.4 dependencies.
+- Standalone and Multi-tenant development-source and server archives, native application creation, fresh installation and SHA-256 integrity manifests.
+- Official module source absorption, stable menu identities, PC public pages in SPA mode, and native same-instance upgrades preserving application data and customization.
+- This prerelease uses the Minimum Release Gate. Full P0-E, full browser matrices, SSR, performance and extended recovery/fault qualification remain deferred; this is not a stable release or production deployment qualification.
+
 ## [Unreleased]
 
 ### Changed

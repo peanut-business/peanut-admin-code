@@ -6,7 +6,7 @@
   "instance_version": null,
   "expected_tag": "v4.0.0-rc.18",
   "release_date": "2026-10-04",
-  "repository": "https://github.com/peanut-business/peanut-admin",
+  "repository": "https://github.com/peanut-business/peanut-admin-code",
   "license": {
     "type": "Apache-2.0",
     "composer_identifier": "Apache-2.0",
