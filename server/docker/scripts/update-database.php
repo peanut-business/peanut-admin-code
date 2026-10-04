@@ -139,6 +139,11 @@ try {
         }
     }
     $migration = $runner->run($files, $migrationTargetVersion, $version, $operation === 'verify');
+    if ($operation === 'verify' && $migration['pending'] !== []) {
+        // The native runner selects applicable migrations and checks immutable
+        // checksums. Missing ledger rows must not disappear from verification.
+        throw new RuntimeException('application migration ledger is incomplete');
+    }
     $ids = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
     $statuses = $runner->statuses($ids);
     if ($operation === 'migrate') {
