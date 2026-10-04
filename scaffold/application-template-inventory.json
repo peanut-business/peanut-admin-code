@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2bdaa75a49f0053c5e7b819f5147dda5b88c01edfe7694ecd2b9543be6c67779"
+            "source_sha256": "b959f06af183f85837e499426f04b1c34772d2abdbc07ac9a5d2a28d843e2c71"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -23894,7 +23894,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "732db184d377fff75ccfe47828c445ce364678c83f8d32f19b14134fb49f5220"
+            "source_sha256": "db8e603e2b4b43cce23496a3a5bb382b807b834da022d404d3036fed948f6e33"
         },
         {
             "path": "server/docker/scripts/update-plan.php",
