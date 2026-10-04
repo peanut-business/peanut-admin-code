@@ -611,8 +611,8 @@ final class ApplicationCreator
     private function textTransform(string $content, array $parameters, string $path): string
     {
         $content = str_replace(
-            ['Peanut Admin', 'peanut-business/peanut-admin-code', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
-            [$parameters['PRODUCT_NAME'], $parameters['PACKAGE_IDENTITY'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
+            ['Peanut Admin', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
+            [$parameters['PRODUCT_NAME'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
             $content,
         );
         if ($path === 'server/database/init.sql') {
@@ -685,6 +685,10 @@ final class ApplicationCreator
         }
         if (!is_array($document)) {
             throw new RuntimeException('CREATE_APP_PACKAGE_JSON_INVALID: ' . $path);
+        }
+        // Application package identity is a field; repository references retain their source identity.
+        if ($path === 'server/composer.json') {
+            $document['name'] = $parameters['PACKAGE_IDENTITY'];
         }
         if (preg_match('#^(web|platform|pc|uniapp|docs-site)/package(?:-lock)?\\.json$#D', $path, $clientMatch) === 1) {
             $suffix = $clientMatch[1] === 'docs-site' ? 'docs' : $clientMatch[1];
