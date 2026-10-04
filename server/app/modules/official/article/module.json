@@ -3,12 +3,17 @@
   "key": "official.article",
   "name": "Article Content",
   "description": "Tenant-owned article and category content with member collections.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-article",
   "web_package": "@peanut-admin/official-article",
-  "dependencies": [{ "module_key": "official.file", "version": "^1.0" }],
+  "dependencies": [
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    }
+  ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Article\\ModuleProvider",
     "migrations": "database/migrations",
@@ -20,7 +25,11 @@
     "entry": "web/src/modules/official-article/contribution.ts"
   },
   "database": {
-    "owned_tables": ["pa_article_cate", "pa_article", "pa_article_collect"]
+    "owned_tables": [
+      "pa_article_cate",
+      "pa_article",
+      "pa_article_collect"
+    ]
   },
   "contracts": {
     "exports": [
@@ -33,6 +42,8 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": ["official.file"]
+    "requires": [
+      "official.file"
+    ]
   }
 }

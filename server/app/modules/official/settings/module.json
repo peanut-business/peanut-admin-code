@@ -3,14 +3,20 @@
   "key": "official.settings",
   "name": "Settings",
   "description": "Deployment, tenant and target-scoped settings with tenant website configuration.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-settings",
   "web_package": "@peanut-admin/official-settings",
   "dependencies": [
-    { "module_key": "official.identity", "version": "4.0.0-dev" },
-    { "module_key": "official.file", "version": "^1.0" }
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-dev"
+    },
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Settings\\ModuleProvider",
@@ -19,7 +25,9 @@
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
   },
-  "frontend": { "entry": "web/src/modules/official-settings/contribution.ts" },
+  "frontend": {
+    "entry": "web/src/modules/official-settings/contribution.ts"
+  },
   "database": {
     "owned_tables": [
       "pa_setting_definition",
@@ -46,6 +54,8 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": ["official.file"]
+    "requires": [
+      "official.file"
+    ]
   }
 }

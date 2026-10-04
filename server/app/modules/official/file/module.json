@@ -3,7 +3,7 @@
   "key": "official.file",
   "name": "File and Media",
   "description": "Tenant-owned media library, uploads and private file metadata.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-file",
@@ -56,6 +56,8 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": ["official.identity"]
+    "requires": [
+      "official.identity"
+    ]
   }
 }

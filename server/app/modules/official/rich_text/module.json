@@ -3,7 +3,7 @@
   "key": "official.rich-text",
   "name": "Structured Rich Text",
   "description": "Versioned Tiptap/ProseMirror documents, media references, annotation anchors and realtime collaboration adapters.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-rich-text",
@@ -22,7 +22,9 @@
     "entry": "web/src/modules/official-rich-text/contribution.ts"
   },
   "database": {
-    "owned_tables": ["pa_rich_text_document"]
+    "owned_tables": [
+      "pa_rich_text_document"
+    ]
   },
   "contracts": {
     "exports": [],

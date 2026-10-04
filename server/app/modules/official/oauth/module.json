@@ -3,17 +3,32 @@
   "key": "official.oauth",
   "name": "OAuth and Channels",
   "description": "Tenant-owned OAuth identities and WeChat channel bindings.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-oauth",
   "web_package": "@peanut-admin/official-oauth",
   "dependencies": [
-    { "module_key": "official.file", "version": "^1.0" },
-    { "module_key": "official.integration", "version": "^1.0" },
-    { "module_key": "official.member", "version": "^1.0" },
-    { "module_key": "official.notification", "version": "^1.0" },
-    { "module_key": "official.settings", "version": "^1.0" }
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.integration",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.member",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.notification",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.settings",
+      "version": "^1.0"
+    }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\OAuth\\ModuleProvider",
@@ -22,7 +37,9 @@
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
   },
-  "frontend": { "entry": "web/src/modules/official-oauth/contribution.ts" },
+  "frontend": {
+    "entry": "web/src/modules/official-oauth/contribution.ts"
+  },
   "database": {
     "owned_tables": [
       "pa_oauth_attempt",
