@@ -17,6 +17,7 @@ import socket
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -2490,12 +2491,12 @@ class Runner:
             if not originals:
                 fail("generated edition artifacts are missing before cleanup")
             preserved = self.output / "edition-artifacts"
-            shutil.copytree(self.edition_artifacts, preserved)
+            if not preserved.exists():
+                shutil.copytree(self.edition_artifacts, preserved)
+            if preserved.is_symlink() or any(path.is_symlink() for path in preserved.rglob("*")):
+                fail("preserved edition artifact has an unsafe file identity")
             if {str(path.relative_to(preserved)): sha256(path) for path in preserved.rglob("*") if path.is_file()} != originals:
                 fail("preserved edition artifact bytes differ from qualified originals")
-        shutil.rmtree(self.cache)
-        if self.created_candidate_vendor and (ROOT / "server/vendor").exists():
-            shutil.rmtree(ROOT / "server/vendor")
         if self.plan["browser_required"]:
             playwright_cli = Path(self.playwright_cli())
             lease_proof_dir = Path(self.plan["lease_proof_dir"])
@@ -2503,6 +2504,10 @@ class Runner:
                 if not playwright_cli.is_file() or playwright_cli.is_symlink():
                     fail("lease-owned Playwright CLI wrapper identity changed")
                 playwright_cli.unlink()
+        self.release_owned_lease()
+        shutil.rmtree(self.cache)
+        if self.created_candidate_vendor and (ROOT / "server/vendor").exists():
+            shutil.rmtree(ROOT / "server/vendor")
         self.write_json(self.summary_path, {
             "schema_version": 1,
             "status": "passed" if self.plan["groups"] == self.fixture["groups"] else "partial-passed",
@@ -2544,13 +2549,80 @@ class Runner:
                 "listener_residual_count": 0,
                 "docs_listener_stopped": True,
                 "cache_removed": True,
+                "lease_released": True,
                 "output_preserved": str(self.output),
             },
         })
-        command([str(LEASE_TOOL), "release", "--lease", self.args.lease, "--owner", self.args.owner])
-        summary = read_json(self.summary_path)
-        summary["cleanup"]["lease_released"] = True
-        self.write_json(self.summary_path, summary)
+
+    def release_owned_lease(self) -> None:
+        """Preserve the exact private proof before returning this Runner's lease."""
+        verify_lease(self.args, self.plan)
+        if read_json(self.output / "plan.json") != self.plan:
+            fail("lease cleanup plan differs from its owned output")
+        checkpoint = read_json(self.checkpoint_path)
+        for key in ("candidate", "candidate_tree", "run_id", "lease", "parent_lease", "planned_groups"):
+            if checkpoint.get(key) != self.checkpoint[key]:
+                fail(f"lease cleanup checkpoint {key} mismatch")
+        proof = Path(self.plan["lease_proof_dir"])
+        names = {"metadata.tsv", "resources.tsv", "registry.json"}
+        if proof.is_symlink() or any(parent.is_symlink() for parent in proof.parents):
+            fail("lease proof has an unsafe directory identity")
+        if {path.name for path in proof.iterdir()} != names:
+            fail("lease proof contains unknown files; refusing cleanup")
+        contents = {}
+        for name in sorted(names):
+            path = proof / name
+            if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1:
+                fail("lease proof has an unsafe file identity")
+            contents[name] = path.read_bytes()
+        hashes = {name: hashlib.sha256(raw).hexdigest() for name, raw in contents.items()}
+        if hashes["registry.json"] != self.plan["registry_sha256"]:
+            fail("lease proof registry differs from the fixed plan")
+        snapshot = hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
+        parent = self.output / "lease-proof"
+        if parent.is_symlink() or any(path.is_symlink() for path in parent.parents):
+            fail("preserved lease proof has an unsafe directory identity")
+        parent.mkdir(mode=0o700, exist_ok=True)
+        saved = parent / snapshot
+        if not saved.exists():
+            with tempfile.TemporaryDirectory(dir=parent, prefix=".preserve-") as temporary:
+                staged = Path(temporary)
+                for name, raw in contents.items():
+                    with (staged / name).open("xb") as stream:
+                        stream.write(raw)
+                    (staged / name).chmod(0o600)
+                staged.rename(saved)
+        if saved.is_symlink() or {path.name for path in saved.iterdir()} != names:
+            fail("preserved lease proof file set differs")
+        for name, raw in contents.items():
+            path = saved / name
+            if path.is_symlink() or not path.is_file() or path.read_bytes() != raw:
+                fail("preserved lease proof bytes differ")
+        verify_lease(self.args, self.plan)
+        if any((proof / name).read_bytes() != raw for name, raw in contents.items()):
+            fail("lease proof changed during preservation")
+        (proof / "registry.json").unlink()
+        try:
+            command([str(LEASE_TOOL), "release", "--lease", self.args.lease, "--owner", self.args.owner])
+        except Exception:
+            # A refused release keeps its live authority and its original proof.
+            # Never recreate metadata, locks, or an already released lease.
+            if (proof / "metadata.tsv").is_file():
+                verify_lease(self.args, self.plan)
+                with (proof / "registry.json").open("xb") as stream:
+                    stream.write(contents["registry.json"])
+                (proof / "registry.json").chmod(0o644)
+            raise
+        if proof.exists():
+            fail("native lease release left its directory behind")
+        receipt = self.output / "lease-release.json"
+        self.write_json(receipt, {
+            "schema_version": 1, "status": "released", "candidate": self.args.candidate,
+            "candidate_tree": self.plan["candidate_tree"], "run_id": self.args.run_id,
+            "lease": self.args.lease, "owner": self.args.owner,
+            "original_proof": str(saved), "original_proof_sha256": hashes,
+        })
+        receipt.chmod(0o600)
 
     def run(self) -> None:
         self.write_json(self.output / "group-environment-preflight.json", self.preflight_group_environments())

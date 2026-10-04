@@ -413,7 +413,7 @@ $expect($nativeCode === 0, 'native registry proof export failed: ' . implode("\n
 echo implode("\n", $nativeOutput), "\n";
 
 $consumerContractCode = <<<'PY'
-import argparse, ast, copy, json, os, runpy, shutil, subprocess, tempfile
+import argparse, ast, copy, json, os, runpy, shutil, subprocess, tempfile, textwrap
 from pathlib import Path
 from unittest.mock import patch
 
@@ -542,6 +542,25 @@ with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-') as temporary:
         ['module:update-package', str(archive), '--sha256=' + 'f' * 64, '--dry-run'],
         ['module:update-package', str(archive), '--sha256=' + 'f' * 64],
     ], 'canonical install/update lost its pinned archive digest or acquired signing input'
+    source = consumer_path.read_text()
+    preview = textwrap.dedent(source[source.index('        before_update = helper_action'):source.index('        updated = package_update')])
+    baseline = dict(plugin={'installed_version': '1.0.0', 'status': 'active'},
+        module_installation={'installed_version': '1.0.0', 'status': 'active'},
+        tenant_modules=[{'code': 'default', 'status': 'enabled'}, {'code': 'tenant-b', 'status': 'enabled'}],
+        rbac=[{'code': 'default', 'grants': 1}], permission_count=1, migration_count=1,
+        owned_table=True, owned_rows=1, v2_column=False)
+    def preview_contract(after):
+        snapshots = iter([copy.deepcopy(baseline), after])
+        scope = dict(helper=None, consumer=base, consumer_env={}, logs=base,
+            v2_path=archive, v2_sha='f' * 64, expect=consumer['expect'],
+            helper_action=lambda *a: next(snapshots),
+            package_update=lambda *a: {'operation': 'update', 'dry_run': True})
+        exec(compile(preview, str(consumer_path), 'exec'), scope)
+        assert scope['before_update'] == scope['after_dry_run']
+    preview_contract(copy.deepcopy(baseline))
+    for field in baseline:
+        changed = copy.deepcopy(baseline); changed[field] = 'unexpected-state-change'
+        reject(lambda: preview_contract(changed))
     consumer['CONFIG_VALUES'].update(DB_HOST='127.0.0.1', DB_PORT='21306', DB_USER='fixture', DB_PASS='fixture')
     for label in ('author', 'consumer'):
         app = base / label
@@ -579,5 +598,71 @@ $consumerCode = 0;
 exec('python3 -c ' . escapeshellarg($consumerContractCode) . ' 2>&1', $consumerOutput, $consumerCode);
 $expect($consumerCode === 0, 'consumer CLI/derived input contract failed: ' . implode("\n", $consumerOutput));
 echo implode("\n", $consumerOutput), "\n";
+
+$leaseCleanupCode = <<<'PY'
+import argparse, hashlib, json, pathlib, runpy, shutil, tempfile
+from unittest.mock import patch
+n = runpy.run_path('scripts/p0e-runtime-qualification')
+Runner, error = n['Runner'], n['GateError']
+with tempfile.TemporaryDirectory(prefix='p0e-lease-cleanup-', dir='.local/tmp') as temporary:
+    base = pathlib.Path(temporary).resolve()
+    def setup(label):
+        root = base / label; root.mkdir()
+        proof = root / 'lease'; proof.mkdir()
+        output = root / 'output'; output.mkdir()
+        contents = {'metadata.tsv': b'owner\tcontroller\n', 'resources.tsv': b'original resource tuples\n', 'registry.json': b'original private registry bytes\n'}
+        for name, raw in contents.items(): (proof / name).write_bytes(raw)
+        r = Runner.__new__(Runner)
+        r.args = argparse.Namespace(candidate='a' * 40, owner='controller', lease='lease', run_id=label)
+        r.output = output; r.checkpoint_path = output / 'checkpoint.json'
+        r.plan = {'lease_proof_dir': str(proof), 'registry_sha256': hashlib.sha256(contents['registry.json']).hexdigest(), 'candidate_tree': 'b' * 40}
+        r.checkpoint = dict(candidate=r.args.candidate, candidate_tree='b' * 40, run_id=label, lease='lease', parent_lease='parent', planned_groups=[])
+        r.write_json(output / 'plan.json', r.plan); r.save_checkpoint()
+        return r, proof, contents
+    def reject(r):
+        try: r.release_owned_lease()
+        except error: return
+        raise AssertionError('unsafe cleanup accepted')
+    released = []
+    current = {}
+    def verify(args, plan):
+        assert args.owner == 'controller' and args.lease == 'lease'
+        assert (pathlib.Path(plan['lease_proof_dir']) / 'metadata.tsv').is_file()
+    def command(arguments):
+        assert arguments == [str(n['LEASE_TOOL']), 'release', '--lease', 'lease', '--owner', 'controller']
+        proof = current['proof']; assert not (proof / 'registry.json').exists()
+        if current.get('refuse'): raise error('native release refused before mutation')
+        (proof / 'metadata.tsv').unlink(); (proof / 'resources.tsv').unlink(); proof.rmdir()
+        released.append(True)
+    with patch.dict(Runner.release_owned_lease.__globals__, {'verify_lease': verify, 'command': command}):
+        r, proof, contents = setup('unknown'); current['proof'] = proof
+        (proof / 'other-owner-evidence').write_text('must remain')
+        reject(r); assert all((proof / name).read_bytes() == raw for name, raw in contents.items()) and not released
+        r, proof, contents = setup('linked'); current['proof'] = proof
+        (proof / 'registry.json').unlink(); (proof / 'registry.json').symlink_to(proof / 'metadata.tsv')
+        reject(r); assert (proof / 'registry.json').is_symlink() and not released
+        r, proof, contents = setup('wrong-digest'); current['proof'] = proof
+        (proof / 'registry.json').write_bytes(b'tampered')
+        reject(r); assert (proof / 'metadata.tsv').is_file() and not released
+        r, proof, contents = setup('refused'); current.update(proof=proof, refuse=True)
+        reject(r); assert all((proof / name).read_bytes() == raw for name, raw in contents.items())
+        assert not (r.output / 'lease-release.json').exists() and not released
+        r, proof, contents = setup('success'); current.update(proof=proof, refuse=False)
+        r.release_owned_lease(); assert not proof.exists() and len(released) == 1
+        receipt = json.loads((r.output / 'lease-release.json').read_text())
+        saved = pathlib.Path(receipt['original_proof'])
+        assert receipt['status'] == 'released' and {p.name for p in saved.iterdir()} == set(contents)
+        for name, raw in contents.items(): assert (saved / name).read_bytes() == raw and (saved / name).stat().st_mode & 0o777 == 0o600
+        assert not (r.output / 'summary.json').exists(), 'resource release invented qualification success'
+source = pathlib.Path('scripts/p0e-runtime-qualification').read_text()
+cleanup = source[source.index('    def cleanup_success'):source.index('    def release_owned_lease')]
+assert cleanup.index('self.release_owned_lease()') < cleanup.index('shutil.rmtree(self.cache)') < cleanup.index('self.write_json(self.summary_path')
+print('native lease proof preservation/release passed; cases=5; no qualification summary created')
+PY;
+$leaseCleanupOutput = [];
+$leaseCleanupExit = 0;
+exec('python3 -c ' . escapeshellarg($leaseCleanupCode) . ' 2>&1', $leaseCleanupOutput, $leaseCleanupExit);
+$expect($leaseCleanupExit === 0, 'lease proof preservation/release contract failed: ' . implode("\n", $leaseCleanupOutput));
+echo implode("\n", $leaseCleanupOutput), "\n";
 
 echo "P0E-RUNTIME-QUALIFICATION-CONTRACT-001 passed\n";

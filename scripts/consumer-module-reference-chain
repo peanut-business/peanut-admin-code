@@ -1649,13 +1649,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             "module:check", MODULE_KEY, f"--package={v2_path}", f"--sha256={v2_sha}",
         ], logs / "author.log")
         expect(check_v2_package.get("status") == "ready", "module:check did not accept canonical v2 package")
+        before_update = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
         dry_run = package_update(
             consumer, consumer_env, v2_path, v2_sha, True, logs / "consumer.log"
         )
         expect(dry_run.get("operation") == "update" and dry_run.get("dry_run") is True,
                "v2 update dry-run did not return a zero-write plan")
-        before_update = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
-        expect(before_update == enabled_b, "v2 update dry-run changed consumer state")
+        after_dry_run = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
+        expect(after_dry_run == before_update, "v2 update dry-run changed consumer state")
         updated = package_update(
             consumer, consumer_env, v2_path, v2_sha, False, logs / "consumer.log"
         )
