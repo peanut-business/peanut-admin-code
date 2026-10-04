@@ -89,6 +89,7 @@ def command(
     log: Path | None = None,
     capture: bool = False,
     check: bool = True,
+    input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     merged = operating_system_environment()
     if env:
@@ -101,6 +102,7 @@ def command(
                 cwd=cwd,
                 env=merged,
                 text=True,
+                input=input_text,
                 stdout=stream,
                 stderr=subprocess.STDOUT,
                 check=False,
@@ -111,6 +113,7 @@ def command(
             cwd=cwd,
             env=merged,
             text=True,
+            input=input_text,
             capture_output=capture,
             check=False,
         )
@@ -503,14 +506,46 @@ def preflight_group_inputs(groups: list[str]) -> dict[str, Any]:
         "multi-tenant-browser": ["scripts/p0e-browser-smoke", "scripts/p0e-browser-tooling", "server/tests/fixtures/p0e-runtime-qualification/browser-smoke.js"],
     }
     result: dict[str, Any] = {}
+    native_inputs = ["server/docker/Dockerfile", "server/docker/compose.yaml",
+        "server/docker/runtime-configuration.example.json", "server/docker/scripts/configure-runtime.py",
+        "server/docker/scripts/vendor-state.py", "server/docker/scripts/prepare-vendor.sh",
+        "server/docker/scripts/prepare-vendor.php", "server/docker/scripts/start.sh",
+        "server/docker/scripts/php-entrypoint.sh", "server/docker/scripts/prepare-install-permissions.sh",
+        "server/database/install.php", "server/database/environment-guard.php",
+        "server/tests/fixtures/mt05/inspect.php", "server/docker/scripts/update-plan.php",
+        "server/docker/scripts/schedule.sh", "server/docker/conf/crontab", "server/docker/conf/mysql.cnf",
+        "scripts/build-edition-installers", "scripts/package-release-files.py",
+        "server/docker/conf/nginx.conf", "server/docker/conf/php-fpm.conf", "server/docker/conf/php.ini"]
+    native_groups = ("production-compose", "standalone-browser", "multi-tenant-browser")
+    runtime = None
+    if any(group in native_groups for group in groups):
+        matches = [item for item in read_json(REGISTRY_PATH)["resources"]["tooling"]
+                   if item.get("stable_resource_id") == "peanut-admin-phase1-image-preparation"]
+        if len(matches) != 1:
+            fail("registered native server runtime is unavailable")
+        runtime = matches[0]
+        image = runtime["built_output"]
+        if image["dockerfile_sha256"] != sha256(ROOT / "server/docker/Dockerfile"):
+            fail("prepared native PHP runtime Dockerfile identity changed")
+        template = read_json(ROOT / "server/docker/runtime-configuration.example.json")
+        for name in ("NGINX_IMAGE", "MYSQL_IMAGE"):
+            if template.get(name) != runtime["input_images"][name.lower().removesuffix("_image")]:
+                fail(f"native runtime template {name} diverged from registered image")
     for group in groups:
         files = {}
-        for relative in inputs[group]:
+        for relative in dict.fromkeys(inputs[group] + (native_inputs if group in native_groups else [])):
             path = ROOT / relative
             if path.is_symlink() or not path.is_file():
                 fail(f"{group} source input is unavailable: {relative}")
             files[relative] = sha256(path)
         result[group] = {"source_files": files, "runtime_value_names": sorted(RUNTIME_CREDENTIAL_NAMES | {"P0E_DB_USER", "P0E_DB_PASSWORD"})}
+        if group in native_groups:
+            result[group]["runtime_contract"] = {"shape": "native-server-only",
+                "php_runtime_resource": runtime["stable_resource_id"], "built_output": runtime["built_output"],
+                "input_images": runtime["input_images"], "installation_consumer": "host",
+                "runtime_consumer": "container", "deployment_target": "local-production-preview",
+                "scenarios": ["standalone_browser", "multi_tenant_fresh"] if group == "production-compose" else
+                    ["multi_tenant_browser" if group == "multi-tenant-browser" else "standalone_browser"]}
     result["generated-application"]["documentation"] = documentation_contract(ROOT, generated=False)
     for client, scripts in {"web": ("build",), "platform": ("build",), "pc": ("typecheck", "generate"), "uniapp": ("type-check", "build:h5")}.items():
         declared = read_json(ROOT / client / "package.json").get("scripts", {})
@@ -1130,6 +1165,21 @@ class Runner:
                     if validated.get("status") != "validated" or validated.get("consumer") != consumer:
                         fail(f"{group} PHP resource environment preflight did not validate {consumer}")
                     results[group].append(validated)
+            if group in ("production-compose", "standalone-browser", "multi-tenant-browser"):
+                contract = self.plan["group_inputs"][group]["runtime_contract"]
+                compose_values = read_json(ROOT / "server/docker/runtime-configuration.example.json")
+                compose_values.update({"PHP_IMAGE": contract["built_output"]["image_id"],
+                    "HTTP_BIND": "127.0.0.1",
+                    "COMPOSE_PROJECT_NAME": self.plan["compose_project"], "HTTP_PORT": self.plan["ports"]["http"],
+                    "MYSQL_HOST_PORT": self.plan["database_tunnel"]["local_port"],
+                    # Interpolation only: no database starts and no credential is created.
+                    "MYSQL_ROOT_PASSWORD": "preflight-interpolation-only"})
+                command(["docker", "compose", "--env-file", "/dev/null", "-f", str(ROOT / "server/docker/compose.yaml"),
+                         "-f", "-", "config", "--quiet"], cwd=ROOT / "server/docker",
+                        env={key: str(value) for key, value in compose_values.items()}, capture=True,
+                        input_text=self.native_compose_overlay())
+                results[group].append({"status": "validated", "runtime_shape": contract["shape"],
+                    "native_compose_interpolation": "validated", "startup": "not_run"})
         return results
 
     @staticmethod
@@ -1174,17 +1224,12 @@ class Runner:
         self.save_checkpoint()
 
     def prepare_retry(self, group: str) -> None:
-        if group == "production-compose" and self.args.minimum_release:
-            receipt = self.output / "groups/native-server-fresh-standalone.json"
-            if receipt.is_file() and read_json(receipt).get("candidate") == self.args.candidate:
-                if self.compose_env.exists() and self.compose_overlay.exists():
-                    self.compose("down", "--volumes", "--remove-orphans", check=False, project_root=self.active_compose_root)
-                business = self.output / "minimum-business-standalone.json"
-                multi_fresh = self.output / "groups/native-server-fresh-multi-tenant.json"
-                database = self.plan["databases"]["multi_tenant_fresh"]
-                if business.is_file() and not multi_fresh.is_file() and self.database_exists(database):
-                    self.drop_database(database)
-                return
+        if group in ("production-compose", "standalone-browser", "multi-tenant-browser"):
+            if self.compose_env.exists() and self.compose_overlay.exists():
+                self.compose("down", "--volumes", "--remove-orphans", check=False, project_root=self.active_compose_root)
+            # Native prepare validates exact instance/receipt identity. Preserve
+            # installation and traffic state across a failed startup.
+            return
         scenarios = {
             "standalone-fresh": ["standalone_fresh"],
             "multi-tenant-fresh": ["multi_tenant_fresh"],
@@ -1412,7 +1457,7 @@ class Runner:
     def generated_install_bridge(self, project_root: Path, database: str) -> Any:
         # Current released applications consume their own explicit registry and
         # native environment guard. Minimum qualification never patches code.
-        if self.args.minimum_release:
+        if self.args.minimum_release or (project_root / "server/.peanut/release-identity.json").is_file():
             yield
             return
         if project_root == ROOT:
@@ -1460,6 +1505,8 @@ class Runner:
         self.assert_up_to_date(database, mode, log, project_root=project_root)
 
     def reset_generated_installation_state(self, project_root: Path) -> None:
+        if (project_root / "server/.peanut/release-identity.json").is_file():
+            return
         if project_root == ROOT:
             return
         if project_root not in self.generated.values():
@@ -1961,207 +2008,174 @@ class Runner:
             fail("consumer Module lifecycle summary identity diverged")
         self.write_json(self.output / "groups/consumer-module-lifecycle.json", summary)
 
-    def native_server_compose_env(self, project_root: Path, database: str, mode: str) -> None:
-        registration = read_json(REGISTRY_PATH)
-        matches = [item for item in registration["resources"]["tooling"]
-                   if item.get("stable_resource_id") == "peanut-admin-phase1-image-preparation"]
-        if len(matches) != 1:
-            fail("registered native server runtime is unavailable")
-        runtime = matches[0]
-        image = runtime["built_output"]
-        if sha256(project_root / "server/docker/Dockerfile") != image["dockerfile_sha256"]:
-            fail("prepared native PHP runtime Dockerfile identity changed")
+    @staticmethod
+    def native_release_identity(server: Path, mode: str) -> str:
+        identity_path = server / ".peanut/release-identity.json"
+        if identity_path.is_symlink() or not identity_path.is_file():
+            fail("native server release identity is unavailable")
+        identity = read_json(identity_path)
+        if (identity.get("protocol") != "peanut.server-release.v1" or identity.get("schema_version") != 1
+                or identity.get("application", {}).get("edition") != mode):
+            fail("native server release mode or protocol changed")
+        files = identity.get("files")
+        if not isinstance(files, list) or not files or hashlib.sha256(
+                json.dumps(files, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest() != identity.get("files_sha256"):
+            fail("native server release file inventory changed")
+        previous = ""
+        for row in files:
+            relative = row.get("path", "")
+            if (not relative.startswith("server/") or relative <= previous or ".." in Path(relative).parts
+                    or row.get("mode") not in (0o644, 0o755)):
+                fail("native server release file identity is unsafe")
+            previous = relative
+            path = server.parent / relative
+            if (path.is_symlink() or not path.is_file() or path.resolve() != path
+                    or sha256(path) != row.get("sha256") or path.stat().st_mode & 0o777 != row["mode"]):
+                fail(f"native server release file changed: {relative}")
+        return sha256(identity_path)
+
+    def native_server_compose_env(self, project_root: Path, database: str, mode: str, scenario: str, group: str) -> Path:
+        if self.plan["databases"].get(scenario) != database:
+            fail("native instance scenario/database diverged from the fixed plan")
+        contract = self.plan["group_inputs"][group]["runtime_contract"]
+        if scenario not in contract["scenarios"]:
+            fail("native scenario is outside its selected group contract")
+        image = contract["built_output"]
         actual = command(["docker", "image", "inspect", image["tag"], "--format", "{{.Id}}"], capture=True).stdout.strip()
         if actual != image["image_id"]:
             fail("prepared native PHP runtime image identity changed")
-        nginx = runtime["input_images"]["nginx"]
-        command(["docker", "image", "inspect", nginx], capture=True)
+        command(["docker", "image", "inspect", contract["input_images"]["nginx"]], capture=True)
         archive = self.edition_artifacts / f"peanut-admin-{self.fixture['target_release']['version']}-{mode}-server.tar.gz"
-        if not archive.is_file():
-            archive = Path(getattr(self.args, "consumer_server_archive", ""))
-        if not archive.is_file():
+        if archive.is_symlink() or not archive.is_file():
             fail("native startup requires its real server-only archive")
-        native = self.cache / f"native-server-{mode}"
+        archive_sha = sha256(archive)
+        manifest_path = self.edition_artifacts / f"peanut-admin-{self.fixture['target_release']['version']}-{mode}.tar.gz.manifest.json"
+        artifact = read_json(manifest_path)
+        generated_receipt = read_json(self.output / "groups/generated-application.json")
+        if (manifest_path.is_symlink()
+                or generated_receipt.get("editions", {}).get(mode, {}).get("installer_manifest_sha256") != sha256(manifest_path)
+                or artifact.get("source") != {"commit": self.args.candidate, "tree": self.plan["candidate_tree"],
+                    "inventory_sha256": self.plan["candidate_inventory_sha256"]}
+                or artifact.get("edition", {}).get("name") != mode
+                or artifact.get("server_archive", {}).get("layout") != "server-only"
+                or artifact.get("server_archive", {}).get("filename") != archive.name
+                or artifact.get("server_archive", {}).get("sha256") != archive_sha):
+            fail("native server archive/manifest diverged from the generated candidate")
+        # Scenario and exact archive/database identity isolate each real instance.
+        instance_key = hashlib.sha256(json.dumps([scenario, mode, database, archive_sha]).encode()).hexdigest()
+        native = self.cache / f"native-server-{scenario}-{instance_key}"
+        if native.is_symlink():
+            fail("native instance is a symlink")
         if not native.exists():
-            native.mkdir()
+            native.mkdir(mode=0o700)
             with tarfile.open(archive, "r:gz") as package:
                 members = package.getmembers()
+                archive_root = artifact["server_archive"]["root"]
                 for member in members:
-                    if Path(member.name).is_absolute() or ".." in Path(member.name).parts or not (member.isdir() or member.isfile()):
+                    if (Path(member.name).is_absolute() or ".." in Path(member.name).parts
+                            or not (member.isdir() or member.isfile())
+                            or not (member.name == archive_root or member.name.startswith(archive_root + "/"))):
                         fail("unsafe native server archive member")
                     member.name = "/".join(member.name.split("/")[1:])
                 package.extractall(native, members=[member for member in members if member.name])
         server = native / "server"
+        identity = {"candidate": self.args.candidate, "scenario": scenario, "mode": mode, "database": database,
+                    "archive_sha256": archive_sha, "server_release_identity_sha256": self.native_release_identity(server, mode)}
+        if identity["server_release_identity_sha256"] != artifact.get("server_release", {}).get("identity_sha256"):
+            fail("native server identity diverged from the fixed installer manifest")
+        instance_receipt = native / ".p0e-instance.json"
+        if instance_receipt.is_file():
+            if read_json(instance_receipt) != identity:
+                fail("native instance identity diverged; preserve installation state")
+        else:
+            if (server / "private/installation").exists() and any((server / "private/installation").iterdir()):
+                fail("unbound native installation state; preserve it")
+            self.write_json(instance_receipt, identity)
         for relative in ("runtime", "public/storage", "private/storage", "private/resources", "private/installation"):
             directory = server / relative
             if directory.is_symlink():
                 fail("native instance directory is a symlink")
             directory.mkdir(parents=True, exist_ok=True)
-        vendor_check = command(["python3", str(server / "docker/scripts/vendor-state.py"), "check", "--server", str(server)], capture=True, check=False)
-        if vendor_check.returncode != 0:
-            if (server / "private/installation").exists():
-                shutil.rmtree(server / "private/installation")
-            if (server / "vendor").exists():
-                shutil.rmtree(server / "vendor")
-            (server / "runtime").mkdir(exist_ok=True)
-            command(["bash", str(server / "docker/scripts/prepare-vendor.sh"), "start", str(server), image["image_id"]], log=self.group_log("production-compose"))
         docker_env = server / "docker/.env"
         if not docker_env.exists():
-            state = server / "private/installation"
-            if state.exists():
-                shutil.rmtree(state)
             command(["python3", str(server / "docker/scripts/configure-runtime.py"), "--php-image", image["image_id"],
+                     "--http-bind", "127.0.0.1",
                      "--project", self.plan["compose_project"], "--http-port", str(self.plan["ports"]["http"]),
-                     "--mysql-host-port", str(self.plan["database_tunnel"]["local_port"])], log=self.group_log("production-compose"))
-        # Install the real server-only identity itself. Source-APP installation
-        # receipts cannot be carried across the native server release boundary.
+                     "--mysql-host-port", str(self.plan["database_tunnel"]["local_port"])], log=self.group_log(group))
+        if docker_env.is_symlink() or docker_env.stat().st_mode & 0o777 != 0o600:
+            fail("native Docker environment is unsafe")
+        values = dict(line.split("=", 1) for line in docker_env.read_text().splitlines() if line and not line.startswith("#"))
+        for key, expected in {"PHP_IMAGE": image["image_id"], "NGINX_IMAGE": contract["input_images"]["nginx"],
+                "MYSQL_IMAGE": contract["input_images"]["mysql"], "COMPOSE_PROJECT_NAME": self.plan["compose_project"],
+                "HTTP_BIND": "127.0.0.1",
+                "HTTP_PORT": str(self.plan["ports"]["http"]), "MYSQL_HOST_PORT": str(self.plan["database_tunnel"]["local_port"])}.items():
+            if values.get(key) != expected:
+                fail(f"native Docker environment identity changed: {key}")
+        command(["bash", str(server / "docker/scripts/prepare-vendor.sh"), "start", str(server), image["image_id"]], log=self.group_log(group))
+        command(["python3", str(server / "docker/scripts/vendor-state.py"), "check", "--server", str(server)], capture=True)
+        self.native_release_identity(server, mode)
         registry = self.application_registry(project_root, database)
         private_registry = server / "private/resources/project-resources.json"
-        private_registry.parent.mkdir(exist_ok=True)
         shutil.copyfile(registry, private_registry)
         private_registry.chmod(0o600)
-        original = self.generated[mode]
-        self.generated[mode] = native
-        try:
-            fresh_receipt = self.output / "groups" / f"native-server-fresh-{mode}.json"
-            reuse = read_json(fresh_receipt) if fresh_receipt.is_file() else {}
-            if not (reuse.get("status") == "passed" and reuse.get("candidate") == self.args.candidate
-                    and reuse.get("database") == database and reuse.get("archive_sha256") == sha256(archive)
-                    and reuse.get("server_release_identity_sha256") == sha256(server / ".peanut/release-identity.json")
-                    and (server / "private/installation/installed.json").is_file()
-                    and reuse.get("installed_receipt_sha256") == sha256(server / "private/installation/installed.json")
-                    and self.database_exists(database)):
-                self.install_current(database, mode, self.group_log("production-compose"), project_root=native)
-                self.write_json(fresh_receipt, {"status": "passed", "candidate": self.args.candidate, "database": database,
-                    "archive_sha256": sha256(archive), "server_release_identity_sha256": sha256(server / ".peanut/release-identity.json"),
-                    "installed_receipt_sha256": sha256(server / "private/installation/installed.json")})
-        finally:
-            self.generated[mode] = original
-        # This cache is an owned fresh qualification instance, never an upgrade
-        # instance. Discard only a stale closed initial-start marker after a
-        # completed matching fresh install; native startup revalidates identity
-        # and grants traffic itself. No readiness grant is manufactured.
-        traffic = server / "runtime/upgrade"
-        initialized = traffic / ".traffic-initialized"
-        if initialized.is_file() and not (traffic / ".traffic-ready").exists():
-            if any((traffic / name).exists() for name in ("maintenance.json", "current-update.json")):
-                fail("native fresh instance unexpectedly contains update state")
-            self.write_json(self.output / "groups" / f"initial-traffic-reset-{mode}.json", {
-                "scope": "owned fresh qualification instance only", "old_marker_sha256": sha256(initialized),
-                "reason": "earlier unsuccessful initial startup; completed matching native fresh install"})
-            initialized.unlink()
-        registry = self.application_registry(project_root, database)
-        private_registry = server / "private/resources/project-resources.json"
-        private_registry.parent.mkdir(exist_ok=True)
-        shutil.copyfile(registry, private_registry)
-        private_registry.chmod(0o600)
+        fresh_receipt = self.output / "groups" / f"native-server-fresh-{scenario}.json"
+        installed = server / "private/installation/installed.json"
+        reuse = read_json(fresh_receipt) if fresh_receipt.is_file() else {}
+        if installed.exists():
+            if (installed.is_symlink() or not installed.is_file() or not self.database_exists(database)
+                    or reuse.get("status") not in ("installed", "passed")
+                    or reuse != identity | {"status": reuse.get("status"), "installed_receipt_sha256": sha256(installed)}):
+                fail("native installed receipt does not match this exact instance; preserve it")
+            self.assert_up_to_date(database, mode, self.group_log(group), project_root=native)
+        else:
+            if fresh_receipt.exists() or not self.database_exists(database):
+                fail("native fresh state/database identity diverged")
+            self.install_current(database, mode, self.group_log(group), project_root=native)
+            self.write_json(fresh_receipt, identity | {"status": "installed", "installed_receipt_sha256": sha256(installed)})
+        if reuse.get("status") != "passed":
+            with self.backend_process_environment(native, database, mode) as env:
+                command(["php", "server/think", "plugin:reconcile", "--official-locked"], cwd=native, env=env, log=self.group_log(group))
+            self.inspect(database, mode, f"{group}-database", project_root=native)
+            self.write_json(fresh_receipt, identity | {"status": "passed", "installed_receipt_sha256": sha256(installed)})
+        self.native_release_identity(server, mode)
         backend = self.backend_values(database, mode, consumer="container")
-        backend.update({"PEANUT_INSTALLATION_MODE": "automatic", "PEANUT_RESOURCE_LEASE_PROOF": self.plan["lease_proof_container_path"],
-                        "PLATFORM_HOSTS": self.plan["browser_hosts"]["platform"], "TENANT_ADMIN_HOSTS": self.plan["browser_hosts"]["tenant_admin"]})
-        env_file = native / "server/.env"
+        backend.update({"PEANUT_RESOURCE_LEASE_PROOF": self.plan["lease_proof_container_path"],
+                        "PLATFORM_HOSTS": self.plan["browser_hosts"]["platform"],
+                        "TENANT_ADMIN_HOSTS": ",".join([self.plan["browser_hosts"]["tenant_admin"], self.plan["browser_hosts"]["tenant_beta"]])})
+        env_file = server / ".env"
         env_file.write_text("".join(f"{key}={value}\n" for key, value in sorted(backend.items())))
         env_file.chmod(0o600)
-        self.compose_backend_env = env_file
-        values = {"COMPOSE_PROJECT_NAME": self.plan["compose_project"], "HTTP_PORT": str(self.plan["ports"]["http"]),
-                  "PHP_IMAGE": image["image_id"], "NGINX_IMAGE": nginx,
-                  "MYSQL_IMAGE": self.plan["database_admin_tooling"]["container_image"], "MYSQL_ROOT_PASSWORD": secrets.token_hex(32),
-                  "NATIVE_COMPOSE_FILE": str(native / "server/docker/compose.yaml"), "PEANUT_SERVER_ENV_FILE": str(env_file)}
+        values.update({"NATIVE_COMPOSE_FILE": str(server / "docker/compose.yaml"), "PEANUT_SERVER_ENV_FILE": str(env_file)})
         self.compose_env.write_text("".join(f"{key}={value}\n" for key, value in sorted(values.items())))
         self.compose_env.chmod(0o600)
-        # Native Compose's optional bundled MySQL is replaced by the explicitly
-        # registered external allocation, not started as another database.
-        text = "services:\n  php:\n    depends_on: !reset {}\n"
-        text += "    volumes:\n      - " + self.plan["lease_proof_dir"] + ":" + self.plan["lease_proof_container_path"] + ":ro\n"
-        text += "  mysql:\n    profiles: [bundled-db]\nnetworks:\n  default:\n    ipam:\n      config:\n        - subnet: 192.168.224.0/20\n"
-        self.compose_overlay.write_text(text); self.compose_overlay.chmod(0o600)
-        self.write_json(self.output / "groups" / f"native-server-runtime-{mode}.json", {
-            "status": "prepared", "archive_sha256": sha256(archive), "php_runtime_resource": runtime["stable_resource_id"],
-            "php_image_id": actual, "dockerfile_sha256": image["dockerfile_sha256"], "nginx_image": nginx,
-            "server_release_identity_sha256": sha256(native / "server/.peanut/release-identity.json"), "native_compose": values["NATIVE_COMPOSE_FILE"]})
-
-    def write_compose_env(self, project_root: Path, database: str, mode: str) -> None:
-        if self.args.minimum_release:
-            self.native_server_compose_env(project_root, database, mode)
-            return
-        application_registry = self.application_registry(project_root, database)
-        self.compose_backend_env = self.write_backend_env(
-            project_root,
-            database,
-            mode,
-            container_runtime=True,
-        )
-        backend_values = self.backend_values(database, mode)
-        backend_values.update({
-            "PLATFORM_HOSTS": self.plan["browser_hosts"]["platform"],
-            "TENANT_ADMIN_HOSTS": ",".join([self.plan["browser_hosts"]["tenant_admin"], self.plan["browser_hosts"]["tenant_beta"]]),
-            "JWT_SECRET": required_environment("P0E_JWT_SECRET"),
-            "TENANT_IDENTIFIER_HMAC_KEY": required_environment("P0E_TENANT_IDENTIFIER_HMAC_KEY"),
-            "PLATFORM_IDENTIFIER_HMAC_KEY": required_environment("P0E_PLATFORM_IDENTIFIER_HMAC_KEY"),
-            "PEANUT_RESOURCE_LEASE_PROOF": self.plan["lease_proof_container_path"],
-        })
-        temporary_backend = self.compose_backend_env.with_suffix(self.compose_backend_env.suffix + ".tmp")
-        temporary_backend.write_text(
-            "".join(f"{key}={value}\n" for key, value in sorted(backend_values.items())),
-            encoding="utf-8",
-        )
-        temporary_backend.chmod(0o600)
-        temporary_backend.replace(self.compose_backend_env)
-        values = {
-            "HTTP_PORT": str(self.plan["ports"]["http"]),
-            "PHP_IMAGE": f"peanut-p0e-php:{self.args.run_id}",
-            "NGINX_IMAGE": f"peanut-p0e-nginx:{self.args.run_id}",
-            "PEANUT_SOURCE_COMMIT": self.args.candidate,
-            "PEANUT_SOURCE_TREE": self.plan["candidate_tree"],
-            "PEANUT_SERVER_ENV_FILE": str(self.compose_backend_env),
-            "PEANUT_APPLICATION_RESOURCE_REGISTRY_FILE": str(application_registry),
-        }
-        temporary = self.compose_env.with_suffix(".tmp")
-        temporary.write_text("".join(f"{key}={value}\n" for key, value in values.items()), encoding="utf-8")
-        temporary.chmod(0o600)
-        temporary.replace(self.compose_env)
-        proof_dir = Path(self.plan["lease_proof_dir"])
-        if not proof_dir.is_dir():
-            fail(f"active lease proof directory is unavailable: {proof_dir}")
-        parent_mount = ""
+        self.compose_backend_env = env_file
         if self.args.parent_lease:
             verify_lease(self.args, self.plan)
-            parent_dir = proof_dir.parent / self.args.parent_lease
-            if parent_dir.is_symlink() or not parent_dir.is_dir():
-                fail("active parent lease proof directory is unavailable")
-            parent_mount = (
-                "      - type: bind\n"
-                f"        source: {parent_dir}\n"
-                "        target: /run/peanut-admin/resource-lease-parent\n"
-                "        read_only: true\n"
-            )
-        overlay = (
-            "services:\n"
-            "  php:\n"
-            "    volumes:\n"
-            "      - type: bind\n"
-            f"        source: {proof_dir}\n"
-            f"        target: {self.plan['lease_proof_container_path']}\n"
-            "        read_only: true\n"
-            f"{parent_mount}"
-            "      - type: bind\n"
-            f"        source: {ROOT / 'server/database/environment-guard.php'}\n"
-            "        target: /var/www/peanut-admin/server/database/environment-guard.php\n"
-            "        read_only: true\n"
-            "  cron:\n"
-            "    volumes:\n"
-            "      - type: bind\n"
-            f"        source: {proof_dir}\n"
-            f"        target: {self.plan['lease_proof_container_path']}\n"
-            "        read_only: true\n"
-            f"{parent_mount}"
-            "networks:\n"
-            "  default:\n"
-            "    ipam:\n"
-            "      config:\n"
-            "        - subnet: 192.168.224.0/20\n"
-        )
-        self.compose_overlay.write_text(overlay, encoding="utf-8")
+        self.compose_overlay.write_text(self.native_compose_overlay())
         self.compose_overlay.chmod(0o600)
+        self.write_json(self.output / "groups" / f"native-server-runtime-{scenario}.json", identity | {
+            "status": "prepared", "installed_receipt_sha256": sha256(installed), "php_runtime_resource": contract["php_runtime_resource"],
+            "php_image_id": actual, "dockerfile_sha256": image["dockerfile_sha256"], "native_compose": values["NATIVE_COMPOSE_FILE"],
+            "docker_env_sha256": sha256(docker_env), "runtime_env_sha256": sha256(env_file)})
+        return native
+
+    def native_compose_overlay(self) -> str:
+        # The same overlay is parsed during Preflight and written for startup.
+        # Producing it only reads existing proof directories; it claims/writes nothing.
+        proof_dir = Path(self.plan["lease_proof_dir"])
+        if proof_dir.is_symlink() or not proof_dir.is_dir():
+            fail("active child lease proof directory is unavailable")
+        mounts = f"      - {proof_dir}:{self.plan['lease_proof_container_path']}:ro\n"
+        if self.args.parent_lease:
+            parent = proof_dir.parent / self.args.parent_lease
+            if parent.is_symlink() or not parent.is_dir():
+                fail("active parent lease proof directory is unavailable")
+            mounts += f"      - {parent}:/run/peanut-admin/resource-lease-parent:ro\n"
+        return ("services:\n  php:\n    depends_on: !reset {}\n    volumes:\n" + mounts
+            + "  mysql:\n    profiles: [bundled-db]\nnetworks:\n  default:\n    ipam:\n      config:\n        - subnet: 192.168.224.0/20\n")
+
+    def write_compose_env(self, project_root: Path, database: str, mode: str, scenario: str, group: str) -> Path:
+        return self.native_server_compose_env(project_root, database, mode, scenario, group)
 
     def compose_environment(self) -> dict[str, str]:
         try:
@@ -2190,31 +2204,19 @@ class Runner:
         project_root: Path = ROOT,
     ) -> subprocess.CompletedProcess[str]:
         environment = self.compose_environment()
-        if self.args.minimum_release:
-            native_file = environment.get("NATIVE_COMPOSE_FILE")
-            if not native_file:
-                if not check:
-                    return subprocess.CompletedProcess(["docker"], 0, "", "")
-                fail("native server Compose identity is unavailable")
-            selected = [item for item in arguments if item not in ("--build", "cron")]
-            if "--rmi" in selected:
-                index = selected.index("--rmi")
-                del selected[index:index + 2]
-            if selected and selected[0] == "up":
-                return command(["bash", str(Path(native_file).parent / "scripts/start.sh"), "-f", str(self.compose_overlay)],
-                               cwd=Path(native_file).parent, env=environment, log=log, capture=log is None, check=check)
-            return command(["docker", "compose", "--project-name", self.plan["compose_project"],
-                            "--env-file", str(self.compose_env), "-f", native_file, "-f", str(self.compose_overlay),
-                            *selected], cwd=Path(native_file).parent, env=environment, log=log, capture=log is None, check=check)
-        if self.compose_backend_env is None or not self.compose_backend_env.is_file():
-            fail("P0-E backend Compose environment is unavailable")
-        return command([
-            "docker", "compose", "--project-name", self.plan["compose_project"],
-            "--env-file", str(self.compose_env), "--env-file", str(self.compose_backend_env),
-            "-f", str(project_root / "deploy/docker-compose.prod.yml"),
-            "-f", str(self.compose_overlay),
-            *arguments,
-        ], cwd=project_root, env=environment, log=log, capture=log is None, check=check)
+        native_file = environment.get("NATIVE_COMPOSE_FILE")
+        if not native_file:
+            fail("native server Compose identity is unavailable")
+        selected = [item for item in arguments if item not in ("--build", "cron")]
+        if "--rmi" in selected:
+            index = selected.index("--rmi")
+            del selected[index:index + 2]
+        if selected and selected[0] == "up":
+            return command(["bash", str(Path(native_file).parent / "scripts/start.sh"), "-f", str(self.compose_overlay)],
+                           cwd=Path(native_file).parent, env=environment, log=log, capture=log is None, check=check)
+        return command(["docker", "compose", "--project-name", self.plan["compose_project"],
+                        "--env-file", str(self.compose_env), "-f", native_file, "-f", str(self.compose_overlay),
+                        *selected], cwd=Path(native_file).parent, env=environment, log=log, capture=log is None, check=check)
 
     def wait_http(self, url: str, seconds: int = 120) -> None:
         deadline = time.time() + seconds
@@ -2230,68 +2232,30 @@ class Runner:
             time.sleep(2)
         fail(f"HTTP readiness failed for {url}: {error}")
 
-    def production_compose_at(self, project_root: Path, scenario: str, group: str) -> None:
+    def production_compose_at(self, project_root: Path, scenario: str, group: str, mode: str = "standalone") -> None:
         database = self.plan["databases"][scenario]
-        log = self.group_log(group)
-        if not (self.args.minimum_release and (self.output / "groups/native-server-fresh-standalone.json").is_file() and self.database_exists(database)):
+        if not self.database_exists(database):
             self.create_database(database)
-        if self.args.minimum_release:
-            self.start_database_tunnel()
-            self.write_compose_env(project_root, database, "standalone")
-            self.compose("up", "-d", "php", "nginx", log=log, project_root=project_root)
-            self.active_compose_root = project_root
-            self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
-            self.write_json(self.output / "groups" / f"{group}.json", {
-                "schema_version": 1, "candidate": self.args.candidate,
-                "application_root": str(project_root), "mode": "standalone",
-                "runtime_shape": "native-server-only", "status": "passed"})
-            return
-        self.install_current(database, "standalone", log, project_root=project_root)
-        with self.backend_process_environment(project_root, database, "standalone") as env:
-            command(
-                ["php", "server/think", "plugin:reconcile", "--official-locked"],
-                cwd=project_root,
-                env=env,
-                log=log,
-            )
-        self.inspect(database, "standalone", f"{group}-database", project_root=project_root)
         self.start_database_tunnel()
-        self.write_compose_env(project_root, database, "standalone")
-        self.compose("up", "-d", "--build", "php", "nginx", "cron", log=log, project_root=project_root)
-        self.active_compose_root = project_root
+        native = self.write_compose_env(project_root, database, mode, scenario, group)
+        if mode == "multi-tenant":
+            self.seed_multi_tenant_browser_binding(database, self.group_log(group))
+        self.compose("up", "-d", "php", "nginx", log=self.group_log(group), project_root=native)
+        self.active_compose_root = native
         self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
         self.write_json(self.output / "groups" / f"{group}.json", {
-            "schema_version": 1,
-            "compose_project": self.plan["compose_project"],
-            "candidate": self.args.candidate,
-            "application_root": str(project_root),
-            "mode": "standalone",
-            "health_url": f"http://127.0.0.1:{self.plan['ports']['http']}/healthz",
-            "status": "passed",
-        })
+            "schema_version": 1, "candidate": self.args.candidate, "database": database, "scenario": scenario,
+            "application_root": str(native), "documentation_root": str(project_root), "mode": mode,
+            "runtime_shape": "native-server-only", "status": "passed"})
 
     def production_compose(self) -> None:
-        business_path = self.output / "minimum-business-standalone.json"
-        standalone = read_json(business_path) if self.args.minimum_release and business_path.is_file() else {}
-        if not (standalone.get("status") == "passed" and standalone.get("candidate") == self.args.candidate):
-            self.production_compose_at(self.generated["standalone"], "standalone_browser", "production-compose")
-            if self.args.minimum_release:
-                standalone = self.minimum_business("standalone") | {"candidate": self.args.candidate}
-                self.write_json(business_path, standalone)
-                self.compose("down", "--volumes", "--remove-orphans", project_root=self.generated["standalone"])
+        self.production_compose_at(self.generated["standalone"], "standalone_browser", "production-compose")
         if self.args.minimum_release:
-            results = {"standalone": standalone}
-            generated = self.generated["multi-tenant"]
-            database = self.plan["databases"]["multi_tenant_fresh"]
-            if not ((self.output / "groups/native-server-fresh-multi-tenant.json").is_file() and self.database_exists(database)):
-                self.create_database(database)
-            self.start_database_tunnel()
-            self.write_compose_env(generated, database, "multi-tenant")
-            self.seed_multi_tenant_browser_binding(database, self.group_log("production-compose"))
-            self.compose("up", "-d", "--build", "php", "nginx", "cron", log=self.group_log("production-compose"), project_root=generated)
-            self.active_compose_root = generated
-            self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
-            results["multi-tenant"] = self.minimum_business("multi-tenant")
+            standalone = self.minimum_business("standalone") | {"candidate": self.args.candidate}
+            self.write_json(self.output / "minimum-business-standalone.json", standalone)
+            self.compose("down", "--volumes", "--remove-orphans", project_root=self.active_compose_root)
+            self.production_compose_at(self.generated["multi-tenant"], "multi_tenant_fresh", "production-compose", "multi-tenant")
+            results = {"standalone": standalone, "multi-tenant": self.minimum_business("multi-tenant")}
             self.write_json(self.output / "minimum-business.json", results)
 
     def minimum_business(self, mode: str) -> dict[str, Any]:
@@ -2381,34 +2345,11 @@ class Runner:
 
     def browser_at(self, mode: str, project_root: Path, scenario: str, group: str, output_scope: str) -> None:
         database = self.plan["databases"][scenario]
-        if mode == "multi-tenant":
-            self.start_database_tunnel()
-            if self.compose_env.exists() and self.compose_overlay.exists() and self.active_compose_root != project_root:
-                self.compose(
-                    "down", "--volumes", "--remove-orphans", "--rmi", "local",
-                    check=False,
-                    project_root=self.active_compose_root,
-                )
-            if not self.database_exists(database):
-                self.create_database(database)
-                self.install_current(database, mode, self.group_log(group), project_root=project_root)
-                with self.backend_process_environment(project_root, database, mode) as env:
-                    command(
-                        ["php", "server/think", "plugin:reconcile", "--official-locked"],
-                        cwd=project_root,
-                        env=env,
-                        log=self.group_log(group),
-                    )
-            self.inspect(database, mode, f"{group}-database", project_root=project_root)
-            self.seed_multi_tenant_browser_binding(database, self.group_log(group))
-            self.write_compose_env(project_root, database, mode)
-            self.compose(
-                "up", "-d", "--build", "--force-recreate", "php", "nginx", "cron",
-                log=self.group_log(group),
-                project_root=project_root,
-            )
-            self.active_compose_root = project_root
-            self.wait_http(f"http://127.0.0.1:{self.plan['ports']['http']}/healthz")
+        # Documentation/source manifest remain the generated source APP contract.
+        # Only runtime comes from the immutable server-only archive.
+        if self.compose_env.exists() and self.compose_overlay.exists():
+            self.compose("down", "--volumes", "--remove-orphans", check=False, project_root=self.active_compose_root)
+        self.production_compose_at(project_root, scenario, group, mode)
         self.start_docs(project_root)
         browser_output = self.output / "browser" / output_scope
         browser_output.mkdir(parents=True, exist_ok=True)

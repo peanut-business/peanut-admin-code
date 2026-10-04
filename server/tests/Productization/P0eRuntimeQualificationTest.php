@@ -174,6 +174,49 @@ foreach ($plan['group_inputs'] as $group => $inputs) {
     $expect(($inputs['source_files'] ?? []) !== [] && count($inputs['runtime_value_names'] ?? []) === 13,
         "group {$group} lost its explicit source/runtime-value preflight contract");
 }
+$nativeRuntime = array_values(array_filter(
+    $registry['resources']['tooling'] ?? [],
+    static fn(array $item): bool => ($item['stable_resource_id'] ?? '') === 'peanut-admin-phase1-image-preparation',
+));
+$expect(count($nativeRuntime) === 1, 'native server runtime registration is not unique');
+$nativeScenarios = [
+    'production-compose' => ['standalone_browser', 'multi_tenant_fresh'],
+    'standalone-browser' => ['standalone_browser'],
+    'multi-tenant-browser' => ['multi_tenant_browser'],
+];
+$nativeFiles = [
+    'server/docker/compose.yaml',
+    'server/docker/runtime-configuration.example.json',
+    'server/docker/scripts/configure-runtime.py',
+    'server/docker/scripts/start.sh',
+    'server/docker/scripts/php-entrypoint.sh',
+    'server/docker/scripts/vendor-state.py',
+    'server/docker/scripts/prepare-vendor.sh',
+    'server/docker/scripts/prepare-vendor.php',
+    'server/docker/scripts/update-plan.php',
+    'server/database/install.php',
+    'server/database/environment-guard.php',
+    'server/tests/fixtures/mt05/inspect.php',
+    'scripts/build-edition-installers',
+    'scripts/package-release-files.py',
+];
+foreach ($nativeScenarios as $group => $scenarios) {
+    $contract = $plan['group_inputs'][$group]['runtime_contract'] ?? [];
+    $expect($contract === [
+        'shape' => 'native-server-only',
+        'php_runtime_resource' => $nativeRuntime[0]['stable_resource_id'],
+        'built_output' => $nativeRuntime[0]['built_output'],
+        'input_images' => $nativeRuntime[0]['input_images'],
+        'installation_consumer' => 'host',
+        'runtime_consumer' => 'container',
+        'deployment_target' => 'local-production-preview',
+        'scenarios' => $scenarios,
+    ], "{$group} native runtime identity or consumer contract diverged");
+    foreach ($nativeFiles as $relative) {
+        $expect(($plan['group_inputs'][$group]['source_files'][$relative] ?? null) === hash_file('sha256', $root . '/' . $relative),
+            "{$group} did not bind native input {$relative}");
+    }
+}
 $documents = $plan['group_inputs']['generated-application']['documentation'] ?? [];
 $expect(($documents['delivery'] ?? null) === 'versioned-markdown-and-openapi'
     && ($documents['api_version'] ?? null) === $releaseVersion
@@ -260,6 +303,10 @@ $selectedQualificationResources = array_values(array_map(
 $expect($selectedQualificationResources === ['standalone-browser'], 'selected P0-E lease did not bind its canonical resource cutoff');
 $expect(($selectedPlan['compose_required'] ?? null) === true, 'selected prerelease plan lost Compose execution');
 $expect(($selectedPlan['browser_required'] ?? null) === true, 'selected prerelease plan lost browser execution');
+foreach (['production-compose', 'standalone-browser'] as $group) {
+    $expect(($selectedPlan['group_inputs'][$group] ?? null) === $plan['group_inputs'][$group],
+        "{$group} changed native inputs or runtime shape with Gate selection");
+}
 
 $invalidSelectedArguments = $arguments;
 $invalidSelectedArguments[] = '--groups';
@@ -353,9 +400,10 @@ $expect(str_contains($runnerSource, 'prepare_database_credentials()'), 'P0-E run
 $expect(str_contains($runnerSource, 'runtime-credentials.env'), 'P0-E runner does not retain per-run browser credentials for resume');
 $expect(str_contains($runnerSource, 'resources != expected_resources'), 'lease verification is not an exact-set comparison');
 $expect(str_contains($runnerSource, '"candidate_repository": plan_data["worktree"]'), 'lease verification lost the candidate repository boundary');
-$expect(str_contains($runnerSource, 'read_only: true'), 'container lease proof is not read-only');
+$expect(str_contains($runnerSource, 'input_text=self.native_compose_overlay()')
+    && str_contains($runnerSource, 'self.compose_overlay.write_text(self.native_compose_overlay())'),
+    'native Preflight and startup do not consume the same lease-proof overlay');
 $expect(str_contains($runnerSource, 'PERSISTENT_DATABASE'), 'persistent database refusal is missing');
-$expect(!str_contains($runnerSource, '["mysql"'), 'runner reintroduced a bare host MySQL client');
 $expect(
     str_contains($runnerSource, '["php", "server/database/environment-guard.php", "--current"]'),
     'P0-E install does not qualify the complete fresh schema through the environment guard',
@@ -376,7 +424,7 @@ $expect(str_contains($browserFixture, "form.locator('.el-select').waitFor"), 'mu
 $expect(str_contains($browserFixture, ".el-select-dropdown:visible .el-select-dropdown__item').first().click()"), 'multi-tenant browser smoke must select a tenant before its second login submission');
 
 $nativeProofCode = <<<'PY'
-import hashlib, pathlib, runpy, tempfile
+import hashlib, pathlib, runpy, tempfile, types
 namespace = runpy.run_path("scripts/p0e-runtime-qualification")
 Runner = namespace["Runner"]
 registry = namespace["REGISTRY_PATH"]
@@ -404,7 +452,21 @@ with tempfile.TemporaryDirectory(prefix="p0e-registry-proof-", dir=".local/tmp")
     runner.plan["registry_sha256"] = "f" * 64
     reject(lambda: runner.prepare_registry_proof())
     assert not proof.exists()
+    runner.plan["lease_proof_container_path"] = "/run/peanut-admin/resource-lease"
+    runner.args = types.SimpleNamespace(parent_lease="")
+    overlay = runner.native_compose_overlay()
+    assert f"      - {directory}:/run/peanut-admin/resource-lease:ro\n" in overlay
+    assert "depends_on: !reset {}" in overlay and "profiles: [bundled-db]" in overlay
+    assert "resource-lease-parent" not in overlay
+    with tempfile.TemporaryDirectory(prefix="p0e-parent-proof-", dir=pathlib.Path(directory).parent) as parent:
+        runner.args.parent_lease = pathlib.Path(parent).name
+        overlay = runner.native_compose_overlay()
+        assert f"      - {directory}:/run/peanut-admin/resource-lease:ro\n" in overlay
+        assert f"      - {parent}:/run/peanut-admin/resource-lease-parent:ro\n" in overlay
+        assert overlay.count(":ro\n") == 2
+    reject(lambda: runner.native_compose_overlay())
 print("native registry proof export passed; cases=7")
+print("native shared overlay contract passed; cases=3")
 PY;
 $nativeOutput = [];
 $nativeCode = 0;
@@ -413,7 +475,7 @@ $expect($nativeCode === 0, 'native registry proof export failed: ' . implode("\n
 echo implode("\n", $nativeOutput), "\n";
 
 $consumerContractCode = <<<'PY'
-import argparse, ast, copy, json, os, runpy, shutil, subprocess, tempfile, textwrap
+import argparse, ast, copy, json, os, runpy, shlex, shutil, subprocess, tempfile, textwrap
 from pathlib import Path
 from unittest.mock import patch
 
@@ -430,6 +492,39 @@ namespace = {'argparse': argparse, '__doc__': 'actual consumer parser'}
 exec(compile(ast.fix_missing_locations(ast.Module(body=body, type_ignores=[])), str(consumer_path), 'exec'), namespace)
 parser = namespace['parser']
 runner_tree = ast.parse((root / 'scripts/p0e-runtime-qualification').read_text())
+
+def bare_host_mysql_calls(tree):
+    def executable(argv):
+        if isinstance(argv, (ast.List, ast.Tuple)) and argv.elts:
+            first = argv.elts[0]
+            return first.value if isinstance(first, ast.Constant) else None
+        if isinstance(argv, ast.Constant) and isinstance(argv.value, str):
+            words = shlex.split(argv.value)
+            return words[0] if words else None
+        if isinstance(argv, ast.BinOp) and isinstance(argv.op, ast.Add):
+            return executable(argv.left)
+        return None
+    failures = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        is_command = isinstance(node.func, ast.Name) and node.func.id == 'command'
+        is_subprocess = (isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == 'subprocess'
+            and node.func.attr in {'run', 'Popen', 'call', 'check_call', 'check_output'})
+        if not (is_command or is_subprocess):
+            continue
+        argv = node.args[0] if node.args else next((item.value for item in node.keywords if item.arg == 'args'), None)
+        if executable(argv) == 'mysql':
+            failures.append(node.lineno)
+    return failures
+
+assert bare_host_mysql_calls(ast.parse('value = contract["input_images"]["mysql"]')) == []
+assert bare_host_mysql_calls(ast.parse('command(["mysql", "--version"])')) == [1]
+assert bare_host_mysql_calls(ast.parse('subprocess.run(args=["mysql", "--version"])')) == [1]
+assert bare_host_mysql_calls(ast.parse('subprocess.Popen("mysql --version", shell=True)')) == [1]
+assert bare_host_mysql_calls(ast.parse('command(["docker", "exec", "allocation", "/usr/bin/mysql"])')) == []
+assert not bare_host_mysql_calls(runner_tree), 'runner reintroduced bare host MySQL calls at lines: ' + str(bare_host_mysql_calls(runner_tree))
 method = next(n for n in ast.walk(runner_tree) if isinstance(n, ast.FunctionDef) and n.name == 'consumer_module_lifecycle')
 options = {n.value for n in ast.walk(method) if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value.startswith('--')}
 assert options <= set(parser._option_string_actions), options - set(parser._option_string_actions)
