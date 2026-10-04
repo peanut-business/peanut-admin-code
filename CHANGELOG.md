@@ -3,6 +3,14 @@
 All notable Peanut Admin application changes are recorded here. The application
 and the two public core packages have independent version histories.
 
+## [4.0.0-rc.20] - 2026-10-04
+
+### Fixed
+
+- Compare official Module manifest identities using the same raw-file SHA-256 representation, so unchanged modules no longer block a downstream APP upgrade. Keep downgrade and changed-content protections for modules that reuse a version.
+- Verify archive entries by their actual tar type and stream file hashes when publishing larger SBOMs, preserving complete path and content integrity checks.
+- This prerelease uses the Minimum Release Gate; full Stable qualification remains pending.
+
 ## [4.0.0-rc.19] - 2026-10-04
 
 ### Changed
