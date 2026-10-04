@@ -58,7 +58,50 @@ const coreWebIdentity =
         .join(', ')
     : `@peanut-admin/admin@${versionContract.core_web}`;
 
+// Exact registry declarations for locked development entries not installed on
+// every host. Each declared version was checked against its lock integrity.
+const lockedLicenseDeclarations = new Map([
+  ['@rolldown/binding-android-arm-eabi@1.2.11', 'MIT'],
+  ['@rolldown/binding-android-arm64@1.2.11', 'MIT'],
+  ['@rolldown/binding-darwin-x64@1.2.11', 'MIT'],
+  ['@rolldown/binding-freebsd-x64@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-arm-gnueabihf@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-arm64-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-arm64-musl@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-ppc64-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-s390x-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-x64-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-x64-musl@1.2.11', 'MIT'],
+  ['@rolldown/binding-openharmony-arm64@1.2.11', 'MIT'],
+  ['@rolldown/binding-win32-arm64-msvc@1.2.11', 'MIT'],
+  ['@rolldown/binding-win32-x64-msvc@1.2.11', 'MIT'],
+  ['ansi-regex@6.3.0', 'MIT'],
+  ['ansi-styles@6.2.3', 'MIT'],
+  ['eastasianwidth@0.2.0', 'MIT'],
+  ['emoji-regex@9.2.2', 'MIT'],
+  ['lightningcss-android-arm64@1.33.0', 'MPL-2.0'],
+  ['lightningcss-darwin-x64@1.33.0', 'MPL-2.0'],
+  ['lightningcss-freebsd-x64@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-arm-gnueabihf@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-arm64-gnu@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-arm64-musl@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-x64-gnu@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-x64-musl@1.33.0', 'MPL-2.0'],
+  ['lightningcss-win32-arm64-msvc@1.33.0', 'MPL-2.0'],
+  ['lightningcss-win32-x64-msvc@1.33.0', 'MPL-2.0'],
+  ['string-width@5.1.2', 'MIT'],
+  ['strip-ansi@7.2.0', 'MIT'],
+  ['wrap-ansi@8.1.0', 'MIT'],
+]);
+
 const normalizeLicense = (license, name, version) => {
+  const declared = lockedLicenseDeclarations.get(`${name}@${version}`);
+  if (declared) {
+    if (license && license !== 'Unknown' && license !== declared) {
+      throw new Error(`license declaration changed for ${name}@${version}`);
+    }
+    return declared;
+  }
   if (
     (name === 'trim' && version === '0.0.1') ||
     (name === 'only' && version === '0.0.2') ||
