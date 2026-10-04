@@ -10,7 +10,8 @@ usage() {
   cat <<'EOF'
 Usage: scripts/publish-github-release <version> --qualification <summary.json> \
   --edition-artifacts <absolute-dir> [--edition-baseline] \
-  [--prerelease] [--prepare-only] [--output <absolute-dir>]
+  [--prerelease] [--prepare-only] [--output <absolute-dir>] \
+  [--main-integration=<absolute-premerge-receipt>]
 
 Creates the deterministic source archive, legal assets, external manifest and
 release notes from annotated tag v<version>. The Edition directory must contain
@@ -39,10 +40,12 @@ QUALIFICATION_FILE=''
 EDITION_ARTIFACTS=''
 EDITION_BASELINE=0
 PRERELEASE=0
+MAIN_INTEGRATION=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --prepare-only) PREPARE_ONLY=1; shift ;;
     --prerelease) PRERELEASE=1; shift ;;
+    --main-integration=*) [[ -z "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; MAIN_INTEGRATION="${1#*=}"; [[ "$MAIN_INTEGRATION" == /* && -f "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; shift ;;
     --output) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; OUTPUT_DIR="$2"; shift 2 ;;
     --qualification) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; QUALIFICATION_FILE="$2"; shift 2 ;;
     --edition-artifacts) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; EDITION_ARTIFACTS="$2"; shift 2 ;;
@@ -118,11 +121,75 @@ if [[ "$PRERELEASE" == 1 ]]; then
 fi
 "${release_check[@]}"
 
+verify_main_integration() {
+  node - "$REPOSITORY" "$COMMIT" "$TAG" "$TAG_OBJECT" "$MAIN_INTEGRATION" "$1" "${2:-}" <<'NODE'
+const fs = require('node:fs')
+const cp = require('node:child_process')
+const crypto = require('node:crypto')
+const [repository, source, tag, tagObject, receiptPath, proofPath, expectedMain] = process.argv.slice(2)
+const fail = (message) => { throw new Error(`publish-github-release: main integration ${message}`) }
+const run = (command, args) => cp.execFileSync(command, args, { encoding: 'utf8' }).trim()
+const git = (...args) => run('git', args)
+const sha = (value) => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value)
+const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex')
+const remote = git('remote', 'get-url', 'origin')
+if (![ `git@github.com:${repository}.git`, `https://github.com/${repository}.git` ].includes(remote)) fail('origin repository mismatch')
+const live = git('ls-remote', '--heads', 'origin', 'refs/heads/main').split('\n')
+if (live.length !== 1 || !/^[0-9a-f]{40}\trefs\/heads\/main$/.test(live[0])) fail('live main missing or ambiguous')
+const main = live[0].split('\t')[0]
+if (git('rev-parse', 'origin/main^{commit}') !== main) fail('local origin/main is stale')
+if (expectedMain && main !== expectedMain) fail('live main changed before publication')
+const tagRefs = git('ls-remote', '--tags', 'origin', `refs/tags/${tag}`, `refs/tags/${tag}^{}`).split('\n').sort()
+if (JSON.stringify(tagRefs) !== JSON.stringify([`${tagObject}\trefs/tags/${tag}`, `${source}\trefs/tags/${tag}^{}`].sort())
+  || git('rev-parse', `${tag}^{tag}`) !== tagObject || git('rev-parse', `${tag}^{commit}`) !== source) fail('live tag identity mismatch')
+const tree = git('rev-parse', `${source}^{tree}`)
+const proof = { schema_version: 1, repository, source_commit: source, source_tree: tree,
+  main_commit: main, tag, tag_object: tagObject, remote, observed_at: new Date().toISOString(), mode: 'exact-source' }
+if (main !== source) {
+  const parents = git('show', '-s', '--format=%P', main).split(' ')
+  if (parents.length !== 2 || !parents.every(sha) || parents[1] !== source || parents[0] === source) fail('requires exact parents [B,S]')
+  const base = parents[0]
+  if (git('rev-parse', `${main}^{tree}`) !== tree) fail('merge tree differs from qualified source')
+  git('merge-base', '--is-ancestor', base, source)
+  if (!receiptPath) fail('premerge receipt is required')
+  const receiptBytes = fs.readFileSync(receiptPath)
+  const receipt = JSON.parse(receiptBytes)
+  const fields = ['schema_version', 'repository', 'source_commit', 'base_commit', 'ready_for_stable', 'readiness_at', 'premerge_observed_at']
+  if (JSON.stringify(Object.keys(receipt).sort()) !== JSON.stringify(fields.sort())
+    || receipt.schema_version !== 1 || receipt.repository !== repository || receipt.source_commit !== source
+    || receipt.base_commit !== base || receipt.ready_for_stable !== true) fail('premerge receipt identity mismatch')
+  const utc = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+    && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value.replace(/Z$/, value.includes('.') ? 'Z' : '.000Z')
+  const associatedBytes = run('gh', ['api', `repos/${repository}/commits/${main}/pulls`])
+  const associated = JSON.parse(associatedBytes)
+  if (!Array.isArray(associated)) fail('PR discovery is not an array')
+  const selected = associated.filter((pr) => pr?.merge_commit_sha === main && pr?.head?.sha === source)
+  if (selected.length !== 1 || !Number.isSafeInteger(selected[0].number) || selected[0].number <= 0) fail('PR discovery missing or ambiguous')
+  const number = selected[0].number
+  const prBytes = run('gh', ['api', `repos/${repository}/pulls/${number}`])
+  const pr = JSON.parse(prBytes)
+  const url = `https://github.com/${repository}/pull/${number}`
+  if (pr.number !== number || pr.html_url !== url || pr.merged !== true || pr.state !== 'closed'
+    || pr.merge_commit_sha !== main || pr.head?.sha !== source || pr.head?.ref !== 'dev' || pr.base?.ref !== 'main'
+    || pr.head?.repo?.full_name !== repository || pr.base?.repo?.full_name !== repository
+    || !utc(pr.merged_at) || !utc(receipt.readiness_at) || !utc(receipt.premerge_observed_at)
+    || Date.parse(receipt.readiness_at) > Date.parse(receipt.premerge_observed_at)
+    || Date.parse(receipt.premerge_observed_at) >= Date.parse(pr.merged_at)) fail('merged PR or readiness ordering mismatch')
+  Object.assign(proof, { mode: 'merged-dev-main', base_commit: base, parents, main_tree: tree,
+    pr_number: number, pr_url: url, merged_at: pr.merged_at, readiness_at: receipt.readiness_at,
+    premerge_observed_at: receipt.premerge_observed_at, premerge_receipt_sha256: digest(receiptBytes),
+    associated_pr_response_sha256: digest(associatedBytes), pr_response_sha256: digest(prBytes) })
+}
+// Reobserve both remote refs after the API calls, including the final pre-create invocation.
+if (git('ls-remote', '--heads', 'origin', 'refs/heads/main') !== live[0]
+  || JSON.stringify(git('ls-remote', '--tags', 'origin', `refs/tags/${tag}`, `refs/tags/${tag}^{}`).split('\n').sort()) !== JSON.stringify(tagRefs)) fail('remote refs changed during verification')
+fs.writeFileSync(proofPath, JSON.stringify(proof, null, 2) + '\n')
+process.stdout.write(main)
+NODE
+}
+
 if [[ "$PREPARE_ONLY" != 1 ]]; then
-  [[ "$COMMIT" == "$(git rev-parse origin/main^{commit})" ]] || {
-    printf 'publish-github-release: tag does not resolve to current origin/main\n' >&2
-    exit 1
-  }
+  INTEGRATION_MAIN="$(verify_main_integration "$OUTPUT_DIR/MAIN_INTEGRATION_PROOF.json")"
   EXISTING="$(gh api "repos/$REPOSITORY/releases/tags/$TAG" --silent 2>/dev/null && printf yes || printf no)"
   [[ "$EXISTING" == no ]] || {
     printf 'publish-github-release: GitHub Release already exists: %s\n' "$TAG" >&2
@@ -423,6 +490,9 @@ if [[ "$PRERELEASE" == 1 ]]; then
   release_flags+=(--prerelease)
 else
   release_flags+=(--latest)
+fi
+if [[ "$PREPARE_ONLY" != 1 ]]; then
+  verify_main_integration "$OUTPUT_DIR/MAIN_INTEGRATION_PROOF.json" "$INTEGRATION_MAIN" >/dev/null
 fi
 gh release create "$TAG" "${release_paths[@]}" \
   "${release_flags[@]}"
