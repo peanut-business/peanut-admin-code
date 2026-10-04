@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\plugin;
 
+use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
@@ -603,11 +604,18 @@ final class PluginRuntimeGovernanceService
                 'Server Plugin lock is part of the release identity; change Plugins through a new application release.',
             );
         }
-        if (getenv('PEANUT_INSTALLATION_SOURCE_MODE') !== 'development'
-            || ($this->moduleConfig['plugin_lock'] ?? null) !== '../plugins.lock') {
+        $manifestPath = dirname($this->serverRoot) . '/.peanut/application-manifest.json';
+        $applicationSource = file_exists($manifestPath) || is_link($manifestPath);
+        if ($applicationSource) {
+            ApplicationSourceIdentity::load($this->serverRoot);
+        }
+        $lockPath = dirname($this->serverRoot) . '/plugins.lock';
+        if ((!$applicationSource && getenv('PEANUT_INSTALLATION_SOURCE_MODE') !== 'development')
+            || ($this->moduleConfig['plugin_lock'] ?? null) !== '../plugins.lock'
+            || !is_file($lockPath) || is_link($lockPath)) {
             throw new PluginLifecycleException(
                 'SERVER_RELEASE_IDENTITY_INVALID',
-                'A server release identity is required for deployed Plugin lifecycle operations.',
+                'A valid application source identity and project Plugin lock are required for source Plugin lifecycle operations.',
             );
         }
     }
