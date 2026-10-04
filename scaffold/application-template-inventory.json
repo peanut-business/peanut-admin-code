@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "808ac43a339ed8735fe82cda2ec054cb9c50b719838ba73bf440cb2188b14b18"
+            "source_sha256": "4c1722894286a57192d01a9edd76b2d235b22af2d3be2690de6ad97507555a4e"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -24058,7 +24058,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f788bdc3cbe179c0af9e3c041fe2356e46f322fed81767f6dbb779c92b87657"
+            "source_sha256": "7e0875d1be697f6390e9d49f420bcfe719cfddf41800f339a39775af87db655e"
         },
         {
             "path": "server/docker/scripts/vendor-state.py",

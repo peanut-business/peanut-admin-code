@@ -159,11 +159,11 @@ run_database() {
     mysql_container=$(compose ps -q mysql)
     [ -n "$mysql_container" ] || { echo "mysql container is unavailable for native migration" >&2; return 1; }
     docker run --rm --network "container:$mysql_container" \
-        --mount "type=bind,src=$SERVER_DIR,dst=/instance-server,readonly" \
-        --mount "type=bind,src=$SERVER_DIR/runtime,dst=/instance-server/runtime" \
-        --mount "type=bind,src=$workspace,dst=/workspace" \
+        --mount "type=bind,src=$SERVER_DIR,dst=/instance/server,readonly" \
+        --mount "type=bind,src=$SERVER_DIR/runtime,dst=/instance/server/runtime" \
+        --mount "type=bind,src=$workspace,dst=$workspace" \
         --mount "type=bind,src=$tool_dir/update-database.php,dst=/tool/update-database.php,readonly" \
-        --entrypoint php "$php_image" /tool/update-database.php "$phase" /instance-server /workspace
+        --entrypoint php "$php_image" /tool/update-database.php "$phase" /instance/server "$workspace"
 }
 
 prepare_nginx_configuration() {
@@ -197,22 +197,22 @@ PY
 run_update_tool() {
     phase=$1
     docker run --rm --network none \
-        --mount "type=bind,src=$SERVER_DIR,dst=/instance-server" \
+        --mount "type=bind,src=$SERVER_DIR,dst=/instance/server" \
         --mount "type=bind,src=$trusted_tool,dst=/tool/update-plan.php,readonly" \
-        --mount "type=bind,src=$workspace,dst=/workspace" \
+        --mount "type=bind,src=$workspace,dst=$workspace" \
         --entrypoint php "$php_image" /tool/update-plan.php "$phase" \
-        --instance-server=/instance-server --workspace=/workspace
+        --instance-server=/instance/server --workspace="$workspace"
 }
 
 if [ "$command" = plan ]; then
     exec docker run --rm --network none \
-        --mount "type=bind,src=$SERVER_DIR,dst=/instance-server,readonly" \
+        --mount "type=bind,src=$SERVER_DIR,dst=/instance/server,readonly" \
         --mount "type=bind,src=$trusted_tool,dst=/tool/update-plan.php,readonly" \
         --mount "type=bind,src=$archive,dst=/target.tar.gz,readonly" \
-        --mount "type=bind,src=$workspace,dst=/workspace" \
+        --mount "type=bind,src=$workspace,dst=$workspace" \
         --entrypoint php "$php_image" /tool/update-plan.php plan \
-        --instance-server=/instance-server --archive=/target.tar.gz \
-        --expected-sha256="$expected" --workspace=/workspace
+        --instance-server=/instance/server --archive=/target.tar.gz \
+        --expected-sha256="$expected" --workspace="$workspace"
 fi
 
 compose() {
@@ -270,13 +270,15 @@ run_private_verifier() {
     php_container=$(compose ps -q php)
     [ -n "$php_container" ] || { echo "php container is unavailable for private verification" >&2; return 1; }
     docker run --rm --network "container:$php_container" \
-        --mount "type=bind,src=$SERVER_DIR,dst=/instance-server,readonly" \
-        --mount "type=bind,src=$SERVER_DIR/runtime,dst=/instance-server/runtime" \
+        --mount "type=bind,src=$SERVER_DIR,dst=/instance/server,readonly" \
+        --mount "type=bind,src=$SERVER_DIR/runtime,dst=/instance/server/runtime" \
+        --mount "type=bind,src=$SERVER_DIR/private,dst=/instance/server/private" \
+        --mount "type=bind,src=$SERVER_DIR/public/storage,dst=/instance/server/public/storage" \
         --mount "type=bind,src=$trusted_tool,dst=/tool/update-plan.php,readonly" \
-        --mount "type=bind,src=$workspace,dst=/workspace" \
-        --env PEANUT_SERVER_ENV_FILE=/instance-server/.env \
+        --mount "type=bind,src=$workspace,dst=$workspace" \
+        --env PEANUT_SERVER_ENV_FILE=/instance/server/.env \
         --entrypoint php "$php_image" /tool/update-plan.php "$phase" \
-        --instance-server=/instance-server --workspace=/workspace
+        --instance-server=/instance/server --workspace="$workspace"
 }
 
 verify_runtime() {
