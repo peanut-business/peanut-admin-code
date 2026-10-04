@@ -4,7 +4,7 @@
 
 ## 三种升级与独立版本
 
-`peanut upgrade` 在开发机上的 downstream APP 中吸收所选公开 Peanut/Scaffold 上游版本，调用 APP 已安装的原生 `scripts/scaffold-upgrade` 引擎，保护 APP 身份及自有内容；它不是生产源码更新命令。`--check` 查询版本及来源，`--plan` 保存原生计划，明确审阅冲突后才应用。同版本不同 commit/tree 必须分别报告，不能仅凭版本相同宣称来源一致。
+`peanut upgrade` 在开发机上的 downstream APP 中吸收所选公开 Peanut/Scaffold 上游版本，调用经公开制品身份核验的固定 Code 来源原生 `scripts/scaffold-upgrade` 引擎，显式传入 APP project-root，保护 APP 身份及自有内容；它不是生产源码更新命令。`--check` 查询版本及来源，`--plan` 保存原生计划及同一引擎的仓库、tag、commit/tree、库存摘要绑定；resolve、apply 和 recover 重核该固定来源，不重新选择最新版。APP 只需已有 Composer 依赖，缺少独立入口的旧 APP 也使用这一标准路径；不依赖维护者工作树或私有 Project，也不向旧 APP 植入外部工具。明确审阅冲突后才应用。同版本不同 commit/tree 必须分别报告，不能仅凭版本相同宣称来源一致。
 
 APP 继续开发并独立提升自己的版本，再从干净的 APP 提交制备 APP Release；APP 版本与 Peanut、Core、CLI 版本独立。生产服务器消费经清单和 SHA-256 核验的 APP Release，通过已安装的标准生产升级入口执行 plan、backup、apply、migration、health、verify 与受控 recovery，不能对生产目录执行 Peanut 上游吸收或 git pull。
 
@@ -14,7 +14,7 @@ APP 继续开发并独立提升自己的版本，再从干净的 APP 提交制�
 
 替换正式目录前，在隔离位置用可信渠道给出的归档摘要运行发行工具源码中的 `python3 scripts/package-release-files.py verify --archive=/absolute/server-package.tar.gz --expected-sha256=<trusted-64-hex>`。核验归档 SHA-256、仅含 server 的路径及包内逐文件清单；不能把同目录临时生成的摘要当作可信来源。候选依赖固定、制包、公开预发行和稳定生产资格分别记账，不能仅凭开发分支或制包成功宣称已有稳定生产包。
 
-公开产品候选的 PHP Core 由 Composer 锁定已发布的精确版本、源码提交与分发身份；Web Core 六包由 npm registry 的精确版本、tarball 和 sha512 integrity 固定。来源核验同时绑定官方仓库、固定提交/tag、成功 Action 和 Release；npm 未提供 gitHead 时使用经验证的公共 provenance，详见 [Core 发行](../development/core-release.md)。产品预发行可使用相应公开 Core 预发行；稳定正式产品仍要求正式稳定 Core 版本和独立资格。不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。正式包的取得、完整性核对、依赖与首次安装步骤见[安装指南](installation.md)。
+公开产品候选的 PHP Core 由 Composer 锁定已发布的精确版本、源码提交与分发身份；Web Core 六包由 npm registry 的精确版本、tarball 和 sha512 integrity 固定。来源核验同时绑定官方仓库、固定提交/tag、成功 Action 和 Release；npm 未提供 gitHead 时使用经验证的公共 provenance，详见 [Core 发行](https://github.com/scaffold-vendor-token/scaffold-package-token/blob/main/docs/development/core-release.md)。产品预发行可使用相应公开 Core 预发行；稳定正式产品仍要求正式稳定 Core 版本和独立资格。不要用无范围的 `composer update` 或 `npm install` 改写目标依赖。正式包的取得、完整性核对、依赖与首次安装步骤见[安装指南](installation.md)。
 
 产品 GitHub Release 的发布入口是单一脚本 `scripts/publish-github-release`。默认稳定模式只接受不带 `v` 前缀的 `X.Y.Z`，要求存在注释式 tag `vX.Y.Z`，通过 candidate、tag、qualification、`main`、固定依赖和清单绑定检查后，创建正式 GitHub Release 并使用 `--latest`。公开预发行通道不是第二发布器，必须显式传入 `--prerelease`，版本只接受严格 `X.Y.Z-<prerelease>`（例如 `4.0.0-rc.1`），要求注释式 tag `vX.Y.Z-<prerelease>`，通过同一组 Gate 后创建 GitHub prerelease，且不得标记为 latest。稳定模式拒绝预发行版本；预发行模式拒绝稳定版本和非法 SemVer 预发行标识。没有明确授权时，不创建 `main`、tag、GitHub Release 或公开包。
 
@@ -63,7 +63,7 @@ php /srv/my-app/scripts/upgrade plan \
 
 `scripts/prepare-product-release-candidate` 只用于 Peanut 上游源码仓的隔离发行工作树，不随生成 APP 交付，也不是 APP 自己制包、首次安装或线上更新的入口。APP 继续使用前述 `scripts/package-release.sh`。
 
-跨仓第一阶段可按[Core 续作入口](../development/core-release.md#第一阶段跨仓续作入口)使用 `scripts/continue-product-release`：默认只读计划；`--apply` 才建立任务输出根的阶段状态并调用现有工具。候选依次完成公开 Core 身份核验、原生锁和候选工具依赖准备、库存生成；维护者审核并提交源码封存，工具从该真实提交生成脚手架/P0-E 来源投影，再审核作最终产品提交。双 Edition 制品与资格都绑定最终 commit/tree，发布仍调用唯一原发布器及原资格门禁。执行面不能直接查询 npm 时，可提供 `--core-web-package-evidence` 的绝对只读证据文件，仅供六包元数据读取；协调器仍实时核注释 tag、固定提交、成功 Action 和 GitHub Release，证据路径/摘要进入固定输入且变化即拒绝，不因此获得发布授权。外部发布结果不明时，只对原意图与本地完整附件逐件匹配远端附件 SHA-256 后接受；缺摘要或身份不符即停止人工核对，不重发。APP 消费已公开 P1 包，不依赖此维护者编排或私有 Project。
+跨仓第一阶段可按[Core 续作入口](https://github.com/scaffold-vendor-token/scaffold-package-token/blob/main/docs/development/core-release.md#第一阶段跨仓续作入口)使用 `scripts/continue-product-release`：默认只读计划；`--apply` 才建立任务输出根的阶段状态并调用现有工具。候选依次完成公开 Core 身份核验、原生锁和候选工具依赖准备、库存生成；维护者审核并提交源码封存，工具从该真实提交生成脚手架/P0-E 来源投影，再审核作最终产品提交。双 Edition 制品与资格都绑定最终 commit/tree，发布仍调用唯一原发布器及原资格门禁。执行面不能直接查询 npm 时，可提供 `--core-web-package-evidence` 的绝对只读证据文件，仅供六包元数据读取；协调器仍实时核注释 tag、固定提交、成功 Action 和 GitHub Release，证据路径/摘要进入固定输入且变化即拒绝，不因此获得发布授权。外部发布结果不明时，只对原意图与本地完整附件逐件匹配远端附件 SHA-256 后接受；缺摘要或身份不符即停止人工核对，不重发。APP 消费已公开 P1 包，不依赖此维护者编排或私有 Project。
 
 执行前固定一个尚未使用的产品版本、PHP Core 和 Web Core 的公开精确版本及各自完整 Git 提交。先运行 `--dry-run` 核对输入与将调用的原生命令；移除该选项才会准备候选：
 
