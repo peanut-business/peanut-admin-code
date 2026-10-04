@@ -104,7 +104,7 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 首次安装使用 `server/database/install.php`。产品升级使用已经安装的 `scripts/upgrade`，入口分plan、apply、verify和recover；入口先核包内 inventory、逐文件 SHA-256、版本兼容及来源/目标身份，不能先运行未校验目标包代码，也不是git pull或无约束composer update。后端环境通过 `PEANUT_SERVER_ENV_FILE` 指定。
 
-官方模块随维护者明确选择和审阅的固定 scaffold 来源整体吸收，绑定真实源码 commit/tree、release manifest、逐文件摘要与 canonical 模块 manifest/lock；这些摘要证明选定输入的内容，不认证发布者，不要求签名私钥。预检以已安装且通过生产 canonical 核验的官方图为起点，投影目标官方模块的完整控制器、服务、迁移及客户端贡献，再用原生 `PluginArtifactWriter` 生成含原客户模块的锁并核依赖。官方包与模块的变化必须提升各自版本，同版本内容不得变化；模块成员、根路径及官方归属不能借升级转给客户包。客户模块、app-owned 重叠和未登记的额外官方根文件受到保护，冲突不得靠单文件填入或手改摘要解决。应用/核验检查目标完整插件图，恢复检查原图；`module:adopt-package` 保持私有模块源码入口，不用于接收 official.*。
+官方模块随维护者明确选择和审阅的固定 scaffold 来源整体吸收，绑定真实源码 commit/tree、release manifest、逐文件摘要与 canonical 模块 manifest/lock；这些摘要证明选定输入的内容，不认证发布者，不要求签名私钥。预检以已安装且通过生产 canonical 核验的官方图为起点，投影目标官方模块的完整控制器、服务、迁移及客户端贡献，先以原生 `PluginArtifactWriter::checkLock()` 核固定模板原文的完整 canonical 图；产品名称等参数渲染改变源文件字节后，按原生 make → lock 重建 APP 派生 manifest 和含原客户模块的锁并核依赖。计划同时固定原文图、渲染参数、APP 派生图与派生字节，应用及新基线使用同一派生字节，不要求渲染后摘要等于模板原文摘要。官方包与模块的变化必须提升各自版本，同版本内容不得变化；模块成员、根路径及官方归属不能借升级转给客户包。客户模块、app-owned 重叠和未登记的额外官方根文件受到保护，冲突不得靠单文件填入或手改摘要解决。应用/核验检查目标完整插件图，恢复检查原图；`module:adopt-package` 保持私有模块源码入口，不用于接收 official.*。
 
 server-only Compose 实例使用 `server/docker/scripts/update.sh plan|apply|recover`。维护者使用另行核验提交与脚本 SHA-256 的上游维护工具时，可显式传 `--instance-server=/absolute/instance/server`；Compose、数据库和私有配置仍取这个原实例，工具来自已核源码，目标归档只按外部可信 SHA-256 校验后消费。plan 将实际维护工具固化到 workspace，apply/recover 复核工具哈希，不需要在运行实例内手工修补升级器。归档文件按路径排序后严格比较路径、内容 SHA-256 和权限；归档遍历顺序不作为内容身份。
 

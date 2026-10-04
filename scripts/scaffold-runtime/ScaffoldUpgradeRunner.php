@@ -802,6 +802,10 @@ final class ScaffoldUpgradeRunner
     /** Render apply bytes only from the immutable parameters and version contract in the plan. */
     private function targetContent(ScaffoldManifest $manifest, array $action, array $plan): string
     {
+        $derived = $plan['identity']['plugin_target']['manifest_contents'][$action['path']] ?? null;
+        if (is_string($derived)) {
+            return $derived;
+        }
         if ($action['path'] === 'plugins.lock' && is_array($plan['identity']['plugin_target'] ?? null)) {
             return $plan['identity']['plugin_target']['lock_contents'];
         }
@@ -1049,7 +1053,7 @@ final class ScaffoldUpgradeRunner
                     }
                 }
                 $comparison = version_compare((string) $plugin['version'], (string) $installed['version']);
-                if ($comparison < 0 || ($comparison === 0 && $plugin['manifest_sha256'] !== $installed['manifest_sha256'])) {
+                if ($comparison < 0) {
                     throw new RuntimeException('SCAFFOLD_OFFICIAL_VERSION_IDENTITY_CONFLICT: ' . $key);
                 }
             }
@@ -1072,6 +1076,7 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_STAGE_FAILED');
         }
         try {
+            $sourceProjection = $this->validateRawPluginProjection($root, $stage, $release, $target);
             // Customer sources are copied, never reinterpreted as upstream files.
             foreach ($current['plugins'] as $key => $plugin) {
                 if (in_array($key, $keys, true)) {
@@ -1107,7 +1112,20 @@ final class ScaffoldUpgradeRunner
             } else {
                 $this->copyPluginProjectionPath($root, $stage, $schema);
             }
-            $built = (new PluginArtifactWriter($stage . '/server'))->lock();
+            $writer = new PluginArtifactWriter($stage . '/server');
+            $manifestContents = [];
+            foreach ($keys as $key) {
+                $plugin = $target[$key];
+                $manifest = json_decode((string) file_get_contents($stage . '/' . $plugin['manifest']), true, 128, JSON_THROW_ON_ERROR);
+                $specs = [];
+                foreach ($manifest['modules'] as $module) {
+                    $specs[] = $module['key'] . '=' . $module['root'];
+                }
+                // Rendering changes source bytes; derive the APP manifest exactly as create-app does.
+                $writer->make($key, $plugin['version'], $specs);
+                $manifestContents[$plugin['manifest']] = (string) file_get_contents($stage . '/' . $plugin['manifest']);
+            }
+            $built = $writer->lock();
             $this->writeFileAtomic($stage . '/plugins.lock', $built['contents'], 0644);
             $projection = $this->pluginProjection($stage);
             $preflight = new ModulePackagePreflight($stage);
@@ -1133,19 +1151,68 @@ final class ScaffoldUpgradeRunner
                     }
                 }
                 if (in_array($key, $keys, true)) {
-                    if ($plugin['manifest_sha256'] !== $target[$key]['manifest_sha256']
-                        || $plugin['source_sha256'] !== $target[$key]['source_sha256']) {
-                        throw new RuntimeException('SCAFFOLD_OFFICIAL_TARGET_IDENTITY_MISMATCH: ' . $key);
+                    foreach (['version', 'manifest', 'module_keys', 'module_roots', 'frontend_roots'] as $field) {
+                        if ($plugin[$field] !== $target[$key][$field]) {
+                            throw new RuntimeException('SCAFFOLD_OFFICIAL_TARGET_IDENTITY_MISMATCH: ' . $key);
+                        }
+                    }
+                    $installed = $current['plugins'][$key] ?? null;
+                    if (is_array($installed) && version_compare($plugin['version'], $installed['version']) === 0
+                        && $plugin['manifest_sha256'] !== $installed['manifest_sha256']) {
+                        throw new RuntimeException('SCAFFOLD_OFFICIAL_VERSION_IDENTITY_CONFLICT: ' . $key);
                     }
                 } elseif ($plugin !== ($current['plugins'][$key] ?? null)) {
                     throw new RuntimeException('SCAFFOLD_CUSTOMER_PLUGIN_PROJECTION_CHANGED: ' . $key);
                 }
             }
             $preflight->dependencyOrder($modules, []);
-            return ['keys' => $keys, 'lock_contents' => $built['contents'], 'projection' => $projection];
+            return ['keys' => $keys, 'source_projection' => $sourceProjection,
+                'manifest_contents' => $manifestContents, 'lock_contents' => $built['contents'], 'projection' => $projection];
         } finally {
             $this->removePluginProjectionStage($stage);
         }
+    }
+
+    /** Verify the fixed raw template graph before deriving any APP-specific canonical identities. */
+    private function validateRawPluginProjection(string $root, string $stage, ScaffoldManifest $release, array $target): array
+    {
+        $raw = $stage . '/raw-source';
+        if (!mkdir($raw, 0700)) {
+            throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_STAGE_FAILED');
+        }
+        $artifacts = ['plugins.lock' => true, 'server/resources/schemas/plugin.schema.json' => true];
+        $roots = [];
+        foreach ($target as $plugin) {
+            $artifacts[$plugin['manifest']] = true;
+            array_push($roots, ...$plugin['module_roots'], ...$plugin['frontend_roots']);
+        }
+        foreach ($release->files() as $path => $file) {
+            if (!isset($artifacts[$path]) && !$this->withinAnyRoot($path, $roots)) {
+                continue;
+            }
+            $bytes = file_get_contents($release->artifactPath($file));
+            if (!is_string($bytes) || !hash_equals($file['template_sha256'], hash('sha256', $bytes))) {
+                throw new RuntimeException('SCAFFOLD_ARTIFACT_DIGEST_MISMATCH: ' . $path);
+            }
+            $this->writeFileAtomic(ScaffoldPathGuard::projectPath($raw, $path), $bytes, (int) $file['mode']);
+        }
+        if (!is_file($raw . '/server/resources/schemas/plugin.schema.json')) {
+            $this->copyPluginProjectionPath($root, $raw, 'server/resources/schemas/plugin.schema.json');
+        }
+        // checkLock regenerates the expected raw manifests and lock without replacing them.
+        (new PluginArtifactWriter($raw . '/server'))->checkLock();
+        $projection = $this->pluginProjection($raw);
+        if (array_keys($projection['plugins']) !== array_keys($target)) {
+            throw new RuntimeException('SCAFFOLD_RAW_PLUGIN_TARGET_IDENTITY_MISMATCH');
+        }
+        foreach ($target as $key => $plugin) {
+            foreach (['version', 'manifest', 'manifest_sha256', 'source_sha256', 'module_keys', 'module_roots', 'frontend_roots'] as $field) {
+                if ($projection['plugins'][$key][$field] !== $plugin[$field]) {
+                    throw new RuntimeException('SCAFFOLD_RAW_PLUGIN_TARGET_IDENTITY_MISMATCH: ' . $key);
+                }
+            }
+        }
+        return $projection;
     }
 
     /** Compare complete Module contents without trusting a rewritten per-file digest or following a link. */
@@ -1240,6 +1307,9 @@ final class ScaffoldUpgradeRunner
         foreach ($actions as &$action) {
             $path = (string) $action['path'];
             if (isset($officialArtifacts[$path]) || $this->withinAnyRoot($path, $officialRoots)) {
+                if (isset($official['manifest_contents'][$path])) {
+                    $action['target_sha256'] = hash('sha256', $official['manifest_contents'][$path]);
+                }
                 // The production-verified installed graph is the source authority for a complete
                 // official replacement, including earlier scaffold omissions. App-owned overrides
                 // remain conflicts; edits outside canonical integrity never reach this projection.
