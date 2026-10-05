@@ -41,8 +41,15 @@ release_field() {
     field="$1"
     php -r '
       require "vendor/autoload.php";
-      $identity = app\common\value\installation\ServerReleaseIdentity::load(getcwd());
-      $app = $identity->applicationIdentity();
+      $serverRoot = getcwd();
+      $identityPath = $serverRoot . "/.peanut/release-identity.json";
+      if (is_file($identityPath) || is_link($identityPath)) {
+          $identity = app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+          $app = $identity->applicationIdentity();
+      } else {
+          $identity = app\common\value\installation\ApplicationSourceIdentity::load($serverRoot);
+          $app = $identity->applicationIdentity();
+      }
       $key = $argv[1];
       $value = $app[$key] ?? null;
       if (!is_string($value) || $value === "" || preg_match("/[\\r\\n\\x00]/", $value)) exit(2);

@@ -1,6 +1,6 @@
 {
   "name": "peanut-admin-platform",
-  "version": "4.0.1-rc.1",
+  "version": "4.0.1-rc.2",
   "private": true,
   "description": "Peanut Admin instance platform control plane",
   "author": "花生科技",
