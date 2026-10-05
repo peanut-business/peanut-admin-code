@@ -6,8 +6,8 @@ declare(strict_types=1);
 // This adapter calls the same native migration runner and module reconciler
 // used by the product upgrader. It only selects a server release's SQL chain.
 try {
-    if (count($argv) !== 4 || !in_array($argv[1], ['migrate', 'verify'], true)) {
-        throw new RuntimeException('Usage: update-database.php migrate|verify INSTANCE_SERVER WORKSPACE');
+    if (count($argv) !== 4 || !in_array($argv[1], ['preflight', 'migrate', 'verify'], true)) {
+        throw new RuntimeException('Usage: update-database.php preflight|migrate|verify INSTANCE_SERVER WORKSPACE');
     }
     [$unused, $operation, $server, $workspace] = $argv;
     if (!str_starts_with($server, '/') || !str_starts_with($workspace, '/')
@@ -15,7 +15,39 @@ try {
         throw new RuntimeException('server and workspace must be canonical directories');
     }
     $planPath = $workspace . '/plan.json';
-    $journalPath = $workspace . '/journal.json';
+    require_once __DIR__ . '/update-plan.php';
+    [$product, $productState] = PeanutServerUpdatePlan::productBinding($workspace);
+    $plan = json_decode((string) file_get_contents($planPath), true, 512, JSON_THROW_ON_ERROR);
+    $planSha = hash_file('sha256', $planPath);
+    if (($product['scope'] ?? null) !== 'server' || $product['instance_root'] . '/server' !== $server
+        || $product['inputs_sha256'] !== $planSha || $product['candidate'] !== $plan['update_id']) {
+        throw new RuntimeException('database phase inputs differ from the product plan');
+    }
+    if ($operation === 'preflight') {
+        if ($productState['phase_in_progress'] !== 'migration-preflight') { throw new RuntimeException('product preflight phase is not active'); }
+        $prepared = $workspace . '/prepared/server';
+        putenv('PEANUT_SERVER_ENV_FILE=' . $prepared . '/.env');
+        require_once $prepared . '/vendor/autoload.php';
+        require_once $prepared . '/database/environment-guard.php';
+        require_once $prepared . '/app/common/services/upgrade/ApplicationMigrationRunner.php';
+        $identity = json_decode((string) file_get_contents($prepared . '/.peanut/release-identity.json'), true, 512, JSON_THROW_ON_ERROR);
+        if (hash_file('sha256', $prepared . '/.peanut/release-identity.json') !== $plan['target']['identity_sha256']) { throw new RuntimeException('prepared migration identity differs'); }
+        $files = [];
+        foreach ($identity['files'] as $row) {
+            if (preg_match('#^server/database/migrations/[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$#D', $row['path']) !== 1) { continue; }
+            $file = $workspace . '/prepared/' . $row['path'];
+            if (!is_file($file) || is_link($file) || hash_file('sha256', $file) !== $row['sha256']) { throw new RuntimeException('prepared migration changed'); }
+            $files[] = $file;
+        }
+        sort($files, SORT_STRING);
+        $config = guardedDatabaseConfig();
+        $runner = new \app\common\services\upgrade\ApplicationMigrationRunner($config);
+        require_once $prepared . '/database/install.php';
+        $target = applicationMigrationTargetVersion($prepared, applicationReleaseVersions($prepared));
+        $result = $runner->run($files, $target, $identity['application']['version'], true);
+        echo json_encode(['status' => 'completed', 'operation' => 'preflight', 'candidate' => $product['candidate'], 'application' => $result], JSON_THROW_ON_ERROR), PHP_EOL;
+        exit(0);
+    }
     $keyPath = $server . '/private/installation/update-verification.key';
     $keyStat = lstat($keyPath);
     if (!is_file($keyPath) || is_link($keyPath) || !is_array($keyStat)
@@ -41,20 +73,18 @@ try {
             throw new RuntimeException('signed update result differs from instance');
         }
     };
-    $plan = json_decode((string) file_get_contents($planPath), true, 512, JSON_THROW_ON_ERROR);
-    $journal = json_decode((string) file_get_contents($journalPath), true, 512, JSON_THROW_ON_ERROR);
-    $planSha = hash_file('sha256', $planPath);
-    if (($plan['protocol'] ?? null) !== 'peanut.server-update-plan.v1'
-        || ($journal['protocol'] ?? null) !== 'peanut.server-update-journal.v1'
-        || ($journal['plan_sha256'] ?? null) !== $planSha
-        || ($journal['update_id'] ?? null) !== ($plan['update_id'] ?? null)
-        || ($journal['status'] ?? null) !== 'applied'
-        || ($journal['activation_started'] ?? null) !== false) {
-        throw new RuntimeException('migration is not bound to an applied server update');
+    if (($plan['protocol'] ?? null) !== 'peanut.server-release-inputs.v1'
+        || $productState['database_recovery_required'] !== true
+        || !isset($productState['evidence']['managed_files'])
+        || ($operation === 'migrate' && ($productState['phase_in_progress'] !== 'migrate' || $productState['activation_started'] !== false))
+        || ($operation === 'verify' && $productState['phase_in_progress'] !== 'migration-verify')) {
+        throw new RuntimeException('migration is not bound to the product phase');
     }
-    $maintenance = json_decode((string) file_get_contents($server . '/runtime/upgrade/maintenance.json'), true, 128, JSON_THROW_ON_ERROR);
-    if (($maintenance['update_id'] ?? null) !== $plan['update_id'] || ($maintenance['status'] ?? null) !== 'active') {
-        throw new RuntimeException('migration requires the matching maintenance marker');
+    if (!$productState['activation_started']) {
+        $maintenance = json_decode((string) file_get_contents($server . '/runtime/upgrade/maintenance.json'), true, 128, JSON_THROW_ON_ERROR);
+        if (($maintenance['update_id'] ?? null) !== $plan['update_id'] || ($maintenance['status'] ?? null) !== 'active') {
+            throw new RuntimeException('migration requires the matching maintenance marker');
+        }
     }
     $identityPath = $server . '/.peanut/release-identity.json';
     if (hash_file('sha256', $identityPath) !== ($plan['target']['identity_sha256'] ?? null)) {
@@ -113,20 +143,31 @@ try {
     require_once $server . '/database/install.php';
     $migrationTargetVersion = applicationMigrationTargetVersion($server, applicationReleaseVersions($server));
     $migrationPath = $workspace . '/migration.json';
+    $replayed = false;
     if ($operation === 'migrate') {
         if (file_exists($migrationPath) || is_link($migrationPath)) {
-            throw new RuntimeException('migration already started; inspect ledger or recover this update');
+            $assertSigned($migrationPath);
+            $previous = json_decode((string) file_get_contents($migrationPath), true, 128, JSON_THROW_ON_ERROR);
+            if (($previous['protocol'] ?? null) !== 'peanut.server-update-migration.v1'
+                || ($previous['status'] ?? null) !== 'completed' || ($previous['update_id'] ?? null) !== $plan['update_id']
+                || ($previous['plan_sha256'] ?? null) !== $planSha
+                || ($previous['backup_sha256'] ?? null) !== hash_file('sha256', $workspace . '/backup.json')) {
+                throw new RuntimeException('migration has an unknown result; inspect ledger or recover this update');
+            }
+            $replayed = true;
         }
-        $intent = ['protocol' => 'peanut.server-update-migration.v1', 'status' => 'started',
-            'update_id' => $plan['update_id'], 'plan_sha256' => $planSha,
-            'database_identity' => $databaseIdentity, 'backup_sha256' => hash_file('sha256', $workspace . '/backup.json')];
-        $bytes = json_encode($intent, JSON_THROW_ON_ERROR);
-        $stream = fopen($migrationPath, 'x');
-        if ($stream === false || !chmod($migrationPath, 0600)
-            || fwrite($stream, $bytes) !== strlen($bytes) || !fflush($stream) || !fsync($stream)) {
-            throw new RuntimeException('migration intent could not be persisted');
+        if (!$replayed) {
+            $intent = ['protocol' => 'peanut.server-update-migration.v1', 'status' => 'started',
+                'update_id' => $plan['update_id'], 'plan_sha256' => $planSha,
+                'database_identity' => $databaseIdentity, 'backup_sha256' => hash_file('sha256', $workspace . '/backup.json')];
+            $bytes = json_encode($intent, JSON_THROW_ON_ERROR);
+            $stream = fopen($migrationPath, 'x');
+            if ($stream === false || !chmod($migrationPath, 0600)
+                || fwrite($stream, $bytes) !== strlen($bytes) || !fflush($stream) || !fsync($stream)) {
+                throw new RuntimeException('migration intent could not be persisted');
+            }
+            fclose($stream);
         }
-        fclose($stream);
     } else {
         $assertSigned($migrationPath);
         $previous = json_decode((string) file_get_contents($migrationPath), true, 128, JSON_THROW_ON_ERROR);
@@ -138,15 +179,15 @@ try {
             throw new RuntimeException('native migration result is missing or bound to another recovery point');
         }
     }
-    $migration = $runner->run($files, $migrationTargetVersion, $version, $operation === 'verify');
-    if ($operation === 'verify' && $migration['pending'] !== []) {
+    $migration = $runner->run($files, $migrationTargetVersion, $version, $operation === 'verify' || $replayed);
+    if (($operation === 'verify' || $replayed) && $migration['pending'] !== []) {
         // The native runner selects applicable migrations and checks immutable
         // checksums. Missing ledger rows must not disappear from verification.
         throw new RuntimeException('application migration ledger is incomplete');
     }
     $ids = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
     $statuses = $runner->statuses($ids);
-    if ($operation === 'migrate') {
+    if ($operation === 'migrate' && !$replayed) {
         // The child bootstrap must load its own controlled file, rather than
         // inheriting the managed values already loaded by this adapter.
         $commandEnvironment = getenv();
@@ -190,7 +231,7 @@ try {
     $evidence = ['status' => 'completed', 'operation' => $operation, 'update_id' => $plan['update_id'],
         'plan_sha256' => $planSha, 'database_identity' => $databaseIdentity,
         'application' => $migration, 'application_statuses' => $statuses];
-    if ($operation === 'migrate') {
+    if ($operation === 'migrate' && !$replayed) {
         $evidence['protocol'] = 'peanut.server-update-migration.v1';
         $evidence['backup_sha256'] = hash_file('sha256', $workspace . '/backup.json');
         $temporary = $migrationPath . '.complete';

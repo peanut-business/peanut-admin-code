@@ -129,10 +129,11 @@ final class EditionUpgradePackage
         if (!is_array($manifest)
             || ($manifest['schema_version'] ?? null) !== 1
             || ($manifest['protocol'] ?? null) !== 'peanut.edition-upgrade-package.v1'
+            || ($manifest['upgrader']['scope'] ?? null) !== 'source'
             || ($manifest['upgrader']['installed_entrypoint'] ?? null) !== 'scripts/upgrade'
             || ($manifest['upgrader']['internal_scaffold_engine'] ?? null) !== 'scripts/scaffold-upgrade'
-            || ($manifest['upgrader']['host_driver'] ?? null) !== 'scripts/upgrade-runtime/product-upgrade-host'
-            || ($manifest['upgrader']['database_driver'] ?? null) !== 'scripts/upgrade-runtime/product-upgrade-database'
+            || isset($manifest['upgrader']['host_driver'])
+            || isset($manifest['upgrader']['database_driver'])
             || !isset(
                 $files['scripts/scaffold-upgrade'],
                 $files['scripts/scaffold-runtime/ScaffoldPathGuard.php'],
@@ -141,9 +142,6 @@ final class EditionUpgradePackage
                 $files['scripts/scaffold-runtime/Semver.php'],
                 $files['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'],
                 $files['scripts/scaffold-runtime/EditionUpgradePackage.php'],
-                $files['scripts/upgrade-runtime/ApplicationMigrationRunner.php'],
-                $files['scripts/upgrade-runtime/product-upgrade-database'],
-                $files['scripts/upgrade-runtime/product-upgrade-host'],
             )) {
             throw new RuntimeException('EDITION_UPGRADE_MANIFEST_INVALID');
         }
@@ -447,7 +445,7 @@ final class EditionUpgradePackage
         if (($manifest['ownership']['automatic'] ?? null) !== ['managed', 'generated-managed']
             || ($manifest['ownership']['preserved'] ?? null) !== ['app-owned', 'third-party-module', 'secret']
             || ($manifest['recovery']['managed_files'] ?? null) !== 'scaffold-recovery-plan'
-            || ($manifest['recovery']['database'] ?? null) !== 'operator-backup-required') {
+            || ($manifest['recovery']['database'] ?? null) !== 'not-applicable-source-only') {
             throw new RuntimeException('EDITION_UPGRADE_OWNERSHIP_INVALID');
         }
     }

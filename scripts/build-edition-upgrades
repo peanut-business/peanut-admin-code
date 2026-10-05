@@ -275,9 +275,6 @@ try {
             'server/app/platform/validation/module/OpisManifestSchemaValidator.php' => ['scripts/upgrade-runtime/OpisManifestSchemaValidator.php', 0644],
             'server/app/platform/validation/module/StrictVersionConstraintMatcher.php' => ['scripts/upgrade-runtime/StrictVersionConstraintMatcher.php', 0644],
             'server/app/platform/validation/plugin/ModulePackagePreflight.php' => ['scripts/upgrade-runtime/ModulePackagePreflight.php', 0644],
-            'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => ['scripts/upgrade-runtime/ApplicationMigrationRunner.php', 0644],
-            'scripts/product-upgrade-database' => ['scripts/upgrade-runtime/product-upgrade-database', 0755],
-            'scripts/product-upgrade-host' => ['scripts/upgrade-runtime/product-upgrade-host', 0755],
         ] as $sourcePath => [$packagePath, $mode]) {
             $contents = editionUpgradeRun(['git', '-C', $root, 'show', $commit . ':' . $sourcePath]);
             editionUpgradeWrite($package . '/' . $packagePath, $contents, $mode);
@@ -315,10 +312,9 @@ try {
                 'managed_tree_sha256' => $targetManifest['release']['managed_tree_sha256'],
             ],
             'upgrader' => [
+                'scope' => 'source',
                 'installed_entrypoint' => 'scripts/upgrade',
                 'internal_scaffold_engine' => 'scripts/scaffold-upgrade',
-                'host_driver' => 'scripts/upgrade-runtime/product-upgrade-host',
-                'database_driver' => 'scripts/upgrade-runtime/product-upgrade-database',
             ],
             'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => $migrations],
             'ownership' => [
@@ -327,7 +323,7 @@ try {
             ],
             'recovery' => [
                 'managed_files' => 'scaffold-recovery-plan',
-                'database' => 'operator-backup-required',
+                'database' => 'not-applicable-source-only',
             ],
         ];
         if ($internalProjection !== null) {

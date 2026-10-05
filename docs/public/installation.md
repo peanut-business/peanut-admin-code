@@ -8,6 +8,10 @@
 
 安全提取到独立的实例目录。生产包根目录仅有 `server/`；其中 `server/.peanut/release-identity.json` 记录本次发行的应用与文件身份，`server/plugins.lock` 是后端运行投影。先核对外部发行清单、归档摘要、包内身份和 `server/composer.lock`。
 
+客户 APP 使用自己的 Git 来源、应用版本与 Release，Peanut 上游版本单独记录。部署消费该 APP 自行发行的 server 包，不把 Peanut Admin 仓库检出目录当作客户 APP。宿主持有 `server/` 源码、`vendor/`、配置、`public/storage/`、`runtime/`、`private/` 安装及私有存储身份；MySQL 数据保存在同实例的 `server/docker/mysql/`。包内 `server/docker/compose.yaml` 将这些目录挂载到固定 PHP、Nginx、MySQL 运行镜像，普通应用更新不构建应用镜像。只有运行环境变化才单独准备兼容运行镜像；当前标准部署范围为 PC SPA，SSR 服务仍需独立完成运行合同。
+
+维护者明确登记的临时多租户源码实例仅允许首次部署：制品真实身份为 `generated-template`，来源 commit/tree 绑定 Peanut 上游，并登记 `deployment_kind=temporary-multi-tenant-source`、到期时间与替换 owner；不冒充独立 APP Release，也不进入 APP 自动升级任务。它仍使用独立目录、数据库、端口和同一原生 configure/start。已有目标目录一律保留并拒绝首次覆盖。
+
 安装器默认只接受 Server 自带且可校验的发行身份；缺失或损坏时拒绝安装。源码工作树仅可在开发入口显式设置 `PEANUT_INSTALLATION_SOURCE_MODE=development` 后按源码身份运行，该设置不得带入生产实例。
 
 按包内 `server/composer.lock` 及公开 registry 安装已发布的 Composer 依赖，保留锁定版本；不得以邻仓路径、内部 Core ZIP、未公开 `.tgz`、复制来的 `vendor/` 或无约束更新代替。发行包不附带已安装依赖。宿主需要 Docker Compose v2、Python 3、OpenSSL 和 POSIX shell。将 `server/docker/.env.example` 复制为 `server/docker/.env`，填入由包内 Dockerfile 预先构建并核验的 PHP 不可变镜像 ID；模板中的 Nginx/MySQL 已固定来源摘要，实际部署仍须核镜像 ID。PHP 镜像含 Composer 2.10.2 且构建时核对 PHAR SHA-256。运行 `server/docker/scripts/start.sh` 时，首次未安装实例的缺失或不完整 vendor 会在独立目录按锁准备、执行 ThinkPHP 原生 service discovery 和 vendor publish、检查平台要求并保存逐文件完整性回执；完整且锁未变时只读复用。已安装实例的 vendor 若缺失或损坏，普通 start 会拒绝，须在停写维护流程中修复，不能在线替换。准备失败不启动服务，也不改原 vendor。浏览器资产已在 `server/public/`，无需在生产实例安装客户端构建依赖。若该版本锁仍指向内部候选或本地 tarball，停止正式安装，等待固定依赖公开发布并由发行方重建完整包。
@@ -28,7 +32,7 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/datab
 
 仅当预检返回 `ready` 才执行下一行安装命令。安装结束后移除这份一次性凭据文件，并按包内入口检查安装状态和运行环境。`php server/database/install.php --status` 可查询状态；普通重复安装会拒绝，`--skip-if-installed` 只跳过已完成的安装，不清库或重置管理员。不要对现有客户库使用首次安装或 `--fresh`。
 
-已安装 server-only 实例先用可信摘要执行 `server/docker/scripts/update.sh plan --archive=/absolute/new-server.tar.gz --expected-sha256=<64位SHA-256> --workspace=/absolute/empty-workspace`，再执行 `server/docker/scripts/update.sh apply --workspace=/absolute/empty-workspace`。目标依赖先在 workspace 内按锁准备，失败时旧服务仍运行。进入维护后停止 PHP/Nginx，保存同实例数据库恢复点及安装/配置身份，再替换程序与依赖，执行应用和模块原生迁移，私有健康核验成功后开放流量。激活前使用 `server/docker/scripts/recover.sh --workspace=/absolute/same-workspace` 成对恢复；激活后拒绝自动旧库回灌。运行配方变化时当前入口仍拒绝 apply，须先完成兼容镜像的独立准备与绑定。真实数据库/容器更新和恢复尚待登记的非生产实例串行验证。
+已安装 server-only 实例先用可信摘要执行 `server/docker/scripts/update.sh plan --archive=/absolute/new-server.tar.gz --expected-sha256=<64位SHA-256> --workspace=/absolute/empty-workspace`，再执行 `server/docker/scripts/update.sh apply --workspace=/absolute/empty-workspace`。目标依赖先在 workspace 内按锁准备，失败时旧服务仍运行。进入维护后停止 PHP/Nginx，保存同实例数据库、公共 storage/uploads、私有 storage、安装身份及配置的配对恢复材料，再替换程序与依赖，执行应用和模块原生迁移，私有健康核验成功后开放流量。激活前使用 `server/docker/scripts/update.sh recover --workspace=/absolute/same-workspace` 成对恢复；激活后拒绝自动旧库回灌。运行配方变化时当前入口仍拒绝 apply，须先完成兼容镜像的独立准备与绑定。真实数据库/容器更新和恢复尚待登记的非生产实例串行验证。
 
 `server/private/installation/installed.json` 同时是安装完成回执与物理防重装锁。只要该路径存在，即使数据库被清空、不可达或回执内容损坏，安装入口也拒绝再次初始化；先由资源 owner 核对并恢复原实例，不删除锁来重装。
 

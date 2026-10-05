@@ -307,7 +307,11 @@
               ><p class="muted">最新已验证备份</p
               ><el-alert
                 v-if="backupCenter.latest_verified === null"
-                title="尚无已验证备份"
+                :title="
+                  backupCenter.backup_contract_status === 'unsupported_schema'
+                    ? '需要重新备份，旧记录不适用于当前部署'
+                    : '尚无已验证备份'
+                "
                 type="info"
                 :closable="false" /><el-descriptions v-else :column="2" border
                 ><el-descriptions-item label="Provider">{{
@@ -332,7 +336,11 @@
               ><p class="muted">最近恢复验证</p
               ><el-alert
                 v-if="backupCenter.latest_restore_verified === null"
-                title="尚无已验证恢复"
+                :title="
+                  backupCenter.restore_contract_status === 'unsupported_schema'
+                    ? '需要重新备份并验证恢复，旧记录不适用于当前部署'
+                    : '尚无已验证恢复'
+                "
                 type="info"
                 :closable="false" /><el-descriptions v-else :column="2" border
                 ><el-descriptions-item label="Backup reference">{{

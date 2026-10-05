@@ -98,6 +98,8 @@ const problemMessages: Readonly<Record<string, string>> = {
   OPS_REVISION_CONFLICT:
     'The maintenance window changed. Reload and try again.',
   OPS_RESTORE_TARGET_INVALID: 'The selected restore target is unavailable.',
+  OPS_RESTORE_UNSUPPORTED_SCHEMA:
+    'Create a new paired backup; the old record does not apply to this deployment.',
   OPS_MAINTENANCE_INVALID: 'The maintenance window is invalid.',
   OPS_STATUS_UNAVAILABLE: 'Operations status is unavailable.',
   OPS_PROVIDER_UNAVAILABLE: 'The operation provider is unavailable.',

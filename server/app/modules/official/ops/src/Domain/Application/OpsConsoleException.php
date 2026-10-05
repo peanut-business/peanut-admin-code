@@ -53,6 +53,11 @@ final class OpsConsoleException extends RuntimeException
         return new self('OPS_RESTORE_TARGET_INVALID', 422);
     }
 
+    public static function restoreUnsupportedSchema(): self
+    {
+        return new self('OPS_RESTORE_UNSUPPORTED_SCHEMA', 422);
+    }
+
     public static function maintenanceInvalid(): self
     {
         return new self('OPS_MAINTENANCE_INVALID', 422);

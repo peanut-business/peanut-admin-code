@@ -6,8 +6,8 @@ declare(strict_types=1);
 final class PeanutServerUpdatePlan
 {
     private const IDENTITY = 'server/.peanut/release-identity.json';
-    private const PLAN_PROTOCOL = 'peanut.server-update-plan.v1';
-    private const JOURNAL_PROTOCOL = 'peanut.server-update-journal.v1';
+    private const PLAN_PROTOCOL = 'peanut.server-release-inputs.v1';
+    private const JOURNAL_PROTOCOL = 'peanut.server-file-intents.v1';
     private const MAINTENANCE_PROTOCOL = 'peanut.server-update-maintenance.v1';
     private const RUNTIME_DIR = 'runtime/upgrade';
 
@@ -36,14 +36,8 @@ final class PeanutServerUpdatePlan
     {
         if (count($argv) < 2 || !in_array($argv[1] ?? '', [
             'plan',
-            'begin',
-            'apply',
-            'verify-applied',
-            'verify-recovered',
-            'activate',
-            'assert-recoverable',
-            'recover',
-            'finish-recovery',
+            'files-apply', 'files-verify', 'files-recover', 'files-verify-recovery',
+            'hold', 'health', 'publish', 'open',
             'initialize-traffic',
         ], true)) {
             self::usage();
@@ -80,26 +74,11 @@ final class PeanutServerUpdatePlan
                     $options['expected-sha256'],
                     $options['workspace'],
                 ),
-                'begin' => self::begin($options['instance-server'], $options['workspace']),
-                'apply' => self::apply($options['instance-server'], $options['workspace']),
-                'verify-applied' => self::verifyRuntime($options['instance-server'], $options['workspace'], 'target'),
-                'verify-recovered' => self::verifyRuntime($options['instance-server'], $options['workspace'], 'source'),
-                'activate' => self::activate($options['instance-server'], $options['workspace']),
-                'assert-recoverable' => self::assertRecoverable($options['instance-server'], $options['workspace']),
-                'recover' => self::recover($options['instance-server'], $options['workspace']),
-                'finish-recovery' => self::finishRecovery($options['instance-server'], $options['workspace']),
+                'files-apply', 'files-verify', 'files-recover', 'files-verify-recovery',
+                'hold', 'health', 'publish', 'open' => self::productPhase($options['instance-server'], $options['workspace'], $command),
                 'initialize-traffic' => self::initializeTraffic($options['instance-server']),
             };
             echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), PHP_EOL;
-            if ($command === 'begin') {
-                return match ($result['next_action'] ?? null) {
-                    'none' => 10,
-                    'verify_activate' => 11,
-                    'migrate' => 12,
-                    'apply' => 0,
-                    default => throw new RuntimeException('server update begin action is invalid'),
-                };
-            }
             return 0;
         } catch (Throwable $exception) {
             fwrite(STDERR, 'server-update: ' . $exception->getMessage() . PHP_EOL);
@@ -108,6 +87,150 @@ final class PeanutServerUpdatePlan
     }
 
     /** Initial startup may grant traffic once; an interrupted update cannot be reopened by a restart. */
+    /** Immutable inventory and per-file intents are subordinate to the installed product coordinator. */
+    public static function productBinding(string $workspace): array
+    {
+        $binding = self::jsonFile($workspace . '/product-binding.json', 'product binding');
+        $product = self::jsonFile((string) ($binding['plan_path'] ?? ''), 'product plan');
+        $digest = $product['plan_sha256'] ?? null;
+        unset($product['plan_sha256']);
+        $normalize = static function (mixed $value) use (&$normalize): mixed {
+            if (!is_array($value)) { return $value; }
+            if (!array_is_list($value)) { ksort($value, SORT_STRING); }
+            foreach ($value as $key => $child) { $value[$key] = $normalize($child); }
+            return $value;
+        };
+        if (($product['protocol'] ?? null) !== 'peanut.product-upgrade-plan.v2'
+            || ($product['workspace'] ?? null) !== $workspace
+            || $digest !== ($binding['plan_sha256'] ?? null)
+            || !is_string($digest) || !hash_equals($digest, 'sha256:' . hash('sha256', json_encode($normalize($product), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)))) {
+            throw new RuntimeException('phase inputs are not bound to the product plan');
+        }
+        $state = self::jsonFile((string) ($product['state_path'] ?? ''), 'product state');
+        $stateDigest = $state['state_sha256'] ?? null;
+        unset($state['state_sha256']);
+        if (($state['protocol'] ?? null) !== 'peanut.product-upgrade-state.v1'
+            || ($state['candidate'] ?? null) !== ($product['candidate'] ?? null)
+            || ($state['plan_sha256'] ?? null) !== $digest
+            || !is_string($stateDigest) || !hash_equals($stateDigest, 'sha256:' . hash('sha256', json_encode($normalize($state), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)))) {
+            throw new RuntimeException('product phase state binding is invalid');
+        }
+        return [$product + ['plan_sha256' => $digest], $state];
+    }
+
+    public static function productPhase(string $serverRoot, string $workspace, string $phase): array
+    {
+        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
+        $workspace = self::ordinaryDirectory($workspace, 'phase workspace');
+        [$product, $state] = self::productBinding($workspace);
+        if ($serverRoot !== $product['instance_root'] . '/server') {
+            throw new RuntimeException('phase server differs from product instance');
+        }
+        $allowed = match ($phase) {
+            'files-apply' => ['managed_files'], 'files-recover' => [null, 'recover'],
+            'files-verify', 'files-verify-recovery' => [null, 'health', 'activate', 'recovery-verify'],
+            'hold' => ['backup', 'quiesce', 'recover', 'activate', 'resume-old'], 'health' => ['health', 'activate', 'resume-old', 'recovery-verify'],
+            'publish' => ['activate'], 'open' => ['activate', 'resume-old'],
+        };
+        if (!in_array($state['phase_in_progress'] ?? null, $allowed, true)
+            || (str_contains($phase, 'recover') && (($state['activation_started'] ?? null) !== false || !isset($state['recovery_context'])))
+            || ($phase === 'publish' && ($state['activation_started'] ?? null) !== true)) {
+            throw new RuntimeException('native phase is not authorized by product state');
+        }
+        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $product, $state, $phase): array {
+            $id = $product['candidate'];
+            self::verificationKey($serverRoot, true);
+            if ($phase === 'hold') {
+                self::writeMaintenance($serverRoot, ['update_id' => $id], $phase);
+                return ['write_gate' => 'closed', 'candidate' => $id];
+            }
+            if ($phase === 'health') {
+                self::nativeRuntimeHealth($serverRoot);
+                return ['installed_runtime_health' => 'current', 'candidate' => $id];
+            }
+            if ($phase === 'open') {
+                if (($state['phase_in_progress'] ?? null) === 'activate' && ($state['activation_started'] ?? null) !== true) {
+                    throw new RuntimeException('product activation boundary was not persisted');
+                }
+                self::grantTraffic($serverRoot);
+                self::clearMaintenance($serverRoot, $id, isset($state['recovery_context']) ? 'recovered' : 'completed');
+                return ['write_gate' => 'open', 'candidate' => $id];
+            }
+            if (($product['scope'] ?? null) !== 'server') {
+                throw new RuntimeException('server inventory phase requires server scope');
+            }
+            $input = self::plan($workspace);
+            if (hash_file('sha256', $workspace . '/plan.json') !== $product['inputs_sha256']) {
+                throw new RuntimeException('server inventory changed after product planning');
+            }
+            if ($phase === 'files-apply') {
+                self::assertMaintenance($serverRoot, $id);
+                $backupPath = $workspace . '/backup.json';
+                $backupBytes = self::regularBytes($backupPath, 'paired backup');
+                $signature = trim(self::regularBytes($backupPath . '.hmac', 'paired backup authentication'));
+                $backup = json_decode($backupBytes, true, 256, JSON_THROW_ON_ERROR);
+                if (!isset($state['evidence']['backup'], $state['evidence']['quiesce'])
+                    || ($backup['product_plan_sha256'] ?? null) !== $product['plan_sha256']
+                    || ($backup['plan_sha256'] ?? null) !== $product['inputs_sha256']
+                    || !hash_equals(hash_hmac('sha256', $backupBytes, self::verificationKey($serverRoot, false)), $signature)
+                    || ($state['evidence']['backup']['payload']['payload']['backup_sha256'] ?? null) !== hash('sha256', $backupBytes)) {
+                    throw new RuntimeException('file phase lacks its authenticated paired recovery point');
+                }
+            }
+            if ($phase === 'files-recover' && !isset($state['evidence']['recover'])) {
+                throw new RuntimeException('product data recovery must finish before source recovery');
+            }
+            if ($phase === 'publish') {
+                self::publishDeploymentState($serverRoot, $workspace, $input, $id);
+                return ['deployment_generation' => $input['source']['deployment_generation'] + 1];
+            }
+            $path = self::journalPath($workspace);
+            if (!file_exists($path) && !is_link($path)) {
+                if (in_array($phase, ['files-recover', 'files-verify-recovery'], true)) {
+                    self::assertPlanOperations($serverRoot, $workspace, $input);
+                    return ['candidate' => $id, 'program_changes' => false];
+                }
+                if ($phase !== 'files-apply') { throw new RuntimeException('file intents are missing'); }
+                self::assertPreparedServer($workspace, $input);
+                self::assertPlanOperations($serverRoot, $workspace, $input);
+                $journal = self::initialJournal($workspace, $input);
+                $journal['product_plan_sha256'] = $product['plan_sha256'];
+                self::writeJson($path, $journal);
+            }
+            $journal = self::journal($workspace);
+            self::assertJournalPlan($workspace, $input, $journal);
+            if (($journal['product_plan_sha256'] ?? null) !== $product['plan_sha256']
+                || ($journal['plan_sha256'] ?? null) !== $product['inputs_sha256']) {
+                throw new RuntimeException('file intents belong to another product plan');
+            }
+            if ($phase === 'files-apply') {
+                self::assertPreparedServer($workspace, $input);
+                foreach ($journal['operations'] as $index => $operation) {
+                    $operation = self::recordIntent($serverRoot, $workspace, $journal, $index);
+                    $journal['operations'][$index] = $operation;
+                    self::writeJson($path, $journal);
+                    if ($operation['status'] !== 'done') {
+                        self::applyOperation($serverRoot, $workspace, $operation);
+                        $journal['operations'][$index]['status'] = 'done';
+                        self::writeJson($path, $journal);
+                    }
+                }
+            } elseif ($phase === 'files-recover') {
+                for ($index = count($journal['operations']) - 1; $index >= 0; --$index) {
+                    if ($journal['operations'][$index]['status'] === 'pending') { continue; }
+                    self::recoverOperation($serverRoot, $workspace, $journal['operations'][$index]);
+                    $journal['operations'][$index]['status'] = 'recovered';
+                    self::writeJson($path, $journal);
+                }
+            } else {
+                foreach ($journal['operations'] as $operation) {
+                    self::assertOperationState($serverRoot, $operation, $phase === 'files-verify');
+                }
+            }
+            return ['candidate' => $id, 'operation_count' => count($journal['operations']), 'intent_sha256' => hash_file('sha256', $path)];
+        });
+    }
+
     public static function initializeTraffic(string $serverRoot): array
     {
         $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
@@ -234,6 +357,9 @@ final class PeanutServerUpdatePlan
                 if (!is_string($currentDigest)) {
                     throw new RuntimeException('cannot hash current program file: ' . $path);
                 }
+                if (isset($currentMap[$path]) && ($currentDigest !== $currentMap[$path]['sha256'] || $currentMode !== $currentMap[$path]['mode'])) {
+                    throw new RuntimeException('managed source changed outside its published application release: ' . $path);
+                }
             }
             $operations[] = [
                 'path' => $path,
@@ -265,6 +391,9 @@ final class PeanutServerUpdatePlan
                 if (!is_string($currentDigest)) {
                     throw new RuntimeException('cannot hash removed program file: ' . $path);
                 }
+                if ($currentDigest !== $currentFile['sha256'] || $currentMode !== $currentFile['mode']) {
+                    throw new RuntimeException('removed managed source was customized: ' . $path);
+                }
             }
             $operations[] = [
                 'path' => $path,
@@ -294,7 +423,6 @@ final class PeanutServerUpdatePlan
         $plan = [
             'schema_version' => 1,
             'protocol' => self::PLAN_PROTOCOL,
-            'status' => 'planned',
             'update_id' => 'server_update_' . gmdate('YmdHis') . '_' . bin2hex(random_bytes(6)),
             'source' => [
                 'application' => $current['application'],
@@ -310,8 +438,6 @@ final class PeanutServerUpdatePlan
                 'identity_sha256' => hash('sha256', $targetBytes),
             ],
             'tool_sha256' => hash_file('sha256', __FILE__),
-            'tools_sha256' => is_file($workspace . '/.trusted-tools/manifest.json')
-                ? hash_file('sha256', $workspace . '/.trusted-tools/manifest.json') : null,
             'requirements' => $requirements,
             'protected_paths' => [...self::PROTECTED_FILES, ...self::PROTECTED_PREFIXES],
             'prepared_server' => 'prepared/server',
@@ -327,457 +453,6 @@ final class PeanutServerUpdatePlan
         self::extractPreparedServer($archive, $workspace, $targetMap);
         self::writeJson($planPath, $plan);
         return $plan;
-    }
-
-    /**
-     * @param null|callable(string,string,array<string,mixed>):void $onEvent
-     * @return array<string,mixed>
-     */
-    public static function begin(string $serverRoot, string $workspace): array
-    {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
-        $plan = self::plan($workspace);
-        $updateId = self::updateId($plan);
-        self::assertPreparedServer($workspace, $plan);
-        self::assertPlanApplySupported($serverRoot, $workspace, $plan);
-
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId): array {
-            $currentPointer = self::currentPointerPath($serverRoot);
-            $journalPath = self::journalPath($workspace);
-            if (file_exists($journalPath) || is_link($journalPath)) {
-                self::assertJournalPlan($workspace, $plan, self::journal($workspace));
-            } else {
-                self::assertCurrentIdentity($serverRoot, $plan);
-                $currentBytes = self::regularBytes($serverRoot . '/.peanut/release-identity.json', 'current server release identity');
-                $currentIdentity = self::identity(json_decode($currentBytes, true, 512, JSON_THROW_ON_ERROR), false);
-                $deployment = self::deploymentState($serverRoot, $currentIdentity, hash('sha256', $currentBytes));
-                foreach (['installed_receipt_sha256', 'baseline_sha256', 'deployment_generation', 'deployment_state_sha256'] as $field) {
-                    $key = $field === 'deployment_generation' ? 'generation' : ($field === 'deployment_state_sha256' ? 'state_sha256' : $field);
-                    if (($plan['source'][$field] ?? null) !== $deployment[$key]) {
-                        throw new RuntimeException('installed deployment state differs from update plan');
-                    }
-                }
-                self::assertPlanOperations($serverRoot, $workspace, $plan);
-            }
-            self::assertInstalledInstance($serverRoot, self::identity(
-                json_decode(self::regularBytes($serverRoot . '/.peanut/release-identity.json', 'current server release identity'), true, 512, JSON_THROW_ON_ERROR),
-                false,
-            ));
-            if (file_exists($journalPath) || is_link($journalPath)) {
-                $existing = self::journal($workspace);
-                if (in_array($existing['status'] ?? null, ['applied', 'completed'], true)) {
-                    foreach ($existing['operations'] as $operation) {
-                        self::assertOperationState($serverRoot, $operation, true);
-                    }
-                    $maintenanceExists = file_exists(self::maintenancePath($serverRoot)) || is_link(self::maintenancePath($serverRoot));
-                    if (($existing['status'] ?? null) === 'completed') {
-                        self::assertPublishedDeploymentState($serverRoot, $workspace, $plan, $updateId);
-                        self::assertMigrationComplete($serverRoot, $workspace, $plan);
-                        if ($maintenanceExists) {
-                            self::assertActivationPointer($serverRoot, $workspace, $updateId, true);
-                        } elseif (file_exists($currentPointer) || is_link($currentPointer)) {
-                            self::assertActivationPointer($serverRoot, $workspace, $updateId, false);
-                            // A crash after clearing maintenance can leave the terminal pointer blocking Nginx.
-                            // Rebuild only this verified plan's private verification window, without reapplying files.
-                            self::writeMaintenance($serverRoot, $existing, 'verifying');
-                            $maintenanceExists = true;
-                        }
-                    } else {
-                        self::assertActivePointer($serverRoot, $workspace, $updateId);
-                        if (!$maintenanceExists) {
-                            throw new RuntimeException('applied update lost its maintenance marker');
-                        }
-                    }
-                    if ($maintenanceExists) {
-                        self::assertMaintenance($serverRoot, $updateId);
-                        self::revokeTraffic($serverRoot);
-                    } else {
-                        self::assertTrafficReady($serverRoot);
-                    }
-                    if (($existing['status'] ?? null) === 'applied' && $maintenanceExists) {
-                        $migrationPath = $workspace . '/migration.json';
-                        if (!file_exists($migrationPath) && !is_link($migrationPath)) {
-                            $existing['next_action'] = 'migrate';
-                        } else {
-                            self::assertMigrationComplete($serverRoot, $workspace, $plan);
-                            $existing['next_action'] = 'verify_activate';
-                        }
-                    } else {
-                        $existing['next_action'] = $maintenanceExists ? 'verify_activate' : 'none';
-                    }
-                    return $existing;
-                }
-            }
-            if (file_exists($currentPointer) || is_link($currentPointer)) {
-                $current = self::jsonFile($currentPointer, 'current server update pointer');
-                if (in_array($current['status'] ?? null, ['completed', 'recovered'], true)) {
-                    self::removeDurableFile($currentPointer);
-                } elseif (($current['update_id'] ?? null) !== $updateId || ($current['workspace'] ?? null) !== $workspace) {
-                    throw new RuntimeException('another server update is already active or requires recovery');
-                } else {
-                    $journal = self::journal($workspace);
-                    if (($journal['status'] ?? null) === 'failed') {
-                        throw new RuntimeException('server update has failed; run recover before applying again');
-                    }
-                    self::writeMaintenance($serverRoot, $journal, 'applying');
-                    $journal['next_action'] = 'apply';
-                    return $journal;
-                }
-            }
-
-            if (file_exists($journalPath) || is_link($journalPath)) {
-                $existing = self::journal($workspace);
-                if (in_array($existing['status'] ?? null, ['applied', 'completed'], true)) {
-                    return $existing;
-                }
-                throw new RuntimeException('update workspace already has an unfinished journal; run recover before applying again');
-            }
-
-            self::revokeTraffic($serverRoot);
-            $journal = self::initialJournal($workspace, $plan);
-            self::verificationKey($serverRoot, true);
-            self::writeJson($journalPath, $journal);
-            self::writeJson($currentPointer, [
-                'schema_version' => 1,
-                'protocol' => 'peanut.server-update-current.v1',
-                'update_id' => $updateId,
-                'workspace' => $workspace,
-                'status' => 'applying',
-                'updated_at' => self::now(),
-            ]);
-            self::writeMaintenance($serverRoot, $plan, 'applying');
-            $journal['next_action'] = 'apply';
-            return $journal;
-        });
-    }
-
-    /**
-     * @param null|callable(string,string,array<string,mixed>):void $onEvent
-     * @return array<string,mixed>
-     */
-    public static function apply(string $serverRoot, string $workspace, ?callable $onEvent = null): array
-    {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
-        $plan = self::plan($workspace);
-        $updateId = self::updateId($plan);
-        self::assertPreparedServer($workspace, $plan);
-        self::assertPlanApplySupported($serverRoot, $workspace, $plan);
-        self::begin($serverRoot, $workspace);
-
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId, $onEvent): array {
-            $journalPath = self::journalPath($workspace);
-            if (!file_exists($journalPath) && !is_link($journalPath)) {
-                $journal = self::initialJournal($workspace, $plan);
-                self::writeJson($journalPath, $journal);
-                self::writeJson(self::currentPointerPath($serverRoot), [
-                    'schema_version' => 1,
-                    'protocol' => 'peanut.server-update-current.v1',
-                    'update_id' => $updateId,
-                    'workspace' => $workspace,
-                    'status' => 'applying',
-                    'updated_at' => self::now(),
-                ]);
-            } else {
-                $journal = self::journal($workspace);
-            }
-            self::assertJournalPlan($workspace, $plan, $journal);
-            if (($journal['update_id'] ?? null) !== $updateId) {
-                throw new RuntimeException('server update journal belongs to another plan');
-            }
-            if (($journal['activation_started'] ?? null) === true) {
-                throw new RuntimeException('activation already started; file apply cannot resume');
-            }
-            if (($journal['status'] ?? null) === 'completed') {
-                return $journal;
-            }
-            if (($journal['status'] ?? null) === 'applied') {
-                self::writeMaintenance($serverRoot, $journal, 'activation-pending');
-                return $journal;
-            }
-            if (($journal['status'] ?? null) === 'failed') {
-                throw new RuntimeException('server update has failed; run recover before applying again');
-            }
-            if (($journal['status'] ?? null) !== 'applying') {
-                throw new RuntimeException('server update journal status is invalid for apply');
-            }
-            self::assertRecoveryPoint($serverRoot, $workspace, $plan);
-            self::writeMaintenance($serverRoot, $journal, 'applying');
-
-            try {
-                foreach ($journal['operations'] as $index => $operation) {
-                    $operation = self::recordIntent($serverRoot, $workspace, $journal, $index);
-                    $journal['operations'][$index] = $operation;
-                    self::writeJson($journalPath, $journal);
-                    if (($operation['status'] ?? null) === 'done') {
-                        continue;
-                    }
-                    $onEvent !== null && $onEvent('after_intent', (string) $operation['path'], $journal);
-
-                    self::applyOperation($serverRoot, $workspace, $operation);
-                    $journal['operations'][$index]['status'] = 'done';
-                    $journal['operations'][$index]['completed_at'] = self::now();
-                    self::writeJson($journalPath, $journal);
-                    $onEvent !== null && $onEvent('after_operation', (string) $operation['path'], $journal);
-                }
-                $journal['database_migration'] = [
-                    'status' => 'skipped',
-                    'reason' => 'no database migration changes in this server update plan',
-                ];
-                $journal['status'] = 'applied';
-                $journal['applied_at'] = self::now();
-                self::writeJson($journalPath, $journal);
-                self::writeMaintenance($serverRoot, $journal, 'activation-pending');
-                self::writeJson(self::currentPointerPath($serverRoot), [
-                    'schema_version' => 1,
-                    'protocol' => 'peanut.server-update-current.v1',
-                    'update_id' => $updateId,
-                    'workspace' => $workspace,
-                    'status' => 'applied',
-                    'updated_at' => self::now(),
-                ]);
-                return $journal;
-            } catch (Throwable $exception) {
-                $journal['status'] = 'failed';
-                $journal['failed_at'] = self::now();
-                $journal['failure'] = ['message' => $exception->getMessage()];
-                self::writeJson($journalPath, $journal);
-                self::writeJson(self::currentPointerPath($serverRoot), [
-                    'schema_version' => 1,
-                    'protocol' => 'peanut.server-update-current.v1',
-                    'update_id' => $updateId,
-                    'workspace' => $workspace,
-                    'status' => 'failed',
-                    'updated_at' => self::now(),
-                ]);
-                throw $exception;
-            }
-        });
-    }
-
-    /** @return array<string,mixed> */
-    public static function activate(string $serverRoot, string $workspace): array
-    {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
-        $plan = self::plan($workspace);
-        $updateId = self::updateId($plan);
-        $journalPath = self::journalPath($workspace);
-
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId, $journalPath): array {
-            $journal = self::journal($workspace);
-            self::assertJournalPlan($workspace, $plan, $journal);
-            if (($journal['update_id'] ?? null) !== $updateId) {
-                throw new RuntimeException('server update journal belongs to another plan');
-            }
-            if (($journal['status'] ?? null) === 'completed') {
-                self::assertPublishedDeploymentState($serverRoot, $workspace, $plan, $updateId);
-                if (file_exists(self::maintenancePath($serverRoot)) || is_link(self::maintenancePath($serverRoot))) {
-                    self::assertActivationPointer($serverRoot, $workspace, $updateId, true);
-                    foreach ($journal['operations'] as $operation) {
-                        self::assertOperationState($serverRoot, $operation, true);
-                    }
-                    self::assertVerification($serverRoot, $workspace, $plan, $journal, 'target');
-                    self::grantTraffic($serverRoot);
-                } else {
-                    self::assertTrafficReady($serverRoot);
-                    if (file_exists(self::currentPointerPath($serverRoot)) || is_link(self::currentPointerPath($serverRoot))) {
-                        self::assertActivationPointer($serverRoot, $workspace, $updateId, false);
-                    }
-                }
-                self::clearMaintenance($serverRoot, $updateId, 'completed');
-                self::removeDurableFile(self::currentPointerPath($serverRoot));
-                return $journal;
-            }
-            self::assertActivePointer($serverRoot, $workspace, $updateId);
-            if (($journal['status'] ?? null) !== 'applied') {
-                throw new RuntimeException('server update must be applied before activation');
-            }
-            self::assertMigrationComplete($serverRoot, $workspace, $plan);
-            foreach ($journal['operations'] as $operation) {
-                if (($operation['status'] ?? null) !== 'done') {
-                    throw new RuntimeException('server update has an unfinished file operation');
-                }
-                self::assertOperationState($serverRoot, $operation, true);
-            }
-            self::assertVerification($serverRoot, $workspace, $plan, $journal, 'target');
-            if (($journal['activation_started'] ?? null) !== true) {
-                $journal['activation_started'] = true;
-                $journal['activation_started_at'] = self::now();
-                self::writeJson($journalPath, $journal);
-            }
-            self::publishDeploymentState($serverRoot, $workspace, $plan, $updateId);
-            $journal['status'] = 'completed';
-            $journal['completed_at'] = self::now();
-            self::writeJson($journalPath, $journal);
-            self::writeJson(self::currentPointerPath($serverRoot), [
-                'schema_version' => 1,
-                'protocol' => 'peanut.server-update-current.v1',
-                'update_id' => $updateId,
-                'workspace' => $workspace,
-                'status' => 'completed',
-                'updated_at' => self::now(),
-            ]);
-            self::grantTraffic($serverRoot);
-            self::clearMaintenance($serverRoot, $updateId, 'completed');
-            self::removeDurableFile(self::currentPointerPath($serverRoot));
-            return $journal;
-        });
-    }
-
-    /** @return array<string,mixed> */
-    public static function assertRecoverable(string $serverRoot, string $workspace): array
-    {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
-        $plan = self::plan($workspace);
-        $updateId = self::updateId($plan);
-
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId): array {
-            $journal = self::journal($workspace);
-            self::assertJournalPlan($workspace, $plan, $journal);
-            self::assertActivePointer($serverRoot, $workspace, $updateId);
-            if (($journal['update_id'] ?? null) !== $updateId) {
-                throw new RuntimeException('server update journal belongs to another plan');
-            }
-            if (($journal['activation_started'] ?? null) === true) {
-                throw new RuntimeException('activation already started; automatic old database recovery is not allowed');
-            }
-            if (($journal['status'] ?? null) === 'completed') {
-                throw new RuntimeException('completed server update cannot be recovered automatically');
-            }
-            return [
-                'schema_version' => 1,
-                'protocol' => self::JOURNAL_PROTOCOL,
-                'status' => 'recoverable',
-                'update_id' => $updateId,
-            ];
-        });
-    }
-
-    /** @return array<string,mixed> */
-    public static function recover(string $serverRoot, string $workspace): array
-    {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
-        $plan = self::plan($workspace);
-        $updateId = self::updateId($plan);
-        $journalPath = self::journalPath($workspace);
-
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId, $journalPath): array {
-            $journal = self::journal($workspace);
-            self::assertJournalPlan($workspace, $plan, $journal);
-            if (($journal['activation_started'] ?? null) === true) {
-                throw new RuntimeException('activation already started; automatic old database recovery is not allowed');
-            }
-            if (($journal['status'] ?? null) === 'completed') {
-                throw new RuntimeException('completed server update cannot be recovered automatically');
-            }
-            self::assertDatabaseRecovery($serverRoot, $workspace, $plan, $journal);
-            self::assertActivePointer($serverRoot, $workspace, $updateId);
-            self::removeDurableFile(self::verificationPath($workspace));
-            if (($journal['status'] ?? null) === 'recovered') {
-                return $journal;
-            }
-
-            self::writeMaintenance($serverRoot, $journal, 'recovering');
-            try {
-                for ($index = count($journal['operations']) - 1; $index >= 0; --$index) {
-                    $operation = $journal['operations'][$index];
-                    if (($operation['status'] ?? null) === 'pending') {
-                        continue;
-                    }
-                    self::recoverOperation($serverRoot, $workspace, $operation);
-                    $journal['operations'][$index]['recovered_at'] = self::now();
-                    self::writeJson($journalPath, $journal);
-                }
-                $journal['status'] = 'recovered';
-                $journal['recovered_at'] = self::now();
-                self::writeJson($journalPath, $journal);
-                self::writeJson(self::currentPointerPath($serverRoot), [
-                    'schema_version' => 1,
-                    'protocol' => 'peanut.server-update-current.v1',
-                    'update_id' => $updateId,
-                    'workspace' => $workspace,
-                    'status' => 'recovered',
-                    'updated_at' => self::now(),
-                ]);
-                return $journal;
-            } catch (Throwable $exception) {
-                $journal['status'] = 'recovery_failed';
-                $journal['failed_at'] = self::now();
-                $journal['failure'] = ['message' => $exception->getMessage()];
-                self::writeJson($journalPath, $journal);
-                throw $exception;
-            }
-        });
-    }
-
-    /** @return array<string,mixed> */
-    public static function finishRecovery(string $serverRoot, string $workspace): array
-    {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
-        $plan = self::plan($workspace);
-        $updateId = self::updateId($plan);
-
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $updateId): array {
-            $journal = self::journal($workspace);
-            self::assertJournalPlan($workspace, $plan, $journal);
-            if (($journal['update_id'] ?? null) !== $updateId) {
-                throw new RuntimeException('server update journal belongs to another plan');
-            }
-            if (($journal['activation_started'] ?? null) === true) {
-                throw new RuntimeException('activation already started; automatic old database recovery is not allowed');
-            }
-            if (($journal['status'] ?? null) !== 'recovered') {
-                throw new RuntimeException('server update must be recovered before clearing maintenance');
-            }
-            self::assertDatabaseRecovery($serverRoot, $workspace, $plan, $journal);
-            self::assertActivePointer($serverRoot, $workspace, $updateId);
-            foreach ($journal['operations'] as $operation) {
-                self::assertOperationState($serverRoot, $operation);
-            }
-            self::assertVerification($serverRoot, $workspace, $plan, $journal, 'source');
-            self::grantTraffic($serverRoot);
-            self::clearMaintenance($serverRoot, $updateId, 'recovered');
-            self::removeDurableFile(self::currentPointerPath($serverRoot));
-            return $journal;
-        });
-    }
-
-    /** Private maintenance verification; no caller-supplied success or health result is accepted. */
-    public static function verifyRuntime(string $serverRoot, string $workspace, string $phase): array
-    {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
-        $plan = self::plan($workspace);
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $workspace, $plan, $phase): array {
-            $journal = self::journal($workspace);
-            self::assertJournalPlan($workspace, $plan, $journal);
-            if (!in_array($phase, ['source', 'target'], true)
-                || !in_array($journal['status'] ?? null, $phase === 'target' ? ['applied', 'completed'] : ['recovered'], true)) {
-                throw new RuntimeException('server update verification phase is invalid');
-            }
-            if ($phase === 'target' && ($journal['status'] ?? null) === 'completed') {
-                self::assertActivationPointer($serverRoot, $workspace, self::updateId($plan), true);
-                self::assertPublishedDeploymentState($serverRoot, $workspace, $plan, self::updateId($plan));
-            } else {
-                self::assertActivePointer($serverRoot, $workspace, self::updateId($plan));
-            }
-            self::assertMaintenance($serverRoot, self::updateId($plan));
-            foreach ($journal['operations'] as $operation) {
-                self::assertOperationState($serverRoot, $operation, $phase === 'target');
-            }
-            if ($phase === 'target') {
-                self::assertMigrationComplete($serverRoot, $workspace, $plan);
-            } else {
-                self::assertDatabaseRecovery($serverRoot, $workspace, $plan, $journal);
-            }
-            self::nativeRuntimeHealth($serverRoot);
-            return self::sealVerification($serverRoot, $workspace, $plan, $journal, $phase);
-        });
     }
 
     private static function nativeRuntimeHealth(string $serverRoot): void
@@ -800,57 +475,7 @@ final class PeanutServerUpdatePlan
     }
 
     /** @param array<string,mixed> $plan @param array<string,mixed> $journal @return array<string,mixed> */
-    private static function sealVerification(string $serverRoot, string $workspace, array $plan, array $journal, string $phase): array
-    {
-        $identityDigest = hash_file('sha256', $serverRoot . '/.peanut/release-identity.json');
-        $expected = $phase === 'target' ? $plan['target']['identity_sha256'] : $plan['source']['identity_sha256'];
-        if (!is_string($identityDigest) || !hash_equals((string) $expected, $identityDigest)) {
-            throw new RuntimeException('verified runtime identity differs from plan');
-        }
-        $payload = [
-            'schema_version' => 1,
-            'protocol' => 'peanut.server-update-verification.v1',
-            'update_id' => self::updateId($plan),
-            'phase' => $phase,
-            'plan_sha256' => $journal['plan_sha256'],
-            'installed_receipt_sha256' => $plan['source']['installed_receipt_sha256'],
-            'identity_sha256' => $identityDigest,
-            'verified_at' => time(),
-        ];
-        $bytes = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        $payload['hmac_sha256'] = hash_hmac('sha256', $bytes, self::verificationKey($serverRoot, false));
-        self::writeJson(self::verificationPath($workspace), $payload);
-        return $payload;
-    }
-
     /** @param array<string,mixed> $plan @param array<string,mixed> $journal */
-    private static function assertVerification(string $serverRoot, string $workspace, array $plan, array $journal, string $phase): void
-    {
-        self::assertMaintenance($serverRoot, self::updateId($plan));
-        $receipt = self::jsonFile(self::verificationPath($workspace), 'private runtime verification');
-        $signature = $receipt['hmac_sha256'] ?? null;
-        unset($receipt['hmac_sha256']);
-        $expectedDigest = $phase === 'target' ? $plan['target']['identity_sha256'] : $plan['source']['identity_sha256'];
-        $actualDigest = hash_file('sha256', $serverRoot . '/.peanut/release-identity.json');
-        $installedDigest = hash_file('sha256', $serverRoot . '/private/installation/installed.json');
-        $verifiedAt = $receipt['verified_at'] ?? null;
-        if (!is_string($signature) || preg_match('/^[a-f0-9]{64}$/D', $signature) !== 1
-            || ($receipt['protocol'] ?? null) !== 'peanut.server-update-verification.v1'
-            || ($receipt['update_id'] ?? null) !== self::updateId($plan)
-            || ($receipt['phase'] ?? null) !== $phase
-            || ($receipt['plan_sha256'] ?? null) !== $journal['plan_sha256']
-            || ($receipt['installed_receipt_sha256'] ?? null) !== $installedDigest
-            || ($receipt['identity_sha256'] ?? null) !== $expectedDigest
-            || $actualDigest !== $expectedDigest
-            || !is_int($verifiedAt) || $verifiedAt > time() || time() - $verifiedAt > 120) {
-            throw new RuntimeException('private runtime verification is missing, stale or mismatched');
-        }
-        $bytes = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        if (!hash_equals($signature, hash_hmac('sha256', $bytes, self::verificationKey($serverRoot, false)))) {
-            throw new RuntimeException('private runtime verification signature is invalid');
-        }
-    }
-
     private static function assertMaintenance(string $serverRoot, string $updateId): void
     {
         $marker = self::jsonFile(self::maintenancePath($serverRoot), 'server update maintenance marker');
@@ -859,11 +484,6 @@ final class PeanutServerUpdatePlan
             || ($marker['update_id'] ?? null) !== $updateId) {
             throw new RuntimeException('server update maintenance marker is not bound to plan');
         }
-    }
-
-    private static function verificationPath(string $workspace): string
-    {
-        return $workspace . '/verification.json';
     }
 
     private static function verificationKey(string $serverRoot, bool $create): string
@@ -882,127 +502,10 @@ final class PeanutServerUpdatePlan
         return $key;
     }
 
-    private static function assertSignedRecord(string $serverRoot, string $path, string $label): void
-    {
-        $bytes = self::regularBytes($path, $label);
-        $signaturePath = $path . '.hmac';
-        $signature = trim(self::regularBytes($signaturePath, $label . ' signature'));
-        if ((fileperms($path) & 0777) !== 0600
-            || (fileperms($signaturePath) & 0777) !== 0600
-            || preg_match('/^[a-f0-9]{64}$/D', $signature) !== 1
-            || !hash_equals(hash_hmac('sha256', $bytes, self::verificationKey($serverRoot, false)), $signature)) {
-            throw new RuntimeException($label . ' signature differs from this instance');
-        }
-    }
-
     /** @param array<string,mixed> $plan */
-    private static function assertPlanApplySupported(string $serverRoot, string $workspace, array $plan): void
-    {
-        $preparation = self::jsonFile($workspace . '/preparation.json', 'target dependency preparation');
-        $digest = hash_file('sha256', $workspace . '/plan.json');
-        if (($preparation['protocol'] ?? null) !== 'peanut.server-update-preparation.v1'
-            || ($preparation['update_id'] ?? null) !== self::updateId($plan)
-            || ($preparation['plan_sha256'] ?? null) !== $digest
-            || ($preparation['target_identity_sha256'] ?? null) !== $plan['target']['identity_sha256']) {
-            throw new RuntimeException('target dependency preparation differs from update plan');
-        }
-        $mode = $preparation['vendor_mode'] ?? null;
-        $targetLock = self::preparedPath($workspace, 'server/composer.lock');
-        $sourceLock = $serverRoot . '/composer.lock';
-        $switchPath = $workspace . '/dependency-switch.json';
-        $switched = file_exists($switchPath) || is_link($switchPath);
-        if ($switched) {
-            $switch = self::jsonFile($switchPath, 'prepared dependency switch');
-            if (($switch['status'] ?? null) !== 'completed'
-                || ($switch['update_id'] ?? null) !== self::updateId($plan)
-                || ($switch['plan_sha256'] ?? null) !== $digest) {
-                throw new RuntimeException('prepared dependency switch is incomplete');
-            }
-        }
-        $vendorRoot = $mode === 'reuse' || $switched ? $serverRoot : $workspace . '/prepared/server';
-        $receipt = $vendorRoot . '/vendor/.peanut-complete.json';
-        $installed = self::jsonFile($receipt, 'installed vendor receipt');
-        if (!in_array($mode, ['reuse', 'prepared'], true)
-            || ($mode === 'reuse' && hash_file('sha256', $sourceLock) !== hash_file('sha256', $targetLock))
-            || ($installed['protocol'] ?? null) !== 'peanut.composer-install.v1'
-            || ($installed['lock_sha256'] ?? null) !== hash_file('sha256', $targetLock)
-            || ($preparation['vendor_receipt_sha256'] ?? null) !== hash_file('sha256', $receipt)
-            || !is_file($vendorRoot . '/vendor/autoload.php')) {
-            throw new RuntimeException('target Composer installation is missing or mismatched');
-        }
-        if (($plan['requirements']['runtime_environment_changed'] ?? null) === true) {
-            throw new RuntimeException('runtime environment changed without an independently prepared compatible image set');
-        }
-        if (($plan['requirements']['nginx_configuration_changed'] ?? null) === true) {
-            $nginx = self::jsonFile($workspace . '/nginx-preparation.json', 'target Nginx preparation');
-            $composeEnv = self::regularBytes($serverRoot . '/docker/.env', 'instance Compose environment');
-            preg_match_all('/^NGINX_IMAGE=(.+)$/m', $composeEnv, $images);
-            $image = $images[1] === [] ? null : trim(end($images[1]));
-            if (($nginx['protocol'] ?? null) !== 'peanut.server-update-nginx-preparation.v1'
-                || ($nginx['status'] ?? null) !== 'completed'
-                || ($nginx['plan_sha256'] ?? null) !== $digest
-                || ($nginx['image'] ?? null) !== $image
-                || ($nginx['configuration_sha256'] ?? null) !== hash_file('sha256', self::preparedPath($workspace, 'server/docker/conf/nginx.conf'))) {
-                throw new RuntimeException('target Nginx configuration has not been checked with this instance image');
-            }
-        }
-    }
-
     /** @param array<string,mixed> $plan */
-    private static function assertRecoveryPoint(string $serverRoot, string $workspace, array $plan): void
-    {
-        self::assertSignedRecord($serverRoot, $workspace . '/backup.json', 'server update recovery point');
-        $backup = self::jsonFile($workspace . '/backup.json', 'server update recovery point');
-        if (($backup['protocol'] ?? null) !== 'peanut.server-update-backup.v1'
-            || ($backup['update_id'] ?? null) !== self::updateId($plan)
-            || ($backup['plan_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
-            || ($backup['snapshots']['private/installation/installed.json'] ?? null) !== $plan['source']['installed_receipt_sha256']
-            || ($backup['snapshots']['private/installation/baseline.json'] ?? null) !== $plan['source']['baseline_sha256']
-            || ($backup['snapshots']['private/installation/deployment.json'] ?? null) !== $plan['source']['deployment_state_sha256']
-            || ($backup['database_dump_sha256'] ?? null) !== hash_file('sha256', $workspace . '/recovery/database.sql.gz')) {
-            throw new RuntimeException('server update recovery point is missing or differs from plan');
-        }
-    }
-
     /** @param array<string,mixed> $plan */
-    private static function assertMigrationComplete(string $serverRoot, string $workspace, array $plan): void
-    {
-        self::assertSignedRecord($serverRoot, $workspace . '/migration.json', 'native migration result');
-        $migration = self::jsonFile($workspace . '/migration.json', 'native migration result');
-        if (($migration['protocol'] ?? null) !== 'peanut.server-update-migration.v1'
-            || ($migration['status'] ?? null) !== 'completed'
-            || ($migration['update_id'] ?? null) !== self::updateId($plan)
-            || ($migration['plan_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
-            || ($migration['backup_sha256'] ?? null) !== hash_file('sha256', $workspace . '/backup.json')) {
-            throw new RuntimeException('native migration has not completed for this recovery point');
-        }
-    }
-
     /** @param array<string,mixed> $plan @param array<string,mixed> $journal */
-    private static function assertDatabaseRecovery(string $serverRoot, string $workspace, array $plan, array $journal): void
-    {
-        $backupPath = $workspace . '/backup.json';
-        if (!file_exists($backupPath) && !is_link($backupPath)) {
-            foreach ($journal['operations'] as $operation) {
-                if (($operation['status'] ?? null) !== 'pending') {
-                    throw new RuntimeException('program changed without a database recovery point');
-                }
-            }
-            if (file_exists($workspace . '/migration.json') || is_link($workspace . '/migration.json')) {
-                throw new RuntimeException('migration started without a database recovery point');
-            }
-            return;
-        }
-        self::assertSignedRecord($serverRoot, $backupPath, 'server update recovery point');
-        self::assertSignedRecord($serverRoot, $workspace . '/database-recovery.json', 'database recovery result');
-        $record = self::jsonFile($workspace . '/database-recovery.json', 'database recovery result');
-        if (($record['status'] ?? null) !== 'completed'
-            || ($record['update_id'] ?? null) !== self::updateId($plan)
-            || ($record['backup_sha256'] ?? null) !== hash_file('sha256', $backupPath)) {
-            throw new RuntimeException('old database has not been restored for this update');
-        }
-    }
-
     /** @param array<string,array{path:string,sha256:string,mode:int}> $targetMap */
     private static function extractPreparedServer(string $archive, string $workspace, array $targetMap): void
     {
@@ -1048,17 +551,13 @@ final class PeanutServerUpdatePlan
     {
         $plan = self::jsonFile($workspace . '/plan.json', 'server update plan');
         if (($plan['schema_version'] ?? null) !== 1 || ($plan['protocol'] ?? null) !== self::PLAN_PROTOCOL
-            || ($plan['status'] ?? null) !== 'planned' || !is_array($plan['operations'] ?? null)
+            || !is_array($plan['operations'] ?? null)
             || !is_array($plan['requirements'] ?? null)) {
             throw new RuntimeException('server update plan is invalid');
         }
         $toolDigest = hash_file('sha256', __FILE__);
         if (!is_string($toolDigest) || !hash_equals((string) ($plan['tool_sha256'] ?? ''), $toolDigest)) {
             throw new RuntimeException('server update tool differs from planned trusted copy');
-        }
-        if (($plan['tools_sha256'] ?? null) !== null
-            && ($plan['tools_sha256'] ?? null) !== hash_file('sha256', $workspace . '/.trusted-tools/manifest.json')) {
-            throw new RuntimeException('server update helper manifest differs from plan');
         }
         self::updateId($plan);
         return $plan;
@@ -1119,15 +618,6 @@ final class PeanutServerUpdatePlan
     }
 
     /** @param array<string,mixed> $plan */
-    private static function assertCurrentIdentity(string $serverRoot, array $plan): void
-    {
-        self::assertOrdinaryParents($serverRoot, '.peanut/release-identity.json');
-        $bytes = self::regularBytes($serverRoot . '/.peanut/release-identity.json', 'current server release identity');
-        if (!hash_equals((string) ($plan['source']['identity_sha256'] ?? ''), hash('sha256', $bytes))) {
-            throw new RuntimeException('current server release identity differs from update plan');
-        }
-    }
-
     /** @param array<string,mixed> $identity */
     private static function assertInstalledInstance(string $serverRoot, array $identity): void
     {
@@ -1169,7 +659,7 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException('installed identity cannot be hashed');
         }
         $path = self::deploymentPath($serverRoot);
-        if (!file_exists($path) && !is_link($path)) {
+            if (!file_exists($path) && !is_link($path)) {
             $baseline = self::jsonFile($baselinePath, 'installed instance baseline');
             if (($baseline['source']['server_release_identity_sha256'] ?? null) !== $currentDigest) {
                 throw new RuntimeException('current release has no matching installed deployment chain');
@@ -1254,16 +744,6 @@ final class PeanutServerUpdatePlan
     }
 
     /** @param array<string,mixed> $plan */
-    private static function assertPublishedDeploymentState(string $serverRoot, string $workspace, array $plan, string $updateId): void
-    {
-        $state = self::jsonFile(self::deploymentPath($serverRoot), 'current deployment identity');
-        if (($state['update_id'] ?? null) !== $updateId
-            || ($state['current_identity_sha256'] ?? null) !== $plan['target']['identity_sha256']
-            || ($state['plan_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')) {
-            throw new RuntimeException('completed update lacks bound deployment identity');
-        }
-    }
-
     /** @param array<string,mixed> $plan @param array<string,mixed> $journal */
     private static function assertJournalPlan(string $workspace, array $plan, array $journal): void
     {
@@ -1287,28 +767,6 @@ final class PeanutServerUpdatePlan
                     throw new RuntimeException('server update journal operations differ from plan');
                 }
             }
-        }
-    }
-
-    private static function assertActivePointer(string $serverRoot, string $workspace, string $updateId): void
-    {
-        $pointer = self::jsonFile(self::currentPointerPath($serverRoot), 'current server update pointer');
-        if (($pointer['protocol'] ?? null) !== 'peanut.server-update-current.v1'
-            || ($pointer['update_id'] ?? null) !== $updateId
-            || ($pointer['workspace'] ?? null) !== $workspace
-            || !in_array($pointer['status'] ?? null, ['applying', 'applied', 'failed', 'recovery_failed', 'recovered'], true)) {
-            throw new RuntimeException('current server update pointer belongs to another plan');
-        }
-    }
-
-    private static function assertActivationPointer(string $serverRoot, string $workspace, string $updateId, bool $allowApplied): void
-    {
-        $pointer = self::jsonFile(self::currentPointerPath($serverRoot), 'completed server update pointer');
-        if (($pointer['protocol'] ?? null) !== 'peanut.server-update-current.v1'
-            || ($pointer['update_id'] ?? null) !== $updateId
-            || ($pointer['workspace'] ?? null) !== $workspace
-            || !in_array($pointer['status'] ?? null, $allowApplied ? ['applied', 'completed'] : ['completed'], true)) {
-            throw new RuntimeException('completed server update pointer belongs to another plan');
         }
     }
 
@@ -1421,14 +879,12 @@ final class PeanutServerUpdatePlan
         return [
             'schema_version' => 1,
             'protocol' => self::JOURNAL_PROTOCOL,
-            'status' => 'applying',
             'update_id' => self::updateId($plan),
             'maintenance_key' => 'maintenance_' . bin2hex(random_bytes(16)),
             'reason_key' => 'planned-upgrade',
             'plan_sha256' => $planDigest,
             'source' => $plan['source'],
             'target' => $plan['target'],
-            'activation_started' => false,
             'operations' => $operations,
             'created_at' => self::now(),
         ];
@@ -1764,7 +1220,7 @@ final class PeanutServerUpdatePlan
     private static function writeMaintenance(string $serverRoot, array $plan, string $phase): void
     {
         self::revokeTraffic($serverRoot);
-        $updateId = self::updateId($plan);
+        $updateId = (string) $plan['update_id'];
         $maintenanceKey = is_string($plan['maintenance_key'] ?? null)
             ? $plan['maintenance_key']
             : 'maintenance_' . substr(hash('sha256', $updateId), 0, 32);
@@ -2219,7 +1675,7 @@ final class PeanutServerUpdatePlan
     private static function usage(): never
     {
         fwrite(STDERR, "Usage: php update-plan.php plan --instance-server=/absolute/server --archive=/absolute/server.tar.gz --expected-sha256=<trusted-64-hex> --workspace=/absolute/update-workspace\n");
-        fwrite(STDERR, "       php update-plan.php begin|apply|activate|assert-recoverable|recover|finish-recovery --instance-server=/absolute/server --workspace=/absolute/update-workspace\n");
+        fwrite(STDERR, "       php update-plan.php files-apply|files-verify|files-recover|files-verify-recovery|hold|health|publish|open --instance-server=/absolute/server --workspace=/absolute/update-workspace\n");
         exit(64);
     }
 }

@@ -19,6 +19,7 @@ final readonly class ThinkPhpRestoreTaskExecutionService implements RestoreTaskE
 {
     private const FAILURE_CODES = [
         'OPS_RESTORE_BACKUP_NOT_FOUND',
+        'OPS_RESTORE_UNSUPPORTED_SCHEMA',
         'OPS_RESTORE_ARTIFACT_INVALID',
         'OPS_RESTORE_TARGET_NOT_EMPTY',
         'OPS_RESTORE_ISOLATION_VIOLATION',
@@ -290,6 +291,10 @@ final readonly class ThinkPhpRestoreTaskExecutionService implements RestoreTaskE
             ->field('manifest_sha256,source_commit,source_tree,manifest_json')->lock(true)->find();
         if (!is_array($row)) {
             throw new RuntimeException('OPS_RESTORE_BACKUP_NOT_FOUND');
+        }
+        $historical = json_decode((string) $row['manifest_json'], true, 32, JSON_THROW_ON_ERROR);
+        if (is_array($historical) && in_array($historical['schema_version'] ?? null, [2, 3], true)) {
+            throw new RuntimeException('OPS_RESTORE_UNSUPPORTED_SCHEMA');
         }
         $manifest = PairedBackupManifest::fromJson((string) $row['manifest_json']);
         if (!hash_equals((string) $row['manifest_sha256'], hash('sha256', $manifest->canonicalJson()))

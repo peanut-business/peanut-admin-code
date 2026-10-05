@@ -12,11 +12,13 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 
 SNAPSHOT_NAMES = (".env", "docker/.env", "private/installation/installed.json",
                   "private/installation/baseline.json", "private/installation/deployment.json",
                   "private/resources/project-resources.json")
 SNAPSHOT_SET = set(SNAPSHOT_NAMES)
+STORAGE_NAMES = ('public/storage', 'public/uploads', 'private/storage', 'private/installation')
 HEX64 = re.compile(r"[a-f0-9]{64}\Z")
 IMAGE_ID = re.compile(r"sha256:[a-f0-9]{64}\Z")
 
@@ -37,7 +39,7 @@ def regular(path, mode=None):
 
 
 def safe_parents(root, name):
-    if name not in SNAPSHOT_SET or name.startswith("/") or ".." in Path(name).parts:
+    if name not in SNAPSHOT_SET | set(STORAGE_NAMES) or name.startswith("/") or ".." in Path(name).parts:
         raise ValueError("snapshot path is not in the exact recovery allowlist")
     cursor = root
     for part in name.split("/")[:-1]:
@@ -127,13 +129,11 @@ def instance(args):
         raise ValueError("server and workspace must be canonical ordinary directories")
     plan_path = workspace / "plan.json"
     plan = read_json(plan_path)
-    journal = read_json(workspace / "journal.json")
+    product, journal = product_binding(workspace)
     plan_sha = sha(plan_path)
-    if plan.get("protocol") != "peanut.server-update-plan.v1" or journal.get("plan_sha256") != plan_sha or journal.get("update_id") != plan.get("update_id"):
+    if plan.get("protocol") not in ('peanut.server-release-inputs.v1',) or plan.get('update_id') != product.get('candidate') \
+        or (product.get('inputs_sha256') is not None and product['inputs_sha256'] != plan_sha):
         raise ValueError("recovery point differs from active update plan")
-    pointer = read_json(server / "runtime/upgrade/current-update.json")
-    if pointer.get("update_id") != plan.get("update_id") or pointer.get("workspace") != str(workspace):
-        raise ValueError("active instance pointer differs from recovery workspace")
     marker = read_json(server / "runtime/upgrade/maintenance.json")
     if marker.get("update_id") != plan["update_id"] or marker.get("status") != "active":
         raise ValueError("matching maintenance marker is required")
@@ -168,6 +168,51 @@ def instance(args):
     return server, workspace, plan, journal, plan_sha, identity
 
 
+def product_binding(workspace):
+    binding = read_json(workspace / 'product-binding.json')
+    product = read_json(Path(binding['plan_path']))
+    digest = product.pop('plan_sha256', None)
+    canonical = lambda value: json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+    if product.get('protocol') != 'peanut.product-upgrade-plan.v2' or product.get('workspace') != str(workspace) \
+        or digest != binding.get('plan_sha256') or digest != 'sha256:' + hashlib.sha256(canonical(product)).hexdigest():
+        raise ValueError('phase workspace is not bound to the product plan')
+    state = read_json(Path(product['state_path']))
+    state_digest = state.pop('state_sha256', None)
+    if state.get('protocol') != 'peanut.product-upgrade-state.v1' or state.get('candidate') != product['candidate'] \
+        or state.get('plan_sha256') != digest or state_digest != 'sha256:' + hashlib.sha256(canonical(state)).hexdigest():
+        raise ValueError('product state digest differs from phase workspace')
+    product['plan_sha256'] = digest
+    return product, state
+
+
+def storage_inventory(root):
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError('protected storage root is unsafe')
+    rows = {}
+    for base, dirs, files in os.walk(root, followlinks=False):
+        for name in dirs + files:
+            path = Path(base) / name
+            if path.is_symlink() or (not path.is_dir() and not path.is_file()) or '\\' in name or any(ord(c) < 32 for c in name):
+                raise ValueError('protected storage contains links or special paths')
+            if path.is_file():
+                regular(path)
+            rows[path.relative_to(root).as_posix()] = [sha(path) if path.is_file() else None, path.stat().st_mode & 0o777]
+    return rows
+
+
+def storage_archive(path):
+    regular(path, 0o600)
+    with tarfile.open(path, 'r:gz') as archive:
+        seen = set()
+        for member in archive.getmembers():
+            name = member.name.rstrip('/')
+            if name in seen or not name or name.startswith('/') or '\\' in name or any(ord(c) < 32 for c in name) \
+                or any(part in ('', '.', '..') for part in name.split('/')) or not (member.isdir() or member.isfile()):
+                raise ValueError('protected storage archive contains unsafe paths')
+            seen.add(name)
+    return path
+
+
 def assert_stopped(server):
     docker_dir = server / "docker"
     project = env(docker_dir / ".env").get("COMPOSE_PROJECT_NAME", "")
@@ -176,7 +221,7 @@ def assert_stopped(server):
     services = compose(docker_dir, "ps", "--status", "running", "--services").splitlines()
     if services != ["mysql"]:
         raise ValueError("business writers are not drained")
-    images = {}
+    images = {}; containers = {}
     for service in ("php", "nginx", "mysql"):
         ids = compose(docker_dir, "ps", "-a", "-q", service).splitlines()
         discovered = docker("ps", "-a", "--no-trunc", "--filter", f"label=com.docker.compose.project={project}",
@@ -201,11 +246,13 @@ def assert_stopped(server):
         if not IMAGE_ID.fullmatch(image):
             raise ValueError("Compose image ID is invalid")
         images[service] = image
+        containers[service] = {'id': details['Id'], 'started_at': details['State'].get('StartedAt'),
+                               'finished_at': details['State'].get('FinishedAt'), 'restart_count': details.get('RestartCount')}
     running = docker("ps", "--no-trunc", "--filter", f"label=com.docker.compose.project={project}", "--format", "{{.ID}}").splitlines()
     mysql_id = compose(docker_dir, "ps", "-a", "-q", "mysql")
     if running != [mysql_id]:
         raise ValueError("another Compose writer is running")
-    return {"project": project, "images": images}
+    return {"project": project, "images": images, 'containers': containers}
 
 
 def snapshot_paths(server):
@@ -227,7 +274,8 @@ def db_probe(server, database):
 
 def backup(args):
     server, workspace, plan, journal, plan_sha, identity = instance(args)
-    if journal.get("status") != "applying" or any(row.get("status") != "pending" for row in journal["operations"]):
+    if journal.get('phase_in_progress') != 'backup' or journal.get('database_recovery_required') is not False \
+        or journal.get('activation_started') is not False:
         raise ValueError("recovery point must precede program changes")
     verification_key(server)
     runtime = assert_stopped(server)
@@ -236,6 +284,26 @@ def backup(args):
     if recovery.exists() or recovery.is_symlink() or (workspace / "backup.json").exists():
         raise ValueError("recovery point already exists")
     recovery.mkdir(mode=0o700)
+    storage = {}
+    for name in STORAGE_NAMES:
+        source = server / name
+        safe_parents(server, name)
+        if not source.exists() and not source.is_symlink():
+            storage[name] = None
+            continue
+        rows = storage_inventory(source)
+        path = recovery / (name.replace('/', '-') + '.tar.gz')
+        with path.open('xb') as output:
+            os.fchmod(output.fileno(), 0o600)
+            with tarfile.open(fileobj=output, mode='w:gz', dereference=False) as archive:
+                for relative in sorted(rows):
+                    archive.add(source / relative, arcname=relative, recursive=False)
+            output.flush(); os.fsync(output.fileno())
+        storage_archive(path)
+        if storage_inventory(source) != rows:
+            raise ValueError('protected storage changed while writers were drained')
+        storage[name] = {'filename': path.name, 'sha256': sha(path), 'inventory': rows,
+                         'root_mode': source.stat().st_mode & 0o777}
     snapshots = {}
     for name, source in snapshot_paths(server):
         safe_parents(server, name)
@@ -280,8 +348,9 @@ def backup(args):
     raw.unlink()
     record = {"protocol": "peanut.server-update-backup.v1", "update_id": plan["update_id"],
               "plan_sha256": plan_sha, "database_identity": identity, "database_dump_sha256": sha(compressed),
-              "source_images": runtime["images"], "compose_project": runtime["project"],
-              "mysql_identity": probe, "snapshots": snapshots}
+              "source_images": runtime["images"], "compose_project": runtime["project"], 'quiesced_containers': runtime['containers'],
+              "mysql_identity": probe, "snapshots": snapshots, 'storage': storage,
+              'product_plan_sha256': product_binding(workspace)[0]['plan_sha256']}
     backup_bytes = json.dumps(record, sort_keys=True).encode()
     durable(workspace / "backup.json", backup_bytes)
     durable(workspace / "backup.json.hmac", (hmac.new(verification_key(server), backup_bytes, hashlib.sha256).hexdigest() + "\n").encode())
@@ -294,6 +363,13 @@ def verify(args):
     record = read_json(workspace / "backup.json")
     if record.get("protocol") != "peanut.server-update-backup.v1" or record.get("update_id") != plan["update_id"] or record.get("plan_sha256") != plan_sha or record.get("database_identity") != identity:
         raise ValueError("recovery point is bound to another plan or database")
+    if record.get('product_plan_sha256') != product_binding(workspace)[0]['plan_sha256'] or set(record.get('storage', {})) != set(STORAGE_NAMES):
+        raise ValueError('paired storage belongs to another product plan')
+    for name, entry in record['storage'].items():
+        if entry is None: continue
+        expected_name = name.replace('/', '-') + '.tar.gz'
+        if entry.get('filename') != expected_name or sha(storage_archive(workspace / 'recovery' / expected_name)) != entry.get('sha256'):
+            raise ValueError('paired storage archive changed')
     snapshots = record.get("snapshots")
     if not isinstance(snapshots, dict) or set(snapshots) != SNAPSHOT_SET:
         raise ValueError("snapshot set differs from the exact recovery allowlist")
@@ -326,6 +402,8 @@ def verify(args):
     runtime = assert_stopped(server)
     if record.get("source_images") != runtime["images"] or record.get("compose_project") != runtime["project"]:
         raise ValueError("source image or Compose project changed after backup")
+    if journal.get('phase_in_progress') in ('backup', 'quiesce', 'migrate') and record.get('quiesced_containers') != runtime['containers']:
+        raise ValueError('a writer restarted after the paired backup; stale recovery point reuse is forbidden')
     current_probe = db_probe(server, identity["database"])
     if current_probe["server_uuid"] != record.get("mysql_identity", {}).get("server_uuid") \
         or current_probe["database"] != record.get("mysql_identity", {}).get("database"):
@@ -353,7 +431,7 @@ def validate_dump(path, database, compressed=False):
 
 def restore(args):
     server, workspace, plan, journal, record = verify(args)
-    if journal.get("activation_started") is True or journal.get("status") == "completed":
+    if journal.get("activation_started") is True or journal.get("phase") == "completed":
         raise ValueError("activation started; automatic old database recovery is forbidden")
     state_path = workspace / "database-recovery.json"
     if state_path.exists() or state_path.is_symlink():
@@ -362,6 +440,9 @@ def restore(args):
             check_signature(server, state_path)
             if db_probe(server, record["database_identity"]["database"]) != record["mysql_identity"]:
                 raise ValueError("already restored database no longer matches recovery point")
+            for name, entry in record['storage'].items():
+                if entry is not None and storage_inventory(server / name) != entry['inventory']:
+                    raise ValueError('already restored protected storage changed')
             print(json.dumps({"status": "already_restored", "update_id": plan["update_id"]}))
             return
         raise ValueError("database restore has an unknown or interrupted result; inspect before retry")
@@ -388,6 +469,7 @@ def restore(args):
     restored = db_probe(server, database)
     if restored != record["mysql_identity"]:
         raise ValueError("restored schema identity or table count differs from recovery point")
+    restore_storage(server, workspace, record)
     for name, expected in record["snapshots"].items():
         path = server / name
         if expected is None:
@@ -404,6 +486,43 @@ def restore(args):
     os.replace(temporary, state_path)
     durable(state_path.with_name(state_path.name + ".hmac"), (signature_for(server, state_path) + "\n").encode())
     print(json.dumps({"status": "completed", "update_id": plan["update_id"]}))
+
+
+def restore_storage(server, workspace, record):
+    # Only these plan-bound protected directories are replaced, while all writers are stopped.
+    for name in STORAGE_NAMES:
+        safe_parents(server, name)
+        current = server / name
+        entry = record['storage'][name]
+        if entry is None:
+            if current.exists() or current.is_symlink():
+                raise ValueError('previously absent protected directory appeared')
+            continue
+        if current.exists() and storage_inventory(current) == entry['inventory']:
+            continue
+        stage = workspace / 'recovery' / (name.replace('/', '-') + '.restore')
+        old = workspace / 'recovery' / (name.replace('/', '-') + '.previous')
+        archive_path = storage_archive(workspace / 'recovery' / entry['filename'])
+        if not stage.exists():
+            stage.mkdir(mode=entry['root_mode'])
+            with tarfile.open(archive_path, 'r:gz') as archive:
+                # Members have already been checked: ordinary directories/files, no links or traversal.
+                archive.extractall(stage, filter=lambda member, destination: member)
+            os.chmod(stage, entry['root_mode'])
+        if storage_inventory(stage) != entry['inventory']:
+            raise ValueError('staged protected directory differs from paired backup')
+        if current.exists():
+            storage_inventory(current)
+            if old.exists() or old.is_symlink():
+                raise ValueError('protected directory recovery has an unknown result')
+            os.replace(current, old)
+        os.replace(stage, current)
+        for directory in (current.parent, stage.parent):
+            descriptor = os.open(directory, os.O_RDONLY)
+            try: os.fsync(descriptor)
+            finally: os.close(descriptor)
+        if storage_inventory(current) != entry['inventory']:
+            raise ValueError('restored protected directory differs from paired backup')
 
 
 def main():

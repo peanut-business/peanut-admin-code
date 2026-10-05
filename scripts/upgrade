@@ -7,7 +7,10 @@ use app\common\infrastructure\scaffold\EditionUpgradePackage;
 use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\validation\scaffold\ScaffoldPathGuard;
 
-$toolRoot = dirname(__DIR__);
+$nativeEntry = str_ends_with(__FILE__, '/server/docker/scripts/upgrade');
+$toolRoot = $nativeEntry ? dirname(__DIR__, 3) : dirname(__DIR__);
+$runtimeRoot = $nativeEntry ? dirname(__DIR__) : $toolRoot;
+$serverScope = in_array('--scope=server', $argv, true);
 // 可信入口使用其自身已安装的Composer/Core；不能从尚未校验完整性的目标包加载依赖。
 $installedAutoload = $toolRoot . '/server/vendor/autoload.php';
 if (!is_file($installedAutoload)) {
@@ -15,7 +18,7 @@ if (!is_file($installedAutoload)) {
     exit(1);
 }
 require_once $installedAutoload;
-foreach ([
+foreach ($serverScope ? [['/scripts/scaffold-runtime/ScaffoldPathGuard.php']] : [
     ['/scripts/scaffold-runtime/ScaffoldPathGuard.php'],
     ['/scripts/scaffold-runtime/ScaffoldManifest.php'],
     ['/scripts/scaffold-runtime/ScaffoldUpgradeLedger.php'],
@@ -36,20 +39,28 @@ foreach ([
     ['/scripts/scaffold-runtime/EditionUpgradePackage.php'],
 ] as $candidates) {
     foreach ($candidates as $candidate) {
-        if (is_file($toolRoot . $candidate)) {
-            require_once $toolRoot . $candidate;
+        if (is_file($runtimeRoot . $candidate)) {
+            require_once $runtimeRoot . $candidate;
             continue 2;
         }
     }
     throw new RuntimeException('PRODUCT_UPGRADE_RUNTIME_MISSING');
 }
 
+function productUpgradeToolPath(string $relative): string
+{
+    global $toolRoot, $runtimeRoot;
+    return (str_starts_with($relative, 'server/') ? $toolRoot : $runtimeRoot) . '/' . $relative;
+}
+
 function productUpgradeUsage(): never
 {
     fwrite(STDERR, "Set PEANUT_SERVER_ENV_FILE to the absolute mode-0600 instance backend environment.\nUsage:\n"
-        . "  php scripts/upgrade plan --instance-root=<absolute-path> --package=<absolute-extracted-package>\n"
-        . "  php scripts/upgrade apply|verify|recover --instance-root=<absolute-path> --package=<absolute-extracted-package> --plan=<absolute-product-plan>\n"
-        . "  apply alone accepts --stop-before=health|activate\n");
+        . "  php scripts/upgrade plan --scope=source --instance-root=<development-app> --package=<verified-full-upstream-package>\n"
+        . "  php scripts/upgrade apply|verify|recover --scope=source --instance-root=<development-app> --package=<full-upstream-package> --plan=<absolute-scaffold-plan>\n"
+        . "  php scripts/upgrade plan --scope=server --instance-root=<mounted-app> --package=<workspace> --archive=<app-server-release> --expected-sha256=<trusted-sha256>\n"
+        . "  php scripts/upgrade apply|verify|recover --scope=server --instance-root=<mounted-app> --package=<workspace> --plan=<absolute-product-plan>\n"
+        . "  server apply alone accepts --stop-before=health|activate; source scope changes source only.\n");
     exit(64);
 }
 
@@ -80,11 +91,21 @@ function productUpgradeWriteJson(string $path, array $value): void
     }
     $temporary = $path . '.tmp-' . bin2hex(random_bytes(6));
     $json = json_encode($value, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
-    if (file_put_contents($temporary, $json, LOCK_EX) === false
-        || !chmod($temporary, 0600) || !rename($temporary, $path)) {
+    if (is_link($path) || (file_exists($path) && (!is_file($path) || (lstat($path)['nlink'] ?? 0) !== 1))) {
+        throw new RuntimeException('PRODUCT_UPGRADE_RECORD_UNSAFE');
+    }
+    $stream = fopen($temporary, 'x');
+    if ($stream === false || !chmod($temporary, 0600)
+        || fwrite($stream, $json) !== strlen($json) || !fflush($stream) || !fsync($stream)) {
+        if (is_resource($stream)) { fclose($stream); }
         @unlink($temporary);
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_WRITE_FAILED');
     }
+    fclose($stream);
+    if (!rename($temporary, $path)) { @unlink($temporary); throw new RuntimeException('PRODUCT_UPGRADE_PLAN_WRITE_FAILED'); }
+    $handle = fopen($directory, 'r');
+    if ($handle === false || !fsync($handle)) { throw new RuntimeException('PRODUCT_UPGRADE_DIRECTORY_SYNC_FAILED'); }
+    fclose($handle);
 }
 
 /** @return array<string,mixed> */
@@ -93,7 +114,7 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
     $root = ScaffoldPathGuard::projectRoot($instanceRoot);
     $resolved = realpath($path);
     $plansRoot = $root . '/.peanut/upgrades/product-plans/';
-    if (!is_string($resolved) || !str_starts_with($resolved, $plansRoot)
+    if (!is_string($resolved) || $resolved !== $path || !str_starts_with($resolved, $plansRoot)
         || !is_file($resolved) || is_link($resolved)) {
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_INVALID');
     }
@@ -117,48 +138,6 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
     return $plan + ['plan_sha256' => $digest, 'absolute_path' => $resolved];
 }
 
-/** @param array<string,mixed> $package @return list<array{path:string,sha256:string}> */
-function productUpgradeMigrationEntries(string $packageRoot, array $package): array
-{
-    $entries = $package['migration_chain']['files'] ?? null;
-    if (!is_array($entries) || !array_is_list($entries)) {
-        throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_CHAIN_INVALID');
-    }
-    $validated = [];
-    $previous = '';
-    foreach ($entries as $entry) {
-        $relative = is_array($entry) ? ($entry['path'] ?? null) : null;
-        $digest = is_array($entry) ? ($entry['sha256'] ?? null) : null;
-        if (!is_string($relative) || !is_string($digest)
-            || preg_match('#^server/database/migrations/[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$#D', $relative) !== 1
-            || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1
-            || ($previous !== '' && strcmp($previous, $relative) >= 0)) {
-            throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_CHAIN_INVALID');
-        }
-        $path = $packageRoot . '/target/files/' . $relative;
-        if (!is_file($path) || is_link($path)
-            || !hash_equals($digest, (string) hash_file('sha256', $path))) {
-            throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_CHAIN_INVALID');
-        }
-        $previous = $relative;
-        $validated[] = ['path' => $relative, 'sha256' => $digest];
-    }
-    return $validated;
-}
-
-/** @return array<string,mixed> */
-function productUpgradePackageIdentity(array $prepared, string $root): array
-{
-    return [
-        'root' => $root,
-        'inventory_sha256' => $prepared['package']['inventory_sha256'],
-        'manifest_sha256' => $prepared['package']['manifest_sha256'],
-        'target_version' => $prepared['package']['target']['version'],
-        'source_commit' => $prepared['package']['build_source']['commit'],
-        'source_tree' => $prepared['package']['build_source']['tree'],
-    ];
-}
-
 /** @return resource */
 function productUpgradeAcquireLock(string $instanceRoot)
 {
@@ -167,7 +146,10 @@ function productUpgradeAcquireLock(string $instanceRoot)
         throw new RuntimeException('PRODUCT_UPGRADE_STATE_DIRECTORY_INVALID');
     }
     $handle = fopen($directory . '/product.lock', 'c+');
-    if ($handle === false || !flock($handle, LOCK_EX | LOCK_NB)) {
+    $lockStat = lstat($directory . '/product.lock');
+    if ($handle === false || is_link($directory . '/product.lock') || !is_array($lockStat)
+        || ($lockStat['nlink'] ?? 0) !== 1 || !chmod($directory . '/product.lock', 0600)
+        || !flock($handle, LOCK_EX | LOCK_NB)) {
         if (is_resource($handle)) {
             fclose($handle);
         }
@@ -239,13 +221,14 @@ function productUpgradeReadState(array $plan): array
 /** @param array<string,mixed> $plan @param array<string,mixed> $state @return array<string,mixed> */
 function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan, array $state): array
 {
+    productUpgradeVerifyRuntime($plan);
     if (!in_array($phase, [
         'prepare', 'migration-preflight', 'backup', 'quiesce', 'migrate', 'switch',
         'reload-safe', 'migration-verify', 'health', 'activate', 'recover', 'resume-old', 'recovery-verify',
     ], true)) {
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_PHASE_INVALID');
     }
-    $driver = $packageRoot . '/scripts/upgrade-runtime/product-upgrade-host';
+    $driver = $plan['workspace'] . '/trusted/scripts/product-upgrade-host';
     if (!is_file($driver) || is_link($driver) || !is_executable($driver)) {
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_DRIVER_INVALID');
     }
@@ -257,11 +240,6 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
         '--plan=' . $plan['absolute_path'],
         '--state=' . $state['absolute_path'],
     ];
-    if ($phase === 'prepare') {
-        // Materialization uses the authenticated entry's installed dependencies,
-        // not the instance filesystem or the uninstalled target payload.
-        $command[] = '--runtime-root=' . dirname(__DIR__);
-    }
     $logDirectory = $plan['instance_root'] . '/.peanut/upgrades/host-logs';
     if ((!is_dir($logDirectory) && !mkdir($logDirectory, 0700, true)) || is_link($logDirectory)) {
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_LOG_INVALID');
@@ -318,6 +296,131 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
     ];
 }
 
+/** @return list<string> */
+function productUpgradeRuntimeFiles(): array
+{
+    $files = ['scripts/product-upgrade-host'];
+    foreach (['update-plan.php', 'update-database.php', 'update-preparation.py', 'update-recovery.py',
+        'prepare-vendor.sh', 'prepare-vendor.php', 'vendor-state.py'] as $name) {
+        $files[] = 'server/docker/scripts/' . $name;
+    }
+    return $files;
+}
+
+/** Verify frozen bytes from the installed coordinator before executing any adapter. */
+function productUpgradeVerifyRuntime(array $plan): void
+{
+    $root = $plan['workspace'] . '/trusted';
+    if (!is_dir($root) || is_link($root)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_TOOL_INVALID');
+    }
+    $manifest = $root . '/manifest.json';
+    if (!is_file($manifest) || is_link($manifest)
+        || hash_file('sha256', $manifest) !== $plan['runtime_sha256']) {
+        throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_MANIFEST_CHANGED');
+    }
+    $rows = json_decode((string) file_get_contents($manifest), true, 32, JSON_THROW_ON_ERROR);
+    $expected = productUpgradeRuntimeFiles();
+    sort($expected, SORT_STRING);
+    $keys = is_array($rows) ? array_keys($rows) : [];
+    sort($keys, SORT_STRING);
+    if ($keys !== $expected) {
+        throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_INVENTORY_INVALID');
+    }
+    $actual = [];
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST) as $file) {
+        if ($file->isLink() || (!$file->isDir() && !$file->isFile())) {
+            throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_TOOL_INVALID');
+        }
+        if ($file->isFile()) {
+            $actual[] = substr($file->getPathname(), strlen($root) + 1);
+        }
+    }
+    $expected[] = 'manifest.json';
+    sort($expected, SORT_STRING);
+    sort($actual, SORT_STRING);
+    if ($actual !== $expected) {
+        throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_INVENTORY_INVALID');
+    }
+    foreach ($rows as $relative => $digest) {
+        $path = $root . '/' . $relative;
+        $stat = lstat($path);
+        if (!is_string($digest) || !is_array($stat) || ($stat['nlink'] ?? 0) !== 1
+            || !in_array(($stat['mode'] ?? 0) & 0777, [0600, 0700], true)
+            || hash_file('sha256', $path) !== $digest) {
+            throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_TOOL_CHANGED');
+        }
+    }
+}
+
+/** Freeze installed phase adapters before managed files can change them. */
+function productUpgradeFreezeRuntime(string $workspace): string
+{
+    $rows = [];
+    foreach (productUpgradeRuntimeFiles() as $relative) {
+        $source = productUpgradeToolPath($relative);
+        $target = $workspace . '/trusted/' . $relative;
+        if (!is_file($source) || is_link($source)) { throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_TOOL_MISSING'); }
+        $digest = hash_file('sha256', $source);
+        if (file_exists($target) || is_link($target)) {
+            if (!is_file($target) || is_link($target) || hash_file('sha256', $target) !== $digest) {
+                throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_TOOL_COLLISION');
+            }
+        } else {
+            if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0700, true)) {
+                throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_TOOL_WRITE_FAILED');
+            }
+            if (!copy($source, $target) || !chmod($target, is_executable($source) ? 0700 : 0600)) {
+                throw new RuntimeException('PRODUCT_UPGRADE_TRUSTED_TOOL_WRITE_FAILED');
+            }
+        }
+        $rows[$relative] = $digest;
+    }
+    productUpgradeWriteJson($workspace . '/trusted/manifest.json', $rows);
+    return hash_file('sha256', $workspace . '/trusted/manifest.json');
+}
+
+function productUpgradeServerPackage(string $instanceRoot, string $workspace, ?string $archive, ?string $expected): array
+{
+    if (!is_file($workspace . '/plan.json')) {
+        require_once productUpgradeToolPath('server/docker/scripts/update-plan.php');
+        if ($archive === null || $expected === null) { throw new RuntimeException('PRODUCT_UPGRADE_SERVER_ARCHIVE_REQUIRED'); }
+        $input = PeanutServerUpdatePlan::build($instanceRoot . '/server', $archive, $expected, $workspace);
+    } else {
+        $input = json_decode((string) file_get_contents($workspace . '/plan.json'), true, 256, JSON_THROW_ON_ERROR);
+        if (($input['protocol'] ?? null) !== 'peanut.server-release-inputs.v1') {
+            throw new RuntimeException('PRODUCT_UPGRADE_SERVER_INPUT_PROTOCOL_INVALID');
+        }
+        if ($archive !== null && (hash_file('sha256', $archive) !== $expected || $input['target']['archive_sha256'] !== $expected)) {
+            throw new RuntimeException('PRODUCT_UPGRADE_SERVER_ARCHIVE_REBIND_FAILED');
+        }
+    }
+    $target = $workspace . '/prepared/server/.peanut/release-identity.json';
+    if (!is_file($target) || is_link($target) || hash_file('sha256', $target) !== $input['target']['identity_sha256']) {
+        throw new RuntimeException('PRODUCT_UPGRADE_SERVER_INVENTORY_REBIND_FAILED');
+    }
+    $identity = json_decode((string) file_get_contents($target), true, 256, JSON_THROW_ON_ERROR);
+    foreach ($identity['files'] as $file) {
+        $path = $workspace . '/prepared/' . $file['path'];
+        if (!is_file($path) || is_link($path) || hash_file('sha256', $path) !== $file['sha256']
+            || (fileperms($path) & 0777) !== $file['mode']) {
+            throw new RuntimeException('PRODUCT_UPGRADE_SERVER_FILE_REBIND_FAILED');
+        }
+    }
+    return ['input' => $input, 'identity' => $identity];
+}
+
+function productUpgradeCode(string $operation, array $plan): mixed
+{
+    productUpgradeVerifyRuntime($plan);
+    if (!class_exists('PeanutServerUpdatePlan', false)) {
+        require_once $plan['workspace'] . '/trusted/server/docker/scripts/update-plan.php';
+    }
+    return PeanutServerUpdatePlan::productPhase($plan['instance_root'] . '/server', $plan['workspace'], match ($operation) {
+        'apply' => 'files-apply', 'verify' => 'files-verify', 'recover' => 'files-recover', 'verifyRecovery' => 'files-verify-recovery',
+    });
+}
+
 /** @param array<string,mixed> $state @param array<string,mixed> $evidence @return array<string,mixed> */
 function productUpgradeCompleteHostPhase(array $state, string $statePath, string $phase, string $completed, array $evidence): array
 {
@@ -361,18 +464,24 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover'], true)) {
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
     $options[$matches[1]] = $matches[2];
 }
 $required = ['instance-root', 'package'];
+if (!isset($options['scope'])) { productUpgradeUsage(); }
+if (isset($options['scope'])) {
+    if (!in_array($options['scope'], ['source', 'server'], true)) { productUpgradeUsage(); }
+    $required[] = 'scope';
+    if ($command === 'plan' && $options['scope'] === 'server') { $required[] = 'archive'; $required[] = 'expected-sha256'; }
+}
 if ($command !== 'plan') {
     $required[] = 'plan';
 }
 if (isset($options['stop-before'])) {
-    if ($command !== 'apply' || !in_array($options['stop-before'], ['health', 'activate'], true)) {
+    if ($command !== 'apply' || ($options['scope'] ?? 'source') !== 'server' || !in_array($options['stop-before'], ['health', 'activate'], true)) {
         productUpgradeUsage();
     }
     $required[] = 'stop-before';
@@ -393,41 +502,106 @@ try {
     if (!is_string($packageRoot)) {
         throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_NOT_FOUND');
     }
-    $runner = new ScaffoldUpgradeRunner();
+    if ($options['scope'] === 'source' && $nativeEntry) { throw new RuntimeException('PRODUCT_UPGRADE_SOURCE_REQUIRES_FULL_APPLICATION_TOOLS'); }
+
+    if (($options['scope'] ?? 'source') === 'source') {
+        $runner = new ScaffoldUpgradeRunner();
+        $packageService = new EditionUpgradePackage();
+        if ($command === 'plan') {
+            $prepared = $packageService->prepare($instanceRoot, $packageRoot);
+            $result = $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
+            $result['plan_path'] = $instanceRoot . '/' . $result['plan_path'];
+        } else {
+            $prepared = $packageService->reauthenticate($instanceRoot, $packageRoot);
+            $sourcePlan = json_decode((string) file_get_contents($options['plan']), true, 256, JSON_THROW_ON_ERROR);
+            if (($sourcePlan['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2'
+                || ($sourcePlan['manifest_paths']['to'] ?? null) !== $prepared['to_manifest']) {
+                throw new RuntimeException('PRODUCT_UPGRADE_SOURCE_PACKAGE_REBIND_FAILED');
+            }
+            $result = $runner->{$command}($instanceRoot, $options['plan']);
+        }
+        $result['scope'] = 'source';
+        $result['source_only'] = true;
+        productUpgradeReleaseLock($lock);
+        $lock = null;
+        fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+        exit(($result['status'] ?? null) === 'blocked' ? 2 : 0);
+    }
 
     if ($command === 'plan') {
         // The installed coordinator and its installed runtime control package validation. No
         // executable from the target package is invoked until package validation succeeds.
-        $prepared = (new EditionUpgradePackage())->prepare(
-            $instanceRoot,
-            $packageRoot,
-        );
-        $scaffold = $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
-        $migrationFiles = productUpgradeMigrationEntries($packageRoot, $prepared['package']);
+        $scope = 'server';
+        $serverPackage = productUpgradeServerPackage($instanceRoot, $packageRoot, $options['archive'], $options['expected-sha256']);
+        $input = $serverPackage['input'];
+        $identity = $serverPackage['identity'];
+        if (($identity['application']['kind'] ?? null) !== 'application'
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($identity['application']['commit'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($identity['application']['tree'] ?? '')) !== 1) {
+            throw new RuntimeException('PRODUCT_UPGRADE_REQUIRES_APPLICATION_RELEASE');
+        }
+        $scaffold = ['candidate' => $input['update_id'], 'status' => 'ready'];
+        $packageIdentity = ['root' => $packageRoot, 'inventory_sha256' => 'sha256:' . $identity['files_sha256'],
+            'manifest_sha256' => 'sha256:' . $input['target']['identity_sha256'],
+            'target_version' => $identity['application']['version'], 'archive_sha256' => $input['target']['archive_sha256'],
+            'source_commit' => $identity['application']['commit'], 'source_tree' => $identity['application']['tree']];
+        $edition = ['name' => $identity['application']['edition']];
+        $migrationFiles = array_values(array_map(static fn(array $row): array => ['path' => $row['path'], 'sha256' => $row['sha256']],
+            array_filter($identity['files'], static fn(array $row): bool => preg_match('#^server/database/migrations/[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$#D', $row['path']) === 1)));
+        $workspace = $packageRoot;
         $existingPath = $instanceRoot . '/.peanut/upgrades/product-plans/' . $scaffold['candidate'] . '.json';
         if (is_file($existingPath) && !is_link($existingPath)) {
             $existing = productUpgradeReadPlan($instanceRoot, $existingPath);
-            if (($existing['package'] ?? null) !== productUpgradePackageIdentity($prepared, $packageRoot)
-                || ($existing['migration']['target_version'] ?? null) !== $prepared['package']['target']['version']
+            if (($existing['package'] ?? null) !== $packageIdentity
+                || ($existing['scope'] ?? null) !== 'server'
+                || ($existing['inputs_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
+                || ($existing['migration']['target_version'] ?? null) !== $packageIdentity['target_version']
                 || ($existing['migration']['files'] ?? null) !== $migrationFiles) {
                 throw new RuntimeException('PRODUCT_UPGRADE_PLAN_COLLISION');
             }
+            $binding = ['plan_path' => $existingPath, 'plan_sha256' => $existing['plan_sha256']];
+            $bindingPath = $workspace . '/product-binding.json';
+            if (!file_exists($bindingPath) && !is_link($bindingPath)) {
+                productUpgradeWriteJson($bindingPath, $binding);
+            } elseif (is_link($bindingPath) || json_decode((string) file_get_contents($bindingPath), true, 256, JSON_THROW_ON_ERROR) !== $binding) {
+                throw new RuntimeException('PRODUCT_UPGRADE_PLAN_COLLISION');
+            }
+            if (!file_exists($existing['state_path']) && !is_link($existing['state_path'])) {
+                foreach (['prepared.json', 'backup.json', 'journal.json', 'migration.json', 'preparation.json'] as $artifact) {
+                    if (file_exists($workspace . '/' . $artifact) || is_link($workspace . '/' . $artifact)) {
+                        throw new RuntimeException('PRODUCT_UPGRADE_STATE_LOST_REQUIRES_INSPECTION');
+                    }
+                }
+                productUpgradeWriteState($existing['state_path'], [
+                    'schema_version' => 1, 'protocol' => 'peanut.product-upgrade-state.v1',
+                    'candidate' => $existing['candidate'], 'plan_sha256' => $existing['plan_sha256'], 'package' => $existing['package'],
+                    'phase' => 'planned', 'phase_in_progress' => null, 'database_recovery_required' => false,
+                    'migration_completed' => false, 'activation_started' => false, 'evidence' => [], 'created_at' => $existing['created_at'],
+                ]);
+            }
+            productUpgradeReadState($existing);
             unset($existing['absolute_path']);
             $result = $existing + ['plan_path' => $existingPath, 'idempotent' => true];
         } else {
             $statePath = $instanceRoot . '/.peanut/upgrades/product-state/' . $scaffold['candidate'] . '.json';
+            if (!is_dir($workspace) && !mkdir($workspace, 0700, true)) { throw new RuntimeException('PRODUCT_UPGRADE_WORKSPACE_INVALID'); }
+            if (is_link($workspace) || realpath($workspace) !== $workspace) { throw new RuntimeException('PRODUCT_UPGRADE_WORKSPACE_INVALID'); }
+            $runtimeDigest = productUpgradeFreezeRuntime($workspace);
             $plan = [
                 'schema_version' => 2,
                 'protocol' => 'peanut.product-upgrade-plan.v2',
                 'candidate' => $scaffold['candidate'],
                 'status' => $scaffold['status'],
                 'instance_root' => $instanceRoot,
-                'package' => productUpgradePackageIdentity($prepared, $packageRoot),
-                'edition' => $prepared['package']['edition'],
-                'scaffold_plan' => $instanceRoot . '/' . $scaffold['plan_path'],
+                'scope' => $scope,
+                'workspace' => $workspace,
+                'runtime_sha256' => $runtimeDigest,
+                'inputs_sha256' => hash_file('sha256', $workspace . '/plan.json'),
+                'package' => $packageIdentity,
+                'edition' => $edition,
                 'state_path' => $statePath,
                 'migration' => [
-                    'target_version' => $prepared['package']['target']['version'],
+                    'target_version' => $packageIdentity['target_version'],
                     'files' => $migrationFiles,
                     'execution' => 'bound-prepared-target-container',
                     'module_reconcile' => 'release-locked-before-switch',
@@ -444,6 +618,7 @@ try {
             $plan['plan_sha256'] = 'sha256:' . hash('sha256', productUpgradeCanonicalJson($plan));
             $path = $instanceRoot . '/.peanut/upgrades/product-plans/' . $plan['candidate'] . '.json';
             productUpgradeWriteJson($path, $plan);
+            productUpgradeWriteJson($workspace . '/product-binding.json', ['plan_path' => $path, 'plan_sha256' => $plan['plan_sha256']]);
             productUpgradeWriteState($statePath, [
                 'schema_version' => 1,
                 'protocol' => 'peanut.product-upgrade-state.v1',
@@ -467,6 +642,7 @@ try {
             throw new RuntimeException('PRODUCT_UPGRADE_PLAN_REBIND_FAILED');
         }
         $state = productUpgradeReadState($plan);
+        if (($plan['scope'] ?? null) !== 'server') { throw new RuntimeException('PRODUCT_UPGRADE_SCOPE_REBIND_FAILED'); }
         if ($command === 'apply') {
             if ($plan['status'] !== 'ready' || $state['phase'] === 'blocked') {
                 throw new RuntimeException('PRODUCT_UPGRADE_PLAN_BLOCKED');
@@ -486,20 +662,10 @@ try {
                     || isset($state['evidence']['health']) || $state['phase'] === 'healthy')))) {
                 throw new RuntimeException('PRODUCT_UPGRADE_STOP_BOUNDARY_PASSED:' . $stopBefore);
             }
-            $packageService = new EditionUpgradePackage();
-            $managedFilesMayHaveChanged = isset($state['evidence']['managed_files'])
-                || $state['phase_in_progress'] === 'managed_files'
-                || $state['database_recovery_required'];
-            $prepared = $managedFilesMayHaveChanged
-                ? $packageService->reauthenticate($instanceRoot, $packageRoot)
-                : $packageService->prepare($instanceRoot, $packageRoot);
-            if (productUpgradePackageIdentity($prepared, $packageRoot) !== $plan['package']
-                || productUpgradeMigrationEntries($packageRoot, $prepared['package']) !== $plan['migration']['files']) {
-                throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_REBIND_FAILED');
-            }
+            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null);
             if ($state['phase'] === 'completed') {
                 // 重复apply也必须验证原完成结果，不能仅凭Host健康回执忽略源码/定制漂移。
-                $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
+                productUpgradeCode('verify', $plan);
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'migration-verify');
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
                 $result = [
@@ -518,7 +684,7 @@ try {
                 if (!isset($state['evidence']['managed_files'])) {
                     $state['phase_in_progress'] = 'managed_files';
                     $state = productUpgradeWriteState((string) $state['absolute_path'], $state);
-                    $code = $runner->apply($instanceRoot, (string) $plan['scaffold_plan']);
+                    $code = productUpgradeCode('apply', $plan);
                     $codeEvidence = [
                         'protocol' => 'peanut.product-upgrade-internal-evidence.v1', 'phase' => 'managed_files',
                         'candidate' => $plan['candidate'], 'payload' => $code,
@@ -546,7 +712,7 @@ try {
                 $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'migration-verify', 'migration_verified');
                 if ($stopBefore !== 'health') {
                     $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'health', 'healthy');
-                    $code = $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
+                    $code = productUpgradeCode('verify', $plan);
                 }
 
                 if ($stopBefore !== null) {
@@ -591,17 +757,11 @@ try {
                 }
             }
         } elseif ($command === 'verify') {
-            $prepared = (new EditionUpgradePackage())->reauthenticate(
-                $instanceRoot,
-                $packageRoot,
-            );
-            if (productUpgradePackageIdentity($prepared, $packageRoot) !== $plan['package']) {
-                throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_REBIND_FAILED');
-            }
+            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null);
             if ($state['phase'] !== 'completed') {
                 throw new RuntimeException('PRODUCT_UPGRADE_NOT_COMPLETED:' . $state['phase']);
             }
-            $code = $runner->verify($instanceRoot, (string) $plan['scaffold_plan']);
+            $code = productUpgradeCode('verify', $plan);
             $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'migration-verify');
             $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'health');
             $state['verified_at'] = gmdate(DATE_ATOM);
@@ -613,10 +773,7 @@ try {
                 'state_sha256' => $state['state_sha256'],
             ];
         } else {
-            (new EditionUpgradePackage())->reauthenticate(
-                $instanceRoot,
-                $packageRoot,
-            );
+            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null);
             if ($state['phase'] === 'completed') {
                 throw new RuntimeException('PRODUCT_UPGRADE_COMPLETED_RECOVERY_REQUIRES_NEW_CHANGE_PLAN');
             }
@@ -630,7 +787,7 @@ try {
                     throw new RuntimeException('PRODUCT_UPGRADE_RECOVERY_STATE_INVALID');
                 }
                 $code = $context['managed_files_started']
-                    ? $runner->verifyRecovery($instanceRoot, (string) $plan['scaffold_plan'])
+                    ? productUpgradeCode('verifyRecovery', $plan)
                     : null;
                 $state = productUpgradeRefreshHostPhase($packageRoot, $plan, $state, 'recovery-verify');
                 $result = [
@@ -665,7 +822,7 @@ try {
                     $state = productUpgradeCompleteHostPhase($state, (string) $state['absolute_path'], 'recover', 'recovering', $recovery);
                 }
                 $code = $context['managed_files_started']
-                    ? $runner->recover($instanceRoot, (string) $plan['scaffold_plan'])
+                    ? productUpgradeCode('recover', $plan)
                     : null;
                 if (!isset($state['evidence']['resume-old'])) {
                     $state = productUpgradeEnsureHostPhase($packageRoot, $plan, $state, 'resume-old', 'recovered');

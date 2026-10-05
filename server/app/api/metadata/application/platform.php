@@ -300,6 +300,9 @@ $schemas = [
         'properties' => [
             'provider' => $dynamicMap, 'latest_verified' => $nullableDynamicMap,
             'latest_restore_verified' => $nullableDynamicMap,
+            'backup_contract_status' => ['type' => 'string', 'enum' => ['missing', 'current', 'unsupported_schema']],
+            'restore_contract_status' => ['type' => 'string', 'enum' => ['missing', 'current', 'unsupported_schema']],
+            'new_paired_backup_required' => ['type' => 'boolean'],
             'tasks' => ['type' => 'array', 'items' => $ref('PlatformOpsTask')],
             'items' => ['type' => 'array', 'items' => $ref('ApplicationDynamicValue')],
             'status' => ['type' => 'string'], 'ready' => ['type' => 'boolean'],
@@ -638,6 +641,7 @@ foreach ($opsTasks as $route => [$operationId, $schema]) {
         $opsOk('PlatformOpsTask'),
         [$parameterRef('IdempotencyKey')],
         $jsonBody($schema),
+        errors: $route === 'restore' ? ['OPS_RESTORE_UNSUPPORTED_SCHEMA'] : [],
     ));
 }
 

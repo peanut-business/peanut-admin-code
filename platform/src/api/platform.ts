@@ -227,6 +227,9 @@ export interface OpsBackupCenterSnapshot {
   provider: OpsBackupProvider;
   latest_verified: OpsLatestVerifiedBackup | null;
   latest_restore_verified: OpsLatestRestoreVerified | null;
+  backup_contract_status?: 'missing' | 'current' | 'unsupported_schema';
+  restore_contract_status?: 'missing' | 'current' | 'unsupported_schema';
+  new_paired_backup_required?: boolean;
   tasks: OpsBackupTask[];
 }
 

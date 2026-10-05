@@ -9,64 +9,48 @@ command -v gzip >/dev/null || die 'gzip is required'
 command -v sha256sum >/dev/null || die 'sha256sum is required'
 
 project_root="$(pwd -P)"
-[[ -f "$project_root/compose.yaml" && -f "$project_root/server/think" ]] || die 'run from a Peanut Admin deployment root'
-
-for name in PEANUT_OPS_RESOURCE_REGISTRY PEANUT_OPS_WORKER_IMAGE PEANUT_OPS_WORKER_CANDIDATE; do
-  if printenv "$name" >/dev/null 2>&1; then
-    die "ambient qualification configuration is forbidden: $name"
-  fi
-done
-qualification_environment="$project_root/.ops/qualification-worker.env"
-qualification_image=''
-qualification_candidate=''
-qualification_registry=''
-if [[ -e "$qualification_environment" || -L "$qualification_environment" ]]; then
-  [[ -f "$qualification_environment" && ! -L "$qualification_environment" ]] \
-    || die 'qualification worker environment must be a regular file'
-  [[ "$(stat -c '%a %h' "$qualification_environment")" == '600 1' ]] \
-    || die 'qualification worker environment must have mode 0600 and one hard link'
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -z "$line" || "$line" == \#* ]] && continue
-    [[ "$line" == *=* ]] || die 'qualification worker environment contains a malformed line'
-    name="${line%%=*}"; value="${line#*=}"
-    case "$name" in
-      PEANUT_OPS_RESOURCE_REGISTRY) qualification_registry="$value" ;;
-      PEANUT_OPS_WORKER_IMAGE) qualification_image="$value" ;;
-      PEANUT_OPS_WORKER_CANDIDATE) qualification_candidate="$value" ;;
-      *) die "qualification worker environment contains an unsupported key: $name" ;;
-    esac
-  done < "$qualification_environment"
-  [[ "$qualification_registry" == "$project_root/restore-verification-registry.json" \
-      && -n "$qualification_image" && -n "$qualification_candidate" ]] \
-    || die 'qualification worker environment is incomplete'
-fi
+[[ -f "$project_root/server/docker/compose.yaml" && -f "$project_root/server/think" ]] || die 'run from an APP mounted deployment root'
 backend_env="$project_root/server/.env"
-if [[ -n "$qualification_image" ]]; then
-  backend_env="$project_root/.env"
-  [[ "$qualification_image" =~ ^peanut-admin-restore-verify-worker:[a-f0-9]{12}$ \
-    && "$qualification_candidate" =~ ^[a-f0-9]{40}$ \
-    && "${qualification_candidate:0:12}" == "${qualification_image##*:}" ]] \
-    || die 'qualification worker identity is invalid'
-  image_candidate="$(sudo -n docker image inspect "$qualification_image" \
-    --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
-  [[ "$image_candidate" == "$qualification_candidate" ]] \
-    || die 'qualification worker image does not match the fixed candidate'
+[[ -f "$backend_env" && ! -L "$backend_env" && "$(stat -c '%a %h' "$backend_env")" == '600 1' ]] || die 'private backend environment is unsafe'
+registry="${PEANUT_RESOURCE_REGISTRY:-}"
+if [[ -z "$registry" ]]; then
+  if [[ -f "$project_root/server/.peanut/release-identity.json" ]]; then
+    registry="$project_root/server/resources/project-resources.json"
+    [[ ! -e "$project_root/server/private/resources/project-resources.json" ]] || registry="$project_root/server/private/resources/project-resources.json"
+  else
+    registry="$project_root/resources/project-resources.json"
+  fi
 fi
-[[ -f "$backend_env" ]] || die 'registered backend environment file is required'
-sudo -n grep -Fqx 'PEANUT_DEPLOYMENT_TARGET=production' "$backend_env" || die 'registered production target is not selected'
-sudo -n grep -Fqx 'PEANUT_DATABASE_RESOURCE_ID=peanut-admin-production-bundled-mysql84' "$backend_env" || die 'registered production database is not selected'
-
-compose=(sudo -n docker compose -f compose.yaml --profile bundled-db)
-if [[ -n "$qualification_image" ]]; then
-  think=(sudo -n docker run --rm --interactive --network peanut-admin_default
-    --volume "$backend_env:/run/secrets/peanut-backend.env:ro"
-    --env 'PEANUT_SERVER_ENV_FILE=/var/www/peanut-admin/server/.env.qualification'
-    --entrypoint sh "$qualification_image" -c
-    'umask 077; sed -E "/^(ADMIN_INITIAL_EMAIL|ADMIN_INITIAL_PASSWORD|PLATFORM_INITIAL_EMAIL|PLATFORM_INITIAL_PASSWORD|DB_PREFIX)=/d" /run/secrets/peanut-backend.env > "$PEANUT_SERVER_ENV_FILE"; printf "DB_PREFIX=pa_\n" >> "$PEANUT_SERVER_ENV_FILE"; exec php "$@"'
-    sh server/think ops-backup:task)
-else
-  think=("${compose[@]}" run -T --rm --no-deps --entrypoint php php server/think ops-backup:task)
-fi
+[[ "$registry" == /* && -f "$registry" && ! -L "$registry" ]] || die 'explicit ordinary APP resource registry is required'
+resource_json() {
+  jq -ce --arg id "$1" '[.. | objects | select(.stable_resource_id? == $id)] | if length == 1 then .[0] else error("resource missing or ambiguous") end' "$registry"
+}
+deployment_json="$(jq -ce --arg root "$project_root" \
+  '[.. | objects | select(.deployment_root? == $root and .compose_file? == "server/docker/compose.yaml")] | if length == 1 then .[0] else error("deployment missing or ambiguous") end' "$registry")"
+deployment_id="$(jq -er .stable_resource_id <<<"$deployment_json")"
+database_id="$(jq -er .database_resource_id <<<"$deployment_json")"
+application_id="$(jq -er .application_resource_id <<<"$deployment_json")"
+backup_resource_id="$(jq -er .backup_resource_id <<<"$deployment_json")"
+compose_project="$(jq -er .compose_project <<<"$deployment_json")"
+database_json="$(resource_json "$database_id")"
+database_name="$(jq -er .database <<<"$database_json")"
+backup_json="$(resource_json "$backup_resource_id")"
+backup_root="$(jq -er .path <<<"$backup_json")"
+http_json="$(resource_json "$(jq -er .http_resource_id <<<"$deployment_json")")"
+http_port="$(jq -er .port <<<"$http_json")"
+[[ "$compose_project" =~ ^[a-z0-9][a-z0-9_-]{0,62}$ && "$database_name" =~ ^[A-Za-z0-9_]{1,64}$ \
+  && "$backup_root" == "$project_root/backups" && "$http_port" =~ ^[0-9]{4,5}$ ]] || die 'registered APP backup tuple is invalid'
+jq -e --arg project "$compose_project" --arg root "$project_root" --arg deployment "$deployment_id" \
+  '.compose_project == $project and .namespace == ($root + "/server/docker/mysql")
+   and .container_endpoint.host == "mysql" and .container_endpoint.port == 3306
+   and .application_runtime == true and .fallback == "none"' <<<"$database_json" >/dev/null || die 'database mount registration differs'
+jq -e --arg deployment "$deployment_id" '.deployment_resource_id == $deployment and .fallback == "none"' \
+  <<<"$backup_json" >/dev/null || die 'backup ownership differs'
+grep -Fqx "PEANUT_DATABASE_RESOURCE_ID=$database_id" "$backend_env" || die 'backend database differs from registration'
+grep -Fqx 'PEANUT_DEPLOYMENT_TARGET=production' "$backend_env" || die 'production backend target is required'
+[[ ! -L "$backup_root" && ! -L "$project_root/server/docker" ]] || die 'backup/runtime parent is linked'
+compose=(sudo -n docker compose --env-file "$project_root/server/docker/.env" -p "$compose_project" -f "$project_root/server/docker/compose.yaml")
+think=("${compose[@]}" run -T --rm --no-deps --entrypoint php php think ops-backup:task)
 claim_json="$("${think[@]}" claim </dev/null)" || die 'task claim failed'
 jq -e '.ok == true' <<<"$claim_json" >/dev/null || die 'task claim was rejected'
 if [[ "$(jq -r '.result == null' <<<"$claim_json")" == true ]]; then
@@ -97,7 +81,7 @@ stop_heartbeat() {
 }
 resume_stack() {
   if [[ "$stopped" -eq 1 ]]; then
-    if "${compose[@]}" start --wait --wait-timeout 120 php cron nginx >/dev/null 2>&1; then
+    if "${compose[@]}" start --wait --wait-timeout 120 php nginx >/dev/null 2>&1; then
       stopped=0
       return 0
     fi
@@ -131,59 +115,39 @@ heartbeat_once
 heartbeat_loop &
 heartbeat_pid=$!
 
-deployment_receipt="$project_root/DEPLOYMENT_RECEIPT.json"
-[[ -f "$deployment_receipt" && ! -L "$deployment_receipt" ]] \
-  || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
-jq -e '
-  .schema_version == 1
-  and .target == "production"
-  and (.edition == "standalone" or .edition == "multi-tenant")
-  and (.release.commit | type == "string" and test("^[a-f0-9]{40}$"))
-  and (.release.tree | type == "string" and test("^[a-f0-9]{40}$"))
-  and (if .protocol == "peanut.deployment-receipt.v1" then
-         (.release.tag | type == "string" and test("^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
-         and (.artifact.kind == "source" or .artifact.kind == "edition" or .artifact.kind == "upgrade")
-         and (.artifact.archive_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-         and (if .artifact.kind == "source" then
-                .artifact.manifest_sha256 == null
-              elif .artifact.kind == "edition" then
-                (.artifact.manifest_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-              else
-                (.artifact.manifest_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-              end)
-         and .overlay == null
-       elif .protocol == "peanut.product-upgrade-runtime-receipt.v1" then
-         (.release.version | type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"))
-         and (.upgrade_package.candidate | type == "string" and test("^[A-Za-z0-9._-]{1,128}$"))
-         and (.upgrade_package.plan_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
-         and (.upgrade_package.inventory_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
-         and (.upgrade_package.manifest_sha256 | type == "string" and test("^sha256:[a-f0-9]{64}$"))
-       else
-         false
-       end)
-  and (.images.php | type == "string" and test("^sha256:[a-f0-9]{64}$"))
-  and (.images.nginx | type == "string" and test("^sha256:[a-f0-9]{64}$"))
-  and (.images.pc | type == "string" and test("^sha256:[a-f0-9]{64}$"))
-' "$deployment_receipt" >/dev/null || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
+deployment_receipt="$project_root/server/.peanut/release-identity.json"
+[[ -f "$deployment_receipt" && ! -L "$deployment_receipt" ]] || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
+jq -e '.protocol == "peanut.server-release.v1" and .application.kind == "application"
+  and (.application.commit | test("^[a-f0-9]{40}$")) and (.application.tree | test("^[a-f0-9]{40}$"))
+  and (.application.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' "$deployment_receipt" >/dev/null || false
 host_receipt="$(cat "$deployment_receipt")"
-container_receipt="$(sudo -n docker exec peanut-admin-php-1 cat /var/www/peanut-admin/DEPLOYMENT_RECEIPT.json)" \
-  || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
-[[ "$host_receipt" == "$container_receipt" ]] \
-  || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
-source_commit="$(jq -r '.release.commit' "$deployment_receipt")"
-source_tree="$(jq -r '.release.tree' "$deployment_receipt")"
-release_key="$(jq -r 'if .protocol == "peanut.deployment-receipt.v1" then .release.tag else "v" + .release.version end' "$deployment_receipt")"
+container_receipt="$("${compose[@]}" exec -T php cat .peanut/release-identity.json)"
+[[ "$host_receipt" == "$container_receipt" ]] || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
+"${compose[@]}" exec -T php php database/environment-guard.php --current >/dev/null
+source_commit="$(jq -r .application.commit "$deployment_receipt")"
+source_tree="$(jq -r .application.tree "$deployment_receipt")"
+release_key="v$(jq -r .application.version "$deployment_receipt")"
+mysql_mount="$project_root/server/docker/mysql"
+storage_mount="$project_root/server/public"
+private_storage_mount="$project_root/server/private/storage"
+installation_mount="$project_root/server/private/installation"
+for data_path in "$mysql_mount" "$storage_mount/storage" "$private_storage_mount" "$installation_mount"; do
+  [[ -d "$data_path" && ! -L "$data_path" && "$(realpath -e "$data_path")" == "$data_path" ]] || false
+  [[ -z "$(sudo -n find "$data_path" -type l -print -quit)" ]] || false
+  [[ -z "$(sudo -n find "$data_path" -type f -links +1 -print -quit)" ]] || false
+done
+[[ ! -L "$storage_mount/uploads" ]] || false
+[[ ! -d "$storage_mount/uploads" || -z "$(sudo -n find "$storage_mount/uploads" -type l -print -quit)" ]] || false
+[[ ! -d "$storage_mount/uploads" || -z "$(sudo -n find "$storage_mount/uploads" -type f -links +1 -print -quit)" ]] || false
 
-mysql_mount="$(sudo -n docker volume inspect peanut-admin_mysql-data --format '{{.Mountpoint}}')"
-storage_mount="$(sudo -n docker volume inspect peanut-admin_php-storage --format '{{.Mountpoint}}')"
-private_storage_mount="$(sudo -n docker volume inspect peanut-admin_php-private-storage --format '{{.Mountpoint}}')"
-installation_mount="$(sudo -n docker volume inspect peanut-admin_php-installation --format '{{.Mountpoint}}')"
 for marker in installed.json baseline.json; do
   sudo -n test -f "$installation_mount/$marker" \
     && ! sudo -n test -L "$installation_mount/$marker" \
     || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
 done
-source_bytes="$(( $(sudo -n du -sb "$mysql_mount" | awk '{print $1}') + $(sudo -n du -sb "$storage_mount" | awk '{print $1}') + $(sudo -n du -sb "$private_storage_mount" | awk '{print $1}') + $(sudo -n du -sb "$installation_mount" | awk '{print $1}') ))"
+public_data_bytes="$(sudo -n du -sb "$storage_mount/storage" | awk '{print $1}')"
+[[ ! -d "$storage_mount/uploads" ]] || public_data_bytes="$(( public_data_bytes + $(sudo -n du -sb "$storage_mount/uploads" | awk '{print $1}') ))"
+source_bytes="$(( $(sudo -n du -sb "$mysql_mount" | awk '{print $1}') + public_data_bytes + $(sudo -n du -sb "$private_storage_mount" | awk '{print $1}') + $(sudo -n du -sb "$installation_mount" | awk '{print $1}') ))"
 required_bytes="$(( source_bytes * 2 + 1073741824 ))"
 available_bytes="$(df -PB1 "$project_root" | awk 'NR==2 {print $4}')"
 available_inodes="$(df -Pi "$project_root" | awk 'NR==2 {print $4}')"
@@ -193,22 +157,25 @@ if [[ ! "$available_bytes" =~ ^[0-9]+$ || ! "$available_inodes" =~ ^[0-9]+$ || "
 fi
 
 backup_id="$(date -u +%Y%m%dT%H%M%SZ)-${source_commit:0:12}"
-backup_dir="$project_root/backups/$backup_id"
-sudo -n install -d -m 0700 "$project_root/backups"
+backup_dir="$backup_root/$backup_id"
+sudo -n install -d -m 0700 "$backup_root"
 sudo -n mkdir -m 0700 -- "$backup_dir"
 
 image_json='[]'
-for row in 'php peanut-admin-php-1' 'nginx peanut-admin-nginx-1' 'mysql peanut-admin-mysql-1'; do
-  role="${row%% *}"; container="${row#* }"
+for role in php nginx mysql; do
+  container="$("${compose[@]}" ps -q "$role")"
+  [[ -n "$container" ]] || false
   reference="$(sudo -n docker inspect "$container" --format '{{.Config.Image}}')"
   digest="$(sudo -n docker inspect "$container" --format '{{.Image}}')"
   [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
+  registered_image="$(jq -er --arg role "$role" '.runtime_images[$role]' <<<"$deployment_json")"
+  [[ "$(sudo -n docker image inspect "$registered_image" --format '{{.Id}}')" == "$digest" ]] || false
   image_json="$(jq -c --arg role "$role" --arg reference "$reference" --arg digest "$digest" '. + [{role:$role,reference:$reference,digest:$digest}]' <<<"$image_json")"
 done
 
 started_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
 stopped=1
-if ! "${compose[@]}" stop --timeout 60 nginx cron php >/dev/null; then
+if ! "${compose[@]}" stop --timeout 60 nginx php >/dev/null; then
   failure_code='OPS_BACKUP_QUIESCENCE_FAILED'
   false
 fi
@@ -216,11 +183,13 @@ running_services="$("${compose[@]}" ps --status running --services | sort)"
 [[ "$running_services" == mysql ]] || { failure_code='OPS_BACKUP_QUIESCENCE_FAILED'; false; }
 
 failure_code='OPS_BACKUP_DATABASE_FAILED'
-"${compose[@]}" exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --quick --routines --events --triggers --hex-blob --set-gtid-purged=OFF -uroot peanut_admin' \
+"${compose[@]}" exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --quick --routines --events --triggers --hex-blob --set-gtid-purged=OFF -uroot "$1"' sh "$database_name" \
   | gzip -9 | sudo -n tee "$backup_dir/database.sql.gz" >/dev/null
 
 failure_code='OPS_BACKUP_FILES_FAILED'
-sudo -n tar --one-file-system --numeric-owner -C "$storage_mount" -czf "$backup_dir/php-storage.tar.gz" .
+public_paths=(storage)
+[[ ! -d "$storage_mount/uploads" ]] || public_paths+=(uploads)
+sudo -n tar --one-file-system --numeric-owner -C "$storage_mount" -czf "$backup_dir/php-storage.tar.gz" "${public_paths[@]}"
 sudo -n tar --one-file-system --numeric-owner -C "$private_storage_mount" -czf "$backup_dir/php-private-storage.tar.gz" .
 sudo -n tar --one-file-system --numeric-owner -C "$installation_mount" -czf "$backup_dir/php-installation.tar.gz" .
 completed_at="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
@@ -238,6 +207,8 @@ failure_code='OPS_BACKUP_MANIFEST_INVALID'
 jq -c -n \
   --arg backup_reference_key "$backup_reference_key" \
   --arg provider_key "$provider_key" \
+  --arg deployment "$deployment_id" --arg database "$database_id" --arg application "$application_id" --arg backup "$backup_resource_id" \
+  --arg project "$compose_project" --arg dbname "$database_name" \
   --arg commit "$source_commit" --arg tree "$source_tree" --arg release_key "$release_key" \
   --arg started_at "$started_at" --arg completed_at "$completed_at" \
   --argjson source_bytes "$source_bytes" --argjson required_bytes "$required_bytes" \
@@ -247,10 +218,10 @@ jq -c -n \
   --argjson files_bytes "$files_bytes" --arg files_sha "$files_sha" \
   --argjson private_files_bytes "$private_files_bytes" --arg private_files_sha "$private_files_sha" \
   --argjson installation_bytes "$installation_bytes" --arg installation_sha "$installation_sha" \
-  '{schema_version:3,backup_reference_key:$backup_reference_key,provider_key:$provider_key,
+  '{schema_version:4,backup_reference_key:$backup_reference_key,provider_key:$provider_key,
     source:{commit:$commit,tree:$tree,release_key:(if $release_key=="" then null else $release_key end)},
-    resources:{deployment:"peanut-admin-production-deployment",database:"peanut-admin-production-bundled-mysql84",application:"peanut-admin-production-application-containers",backup:"peanut-admin-production-backups"},
-    runtime:{compose_project:"peanut-admin",compose_file:"compose.yaml",compose_profile:"bundled-db",database_name:"peanut_admin",public_storage_volume:"peanut-admin_php-storage",private_storage_volume:"peanut-admin_php-private-storage",installation_volume:"peanut-admin_php-installation",images:$images},
+    resources:{deployment:$deployment,database:$database,application:$application,backup:$backup},
+    runtime:{compose_project:$project,compose_file:"server/docker/compose.yaml",compose_profile:"default",database_name:$dbname,public_storage_directory:"server/public",private_storage_directory:"server/private/storage",installation_directory:"server/private/installation",images:$images},
     consistency_window:{mode:"application-write-quiescence",started_at:$started_at,completed_at:$completed_at},
     capacity_preflight:{source_bytes:$source_bytes,required_bytes:$required_bytes,available_bytes:$available_bytes,available_inodes:$available_inodes},
     artifacts:[{kind:"database",filename:"database.sql.gz",bytes:$database_bytes,sha256:$database_sha},{kind:"public_files",filename:"php-storage.tar.gz",bytes:$files_bytes,sha256:$files_sha},{kind:"private_files",filename:"php-private-storage.tar.gz",bytes:$private_files_bytes,sha256:$private_files_sha},{kind:"installation_state",filename:"php-installation.tar.gz",bytes:$installation_bytes,sha256:$installation_sha}],
@@ -260,7 +231,7 @@ jq -c -n \
 failure_code='OPS_BACKUP_INTEGRITY_FAILED'
 sudo -n bash -c 'cd "$1" && sha256sum database.sql.gz php-storage.tar.gz php-private-storage.tar.gz php-installation.tar.gz manifest.json > SHA256SUMS && sha256sum -c SHA256SUMS >/dev/null && gzip -t database.sql.gz && tar -tzf php-storage.tar.gz >/dev/null && tar -tzf php-private-storage.tar.gz >/dev/null && tar -tzf php-installation.tar.gz >/dev/null' bash "$backup_dir"
 resume_stack
-curl -fsS http://127.0.0.1:18092/healthz >/dev/null
+curl -fsS "http://127.0.0.1:$http_port/healthz" >/dev/null
 
 stop_heartbeat
 sudo -n cat "$backup_dir/manifest.json" | "${think[@]}" succeed --task-key "$task_key" --revision "$execution_revision" >/dev/null

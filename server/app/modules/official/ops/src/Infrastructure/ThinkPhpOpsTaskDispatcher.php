@@ -171,6 +171,17 @@ final readonly class ThinkPhpOpsTaskDispatcher implements OpsTaskDispatcher
             }
 
             $taskKey = 'job_' . bin2hex(random_bytes(16));
+            if ($taskType === \PeanutAdmin\Modules\Ops\Domain\Package::RESTORE_TASK_TYPE) {
+                $backup = Db::name('ops_backup_evidence')
+                    ->where('backup_reference_key', $payload['backup_reference_key'])
+                    ->field('manifest_json')->lock(true)->find();
+                if (is_array($backup)) {
+                    $historical = json_decode((string) $backup['manifest_json'], true, 32, JSON_THROW_ON_ERROR);
+                    if (is_array($historical) && in_array($historical['schema_version'] ?? null, [2, 3], true)) {
+                        throw OpsConsoleException::restoreUnsupportedSchema();
+                    }
+                }
+            }
             Db::name('ops_task')->insert([
                 'task_key' => $taskKey,
                 'task_type' => $taskType,

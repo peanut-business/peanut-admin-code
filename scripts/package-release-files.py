@@ -570,6 +570,24 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         raise ValueError('server resource registry conflicts with application source')
     shutil.copyfile(regular_file(source, 'resources/project-resources.json'), registry)
     registry.chmod(0o644)
+    # Native server consumers execute installed tools whose bytes belong to this
+    # APP release. Project the existing source programs before the canonical
+    # server inventory is calculated; never fetch tools from a target package.
+    native_tools = {
+        'scripts/upgrade': ('docker/scripts/upgrade', 0o755),
+        'scripts/product-upgrade-host': ('docker/scripts/product-upgrade-host', 0o755),
+        'scripts/scaffold-runtime/ScaffoldPathGuard.php':
+            ('docker/scripts/scaffold-runtime/ScaffoldPathGuard.php', 0o644),
+        'scripts/ops-backup-worker': ('docker/scripts/ops-backup-worker', 0o755),
+        'scripts/ops-restore-worker': ('docker/scripts/ops-restore-worker', 0o755),
+    }
+    for origin, (relative, mode) in native_tools.items():
+        destination = server / relative
+        if destination.exists() or destination.is_symlink():
+            raise ValueError(f'native tool projection conflicts with source: {relative}')
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(regular_file(source, origin), destination)
+        destination.chmod(mode)
     plugin_projection = project_server_plugins(source, target)
     files = release_rows(target)
     validate_server_release_rows(files)

@@ -17,7 +17,7 @@ use InvalidArgumentException;
  */
 final readonly class PairedBackupManifest
 {
-    public const SCHEMA_VERSION = 3;
+    public const SCHEMA_VERSION = 4;
     public const DATABASE_ARTIFACT = 'database.sql.gz';
     public const PUBLIC_FILES_ARTIFACT = 'php-storage.tar.gz';
     public const PRIVATE_FILES_ARTIFACT = 'php-private-storage.tar.gz';
@@ -82,6 +82,7 @@ final readonly class PairedBackupManifest
         foreach ($resources as $resourceId) {
             self::stableKey($resourceId, 128);
         }
+        $registered = self::registeredResources($resources);
 
         $runtime = self::map($manifest['runtime'] ?? null);
         self::exactKeys($runtime, [
@@ -89,22 +90,33 @@ final readonly class PairedBackupManifest
             'compose_file',
             'compose_profile',
             'database_name',
-            'public_storage_volume',
-            'private_storage_volume',
-            'installation_volume',
+            'public_storage_directory',
+            'private_storage_directory',
+            'installation_directory',
             'images',
         ]);
-        self::stableKey($runtime['compose_project'] ?? null, 64);
-        self::basename($runtime['compose_file'] ?? null);
+        if (!is_string($runtime['compose_project'] ?? null)
+            || preg_match('/^[a-z0-9][a-z0-9_-]{0,62}$/D', $runtime['compose_project']) !== 1
+        ) {
+            self::invalid();
+        }
+        if (($runtime['compose_file'] ?? null) !== 'server/docker/compose.yaml' || ($runtime['compose_profile'] ?? null) !== 'default') {
+            self::invalid();
+        }
         self::stableKey($runtime['compose_profile'] ?? null, 64);
         self::databaseName($runtime['database_name'] ?? null);
-        self::storageVolume($runtime['public_storage_volume'] ?? null);
-        self::storageVolume($runtime['private_storage_volume'] ?? null);
-        self::storageVolume($runtime['installation_volume'] ?? null);
+        if ($runtime['compose_project'] !== $registered['deployment']['compose_project']
+            || $runtime['database_name'] !== $registered['database']['database']
+        ) {
+            self::invalid();
+        }
+        self::storageDirectory($runtime['public_storage_directory'] ?? null, 'server/public');
+        self::storageDirectory($runtime['private_storage_directory'] ?? null, 'server/private/storage');
+        self::storageDirectory($runtime['installation_directory'] ?? null, 'server/private/installation');
         if (count(array_unique([
-            $runtime['public_storage_volume'],
-            $runtime['private_storage_volume'],
-            $runtime['installation_volume'],
+            $runtime['public_storage_directory'],
+            $runtime['private_storage_directory'],
+            $runtime['installation_directory'],
         ])) !== 3) {
             self::invalid();
         }
@@ -162,9 +174,9 @@ final readonly class PairedBackupManifest
                 'compose_file' => $runtime['compose_file'],
                 'compose_profile' => $runtime['compose_profile'],
                 'database_name' => $runtime['database_name'],
-                'public_storage_volume' => $runtime['public_storage_volume'],
-                'private_storage_volume' => $runtime['private_storage_volume'],
-                'installation_volume' => $runtime['installation_volume'],
+                'public_storage_directory' => $runtime['public_storage_directory'],
+                'private_storage_directory' => $runtime['private_storage_directory'],
+                'installation_directory' => $runtime['installation_directory'],
                 'images' => $images,
             ],
             'consistency_window' => [
@@ -300,16 +312,6 @@ final readonly class PairedBackupManifest
         }
     }
 
-    private static function basename(mixed $value): void
-    {
-        if (!is_string($value)
-            || strlen($value) > 96
-            || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/D', $value) !== 1
-        ) {
-            self::invalid();
-        }
-    }
-
     private static function databaseName(mixed $value): void
     {
         if (!is_string($value)
@@ -320,14 +322,59 @@ final readonly class PairedBackupManifest
         }
     }
 
-    private static function storageVolume(mixed $value): void
+    private static function storageDirectory(mixed $value, string $expected): void
     {
-        if (!is_string($value)
-            || strlen($value) > 128
-            || preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/D', $value) !== 1
+        if ($value !== $expected) {
+            self::invalid();
+        }
+    }
+
+    /** @param array<string,mixed> $resources */
+    private static function registeredResources(array $resources): array
+    {
+        require_once dirname(__DIR__, 4) . '/database/environment-guard.php';
+        $registry = \projectResourceRegistry();
+        $rows = [];
+        $walk = function (array $node) use (&$walk, &$rows): void {
+            if (isset($node['stable_resource_id'])) {
+                $rows[] = $node;
+            }
+            foreach ($node as $value) {
+                if (is_array($value)) {
+                    $walk($value);
+                }
+            }
+        };
+        $walk($registry);
+        $find = static function (string $id) use ($rows): array {
+            $found = array_values(array_filter($rows, static fn (array $row): bool => ($row['stable_resource_id'] ?? null) === $id));
+            if (count($found) !== 1) {
+                self::invalid();
+            }
+            return $found[0];
+        };
+        $deployment = $find($resources['deployment']);
+        $database = $find($resources['database']);
+        $application = $find($resources['application']);
+        $backup = $find($resources['backup']);
+        if (($deployment['database_resource_id'] ?? null) !== getenv('PEANUT_DATABASE_RESOURCE_ID')
+            || ($deployment['database_resource_id'] ?? null) !== $resources['database']
+            || ($deployment['application_resource_id'] ?? null) !== $resources['application']
+            || ($deployment['backup_resource_id'] ?? null) !== $resources['backup']
+            || ($deployment['compose_file'] ?? null) !== 'server/docker/compose.yaml'
+            || ($database['namespace'] ?? null) !== ($deployment['deployment_root'] ?? '') . '/server/docker/mysql'
+            || ($database['compose_project'] ?? null) !== ($deployment['compose_project'] ?? null)
+            || ($application['compose_project'] ?? null) !== ($deployment['compose_project'] ?? null)
+            || ($backup['deployment_resource_id'] ?? null) !== $resources['deployment']
+            || ($backup['path'] ?? null) !== ($deployment['deployment_root'] ?? '') . '/backups'
+            || ($deployment['fallback'] ?? null) !== 'none'
+            || ($database['fallback'] ?? null) !== 'none'
+            || ($application['fallback'] ?? null) !== 'none'
+            || ($backup['fallback'] ?? null) !== 'none'
         ) {
             self::invalid();
         }
+        return ['deployment' => $deployment, 'database' => $database];
     }
 
     private static function commit(mixed $value): void

@@ -29,7 +29,7 @@ final readonly class PlatformBackupCenterService
         private PlatformPermissionChecker $permissions,
     ) {}
 
-    /** @return array{provider:array<string,mixed>,latest_verified:?array<string,mixed>,latest_restore_verified:?array<string,mixed>,tasks:list<array<string,mixed>>} */
+    /** @return array{provider:array<string,mixed>,latest_verified:?array<string,mixed>,latest_restore_verified:?array<string,mixed>,backup_contract_status:string,restore_contract_status:string,new_paired_backup_required:bool,tasks:list<array<string,mixed>>} */
     public function snapshot(PlatformContext $context, string $runtimeCommit): array
     {
         if (!$this->permissions->allows($context, Package::READ_PERMISSION)) {
@@ -45,10 +45,18 @@ final readonly class PlatformBackupCenterService
             throw OpsConsoleException::statusUnavailable();
         }
 
+        $backupContractStatus = 'missing';
+        $restoreContractStatus = 'missing';
+        $latestBackup = $this->latestVerified($runtimeCommit, $backupContractStatus);
+        $latestRestore = $this->latestRestoreVerified($restoreContractStatus);
         return [
             'provider' => $provider,
-            'latest_verified' => $this->latestVerified($runtimeCommit),
-            'latest_restore_verified' => $this->latestRestoreVerified(),
+            'latest_verified' => $latestBackup,
+            'latest_restore_verified' => $latestRestore,
+            'backup_contract_status' => $backupContractStatus,
+            'restore_contract_status' => $restoreContractStatus,
+            'new_paired_backup_required' => $backupContractStatus === 'unsupported_schema'
+                || $restoreContractStatus === 'unsupported_schema',
             'tasks' => $this->recentTasks($context),
         ];
     }
@@ -68,7 +76,7 @@ final readonly class PlatformBackupCenterService
     }
 
     /** @return array<string,mixed>|null */
-    private function latestVerified(string $runtimeCommit): ?array
+    private function latestVerified(string $runtimeCommit, string &$contractStatus): ?array
     {
         $row = Db::name('ops_backup_evidence')
             ->field('backup_reference_key,task_key,provider_key,manifest_sha256,source_commit,source_tree,source_release_key,consistency_started_at,consistency_completed_at,verified_at,manifest_json')
@@ -79,6 +87,11 @@ final readonly class PlatformBackupCenterService
 
         try {
             $manifestJson = (string) $row['manifest_json'];
+            $historical = json_decode($manifestJson, true, 32, JSON_THROW_ON_ERROR);
+            if (is_array($historical) && in_array($historical['schema_version'] ?? null, [2, 3], true)) {
+                $contractStatus = 'unsupported_schema';
+                return null;
+            }
             $manifest = PairedBackupManifest::fromJson($manifestJson);
             if (!hash_equals(hash('sha256', $manifest->canonicalJson()), (string) $row['manifest_sha256'])
                 || !hash_equals($manifest->backupReferenceKey(), (string) $row['backup_reference_key'])
@@ -87,6 +100,7 @@ final readonly class PlatformBackupCenterService
             }
             $verifiedAt = $this->instant((string) $row['verified_at']);
             $ageSeconds = max(0, time() - (new DateTimeImmutable($verifiedAt))->getTimestamp());
+            $contractStatus = 'current';
 
             return [
                 'backup_reference_key' => (string) $row['backup_reference_key'],
@@ -110,7 +124,7 @@ final readonly class PlatformBackupCenterService
     }
 
     /** @return array<string,mixed>|null */
-    private function latestRestoreVerified(): ?array
+    private function latestRestoreVerified(string &$contractStatus): ?array
     {
         $row = Db::name('ops_restore_evidence')
             ->field('backup_reference_key,target_key,evidence_sha256,table_count,schema_migration_count,account_count,tenant_count,tenant_member_count,storage_file_count,verified_at,evidence_json')
@@ -119,6 +133,11 @@ final readonly class PlatformBackupCenterService
             return null;
         }
         try {
+            $historical = json_decode((string) $row['evidence_json'], true, 32, JSON_THROW_ON_ERROR);
+            if (is_array($historical) && in_array($historical['schema_version'] ?? null, [2, 3], true)) {
+                $contractStatus = 'unsupported_schema';
+                return null;
+            }
             $evidence = RestoreVerificationEvidence::fromJson((string) $row['evidence_json']);
             $data = $evidence->toArray();
             if ((string) $row['target_key'] !== PairedBackupProvider::RESTORE_TARGET_KEY
@@ -130,6 +149,7 @@ final readonly class PlatformBackupCenterService
         } catch (Throwable) {
             throw OpsConsoleException::taskUnavailable();
         }
+        $contractStatus = 'current';
         return [
             'backup_reference_key' => (string) $row['backup_reference_key'],
             'target_key' => (string) $row['target_key'],

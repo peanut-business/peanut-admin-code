@@ -1936,6 +1936,9 @@
                         }
                     }
                 },
+                "x-peanut-errors": [
+                    "OPS_RESTORE_UNSUPPORTED_SCHEMA"
+                ],
                 "security": [
                     {
                         "bearerAuth": {}
@@ -36243,6 +36246,25 @@
                             "$ref": "#/components/schemas/ApplicationDynamicValue"
                         },
                         "nullable": true
+                    },
+                    "backup_contract_status": {
+                        "type": "string",
+                        "enum": [
+                            "missing",
+                            "current",
+                            "unsupported_schema"
+                        ]
+                    },
+                    "restore_contract_status": {
+                        "type": "string",
+                        "enum": [
+                            "missing",
+                            "current",
+                            "unsupported_schema"
+                        ]
+                    },
+                    "new_paired_backup_required": {
+                        "type": "boolean"
                     },
                     "tasks": {
                         "type": "array",

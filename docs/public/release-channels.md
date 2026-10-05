@@ -24,44 +24,38 @@ M 不等于 S 时，发布命令还须传入 `--main-integration=/absolute/preme
 
 本地非生产验证可以使用候选包内锁定的 Core ZIP。正式交付和生产安装必须从已发布渠道取得相应版本，并核对发行身份与依赖锁；不能把内部候选自带的 Core ZIP 当作正式发布版本。Composer 下载已发布版本时也可能使用 ZIP 分发格式，判定依据是发布来源与版本身份，不是文件扩展名。
 
-正式使用路径是：
+正式安装消费 APP 自己发行的 server 包；来源、应用版本、commit/tree、文件清单和外部可信 SHA-256 均须匹配。首次安装见[安装说明](installation.md)，已有实例不运行首次安装器。
 
-1. 取得带清单和摘要的固定发行包。
-2. 核验发行身份、依赖锁和所选形态。
-3. 部署到独立目录，在包内运行 `php server/database/install.php` 完成首次安装。
-4. 完整开发源码实例的后续版本从实例中已安装的可信 `scripts/upgrade` 依次运行 `plan`、`apply` 和 `verify`；
-   `recover` 只按已生成的计划和现场证据处理失败恢复。不要把首次安装入口当成升级命令。
-
-server-only 生产包不含根目录 `scripts/upgrade`；下面的升级命令只适用于保留完整源码及该可信入口的既有实例。当前开发源码另有 `server/docker/scripts/update.sh` 和 `recover.sh`，但尚未构成已完成资格验证的正式 server-only 升级制品，不能用首次安装器或待验目标包中的脚本代替。
-
-升级命令以 `--instance-root` 指定现有实例，以 `--package` 指定安全提取后的目标升级包。
-由已安装入口核对包内 inventory 与每个文件的 SHA-256、upgrade manifest、版本兼容范围、edition、source commit/tree、target manifest 和 managed tree，再执行已校验的驱动；不要先运行尚未校验完整性的目标包程序。
-另以 `PEANUT_SERVER_ENV_FILE` 明确指定实例内权限 0600 的后端配置，实例根目录的 Compose `.env` 也必须存在。
+APP 开发源码吸收上游时，使用已安装的可信入口及完整升级包：
 
 ```sh
-export PEANUT_SERVER_ENV_FILE=/srv/my-app/server/.env
-php /srv/my-app/scripts/upgrade plan \
-  --instance-root=/srv/my-app --package=/srv/upgrades/target
+php /srv/my-app/scripts/upgrade plan --scope=source \
+  --instance-root=/srv/my-app --package=/srv/upgrades/extracted-upstream
 ```
 
-确认 `plan` 退出成功并返回 `authenticated: true`；将返回的绝对 `plan_path` 作为 `--plan`，以相同参数调用 `apply`、`verify` 或 `recover`。
-执行主机需要 PHP、jq、GNU 文件工具、curl、Docker 和 Compose，实例须能按 Compose 标签唯一识别；应用依赖和数据库操作在绑定容器内执行。
-
-`apply` 准备目标依赖和前端，预检迁移，停写并备份数据库、公共文件卷、私有文件卷和安装身份卷，应用受管文件、应用及模块迁移，切换并在保持外部写入关闭时重载及验证业务，最后记录激活边界、恢复流量并提交完成状态。
-完成必须同时具有健康和激活回执，进程退出成功不能替代这些绑定证据。
-
-激活前可按同一计划恢复数据库、公共/私有文件、安装身份四项成对备份及受管代码，全部恢复后才启动旧运行时并验证。重复恢复只核验已恢复状态。
-运维中心新建的成对备份清单与隔离恢复凭据使用 schema 3；备份集中包含 `database.sql.gz`、`php-storage.tar.gz`、`php-private-storage.tar.gz` 和 `php-installation.tar.gz`，四项均进入清单和摘要校验。旧 schema 2 备份保持原字节，但缺少安装身份归档，不能用于当前恢复验证或要求四项归档的 `--fresh` 部署；须重新创建并验证完整备份。
-一旦开始开放目标写入，工具拒绝用旧备份自动回灌数据库，避免删除已经确认的新业务数据；此时先核现场，再制定数据恢复方案。
-代码恢复与数据库恢复分别判断，不承诺所有 DDL 可逆；未知结果不能用简单重跑冒充幂等。
+返回的绝对 `plan_path` 用于同一 `--scope=source`、`--instance-root`、`--package` 下的 `apply`、`verify` 或 `recover --plan=<plan_path>`。此范围沿用 Scaffold 的归属、三方差异、冲突及逐文件恢复合同，只吸收开发源码；APP 再从自己的固定提交发行部署制品。
 
 ## server-only 更新入口的当前开发范围
 
-当前开发实现先核可信归档摘要、实例安装身份、应用及文件归属，并在停旧服务前按目标锁准备 Composer 依赖：锁和现有 vendor 完整且一致时复用，否则在更新工作区准备目标 vendor，失败不破坏旧运行时。进入维护后保存同一实例的数据库恢复点及受限配置/安装身份摘要，按 journal 增改删程序并受控切换依赖，再执行应用迁移和 release-locked Module reconcile；私有业务健康与迁移回执通过后才激活。重复完成的计划不再次停服，已经应用或在激活临界点中断的计划按绑定状态继续核验/迁移而不重复文件更新。初始安装回执和基线保持原字节，后续部署身份另行记录。普通更新不复制 `public/storage` 或 `private/storage`，因为它们不属于程序写集；若某迁移需要改动上传，必须另列写集与恢复材料。运行配方或镜像输入发生变化时，现行入口仍在停服前明确拒绝，直到兼容镜像集的独立准备、绑定与切换合同完成，不能通过删除标志或手工覆盖继续。
+宿主只运行已安装的可信 `server/docker/scripts/update.sh`。server 包随带的维护工具位于 `server/docker/scripts/`；目标归档中的未认证代码不能作为更新入口。宿主维护 PHP 入口由 `PEANUT_UPGRADE_PHP` 指定已登记的绝对可执行路径，版本须满足 PHP 8.3 及实际依赖锁。
 
-公共访问由 `runtime/upgrade/.traffic-ready` 正向许可控制，维护和活动更新指针同时阻断静态页面、API 与 healthz。进入更新撤销许可，普通 PHP 重启不能将活动或异常状态重新开放；只有绑定同一计划、实例、程序清单且未过期的私有核验通过，激活或恢复终态才恢复许可。静态 healthz 的 200 不代替应用/数据库健康核验。`runtime/upgrade` 含更新互斥、维护及许可状态，不是可以随普通缓存一起删除的目录；不得靠删除标记或修改回执解除维护。
+```sh
+/srv/my-app/server/docker/scripts/update.sh plan \
+  --archive=/srv/upgrades/app-server.tar.gz --expected-sha256=<可信SHA-256> \
+  --workspace=/srv/my-app/server/private/updates/target
+/srv/my-app/server/docker/scripts/update.sh apply --workspace=/srv/my-app/server/private/updates/target
+/srv/my-app/server/docker/scripts/update.sh verify --workspace=/srv/my-app/server/private/updates/target
+```
 
-上述程序文件、依赖准备、数据库恢复/迁移状态机回归，以及隔离环境的 Nginx 语法/HTTP 检查，只证明源码合同和合成夹具行为；它们不证明正式产品安装、真实 MySQL 备份/迁移/恢复、生产镜像切换或断电恢复。server-only 升级仍须完成兼容运行镜像准备，并在登记的非生产实例上以固定制品串行验证真实依赖、数据库恢复点、迁移、私有健康、激活前恢复和中断接续；开放目标写入后不得自动回灌旧数据库。
+该入口映射到同一个已安装协调器的 `--scope=server`。workspace 的 `product-binding.json` 绑定唯一 product plan 路径和摘要；程序文件 journal、依赖和迁移回执从属于该计划，不另拥有升级生命周期。PHP、Nginx、MySQL 为固定运行镜像，应用源码、vendor、配置、上传、runtime、private 和 `server/docker/mysql` 数据位于本实例宿主目录。普通更新不构建或切换应用镜像；运行环境变化须另行准备、核验并绑定兼容镜像。
+
+更新先认证归档、APP 自有发行身份、受管源内容及目标文件清单，准备锁定依赖并预检迁移；停写后保存数据库、公共 storage/uploads、私有 storage、安装身份及配置的配对恢复材料，再替换程序、依赖并执行原生应用和模块迁移。保持外部写入关闭时核验真实业务和迁移，持久记录 `activation_started` 后才开放目标流量。退出成功不能替代绑定的健康、迁移与激活回执。
+
+激活前可执行 `update.sh recover --workspace=<同一workspace>`；按同一计划恢复数据库、公共/私有文件、安装身份、程序及依赖，验证旧运行时后才恢复写入。激活开始后拒绝自动回灌旧数据库；未知 DDL 结果不能靠重复执行冒充幂等。公共访问由 `runtime/upgrade/.traffic-ready` 正向许可控制；维护、活动或异常状态不能靠重启 PHP、删除标记或手改回执解除。
+
+运维中心独立的备份与隔离恢复业务 job 保留自身状态。新成对备份清单和隔离恢复凭据使用 schema 4，资源关系绑定已登记 APP 目录、数据库及固定环境镜像；四项制品为 `database.sql.gz`、`php-storage.tar.gz`、`php-private-storage.tar.gz`、`php-installation.tar.gz`，均校验摘要。旧 schema 2/3 保持历史原字节，不用于当前目录合同的恢复验证，需重新创建并验证备份。
+
+本批源码和语法检查不证明真实 MySQL 备份、迁移、恢复、断电接续或正式资格。运行合同仍须在登记的非生产实例中按固定制品串行验证；本页不宣称该验证已经完成。
 
 ## 维护者：准备固定公开依赖的产品候选
 

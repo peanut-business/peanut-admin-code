@@ -12,15 +12,7 @@ use RuntimeException;
 /** Canonical, path-free receipt produced by the trusted restore worker. */
 final readonly class RestoreVerificationEvidence
 {
-    public const SCHEMA_VERSION = 3;
-    public const DEPLOYMENT_RESOURCE_ID = 'peanut-admin-production-restore-verification-deployment';
-    public const DATABASE_RESOURCE_ID = 'peanut-admin-production-restore-verification-mysql84';
-    public const RUNTIME_RESOURCE_ID = 'peanut-admin-production-restore-verification-containers';
-    public const COMPOSE_PROJECT = 'peanut-admin-restore-verify';
-    public const DATABASE_NAME = 'peanut_admin_restore_verify';
-    public const PUBLIC_STORAGE_VOLUME = 'peanut-admin-restore-verify_php-storage';
-    public const PRIVATE_STORAGE_VOLUME = 'peanut-admin-restore-verify_php-private-storage';
-    public const INSTALLATION_VOLUME = 'peanut-admin-restore-verify_php-installation';
+    public const SCHEMA_VERSION = 4;
 
     /** @param array<string,mixed> $data */
     private function __construct(private array $data) {}
@@ -64,17 +56,18 @@ final readonly class RestoreVerificationEvidence
         $target = self::map($data['target']);
         self::exactKeys($target, [
             'deployment_resource_id', 'database_resource_id', 'runtime_resource_id',
-            'compose_project', 'database_name', 'public_storage_volume', 'private_storage_volume', 'installation_volume',
+            'compose_project', 'database_name', 'public_storage_directory', 'private_storage_directory', 'installation_directory',
         ]);
+        $registered = self::registeredTarget();
         if ($target !== [
-            'deployment_resource_id' => self::DEPLOYMENT_RESOURCE_ID,
-            'database_resource_id' => self::DATABASE_RESOURCE_ID,
-            'runtime_resource_id' => self::RUNTIME_RESOURCE_ID,
-            'compose_project' => self::COMPOSE_PROJECT,
-            'database_name' => self::DATABASE_NAME,
-            'public_storage_volume' => self::PUBLIC_STORAGE_VOLUME,
-            'private_storage_volume' => self::PRIVATE_STORAGE_VOLUME,
-            'installation_volume' => self::INSTALLATION_VOLUME,
+            'deployment_resource_id' => $registered['deployment'],
+            'database_resource_id' => $registered['database'],
+            'runtime_resource_id' => $registered['runtime'],
+            'compose_project' => $registered['project'],
+            'database_name' => $registered['database_name'],
+            'public_storage_directory' => 'server/public',
+            'private_storage_directory' => 'server/private/storage',
+            'installation_directory' => 'server/private/installation',
         ]) {
             throw new RuntimeException('OPS_RESTORE_TARGET_INVALID');
         }
@@ -135,6 +128,61 @@ final readonly class RestoreVerificationEvidence
     public function canonicalJson(): string
     {
         return json_encode($this->data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+    }
+
+    /** Resolve the logical restore target through the installed APP registry. */
+    private static function registeredTarget(): array
+    {
+        require_once dirname(__DIR__, 4) . '/database/environment-guard.php';
+        $registry = \projectResourceRegistry();
+        $rows = [];
+        $walk = function (array $node) use (&$walk, &$rows): void {
+            if (isset($node['stable_resource_id'])) {
+                $rows[] = $node;
+            }
+            foreach ($node as $value) {
+                if (is_array($value)) {
+                    $walk($value);
+                }
+            }
+        };
+        $walk($registry);
+        $find = static function (string $id) use ($rows): array {
+            $found = array_values(array_filter($rows, static fn (array $row): bool => ($row['stable_resource_id'] ?? null) === $id));
+            if (count($found) !== 1) {
+                throw new RuntimeException('OPS_RESTORE_TARGET_NOT_REGISTERED');
+            }
+            return $found[0];
+        };
+        $sources = array_values(array_filter($rows, static fn (array $row): bool =>
+            ($row['database_resource_id'] ?? null) === getenv('PEANUT_DATABASE_RESOURCE_ID')
+            && ($row['compose_file'] ?? null) === 'server/docker/compose.yaml'
+            && isset($row['restore_verification_resource_id'])));
+        if (count($sources) !== 1) {
+            throw new RuntimeException('OPS_RESTORE_SOURCE_NOT_REGISTERED');
+        }
+        $source = $sources[0];
+        $target = $find((string) $source['restore_verification_resource_id']);
+        $database = $find((string) ($target['database_resource_id'] ?? ''));
+        $runtime = $find((string) ($target['application_resource_id'] ?? ''));
+        if (($target['restore_target_key'] ?? null) !== PairedBackupProvider::RESTORE_TARGET_KEY
+            || ($target['source_deployment_resource_id'] ?? null) !== $source['stable_resource_id']
+            || ($target['compose_file'] ?? null) !== 'server/docker/compose.yaml'
+            || ($target['compose_project'] ?? null) === ($source['compose_project'] ?? null)
+            || ($target['database_resource_id'] ?? null) === $source['database_resource_id']
+            || ($database['database'] ?? null) === ($find((string) $source['database_resource_id'])['database'] ?? null)
+            || ($database['namespace'] ?? null) !== ($target['deployment_root'] ?? '') . '/server/docker/mysql'
+            || ($database['compose_project'] ?? null) !== ($target['compose_project'] ?? null)
+            || ($runtime['compose_project'] ?? null) !== ($target['compose_project'] ?? null)
+            || ($target['fallback'] ?? null) !== 'none'
+            || ($database['fallback'] ?? null) !== 'none'
+            || ($runtime['fallback'] ?? null) !== 'none'
+        ) {
+            throw new RuntimeException('OPS_RESTORE_TARGET_INVALID');
+        }
+        return ['deployment' => $target['stable_resource_id'], 'database' => $database['stable_resource_id'],
+            'runtime' => $runtime['stable_resource_id'], 'project' => $target['compose_project'],
+            'database_name' => $database['database']];
     }
 
     private static function validInstant(string $value): bool

@@ -99,8 +99,16 @@ def main():
         raise ValueError("server and workspace must be canonical ordinary directories")
     plan_path = workspace / "plan.json"
     plan = json.loads(plan_path.read_text())
-    if plan.get("protocol") != "peanut.server-update-plan.v1":
+    if plan.get("protocol") not in ('peanut.server-release-inputs.v1',):
         raise ValueError("server update plan is invalid")
+    recovery_helper = Path(__file__).with_name('update-recovery.py')
+    spec = importlib.util.spec_from_file_location('product_binding', recovery_helper)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    product, state = module.product_binding(workspace)
+    if plan.get('update_id') != product['candidate'] or (product.get('inputs_sha256') is not None and product['inputs_sha256'] != sha(plan_path)):
+        raise ValueError('dependency inputs differ from product plan')
+    if args.operation in ('switch', 'recover') and state.get('activation_started') is not False:
+        raise ValueError('activation has started; vendor rollback or switch is forbidden')
     target = workspace / "prepared/server"
     source_lock, target_lock = server / "composer.lock", target / "composer.lock"
     plan_sha = sha(plan_path)
@@ -130,7 +138,7 @@ def main():
         data = {"protocol": "peanut.server-update-preparation.v1", "update_id": plan["update_id"],
                 "plan_sha256": plan_sha, "source_identity_sha256": plan["source"]["identity_sha256"],
                 "target_identity_sha256": plan["target"]["identity_sha256"],
-                "vendor_mode": mode, "source_lock_sha256": source_lock_sha, "target_lock_sha256": target_lock_sha,
+        "vendor_mode": mode, "source_lock_sha256": source_lock_sha, "target_lock_sha256": target_lock_sha,
                 "source_present": source_vendor.is_dir() and not source_vendor.is_symlink(),
                 "source_tree_sha256": tree(source_vendor) if source_vendor.is_dir() and not source_vendor.is_symlink() else None,
                 "target_tree_sha256": tree(root / "vendor"),
