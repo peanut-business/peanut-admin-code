@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Peanut Admin 4.0.2 release dependency SBOM",
-  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v4.0.2/sbom",
+  "name": "Peanut Admin 4.0.3 release dependency SBOM",
+  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v4.0.3/sbom",
   "creationInfo": {
     "created": "2026-10-05T00:00:00Z",
     "creators": [
@@ -26,7 +26,7 @@
     {
       "name": "Peanut Admin",
       "SPDXID": "SPDXRef-Package-Peanut-Admin",
-      "versionInfo": "4.0.2",
+      "versionInfo": "4.0.3",
       "downloadLocation": "https://github.com/peanut-business/peanut-admin-code",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -37,7 +37,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@4.0.2"
+          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@4.0.3"
         }
       ]
     },
@@ -32685,9 +32685,9 @@
     },
     {
       "name": "brace-expansion",
-      "SPDXID": "SPDXRef-Package-uniapp-d6367053cb71b0afbd4f",
-      "versionInfo": "1.1.18",
-      "downloadLocation": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.18.tgz",
+      "SPDXID": "SPDXRef-Package-uniapp-3cebd295216add5d4609",
+      "versionInfo": "1.1.21",
+      "downloadLocation": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-1.1.21.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT",
@@ -32698,15 +32698,15 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/brace-expansion@1.1.18"
+          "referenceLocator": "pkg:npm/brace-expansion@1.1.21"
         }
       ]
     },
     {
       "name": "brace-expansion",
-      "SPDXID": "SPDXRef-Package-uniapp-32f25a5a770d7740be66",
-      "versionInfo": "2.1.4",
-      "downloadLocation": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.4.tgz",
+      "SPDXID": "SPDXRef-Package-uniapp-4e2049675fb7f89156c5",
+      "versionInfo": "2.1.7",
+      "downloadLocation": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-2.1.7.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "MIT",
@@ -32717,7 +32717,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/brace-expansion@2.1.4"
+          "referenceLocator": "pkg:npm/brace-expansion@2.1.7"
         }
       ]
     },
@@ -70831,13 +70831,13 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-uniapp-d6367053cb71b0afbd4f",
+      "relatedSpdxElement": "SPDXRef-Package-uniapp-3cebd295216add5d4609",
       "comment": "uniapp; development-or-build"
     },
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-uniapp-32f25a5a770d7740be66",
+      "relatedSpdxElement": "SPDXRef-Package-uniapp-4e2049675fb7f89156c5",
       "comment": "uniapp; development-or-build"
     },
     {
