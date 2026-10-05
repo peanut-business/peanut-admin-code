@@ -457,8 +457,10 @@ prepare_phase() {
   stage_plan="$prepared_root/.peanut/upgrades/plans/$candidate.json"
   mkdir -p "$(dirname "$stage_plan")"
   cp -p "$scaffold_plan" "$stage_plan"
-  php "$scaffold_entry" apply \
-    --project-root="$prepared_root" --plan="$stage_plan" </dev/null >/dev/null \
+  # Canonical public artifacts must match preflight's producer permissions.
+  # Limit this umask to the producer; private host records retain the outer 077.
+  (umask 022; php "$scaffold_entry" apply \
+    --project-root="$prepared_root" --plan="$stage_plan" </dev/null >/dev/null) \
     || die 'signed scaffold engine could not materialize the prepared target'
   rm -rf -- "$prepared_root/.peanut/upgrades"
   for marker in executing.json installed.json baseline.json migration.json; do
