@@ -1510,7 +1510,7 @@ preflight_compose=(
 "${preflight_compose[@]}" up -d --wait mysql >/dev/null \
   || fail 'isolated empty MySQL preflight could not start'
 empty_table_count="$("${preflight_compose[@]}" exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --database="$MYSQL_DATABASE" -NBe "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()"' 2>/dev/null)" \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --database="$MYSQL_DATABASE" -NBe "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()"' </dev/null 2>/dev/null)" \
   || fail 'isolated empty MySQL preflight query failed'
 [[ "$empty_table_count" == 0 ]] || fail 'isolated preflight database is not empty'
 printf 'candidate_empty_database_preflight=ready\n'
