@@ -86,7 +86,8 @@ if a.get("published_endpoint",{}).get("bind")!=bind or a.get("published_endpoint
 deployment_kind=d.get("deployment_kind","application")
 if deployment_kind not in ("application","temporary-multi-tenant-source"): fail("unknown deployment kind")
 upgrade_php=d.get("upgrade_php","")
-if mode=="update" and not re.fullmatch(r"/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*",upgrade_php):
+if mode=="update" and (not re.fullmatch(r"/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+",upgrade_php)
+                       or any(part in (".", "..") for part in upgrade_php.split("/")[1:])):
     fail("registered absolute PHP maintenance entry required")
 images=d.get("runtime_images",{})
 pattern=r"(?:sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})"
