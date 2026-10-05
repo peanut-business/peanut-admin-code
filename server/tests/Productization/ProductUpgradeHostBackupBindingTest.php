@@ -96,7 +96,7 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
     upgradeHostFile($publicVolume . '/before.txt', 'original-public');
     upgradeHostFile($privateVolume . '/before.txt', 'original-private');
 
-    upgradeHostFile($instance . '/.env', "DB_NAME=peanut_m4\nPEANUT_DATABASE_RESOURCE_ID=db-resource\nHTTP_PORT=8080\n", 0600);
+    upgradeHostFile($instance . '/.env', "DB_NAME=peanut_m4\nPEANUT_DATABASE_RESOURCE_ID=db-resource\nHTTP_PORT=8080\nPEANUT_PC_RENDER_MODE=hybrid\n", 0600);
     upgradeHostFile($runtime . '/previous/root.env', (string) file_get_contents($instance . '/.env'), 0600);
     upgradeHostJson($runtime . '/previous/DEPLOYMENT_RECEIPT.json', ['receipt' => 'previous'], 0600);
     upgradeHostJson($package . '/upgrade-manifest.json', [

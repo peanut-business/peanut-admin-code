@@ -145,7 +145,7 @@ parse_env_file "$root_env" root
 
 is_orchestration_key() {
   case "$1" in
-    COMPOSE_PROFILES|COMPOSE_PROJECT_NAME|HTTP_PORT|PHP_IMAGE|NGINX_IMAGE|PC_IMAGE|BUILD_HTTP_PROXY|BUILD_HTTPS_PROXY|BUILD_ALL_PROXY|BUILD_NO_PROXY|PEANUT_PUBLIC_SCHEME|PEANUT_TRUSTED_HOSTS|MYSQL_ROOT_PASSWORD) return 0 ;;
+    COMPOSE_PROFILES|COMPOSE_PROJECT_NAME|HTTP_PORT|PHP_IMAGE|NGINX_IMAGE|PC_IMAGE|PEANUT_PC_RENDER_MODE|BUILD_HTTP_PROXY|BUILD_HTTPS_PROXY|BUILD_ALL_PROXY|BUILD_NO_PROXY|PEANUT_PUBLIC_SCHEME|PEANUT_TRUSTED_HOSTS|MYSQL_ROOT_PASSWORD) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -325,7 +325,13 @@ root_index() {
   printf '%s' -1
 }
 
-set_controlled_root COMPOSE_PROFILES bundled-db
+pc_render_mode=spa
+pc_mode_index="$(root_index PEANUT_PC_RENDER_MODE)"
+(( pc_mode_index < 0 )) || pc_render_mode="${ROOT_VALUES[$pc_mode_index]}"
+[[ "$pc_render_mode" == spa || "$pc_render_mode" == hybrid ]] || die 'PEANUT_PC_RENDER_MODE must be spa or hybrid'
+compose_profiles=bundled-db
+[[ "$pc_render_mode" != hybrid ]] || compose_profiles=bundled-db,ssr
+set_controlled_root COMPOSE_PROFILES "$compose_profiles"
 set_controlled_root COMPOSE_PROJECT_NAME "$expected_project"
 set_controlled_root HTTP_PORT "$expected_port"
 set_controlled_root PEANUT_PUBLIC_SCHEME "$public_scheme"
@@ -338,7 +344,7 @@ if (( check_only == 0 )); then
   cleanup_outputs() { rm -f -- "$root_tmp" "$backend_tmp"; }
   trap cleanup_outputs EXIT
 
-  for key in COMPOSE_PROFILES COMPOSE_PROJECT_NAME HTTP_PORT PHP_IMAGE NGINX_IMAGE PC_IMAGE BUILD_HTTP_PROXY BUILD_HTTPS_PROXY BUILD_ALL_PROXY BUILD_NO_PROXY PEANUT_PUBLIC_SCHEME PEANUT_TRUSTED_HOSTS MYSQL_ROOT_PASSWORD; do
+  for key in COMPOSE_PROFILES COMPOSE_PROJECT_NAME HTTP_PORT PHP_IMAGE NGINX_IMAGE PC_IMAGE PEANUT_PC_RENDER_MODE BUILD_HTTP_PROXY BUILD_HTTPS_PROXY BUILD_ALL_PROXY BUILD_NO_PROXY PEANUT_PUBLIC_SCHEME PEANUT_TRUSTED_HOSTS MYSQL_ROOT_PASSWORD; do
     index="$(root_index "$key")"
     (( index >= 0 )) || continue
     printf '%s=%s\n' "$key" "${ROOT_VALUES[$index]}" >> "$root_tmp"

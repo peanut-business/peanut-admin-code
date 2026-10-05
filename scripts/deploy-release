@@ -11,6 +11,8 @@ TAG=""
 CANDIDATE_COMMIT=""
 DEPLOYMENT_KIND="formal"
 TARGET=""
+DEPLOYMENT_RESOURCE=""
+SSH_ALIAS_SET=0
 FRESH=0
 INSTALL=0
 UPDATE=0
@@ -49,6 +51,7 @@ Usage: scripts/deploy-release <vX.Y.Z> --target <production|production-candidate
   (--install | --update | --fresh) [--apply | --dry-run] [--ssh-alias <alias>] \
   [--expected-commit <sha1> --expected-tree <sha1>] \
   [--env-file <permission-0600-file>] \
+  [--deployment-resource <registered-stable-ID>] \
   [--edition-package <installer.tar.gz> --edition-manifest <manifest.json>] \
   [--upgrade-package <upgrade.tar.gz> --upgrade-manifest <manifest.json>] \
   [--overlay <demo-patch.tar>] \
@@ -58,7 +61,7 @@ Usage: scripts/deploy-release <vX.Y.Z> --target <production|production-candidate
 Usage: scripts/deploy-release --candidate-commit=<full-sha1> \
   --expected-tree=<full-tree-sha1> --target <production|production-candidate> \
   (--install | --update | --fresh) [--apply | --dry-run] [--ssh-alias <alias>] \
-  [--env-file <permission-0600-file>] \
+  [--env-file <permission-0600-file>] [--deployment-resource <registered-stable-ID>] \
   [--confirm-destroy <target>] [--paired-backup <id> \
   --paired-backup-manifest-sha256 <sha256>]
 
@@ -70,6 +73,10 @@ the staged source so runtime status and backup evidence use the deployed
 tag/commit/tree instead of the pre-qualification embedded metadata.
 
   --install  first installation; never removes an existing database or volume
+  --deployment-resource
+             select an explicit maintainer registry deployment for a candidate
+             production-candidate first install from a FULL Edition archive;
+             all target selectors come from that fixed registry, never CLI tuples
   --update   routine application update; preserves database and upload volumes
   --fresh    destructive reinstall; explicit confirmation and paired backup are required
   --dry-run  validate the release and print the exact remote plan only
@@ -226,9 +233,17 @@ while [[ $# -gt 0 ]]; do
       fail 'use --update for a routine application update; --upgrade is deprecated' ;;
     --apply) APPLY=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --deployment-resource)
+      [[ $# -ge 2 && -n "$2" && -z "$DEPLOYMENT_RESOURCE" ]] || fail '--deployment-resource requires one value'
+      DEPLOYMENT_RESOURCE="$2"; shift 2 ;;
+    --deployment-resource=*)
+      [[ -z "$DEPLOYMENT_RESOURCE" ]] || fail '--deployment-resource cannot be repeated'
+      DEPLOYMENT_RESOURCE="${1#--deployment-resource=}"
+      [[ -n "$DEPLOYMENT_RESOURCE" ]] || fail '--deployment-resource requires one value'
+      shift ;;
     --ssh-alias)
       [[ $# -ge 2 ]] || fail '--ssh-alias requires a value'
-      SSH_ALIAS="$2"; shift 2 ;;
+      SSH_ALIAS="$2"; SSH_ALIAS_SET=1; shift 2 ;;
     --admin-password)
       fail 'use --env-file for installation identities' ;;
     --env-file)
@@ -347,6 +362,12 @@ if [[ "$DEPLOYMENT_KIND" == candidate ]]; then
     || fail 'candidate deployment does not accept a formal demo overlay'
 fi
 [[ "$TARGET" == production || "$TARGET" == production-candidate ]] || fail 'target must be production or production-candidate'
+if [[ -n "$DEPLOYMENT_RESOURCE" ]]; then
+  [[ "$DEPLOYMENT_RESOURCE" =~ ^[a-z0-9][a-z0-9-]{2,127}$ ]] || fail 'deployment resource ID is invalid'
+  [[ -n "${PEANUT_RESOURCE_REGISTRY:-}" && "$DEPLOYMENT_KIND" == candidate && "$TARGET" == production-candidate \
+    && "$INSTALL" == 1 && "$UPDATE" == 0 && "$FRESH" == 0 && -n "$EDITION_PACKAGE" && -n "$EDITION_MANIFEST" && -z "$OVERLAY" ]] \
+    || fail '--deployment-resource requires an explicit registry and candidate production-candidate FULL first install'
+fi
 [[ $((INSTALL + UPDATE + FRESH)) -eq 1 ]] || fail 'choose exactly one of --install, --update or --fresh'
 [[ $((APPLY + DRY_RUN)) -eq 1 ]] || fail 'choose exactly one of --apply or --dry-run'
 if [[ "$FRESH" == 1 && "$CONFIRM_DESTROY" != "$TARGET" ]]; then
@@ -427,10 +448,19 @@ git diff --cached --quiet || fail 'source checkout has staged changes'
 [[ -z "$(git ls-files --others --exclude-standard)" ]] || fail 'source checkout has untracked files'
 
 target_json() {
-  jq -e --arg id "$1" '.. | objects | select(.stable_resource_id == $id)' "$REGISTRY"
+  jq -e --arg id "$1" '[.. | objects | select(.stable_resource_id == $id)] | if length == 1 then .[0] else error("resource ID is missing or ambiguous") end' "$REGISTRY"
 }
 
 deployment_id="peanut-admin-${TARGET}-deployment"
+[[ -z "$DEPLOYMENT_RESOURCE" ]] || deployment_id="$DEPLOYMENT_RESOURCE"
+deployment_registry_sha=""
+if [[ -n "$DEPLOYMENT_RESOURCE" ]]; then
+  deployment_registry_sha="$(shasum -a 256 "$REGISTRY" | awk '{print $1}')"
+  # Reuse the existing common-dir/repos resolver: copied registries and dirty
+  # maintainer source are not authority for an independent deployment target.
+  "$ROOT_DIR/scripts/project-resource-registry" p0e-maintainer-source --sha256 "$deployment_registry_sha" >/dev/null \
+    || fail 'independent deployment requires the exact tracked maintainer registry'
+fi
 database_id="$(target_json "$deployment_id" | jq -r '.database_resource_id')"
 compose_project="$(target_json "$deployment_id" | jq -r '.compose_project')"
 remote_root="$(target_json "$deployment_id" | jq -r '.deployment_root')"
@@ -451,12 +481,86 @@ if [[ "$TARGET" == production && "$DEPLOYMENT_KIND" == formal ]]; then
     || fail "production release identity is not closed for $TAG"
 fi
 
-if [[ "$TARGET" == production ]]; then
+if [[ -n "$DEPLOYMENT_RESOURCE" ]]; then
+  application_resource_id="$(target_json "$deployment_id" | jq -er '.application_resource_id')"
+  http_resource_id="$(target_json "$deployment_id" | jq -er '.http_resource_id')"
+  registered_ssh="$(target_json "$deployment_id" | jq -er '.ssh_alias')"
+  [[ "$SSH_ALIAS_SET" == 0 || "$SSH_ALIAS" == "$registered_ssh" ]] || fail 'SSH alias differs from the selected deployment registry'
+  SSH_ALIAS="$registered_ssh"
+  database_name="$(target_json "$database_id" | jq -er '.database')"
+  origin_port="$(target_json "$http_resource_id" | jq -er '.port')"
+  public_scheme="$(target_json "$application_resource_id" | jq -er '.ssr.public_scheme')"
+  trusted_hosts="$(target_json "$application_resource_id" | jq -er '.ssr.trusted_hosts | join(",")')"
+  jq -en --arg target "$TARGET" --arg id "$deployment_id" \
+    --argjson d "$(target_json "$deployment_id")" --argjson a "$(target_json "$application_resource_id")" \
+    --argjson h "$(target_json "$http_resource_id")" --argjson b "$(target_json "$database_id")" \
+    --argjson m "$(target_json "$(target_json "$database_id" | jq -er '.runtime_resource_id')")" '
+    def rid: type == "string" and test("^[a-z0-9][a-z0-9-]{2,127}$");
+    def registered: .fallback == "none" and ((.environments // [.environment]) | index($target) != null);
+    $d.required_non_secret_environment as $e |
+    ($d | registered) and ($a | registered) and ($h | registered) and ($b | registered) and ($m | registered)
+    and $d.stable_resource_id == $id
+    and ($d.application_resource_id | rid) and ($d.database_resource_id | rid) and ($d.http_resource_id | rid)
+    and ($d.runtime_resource_ids | sort) == ([$a.stable_resource_id, $m.stable_resource_id] | sort)
+    and $d.host == $d.ssh_alias and ($d.ssh_alias | test("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"))
+    and $a.host == $d.host and $h.ssh_alias == $d.ssh_alias
+    and ($d.deployment_root | type == "string" and test("^/([A-Za-z0-9_-][A-Za-z0-9._-]*/)+[A-Za-z0-9_-][A-Za-z0-9._-]*$"))
+    and ($d.compose_project | test("^[a-z0-9][a-z0-9_-]{0,62}$"))
+    and $d.compose_file == "compose.yaml" and $d.compose_profile == "bundled-db"
+    and $a.compose_project == $d.compose_project and $b.compose_project == $d.compose_project
+    and $a.compose_file == $d.compose_file and $b.compose_file == $d.compose_file
+    and $a.database_resource_id == $b.stable_resource_id and $a.http_resource_id == $h.stable_resource_id
+    and $b.application_runtime == true and $b.service_type == "mysql" and $b.version == "8.4.11"
+    and $b.fresh_install_only == false and $m.version == $b.version and $m.image == $b.image
+    and $b.namespace == ($d.compose_project + "_mysql-data") and $m.namespace == $b.namespace
+    and $b.container_name == ($d.compose_project + "-mysql-1") and $m.container_name == $b.container_name
+    and $m.database_resource_id == $b.stable_resource_id and $m.host == $d.host
+    and $m.compose_project == $d.compose_project and $m.compose_file == $d.compose_file and $m.compose_service == "mysql"
+    and $b.container_endpoint.host == "mysql" and $b.container_endpoint.port == 3306
+    and ($b.container_endpoint.endpoint_id | rid) and ($b.container_endpoint.network_scope | type == "string" and length > 0)
+    and ($b.container_endpoint.consumers | index("container") != null)
+    and $b.upstream_endpoint == null and ($b.deployment_modes | index("standalone") != null)
+    and ($b.database | test("^[a-z0-9][a-z0-9_]{0,63}$"))
+    and $h.bind == "127.0.0.1" and ($h.port | type == "number" and floor == . and . >= 1 and . <= 65535)
+    and $a.published_endpoint.bind == $h.bind and $a.published_endpoint.port == $h.port
+    and $a.published_endpoint.host == $h.bind
+    and $e.APP_ENV == "production" and ($e.APP_DEBUG == false or $e.APP_DEBUG == "false")
+    and $e.PEANUT_DEPLOYMENT_TARGET == $target and $e.DEPLOYMENT_MODE == "standalone"
+    and $e.PEANUT_DATABASE_RESOURCE_ID == $b.stable_resource_id
+    and $e.DB_NAME == $b.database and $e.DB_HOST == $b.container_endpoint.host and $e.DB_PORT == $b.container_endpoint.port
+    and $e.HTTP_PORT == $h.port and $e.COMPOSE_PROFILES == $d.compose_profile
+    and ($e.OWNER_INVITATION_DELIVERY_MODE == "auto" or $e.OWNER_INVITATION_DELIVERY_MODE == "manual")
+    and $e.PLATFORM_HOSTS == "" and $e.TENANT_ADMIN_HOSTS == ""
+    and $e.PEANUT_PUBLIC_SCHEME == $a.ssr.public_scheme and $a.ssr.public_scheme == "http"
+    and ($a.ssr.trusted_hosts | type == "array" and length > 0 and (unique | length) == length
+      and all(.[]; . == "127.0.0.1" or . == "localhost"))
+    and $e.PEANUT_TRUSTED_HOSTS == ($a.ssr.trusted_hosts | join(","))
+  ' >/dev/null || fail 'independent deployment registry tuple is incomplete or inconsistent'
+  jq -e --arg id "$deployment_id" --arg host "$SSH_ALIAS" --arg root "$remote_root" \
+    --arg project "$compose_project" --arg db "$database_id" --argjson port "$origin_port" '
+    [.. | objects | select(.stable_resource_id? != $id and .deployment_root? != null and .compose_project? != null)
+      | select(.host == $host)
+      | . as $other | select(.deployment_root == $root or (.deployment_root | startswith($root + "/")) or ($root | startswith($other.deployment_root + "/"))
+        or .compose_project == $project or .database_resource_id == $db or .required_non_secret_environment.HTTP_PORT == $port)] | length == 0
+  ' "$REGISTRY" >/dev/null || fail 'independent deployment conflicts with another registered target'
+  jq -e --arg deployment "$deployment_id" --arg app "$application_resource_id" --arg http "$http_resource_id" \
+    --arg db "$database_id" --arg mysql "$(target_json "$database_id" | jq -er '.runtime_resource_id')" \
+    --arg host "$SSH_ALIAS" --arg project "$compose_project" --argjson port "$origin_port" '
+    [.. | objects | select(.stable_resource_id? | type == "string")
+      | select(.stable_resource_id as $id | [$deployment,$app,$http,$db,$mysql] | index($id) == null)
+      | select(.host == $host or .ssh_alias == $host)
+      | select(.compose_project == $project or (.bind == "127.0.0.1" and .port == $port)
+        or (.published_endpoint.bind == "127.0.0.1" and .published_endpoint.port == $port))] | length == 0
+  ' "$REGISTRY" >/dev/null || fail 'independent deployment conflicts with another registered runtime or listener'
+elif [[ "$TARGET" == production ]]; then
   deployment_mode="standalone"
   origin_port="$(target_json peanut-admin-production-application-containers | jq -r '.published_endpoint.port')"
 else
   deployment_mode="multi-tenant"
   origin_port="$(target_json peanut-admin-production-candidate-application-containers | jq -r '.published_endpoint.port')"
+fi
+if [[ -z "$DEPLOYMENT_RESOURCE" ]]; then
+  database_name="$([ "$TARGET" = production ] && printf peanut_admin || printf peanut_admin_candidate)"
 fi
 [[ "$database_id" != null && "$compose_project" != null && "$remote_root" != null && "$origin_port" != null ]] || fail "incomplete registry entry for $deployment_id"
 if [[ -n "$OVERLAY" ]]; then
@@ -552,6 +656,10 @@ if [[ -n "$EDITION_PACKAGE" ]]; then
     && "$edition_sha256" == "$actual_edition_sha256"
     && "$edition_bytes" == "$actual_edition_bytes" ]] \
     || fail 'Edition installer and fixed source identities differ'
+  if [[ -n "$DEPLOYMENT_RESOURCE" ]]; then
+    [[ "$edition_name" == standalone && "$(jq -r '.archive.layout // empty' "$EDITION_MANIFEST")" == application-development-source ]] \
+      || fail 'independent first install requires a standalone FULL Edition package'
+  fi
   tar -tzf "$EDITION_PACKAGE" | awk -v root="$edition_root/" '
     index($0, root) != 1 || $0 ~ /(^|\/)\.\.($|\/)/ { bad = 1 }
     $0 == root "compose.yaml" { compose = 1 }
@@ -680,8 +788,20 @@ remote_secrets="/tmp/peanut-admin-deploy-secrets-$$.env"
 application_registry_input=""
 application_registry_file=""
 remote_application_registry=""
+deployment_registry_file=""
+remote_deployment_registry=""
 remote_overlay=""
-trap 'rm -f "$archive_file" "$secrets_file" "${application_registry_input:-}" "${application_registry_file:-}"' EXIT
+trap 'rm -f "$archive_file" "$secrets_file" "${application_registry_input:-}" "${application_registry_file:-}" "${deployment_registry_file:-}"' EXIT
+if [[ -n "$DEPLOYMENT_RESOURCE" ]]; then
+  umask 077
+  deployment_registry_file="$(mktemp "${TMPDIR:-/tmp}/peanut-admin-deployment-registry.XXXXXX")"
+  cp -- "$REGISTRY" "$deployment_registry_file"
+  [[ "$(shasum -a 256 "$deployment_registry_file" | awk '{print $1}')" == "$deployment_registry_sha" ]] \
+    || fail 'maintainer registry changed after deployment selection'
+  "$ROOT_DIR/scripts/project-resource-registry" p0e-maintainer-source --sha256 "$deployment_registry_sha" >/dev/null \
+    || fail 'maintainer registry source changed before transfer'
+  remote_deployment_registry="/tmp/peanut-admin-deployment-registry-$$.json"
+fi
 if [[ "$archive_kind" == edition ]]; then
   cp "$EDITION_PACKAGE" "$archive_file"
 elif [[ "$archive_kind" == upgrade ]]; then
@@ -734,6 +854,10 @@ if [[ -n "$remote_application_registry" ]]; then
   scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$application_registry_file" "$SSH_ALIAS:$remote_application_registry" \
     || fail 'cannot transfer selected application resource registry'
 fi
+if [[ -n "$remote_deployment_registry" ]]; then
+  scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$deployment_registry_file" "$SSH_ALIAS:$remote_deployment_registry" \
+    || fail 'cannot transfer the verified maintainer registry snapshot'
+fi
 if [[ -n "$OVERLAY" ]]; then
   remote_overlay="/tmp/peanut-admin-demo-overlay-$$.tar"
   scp "${SSH_KEEPALIVE_OPTS[@]}" -q "$OVERLAY" "$SSH_ALIAS:$remote_overlay" || fail 'cannot transfer demo overlay'
@@ -745,7 +869,9 @@ fi
 ssh -o BatchMode=yes "${SSH_KEEPALIVE_OPTS[@]}" "$SSH_ALIAS" sudo -n bash -s -- \
   "$DEPLOYMENT_KIND" "$(encode_remote_arg "$TAG")" "$tag_commit" "$tag_tree" "$TARGET" "$mode" "$remote_root" "$compose_project" "$origin_port" "$database_id" "$application_resource_id" "$deployment_mode" "$remote_archive" "$remote_secrets" "$(encode_remote_arg "$remote_overlay")" "$(encode_remote_arg "$overlay_sha256")" "$archive_sha256" "$archive_kind" "$scaffold_migration_version" "$(encode_remote_arg "$EDITION_MANIFEST_SHA256")" "$(encode_remote_arg "$PAIRED_BACKUP_ID")" "$(encode_remote_arg "$PAIRED_BACKUP_MANIFEST_SHA256")" "$version" \
   "$(encode_remote_arg "$platform_hosts")" "$(encode_remote_arg "$tenant_admin_hosts")" "$owner_invitation_mode" "$public_scheme" "$(encode_remote_arg "$trusted_hosts")" \
-  "$(encode_remote_arg "$UPGRADE_MANIFEST_SHA256")" "$(encode_remote_arg "$remote_application_registry")" <<'REMOTE_SCRIPT'
+  "$(encode_remote_arg "$UPGRADE_MANIFEST_SHA256")" "$(encode_remote_arg "$remote_application_registry")" \
+  "$(encode_remote_arg "$remote_deployment_registry")" "$(encode_remote_arg "$deployment_registry_sha")" \
+  "$(encode_remote_arg "$DEPLOYMENT_RESOURCE")" "$database_name" "$SSH_ALIAS" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 decode_remote_arg() {
@@ -782,6 +908,11 @@ public_scheme="${27:-}"
 trusted_hosts="$(decode_remote_arg "${28:-__PEANUT_EMPTY__}")"
 upgrade_manifest_sha="$(decode_remote_arg "${29:-__PEANUT_EMPTY__}")"
 application_registry_input="$(decode_remote_arg "${30:-__PEANUT_EMPTY__}")"
+deployment_registry_input="$(decode_remote_arg "${31:-__PEANUT_EMPTY__}")"
+deployment_registry_sha="$(decode_remote_arg "${32:-__PEANUT_EMPTY__}")"
+deployment_resource="$(decode_remote_arg "${33:-__PEANUT_EMPTY__}")"
+database_name="${34:-}"
+registered_ssh="${35:-}"
 version="${candidate_product_version:-${tag#v}}"
 migration_target_version="$scaffold_migration_version"
 overlay_commit=""
@@ -792,6 +923,7 @@ cleanup_remote_inputs() {
   sudo -n rm -f -- "$archive" "$secrets"
   [[ -z "$overlay" ]] || sudo -n rm -f -- "$overlay"
   [[ -z "$application_registry_input" ]] || sudo -n rm -f -- "$application_registry_input"
+  [[ -z "$deployment_registry_input" ]] || sudo -n rm -f -- "$deployment_registry_input"
   exit "$status"
 }
 trap cleanup_remote_inputs EXIT
@@ -811,12 +943,48 @@ version_greater_than() {
 [[ "$target" == production || "$target" == production-candidate ]] || fail 'unregistered deployment target'
 [[ "$mode" == install || "$mode" == update || "$mode" == fresh ]] || fail 'unregistered deployment mode'
 [[ "$archive_kind" == source || "$archive_kind" == edition || "$archive_kind" == upgrade ]] || fail 'unregistered deployment artifact kind'
-if [[ "$target:$root:$project:$port:$database_resource:$deployment_mode:$application_resource" == \
+if [[ -n "$deployment_resource" ]]; then
+  [[ "$deployment_kind:$target:$mode:$archive_kind:$deployment_mode" == candidate:production-candidate:install:edition:standalone \
+    && -z "$overlay" && "$deployment_registry_sha" =~ ^[a-f0-9]{64}$ \
+    && -f "$deployment_registry_input" && ! -L "$deployment_registry_input" ]] \
+    || fail 'independent deployment inputs are invalid'
+  [[ "$(sha256sum "$deployment_registry_input" | awk '{print $1}')" == "$deployment_registry_sha" ]] \
+    || fail 'maintainer registry snapshot digest differs'
+  jq -e --arg id "$deployment_resource" --arg root "$root" --arg project "$project" \
+    --arg port "$port" --arg db "$database_resource" --arg app "$application_resource" \
+    --arg name "$database_name" --arg ssh "$registered_ssh" --arg platform "$platform_hosts" \
+    --arg tenant "$tenant_admin_hosts" --arg invitation "$owner_invitation_mode" \
+    --arg scheme "$public_scheme" --arg hosts "$trusted_hosts" '
+    def one($id): [.. | objects | select(.stable_resource_id? == $id)]
+      | if length == 1 then .[0] else error("ambiguous resource") end;
+    . as $registry | one($id) as $d | $registry | one($db) as $b
+    | $registry | one($app) as $a | $registry | one($d.http_resource_id) as $h
+    | $registry | one($b.runtime_resource_id) as $m |
+    $d.required_non_secret_environment as $e |
+    $d.deployment_root == $root and $d.compose_project == $project and $d.compose_file == "compose.yaml"
+    and $d.compose_profile == "bundled-db" and $d.database_resource_id == $db and $d.application_resource_id == $app
+    and $d.host == $ssh and $d.ssh_alias == $ssh and $a.host == $ssh and $m.host == $ssh and $h.ssh_alias == $ssh
+    and ($d.runtime_resource_ids | sort) == ([$app, $m.stable_resource_id] | sort)
+    and $a.compose_project == $project and $b.compose_project == $project and $m.compose_project == $project
+    and $a.compose_file == "compose.yaml" and $b.compose_file == "compose.yaml" and $m.compose_file == "compose.yaml"
+    and $a.database_resource_id == $db and $a.http_resource_id == $h.stable_resource_id and $m.database_resource_id == $db
+    and $b.database == $name and $e.DB_NAME == $name and $e.PEANUT_DATABASE_RESOURCE_ID == $db
+    and ($h.port | tostring) == $port and $h.bind == "127.0.0.1" and ($e.HTTP_PORT | tostring) == $port
+    and $a.published_endpoint.bind == $h.bind and $a.published_endpoint.port == $h.port
+    and $a.published_endpoint.host == $h.bind
+    and $e.DEPLOYMENT_MODE == "standalone" and $e.PEANUT_DEPLOYMENT_TARGET == "production-candidate"
+    and $e.PLATFORM_HOSTS == $platform and $e.TENANT_ADMIN_HOSTS == $tenant
+    and $e.OWNER_INVITATION_DELIVERY_MODE == $invitation and $e.PEANUT_PUBLIC_SCHEME == $scheme
+    and $a.ssr.public_scheme == $scheme and $e.PEANUT_TRUSTED_HOSTS == $hosts
+    and ($a.ssr.trusted_hosts | join(",")) == $hosts
+  ' "$deployment_registry_input" >/dev/null || fail 'remote deployment tuple differs from the verified registry snapshot'
+elif [[ "$target:$root:$project:$port:$database_resource:$deployment_mode:$application_resource" == \
       production:/www/docker/peanut-admin:peanut-admin:18092:peanut-admin-production-bundled-mysql84:standalone:peanut-admin-production-application-containers ]]; then
-  :
+  [[ "$database_name" == peanut_admin ]] || fail 'production database name differs from its registered selector'
 elif [[ "$target:$root:$project:$port:$database_resource:$deployment_mode:$application_resource" == \
       production-candidate:/www/docker/peanut-admin-candidate:peanut-admin-candidate:18093:peanut-admin-production-candidate-mysql84:multi-tenant:peanut-admin-production-candidate-application-containers ]]; then
   [[ "$mode" == fresh ]] || fail 'production-candidate is registered as fresh-only'
+  [[ "$database_name" == peanut_admin_candidate ]] || fail 'candidate database name differs from its registered selector'
 else
   fail 'deployment target selectors do not form a registered tuple'
 fi
@@ -856,12 +1024,28 @@ if [[ "$mode" == fresh ]]; then
 fi
 [[ -d "$root" && -f "$root/compose.yaml" && -f "$root/.env" && ! -L "$root/.env" ]] \
   || fail "deployment files or root environment are missing under $root"
+if [[ -n "$deployment_resource" ]]; then
+  [[ "$(realpath -e -- "$root")" == "$root" && ! -L "$root/compose.yaml" \
+    && (! -e "$root/server" || ( -d "$root/server" && ! -L "$root/server" )) ]] \
+    || fail 'independent deployment root and configuration paths must be canonical ordinary paths'
+fi
 has_backend_env=0
 if [[ -e "$root/server/.env" || -L "$root/server/.env" ]]; then
   [[ -f "$root/server/.env" && ! -L "$root/server/.env" ]] \
     || fail 'server/.env must be an ordinary file when present'
   has_backend_env=1
 fi
+pc_render_mode=spa
+pc_mode_files=("$root/.env")
+(( has_backend_env == 0 )) || pc_mode_files+=("$root/server/.env")
+for pc_mode_file in "${pc_mode_files[@]}"; do
+  pc_mode_count="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$pc_mode_file")"
+  [[ "$pc_mode_count" == 0 || "$pc_mode_count" == 1 ]] || fail 'PC render mode is duplicated'
+  [[ "$pc_mode_count" == 0 ]] || pc_render_mode="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { sub(/^[^=]*=/, ""); print; exit }' "$pc_mode_file")"
+done
+[[ "$pc_render_mode" == spa || "$pc_render_mode" == hybrid ]] || fail 'PC render mode must be spa or hybrid'
+compose_profiles=(--profile bundled-db)
+[[ "$pc_render_mode" != hybrid ]] || compose_profiles+=(--profile ssr)
 [[ -f "$secrets" ]] || fail 'deployment credential payload is missing'
 chmod 600 "$secrets"
 set -a
@@ -878,6 +1062,7 @@ cleanup_before_target_drain() {
   [[ -z "${deployment_receipt_file:-}" ]] || sudo -n rm -f -- "$deployment_receipt_file"
   sudo -n rm -f -- "$archive"
   [[ -z "$overlay" ]] || sudo -n rm -f -- "$overlay"
+  [[ -z "$deployment_registry_input" ]] || sudo -n rm -f -- "$deployment_registry_input"
   exit "$status"
 }
 trap cleanup_before_target_drain EXIT
@@ -891,15 +1076,19 @@ IFS=',' read -r -a trusted_host_list <<<"$trusted_hosts"
 [[ ${#trusted_host_list[@]} -gt 0 ]] || fail 'PEANUT_TRUSTED_HOSTS is empty'
 for trusted_host in "${trusted_host_list[@]}"; do
   trusted_host="${trusted_host## }"; trusted_host="${trusted_host%% }"
+  if [[ -n "$deployment_resource" ]]; then
+    [[ "$trusted_host" == localhost || "$trusted_host" == 127.0.0.1 ]] || fail 'independent target Host is not registered loopback'
+    continue
+  fi
   [[ "$trusted_host" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
     || fail 'PEANUT_TRUSTED_HOSTS contains a non-DNS or wildcard host'
 done
 
-current_compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" docker compose --env-file .env)
+current_compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_PC_RENDER_MODE=$pc_render_mode" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" docker compose --env-file .env)
 if (( has_backend_env == 1 )); then
   current_compose+=(--env-file server/.env)
 fi
-current_compose+=(-p "$project" -f compose.yaml --profile bundled-db)
+current_compose+=(-p "$project" -f compose.yaml "${compose_profiles[@]}")
 "${current_compose[@]}" config >/dev/null || fail 'Compose configuration is invalid'
 if [[ "$mode" == update ]]; then
   [[ -f DEPLOYMENT_RECEIPT.json && ! -L DEPLOYMENT_RECEIPT.json ]] \
@@ -1072,14 +1261,15 @@ if [[ "$mode" == update ]]; then
     || fail 'upgraded host and PHP runtime receipts differ'
   php_running="$(docker inspect --format '{{.Image}}' "${project}-php-1")"
   nginx_running="$(docker inspect --format '{{.Image}}' "${project}-nginx-1")"
-  pc_running="$(docker inspect --format '{{.Image}}' "${project}-pc-1")"
+pc_running=""
+[[ "$pc_render_mode" != hybrid ]] || pc_running="$(docker inspect --format '{{.Image}}' "${project}-pc-1")"
   jq -e --arg candidate "$upgrade_candidate" --arg plan "$upgrade_plan_sha" \
     --arg commit "$expected_commit" --arg tree "$expected_tree" \
     --arg php "$php_running" --arg nginx "$nginx_running" --arg pc "$pc_running" '
     .protocol == "peanut.product-upgrade-runtime-receipt.v1"
     and .upgrade_package.candidate == $candidate and .upgrade_package.plan_sha256 == $plan
     and .release.commit == $commit and .release.tree == $tree
-    and .images == {php:$php,nginx:$nginx,pc:$pc}
+    and .images == ({php:$php,nginx:$nginx} + (if $pc == "" then {} else {pc:$pc} end))
   ' "$root/DEPLOYMENT_RECEIPT.json" >/dev/null \
     || fail 'upgraded runtime receipt does not bind the completed plan and running images'
   printf 'upgrade_workflow=completed\nupgrade_candidate=%s\nupgrade_plan_sha256=%s\nhealth_evidence_sha256=%s\nactivation_evidence_sha256=%s\n' \
@@ -1138,7 +1328,7 @@ if [[ "$deployment_kind" == candidate && "$archive_kind" != upgrade ]]; then
   legacy_env_args=(
     --target "$target" --root-env "$root/.env"
     --expected-port "$port" --expected-project "$project"
-    --expected-database-resource "$database_resource" --expected-database-name "$([ "$target" = production ] && printf peanut_admin || printf peanut_admin_candidate)"
+    --expected-database-resource "$database_resource" --expected-database-name "$database_name"
     --expected-mode "$deployment_mode"
     --expected-platform-hosts "$platform_hosts" --expected-tenant-admin-hosts "$tenant_admin_hosts"
     --expected-owner-invitation-mode "$owner_invitation_mode"
@@ -1245,30 +1435,34 @@ nginx_image="peanut-admin-nginx:${image_suffix}"
 pc_image="peanut-admin-pc:${image_suffix}"
 candidate_receipt_file="$deployment_receipt_file"
 candidate_compose=(
-  sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
+  sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_PC_RENDER_MODE=$pc_render_mode" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
   "PEANUT_SOURCE_COMMIT=$expected_commit" "PEANUT_SOURCE_TREE=$expected_tree"
   "PEANUT_SERVER_ENV_FILE=$candidate_backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
   "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$deployment_receipt_base64"
   docker compose --env-file "$candidate_root_env" --env-file "$candidate_backend_env" -p "$project"
-  -f "$application_staging/compose.yaml" --profile bundled-db
+  -f "$application_staging/compose.yaml" "${compose_profiles[@]}"
 )
 "${candidate_compose[@]}" config >/dev/null || fail 'candidate Compose configuration is invalid'
 printf 'candidate: building images while the current stack remains available\n'
-"${candidate_compose[@]}" build
-sudo -n docker image inspect "$php_image" "$nginx_image" "$pc_image" >/dev/null \
-  || fail 'candidate PHP/NGINX/PC image identity is unavailable after build'
+build_services=(php nginx)
+build_images=("$php_image" "$nginx_image")
+[[ "$pc_render_mode" != hybrid ]] || { build_services+=(pc); build_images+=("$pc_image"); }
+"${candidate_compose[@]}" build "${build_services[@]}"
+sudo -n docker image inspect "${build_images[@]}" >/dev/null \
+  || fail 'candidate selected image identity is unavailable after build'
 php_image_id="$(sudo -n docker image inspect --format '{{.Id}}' "$php_image")"
 nginx_image_id="$(sudo -n docker image inspect --format '{{.Id}}' "$nginx_image")"
-pc_image_id="$(sudo -n docker image inspect --format '{{.Id}}' "$pc_image")"
+pc_image_id=""
+[[ "$pc_render_mode" != hybrid ]] || pc_image_id="$(sudo -n docker image inspect --format '{{.Id}}' "$pc_image")"
 [[ "$php_image_id" =~ ^sha256:[0-9a-f]{64}$ && "$nginx_image_id" =~ ^sha256:[0-9a-f]{64}$ \
-  && "$pc_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] || fail 'candidate image IDs are not immutable Docker IDs'
-for image in "$php_image" "$nginx_image" "$pc_image"; do
+  && ( "$pc_render_mode" == spa || "$pc_image_id" =~ ^sha256:[0-9a-f]{64}$ ) ]] || fail 'candidate image IDs are not immutable Docker IDs'
+for image in "${build_images[@]}"; do
   [[ "$(sudo -n docker image inspect --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' "$image")" == "$expected_commit" \
     && "$(sudo -n docker image inspect --format '{{index .Config.Labels \"org.peanut-admin.source-tree\"}}' "$image")" == "$expected_tree" ]] \
     || fail "candidate image source labels do not match the fixed commit/tree: $image"
 done
 jq --arg php "$php_image_id" --arg nginx "$nginx_image_id" --arg pc "$pc_image_id" \
-  '.images={php:$php,nginx:$nginx,pc:$pc}' "$deployment_receipt_file" >"${deployment_receipt_file}.tmp" \
+  '.images=({php:$php,nginx:$nginx} + (if $pc == "" then {} else {pc:$pc} end))' "$deployment_receipt_file" >"${deployment_receipt_file}.tmp" \
   || fail 'deployment receipt could not bind image IDs'
 chmod 0644 "${deployment_receipt_file}.tmp"
 mv -f -- "${deployment_receipt_file}.tmp" "$deployment_receipt_file"
@@ -1300,12 +1494,12 @@ cleanup_empty_database_preflight() {
 trap cleanup_empty_database_preflight EXIT
 preflight_project="${project}-candidate-preflight-$$"
 preflight_compose=(
-  sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
+  sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_PC_RENDER_MODE=$pc_render_mode" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image"
   "PEANUT_SOURCE_COMMIT=$expected_commit" "PEANUT_SOURCE_TREE=$expected_tree"
   "PEANUT_SERVER_ENV_FILE=$candidate_backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$candidate_receipt_file"
   "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$deployment_receipt_base64"
   docker compose --env-file "$candidate_root_env" --env-file "$candidate_backend_env" -p "$preflight_project"
-  -f "$application_staging/compose.yaml" --profile bundled-db
+  -f "$application_staging/compose.yaml" "${compose_profiles[@]}"
 )
 "${preflight_compose[@]}" up -d --wait mysql >/dev/null \
   || fail 'isolated empty MySQL preflight could not start'
@@ -1559,15 +1753,16 @@ elif [[ "$DEMO_MODE_SET" == 1 ]]; then
 fi
 actual_commit="$expected_commit"
 
-compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" docker compose --env-file .env --env-file server/.env -p "$project" -f compose.yaml --profile bundled-db)
+compose=(sudo -n env -i "PATH=$PATH" "HOME=$HOME" "PEANUT_PC_RENDER_MODE=$pc_render_mode" "PEANUT_SERVER_ENV_FILE=$root/server/.env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$root/DEPLOYMENT_RECEIPT.json" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" docker compose --env-file .env --env-file server/.env -p "$project" -f compose.yaml "${compose_profiles[@]}")
 "${compose[@]}" config >/dev/null || fail 'updated Compose configuration is invalid'
 verify_running_image_bindings() {
   local php_running nginx_running pc_running
   php_running="$(sudo -n docker inspect --format '{{.Image}}' "${project}-php-1")"
   nginx_running="$(sudo -n docker inspect --format '{{.Image}}' "${project}-nginx-1")"
-  pc_running="$(sudo -n docker inspect --format '{{.Image}}' "${project}-pc-1")"
+  pc_running=""
+  [[ "$pc_render_mode" != hybrid ]] || pc_running="$(sudo -n docker inspect --format '{{.Image}}' "${project}-pc-1")"
   jq -e --arg php "$php_running" --arg nginx "$nginx_running" --arg pc "$pc_running" \
-    '.images.php == $php and .images.nginx == $nginx and .images.pc == $pc' \
+    '.images == ({php:$php,nginx:$nginx} + (if $pc == "" then {} else {pc:$pc} end))' \
     "$root/DEPLOYMENT_RECEIPT.json" >/dev/null \
     || fail 'running container image IDs differ from the deployment receipt'
   printf 'runtime_image_receipt_binding=valid\n'
@@ -1610,6 +1805,10 @@ elif [[ -n "$expected_overlay_sha" ]]; then
   fail 'demo overlay requires persistent PEANUT_DEMO_MODE=enabled in server/.env'
 fi
 "${compose[@]}" up -d --wait
+expected_services=cron,mysql,nginx,php
+[[ "$pc_render_mode" != hybrid ]] || expected_services=cron,mysql,nginx,pc,php
+[[ "$("${compose[@]}" ps --status running --services | sort | paste -sd, -)" == "$expected_services" ]] \
+  || fail 'running service set differs from the selected PC render mode'
 "${compose[@]}" ps
 
 curl --fail --silent --show-error --retry 12 --retry-delay 2 "http://127.0.0.1:${port}/healthz" >/dev/null
@@ -1621,7 +1820,7 @@ runtime_receipt="$(sudo -n docker exec "${project}-php-1" cat /var/www/peanut-ad
 if [[ "$deployment_kind" == candidate ]]; then
   jq -e --arg commit "$expected_commit" --arg tree "$expected_tree" \
     --arg archive "$expected_archive_sha" --arg product "$candidate_product_version" \
-    --arg schema "$scaffold_migration_version" \
+    --arg schema "$scaffold_migration_version" --arg mode "$pc_render_mode" \
     '.schema_version == 2
      and .protocol == "peanut.deployment-candidate-receipt.v1"
      and .product.version == $product
@@ -1631,7 +1830,8 @@ if [[ "$deployment_kind" == candidate ]]; then
      and .schema.migration_target == $schema
      and (.images.php | type == "string" and test("^sha256:[0-9a-f]{64}$"))
      and (.images.nginx | type == "string" and test("^sha256:[0-9a-f]{64}$"))
-     and (.images.pc | type == "string" and test("^sha256:[0-9a-f]{64}$"))' \
+     and ((.images | keys) == (if $mode == "hybrid" then ["nginx","pc","php"] else ["nginx","php"] end))
+     and (if $mode == "hybrid" then (.images.pc | type == "string" and test("^sha256:[0-9a-f]{64}$")) else true end)' \
     "$root/DEPLOYMENT_RECEIPT.json" >/dev/null \
     || fail 'candidate host/runtime receipt identity is incomplete'
   printf 'deployed_candidate_commit=%s\ncandidate_tree=%s\nproduct_version=%s\nschema_version=%s\n' \
