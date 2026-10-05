@@ -147,11 +147,16 @@ for path in private runtime public private/storage private/installation private/
         echo "unknown directory owner: $path" >&2; exit 1;
     }
 done
+# Sticky runtime protection requires both the parent and update guard to remain
+# owned by the deployment owner, never by the application process.
+chown "$root_uid" runtime runtime/upgrade
+chmod 0755 runtime/upgrade
 for path in private private/storage private/installation private/resources runtime public/storage; do
     chgrp "$app_gid" "$path"
     case "$path" in
         private) chmod 0750 "$path" ;;
-        runtime|public/storage) chmod 0775 "$path" ;;
+        runtime) chmod 1775 "$path" ;;
+        public/storage) chmod 0775 "$path" ;;
         *) chmod 0770 "$path" ;;
     esac
 done

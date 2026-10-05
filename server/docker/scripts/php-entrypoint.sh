@@ -22,7 +22,8 @@ if [ ! -e runtime/upgrade/.mount-ready ]; then
     printf '%s\n' 'peanut.server-update-guard.v1' > runtime/upgrade/.mount-ready
 fi
 [ -f runtime/upgrade/.mount-ready ] || { echo "upgrade guard sentinel is unavailable" >&2; exit 1; }
-chmod 0755 runtime runtime/upgrade
+chmod 1775 runtime
+chmod 0755 runtime/upgrade
 chmod 0644 runtime/upgrade/.mount-ready
 [ -f vendor/autoload.php ] || { echo "composer dependencies are unavailable" >&2; exit 1; }
 php docker/scripts/update-plan.php initialize-traffic --instance-server="$SERVER_ROOT"

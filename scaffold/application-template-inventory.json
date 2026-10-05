@@ -8570,7 +8570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc710e1083e22d7b29b7a6342b97bc95d72c240dde41438d65130bae15754aeb"
+            "source_sha256": "eb9ddc35cc6cb77e7b390f1ff6e985d1c15f4aa52670c720f54790524822261f"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -23879,7 +23879,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ccb0a705039923b61513297de3551db273dfb44f4508cefce332eba76b4f5886"
+            "source_sha256": "852613526321d7994175144780d8e0968f858d561509450875266a838a6ae0ab"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
@@ -23893,7 +23893,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7123007ce5d682c03303625bd03a09734b2bf0577fe18c9bda0db4aefcf8e22c"
+            "source_sha256": "76985175d3782acaa7d83b5c30e51971d735d706039d4ff23f244101fe445f61"
         },
         {
             "path": "server/docker/scripts/prepare-vendor.php",
@@ -24019,7 +24019,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3127b8a96396d758674b406512aa6adce2cf05b76f4d3c33462c92fa61dad662"
+            "source_sha256": "0e08d087fc0e06cdf3a843675572de43524779fa3287b1ae71ec8c81c626b035"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",

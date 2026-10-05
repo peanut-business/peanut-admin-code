@@ -17,7 +17,8 @@ final class InstallationPreflightHost
     /** @var array<string,string> */
     private const WRITABLE_DIRECTORIES = [
         'runtime' => 'runtime',
-        'installation-state' => 'private',
+        'installation-state' => 'private/installation',
+        'instance-resources' => 'private/resources',
         'public-storage' => 'public/storage',
         'private-storage' => 'private/storage',
     ];

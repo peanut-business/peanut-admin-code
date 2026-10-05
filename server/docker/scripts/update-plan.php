@@ -1165,13 +1165,15 @@ final class PeanutServerUpdatePlan
         if (is_link($runtimeRoot) || (file_exists($runtimeRoot) && !is_dir($runtimeRoot))) {
             throw new RuntimeException('server runtime directory is unsafe');
         }
-        self::ensureDirectory($runtimeRoot, 0755);
+        self::ensureDirectory($runtimeRoot, 01775);
         $runtime = $serverRoot . '/' . self::RUNTIME_DIR;
         if (is_link($runtime) || (file_exists($runtime) && !is_dir($runtime))) {
             throw new RuntimeException('server update runtime directory is unsafe');
         }
         self::ensureDirectory($runtime, 0755);
-        if (!chmod($runtimeRoot, 0755) || !chmod($runtime, 0755)) {
+        // Keep application runtime writable without allowing replacement of the
+        // owner-controlled update guard directory under the sticky parent.
+        if (!chmod($runtimeRoot, 01775) || !chmod($runtime, 0755)) {
             throw new RuntimeException('cannot expose nonsecret update guard directory to nginx');
         }
         $sentinel = $runtime . '/.mount-ready';
