@@ -277,7 +277,8 @@ if (profile === 'baseline') {
       assertSuccess(await request(platform, platformUrl, 'POST', '/platformapi/tenants/activate', {
         data: { tenant_id: issued.tenant_id, expected_revision: tenant.revision, change_reason: marker },
       }), 'activate qualification Tenant Beta');
-      for (const moduleKey of ['official.identity', 'official.file', 'official.settings', 'official.article']) {
+      // Required foundations are deployment-managed, without a Tenant switch.
+      for (const moduleKey of ['official.file', 'official.settings', 'official.article']) {
         assertSuccess(await request(platform, platformUrl, 'POST', '/platformapi/tenants/modules/enable', {
           data: { tenant_id: issued.tenant_id, module_key: moduleKey, config: {}, change_reason: marker },
         }), `enable Beta ${moduleKey}`);
