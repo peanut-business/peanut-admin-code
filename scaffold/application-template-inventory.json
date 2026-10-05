@@ -2251,7 +2251,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b521f3c30eee93c0d021b19187ab0687c532c72dd1dbf2474cf1d1204590acc3"
+            "source_sha256": "0e8494d729a66930da524278b874e3f38a526f27280bf14ffe8c64c109b706ed"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2305,7 +2305,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f738d6e481e57e1a72b3e0c35f009baf435533ebf14a2472496bfbc124cff19"
+            "source_sha256": "f474941f40af756891ea068d926d61f4abaff0d72f345f0cf5d637ba75dca8c3"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -9365,7 +9365,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ac98a4765887a095c6f5416df8e8c1fc0759b42f4c856765d7eb9d8fd4f2761"
+            "source_sha256": "a3ce161a6a5228029012420e2d066ba238017859ecb9649264f6736c6f4ba40d"
         },
         {
             "path": "server/app/modules/official/article/database/migrations/20260825-adopt-permission-ownership.sql",
@@ -9407,7 +9407,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4444b1651fa1f0b66d6e20588638ae0d8b917c39b8f4b0fb428a98910ba0a29b"
+            "source_sha256": "5c57ea3642a063ccab2c5f18cc574c32a3f9aa5e3cad1daafb0e57e4f3509a63"
         },
         {
             "path": "server/app/modules/official/article/resources/menus.json",
