@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "4.0.0",
-        "source_commit": "0a1f216f14105950dd3a91e27856882a7b4fff3c",
-        "source_tree": "55f15ede070b32ea96ddbab1476906ecd981c944",
-        "inventory_sha256": "a056bfe23cd57d64d38ee4dcb9f0b1d9e5f569849aa4605a6f4e0134179457c3",
+        "source_commit": "e9e8a688268ea880be4c798a50bece06e07556c6",
+        "source_tree": "7fc16af84655cbe9f222b66168ce7329dbd80241",
+        "inventory_sha256": "307486dd3ccbb953ac5e7fc4a675f08fb89d509d581d7d670d3b4735ecca7d2c",
         "inventory_template_version": "4.0.0",
-        "managed_tree_sha256": "93d162131e6acb286062b63b0d781147eafb89ab646ef08f4b8918f57a1140b7",
+        "managed_tree_sha256": "132dd4316ba0ada218a3f40e9b946d596e847c2f3b6d3ddf34a3bf0349554ff4",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -262,7 +262,7 @@
         {
             "path": "deploy/legacy-env-migrate",
             "source": "files/deploy/legacy-env-migrate",
-            "template_sha256": "d7ee2028b553ebb2326e60cdbbe99702027051b7b41b5d34b63c7ab796e7e114",
+            "template_sha256": "65fd5f35138e66ced4feb4cb651dda0f2e77b0ae4294c13ca98343df651d2af3",
             "classification": "managed",
             "transform": "tokens",
             "mode": 493,
@@ -1662,7 +1662,7 @@
         {
             "path": "plugins.lock",
             "source": "files/plugins.lock",
-            "template_sha256": "62fa23dbfe2754f645674504b9b9aebce56866624c5d58f077b602d2745d6491",
+            "template_sha256": "2e2c311396a2f5c43ed114454f4d2b015524093faa53219d37797f8797b5ed84",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -1762,7 +1762,7 @@
         {
             "path": "plugins/official.ops/plugin.json",
             "source": "files/plugins/official.ops/plugin.json",
-            "template_sha256": "4bc84f2edb05d8942b73504b39eb674fb4ed4e361fc8e51c11ec0ba68cbaa218",
+            "template_sha256": "b51ff77ea0e3e18db3ea509dcb2f2d5897348d5710230b5fff81dddab4822055",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -2172,7 +2172,7 @@
         {
             "path": "scripts/product-upgrade-host",
             "source": "files/scripts/product-upgrade-host",
-            "template_sha256": "2b0344f9c3fc6535884c14d338493efd67b4ff175301aeb6c961d473ee17f75c",
+            "template_sha256": "ecfbde6dc780946c300b8c1dd8ba7656eaa67ba790801d5d53b99bf2ce102294",
             "classification": "managed",
             "transform": "tokens",
             "mode": 493,
@@ -11232,7 +11232,7 @@
         {
             "path": "server/app/modules/official/ops/composer.json",
             "source": "files/server/app/modules/official/ops/composer.json",
-            "template_sha256": "b031c7f80e062dc5445009dbad386d0ee490b06c40d1d38c4aeea6f5fcc79ed6",
+            "template_sha256": "fe05c31598f9e1e782f26f842fd7e38ffa3b84ae300fce3a82adc18d5f8ea60f",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -11252,7 +11252,7 @@
         {
             "path": "server/app/modules/official/ops/module.json",
             "source": "files/server/app/modules/official/ops/module.json",
-            "template_sha256": "e65c265ebec8899b5c613fb1f0f4eeaa90094ad87cab4ae5ec6b6d8b7bf54240",
+            "template_sha256": "8a97a929f9f403e850abfbcfa26206dd12864895173cf750c22bc075e48c280c",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -11632,7 +11632,7 @@
         {
             "path": "server/app/modules/official/ops/src/Infrastructure/ApplicationRuntimeStatusProvider.php",
             "source": "files/server/app/modules/official/ops/src/Infrastructure/ApplicationRuntimeStatusProvider.php",
-            "template_sha256": "7aec89ad8c89ec04e2a4bd7c3817d907075ff660720f5022be63ea6dce53368d",
+            "template_sha256": "592e9dc11345fc523267ff41375ad8d78ad73ed5a4f566512fe111a8d057b001",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,

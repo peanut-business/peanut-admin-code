@@ -290,7 +290,12 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
 
     private function validImageReceipt(mixed $images): bool
     {
-        if (!is_array($images) || array_keys($images) !== ['php', 'nginx', 'pc']) {
+        if (!is_array($images)) {
+            return false;
+        }
+        $keys = array_keys($images);
+        sort($keys, SORT_STRING);
+        if (!in_array($keys, [['nginx', 'php'], ['nginx', 'pc', 'php']], true)) {
             return false;
         }
         foreach ($images as $digest) {

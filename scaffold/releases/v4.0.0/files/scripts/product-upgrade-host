@@ -153,8 +153,38 @@ compose_project="$project_names"
 compose_environment=(--env-file "$root_env")
 [[ "$backend_env" == "$root_env" ]] || compose_environment+=(--env-file "$backend_env")
 current_receipt="$instance_root/DEPLOYMENT_RECEIPT.json"
-compose_current=(env "PEANUT_SERVER_ENV_FILE=$backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$current_receipt" \
-  docker compose "${compose_environment[@]}" -p "$compose_project" -f "$instance_root/compose.yaml" --profile bundled-db)
+
+pc_render_mode() {
+  local count mode=spa
+  count="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$root_env")"
+  [[ "$count" == 0 || "$count" == 1 ]] || die 'PC render mode is duplicated'
+  [[ "$count" == 0 ]] || mode="$(env_value "$root_env" PEANUT_PC_RENDER_MODE)"
+  if [[ "$backend_env" != "$root_env" ]]; then
+    [[ "$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$backend_env")" == 0 ]] \
+      || die 'PC render mode belongs only to the root orchestration environment'
+  fi
+  [[ "$mode" == spa || "$mode" == hybrid ]] || die 'PC render mode must be spa or hybrid'
+  printf '%s' "$mode"
+}
+
+set_current_compose() {
+  render_mode="$(pc_render_mode)"
+  compose_profiles=(--profile bundled-db)
+  writer_services=(php nginx cron)
+  stop_services=(nginx cron php)
+  [[ "$render_mode" != hybrid ]] || { compose_profiles+=(--profile ssr); writer_services=(pc php nginx cron); stop_services+=(pc); }
+  compose_current=(env "PEANUT_PC_RENDER_MODE=$render_mode" "PEANUT_SERVER_ENV_FILE=$backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$current_receipt" \
+    docker compose "${compose_environment[@]}" -p "$compose_project" -f "$instance_root/compose.yaml" "${compose_profiles[@]}")
+}
+set_current_compose
+
+assert_runtime_running() {
+  local identities
+  identities="${1:-$(service_identities)}"
+  jq -e --arg mode "$render_mode" 'all(.mysql,.php,.nginx,.cron; .status == "running")
+    and (if $mode == "hybrid" then .pc.status == "running" else (.pc == null or .pc.status != "running") end)' \
+    <<<"$identities" >/dev/null || die 'runtime services are not running for the selected PC render mode'
+}
 
 write_json() {
   local path="$1" input="$2" temporary
@@ -221,15 +251,20 @@ set_target_compose() {
   [[ -f "$receipt" && ! -L "$receipt" ]] || die 'prepared target receipt is unavailable'
   php_image="$(jq -r '.prepared_target.images.php' <<<"$payload")"
   nginx_image="$(jq -r '.prepared_target.images.nginx' <<<"$payload")"
-  pc_image="$(jq -r '.prepared_target.images.pc' <<<"$payload")"
-  docker image inspect "$php_image" "$nginx_image" "$pc_image" >/dev/null \
+  pc_image="$(jq -r '.prepared_target.images.pc // empty' <<<"$payload")"
+  target_images=("$php_image" "$nginx_image")
+  [[ "$render_mode" != hybrid ]] || target_images+=("$pc_image")
+  jq -e --arg mode "$render_mode" '.prepared_target.images | keys == (if $mode == "hybrid" then ["nginx","pc","php"] else ["nginx","php"] end)
+    and all(.[]; type == "string" and test("^sha256:[a-f0-9]{64}$"))' <<<"$payload" >/dev/null \
+    || die 'prepared target image set differs from the selected PC render mode'
+  docker image inspect "${target_images[@]}" >/dev/null \
     || die 'prepared target images are unavailable'
   receipt_b64="$(base64 -w0 "$receipt")"
-  target_compose=(env "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" \
+  target_compose=(env "PEANUT_PC_RENDER_MODE=$render_mode" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" \
     "PEANUT_SOURCE_COMMIT=$source_commit" "PEANUT_SOURCE_TREE=$source_tree" \
     "PEANUT_SERVER_ENV_FILE=$backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$receipt" \
     "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$receipt_b64" docker compose "${compose_environment[@]}" \
-    -p "$compose_project" -f "$prepared_root/compose.yaml" --profile bundled-db)
+    -p "$compose_project" -f "$prepared_root/compose.yaml" "${compose_profiles[@]}")
 }
 
 database_phase() {
@@ -375,23 +410,28 @@ prepare_phase() {
       images:null,generated_at:$generated_at}' >"$receipt"
   chmod 600 "$receipt"
   receipt_b64="$(base64 -w0 "$receipt")"
-  compose_target=(env "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" \
+  compose_target=(env "PEANUT_PC_RENDER_MODE=$render_mode" "PHP_IMAGE=$php_image" "NGINX_IMAGE=$nginx_image" "PC_IMAGE=$pc_image" \
     "PEANUT_SOURCE_COMMIT=$source_commit" "PEANUT_SOURCE_TREE=$source_tree" \
     "PEANUT_SERVER_ENV_FILE=$backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$receipt" \
     "PEANUT_DEPLOYMENT_RECEIPT_BASE64=$receipt_b64" docker compose "${compose_environment[@]}" \
-    -p "$compose_project" -f "$prepared_root/compose.yaml" --profile bundled-db)
+    -p "$compose_project" -f "$prepared_root/compose.yaml" "${compose_profiles[@]}")
   "${compose_target[@]}" config >/dev/null
-  "${compose_target[@]}" build pc php nginx >&2
+  build_services=(php nginx)
+  build_images=("$php_image" "$nginx_image")
+  [[ "$render_mode" != hybrid ]] || { build_services+=(pc); build_images+=("$pc_image"); }
+  "${compose_target[@]}" build "${build_services[@]}" >&2
   php_id="$(docker image inspect --format '{{.Id}}' "$php_image")"
   nginx_id="$(docker image inspect --format '{{.Id}}' "$nginx_image")"
-  pc_id="$(docker image inspect --format '{{.Id}}' "$pc_image")"
-  for image in "$php_image" "$nginx_image" "$pc_image"; do
+  pc_id=""
+  [[ "$render_mode" != hybrid ]] || pc_id="$(docker image inspect --format '{{.Id}}' "$pc_image")"
+  for image in "${build_images[@]}"; do
+    [[ "$(docker image inspect --format '{{.Id}}' "$image")" =~ ^sha256:[a-f0-9]{64}$ ]] || die 'prepared image digest is invalid'
     [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" == "$source_commit" \
       && "$(docker image inspect --format '{{index .Config.Labels "org.peanut-admin.source-tree"}}' "$image")" == "$source_tree" ]] \
       || die 'prepared image source labels differ from the authenticated package'
   done
   jq --arg php "$php_id" --arg nginx "$nginx_id" --arg pc "$pc_id" \
-    '.images={php:$php,nginx:$nginx,pc:$pc}' "$receipt" >"$receipt.tmp"
+    '.images=({php:$php,nginx:$nginx} + (if $pc == "" then {} else {pc:$pc} end))' "$receipt" >"$receipt.tmp"
   chmod 600 "$receipt.tmp"; mv -f "$receipt.tmp" "$receipt"
   materialized_digest="$(tree_digest "$prepared_root")"
   lock_json='{}'
@@ -406,8 +446,8 @@ prepare_phase() {
     --arg application_manifest "sha256:$(sha256sum "$prepared_root/.peanut/application-manifest.json" | awk '{print $1}')" \
     --argjson locks "$lock_json" \
     '{prepared_target:{kind:$kind,path_or_image:$path,digest:$digest,application_manifest_sha256:$application_manifest,
-        images:{php:$php,nginx:$nginx,pc:$pc},receipt_path:$receipt},
-      dependency_locks:$locks,frontend_artifacts:{admin_image:$nginx,pc_image:$pc}}')"
+        images:({php:$php,nginx:$nginx} + (if $pc == "" then {} else {pc:$pc} end)),receipt_path:$receipt},
+      dependency_locks:$locks,frontend_artifacts:{admin_image:$nginx,pc_image:(if $pc == "" then $nginx else $pc end)}}')"
   write_json "$prepared_record" "$(jq -n --arg candidate "$candidate" --arg plan "$plan_sha256" --argjson payload "$payload" \
     '{candidate:$candidate,plan_sha256:$plan,payload:$payload}')"
   emit "$payload"
@@ -430,12 +470,12 @@ assert_public_writers_stopped() {
 }
 
 stop_writers() {
-  "${compose_current[@]}" stop --timeout 60 nginx cron php pc >/dev/null
+  "${compose_current[@]}" stop --timeout 60 "${stop_services[@]}" >/dev/null
   assert_writers_stopped
 }
 
 start_previous_writers() {
-  "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
+  "${compose_current[@]}" up -d --wait --no-deps "${writer_services[@]}" >/dev/null
 }
 
 backup_file_path() {
@@ -698,7 +738,8 @@ quiesce_phase() {
   marker="$runtime_root/write-gate.json"
   payload="$(jq -n --arg kind stopped-compose-writers --arg project "$compose_project" \
     --arg marker "$marker" --argjson before "$before" --argjson after "$(service_identities)" \
-    '{write_gate:{kind:$kind,marker:$marker,active:true},compose_project:$project,observed_before:$before,observed_after:$after,drained_services:["pc","php","nginx","cron"]}')"
+    --argjson drained "$(printf '%s\n' "${writer_services[@]}" | jq -R . | jq -s .)" \
+    '{write_gate:{kind:$kind,marker:$marker,active:true},compose_project:$project,observed_before:$before,observed_after:$after,drained_services:$drained}')"
   write_json "$marker" "$payload"
   emit "$payload"
 }
@@ -713,8 +754,8 @@ switch_phase() {
   [[ "$running" == mysql ]] || die 'target switch requires the quiesced Compose state'
   php_id="$(jq -r '.prepared_target.images.php' <<<"$payload")"
   nginx_id="$(jq -r '.prepared_target.images.nginx' <<<"$payload")"
-  pc_id="$(jq -r '.prepared_target.images.pc' <<<"$payload")"
-  docker image inspect "$php_id" "$nginx_id" "$pc_id" >/dev/null
+  pc_id="$(jq -r '.prepared_target.images.pc // empty' <<<"$payload")"
+  set_target_compose
   install -m 0644 "$receipt" "$current_receipt"
   set_env_key "$root_env" PHP_IMAGE "$php_id"
   set_env_key "$root_env" NGINX_IMAGE "$nginx_id"
@@ -724,10 +765,10 @@ switch_phase() {
   set_env_key "$root_env" PEANUT_DEPLOYMENT_RECEIPT_FILE "$current_receipt"
   active_digest="$(jq -n --arg receipt "sha256:$(sha256sum "$current_receipt" | awk '{print $1}')" \
     --arg php "$php_id" --arg nginx "$nginx_id" --arg pc "$pc_id" \
-    '{receipt:$receipt,images:{php:$php,nginx:$nginx,pc:$pc}}' | sha256sum | awk '{print "sha256:" $1}')"
+    '{receipt:$receipt,images:({php:$php,nginx:$nginx} + (if $pc == "" then {} else {pc:$pc} end))}' | sha256sum | awk '{print "sha256:" $1}')"
   emit "$(jq -n --arg digest "$active_digest" --arg receipt "$current_receipt" \
     --arg php "$php_id" --arg nginx "$nginx_id" --arg pc "$pc_id" \
-    '{active_target:{kind:"docker-compose-image-set",digest:$digest,receipt_path:$receipt,images:{php:$php,nginx:$nginx,pc:$pc}}}')"
+    '{active_target:{kind:"docker-compose-image-set",digest:$digest,receipt_path:$receipt,images:({php:$php,nginx:$nginx} + (if $pc == "" then {} else {pc:$pc} end))}}')"
 }
 
 reload_safe_phase() {
@@ -749,8 +790,7 @@ health_phase() {
     assert_public_writers_stopped
   else
     identities="$(service_identities)"
-    jq -e 'all(.pc,.php,.nginx,.cron; .status == "running")' <<<"$identities" >/dev/null \
-      || die 'activated services are not running for health verification'
+    assert_runtime_running "$identities"
     port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
     curl -fsS --retry 3 --retry-delay 1 "http://127.0.0.1:$port/healthz" >/dev/null
     curl -fsS "http://127.0.0.1:$port/legal/RELEASE_METADATA.json" | jq -e 'type == "object"' >/dev/null
@@ -778,7 +818,7 @@ health_phase() {
   [[ "$(cat "$current_receipt")" == "$runtime_receipt" ]] || die 'host and PHP runtime receipts differ'
   prepared_images="$(prepared_payload | jq -c '.prepared_target.images')"
   jq -e --arg candidate "$candidate" --arg plan "$plan_sha256" --arg commit "$source_commit" --arg tree "$source_tree" \
-    --argjson activated "$activated" --argjson prepared_images "$prepared_images" \
+    --argjson activated "$activated" --arg mode "$render_mode" --argjson prepared_images "$prepared_images" \
     --arg php "$(jq -r '.php.image_id' <<<"$identities")" \
     --arg nginx "$(jq -r '.nginx.image_id' <<<"$identities")" \
     --arg pc "$(jq -r '.pc.image_id' <<<"$identities")" '
@@ -786,7 +826,7 @@ health_phase() {
     and .upgrade_package.candidate == $candidate and .upgrade_package.plan_sha256 == $plan
     and .release.commit == $commit and .release.tree == $tree
     and .images == $prepared_images and .images.php == $php
-    and (if $activated then .images.nginx == $nginx and .images.pc == $pc else true end)
+    and (if $activated then .images.nginx == $nginx and (if $mode == "hybrid" then .images.pc == $pc else (.images | has("pc") | not) end) else true end)
   ' "$current_receipt" >/dev/null || die 'runtime receipt or image binding differs from the upgrade plan'
   runtime_digest="$(printf '%s\n%s\n' "$(sha256sum "$current_receipt")" "$(jq -S . <<<"$identities")" | sha256sum | awk '{print "sha256:" $1}')"
   emit "$(jq -n --arg candidate "$candidate" --arg commit "$source_commit" --arg tree "$source_tree" \
@@ -803,10 +843,9 @@ health_phase() {
 activate_phase() {
   jq -e '.activation_started == true and (.evidence.health | type == "object")' "$state_path" >/dev/null \
     || die 'activation requires durable healthy state and activation boundary'
-  "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
+  "${compose_current[@]}" up -d --wait --no-deps "${writer_services[@]}" >/dev/null
   identities="$(service_identities)"
-  jq -e 'all(.pc,.php,.nginx,.cron; .status == "running")' <<<"$identities" >/dev/null \
-    || die 'activated services did not all reach running state'
+  assert_runtime_running "$identities"
   port="$(env_value "$root_env" HTTP_PORT)"; [[ "$port" =~ ^[0-9]{1,5}$ ]] || die 'HTTP port is invalid'
   curl -fsS --retry 12 --retry-delay 2 "http://127.0.0.1:$port/healthz" >/dev/null
   curl -fsS "http://127.0.0.1:$port/legal/RELEASE_METADATA.json" | jq -e 'type == "object"' >/dev/null
@@ -832,6 +871,7 @@ restore_previous_runtime() {
   if [[ -f "$previous_root/DEPLOYMENT_RECEIPT.json" ]]; then
     install -m 0644 "$previous_root/DEPLOYMENT_RECEIPT.json" "$current_receipt"
   fi
+  set_current_compose
 }
 
 recover_phase() {
@@ -897,8 +937,6 @@ recover_phase() {
     recovery_kind=database-public-private-storage-installation-and-program
   fi
   restore_previous_runtime
-  compose_current=(env "PEANUT_SERVER_ENV_FILE=$backend_env" "PEANUT_DEPLOYMENT_RECEIPT_FILE=$current_receipt" \
-    docker compose "${compose_environment[@]}" -p "$compose_project" -f "$instance_root/compose.yaml" --profile bundled-db)
   "${compose_current[@]}" up -d --wait mysql >/dev/null
   assert_writers_stopped
   restored_database_name="$(env_value "$backend_env" DB_NAME)"
@@ -955,7 +993,7 @@ resume_old_phase() {
     trap - EXIT INT TERM
     set +e
     if (( status != 0 )); then
-      "${compose_current[@]}" stop --timeout 60 nginx cron php pc >/dev/null
+      "${compose_current[@]}" stop --timeout 60 "${stop_services[@]}" >/dev/null
       stop_status=$?
       (assert_writers_stopped)
       drain_status=$?
@@ -975,7 +1013,8 @@ resume_old_phase() {
   trap 'exit 143' TERM
   "${compose_current[@]}" config >/dev/null
   "${compose_current[@]}" up -d --wait mysql >/dev/null
-  "${compose_current[@]}" up -d --wait --no-deps pc php nginx cron >/dev/null
+  "${compose_current[@]}" up -d --wait --no-deps "${writer_services[@]}" >/dev/null
+  assert_runtime_running
   "${compose_current[@]}" exec -T php php server/database/environment-guard.php --current </dev/null >/dev/null
   "${compose_current[@]}" exec -T php php server/think plugin:lock --check </dev/null >/dev/null
   installation_status="$("${compose_current[@]}" exec -T php php server/database/install.php --status </dev/null)" \
@@ -1081,8 +1120,7 @@ recovery_verify_phase() {
   docker volume inspect "$public_storage_volume" "$private_storage_volume" "$installation_volume" >/dev/null \
     || die 'recovered storage volumes are unavailable'
   identities="$(service_identities)"
-  jq -e 'all(.mysql,.pc,.php,.nginx,.cron; .status == "running")' <<<"$identities" >/dev/null \
-    || die 'recovered services are not running'
+  assert_runtime_running "$identities"
   saved_images="$(jq -c '.payload.services | with_entries(.value = .value.image_id)' "$resume_old_record")"
   current_images="$(jq -c 'with_entries(.value = .value.image_id)' <<<"$identities")"
   [[ "$saved_images" == "$current_images" ]] || die 'recovered runtime image identity changed'
