@@ -1529,8 +1529,12 @@ final class ScaffoldUpgradeRunner
             }
             $path = (string) $action['path'];
             if (isset($preserve[$path])) {
-                $action['action'] = 'preserve';
-                $action['reason'] = 'conflict_preserve_confirmed';
+                $ownershipTransition = ($action['reason'] ?? null) === 'recipe_ownership_transition_required'
+                    && ($action['target_sha256'] ?? null) === null;
+                $action['action'] = $ownershipTransition ? 'omit' : 'preserve';
+                $action['reason'] = $ownershipTransition
+                    ? 'recipe_ownership_transition_confirmed'
+                    : 'conflict_preserve_confirmed';
                 $action['conflict'] = false;
                 continue;
             }

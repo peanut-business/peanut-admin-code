@@ -243,8 +243,7 @@ final class PeanutServerUpdatePlan
                 return ['status' => 'closed'];
             }
             try {
-                $identityBytes = self::regularBytes($serverRoot . '/.peanut/release-identity.json', 'server release identity');
-                $identity = self::identity(json_decode($identityBytes, true, 512, JSON_THROW_ON_ERROR), false);
+                [$identity, $identityDigest, $serverRelease] = self::startupIdentity($serverRoot);
                 $installedPath = $serverRoot . '/private/installation/installed.json';
                 $deploymentPath = self::deploymentPath($serverRoot);
                 if (is_link($installedPath) || is_link($deploymentPath)
@@ -252,10 +251,10 @@ final class PeanutServerUpdatePlan
                     || (file_exists($deploymentPath) && !is_file($deploymentPath))) {
                     throw new RuntimeException('installation state is unsafe for initial traffic');
                 }
-                if (file_exists($installedPath)) {
-                    self::deploymentState($serverRoot, $identity, hash('sha256', $identityBytes));
+                if ($serverRelease && file_exists($installedPath)) {
+                    self::deploymentState($serverRoot, $identity, $identityDigest);
                 } elseif (file_exists($deploymentPath)) {
-                    throw new RuntimeException('uninstalled instance has deployment state');
+                    throw new RuntimeException('source or uninstalled instance has server deployment state');
                 }
             } catch (Throwable $exception) {
                 // A startup failure must not leave an earlier static-page grant usable.
@@ -290,6 +289,38 @@ final class PeanutServerUpdatePlan
             self::grantTraffic($serverRoot);
             return ['status' => 'open'];
         });
+    }
+
+    /** @return array{0:array<string,mixed>,1:string,2:bool} */
+    private static function startupIdentity(string $serverRoot): array
+    {
+        $identityPath = $serverRoot . '/.peanut/release-identity.json';
+        if (file_exists($identityPath) || is_link($identityPath)) {
+            $identityBytes = self::regularBytes($identityPath, 'server release identity');
+            return [
+                self::identity(json_decode($identityBytes, true, 512, JSON_THROW_ON_ERROR), false),
+                hash('sha256', $identityBytes),
+                true,
+            ];
+        }
+
+        $autoload = $serverRoot . '/vendor/autoload.php';
+        if (!is_file($autoload) || is_link($autoload)) {
+            throw new RuntimeException('source application runtime is missing Composer autoload');
+        }
+        require_once $autoload;
+        $source = \app\common\value\installation\ApplicationSourceIdentity::load($serverRoot);
+        return [
+            [
+                'application' => $source->applicationIdentity(),
+                'versions' => $source->versions(),
+            ],
+            hash('sha256', json_encode([
+                'application' => $source->applicationIdentity(),
+                'versions' => $source->versions(),
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+            false,
+        ];
     }
 
     /** @return array<string,mixed> */

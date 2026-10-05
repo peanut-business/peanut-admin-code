@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 
 require_once dirname(__DIR__) . '/bootstrap/environment.php';
@@ -49,8 +50,21 @@ function projectResourceRegistry(?string &$registrySha256 = null): array
         if (file_exists($serverRegistryPath) || is_link($serverRegistryPath)) {
             throw new RuntimeException('server 资源登记缺少 release identity');
         }
-        $expectedProjectId = 'peanut-admin';
-        $path = $explicitPath ?: $root . '/resources/project-resources.json';
+        $manifestPath = $root . '/.peanut/application-manifest.json';
+        $sourceApp = file_exists($manifestPath) || is_link($manifestPath);
+        $expectedProjectId = $sourceApp
+            ? ApplicationSourceIdentity::load($serverRoot)->applicationSlug()
+            : 'peanut-admin';
+        if ($explicitPath !== false && trim($explicitPath) !== '') {
+            $path = $explicitPath;
+        } elseif (file_exists($instanceRegistryPath) || is_link($instanceRegistryPath)) {
+            if (!$sourceApp || !is_file($instanceRegistryPath) || is_link($instanceRegistryPath)) {
+                throw new RuntimeException('实例资源登记不可用或缺少 APP 身份');
+            }
+            $path = $instanceRegistryPath;
+        } else {
+            $path = $root . '/resources/project-resources.json';
+        }
     }
     if ($path[0] !== '/' || is_link($path)) {
         throw new RuntimeException('PEANUT_RESOURCE_REGISTRY 必须是绝对路径且不能为符号链接');
@@ -71,21 +85,6 @@ function projectResourceRegistry(?string &$registrySha256 = null): array
         || !in_array($registry['authority']['role'] ?? null, ['application', 'maintainer'], true)
         || !is_array($registry['resources']['databases'] ?? null)) {
         throw new RuntimeException('项目资源登记结构无效');
-    }
-    $manifestPath = $root . '/.peanut/application-manifest.json';
-    if (!$serverOnly && (file_exists($manifestPath) || is_link($manifestPath))) {
-        if (!is_file($manifestPath) || is_link($manifestPath)) {
-            throw new RuntimeException('应用身份清单不可用');
-        }
-        try {
-            $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new RuntimeException('应用身份清单无效', 0, $exception);
-        }
-        $expectedProjectId = $manifest['application']['slug'] ?? null;
-        if (!is_string($expectedProjectId) || $expectedProjectId === '') {
-            throw new RuntimeException('应用身份清单缺少 slug');
-        }
     }
     if ($registry['authority']['role'] === 'application') {
         if (!hash_equals($expectedProjectId, $registry['project_id'])) {

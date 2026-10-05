@@ -3672,7 +3672,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b359b71b7b290bbf7dcac79c3901222e8c1021b6d6ea188b30746abe79ffe0c9"
+            "source_sha256": "165c2a1e801967aa3e0f5f0f9ffd98ad8d179d76695d1753727fd3ac89eb7271"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -22984,7 +22984,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3d5c560b6afd0a60cb2f809fa641e5fc4ae48d0fa4a4021ad645ee75f58fb9a1"
+            "source_sha256": "5faf20e19df028905b656cc3d3d5b819967544ee58051fe57a7b63bad46c2104"
         },
         {
             "path": "server/database/init.sql",
@@ -24019,7 +24019,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "39938d329aaeb6f9762995f5a050a5b0acab29aa10590f2e75b21aaff9b0a47a"
+            "source_sha256": "3127b8a96396d758674b406512aa6adce2cf05b76f4d3c33462c92fa61dad662"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
