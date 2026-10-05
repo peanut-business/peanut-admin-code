@@ -9673,7 +9673,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61822b8d09d71960d5d65975e22486ae71e21d3a4496a4126b9056c816e87b31"
+            "source_sha256": "74f7c034516fb106a9065f1c3a709b6d582bffc6afc1306e26c26110702d2f94"
         },
         {
             "path": "server/app/modules/official/article/src/Validation/ArticleValidate.php",
