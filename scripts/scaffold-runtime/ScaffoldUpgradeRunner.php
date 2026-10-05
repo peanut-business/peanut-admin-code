@@ -1203,6 +1203,10 @@ final class ScaffoldUpgradeRunner
                 // Rendering changes source bytes; derive the APP manifest exactly as create-app does.
                 $writer->make($key, $plugin['version'], $specs);
                 $manifestContents[$plugin['manifest']] = (string) file_get_contents($stage . '/' . $plugin['manifest']);
+                // Canonical public artifacts retain the release-declared mode regardless
+                // of the caller's private-state umask, which is part of the plan identity.
+                $this->writeFileAtomic($stage . '/' . $plugin['manifest'],
+                    $manifestContents[$plugin['manifest']], (int) $files[$plugin['manifest']]['mode']);
             }
             $built = $writer->lock();
             $this->writeFileAtomic($stage . '/plugins.lock', $built['contents'], 0644);
