@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Peanut Admin 4.0.0 release dependency SBOM",
-  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v4.0.0/sbom",
+  "name": "Peanut Admin 4.0.1 release dependency SBOM",
+  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v4.0.1/sbom",
   "creationInfo": {
     "created": "2026-10-05T00:00:00Z",
     "creators": [
@@ -26,7 +26,7 @@
     {
       "name": "Peanut Admin",
       "SPDXID": "SPDXRef-Package-Peanut-Admin",
-      "versionInfo": "4.0.0",
+      "versionInfo": "4.0.1",
       "downloadLocation": "https://github.com/peanut-business/peanut-admin-code",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -37,7 +37,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@4.0.0"
+          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@4.0.1"
         }
       ]
     },
