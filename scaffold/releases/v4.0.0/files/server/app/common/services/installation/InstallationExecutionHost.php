@@ -237,17 +237,22 @@ final class InstallationExecutionHost
 
             [$credentials, $moduleKeys] = $this->normalizeInput($input);
             $this->writeProgressMarker($moduleKeys);
+            $stage = 'fresh_database';
             try {
                 $baseline = \installFreshDatabase($this->serverRoot, $credentials);
+                $stage = 'migrate_database';
                 $migration = \migrateDatabase(
                     $this->serverRoot,
                     $this->migrationTargetVersion(),
                 );
+                $stage = 'install_modules';
                 $modules = $this->installModules(
                     $moduleKeys,
                     \installationTenantBootstrapContract($this->serverRoot),
                 );
+                $stage = 'health';
                 $health = $this->health($moduleKeys);
+                $stage = 'completion_marker';
                 $receipt = $this->writeCompletionMarker($moduleKeys);
                 @unlink($this->progressMarker());
 
@@ -262,6 +267,13 @@ final class InstallationExecutionHost
                     'installation_receipt' => $receipt,
                 ];
             } catch (Throwable $exception) {
+                $failure = new InstallationExecutionException(
+                    'INSTALL_EXECUTION_FAILED',
+                    '安装执行失败；若目标已产生表，请由资源 owner 重建目标后重试。',
+                    409,
+                    $exception,
+                );
+                \logInstallationFailure($this->serverRoot, $stage, $failure->errorCode, $failure);
                 try {
                     $database = \installationDatabaseState($this->serverRoot);
                     if ($database['state'] === 'uninstalled') {
@@ -269,12 +281,7 @@ final class InstallationExecutionHost
                     }
                 } catch (Throwable) {
                 }
-                throw new InstallationExecutionException(
-                    'INSTALL_EXECUTION_FAILED',
-                    '安装执行失败；若目标已产生表，请由资源 owner 重建目标后重试。',
-                    409,
-                    $exception,
-                );
+                throw $failure;
             }
         } finally {
             flock($lock, LOCK_UN);

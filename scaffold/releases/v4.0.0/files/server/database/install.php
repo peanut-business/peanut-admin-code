@@ -714,6 +714,51 @@ function installationStateBlocksFreshDatabase(string $serverDir): bool
     return false;
 }
 
+/** Record only diagnostic identifiers; exception messages and debug data can contain credentials. */
+function logInstallationFailure(string $serverDir, string $stage, string $errorCode, Throwable $exception): void
+{
+    try {
+        $projectRoot = rtrim(str_replace('\\', '/', dirname($serverDir)), '/') . '/';
+        $chain = [];
+        do {
+            $file = str_replace('\\', '/', $exception->getFile());
+            $class = get_class($exception);
+            $entry = [
+                'class' => str_contains($class, "\0") ? 'anonymous-class' : $class,
+                'path' => str_starts_with($file, $projectRoot) ? substr($file, strlen($projectRoot)) : null,
+                'line' => $exception->getLine(),
+            ];
+            $sqlState = null;
+            $driverCode = null;
+            if ($exception instanceof PDOException) {
+                $sqlState = $exception->errorInfo[0] ?? $exception->getCode();
+                $driverCode = $exception->errorInfo[1] ?? null;
+            } elseif ($exception instanceof \think\db\exception\PDOException) {
+                $pdoError = $exception->getData()['PDO Error Info'] ?? [];
+                $sqlState = $pdoError['SQLSTATE'] ?? null;
+                $driverCode = $pdoError['Driver Error Code'] ?? null;
+            }
+            if (is_string($sqlState) && preg_match('/^[A-Z0-9]{5}$/D', $sqlState) === 1) {
+                $entry['sqlstate'] = $sqlState;
+            }
+            if (is_int($driverCode) || (is_string($driverCode) && preg_match('/^[0-9]+$/D', $driverCode) === 1)) {
+                $entry['driver_code'] = (int) $driverCode;
+            }
+            $chain[] = $entry;
+            $exception = $exception->getPrevious();
+        } while ($exception !== null);
+
+        \think\facade\Log::write(json_encode([
+            'event' => 'installation_failure',
+            'stage' => $stage,
+            'error_code' => $errorCode,
+            'exception_chain' => $chain,
+        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), 'error');
+    } catch (Throwable) {
+        // A logging failure must never replace the installation failure.
+    }
+}
+
 /**
  * @param array<string,mixed> $input
  * @return array<string,mixed>
@@ -758,6 +803,7 @@ function installFreshDatabase(string $serverDir, array $input): array
         throw new RuntimeException('无法获取安装锁，请稍后重试');
     }
 
+    $installationFailure = null;
     try {
         if (installationStateBlocksFreshDatabase($serverDir)) {
             throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
@@ -824,9 +870,19 @@ function installFreshDatabase(string $serverDir, array $input): array
             'owner_account_id' => $coreIdentity['account_id'],
             'owner_member_id' => $coreIdentity['member_id'],
         ];
+    } catch (Throwable $exception) {
+        $installationFailure = $exception;
+        throw $exception;
     } finally {
-        $releaseStatement = $pdo->prepare('SELECT RELEASE_LOCK(?)');
-        $releaseStatement->execute([$lockName]);
+        try {
+            $releaseStatement = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+            $releaseStatement->execute([$lockName]);
+        } catch (Throwable $exception) {
+            logInstallationFailure($serverDir, 'release_database_lock', 'INSTALL_LOCK_RELEASE_FAILED', $exception);
+            if ($installationFailure === null) {
+                throw $exception;
+            }
+        }
     }
 }
 
