@@ -84,6 +84,7 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
     $backup = $instance . '/backups/product-upgrade-' . $candidate;
     $publicVolume = $temporary . '/volumes/public';
     $privateVolume = $temporary . '/volumes/private';
+    $installationVolume = $temporary . '/volumes/installation';
     $fakeBin = $temporary . '/bin';
     $dockerLog = $temporary . '/docker.log';
 
@@ -92,9 +93,11 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
     mkdir($runtime . '/previous', 0700, true);
     mkdir($publicVolume, 0700, true);
     mkdir($privateVolume, 0700, true);
+    mkdir($installationVolume, 0700, true);
     mkdir($fakeBin, 0700, true);
     upgradeHostFile($publicVolume . '/before.txt', 'original-public');
     upgradeHostFile($privateVolume . '/before.txt', 'original-private');
+    upgradeHostFile($installationVolume . '/before.txt', 'original-installation');
 
     upgradeHostFile($instance . '/.env', "DB_NAME=peanut_m4\nPEANUT_DATABASE_RESOURCE_ID=db-resource\nHTTP_PORT=8080\nPEANUT_PC_RENDER_MODE=hybrid\n", 0600);
     upgradeHostFile($runtime . '/previous/root.env', (string) file_get_contents($instance . '/.env'), 0600);
@@ -130,19 +133,24 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
     upgradeHostFile($backup . '/database.sql.gz', gzencode("CREATE TABLE restored(id int);\n"), 0600);
     $publicSource = $temporary . '/storage-public-source';
     $privateSource = $temporary . '/storage-private-source';
+    $installationSource = $temporary . '/installation-source';
     mkdir($publicSource, 0700);
     mkdir($privateSource, 0700);
+    mkdir($installationSource, 0700);
     upgradeHostFile($publicSource . '/file.txt', "public\n", 0600);
     upgradeHostFile($publicSource . '/nested/name with spaces.txt', "nested-public\n", 0600);
     upgradeHostFile($privateSource . '/secret.txt', "private\n", 0600);
+    upgradeHostFile($installationSource . '/install.lock', "installation\n", 0600);
     if ($archiveKind === 'symlink') {
         symlink('/tmp/peanut-m4-should-not-be-linked', $publicSource . '/linked');
     }
     upgradeHostTar($publicSource, $backup . '/php-storage.tar.gz');
     upgradeHostTar($privateSource, $backup . '/php-private-storage.tar.gz');
+    upgradeHostTar($installationSource, $backup . '/php-installation.tar.gz');
     $databaseSha = hash_file('sha256', $backup . '/database.sql.gz');
     $publicSha = hash_file('sha256', $backup . '/php-storage.tar.gz');
     $privateSha = hash_file('sha256', $backup . '/php-private-storage.tar.gz');
+    $installationSha = hash_file('sha256', $backup . '/php-installation.tar.gz');
     upgradeHostJson($backup . '/manifest.json', [
         'schema_version' => 1,
         'protocol' => 'peanut.product-upgrade-backup.v1',
@@ -151,6 +159,7 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
         'runtime' => [
             'database_name' => 'peanut_m4',
             'storage_volumes' => ['public' => 'fixture_php-storage', 'private' => 'fixture_php-private-storage'],
+            'installation_volume' => 'fixture_php-installation',
             'quiesced_services' => new stdClass(),
         ],
         'artifacts' => [
@@ -159,6 +168,7 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
                 'public' => ['filename' => 'php-storage.tar.gz', 'sha256' => 'sha256:' . $publicSha],
                 'private' => ['filename' => 'php-private-storage.tar.gz', 'sha256' => 'sha256:' . $privateSha],
             ],
+            'installation' => ['filename' => 'php-installation.tar.gz', 'sha256' => 'sha256:' . $installationSha],
         ],
         'created_at' => '2026-09-28T00:00:00Z',
     ], 0600);
@@ -167,6 +177,7 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
         $databaseSha . "  database.sql.gz\n",
         $publicSha . "  php-storage.tar.gz\n",
         $privateSha . "  php-private-storage.tar.gz\n",
+        $installationSha . "  php-installation.tar.gz\n",
         $manifestSha . "  manifest.json\n",
     ]), 0600);
 
@@ -183,7 +194,7 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
                 'package_manifest_sha256' => 'sha256:' . $packageManifestSha,
                 'payload' => [
                     'backup' => [
-                        'kind' => 'database-and-storage-volumes',
+                        'kind' => 'database-storage-and-installation-volumes',
                         'manifest_path' => $backup . '/manifest.json',
                         'manifest_sha256' => 'sha256:' . $manifestSha,
                         'database' => ['path' => $backup . '/database.sql.gz', 'sha256' => 'sha256:' . $databaseSha],
@@ -191,6 +202,7 @@ function upgradeHostFixture(string $temporary, string $archiveKind, bool $withBa
                             'public' => ['path' => $backup . '/php-storage.tar.gz', 'sha256' => 'sha256:' . $publicSha],
                             'private' => ['path' => $backup . '/php-private-storage.tar.gz', 'sha256' => 'sha256:' . $privateSha],
                         ],
+                        'installation' => ['path' => $backup . '/php-installation.tar.gz', 'sha256' => 'sha256:' . $installationSha],
                     ],
                     'resources' => ['database_resource_id' => 'db-resource', 'compose_project' => 'fixture'],
                 ],
@@ -246,6 +258,7 @@ if [[ "${1:-}" == "volume" && "${2:-}" == "inspect" ]]; then
   case "$last" in
     fixture_php-storage) echo "$VOL_PUBLIC" ;;
     fixture_php-private-storage) echo "$VOL_PRIVATE" ;;
+    fixture_php-installation) echo "$VOL_INSTALLATION" ;;
     *) exit 1 ;;
   esac
   exit 0
@@ -293,6 +306,7 @@ BASH, 0755);
         'docker_log' => $dockerLog,
         'public_volume' => $publicVolume,
         'private_volume' => $privateVolume,
+        'installation_volume' => $installationVolume,
     ];
 }
 
@@ -315,6 +329,7 @@ function upgradeHostRunRecover(string $root, array $fixture, string $phase = 're
             'FAKE_DOCKER_LOG' => $fixture['docker_log'],
             'VOL_PUBLIC' => $fixture['public_volume'],
             'VOL_PRIVATE' => $fixture['private_volume'],
+            'VOL_INSTALLATION' => $fixture['installation_volume'],
             'TMPDIR' => getenv('TMPDIR') ?: sys_get_temp_dir(),
         ],
         $root,
@@ -326,7 +341,7 @@ function upgradeHostFixtureChecksums(array $fixture, bool $bindState = false): v
 {
     $backup = $fixture['backup'];
     $lines = '';
-    foreach (['database.sql.gz', 'php-storage.tar.gz', 'php-private-storage.tar.gz', 'manifest.json'] as $name) {
+    foreach (['database.sql.gz', 'php-storage.tar.gz', 'php-private-storage.tar.gz', 'php-installation.tar.gz', 'manifest.json'] as $name) {
         $lines .= hash_file('sha256', $backup . '/' . $name) . '  ' . $name . "\n";
     }
     upgradeHostFile($backup . '/SHA256SUMS', $lines);
@@ -337,6 +352,7 @@ function upgradeHostFixtureChecksums(array $fixture, bool $bindState = false): v
         $binding['database']['sha256'] = 'sha256:' . hash_file('sha256', $backup . '/database.sql.gz');
         $binding['storage']['public']['sha256'] = 'sha256:' . hash_file('sha256', $backup . '/php-storage.tar.gz');
         $binding['storage']['private']['sha256'] = 'sha256:' . hash_file('sha256', $backup . '/php-private-storage.tar.gz');
+        $binding['installation']['sha256'] = 'sha256:' . hash_file('sha256', $backup . '/php-installation.tar.gz');
         upgradeHostJson($fixture['state'], $state);
     }
 }
@@ -435,7 +451,7 @@ try {
     $created = upgradeHostRunRecover($root, $initialBackup, 'backup');
     upgradeHostExpect($created['exit'] === 0, 'fresh backup incorrectly requires its own future receipt: ' . $created['output']);
     $payload = json_decode($created['output'], true, 512, JSON_THROW_ON_ERROR);
-    upgradeHostExpect($payload['phase'] === 'backup' && $payload['payload']['backup']['kind'] === 'database-and-storage-volumes', 'backup response contract changed');
+    upgradeHostExpect($payload['phase'] === 'backup' && $payload['payload']['backup']['kind'] === 'database-storage-and-installation-volumes', 'backup response contract changed');
     upgradeHostExpect(!is_file($initialBackup['docker_log']), 'backup receipt verification altered resources');
     $cases++;
 
