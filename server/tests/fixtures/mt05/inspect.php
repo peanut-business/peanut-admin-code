@@ -47,10 +47,14 @@ function indexExists(PDO $pdo, string $table, string $index): bool
 /** @return list<string> */
 function expectedApplicationMigrationIds(string $serverRoot): array
 {
+    require_once $serverRoot . '/app/common/value/installation/ServerReleaseIdentity.php';
     require_once $serverRoot . '/app/common/value/installation/ApplicationReleaseVersions.php';
-    $targetVersion = \app\common\value\installation\ApplicationReleaseVersions::load(
-        dirname($serverRoot) . '/release-versions.json'
-    )->scaffoldTemplate();
+    $identityPath = $serverRoot . '/.peanut/release-identity.json';
+    $targetVersion = file_exists($identityPath) || is_link($identityPath)
+        ? \app\common\value\installation\ServerReleaseIdentity::load($serverRoot)->versions()['scaffold_template']
+        : \app\common\value\installation\ApplicationReleaseVersions::load(
+            dirname($serverRoot) . '/release-versions.json'
+        )->scaffoldTemplate();
     expectInvariant(
         is_string($targetVersion)
             && preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $targetVersion) === 1,
