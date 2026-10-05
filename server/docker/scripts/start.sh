@@ -3,8 +3,8 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 DOCKER_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)
 SERVER_DIR=$(CDPATH= cd -- "$DOCKER_DIR/.." && pwd -P)
-file_links() { stat -f '%l' "$1" 2>/dev/null || stat -c '%h' "$1"; }
-file_mode() { stat -f '%Lp' "$1" 2>/dev/null || stat -c '%a' "$1"; }
+file_links() { stat -c '%h' "$1" 2>/dev/null || stat -f '%l' "$1"; }
+file_mode() { stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1"; }
 [ -f "$DOCKER_DIR/.env" ] && [ ! -L "$DOCKER_DIR/.env" ] && [ "$(file_links "$DOCKER_DIR/.env")" = 1 ] || {
     echo "server/docker/.env is required; run python3 server/docker/scripts/configure-runtime.py --php-image=<prepared-immutable-image> for a new instance" >&2
     exit 1

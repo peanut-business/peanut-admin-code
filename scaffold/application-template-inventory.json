@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "4.0.1-rc.2",
+    "template_version": "4.0.1-rc.3",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -1154,7 +1154,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "734fdf2b624e4142b849d73acc131cc277675bc9290606ae1b0e25bff701cf94"
+            "source_sha256": "b9069d8a311cd40e61a1d17179f9072eb208a888fb0314ace15abfb7f5fc5b76"
         },
         {
             "path": "pc/package.json",
@@ -1167,7 +1167,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cc6a29124f37e7201aab48365c767db11c1d4932acf8bb13e7553b0e972cccda"
+            "source_sha256": "063b752c91efb072a9acc2f2bb2df148057b5efe0f5963c94ab9e032a7ee3154"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1705,7 +1705,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0406e5d5b10e8a91d362b592d8b7714bf3b593d4d157512cb205eb0291efb1c"
+            "source_sha256": "29e794a59398cea5a95293e623037aebb3963e9946f7acb08272b8b2e9544a1f"
         },
         {
             "path": "platform/package.json",
@@ -1719,7 +1719,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89fecf6de7882aad428989b0b36b367644b4453555bf13d062be5f307636ca29"
+            "source_sha256": "1875bee821800809cef6fe39bdcf2148d4027c3a89b715c571fd7421f46ce6ca"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -3423,7 +3423,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a97c1af35cf0bdbcf850af863a68cdf506bfa93b623c7993e00a91f3b58b4eb"
+            "source_sha256": "5d93cba499efcc8966e19922321dfda2c7792349da7aa9119ed50de774cce274"
         },
         {
             "path": "scripts/project-codegraph",
@@ -23977,7 +23977,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3cec8649409b852db14be5b4506541442747a4100737a87e5f15609f03965d68"
+            "source_sha256": "02535263b27d617aea071d1839cd9d958881fe3d411db987fe5eba321830c9de"
         },
         {
             "path": "server/docker/scripts/stop.sh",
@@ -29482,7 +29482,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef30664ce62392cba4b52806e54f7ea86d56796b36152f4aea2bcd0b5783a6f7"
+            "source_sha256": "acb840a78136be8c1cedb19d18ad8dfbf375e228ca94b348224f4c9121a63f46"
         },
         {
             "path": "uniapp/package.json",
@@ -29495,7 +29495,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ee5e17b8a4ef5a10b0347e7119fc4f20dabf509c84e949f2cef336bdb9e9b9b2"
+            "source_sha256": "9114d39d5a80ac565ebe692b82acfcff2798e92fe58b3664b395565dc16c76f9"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -30717,7 +30717,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f7849b8cea66e132ea0b56ab5040f0ef971ff3b54d163ad9a95258c69caad16b"
+            "source_sha256": "43830d97882ac0bee6750ad962a33926210a8bb6d9cbcdff5518bb31bf17c486"
         },
         {
             "path": "web/pnpm-lock.yaml",

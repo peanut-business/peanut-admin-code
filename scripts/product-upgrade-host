@@ -14,6 +14,9 @@ import subprocess
 import sys
 import urllib.request
 
+# Frozen adapter directories must remain exactly their authenticated inventory.
+sys.dont_write_bytecode = True
+
 
 def sha(path):
     if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1:
