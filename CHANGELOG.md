@@ -3,7 +3,7 @@
 All notable Peanut Admin application changes are recorded here. The application
 and the two public core packages have independent version histories.
 
-## [4.0.1] - 2026-10-05
+## [4.0.2] - 2026-10-05
 
 ### Changed
 
@@ -13,6 +13,7 @@ and the two public core packages have independent version histories.
 - Bind published tags, qualification and Edition assets to the exact qualified source, with explicit proof when that source enters `main` through a merge pull request.
 - Refresh compatible dependency fixes and the release dependency inventory. Final Stable qualification and remaining dependency risk acceptance are recorded in the external candidate receipts before publication.
 - Preserve independent APP and Module package versions during upstream absorption, and accept registered hidden maintenance paths while rejecting dot-segment traversal during native deployment updates.
+- Regenerate public API documentation from the final source product version before freezing release inputs.
 
 ## [4.0.0-rc.20] - 2026-10-04
 

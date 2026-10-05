@@ -4,7 +4,7 @@
     "inputs": [
         {
             "path": "release-versions.json",
-            "sha256": "ce5b0f68b73c43ce3e55c504361551281c0eeb793dc993d44de2254746870366"
+            "sha256": "1778f557375b35f72555026625922f5f52471a4db420f72f5d58e697cf2dee73"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
