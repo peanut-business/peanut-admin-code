@@ -3368,7 +3368,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "edd92b0de9cb958d521911fa2f83df22bef3725bba8e14472fe683d5ac93501b"
+            "source_sha256": "bde0ded2f00842b1c950aaf1cdfd7250567a759b1756230023af749c2bc50a90"
         },
         {
             "path": "scripts/package-release.sh",

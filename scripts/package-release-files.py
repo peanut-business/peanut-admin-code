@@ -635,7 +635,10 @@ def verify_archive(archive: Path, expected_sha256: str) -> None:
     if not re.fullmatch(r'[a-f0-9]{64}', expected_sha256):
         raise ValueError('verification needs a trusted external SHA-256')
     with archive.open('rb') as stream:
-        actual_sha256 = hashlib.file_digest(stream, 'sha256').hexdigest()
+        digest = hashlib.sha256()
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+        actual_sha256 = digest.hexdigest()
     if actual_sha256 != expected_sha256:
         raise ValueError('release archive differs from trusted SHA-256')
     with tarfile.open(archive, 'r:gz') as payload:
