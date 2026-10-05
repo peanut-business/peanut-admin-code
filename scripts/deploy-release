@@ -124,7 +124,12 @@ with tarfile.open(archive,"r:gz") as package:
     projection=json.load(package.extractfile(package.getmember(prefix+"server/resources/project-resources.json")))
     if projection.get("project_id")!=app.get("slug") or projection.get("authority",{}).get("role")!="application": fail("resource projection owner differs")
     projected=[row for row in objects(projection) if row.get("stable_resource_id")==b["stable_resource_id"]]
-    if len(projected)!=1 or projected[0].get("database")!=b["database"] or projected[0].get("container_endpoint")!=endpoint:
+    unallocated_template=(deployment_kind=="temporary-multi-tenant-source" and mode=="install"
+                          and app.get("kind")=="generated-template" and app.get("edition")=="multi-tenant"
+                          and projection.get("schema_version")==1
+                          and projection.get("resources",{}).get("databases")==[] and not projected)
+    if not unallocated_template and (len(projected)!=1 or projected[0].get("database")!=b["database"]
+                                    or projected[0].get("container_endpoint")!=endpoint):
         fail("archive database projection differs")
 plan={"protocol":"peanut.mounted-deployment-plan.v1","resource_id":rid,"target":target,"mode":mode,
       "root":root,"host":host,"project":project,"bind":bind,"port":port,"images":images,"application":app,
