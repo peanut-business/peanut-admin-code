@@ -13,6 +13,13 @@ const outputDir = required('P0E_BROWSER_OUTPUT_DIR');
 if (!['standalone', 'multi-tenant'].includes(mode)) throw new Error(`invalid mode: ${mode}`);
 if (!['baseline', 'release'].includes(profile)) throw new Error(`invalid profile: ${profile}`);
 if (profile === 'baseline' && docsUrl === '') throw new Error('missing browser environment: P0E_BROWSER_DOCS_URL');
+// run-code exposes page, not Node host globals. Resolve URLs in the browser realm.
+const browserUrl = async (targetPage, value, base) => targetPage.evaluate(({ value, base }) => {
+  const url = base === undefined ? new URL(value) : new URL(value, base);
+  return { href: url.href, protocol: url.protocol, hostname: url.hostname, port: url.port,
+    username: url.username, password: url.password, pathname: url.pathname };
+}, { value, base });
+
 const screenshotPath = (label) => profile === 'baseline'
   ? `${outputDir}/${mode}-${label}.png`
   : `${outputDir}/${mode}-${profile}-${label}.png`;
@@ -96,13 +103,15 @@ const assertSuccess = (value, label) => {
   return value.json?.data ?? value.json;
 };
 const request = async (session, baseUrl, method, path, options = {}) => {
-  const url = new URL(path, `${baseUrl}/`);
-  for (const [key, value] of Object.entries(options.query || {})) url.searchParams.set(key, String(value));
+  const url = await browserUrl(session.page, path, `${baseUrl}/`);
   const headers = { Accept: 'application/json', Authorization: `Bearer ${session.token}`, ...(options.headers || {}) };
   const requestOptions = { method, headers, failOnStatusCode: false };
+  if (options.query !== undefined) requestOptions.params = Object.fromEntries(
+    Object.entries(options.query).map(([key, value]) => [key, String(value)]),
+  );
   if (options.data !== undefined) requestOptions.data = options.data;
   if (options.multipart !== undefined) requestOptions.multipart = options.multipart;
-  return responseValue(await session.page.request.fetch(url.toString(), requestOptions));
+  return responseValue(await session.page.request.fetch(url.href, requestOptions));
 };
 const listItems = (data, label) => {
   const items = data?.lists ?? data?.items;
@@ -166,27 +175,28 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
   results.lifecycle = { category_id: categoryId, default_hidden: true, recycle_visible: true, restored: true, cross_tenant_hidden: beta !== null, cleaned: true };
   if (profile === 'baseline') results.lifecycle.updated = true;
 
-  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+  const png = await alpha.page.screenshot({ type: 'png' });
   const fileName = `${marker}.png`;
   const upload = assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.file.upload.image', {
     multipart: { cid: '0', file: { name: fileName, mimeType: 'image/png', buffer: png } },
   }), 'upload file');
   if (!Number.isInteger(upload?.id) || typeof upload?.file_key !== 'string' || upload.file_key === ''
     || typeof upload?.url !== 'string' || upload.url === '') throw new Error('file upload returned no stable identity');
-  const deliveryUrl = new URL(upload.url, `${tenantAdminUrl}/`);
+  const deliveryUrl = await browserUrl(alpha.page, upload.url, `${tenantAdminUrl}/`);
   if (!(deliveryUrl.hostname === '127.0.0.1' || deliveryUrl.hostname === '::1'
     || deliveryUrl.hostname === 'localhost' || deliveryUrl.hostname.endsWith('.localhost'))) {
     throw new Error('qualification file delivery left the registered local instance');
   }
   if (profile === 'baseline') {
     const allowedHosts = new Set(['127.0.0.1', 'localhost',
-      ...[tenantAdminUrl, tenantBetaUrl, platformUrl].map((origin) => new URL(origin).hostname)]);
-    if (deliveryUrl.protocol !== 'http:' || deliveryUrl.port !== new URL(tenantAdminUrl).port
+      ...(await Promise.all([tenantAdminUrl, tenantBetaUrl, platformUrl]
+        .map((origin) => browserUrl(alpha.page, origin)))).map((origin) => origin.hostname)]);
+    if (deliveryUrl.protocol !== 'http:' || deliveryUrl.port !== (await browserUrl(alpha.page, tenantAdminUrl)).port
       || !allowedHosts.has(deliveryUrl.hostname) || deliveryUrl.username || deliveryUrl.password) {
       throw new Error('baseline file delivery left the lease-bound HTTP endpoint');
     }
   }
-  const delivered = await alpha.page.request.get(deliveryUrl.toString(), { failOnStatusCode: false });
+  const delivered = await alpha.page.request.get(deliveryUrl.href, { failOnStatusCode: false });
   const downloaded = await delivered.body();
   const deliveredBytes = downloaded.length;
   if (delivered.status() < 200 || delivered.status() >= 300 || deliveredBytes === 0) {
@@ -204,7 +214,7 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
     if (betaFiles.some((item) => item.name === fileName || item.file_key === upload.file_key)) throw new Error('Tenant Beta observed Tenant Alpha file');
   }
   assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.file.delete', { data: { ids: [upload.id] } }), 'delete uploaded file');
-  const afterDeliveryDelete = await alpha.page.request.get(deliveryUrl.toString(), { failOnStatusCode: false });
+  const afterDeliveryDelete = await alpha.page.request.get(deliveryUrl.href, { failOnStatusCode: false });
   if (afterDeliveryDelete.status() >= 200 && afterDeliveryDelete.status() < 300) throw new Error('deleted file remained available from its delivery URL');
   const afterFileDelete = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.file.list', {
     query: { type: 10, name: marker, page_no: 1, page_size: 20 },
@@ -274,7 +284,7 @@ if (profile === 'baseline') {
       }
       for (const clientKey of ['admin-web', 'member-api']) {
         assertSuccess(await request(platform, platformUrl, 'POST', '/platformapi/tenant-entry-bindings/enable', {
-          data: { tenant_id: issued.tenant_id, host: new URL(tenantBetaUrl).hostname, client_key: clientKey, change_reason: marker },
+          data: { tenant_id: issued.tenant_id, host: (await browserUrl(platformPage, tenantBetaUrl)).hostname, client_key: clientKey, change_reason: marker },
         }), `bind qualification Beta ${clientKey}`);
       }
       beta = await loginTenant(await isolatedPage(), tenantBetaUrl, betaEmail, betaPassword, 'tenant-beta');
@@ -326,17 +336,20 @@ if (profile === 'baseline') {
       results.permissions.denied.push(path);
     }
     const deniedUpload = await request(restricted, tenantAdminUrl, 'POST', '/adminapi/official.file.upload.image', {
-      multipart: { cid: '0', file: { name: `${marker}.png`, mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64') } },
+      multipart: { cid: '0', file: { name: `${marker}.png`, mimeType: 'image/png', buffer: await restricted.page.screenshot({ type: 'png' }) } },
     });
     if (envelopeSuccess(deniedUpload) || !(deniedUpload.status === 403 || deniedUpload.json?.code === 40300)) throw new Error('restricted file upload was not denied');
     results.permissions.denied.push('/adminapi/official.file.upload.image');
 
     results.navigation = [];
     for (const [route, api] of [['/system/role', '/adminapi/role/lists'], ['/article/cate', '/adminapi/official.article.category.list'], ['/app-setting/website', '/adminapi/config/website']]) {
-      const loaded = page.waitForResponse((response) => new URL(response.url()).pathname === api && response.request().method() === 'GET');
+      const apiUrl = (await browserUrl(page, api, `${tenantAdminUrl}/`)).href;
+      // Match the pre-resolved endpoint without evaluating a navigating page inside the predicate.
+      const loaded = page.waitForResponse((response) => (response.url() === apiUrl
+        || response.url().startsWith(`${apiUrl}?`)) && response.request().method() === 'GET');
       await page.goto(`${tenantAdminUrl}/admin${route}`, { waitUntil: 'networkidle' });
       assertSuccess(await responseValue(await loaded), `navigate ${route}`);
-      if (new URL(page.url()).pathname !== `/admin${route}`) throw new Error(`navigation left ${route}`);
+      if ((await browserUrl(page, page.url())).pathname !== `/admin${route}`) throw new Error(`navigation left ${route}`);
       results.navigation.push(route);
     }
     const before = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'read original website');
@@ -344,7 +357,9 @@ if (profile === 'baseline') {
     try {
       // The actual browser form owns the save; API read-back proves persistence.
       await page.locator('.el-form-item').filter({ hasText: '网站名称' }).locator('input').fill(marker);
-      const saved = page.waitForResponse((response) => new URL(response.url()).pathname === '/adminapi/config/website/save' && response.request().method() === 'POST');
+      const saveUrl = (await browserUrl(page, '/adminapi/config/website/save', `${tenantAdminUrl}/`)).href;
+      const saved = page.waitForResponse((response) => (response.url() === saveUrl
+        || response.url().startsWith(`${saveUrl}?`)) && response.request().method() === 'POST');
       await page.getByRole('button', { name: '保存', exact: true }).click();
       assertSuccess(await responseValue(await saved), 'save website through browser form');
       const after = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'read saved website');
@@ -365,12 +380,10 @@ if (profile === 'baseline') {
     results.website = { browser_saved: true, read_back: true, public_read: true, original_restored: true, beta_unchanged: beta !== null };
     await checkCategoryAndFile(alpha, beta, tenantBetaUrl, marker, results);
     results.docs = await checkPublicDocuments(page);
-    console.log(JSON.stringify({ schema_version: 1, mode, profile, status: 'passed', results }));
+    return { schema_version: 1, mode, profile, status: 'passed', results };
   } finally {
     await Promise.all(businessContexts.map((context) => context.close().catch(() => undefined)));
   }
-  return;
-
 }
 
 const identity = JSON.parse(required('P0E_BROWSER_IDENTITY_JSON'));
@@ -510,7 +523,7 @@ try {
   }
 
   const assertSsr = async (targetPage, baseUrl, expected, other, label) => {
-    const value = await responseValue(await targetPage.request.get(new URL(identity.ssr.path, `${baseUrl}/`).toString(), { failOnStatusCode: false }));
+    const value = await responseValue(await targetPage.request.get((await browserUrl(targetPage, identity.ssr.path, `${baseUrl}/`)).href, { failOnStatusCode: false }));
     if (value.status < 200 || value.status >= 400 || !/text\/html/i.test(value.headers['content-type'] || '')
       || !value.text.trimStart().startsWith('<')) {
       throw new Error(`${label} SSR request failed with HTTP ${value.status}`);
@@ -553,7 +566,7 @@ try {
 
   results.h5 = await assertPage(beta?.page || restricted.page, `${beta ? tenantBetaUrl : tenantAdminUrl}/mobile/`, 'h5');
   if (docsUrl !== '') results.docs = await assertPage(beta?.page || restricted.page, `${docsUrl}/`, 'docs');
-  console.log(JSON.stringify({ schema_version: 2, mode, profile, status: 'passed', results }));
+  return { schema_version: 2, mode, profile, status: 'passed', results };
 } finally {
   await Promise.all(contexts.map((context) => context.close().catch(() => undefined)));
 }
