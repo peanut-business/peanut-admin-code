@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "4.0.0",
-        "source_commit": "36c6e873e0be69c54cd499e93ab6f95e3ac1c38b",
-        "source_tree": "cc7d5c9f4d27aafb84fa157d7ebc28efa6916014",
-        "inventory_sha256": "b2d98e360716196b8312765fddd354c8a2bdbbc1b71aaed036ffae792a6d0368",
+        "source_commit": "0a1f216f14105950dd3a91e27856882a7b4fff3c",
+        "source_tree": "55f15ede070b32ea96ddbab1476906ecd981c944",
+        "inventory_sha256": "a056bfe23cd57d64d38ee4dcb9f0b1d9e5f569849aa4605a6f4e0134179457c3",
         "inventory_template_version": "4.0.0",
-        "managed_tree_sha256": "c4a01eabcc1a4e64e251e3d54f85a8d310604553daa7e3712807621baca4699c",
+        "managed_tree_sha256": "93d162131e6acb286062b63b0d781147eafb89ab646ef08f4b8918f57a1140b7",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -1662,7 +1662,7 @@
         {
             "path": "plugins.lock",
             "source": "files/plugins.lock",
-            "template_sha256": "94590c4269c8cbce8a12166e594028b2aabb7b9b6949946797af4f258cd6ec87",
+            "template_sha256": "62fa23dbfe2754f645674504b9b9aebce56866624c5d58f077b602d2745d6491",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -1682,7 +1682,7 @@
         {
             "path": "plugins/official.article/plugin.json",
             "source": "files/plugins/official.article/plugin.json",
-            "template_sha256": "2f738d6e481e57e1a72b3e0c35f009baf435533ebf14a2472496bfbc124cff19",
+            "template_sha256": "f474941f40af756891ea068d926d61f4abaff0d72f345f0cf5d637ba75dca8c3",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -6122,7 +6122,7 @@
         {
             "path": "server/app/modules/official/article/composer.json",
             "source": "files/server/app/modules/official/article/composer.json",
-            "template_sha256": "9ac98a4765887a095c6f5416df8e8c1fc0759b42f4c856765d7eb9d8fd4f2761",
+            "template_sha256": "a3ce161a6a5228029012420e2d066ba238017859ecb9649264f6736c6f4ba40d",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -6152,7 +6152,7 @@
         {
             "path": "server/app/modules/official/article/module.json",
             "source": "files/server/app/modules/official/article/module.json",
-            "template_sha256": "4444b1651fa1f0b66d6e20588638ae0d8b917c39b8f4b0fb428a98910ba0a29b",
+            "template_sha256": "5c57ea3642a063ccab2c5f18cc574c32a3f9aa5e3cad1daafb0e57e4f3509a63",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -6342,7 +6342,7 @@
         {
             "path": "server/app/modules/official/article/src/Validation/ArticleCateValidate.php",
             "source": "files/server/app/modules/official/article/src/Validation/ArticleCateValidate.php",
-            "template_sha256": "61822b8d09d71960d5d65975e22486ae71e21d3a4496a4126b9056c816e87b31",
+            "template_sha256": "74f7c034516fb106a9065f1c3a709b6d582bffc6afc1306e26c26110702d2f94",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,

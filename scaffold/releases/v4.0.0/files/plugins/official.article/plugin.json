@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.article",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "b1b8a46f05d6273177a994ee4389c15bf08d9da17eafdfdf5825221b1f54e595"
+        "sha256": "7d9fe2214e0319b25a93f2baee195e908faa76e5fa3837a6da50edff25233869"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.article",
-                    "version": "1.0.1",
+                    "version": "1.0.2",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -71,8 +71,8 @@
     "composer": [
         {
             "name": "peanut-business/official-article",
-            "version": "1.0.1",
-            "sha256": "9ac98a4765887a095c6f5416df8e8c1fc0759b42f4c856765d7eb9d8fd4f2761"
+            "version": "1.0.2",
+            "sha256": "a3ce161a6a5228029012420e2d066ba238017859ecb9649264f6736c6f4ba40d"
         }
     ],
     "npm": [

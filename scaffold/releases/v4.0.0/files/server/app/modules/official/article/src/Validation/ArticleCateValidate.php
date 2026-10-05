@@ -55,6 +55,11 @@ class ArticleCateValidate extends TenantContextValidate
         'status' => ['id', 'is_show'],
     ];
 
+    public function sceneEdit(): self
+    {
+        return $this->only($this->scene['edit'])->replace('id', 'require|integer|gt:0|regex:/^[0-9]+$/');
+    }
+
     public function sceneDelete(): self
     {
         return $this->only(['id'])->replace('id', 'require|integer|gt:0');
