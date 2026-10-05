@@ -72,7 +72,7 @@ if ($actualOptions !== $allowedOptions) {
 }
 
 $projectRoot = \app\common\validation\scaffold\ScaffoldPathGuard::projectRoot($options['project-root']);
-$installedAutoload = $projectRoot . '/server/vendor/autoload.php';
+$installedAutoload = $root . '/server/vendor/autoload.php';
 if (!is_file($installedAutoload)) {
     throw new RuntimeException('SCAFFOLD_UPGRADE_DEPENDENCIES_MISSING');
 }

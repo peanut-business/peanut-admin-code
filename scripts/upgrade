@@ -257,6 +257,11 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
         '--plan=' . $plan['absolute_path'],
         '--state=' . $state['absolute_path'],
     ];
+    if ($phase === 'prepare') {
+        // Materialization uses the authenticated entry's installed dependencies,
+        // not the instance filesystem or the uninstalled target payload.
+        $command[] = '--runtime-root=' . dirname(__DIR__);
+    }
     $logDirectory = $plan['instance_root'] . '/.peanut/upgrades/host-logs';
     if ((!is_dir($logDirectory) && !mkdir($logDirectory, 0700, true)) || is_link($logDirectory)) {
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_LOG_INVALID');

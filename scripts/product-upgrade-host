@@ -5,11 +5,11 @@ die() { printf 'product-upgrade-host: %s\n' "$1" >&2; exit 1; }
 
 usage() {
   printf '%s\n' \
-    'Usage: scripts/product-upgrade-host <prepare|migration-preflight|backup|quiesce|migrate|switch|reload-safe|migration-verify|health|activate|recover|resume-old|recovery-verify> --instance-root=<absolute> --package=<absolute> --plan=<absolute> --state=<absolute>' >&2
+    'Usage: scripts/product-upgrade-host <prepare|migration-preflight|backup|quiesce|migrate|switch|reload-safe|migration-verify|health|activate|recover|resume-old|recovery-verify> --instance-root=<absolute> --package=<absolute> --plan=<absolute> --state=<absolute> [--runtime-root=<authenticated-entry-root; required only for prepare>]' >&2
   exit 64
 }
 
-[[ $# -eq 5 ]] || usage
+[[ $# -eq 5 || $# -eq 6 ]] || usage
 phase="$1"; shift
 case "$phase" in
   prepare|migration-preflight|backup|quiesce|migrate|switch|reload-safe|migration-verify|health|activate|recover|resume-old|recovery-verify) ;;
@@ -19,16 +19,23 @@ instance_root_option=
 package_option=
 plan_option=
 state_option=
+runtime_root_option=
 for argument in "$@"; do
-  [[ "$argument" =~ ^--(instance-root|package|plan|state)=(/.+)$ ]] || usage
+  [[ "$argument" =~ ^--(instance-root|package|plan|state|runtime-root)=(/.+)$ ]] || usage
   case "${BASH_REMATCH[1]}" in
     instance-root) [[ -z "$instance_root_option" ]] || usage; instance_root_option="${BASH_REMATCH[2]}" ;;
     package) [[ -z "$package_option" ]] || usage; package_option="${BASH_REMATCH[2]}" ;;
     plan) [[ -z "$plan_option" ]] || usage; plan_option="${BASH_REMATCH[2]}" ;;
     state) [[ -z "$state_option" ]] || usage; state_option="${BASH_REMATCH[2]}" ;;
+    runtime-root) [[ -z "$runtime_root_option" ]] || usage; runtime_root_option="${BASH_REMATCH[2]}" ;;
   esac
 done
 [[ -n "$instance_root_option" && -n "$package_option" && -n "$plan_option" && -n "$state_option" ]] || usage
+if [[ "$phase" == prepare ]]; then
+  [[ -n "$runtime_root_option" ]] || usage
+else
+  [[ -z "$runtime_root_option" ]] || usage
+fi
 
 for command_name in jq sha256sum tar gzip curl docker; do
   command -v "$command_name" >/dev/null || die "$command_name is required"
@@ -311,6 +318,11 @@ database_phase() {
 }
 
 prepare_phase() {
+  local trusted_runtime_root scaffold_entry prepare_owner expected_owner initialization snapshot_path
+  trusted_runtime_root="$(canonical_directory "$runtime_root_option")"
+  scaffold_entry="$(canonical_file "$trusted_runtime_root/scripts/scaffold-upgrade")"
+  canonical_file "$trusted_runtime_root/server/vendor/autoload.php" >/dev/null
+  canonical_file "$trusted_runtime_root/server/composer.lock" >/dev/null
   legacy_runtime_mount="$(docker volume inspect --format '{{.Mountpoint}}' "${compose_project}_php-runtime")"
   installation_mount="$(docker volume inspect --format '{{.Mountpoint}}' "${compose_project}_php-installation")"
   [[ -d "$legacy_runtime_mount" && -d "$installation_mount" ]] \
@@ -333,15 +345,91 @@ prepare_phase() {
       "$installation_mount/migration.json" >/dev/null \
       || die 'installation migration has not completed'
   fi
+  # Bind ownership before publishing the runtime directory. Only this plan's
+  # unfinished staging can be rebuilt; old unbound directories remain refused.
+  prepare_owner="$runtime_root/prepare-owner.json"
+  expected_owner="$(jq -n --arg candidate "$candidate" --arg plan "$plan_sha256" \
+    --arg manifest "sha256:$manifest_sha" --arg inventory "sha256:$inventory_sha" \
+    --arg runtime "$trusted_runtime_root" \
+    --arg engine "sha256:$(sha256sum "$scaffold_entry" | awk '{print $1}')" \
+    --arg lock "sha256:$(sha256sum "$trusted_runtime_root/server/composer.lock" | awk '{print $1}')" \
+    --arg root_env "sha256:$(sha256sum "$root_env" | awk '{print $1}')" \
+    --arg backend_env "sha256:$(sha256sum "$backend_env" | awk '{print $1}')" \
+    --arg receipt "$(if [[ -f "$current_receipt" && ! -L "$current_receipt" ]]; then sha256sum "$current_receipt" | awk '{print "sha256:" $1}'; fi)" \
+    '{schema_version:1,protocol:"peanut.product-upgrade-prepare-owner.v1",candidate:$candidate,
+      plan_sha256:$plan,package_manifest_sha256:$manifest,package_inventory_sha256:$inventory,
+      trusted_runtime_root:$runtime,scaffold_engine_sha256:$engine,runtime_composer_lock_sha256:$lock,
+      root_env_sha256:$root_env,backend_env_sha256:$backend_env,runtime_receipt_sha256:$receipt}')"
+  if [[ -e "$runtime_root" || -L "$runtime_root" ]]; then
+    canonical_directory "$runtime_root" >/dev/null
+    [[ -f "$prepare_owner" && ! -L "$prepare_owner" \
+      && "$(stat -c '%a %h' "$prepare_owner")" == '600 1' ]] \
+      || die 'new prepare phase found an unbound runtime directory'
+    jq -e --argjson expected "$expected_owner" '. == $expected' "$prepare_owner" >/dev/null \
+      || die 'prepare ownership differs from the authenticated plan, runtime or instance'
+  else
+    umask 077
+    initialization="$(mktemp -d "${runtime_root}.initialize.XXXXXX")"
+    mkdir -m 0700 "$initialization/previous"
+    cp -p "$root_env" "$initialization/previous/root.env"
+    [[ "$backend_env" == "$root_env" ]] || cp -p "$backend_env" "$initialization/previous/server.env"
+    [[ ! -f "$current_receipt" ]] || cp -p "$current_receipt" "$initialization/previous/DEPLOYMENT_RECEIPT.json"
+    chmod 600 "$initialization/previous/"*
+    write_json "$initialization/prepare-owner.json" "$expected_owner"
+    # GNU mv -T publishes the complete owned directory as one rename, never a
+    # nested directory inside an unexpected destination. The coordinator holds
+    # the existing instance upgrade lock throughout this operation.
+    mv -T -- "$initialization" "$runtime_root"
+  fi
+  # Every published owner already has its original recovery prerequisites.
+  # Rebuilds verify these bytes and never overwrite the saved environment.
+  canonical_directory "$previous_root" >/dev/null
+  for snapshot_path in "$previous_root/root.env" "$previous_root/server.env" "$previous_root/DEPLOYMENT_RECEIPT.json"; do
+    if [[ -e "$snapshot_path" || -L "$snapshot_path" ]]; then
+      canonical_file "$snapshot_path" >/dev/null
+      [[ "$(stat -c '%a %h' "$snapshot_path")" == '600 1' ]] \
+        || die 'previous prepare snapshot must have mode 0600 and one hard link'
+    fi
+  done
+  canonical_file "$previous_root/root.env" >/dev/null
+  [[ "sha256:$(sha256sum "$previous_root/root.env" | awk '{print $1}')" \
+    == "$(jq -r '.root_env_sha256' "$prepare_owner")" ]] \
+    || die 'previous root environment differs from prepare ownership'
+  if [[ "$backend_env" != "$root_env" ]]; then
+    canonical_file "$previous_root/server.env" >/dev/null
+    [[ "sha256:$(sha256sum "$previous_root/server.env" | awk '{print $1}')" \
+      == "$(jq -r '.backend_env_sha256' "$prepare_owner")" ]] \
+      || die 'previous backend environment differs from prepare ownership'
+  else
+    [[ ! -e "$previous_root/server.env" && ! -L "$previous_root/server.env" ]] \
+      || die 'prepare ownership did not bind a separate backend snapshot'
+  fi
+  if [[ "$(jq -r '.runtime_receipt_sha256' "$prepare_owner")" != '' ]]; then
+    canonical_file "$previous_root/DEPLOYMENT_RECEIPT.json" >/dev/null
+    [[ "sha256:$(sha256sum "$previous_root/DEPLOYMENT_RECEIPT.json" | awk '{print $1}')" \
+      == "$(jq -r '.runtime_receipt_sha256' "$prepare_owner")" ]] \
+      || die 'previous runtime receipt differs from prepare ownership'
+  else
+    [[ ! -e "$previous_root/DEPLOYMENT_RECEIPT.json" && ! -L "$previous_root/DEPLOYMENT_RECEIPT.json" ]] \
+      || die 'prepare ownership did not bind a previous runtime receipt'
+  fi
   if [[ -f "$prepared_record" ]]; then emit "$(prepared_payload)"; return; fi
-  [[ ! -e "$runtime_root" && ! -L "$runtime_root" ]] || die 'new prepare phase found an unbound runtime directory'
+  jq -e '.database_recovery_required == false and .migration_completed == false
+    and .activation_started == false
+    and (.evidence | if type == "array" then length == 0 else .prepare == null end)' "$state_path" >/dev/null \
+    || die 'unfinished prepare cannot be rebuilt after later upgrade stages'
+  if [[ -e "$prepared_root" || -L "$prepared_root" ]]; then
+    canonical_directory "$prepared_root" >/dev/null
+    rm -rf -- "$prepared_root"
+  fi
+  if [[ -e "$runtime_root/DEPLOYMENT_RECEIPT.json" || -L "$runtime_root/DEPLOYMENT_RECEIPT.json" ]]; then
+    canonical_file "$runtime_root/DEPLOYMENT_RECEIPT.json" >/dev/null
+    rm -f -- "$runtime_root/DEPLOYMENT_RECEIPT.json"
+  fi
   [[ ! -L "$instance_root/server/private/installation" ]] \
     || die 'private installation identity must not be a symbolic link'
   umask 077
-  mkdir -p "$prepared_root" "$previous_root"
-  cp -p "$root_env" "$previous_root/root.env"
-  [[ "$backend_env" == "$root_env" ]] || cp -p "$backend_env" "$previous_root/server.env"
-  [[ ! -f "$current_receipt" ]] || cp -p "$current_receipt" "$previous_root/DEPLOYMENT_RECEIPT.json"
+  mkdir -p "$prepared_root"
 
   tar -C "$instance_root" \
     --exclude='./.git' --exclude='./.peanut/upgrades/product.lock' \
@@ -369,10 +457,7 @@ prepare_phase() {
   stage_plan="$prepared_root/.peanut/upgrades/plans/$candidate.json"
   mkdir -p "$(dirname "$stage_plan")"
   cp -p "$scaffold_plan" "$stage_plan"
-  installed_autoload="$instance_root/server/vendor/autoload.php"
-  [[ -f "$installed_autoload" && ! -L "$installed_autoload" ]] \
-    || die 'installed Composer autoload is unavailable for signed scaffold materialization'
-  php -d "auto_prepend_file=$installed_autoload" "$package_root/scripts/scaffold-upgrade" apply \
+  php "$scaffold_entry" apply \
     --project-root="$prepared_root" --plan="$stage_plan" </dev/null >/dev/null \
     || die 'signed scaffold engine could not materialize the prepared target'
   rm -rf -- "$prepared_root/.peanut/upgrades"
@@ -1121,8 +1206,8 @@ recovery_verify_phase() {
     || die 'recovered storage volumes are unavailable'
   identities="$(service_identities)"
   assert_runtime_running "$identities"
-  saved_images="$(jq -c '.payload.services | with_entries(.value = .value.image_id)' "$resume_old_record")"
-  current_images="$(jq -c 'with_entries(.value = .value.image_id)' <<<"$identities")"
+  saved_images="$(jq -Sc '.payload.services | with_entries(.value = .value.image_id)' "$resume_old_record")"
+  current_images="$(jq -Sc 'with_entries(.value = .value.image_id)' <<<"$identities")"
   [[ "$saved_images" == "$current_images" ]] || die 'recovered runtime image identity changed'
   "${compose_current[@]}" exec -T php php server/database/environment-guard.php --current </dev/null >/dev/null \
     || die 'recovered database_environment verification failed'
