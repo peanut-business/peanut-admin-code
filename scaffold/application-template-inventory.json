@@ -532,7 +532,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d7ee2028b553ebb2326e60cdbbe99702027051b7b41b5d34b63c7ab796e7e114"
+            "source_sha256": "65fd5f35138e66ced4feb4cb651dda0f2e77b0ae4294c13ca98343df651d2af3"
         },
         {
             "path": "deploy/local-stack.env.example",
@@ -2251,7 +2251,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e8494d729a66930da524278b874e3f38a526f27280bf14ffe8c64c109b706ed"
+            "source_sha256": "180fdefb2ab21dc17275c8e48eaca598c614b1e2fd1fc18410ea0bf978dd6876"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2417,7 +2417,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "51f3f3d7b8611f87c6afb07278f003af841582f08cf22efeac5132043d39e0ee"
+            "source_sha256": "0677780c815ed6d03329e8be6adfae7576b6646274b8f37ac21901430b146688"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -3421,7 +3421,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b0344f9c3fc6535884c14d338493efd67b4ff175301aeb6c961d473ee17f75c"
+            "source_sha256": "ecfbde6dc780946c300b8c1dd8ba7656eaa67ba790801d5d53b99bf2ce102294"
         },
         {
             "path": "scripts/project-codegraph",
@@ -16522,7 +16522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b031c7f80e062dc5445009dbad386d0ee490b06c40d1d38c4aeea6f5fcc79ed6"
+            "source_sha256": "fe05c31598f9e1e782f26f842fd7e38ffa3b84ae300fce3a82adc18d5f8ea60f"
         },
         {
             "path": "server/app/modules/official/ops/domain/README.md",
@@ -16550,7 +16550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e65c265ebec8899b5c613fb1f0f4eeaa90094ad87cab4ae5ec6b6d8b7bf54240"
+            "source_sha256": "8a97a929f9f403e850abfbcfa26206dd12864895173cf750c22bc075e48c280c"
         },
         {
             "path": "server/app/modules/official/ops/src/Contract/BackupTaskExecution.php",
@@ -17082,7 +17082,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7aec89ad8c89ec04e2a4bd7c3817d907075ff660720f5022be63ea6dce53368d"
+            "source_sha256": "592e9dc11345fc523267ff41375ad8d78ad73ed5a4f566512fe111a8d057b001"
         },
         {
             "path": "server/app/modules/official/ops/src/Infrastructure/Authorization/PlatformOpsPermissionChecker.php",
