@@ -351,7 +351,7 @@ function transform(string $path, string $classification): string
         return 'environment-guard';
     }
     if ((str_starts_with($path, 'server/app/modules/') && basename($path) === 'composer.json')
-        || (str_starts_with($path, 'web/src/modules/') && basename($path) === 'package.json')) {
+        || preg_match('#^(web|platform|pc|uniapp)/(?:src/)?modules/.+/package\.json$#D', $path) === 1) {
         return 'text';
     }
     // Public guides are real source inputs, so their bytes (not a constant

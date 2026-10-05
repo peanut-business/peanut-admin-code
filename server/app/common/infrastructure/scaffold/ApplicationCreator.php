@@ -700,7 +700,8 @@ final class ApplicationCreator
                 $document['packages']['']['name'] = $applicationName;
             }
         }
-        if (str_ends_with($path, '/package.json') && array_key_exists('version', $document)) {
+        if (in_array($path, ['web/package.json', 'platform/package.json', 'pc/package.json',
+            'uniapp/package.json', 'docs-site/package.json'], true) && array_key_exists('version', $document)) {
             $document['version'] = $parameters['APPLICATION_VERSION'];
         }
         if ($path === 'server/composer.json' && is_array($document['autoload-dev']['classmap'] ?? null)) {
