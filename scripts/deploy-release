@@ -507,6 +507,7 @@ if [[ -n "$DEPLOYMENT_RESOURCE" ]]; then
     and ($d.deployment_root | type == "string" and test("^/([A-Za-z0-9_-][A-Za-z0-9._-]*/)+[A-Za-z0-9_-][A-Za-z0-9._-]*$"))
     and ($d.compose_project | test("^[a-z0-9][a-z0-9_-]{0,62}$"))
     and $d.compose_file == "compose.yaml" and $d.compose_profile == "bundled-db"
+    and ($d.pc_render_mode == "spa" or $d.pc_render_mode == "hybrid")
     and $a.compose_project == $d.compose_project and $b.compose_project == $d.compose_project
     and $a.compose_file == $d.compose_file and $b.compose_file == $d.compose_file
     and $a.database_resource_id == $b.stable_resource_id and $a.http_resource_id == $h.stable_resource_id
@@ -1044,6 +1045,11 @@ for pc_mode_file in "${pc_mode_files[@]}"; do
   [[ "$pc_mode_count" == 0 ]] || pc_render_mode="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { sub(/^[^=]*=/, ""); print; exit }' "$pc_mode_file")"
 done
 [[ "$pc_render_mode" == spa || "$pc_render_mode" == hybrid ]] || fail 'PC render mode must be spa or hybrid'
+if [[ -n "$deployment_resource" ]]; then
+  jq -e --arg id "$deployment_resource" --arg mode "$pc_render_mode" \
+    '[.. | objects | select(.stable_resource_id? == $id)] | length == 1 and .[0].pc_render_mode == $mode' \
+    "$deployment_registry_input" >/dev/null || fail 'PC render mode differs from the verified deployment registry'
+fi
 compose_profiles=(--profile bundled-db)
 [[ "$pc_render_mode" != hybrid ]] || compose_profiles+=(--profile ssr)
 [[ -f "$secrets" ]] || fail 'deployment credential payload is missing'
