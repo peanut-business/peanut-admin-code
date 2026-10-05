@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "45643ed2a0d8a6e123cd3d71a97cd0b8cc2860efe1eb2ca09d260b3b6dc83912"
+            "source_sha256": "159aea31df621ef7a21354f49c16c121f271d99f654e0fd2caf148913a7e6873"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3421,7 +3421,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ecfbde6dc780946c300b8c1dd8ba7656eaa67ba790801d5d53b99bf2ce102294"
+            "source_sha256": "3815a609016702c85b2801d3d9fe74341143622c8ac9193b8ca48019d7104262"
         },
         {
             "path": "scripts/project-codegraph",
@@ -3698,7 +3698,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c6665dd586194e21db6cb71dbda7232090c5d68f7deb89a882f563f0bcce5231"
+            "source_sha256": "c7a6492b1d9728516456ffdc3eed0a3beb33ff6dc189b37fa4ceca18c5badd62"
         },
         {
             "path": "scripts/seed-demo-data",
@@ -4531,7 +4531,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a90eb6906dcb8b98c06fe9c67bdaa8e7b1a9897fbcc26555a6600779483dee51"
+            "source_sha256": "2d114dfce51474d076d74e785913c3ae68e7b1137e6f1235597b645d563eaaac"
         },
         {
             "path": "server/.env.example",
