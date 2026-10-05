@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use PeanutAdmin\Fixtures\DeliveryRecord\ModuleProvider;
+use PeanutAdmin\Fixtures\DeliveryRecord\Contract\DeliveryRecordCommands;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
@@ -213,7 +213,8 @@ $name = getenv('DB_NAME') ?: '';
 $user = getenv('DB_USER') ?: '';
 $pass = getenv('DB_PASS') ?: '';
 pluginLifecycleExpect($host !== '' && $port !== '' && $name !== '' && $user !== '', 'registered database environment is required');
-(new App($serverRoot))->initialize();
+$app = new App($serverRoot);
+$app->initialize();
 $pdo = new PDO(
     "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4",
     $user,
@@ -300,10 +301,10 @@ SQL)->fetch();
         new DateTimeImmutable('now', new DateTimeZone('UTC')),
         1,
     ), 'plugin-module-fixture');
-    $executionContexts = new ExecutionContextStore();
-    $executionContext = new CurrentExecutionContext($executionContexts);
-    $commands = (new ModuleProvider())->commands($executionContext);
-    $modules = new ModuleExecutionBoundary($executionContext);
+    $executionContexts = $app->make(ExecutionContextStore::class);
+    $executionContext = $app->make(CurrentExecutionContext::class);
+    $commands = $app->make(DeliveryRecordCommands::class);
+    $modules = $app->make(ModuleExecutionBoundary::class);
     $record = static fn(string $reference): array => $executionContexts->run(
         new AdminExecutionContext($context, 'fixture.delivery-record.record'),
         static function () use ($modules, $commands, $reference): array {
