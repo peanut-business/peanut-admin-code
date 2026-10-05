@@ -780,7 +780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "48843838266fc5df9c34258e3027da08c0cd3c9885a7350245ec954c0db12d25"
+            "source_sha256": "20f06e975ba2776dc4303c05999e8a753ea7cf4d0846f49df00957363cbdee67"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3368,7 +3368,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6627c69e12e601f9f470216a9eef94b6d8465ddacc1ca3cf462403ea2ef46953"
+            "source_sha256": "edd92b0de9cb958d521911fa2f83df22bef3725bba8e14472fe683d5ac93501b"
         },
         {
             "path": "scripts/package-release.sh",

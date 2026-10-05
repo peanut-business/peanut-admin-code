@@ -311,7 +311,11 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
         source = regular_file(root, relative)
         source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
         source_mode = 0o755 if source.stat().st_mode & 0o111 else 0o644
-        if entry.get('sha256') != source_digest or entry.get('mode') != source_mode:
+        # Generated templates have no independent Git identity. A committed
+        # customer APP may change these paths while retaining its adoption
+        # manifest and immutable upstream baseline for later conflict detection.
+        # Its actual release bytes are checked against Git blobs below.
+        if generated_template and (entry.get('sha256') != source_digest or entry.get('mode') != source_mode):
             raise ValueError(f'application manifest source identity changed: {relative}')
         classification = entry.get('classification')
         if classification not in ('managed', 'generated-managed', 'app-owned') or relative.startswith('.peanut/'):
