@@ -1463,8 +1463,8 @@ pc_image_id=""
 [[ "$php_image_id" =~ ^sha256:[0-9a-f]{64}$ && "$nginx_image_id" =~ ^sha256:[0-9a-f]{64}$ \
   && ( "$pc_render_mode" == spa || "$pc_image_id" =~ ^sha256:[0-9a-f]{64}$ ) ]] || fail 'candidate image IDs are not immutable Docker IDs'
 for image in "${build_images[@]}"; do
-  [[ "$(sudo -n docker image inspect --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}' "$image")" == "$expected_commit" \
-    && "$(sudo -n docker image inspect --format '{{index .Config.Labels \"org.peanut-admin.source-tree\"}}' "$image")" == "$expected_tree" ]] \
+  [[ "$(sudo -n docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" == "$expected_commit" \
+    && "$(sudo -n docker image inspect --format '{{index .Config.Labels "org.peanut-admin.source-tree"}}' "$image")" == "$expected_tree" ]] \
     || fail "candidate image source labels do not match the fixed commit/tree: $image"
 done
 jq --arg php "$php_image_id" --arg nginx "$nginx_image_id" --arg pc "$pc_image_id" \
