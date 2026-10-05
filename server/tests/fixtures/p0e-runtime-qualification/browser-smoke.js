@@ -141,7 +141,14 @@ const checkCategoryAndFile = async (alpha, beta, betaUrl, marker, results) => {
       const foreignEdit = await request(beta, betaUrl, 'POST', '/adminapi/official.article.category.edit', {
         data: { id: categoryId, name: `${marker}-foreign`, sort: 0, is_show: 1 },
       });
-      if (envelopeSuccess(foreignEdit) || !(foreignEdit.status === 404 || foreignEdit.json?.code === 40400)) throw new Error('foreign Tenant category edit was not hidden');
+      if (envelopeSuccess(foreignEdit) || !(foreignEdit.status === 404 || foreignEdit.json?.code === 40400)) {
+        const errorCode = foreignEdit.json?.data?.error_code;
+        throw new Error(`foreign Tenant category edit was not hidden: HTTP ${foreignEdit.status} / code ${Number.isInteger(foreignEdit.json?.code) ? foreignEdit.json.code : 'none'} / error_code ${typeof errorCode === 'string' && /^[A-Z0-9_]{1,100}$/u.test(errorCode) ? errorCode : 'none'}`);
+      }
+      const afterForeignEdit = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/official.article.category.detail', {
+        query: { id: categoryId },
+      }), 'read category after foreign Tenant edit rejection');
+      if (afterForeignEdit?.name !== marker || Number(afterForeignEdit?.sort) !== 7) throw new Error('foreign Tenant edit changed the owner category');
     }
   }
   assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/official.article.category.delete', { data: { id: categoryId } }), 'soft delete category');

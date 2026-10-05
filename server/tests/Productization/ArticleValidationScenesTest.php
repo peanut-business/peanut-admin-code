@@ -39,4 +39,16 @@ $verify($category, 'lists', [], true);
 $verify($category, 'recycle', [], true);
 $verify($category, 'recycle', ['name' => 'synthetic-filter'], true);
 $verify($category, 'add', [], false);
+$edit = ['id' => 1, 'name' => 'synthetic-category', 'is_show' => 1, 'sort' => 7];
+$verify($category, 'edit', $edit, true);
+$verify($category, 'edit', array_replace($edit, ['id' => '1']), true);
+$verify($category, 'edit', array_replace($edit, ['id' => '01']), true);
+foreach ([0, -1, 1.5, '1.5', 'invalid'] as $id) {
+    $verify($category, 'edit', array_replace($edit, ['id' => $id]), false);
+}
+$verify($category, 'edit', array_diff_key($edit, ['id' => true]), false);
+$verify($category, 'edit', array_diff_key($edit, ['name' => true]), false);
+$verify($category, 'edit', array_replace($edit, ['name' => str_repeat('x', 91)]), false);
+$verify($category, 'edit', array_replace($edit, ['is_show' => 2]), false);
+$verify($category, 'edit', array_replace($edit, ['sort' => -1]), false);
 echo 'ARTICLE-VALIDATION-SCENES-001 checks=' . $checks . " passed; database-not-executed\n";
