@@ -311,7 +311,11 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
         source = regular_file(root, relative)
         source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
         source_mode = 0o755 if source.stat().st_mode & 0o111 else 0o644
-        if entry.get('sha256') != source_digest or entry.get('mode') != source_mode:
+        # Generated templates have no independent Git identity. A committed
+        # customer APP may change these paths while retaining its adoption
+        # manifest and immutable upstream baseline for later conflict detection.
+        # Its actual release bytes are checked against Git blobs below.
+        if generated_template and (entry.get('sha256') != source_digest or entry.get('mode') != source_mode):
             raise ValueError(f'application manifest source identity changed: {relative}')
         classification = entry.get('classification')
         if classification not in ('managed', 'generated-managed', 'app-owned') or relative.startswith('.peanut/'):
@@ -570,6 +574,24 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         raise ValueError('server resource registry conflicts with application source')
     shutil.copyfile(regular_file(source, 'resources/project-resources.json'), registry)
     registry.chmod(0o644)
+    # Native server consumers execute installed tools whose bytes belong to this
+    # APP release. Project the existing source programs before the canonical
+    # server inventory is calculated; never fetch tools from a target package.
+    native_tools = {
+        'scripts/upgrade': ('docker/scripts/upgrade', 0o755),
+        'scripts/product-upgrade-host': ('docker/scripts/product-upgrade-host', 0o755),
+        'scripts/scaffold-runtime/ScaffoldPathGuard.php':
+            ('docker/scripts/scaffold-runtime/ScaffoldPathGuard.php', 0o644),
+        'scripts/ops-backup-worker': ('docker/scripts/ops-backup-worker', 0o755),
+        'scripts/ops-restore-worker': ('docker/scripts/ops-restore-worker', 0o755),
+    }
+    for origin, (relative, mode) in native_tools.items():
+        destination = server / relative
+        if destination.exists() or destination.is_symlink():
+            raise ValueError(f'native tool projection conflicts with source: {relative}')
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(regular_file(source, origin), destination)
+        destination.chmod(mode)
     plugin_projection = project_server_plugins(source, target)
     files = release_rows(target)
     validate_server_release_rows(files)
@@ -613,7 +635,10 @@ def verify_archive(archive: Path, expected_sha256: str) -> None:
     if not re.fullmatch(r'[a-f0-9]{64}', expected_sha256):
         raise ValueError('verification needs a trusted external SHA-256')
     with archive.open('rb') as stream:
-        actual_sha256 = hashlib.file_digest(stream, 'sha256').hexdigest()
+        digest = hashlib.sha256()
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+        actual_sha256 = digest.hexdigest()
     if actual_sha256 != expected_sha256:
         raise ValueError('release archive differs from trusted SHA-256')
     with tarfile.open(archive, 'r:gz') as payload:

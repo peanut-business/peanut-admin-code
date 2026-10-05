@@ -95,11 +95,11 @@
         },
         {
             "key": "official.article",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "b1b8a46f05d6273177a994ee4389c15bf08d9da17eafdfdf5825221b1f54e595"
+                "sha256": "7d9fe2214e0319b25a93f2baee195e908faa76e5fa3837a6da50edff25233869"
             },
             "trust": {
                 "channel": "bundled",
@@ -133,7 +133,7 @@
                     "modules": [
                         {
                             "key": "official.article",
-                            "version": "1.0.1",
+                            "version": "1.0.2",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -165,8 +165,8 @@
             "composer": [
                 {
                     "name": "peanut-business/official-article",
-                    "version": "1.0.1",
-                    "sha256": "9ac98a4765887a095c6f5416df8e8c1fc0759b42f4c856765d7eb9d8fd4f2761"
+                    "version": "1.0.2",
+                    "sha256": "a3ce161a6a5228029012420e2d066ba238017859ecb9649264f6736c6f4ba40d"
                 }
             ],
             "npm": [
@@ -192,7 +192,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "2f738d6e481e57e1a72b3e0c35f009baf435533ebf14a2472496bfbc124cff19"
+            "manifest_sha256": "f474941f40af756891ea068d926d61f4abaff0d72f345f0cf5d637ba75dca8c3"
         },
         {
             "key": "official.file",
@@ -915,11 +915,11 @@
         },
         {
             "key": "official.ops",
-            "version": "1.0.3",
+            "version": "1.0.6",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ba83560a7a9db82ee138ce7697046f858069b122c8957a8e797015bc166f2ed2"
+                "sha256": "396c9892a0b7b8c4630df60db6758a4a8f2ace1f9c075af0b84aae31c9d7243c"
             },
             "trust": {
                 "channel": "bundled",
@@ -953,7 +953,7 @@
                     "modules": [
                         {
                             "key": "official.ops",
-                            "version": "1.0.3",
+                            "version": "1.0.6",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -980,22 +980,22 @@
             "composer": [
                 {
                     "name": "peanut-business/official-ops",
-                    "version": "1.0.2",
-                    "sha256": "b031c7f80e062dc5445009dbad386d0ee490b06c40d1d38c4aeea6f5fcc79ed6"
+                    "version": "1.0.4",
+                    "sha256": "125e56691da952b72f11e9845d8ea72786d702fc456d20b140a0e0a74ac61ef7"
                 }
             ],
             "npm": [
                 {
                     "name": "@peanut-admin/official-ops",
-                    "version": "1.0.1",
-                    "integrity": "sha256-UIKDPnYV82pBaeLECkXPIuCWdMwOFclRMwI5bgbfji8="
+                    "version": "1.0.2",
+                    "integrity": "sha256-VHXavWRe5W1TjAPsH6UvX1EdkUFw8SBHD/ytesUWRSw="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "platform-web",
                     "package": "@peanut-admin/official-ops",
-                    "version": "1.0.1",
+                    "version": "1.0.2",
                     "entry": "platform/src/modules/official-ops/contribution.ts",
                     "sha256": "45a285f08ccefa5961bc2705a80561c8a4ca3a2736af5596597afadbc2c6430e"
                 }
@@ -1007,7 +1007,7 @@
                 }
             ],
             "manifest": "plugins/official.ops/plugin.json",
-            "manifest_sha256": "51f3f3d7b8611f87c6afb07278f003af841582f08cf22efeac5132043d39e0ee"
+            "manifest_sha256": "a9602c94f5e2c63b4b0e6baeaab124921a12b79555fc63ae7672f7ea184cb4c8"
         },
         {
             "key": "official.payment",

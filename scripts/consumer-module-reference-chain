@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import runpy
 import secrets
 import shutil
 import stat
@@ -23,7 +24,6 @@ LEASE_TOOL = ROOT / "scripts/project-resource-lease"
 PHP = Path(os.environ.get("PEANUT_PHP_BINARY") or shutil.which("php") or "/usr/bin/php")
 COMPOSER = ROOT / "scripts/project-composer"
 MODULE_KEY = "acme.reference-chain"
-PACKAGE_KEY_ID = "cr21-author"
 BACKEND_ENVIRONMENT_KEYS = {
     "APP_ENV",
     "APP_DEBUG",
@@ -40,7 +40,6 @@ BACKEND_ENVIRONMENT_KEYS = {
     "DB_PREFIX",
     "JWT_SECRET",
     "PEANUT_MODULE_KERNEL_VERSION",
-    "PEANUT_MODULE_TRUSTED_KEYS_JSON",
 }
 CONFIG_VALUES: dict[str, str] = {}
 
@@ -189,7 +188,7 @@ def lease_fields(lease_id: str) -> tuple[dict[str, str], list[tuple[str, str]]]:
     return metadata, resources
 
 
-def registered_database(resource_id: str, endpoint_id: str, database: str) -> tuple[str, int]:
+def registered_database(resource_id: str, endpoint_id: str, database: str, qualification: dict[str, Any] | None = None) -> tuple[str, int]:
     """Use the existing registry as authority; caller strings never grant a database."""
     expect(bool(os.environ.get("PEANUT_RESOURCE_REGISTRY")),
            "CR21 requires PEANUT_RESOURCE_REGISTRY pointing to the verified private Project registry")
@@ -224,7 +223,13 @@ def registered_database(resource_id: str, endpoint_id: str, database: str) -> tu
                 collect(item)
     collect(resource.get("database"))
     collect(resource.get("synthetic_databases", {}))
-    expect(database in declared, "database is not explicitly registered on this resource")
+    if qualification is not None:
+        expect(resource_id == qualification["resource_id"]
+               and sha256(registry_path) == qualification["registry_sha256"]
+               and database in qualification["databases"].values(),
+               "database is outside the verified P0-E registry projection")
+    else:
+        expect(database in declared, "database is not explicitly registered on this resource")
     host, port = endpoint.get("host"), endpoint.get("port")
     expect(isinstance(host, str) and isinstance(port, int) and 1 <= port <= 65535,
            "registered endpoint is invalid")
@@ -263,14 +268,6 @@ def ini_quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def backend_ini_value(name: str, value: str) -> str:
-    if name == "PEANUT_MODULE_TRUSTED_KEYS_JSON":
-        if re.fullmatch(r'\{"[a-z0-9-]+":"[A-Za-z0-9+/=]+"\}', value) is None:
-            fail("trusted Module key map is not a canonical single-key JSON object")
-        return value
-    return ini_quote(value)
-
-
 def configure_generated_database(
     project: Path,
     resource_id: str,
@@ -296,6 +293,7 @@ def configure_generated_database(
         "service_type": "mysql",
         "version": "8.4.10",
         "database": database,
+        "deployment_modes": ["multi-tenant"],
         "schema": "pa_ table prefix",
         "namespace": database,
         "upstream_endpoint": {
@@ -322,7 +320,6 @@ def configure_generated_database(
 def backend_environment(
     path: Path,
     database: str,
-    public_key: str,
     resource_id: str,
     endpoint_id: str,
     edition: str,
@@ -346,10 +343,9 @@ def backend_environment(
         "PLATFORM_IDENTIFIER_HMAC_KEY": secrets.token_hex(32),
         "ASYNC_SIGNING_KEY": secrets.token_hex(32),
         "PEANUT_MODULE_KERNEL_VERSION": "1.0.0",
-        "PEANUT_MODULE_TRUSTED_KEYS_JSON": json.dumps({PACKAGE_KEY_ID: public_key}, separators=(",", ":")),
     }
     path.write_text(
-        "".join(f"{key}={backend_ini_value(key, value)}\n" for key, value in values.items()),
+        "".join(f"{key}={ini_quote(value)}\n" for key, value in values.items()),
         encoding="utf-8",
     )
     path.chmod(0o600)
@@ -1221,7 +1217,6 @@ def package_install(
 ) -> dict[str, Any]:
     return run_think(consumer, env, [
         "module:install-package", str(archive), f"--sha256={digest}",
-        f"--signature-key-id={PACKAGE_KEY_ID}",
     ], log)
 
 
@@ -1235,7 +1230,6 @@ def package_update(
 ) -> dict[str, Any]:
     arguments = [
         "module:update-package", str(archive), f"--sha256={digest}",
-        f"--signature-key-id={PACKAGE_KEY_ID}",
     ]
     if dry_run:
         arguments.append("--dry-run")
@@ -1272,6 +1266,68 @@ def preview_and_execute(
     return preview, result
 
 
+def p0e_installer_inputs(args: argparse.Namespace, candidate_tree: str) -> dict[str, Any]:
+    """Authenticate a build-derived Installer inside the fixed native P0-E lease."""
+    plan_path = Path(args.qualification_plan)
+    expect(plan_path.is_absolute() and plan_path.is_file() and not plan_path.is_symlink(),
+           "P0-E requires its regular absolute qualification plan")
+    value = read_json(plan_path)
+    native = runpy.run_path(str(ROOT / "scripts/p0e-runtime-qualification"))
+    selection = value.get("selection_scope")
+    expect(selection in ("full", "through-group", "selected-groups"), "P0-E selection scope is invalid")
+    native_args = argparse.Namespace(
+        candidate=args.candidate, run_id=value["run_id"], lease=args.lease,
+        owner=value["owner"], thread=value["thread"], parent_lease=value["parent_lease"],
+        output_dir=value["paths"]["output-dir"], cache_dir=value["paths"]["cache-dir"],
+        http_port=value["ports"]["http"], docs_port=value["ports"]["docs"], minimum_release=False,
+        through_group=value["through_group"],
+        groups=",".join(value["groups"]) if selection == "selected-groups" else None,
+    )
+    expect(bool(native_args.owner) and bool(native_args.thread), "P0-E plan is not an owned execution plan")
+    actual = native["plan"](native_args, require_clean=True)
+    expect(value == actual and value["candidate_tree"] == candidate_tree,
+           "P0-E plan differs from its fixed native inputs")
+    native["verify_lease"](native_args, actual)
+    cache = Path(value["paths"]["cache-dir"])
+    output = Path(value["paths"]["output-dir"])
+    expect(plan_path == output / "plan.json" and "consumer-module-lifecycle" in value["groups"]
+           and args.installer_mode == "formal" and args.edition == "multi-tenant"
+           and args.database == value["databases"]["consumer_module_cycle"]
+           and args.author_database == value["databases"]["multi_tenant_fresh"],
+           "P0-E consumer scenario differs from the owned plan")
+    filename = f"peanut-admin-{value['target_release']['version']}-multi-tenant.tar.gz"
+    expect(Path(args.installer_package) == cache / "edition-artifacts" / filename
+           and Path(args.installer_manifest) == cache / "edition-artifacts" / (filename + ".manifest.json"),
+           "P0-E Installer is outside its generated artifact paths")
+    receipt_path = output / "groups/generated-application.json"
+    checkpoint_path = output / "checkpoint.json"
+    for path in (plan_path, receipt_path, checkpoint_path, Path(args.installer_package), Path(args.installer_manifest)):
+        expect(path.is_file() and not path.is_symlink()
+               and not any(parent.is_symlink() for parent in path.parents),
+               "P0-E derived input has an unsafe file identity")
+    receipt = read_json(receipt_path)
+    checkpoint = read_json(checkpoint_path)
+    expect(receipt.get("schema_version") == 1 and receipt.get("status") == "passed"
+           and receipt.get("candidate") == args.candidate and receipt.get("candidate_tree") == candidate_tree
+           and receipt.get("target_release") == value["target_release"]
+           and checkpoint.get("schema_version") == 1
+           and checkpoint.get("candidate") == args.candidate and checkpoint.get("candidate_tree") == candidate_tree
+           and checkpoint.get("lease") == args.lease and checkpoint.get("run_id") == value["run_id"]
+           and checkpoint.get("parent_lease") == value["parent_lease"]
+           and checkpoint.get("planned_groups") == value["groups"]
+           and checkpoint.get("groups", {}).get("generated-application", {}).get("status") == "passed",
+           "P0-E generated Installer has no matching completed native evidence")
+    edition = receipt.get("editions", {}).get("multi-tenant", {})
+    artifact = read_json(Path(args.installer_manifest))
+    expect(edition.get("archive_sha256") == args.installer_sha256
+           and edition.get("installer_manifest_sha256") == args.installer_manifest_sha256
+           and edition.get("application_manifest_sha256") == artifact.get("application", {}).get("manifest_sha256")
+           and sha256(Path(args.installer_package)) == args.installer_sha256
+           and sha256(Path(args.installer_manifest)) == args.installer_manifest_sha256,
+           "P0-E Installer digests differ from the completed generated group")
+    return value
+
+
 def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     if not re.fullmatch(r"[0-9a-f]{40}", args.candidate):
         fail("candidate must be an exact lowercase 40-hex commit")
@@ -1297,25 +1353,28 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     )
     if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", args.database):
         fail("database name is invalid")
-    registered_database(args.database_resource, args.endpoint, args.database)
     expect(bool(args.author_database), "--author-database is required for independent Application A")
     expect(args.author_database != args.database, "author and consumer runtime databases must differ")
-    registered_database(args.database_resource, args.endpoint, args.author_database)
     output = Path(args.output)
     if not output.is_absolute() or output == Path("/") or output.exists() or output.is_symlink():
         fail("output must be an absent absolute path")
     metadata, resources = lease_fields(args.lease)
     resource_set = set(resources)
+    qualification = None
     if metadata.get("gate") == "p0e-runtime-qualification":
+        expect(bool(args.qualification_plan), "P0-E consumer requires its native qualification plan")
+        qualification = p0e_installer_inputs(args, candidate_tree)
         cache_roots = [Path(value) for kind, value in resources if kind == "cache-dir"]
         expect(len(cache_roots) == 1 and output == cache_roots[0] / "consumer-module-lifecycle",
                "P0-E consumer output is outside the lease-owned cache")
         expected_resources = {
-            ("resource-id", "peanut-admin-p0e-mysql84-gate"),
-            ("endpoint", "192.168.192.2:20183"),
+            ("resource-id", args.database_resource),
+            ("endpoint", args.endpoint),
             ("mysql-db", args.database),
+            ("mysql-db", args.author_database),
         }
     else:
+        expect(not args.qualification_plan, "qualification plan is only valid for the native P0-E lease")
         expected_resources = {
             ("database-resource", args.database_resource),
             ("endpoint", args.endpoint),
@@ -1323,17 +1382,19 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
             ("output-root", str(output)),
             ("cache-root", str(output / "cache")),
         }
-    expected_resources.update({
-        ("installer-archive", str(installer_package)),
-        ("installer-archive-sha256", args.installer_sha256),
-        ("installer-manifest", str(installer_manifest)),
-        ("installer-manifest-sha256", args.installer_manifest_sha256),
-    })
+        expected_resources.update({
+            ("installer-archive", str(installer_package)),
+            ("installer-archive-sha256", args.installer_sha256),
+            ("installer-manifest", str(installer_manifest)),
+            ("installer-manifest-sha256", args.installer_manifest_sha256),
+        })
     expect(metadata.get("candidate") == args.candidate and metadata.get("status") == "ACTIVE",
            "active lease candidate does not match")
     expect(metadata.get("worktree") == str(ROOT), "active lease worktree does not match")
     expect(expected_resources.issubset(resource_set), "lease is missing a consumer Module resource")
     expect(("database", args.author_database) in resource_set, "author database is not leased")
+    registered_database(args.database_resource, args.endpoint, args.database, qualification)
+    registered_database(args.database_resource, args.endpoint, args.author_database, qualification)
     assert_empty_database(args.database)
     assert_empty_database(args.author_database)
 
@@ -1401,19 +1462,9 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         }
         owned_before = {"application_a": app_owned_proof(author), "application_b": app_owned_proof(consumer)}
 
-        keys = json_output(command([
-            str(PHP), "-r",
-            '$k=sodium_crypto_sign_keypair(); echo json_encode(["public"=>base64_encode(sodium_crypto_sign_publickey($k)),"secret"=>base64_encode(sodium_crypto_sign_secretkey($k))]),PHP_EOL;',
-        ]), "signing key generation")
-        public_key = str(keys.get("public", ""))
-        secret_key = output / "author-signing-key.base64"
-        secret_key.write_text(str(keys.get("secret", "")) + "\n", encoding="utf-8")
-        secret_key.chmod(0o600)
-        expect(public_key != "" and secret_key.stat().st_size > 1, "ephemeral signing key generation failed")
         author_env = backend_environment(
             author / "server/.env.cr21",
             args.author_database,
-            public_key,
             author_resource,
             author_endpoint,
             args.edition,
@@ -1421,7 +1472,6 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         consumer_env = backend_environment(
             consumer / "server/.env.cr21",
             args.database,
-            public_key,
             consumer_resource,
             consumer_endpoint,
             args.edition,
@@ -1454,15 +1504,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                "module:check v1 did not pass all eight checks")
         v1_path = output / "acme-reference-chain-v1.tar"
         packed_v1 = run_think(author, author_env, [
-            "module:pack", MODULE_KEY, f"--output={v1_path}", f"--signing-key-id={PACKAGE_KEY_ID}",
-            f"--signing-secret-key-file={secret_key}",
+            "module:pack", MODULE_KEY, f"--output={v1_path}",
         ], logs / "author.log")
         v1_sha = str(packed_v1.get("sha256", ""))
         expect(v1_sha == sha256(v1_path), "v1 package digest changed")
         check_v1_package = run_think(author, author_env, [
             "module:check", MODULE_KEY, f"--package={v1_path}", f"--sha256={v1_sha}",
         ], logs / "author.log")
-        expect(check_v1_package.get("status") == "ready", "module:check did not accept signed v1 package")
+        expect(check_v1_package.get("status") == "ready", "module:check did not accept canonical v1 package")
 
         installation_path = consumer / "server/.env.cr21.installation"
         admin_email = "cr21-admin@example.test"
@@ -1592,22 +1641,22 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
         expect(check_v2.get("status") == "ready", "module:check v2 failed")
         v2_path = output / "acme-reference-chain-v2.tar"
         packed_v2 = run_think(author, author_env, [
-            "module:pack", MODULE_KEY, f"--output={v2_path}", f"--signing-key-id={PACKAGE_KEY_ID}",
-            f"--signing-secret-key-file={secret_key}",
+            "module:pack", MODULE_KEY, f"--output={v2_path}",
         ], logs / "author.log")
         v2_sha = str(packed_v2.get("sha256", ""))
         expect(v2_sha == sha256(v2_path) and v2_sha != v1_sha, "v2 immutable package identity is invalid")
         check_v2_package = run_think(author, author_env, [
             "module:check", MODULE_KEY, f"--package={v2_path}", f"--sha256={v2_sha}",
         ], logs / "author.log")
-        expect(check_v2_package.get("status") == "ready", "module:check did not accept signed v2 package")
+        expect(check_v2_package.get("status") == "ready", "module:check did not accept canonical v2 package")
+        before_update = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
         dry_run = package_update(
             consumer, consumer_env, v2_path, v2_sha, True, logs / "consumer.log"
         )
         expect(dry_run.get("operation") == "update" and dry_run.get("dry_run") is True,
                "v2 update dry-run did not return a zero-write plan")
-        before_update = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
-        expect(before_update == enabled_b, "v2 update dry-run changed consumer state")
+        after_dry_run = helper_action(helper, consumer, consumer_env, "snapshot", logs / "consumer.log")
+        expect(after_dry_run == before_update, "v2 update dry-run changed consumer state")
         updated = package_update(
             consumer, consumer_env, v2_path, v2_sha, False, logs / "consumer.log"
         )
@@ -1703,13 +1752,12 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                 "v1_sha256": v1_sha,
                 "v2_sha256": v2_sha,
                 "v2_source_tree_sha256": tree_sha256(backend),
-                "signature_key_id": PACKAGE_KEY_ID,
             },
             "gates": {
                 "application_a_direct_installer_extract_and_fresh_install": "passed",
                 "application_b_direct_installer_extract_and_fresh_install": "passed",
                 "check_v1_v2": "passed",
-                "signed_pack_v1_v2": "passed",
+                "canonical_pack_v1_v2": "passed",
                 "install_update": "passed",
                 "tenant_package_rbac_separation": "passed",
                 "disable_reactivate": "passed",
@@ -1762,6 +1810,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--installer-sha256", required=True, help="Lease-bound SHA-256 of the fixed installer archive")
     parser.add_argument("--installer-manifest-sha256", required=True, help="Lease-bound SHA-256 of the external installer manifest")
     parser.add_argument("--installer-mode", choices=("formal", "internal-candidate"), default="formal")
+    parser.add_argument("--qualification-plan", help="Native P0-E plan authenticating its build-derived Installer inputs")
     parser.add_argument("--edition", choices=("multi-tenant",), default="multi-tenant")
     parser.add_argument("--allow-dependency-network", action="store_true", help="Permit locked package downloads; no dependency updates")
     parser.add_argument("--keep", action="store_true", help="Keep the lease-owned output after success")

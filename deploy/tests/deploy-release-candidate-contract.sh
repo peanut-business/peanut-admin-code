@@ -184,8 +184,9 @@ set -e
   || fail 'conflicting root/database root credentials were accepted'
 printf 'passed=legacy-secret-conflict\n'
 
-candidate_commit="$(git rev-parse HEAD)"
-candidate_tree="$(git rev-parse HEAD^{tree})"
+candidate_ref="${PEANUT_DEPLOYMENT_CONTRACT_CANDIDATE:-HEAD}"
+candidate_commit="$(git rev-parse --verify "$candidate_ref^{commit}")" || fail 'candidate contract ref is unavailable'
+candidate_tree="$(git rev-parse "$candidate_commit^{tree}")"
 candidate_sha="$(printf '%s' "$candidate_commit" | cut -c1-12)"
 candidate_version="$(git show "$candidate_commit:release-versions.json" | jq -r '.source_product_version // empty')"
 candidate_scaffold_version="$(git show "$candidate_commit:release-versions.json" | jq -r '.scaffold_template // empty')"
@@ -334,7 +335,7 @@ upgrade_output="$($SCRIPT --candidate-commit="$candidate_commit" --expected-tree
 printf 'passed=candidate-upgrade-dry-run\n'
 
 compose_file="$ROOT_DIR/deploy/docker-compose.prod.yml"
-nginx_file="$ROOT_DIR/deploy/nginx/peanut-admin.conf"
+nginx_file="$ROOT_DIR/deploy/nginx/peanut-admin-ssr.conf"
 for required in \
   'PC_IMAGE' 'PEANUT_PUBLIC_SCHEME' 'PEANUT_TRUSTED_HOSTS' \
   'NUXT_UPSTREAM_ORIGIN: http://nginx' 'proxy_set_header Host $http_host' \

@@ -11,7 +11,7 @@ function productCoordinatorProbe(
     string $temporary,
     string $sourceProject,
     string $sourcePackage,
-): void {
+): array {
     $checks = 0;
     $failures = [];
     $assert = static function (bool $ok, string $message) use (&$checks): void {
@@ -68,7 +68,8 @@ PHP;
         && !str_contains($output, 'Fatal error'), 'missing dependencies must fail before package access');
 
     $cases = ['normal', 'managed-drift', 'app-owned-drift', 'migration-recovery',
-        'recovery-resume-rejected', 'activation-failure', 'inventory-digest-mismatch', 'wrong-evidence', 'lock-contention'];
+        'recovery-resume-rejected', 'activation-failure', 'inventory-digest-mismatch', 'wrong-evidence', 'lock-contention',
+        'pause-health', 'pause-activate'];
     foreach ($cases as $case) {
         $base = $temporary . '/coordinator-' . $case;
         $project = $base . '/instance';
@@ -104,12 +105,13 @@ PHP;
         $control = static function (array $value) use ($project): void {
             editionUpgradeJson($project . '/.fixture-host/control.json', $value);
         };
-        $run = static function (string $operation, ?string $plan = null) use ($toolRoot, $project, $package, $base): array {
+        $run = static function (string $operation, ?string $plan = null, array $extra = []) use ($toolRoot, $project, $package, $base): array {
             $arguments = [PHP_BINARY, $toolRoot . '/scripts/upgrade', $operation,
                 '--instance-root=' . $project, '--package=' . $package];
             if ($plan !== null) {
                 $arguments[] = '--plan=' . $plan;
             }
+            $arguments = array_merge($arguments, $extra);
             $env = [];
             foreach (['PATH', 'HOME', 'TMPDIR', 'SystemRoot'] as $key) {
                 if (($value = getenv($key)) !== false) {
@@ -153,6 +155,69 @@ PHP;
             $initialState = file_get_contents($plan['state_path']);
             $again = $ok($run('plan'), 'repeat plan');
             $assert(($again['idempotent'] ?? false) && $initialState === file_get_contents($plan['state_path']), 'repeat plan reset state');
+            if ($case === 'normal') {
+                foreach ([
+                    ['apply', ['--stop-before=invalid']], ['apply', ['--stop-before=']],
+                    ['apply', ['--stop-before=health', '--stop-before=health']],
+                    ['plan', ['--stop-before=health']], ['verify', ['--stop-before=activate']],
+                    ['recover', ['--stop-before=health']],
+                ] as [$operation, $extra]) {
+                    $invalid = $run($operation, $operation === 'plan' ? null : $planPath, $extra);
+                    $assert($invalid['exit'] === 64, 'invalid pause argument accepted');
+                }
+                $assert($calls() === [] && $initialState === file_get_contents($plan['state_path']), 'argument rejection changed state');
+            }
+            if (in_array($case, ['pause-health', 'pause-activate'], true)) {
+                $boundary = $case === 'pause-health' ? 'health' : 'activate';
+                $flag = ['--stop-before=' . $boundary];
+                $paused = $ok($run('apply', $planPath, $flag), 'pause');
+                $stateBytes = file_get_contents($plan['state_path']);
+                $state = json_decode($stateBytes, true, 512, JSON_THROW_ON_ERROR);
+                $assert($paused['status'] === 'paused' && $paused['stop_before'] === $boundary
+                    && $paused['phase'] === ($boundary === 'health' ? 'migration_verified' : 'healthy')
+                    && $state['phase'] === $paused['phase'] && $state['phase_in_progress'] === null
+                    && $state['database_recovery_required'] && $state['migration_completed'] && !$state['activation_started']
+                    && $paused['candidate'] === $plan['candidate'] && $paused['plan_sha256'] === $plan['plan_sha256']
+                    && $paused['state_sha256'] === $state['state_sha256'], 'pause identity/boundary not persisted');
+                $expectedPhases = ['prepare', 'migration-preflight', 'backup', 'quiesce', 'migrate', 'switch', 'reload-safe', 'migration-verify'];
+                if ($boundary === 'activate') {
+                    $expectedPhases[] = 'health';
+                    $assert(($paused['code']['status'] ?? null) === 'verified'
+                        && $paused['health_evidence_sha256'] === $state['evidence']['health']['sha256'], 'activate pause skipped verification');
+                }
+                $assert(array_column($calls(), 'phase') === $expectedPhases
+                    && array_keys($paused['host_evidence']) === array_keys($state['evidence'])
+                    && !isset($state['evidence'][$boundary]), 'pause executed boundary or omitted prior evidence');
+                $beforeCalls = $calls();
+                $ok($run('apply', $planPath, $flag), 'repeat pause');
+                $assert($calls() === $beforeCalls && file_get_contents($plan['state_path']) === $stateBytes, 'repeat pause changed native state');
+                if ($boundary === 'activate') {
+                    $reject($run('apply', $planPath, ['--stop-before=health']), 'PRODUCT_UPGRADE_STOP_BOUNDARY_PASSED:health');
+                    $assert($calls() === $beforeCalls && file_get_contents($plan['state_path']) === $stateBytes, 'earlier pause backtracked');
+                }
+                $control(['fail' => $boundary]);
+                $reject($run('apply', $planPath), 'PRODUCT_UPGRADE_HOST_PHASE_FAILED:' . $boundary . ':exit-23');
+                $failedState = file_get_contents($plan['state_path']);
+                $failedCalls = $calls();
+                $reject($run('apply', $planPath, $flag), 'PRODUCT_UPGRADE_STOP_BOUNDARY_PASSED:' . $boundary);
+                $assert($failedState === file_get_contents($plan['state_path']) && $failedCalls === $calls(), 'pause hid in-progress failure');
+                if ($boundary === 'activate') {
+                    $reject($run('recover', $planPath), 'PRODUCT_UPGRADE_ACTIVATION_STARTED_FORWARD_REPAIR_REQUIRED');
+                    $assert($failedCalls === $calls(), 'paused activation failure restored old database');
+                }
+                $control([]);
+                $resumed = $ok($run('apply', $planPath), 'resume pause');
+                $assert($resumed['status'] === 'completed' && $resumed['candidate'] === $plan['candidate']
+                    && count(array_filter($calls(), static fn(array $call): bool => $call['phase'] === 'migrate')) === 1,
+                    'ordinary apply did not resume same plan');
+                $beforeCalls = $calls();
+                $beforeState = file_get_contents($plan['state_path']);
+                foreach (['health', 'activate'] as $passed) {
+                    $reject($run('apply', $planPath, ['--stop-before=' . $passed]), 'PRODUCT_UPGRADE_STOP_BOUNDARY_PASSED:' . $passed);
+                }
+                $assert($calls() === $beforeCalls && file_get_contents($plan['state_path']) === $beforeState, 'completed pause rewrote state');
+                continue;
+            }
             if ($case === 'lock-contention') {
                 $lock = fopen($project . '/.peanut/upgrades/product.lock', 'c+');
                 if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
@@ -235,4 +300,5 @@ PHP;
     if ($failures !== []) {
         throw new RuntimeException(implode("\n", $failures));
     }
+    return ['cases' => $cases, 'checks' => $checks, 'failures' => $failures];
 }

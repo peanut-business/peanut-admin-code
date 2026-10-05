@@ -68,6 +68,16 @@ with tempfile.TemporaryDirectory(prefix="peanut-resource-lease-parent-") as temp
     assert "parent_lease\tcontroller-test\n" in child
     assert "mysql-db\tlease_parent_test\n" in child
     assert child.count(f"worktree\t{worktree}\n") == 2, child
+    run(tool + ["show", "--lease", "runtime-test", "--verify-locks"], root)
+    child_lock = root / ".git/peanut-admin-resource-leases/resources" / hashlib.sha256(b"mysql-db\tlease_parent_test").hexdigest()
+    for field in ("lease", "type", "value"):
+        path = child_lock / field
+        original = path.read_text()
+        path.write_text("foreign\n")
+        assert "lock holder mismatch" in run(tool + ["show", "--lease", "runtime-test", "--verify-locks"], root, ok=False).stderr
+        # Ordinary show remains a read of the recorded lease, without the new opt-in check.
+        run(tool + ["show", "--lease", "runtime-test"], root)
+        path.write_text(original)
 
     leases = root / ".git/peanut-admin-resource-leases/leases"
     metadata_path = leases / "controller-test/metadata.tsv"

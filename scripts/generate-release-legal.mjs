@@ -11,12 +11,13 @@ const rootDir = resolve(scriptDir, '..');
 const checkOnly = process.argv.includes('--check');
 
 const expectedCounts = {
-  'composer': 43,
-  'web': 849,
-  'platform': 151,
-  'pc': 923,
-  'uniapp': 1007,
-  'docs-site': 174,
+  'composer': 68,
+  'web': 847,
+  'platform': 152,
+  'pc': 922,
+  'uniapp': 1012,
+  'quality-composer': 38,
+  'quality-js': 144,
 };
 
 const readJson = (relativePath) =>
@@ -57,7 +58,50 @@ const coreWebIdentity =
         .join(', ')
     : `@peanut-admin/admin@${versionContract.core_web}`;
 
+// Exact registry declarations for locked development entries not installed on
+// every host. Each declared version was checked against its lock integrity.
+const lockedLicenseDeclarations = new Map([
+  ['@rolldown/binding-android-arm-eabi@1.2.11', 'MIT'],
+  ['@rolldown/binding-android-arm64@1.2.11', 'MIT'],
+  ['@rolldown/binding-darwin-x64@1.2.11', 'MIT'],
+  ['@rolldown/binding-freebsd-x64@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-arm-gnueabihf@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-arm64-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-arm64-musl@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-ppc64-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-s390x-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-x64-gnu@1.2.11', 'MIT'],
+  ['@rolldown/binding-linux-x64-musl@1.2.11', 'MIT'],
+  ['@rolldown/binding-openharmony-arm64@1.2.11', 'MIT'],
+  ['@rolldown/binding-win32-arm64-msvc@1.2.11', 'MIT'],
+  ['@rolldown/binding-win32-x64-msvc@1.2.11', 'MIT'],
+  ['ansi-regex@6.3.0', 'MIT'],
+  ['ansi-styles@6.2.3', 'MIT'],
+  ['eastasianwidth@0.2.0', 'MIT'],
+  ['emoji-regex@9.2.2', 'MIT'],
+  ['lightningcss-android-arm64@1.33.0', 'MPL-2.0'],
+  ['lightningcss-darwin-x64@1.33.0', 'MPL-2.0'],
+  ['lightningcss-freebsd-x64@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-arm-gnueabihf@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-arm64-gnu@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-arm64-musl@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-x64-gnu@1.33.0', 'MPL-2.0'],
+  ['lightningcss-linux-x64-musl@1.33.0', 'MPL-2.0'],
+  ['lightningcss-win32-arm64-msvc@1.33.0', 'MPL-2.0'],
+  ['lightningcss-win32-x64-msvc@1.33.0', 'MPL-2.0'],
+  ['string-width@5.1.2', 'MIT'],
+  ['strip-ansi@7.2.0', 'MIT'],
+  ['wrap-ansi@8.1.0', 'MIT'],
+]);
+
 const normalizeLicense = (license, name, version) => {
+  const declared = lockedLicenseDeclarations.get(`${name}@${version}`);
+  if (declared) {
+    if (license && license !== 'Unknown' && license !== declared) {
+      throw new Error(`license declaration changed for ${name}@${version}`);
+    }
+    return declared;
+  }
   if (
     (name === 'trim' && version === '0.0.1') ||
     (name === 'only' && version === '0.0.2') ||
@@ -130,7 +174,7 @@ const makePackage = ({
       referenceCategory: 'PACKAGE-MANAGER',
       referenceType: 'purl',
       referenceLocator:
-        ecosystem === 'composer'
+        (ecosystem === 'composer' || ecosystem === 'quality-composer')
           ? `pkg:composer/${name}@${encodeURIComponent(version)}`
           : npmPurl(name, version),
     },
@@ -139,13 +183,14 @@ const makePackage = ({
   _scope: scope,
 });
 
-const composerLock = readJson('server/composer.lock');
-const composerPackages = [
+const readComposerLock = (ecosystem, relativePath, developmentOnly = false) => {
+const composerLock = readJson(relativePath);
+return [
   ...composerLock.packages.map((pkg) => ({ pkg, scope: 'runtime' })),
   ...composerLock['packages-dev'].map((pkg) => ({ pkg, scope: 'development' })),
 ].map(({ pkg, scope }) =>
   makePackage({
-    ecosystem: 'composer',
+    ecosystem,
     name: pkg.name,
     version: pkg.version,
     location: `${pkg.name}@${pkg.version}`,
@@ -153,9 +198,11 @@ const composerPackages = [
       ? pkg.license.join(' AND ')
       : pkg.license,
     source: pkg.source?.url || pkg.dist?.url,
-    scope,
+    scope: developmentOnly ? 'development-tool-input' : scope,
   })
 );
+};
+const composerPackages = readComposerLock('composer', 'server/composer.lock');
 
 const npmNameFromPath = (packagePath) => {
   const marker = 'node_modules/';
@@ -191,10 +238,21 @@ const yamlUnquote = (value) => {
 };
 
 const readPnpmLicenses = (relativeDir) => {
+  const cwd = resolve(rootDir, relativeDir);
+  const manager = readJson(`${relativeDir}/package.json`).packageManager;
+  const expected = relativeDir === 'tools/quality' ? 'pnpm@10.15.0' : 'pnpm@9.15.6';
+  if (manager !== expected) throw new Error(`undeclared license package manager for ${relativeDir}`);
+  const command = relativeDir === 'tools/quality' ? 'corepack' : 'pnpm';
+  const prefix = relativeDir === 'tools/quality' ? ['pnpm'] : [];
+  const version = spawnSync(command, [...prefix, '--version'], { cwd, encoding: 'utf8' });
+  if (version.status !== 0 || version.stdout.trim() !== expected.slice(5)) {
+    throw new Error(`license inventory requires ${expected} for ${relativeDir}`);
+  }
   const result = spawnSync(
-    'pnpm',
-    ['--dir', resolve(rootDir, relativeDir), 'licenses', 'list', '--json'],
+    command,
+    [...prefix, 'licenses', 'list', '--json'],
     {
+      cwd,
       encoding: 'utf8',
     }
   );
@@ -248,8 +306,8 @@ const readPnpmLock = (ecosystem, relativeDir) => {
         name
       )}/${encodeURIComponent(version)}`,
       scope:
-        ecosystem === 'docs-site'
-          ? 'documentation-build-input'
+        ecosystem === 'quality-js'
+          ? 'development-tool-input'
           : 'static-build-input',
     });
   });
@@ -261,7 +319,8 @@ const allPackages = [
   ...readNpmLock('platform', 'platform/package-lock.json'),
   ...readNpmLock('pc', 'pc/package-lock.json'),
   ...readNpmLock('uniapp', 'uniapp/package-lock.json'),
-  ...readPnpmLock('docs-site', 'docs-site'),
+  ...readComposerLock('quality-composer', 'tools/quality/composer.lock', true),
+  ...readPnpmLock('quality-js', 'tools/quality'),
 ].sort(
   (a, b) =>
     a._ecosystem.localeCompare(b._ecosystem) ||
@@ -405,7 +464,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 
 - The normative GitHub Release distributes this repository's source. It does not attach prebuilt PHP/Nginx images; the fixed core packages are published separately in their public registries.
 - Production Compose builds static management, PC and H5 assets and installs the ${composerRuntime.length} Composer production packages listed below. No \`node_modules\` directory is copied into the final images.
-- The exhaustive package/version/license/source inventory for the six locked dependency graphs is \`RELEASE_SBOM.spdx.json\` (SPDX 2.3). Build-only entries are retained there so source-release recipients can reproduce the build and its notices.
+- The exhaustive package/version/license/source inventory for the seven locked dependency graphs is \`RELEASE_SBOM.spdx.json\` (SPDX 2.3). The two quality-tool graphs are development inputs, separate from product runtime. Build-only entries are retained there so source-release recipients can reproduce the build and its notices.
 - Each installed dependency may include additional license or notice files. Those files remain authoritative for that dependency and must not be removed from redistributed dependency archives.
 
 ## Material source and framework attributions
@@ -421,7 +480,7 @@ Peanut Admin is licensed under Apache-2.0: Copyright 2026 花生科技. Third-pa
 ## License handling
 
 - MIT, ISC, BSD, 0BSD, MIT-0, Apache-2.0 and Zlib notices are preserved through this file, the SPDX inventory and the upstream package sources recorded there.
-- MPL-2.0 entries are build inputs in the current Nuxt lock graph; no standalone package or modified MPL source is shipped as a release attachment. If a future release distributes those files, it must add the MPL source/notice obligations for that artifact.
+- MPL-2.0 entries are build inputs in the current Nuxt and development-tool lock graphs; no standalone package or modified MPL source is shipped as a release attachment. If a future release distributes those files, it must add the MPL source/notice obligations for that artifact.
 - CC0, CC-BY, BlueOak-1.0.0 and Python-2.0 entries are identified below and in the SPDX inventory; attribution-bearing data must keep its upstream credit when redistributed.
 - Compound expressions retain the upstream choice exactly. \`node-forge@1.4.0\` is recorded as \`BSD-3-Clause OR GPL-2.0\`; this release relies on the permissive BSD-3-Clause option and does not claim a GPL grant for Peanut Admin.
 - \`@tybys/wasm-util@0.10.3\` and \`@napi-rs/lzma-linux-x64-gnu@1.5.1\` publish MIT metadata but no separate copyright line or NOTICE in the inspected upstream artifact. Their package/version/source is recorded without inventing an attribution.

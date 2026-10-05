@@ -6856,6 +6856,11 @@ export interface components {
             latest_restore_verified?: {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             } | null;
+            /** @enum {string} */
+            backup_contract_status?: "missing" | "current" | "unsupported_schema";
+            /** @enum {string} */
+            restore_contract_status?: "missing" | "current" | "unsupported_schema";
+            new_paired_backup_required?: boolean;
             tasks?: components["schemas"]["PlatformOpsTask"][];
             items?: components["schemas"]["ApplicationDynamicValue"][];
             status?: string;

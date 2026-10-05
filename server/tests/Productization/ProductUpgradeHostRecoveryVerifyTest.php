@@ -44,7 +44,7 @@ function recoveryVerifyFixture(string $directory, string $failure = 'none'): arr
         'plan_sha256' => 'sha256:' . str_repeat('a', 64),
         'payload' => [
             'recovery' => [
-                'kind' => 'database-public-private-storage-and-program',
+                'kind' => 'database-public-private-storage-installation-and-program',
                 'data_runtime_restored' => true,
                 'writers_stopped' => true,
                 'resume_required' => true,
@@ -54,6 +54,7 @@ function recoveryVerifyFixture(string $directory, string $failure = 'none'): arr
                 'database_name' => 'peanut_m4',
                 'database_resource_id' => 'db-resource',
                 'storage_volumes' => ['public' => 'fixture_php-storage', 'private' => 'fixture_php-private-storage'],
+                'installation_volume' => 'fixture_php-installation',
             ],
             'services' => $services,
         ],
@@ -103,6 +104,7 @@ def reject():
 if args == ['compose', 'version']:
     print('Docker Compose version v2.0.0'); sys.exit(0)
 if args and args[0] == 'volume' and args[1:3] == ['inspect', 'fixture_php-storage']:
+    if args[1:] != ['inspect', 'fixture_php-storage', 'fixture_php-private-storage', 'fixture_php-installation']: reject()
     sys.exit(74 if mode == 'volume' else 0)
 if args and args[0] == 'ps':
     if any('project.working_dir=' in x for x in args): print('fixture')

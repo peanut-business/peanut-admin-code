@@ -3,6 +3,19 @@
 All notable Peanut Admin application changes are recorded here. The application
 and the two public core packages have independent version histories.
 
+## [4.0.3] - 2026-10-05
+
+### Changed
+
+- Use the published PHP Core and six Web Core 4.0.0 packages with fixed source and package-integrity identities.
+- Retain the official Module absorption, stable menu permissions, PC public SPA pages and independent APP versioning delivered in the 4.0 prereleases.
+- Provide native maintenance pauses before health checks or activation, with same-plan continuation and paired recovery before activation; activation remains a forward-repair boundary.
+- Bind published tags, qualification and Edition assets to the exact qualified source, with explicit proof when that source enters `main` through a merge pull request.
+- Refresh compatible dependency fixes and the release dependency inventory. Final Stable qualification and remaining dependency risk acceptance are recorded in the external candidate receipts before publication.
+- Preserve independent APP and Module package versions during upstream absorption, and accept registered hidden maintenance paths while rejecting dot-segment traversal during native deployment updates.
+- Regenerate public API documentation from the final source product version before freezing release inputs.
+- Update compatible UniApp build-tool brace-expansion maintenance versions without changing the application dependency declarations.
+
 ## [4.0.0-rc.20] - 2026-10-04
 
 ### Fixed

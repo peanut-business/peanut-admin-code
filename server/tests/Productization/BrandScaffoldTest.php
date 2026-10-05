@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use PeanutAdmin\Modules\Settings\Infrastructure\BrandDefaults;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
+use app\common\infrastructure\scaffold\ApplicationCreator;
 
 require_once defined('PHPUNIT_COMPOSER_INSTALL')
     ? PHPUNIT_COMPOSER_INSTALL
@@ -60,5 +61,24 @@ brandExpect(
     is_string($migration) && str_contains($migration, "'{$defaultImages['user_avatar']}'"),
     'legacy user avatar migration must match the manifest',
 );
+
+$root = dirname(__DIR__, 3);
+$creator = new ApplicationCreator($root, $root . '/scaffold/application-template-inventory.json');
+$parameters = ['PRODUCT_NAME' => 'Source Consumer', 'PACKAGE_IDENTITY' => 'consumer/application', 'SLUG' => 'source-consumer', 'APPLICATION_VERSION' => '0.1.0'];
+$transform = Closure::bind(
+    fn(string $content, string $path, string $kind): string => $this->transform($content, ['path' => $path, 'transform' => $kind], $parameters, $root),
+    $creator,
+    ApplicationCreator::class,
+);
+$documentation = (string) file_get_contents($root . '/docs/public/release-channels.md');
+$renderedDocumentation = $transform($documentation, 'docs/public/release-channels.md', 'text');
+preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $documentation, $sourceLinks);
+preg_match_all('#https://github\.com/peanut-business/peanut-admin-code[^\s)]+#', $renderedDocumentation, $renderedLinks);
+brandExpect(count($sourceLinks[0]) >= 2 && $renderedLinks[0] === $sourceLinks[0], 'generated documentation must retain actual upstream repository URLs');
+$sourceComposer = json_decode((string) file_get_contents($root . '/server/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+$applicationComposer = json_decode($transform((string) file_get_contents($root . '/server/composer.json'), 'server/composer.json', 'package'), true, 512, JSON_THROW_ON_ERROR);
+brandExpect($applicationComposer['name'] === $parameters['PACKAGE_IDENTITY'], 'application package name must still render its own identity');
+brandExpect($applicationComposer['description'] === 'Source Consumer application backend' && $applicationComposer['authors'][0]['name'] === 'application owner', 'application brand and author must still render');
+brandExpect($applicationComposer['homepage'] === $sourceComposer['homepage'] && $applicationComposer['repositories'] === $sourceComposer['repositories'] && $applicationComposer['require'] === $sourceComposer['require'], 'external source references and dependency identities must remain unchanged');
 
 echo "PB08A-BRAND-SCAFFOLD-001 bootstrap passed\n";
