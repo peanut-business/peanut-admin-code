@@ -1037,13 +1037,13 @@ if [[ -e "$root/server/.env" || -L "$root/server/.env" ]]; then
   has_backend_env=1
 fi
 pc_render_mode=spa
-pc_mode_files=("$root/.env")
-(( has_backend_env == 0 )) || pc_mode_files+=("$root/server/.env")
-for pc_mode_file in "${pc_mode_files[@]}"; do
-  pc_mode_count="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$pc_mode_file")"
-  [[ "$pc_mode_count" == 0 || "$pc_mode_count" == 1 ]] || fail 'PC render mode is duplicated'
-  [[ "$pc_mode_count" == 0 ]] || pc_render_mode="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { sub(/^[^=]*=/, ""); print; exit }' "$pc_mode_file")"
-done
+pc_mode_count="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$root/.env")"
+[[ "$pc_mode_count" == 0 || "$pc_mode_count" == 1 ]] || fail 'PC render mode is duplicated'
+[[ "$pc_mode_count" == 0 ]] || pc_render_mode="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { sub(/^[^=]*=/, ""); print; exit }' "$root/.env")"
+if (( has_backend_env == 1 )); then
+  [[ "$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$root/server/.env")" == 0 ]] \
+    || fail 'PC render mode belongs only to the root orchestration environment'
+fi
 [[ "$pc_render_mode" == spa || "$pc_render_mode" == hybrid ]] || fail 'PC render mode must be spa or hybrid'
 if [[ -n "$deployment_resource" ]]; then
   jq -e --arg id "$deployment_resource" --arg mode "$pc_render_mode" \

@@ -155,12 +155,14 @@ compose_environment=(--env-file "$root_env")
 current_receipt="$instance_root/DEPLOYMENT_RECEIPT.json"
 
 pc_render_mode() {
-  local file count mode=spa
-  for file in "$root_env" "$backend_env"; do
-    count="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$file")"
-    [[ "$count" == 0 || "$count" == 1 ]] || die 'PC render mode is duplicated'
-    [[ "$count" == 0 ]] || mode="$(env_value "$file" PEANUT_PC_RENDER_MODE)"
-  done
+  local count mode=spa
+  count="$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$root_env")"
+  [[ "$count" == 0 || "$count" == 1 ]] || die 'PC render mode is duplicated'
+  [[ "$count" == 0 ]] || mode="$(env_value "$root_env" PEANUT_PC_RENDER_MODE)"
+  if [[ "$backend_env" != "$root_env" ]]; then
+    [[ "$(awk -F= '$1 == "PEANUT_PC_RENDER_MODE" { count++ } END { print count + 0 }' "$backend_env")" == 0 ]] \
+      || die 'PC render mode belongs only to the root orchestration environment'
+  fi
   [[ "$mode" == spa || "$mode" == hybrid ]] || die 'PC render mode must be spa or hybrid'
   printf '%s' "$mode"
 }
