@@ -54,7 +54,18 @@ final class LoginMiddleware
                 $request,
                 TenantEntryBindingResolver::ADMIN_CLIENT,
             ) !== null;
-        } catch (\Throwable) {
+        } catch (\DomainException $exception) {
+            // Only entry/identity policy rejections belong to this 403 envelope.
+            // AuthException and infrastructure failures retain the standard mapping.
+            if (!in_array($exception->getMessage(), [
+                'TENANT_ADMIN_HOST_UNAVAILABLE',
+                'TENANT_ADMIN_HOST_FORBIDDEN',
+                'TENANT_ENTRY_HOST_INVALID',
+                'TENANT_ENTRY_BINDING_CONFLICT',
+                'TENANT_ADMIN_PRINCIPAL_UNAVAILABLE',
+            ], true)) {
+                throw $exception;
+            }
             throw \app\common\http\ApiProblem::fromEnvelope('租户会话不可用', null, 40300);
         }
 
