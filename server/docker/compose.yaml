@@ -4,6 +4,10 @@ services:
   php:
     image: ${PHP_IMAGE:?set PHP_IMAGE in server/docker/.env}
     restart: unless-stopped
+    # The owner verifies non-dumpable FPM workers through their actual /proc paths.
+    # Workers must still have zero effective/permitted/inheritable/ambient capabilities.
+    cap_add:
+      - SYS_PTRACE
     security_opt:
       - no-new-privileges:true
     working_dir: /run/peanut-owner/server

@@ -102,7 +102,7 @@ Server 发行的完整文件、Plugin canonical内容和模块声明校验由部
 
 声明绑定发行身份、投影锁、Composer依赖、模块配置和安装/部署状态，模块根使用Server相对路径。普通HTTP通过 `app/provider.php` 读取受保护结果、核对绑定并恢复模块autoload，再交给原生容器和Service注册；不执行完整文件树扫描或模块编译。索引缺失、损坏、绑定变化或仍在更新时拒绝，不由Web进程懒惰重建。任何程序、模块或发行变更必须先闭流、停止旧FPM，再完整校验、重建声明并重启授流；失败撤销流量与运行证明。
 
-原生 Docker 维护进程在 chroot 外使用同一程序目录的可写视图，FPM 在 `/server` 使用只读视图；仅已有缓存、日志、上传及安装数据目录挂载可写。维护进程根据真实 mount、固定 pool 的非特权进程及目录保护发布原生 Linux 文件系统上的运行证明，绑定当前声明；FPM 不能访问维护视图、Docker 配置凭据与恢复密钥。非 Docker 入口使用真实请求 UID/GID/组、不可提权能力和部署 owner 的文件权限，不根据 `www-data` 账户名推断安全性；无法证明具体权限或能力时拒绝。外部 Host 未执行运行资格不能记为通过。
+原生 Docker 维护进程在 chroot 外使用同一程序目录的可写视图，FPM 在 `/server` 使用只读视图；仅已有缓存、日志、上传及安装数据目录挂载可写。隔离容器的 owner 使用 `SYS_PTRACE` 读取非 dumpable worker 的真实 `/proc` root、cwd 和描述符，不启用 privileged 或 host PID namespace。FPM 保持 `process.dumpable=no`；授流前验证 worker 的 UID/GID、effective/permitted/inheritable/ambient capability 全零、`NoNewPrivs=1`、chroot 与无维护视图描述符，再根据真实 mount 及目录保护发布原生 Linux 文件系统上的运行证明，绑定当前声明。FPM 不能访问维护视图、Docker 配置凭据与恢复密钥。非 Docker 入口使用真实请求 UID/GID/组、不可提权能力和部署 owner 的文件权限，不根据 `www-data` 账户名推断安全性；无法证明具体权限或能力时拒绝。外部 Host 未执行运行资格不能记为通过。
 
 网页安装配置写入 `private/resources/pending` 的纯数据。现有 owner 监控入口闭流并停止 bootstrap FPM，验证配置与实际资源后原子发布唯一 `server/.env`，完整校验、编译并进入 installing；安装完成再停止旧 FPM，重建绑定后进入 installed。更新/恢复同样复用原生维护入口。恢复密钥唯一位置为 owner 控制的 `private/maintenance`；发现旧位置的密钥时明确要求原 owner 先闭合原固定工具事务，不自动迁移或提供双源读取。
 

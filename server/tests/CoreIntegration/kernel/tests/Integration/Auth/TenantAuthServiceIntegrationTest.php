@@ -711,13 +711,7 @@ SQL);
         $context = $authentication->context;
         $accessToken = $authentication->tokens->access->expose();
         $deadline = microtime(true) + 15;
-        $lockSuffix = getmypid() . '_' . bin2hex(random_bytes(4));
-        $arrivedLock = 'pa_switch_arrived_' . $lockSuffix;
-        $gateLock = 'pa_switch_gate_' . $lockSuffix;
-        $triggerName = 'test_pause_tenant_switch_challenge';
-        $triggerCreated = false;
         $gateConnection = null;
-        $gateLockHeld = false;
         $switchParentSocket = null;
         $switchChildSocket = null;
         $passwordParentSocket = null;
@@ -727,21 +721,6 @@ SQL);
         $connectionsReset = false;
 
         try {
-            $this->database->exec(<<<SQL
-CREATE TRIGGER test_pause_tenant_switch_challenge
-BEFORE INSERT ON pa_login_challenge
-FOR EACH ROW
-BEGIN
-    IF NEW.purpose = 'tenant_switch' THEN
-        SET @switch_arrived_lock = GET_LOCK('{$arrivedLock}', 0);
-        SET @switch_gate_lock = GET_LOCK('{$gateLock}', 15);
-        SET @switch_gate_release = RELEASE_LOCK('{$gateLock}');
-        SET @switch_arrived_release = RELEASE_LOCK('{$arrivedLock}');
-    END IF;
-END
-SQL);
-            $triggerCreated = true;
-
             $switchSockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
             self::assertIsArray($switchSockets);
             $switchParentSocket = $switchSockets[0];
@@ -761,8 +740,14 @@ SQL);
                 fclose($passwordSockets[0]);
                 fclose($passwordSockets[1]);
                 try {
+                    $switchAuth = $this->authServiceForNewConnection();
+                    $connectionId = (int) (\think\facade\Db::query('SELECT CONNECTION_ID() AS connection_id')[0]['connection_id'] ?? 0);
+                    if ($connectionId < 1) {
+                        throw new \RuntimeException('Could not read the tenant-switch child connection ID.');
+                    }
+                    $this->writeSocketLine($switchSockets[1], (string) $connectionId, $deadline);
                     $this->readSocketLine($switchSockets[1], $deadline);
-                    $challenge = $this->authServiceForNewConnection()->switchChallenge(
+                    $challenge = $switchAuth->switchChallenge(
                         $accessToken,
                         '127.0.0.1',
                         'Test Agent',
@@ -833,11 +818,59 @@ SQL);
             $passwordChildSocket = null;
 
             $gateConnection = $this->connect($this->databaseName);
-            self::assertSame(1, $this->acquireNamedLock($gateConnection, $gateLock));
-            $gateLockHeld = true;
+            $gateConnection->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+            self::assertTrue($gateConnection->beginTransaction());
+            $gateConnectionIdStatement = $gateConnection->query('SELECT CONNECTION_ID()');
+            self::assertNotFalse($gateConnectionIdStatement);
+            $gateConnectionId = (int) $gateConnectionIdStatement->fetchColumn();
+            self::assertGreaterThan(0, $gateConnectionId);
+            $maximumIdStatement = $gateConnection->query('SELECT COALESCE(MAX(id), 0) FROM pa_login_challenge');
+            self::assertNotFalse($maximumIdStatement);
+            $maximumChallengeId = (int) $maximumIdStatement->fetchColumn();
+            // Lock only the primary-key supremum gap, after every existing challenge.
+            // The real switch INSERT waits here while retaining its source-session lock.
+            $insertGate = $gateConnection->prepare(
+                'SELECT id FROM pa_login_challenge FORCE INDEX (PRIMARY) WHERE id > ? ORDER BY id FOR UPDATE',
+            );
+            self::assertNotFalse($insertGate);
+            $insertGate->execute([$maximumChallengeId]);
+            self::assertSame([], $insertGate->fetchAll(PDO::FETCH_COLUMN));
+            $switchConnectionId = (int) $this->readSocketLine($switchParentSocket, $deadline);
+            self::assertGreaterThan(0, $switchConnectionId);
             $this->writeSocketLine($switchParentSocket, 'start', $deadline);
-            $switchConnectionId = $this->waitForNamedLockOwner($gateConnection, $arrivedLock, $deadline);
-            self::assertNotNull($switchConnectionId, 'Tenant switch did not reach the challenge insert gate.');
+            $insertWait = $gateConnection->prepare(<<<'SQL'
+SELECT COUNT(*)
+FROM performance_schema.data_lock_waits lock_wait
+JOIN performance_schema.threads requesting_thread
+  ON requesting_thread.THREAD_ID = lock_wait.REQUESTING_THREAD_ID
+JOIN performance_schema.threads blocking_thread
+  ON blocking_thread.THREAD_ID = lock_wait.BLOCKING_THREAD_ID
+JOIN performance_schema.data_locks waiting_lock
+  ON waiting_lock.ENGINE = lock_wait.ENGINE
+  AND waiting_lock.ENGINE_LOCK_ID = lock_wait.REQUESTING_ENGINE_LOCK_ID
+WHERE requesting_thread.PROCESSLIST_ID = :switch_connection_id
+  AND blocking_thread.PROCESSLIST_ID = :gate_connection_id
+  AND waiting_lock.OBJECT_SCHEMA = DATABASE()
+  AND waiting_lock.OBJECT_NAME = 'pa_login_challenge'
+  AND waiting_lock.INDEX_NAME = 'PRIMARY'
+  AND waiting_lock.LOCK_TYPE = 'RECORD'
+  AND waiting_lock.LOCK_STATUS = 'WAITING'
+  AND waiting_lock.LOCK_MODE LIKE '%INSERT_INTENTION%'
+SQL);
+            self::assertNotFalse($insertWait);
+            $switchReachedInsert = false;
+            do {
+                $insertWait->execute([
+                    'switch_connection_id' => $switchConnectionId,
+                    'gate_connection_id' => $gateConnectionId,
+                ]);
+                if ((int) $insertWait->fetchColumn() > 0) {
+                    $switchReachedInsert = true;
+                    break;
+                }
+                usleep(10_000);
+            } while (microtime(true) < $deadline);
+            self::assertTrue($switchReachedInsert, 'Tenant switch did not reach the challenge insert gate.');
 
             $passwordConnectionId = (int) $this->readSocketLine($passwordParentSocket, $deadline);
             self::assertGreaterThan(0, $passwordConnectionId);
@@ -852,8 +885,7 @@ SQL);
                 'Password change did not wait behind the tenant-switch source-session transaction.',
             );
 
-            self::assertSame(1, $this->releaseNamedLock($gateConnection, $gateLock));
-            $gateLockHeld = false;
+            self::assertTrue($gateConnection->rollBack());
             $switchOutcome = $this->readSocketLine($switchParentSocket, $deadline);
             $passwordOutcome = $this->readSocketLine($passwordParentSocket, $deadline);
             fclose($switchParentSocket);
@@ -877,8 +909,6 @@ SQL);
             $this->admin = $this->connect();
             $this->database = $this->connect($this->databaseName);
             $connectionsReset = true;
-            $this->database->exec("DROP TRIGGER IF EXISTS `{$triggerName}`");
-            $triggerCreated = false;
 
             $switchResult = json_decode($switchOutcome, true, 512, JSON_THROW_ON_ERROR);
             self::assertIsArray($switchResult);
@@ -906,9 +936,9 @@ SQL);
                 ))->errorCode,
             );
         } finally {
-            if ($gateLockHeld && $gateConnection instanceof PDO) {
+            if ($gateConnection instanceof PDO && $gateConnection->inTransaction()) {
                 try {
-                    $this->releaseNamedLock($gateConnection, $gateLock);
+                    $gateConnection->rollBack();
                 } catch (\Throwable) {
                 }
             }
@@ -927,14 +957,6 @@ SQL);
             $this->terminateChildProcess($switchProcessId, $deadline);
             $this->terminateChildProcess($passwordProcessId, $deadline);
 
-            try {
-                $cleanupDeadline = max($deadline, microtime(true) + 1.0);
-                $cleanupConnection = $this->connect();
-                $this->forceReleaseNamedLock($cleanupConnection, $gateLock, $cleanupDeadline);
-                $this->forceReleaseNamedLock($cleanupConnection, $arrivedLock, $cleanupDeadline);
-            } catch (\Throwable) {
-            }
-
             if (!$connectionsReset) {
                 try {
                     $this->admin = $this->connect();
@@ -942,12 +964,7 @@ SQL);
                 } catch (\Throwable) {
                 }
             }
-            if ($triggerCreated && isset($this->database)) {
-                try {
-                    $this->database->exec("DROP TRIGGER IF EXISTS `{$triggerName}`");
-                } catch (\Throwable) {
-                }
-            }
+
         }
     }
 
