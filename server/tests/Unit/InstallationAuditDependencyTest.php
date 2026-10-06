@@ -56,7 +56,7 @@ final class InstallationAuditDependencyTest extends TestCase
     public function testAuditIsARequiredTypedDependency(): void
     {
         $parameters = (new ReflectionMethod(InstallationExecutionHost::class, '__construct'))->getParameters();
-        self::assertCount(7, $parameters);
+        self::assertCount(8, $parameters);
         self::assertSame('audit', $parameters[4]->getName());
         self::assertSame(AuditContractHost::class, (string) $parameters[4]->getType());
         self::assertFalse($parameters[4]->isOptional());
@@ -66,7 +66,7 @@ final class InstallationAuditDependencyTest extends TestCase
     public function testConstructorKeepsTheExactInjectedAudit(): void
     {
         $audit = new AuditContractHost(null);
-        $host = new InstallationExecutionHost(...[...$this->dependencies(), $audit, new TenantModuleStateQueries(), new ModuleComposition(new think\App())]);
+        $host = new InstallationExecutionHost(...[...$this->dependencies(), $audit, new TenantModuleStateQueries(), new ModuleComposition(new think\App()), new CompiledModuleRegistry([], [], [], [], 'audit-test')]);
         $property = new ReflectionProperty($host, 'audit');
         self::assertTrue($property->isReadOnly());
         self::assertSame($audit, $property->getValue($host));
@@ -75,7 +75,7 @@ final class InstallationAuditDependencyTest extends TestCase
     public function testInvalidAuditIsRejectedInsteadOfUsingGlobalFallback(): void
     {
         $this->expectException(TypeError::class);
-        new InstallationExecutionHost(...[...$this->dependencies(), new stdClass(), new TenantModuleStateQueries(), new ModuleComposition(new think\App())]);
+        new InstallationExecutionHost(...[...$this->dependencies(), new stdClass(), new TenantModuleStateQueries(), new ModuleComposition(new think\App()), new CompiledModuleRegistry([], [], [], [], 'audit-test')]);
     }
 
     public function testNativeBindingAndProfileUseTheDeclaredDependency(): void
@@ -84,6 +84,6 @@ final class InstallationAuditDependencyTest extends TestCase
         $composition = file_get_contents((new ReflectionClass(AppService::class))->getFileName());
         self::assertDoesNotMatchRegularExpression('/(?<![A-Za-z0-9_])app\s*\(/', $host);
         self::assertStringContainsString("            \$this->audit,\n            \$this->tenantDirectory,", $host);
-        self::assertMatchesRegularExpression('/new InstallationExecutionHost\([\s\S]*?\$this->app->make\(AuditContractHost::class\),\s*\$this->app->make\([^\n]*TenantModuleStateQueries::class\),\s*\$this->app->make\(ModuleComposition::class\),\s*\)/', $composition);
+        self::assertMatchesRegularExpression('/new InstallationExecutionHost\([\s\S]*?\$this->app->make\(AuditContractHost::class\),\s*\$this->app->make\([^\n]*TenantModuleStateQueries::class\),\s*\$this->app->make\(ModuleComposition::class\),\s*\$this->app->make\(CompiledModuleRegistry::class\),\s*\)/', $composition);
     }
 }

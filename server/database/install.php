@@ -254,7 +254,7 @@ function installationTenantBootstrapContract(string $serverDir): array
     $projectRoot = dirname($serverDir);
     $manifestPath = $projectRoot . '/.peanut/application-manifest.json';
     if (file_exists($serverIdentity) || is_link($serverIdentity)) {
-        $identity = ServerReleaseIdentity::load($serverDir);
+        $identity = ServerReleaseIdentity::resolve($serverDir);
         $contract = $identity->tenantBootstrapContract($mode);
     } elseif (file_exists($manifestPath) || is_link($manifestPath)) {
         $identity = ApplicationSourceIdentity::load($serverDir);
@@ -553,7 +553,7 @@ function applicationReleaseVersions(string $serverDir): array
     loadCoreRuntime($serverDir);
     $serverIdentity = $serverDir . '/.peanut/release-identity.json';
     if (file_exists($serverIdentity) || is_link($serverIdentity)) {
-        return ServerReleaseIdentity::load($serverDir)->versions();
+        return ServerReleaseIdentity::resolve($serverDir)->versions();
     }
     $projectRoot = dirname($serverDir);
     $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';

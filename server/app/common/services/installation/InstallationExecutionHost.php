@@ -10,9 +10,7 @@ use app\common\services\audit\AuditContractHost;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\services\module\ProductTenantModuleProfileService;
-use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
-use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
@@ -38,6 +36,7 @@ final class InstallationExecutionHost
         private readonly AuditContractHost $audit,
         private readonly TenantModuleStateQueries $moduleStates,
         private readonly ModuleComposition $moduleComposition,
+        private readonly CompiledModuleRegistry $definitions,
     ) {
         require_once $serverRoot . '/database/install.php';
     }
@@ -503,24 +502,9 @@ final class InstallationExecutionHost
         return $config;
     }
 
-    private function lockResolver(): PluginLockResolver
-    {
-        $lockPath = $this->moduleConfig()['plugin_lock'] ?? null;
-        if (!is_string($lockPath) || trim($lockPath) === '') {
-            throw new RuntimeException('PLUGIN_LOCK_INVALID');
-        }
-        return new PluginLockResolver(
-            $this->serverRoot,
-            $lockPath,
-        );
-    }
-
     private function definitionRegistry(): CompiledModuleRegistry
     {
-        return (new ModuleDefinitionRegistryFactory($this->serverRoot))->fromPluginLock(
-            $this->lockResolver(),
-            $this->moduleConfig(),
-        );
+        return $this->definitions;
     }
 
     /** Select Peanut-owned SQL by the adopted scaffold and optional verified overlay identity. */

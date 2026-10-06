@@ -4670,7 +4670,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63fd3e15852d714b354fec968f848463cff6f46f979138a4c746bd3a10e20283"
+            "source_sha256": "fba7a931f7acd22c5cfcccb0fcedc24a8bfe64eb5b3d9f2c4465b63fff9aaa5b"
         },
         {
             "path": "server/app/BaseController.php",
@@ -8595,7 +8595,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89addc9a7dd703e5723f6fb18b6a383057fdad8d45303b60b8989a8f4ade996f"
+            "source_sha256": "9e71ca448a5750b866ea94edbd9a2ba1d1da5548b75e09070433ccdf441101eb"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -8609,7 +8609,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb9ddc35cc6cb77e7b390f1ff6e985d1c15f4aa52670c720f54790524822261f"
+            "source_sha256": "bef2f574fcf27df9af293723a5625d6867e53aa51a6c37f8769bfdb4c8614bb0"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -8974,7 +8974,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d118bdfe51ec983722917d784a3218de0cb8e878b0f3b22b293dd67ee1cee6b"
+            "source_sha256": "63efe7077ae92e918d55dcc1225cd9046315ace69ab9a6929924e00241918778"
         },
         {
             "path": "server/app/common/value/installation/ApplicationSourceIdentity.php",
@@ -9002,7 +9002,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a3ace8212adb4fe8a4c19a060aef717fb0467917975f7745d5ca53be017ce166"
+            "source_sha256": "c521d77a28b70fb714e416c2ede0b726eabb3b8f6076651fcf77eba5b0ce5c13"
         },
         {
             "path": "server/app/common/value/module/ModulePhpNamespace.php",
@@ -21875,7 +21875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8dafc1406ff0afea8349251690b7f0b9aca55e1a2fa8e5e1ba491da84b4e9b22"
+            "source_sha256": "676ae1f4a283ee77650eaec34711bb21f8a304a623bf933e54102a9fe13c327f"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",
@@ -22575,7 +22575,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4bfded465acd6e591ae38307245a175af7ecb7eee224f015dddf34b107f6a537"
+            "source_sha256": "1340591bd7e80e9223ead1e817ede0238343ceb2fc0baad07954ed27be62406e"
         },
         {
             "path": "server/app/service.php",
@@ -23037,7 +23037,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5faf20e19df028905b656cc3d3d5b819967544ee58051fe57a7b63bad46c2104"
+            "source_sha256": "4c879af2fab1c6b500c2026e1bf421c72f2e7108a12c50a5655d28c45cdd315f"
         },
         {
             "path": "server/database/init.sql",
@@ -23065,7 +23065,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2efef347f5a5f087e241d0857dcbc0ec0cc949af072dca087722c9f98240e3b3"
+            "source_sha256": "d13af4215b1566795eea74e5635a1d46aeac4eae2e55e526902e858abcc0d1dc"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",

@@ -109,7 +109,7 @@ final readonly class ApplicationReleaseVersions
     {
         $identityPath = $serverRoot . '/.peanut/release-identity.json';
         if (file_exists($identityPath) || is_link($identityPath)) {
-            $version = ServerReleaseIdentity::load($serverRoot)->versions()['release_sequence_version'];
+            $version = ServerReleaseIdentity::resolve($serverRoot)->versions()['release_sequence_version'];
             if (preg_match(self::STRICT_SEMVER, $version) !== 1) {
                 throw new RuntimeException('APPLICATION_RELEASE_VERSION_INVALID');
             }

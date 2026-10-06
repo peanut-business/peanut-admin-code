@@ -180,7 +180,7 @@ final class InstallationPreflightHost
             if ($serverRelease) {
                 try {
                     require_once $this->serverRoot . '/vendor/autoload.php';
-                    $identity = ServerReleaseIdentity::load($this->serverRoot);
+                    $identity = ServerReleaseIdentity::resolve($this->serverRoot);
                     $expected = $identity->projectedPluginLockSha256();
                     if (!hash_equals($expected, (string) hash_file('sha256', $this->serverRoot . '/plugins.lock'))) {
                         throw new RuntimeException('Server Plugin lock differs from release identity.');
