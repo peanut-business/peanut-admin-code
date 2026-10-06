@@ -2,12 +2,16 @@
 
 use app\ExceptionHandle;
 use app\Request;
+use app\common\value\installation\ServerReleaseIdentity;
+use think\App;
 use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Kernel\Auth\Clock;
 use PeanutAdmin\Kernel\Auth\SystemClock;
 
 // 容器Provider定义文件
 return [
+    // Bound before config loading; one complete verification per HTTP App, never a process cache.
+    ServerReleaseIdentity::class => static fn(App $app): ServerReleaseIdentity => ServerReleaseIdentity::load($app->getRootPath()),
     Clock::class => SystemClock::class,
     // Native application binding: replace this entry to supply an application implementation.
     PasswordPolicy::class => static function (): PasswordPolicy {

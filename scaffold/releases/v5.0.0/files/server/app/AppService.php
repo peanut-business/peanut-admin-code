@@ -216,6 +216,7 @@ class AppService extends Service
                 $this->app->make(AuditContractHost::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
                 $this->app->make(ModuleComposition::class),
+                $this->app->make(CompiledModuleRegistry::class),
             ),
         );
         $this->app->bind(AuditContractHost::class, fn(): AuditContractHost => new AuditContractHost(

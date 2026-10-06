@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "5.0.0",
-        "source_commit": "456c2fa110cd3b69b67b95c58de51aceb4c23deb",
-        "source_tree": "b57c55d6ca2b3308265e04ce912535d69cce08ed",
-        "inventory_sha256": "c500acd36e21684dad64c52864aa37564223f4fa05d157f33beca2eda54d2bcb",
+        "source_commit": "2166cb5b7415c832cd3d5db536da9df07532c274",
+        "source_tree": "0f1def22294e1370f4f9b9056cba61bee87fcbac",
+        "inventory_sha256": "c2b17e0aac02f4f8e94a65a207baefa0cb41cce3f5a330806e53ba4fa04aa318",
         "inventory_template_version": "5.0.0",
-        "managed_tree_sha256": "9e0b84220820402ff484d6e5fe05ff353a71d9d3db7ca4610b7057feeaa03ae3",
+        "managed_tree_sha256": "6c8e96f06ea21684b65ec275b2657dca6763a28f3479861f1c6007b5097cc3d9",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -2952,7 +2952,7 @@
         {
             "path": "server/app/AppService.php",
             "source": "files/server/app/AppService.php",
-            "template_sha256": "63fd3e15852d714b354fec968f848463cff6f46f979138a4c746bd3a10e20283",
+            "template_sha256": "fba7a931f7acd22c5cfcccb0fcedc24a8bfe64eb5b3d9f2c4465b63fff9aaa5b",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -5712,7 +5712,7 @@
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
             "source": "files/server/app/common/services/installation/InstallationExecutionHost.php",
-            "template_sha256": "89addc9a7dd703e5723f6fb18b6a383057fdad8d45303b60b8989a8f4ade996f",
+            "template_sha256": "9e71ca448a5750b866ea94edbd9a2ba1d1da5548b75e09070433ccdf441101eb",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -5722,7 +5722,7 @@
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
             "source": "files/server/app/common/services/installation/InstallationPreflightHost.php",
-            "template_sha256": "eb9ddc35cc6cb77e7b390f1ff6e985d1c15f4aa52670c720f54790524822261f",
+            "template_sha256": "bef2f574fcf27df9af293723a5625d6867e53aa51a6c37f8769bfdb4c8614bb0",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -5982,7 +5982,7 @@
         {
             "path": "server/app/common/value/installation/ApplicationReleaseVersions.php",
             "source": "files/server/app/common/value/installation/ApplicationReleaseVersions.php",
-            "template_sha256": "1d118bdfe51ec983722917d784a3218de0cb8e878b0f3b22b293dd67ee1cee6b",
+            "template_sha256": "63efe7077ae92e918d55dcc1225cd9046315ace69ab9a6929924e00241918778",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -6002,7 +6002,7 @@
         {
             "path": "server/app/common/value/installation/ServerReleaseIdentity.php",
             "source": "files/server/app/common/value/installation/ServerReleaseIdentity.php",
-            "template_sha256": "a3ace8212adb4fe8a4c19a060aef717fb0467917975f7745d5ca53be017ce166",
+            "template_sha256": "c521d77a28b70fb714e416c2ede0b726eabb3b8f6076651fcf77eba5b0ce5c13",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15042,7 +15042,7 @@
         {
             "path": "server/app/platform/infrastructure/plugin/PluginLockResolver.php",
             "source": "files/server/app/platform/infrastructure/plugin/PluginLockResolver.php",
-            "template_sha256": "8dafc1406ff0afea8349251690b7f0b9aca55e1a2fa8e5e1ba491da84b4e9b22",
+            "template_sha256": "676ae1f4a283ee77650eaec34711bb21f8a304a623bf933e54102a9fe13c327f",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15542,7 +15542,7 @@
         {
             "path": "server/app/provider.php",
             "source": "files/server/app/provider.php",
-            "template_sha256": "4bfded465acd6e591ae38307245a175af7ecb7eee224f015dddf34b107f6a537",
+            "template_sha256": "1340591bd7e80e9223ead1e817ede0238343ceb2fc0baad07954ed27be62406e",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15862,7 +15862,7 @@
         {
             "path": "server/database/environment-guard.php",
             "source": "files/server/database/environment-guard.php",
-            "template_sha256": "5faf20e19df028905b656cc3d3d5b819967544ee58051fe57a7b63bad46c2104",
+            "template_sha256": "4c879af2fab1c6b500c2026e1bf421c72f2e7108a12c50a5655d28c45cdd315f",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15882,7 +15882,7 @@
         {
             "path": "server/database/install.php",
             "source": "files/server/database/install.php",
-            "template_sha256": "e972a1d695e7aa9166fbdada1251895f6874ed24d75e8311867039ba97b087d0",
+            "template_sha256": "4d91fd0aafa8d01a1c6db7b7ee4ead4a9ab1d790ebb2530aa1b8e2eec375ad51",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,

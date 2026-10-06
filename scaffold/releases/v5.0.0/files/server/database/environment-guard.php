@@ -34,7 +34,7 @@ function projectResourceRegistry(?string &$registrySha256 = null): array
     $instanceRegistryPath = $serverRoot . '/private/resources/project-resources.json';
     $serverOnly = file_exists($serverIdentityPath) || is_link($serverIdentityPath);
     if ($serverOnly) {
-        $expectedProjectId = ServerReleaseIdentity::load($serverRoot)->applicationSlug();
+        $expectedProjectId = ServerReleaseIdentity::resolve($serverRoot)->applicationSlug();
         if ($explicitPath !== false && trim($explicitPath) !== '') {
             throw new RuntimeException('server-only APP 不允许通过环境变量读取外部资源登记');
         }

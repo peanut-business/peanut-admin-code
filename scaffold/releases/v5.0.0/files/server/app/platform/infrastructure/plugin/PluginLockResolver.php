@@ -41,7 +41,7 @@ final class PluginLockResolver
                 throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server Plugin projection path is invalid.');
             }
             $this->assertExactKeys($lock, ['schema_version', 'protocol', 'plugins'], 'PLUGIN_LOCK_INVALID');
-            $identity = ServerReleaseIdentity::load($this->serverRoot);
+            $identity = ServerReleaseIdentity::resolve($this->serverRoot);
             $projectedDigest = $identity->projectedPluginLockSha256();
             if (!hash_equals($projectedDigest, (string) hash_file('sha256', $lockPath))) {
                 throw new PluginLifecycleException('PLUGIN_ARTIFACT_MISMATCH', 'Server Plugin projection differs from release identity.');

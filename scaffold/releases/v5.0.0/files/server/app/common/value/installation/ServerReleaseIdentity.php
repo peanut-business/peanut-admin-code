@@ -6,11 +6,26 @@ namespace app\common\value\installation;
 
 use JsonException;
 use RuntimeException;
+use think\App;
+use think\Container;
 
 /** The one generated identity carried by a server-only release. */
 final readonly class ServerReleaseIdentity
 {
     private function __construct(private array $document, private string $digest) {}
+
+    /** Reuse the current HTTP application's verified identity; CLI and other roots are verified independently. */
+    public static function resolve(string $serverRoot): self
+    {
+        $container = Container::getInstance();
+        $root = realpath($serverRoot);
+        if ($container instanceof App && !$container->runningInConsole()
+            && $root !== false && $root === realpath($container->getRootPath())) {
+            return $container->make(self::class);
+        }
+
+        return self::load($serverRoot);
+    }
 
     public static function load(string $serverRoot): self
     {
