@@ -2329,11 +2329,13 @@ class Runner:
         if proof_dir.is_symlink() or not proof_dir.is_dir():
             fail("active child lease proof directory is unavailable")
         mounts = f"      - {proof_dir}:{self.plan['lease_proof_container_path']}:ro\n"
+        mounts += f"      - {proof_dir}:/var/www/peanut-http{self.plan['lease_proof_container_path']}:ro\n"
         if self.args.parent_lease:
             parent = proof_dir.parent / self.args.parent_lease
             if parent.is_symlink() or not parent.is_dir():
                 fail("active parent lease proof directory is unavailable")
             mounts += f"      - {parent}:/run/peanut-admin/resource-lease-parent:ro\n"
+            mounts += f"      - {parent}:/var/www/peanut-http/run/peanut-admin/resource-lease-parent:ro\n"
         return ("services:\n  php:\n    depends_on: !reset {}\n    volumes:\n" + mounts
             + "  mysql:\n    profiles: [bundled-db]\nnetworks:\n  default:\n    ipam:\n      config:\n        - subnet: 192.168.224.0/20\n")
 

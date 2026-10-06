@@ -14,7 +14,10 @@ umask 077
 for path in "$SERVER_DIR/public" "$SERVER_DIR/private" "$SERVER_DIR/docker" \
     "$DOCKER_DIR/mysql" "$DOCKER_DIR/secrets" "$SERVER_DIR/runtime" \
     "$SERVER_DIR/public/storage" "$SERVER_DIR/private/storage" \
-    "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources"; do
+    "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources" "$SERVER_DIR/private/maintenance" \
+    "$SERVER_DIR/private/resources/pending" "$SERVER_DIR/runtime/cache" "$SERVER_DIR/runtime/log" \
+    "$SERVER_DIR/runtime/session" "$SERVER_DIR/runtime/temp" "$SERVER_DIR/runtime/storage" \
+    "$SERVER_DIR/runtime/generator" "$SERVER_DIR/runtime/file"; do
     [ ! -L "$path" ] && { [ ! -e "$path" ] || [ -d "$path" ]; } || {
         echo "protected directory is linked or has an unsafe type: $path" >&2; exit 1;
     }
@@ -80,7 +83,10 @@ mkdir -p "$SERVER_DIR/runtime"
 
 mkdir -p "$DOCKER_DIR/mysql" "$DOCKER_DIR/secrets" \
     "$SERVER_DIR/public/storage" "$SERVER_DIR/private/storage" \
-    "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources"
+    "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources" "$SERVER_DIR/private/maintenance" \
+    "$SERVER_DIR/private/resources/pending" "$SERVER_DIR/runtime/cache" "$SERVER_DIR/runtime/log" \
+    "$SERVER_DIR/runtime/session" "$SERVER_DIR/runtime/temp" "$SERVER_DIR/runtime/storage" \
+    "$SERVER_DIR/runtime/generator" "$SERVER_DIR/runtime/file"
 installed="$SERVER_DIR/private/installation/installed.json"
 
 token="$DOCKER_DIR/secrets/install-token"

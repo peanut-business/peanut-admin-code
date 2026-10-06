@@ -32,7 +32,7 @@ $schemas = [
         'type' => 'object', 'additionalProperties' => false,
         'required' => ['state', 'code', 'configured', 'application'],
         'properties' => [
-            'state' => ['type' => 'string', 'enum' => ['unconfigured', 'configured', 'blocked', 'installed']],
+            'state' => ['type' => 'string', 'enum' => ['unconfigured', 'pending', 'configured', 'blocked', 'installed']],
             'code' => ['type' => 'string'],
             'configured' => ['type' => 'boolean'],
             'application' => $ref('InstallationApplicationIdentity'),
@@ -54,8 +54,8 @@ $schemas = [
         'type' => 'object', 'additionalProperties' => false,
         'required' => ['state', 'code', 'restart_required', 'application', 'deployment_target', 'database_resource_id', 'database_name'],
         'properties' => [
-            'state' => ['type' => 'string', 'enum' => ['configured']],
-            'code' => ['type' => 'string', 'enum' => ['INSTALL_CONFIGURATION_COMPLETED']],
+            'state' => ['type' => 'string', 'enum' => ['pending', 'configured']],
+            'code' => ['type' => 'string', 'enum' => ['INSTALL_CONFIGURATION_PENDING', 'INSTALL_CONFIGURATION_COMPLETED']],
             'restart_required' => ['type' => 'boolean'],
             'application' => $ref('InstallationApplicationIdentity'),
             'deployment_target' => ['type' => 'string'],

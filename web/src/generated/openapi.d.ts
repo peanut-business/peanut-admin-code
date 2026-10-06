@@ -6898,7 +6898,7 @@ export interface components {
         };
         InstallationConfigurationStatus: {
             /** @enum {string} */
-            state: "unconfigured" | "configured" | "blocked" | "installed";
+            state: "unconfigured" | "pending" | "configured" | "blocked" | "installed";
             code: string;
             configured: boolean;
             application: components["schemas"]["InstallationApplicationIdentity"];
@@ -6914,9 +6914,9 @@ export interface components {
         };
         InstallationConfigureResult: {
             /** @enum {string} */
-            state: "configured";
+            state: "pending" | "configured";
             /** @enum {string} */
-            code: "INSTALL_CONFIGURATION_COMPLETED";
+            code: "INSTALL_CONFIGURATION_PENDING" | "INSTALL_CONFIGURATION_COMPLETED";
             restart_required: boolean;
             application: components["schemas"]["InstallationApplicationIdentity"];
             deployment_target: string;

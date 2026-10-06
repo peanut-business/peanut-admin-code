@@ -54,7 +54,18 @@ def read_json(path):
 
 
 def verification_key(server):
-    path = server / "private/installation/update-verification.key"
+    legacy = server / "private/installation/update-verification.key"
+    if legacy.exists() or legacy.is_symlink():
+        raise ValueError("OWNER_MAINTENANCE_REQUIRED: previous fixed-tool transaction and legacy verification key require their original owner")
+    parent = server / "private"
+    if parent.is_symlink() or not parent.is_dir() or parent.stat().st_mode & 0o022 or parent.stat().st_uid not in (0, server.stat().st_uid):
+        raise ValueError("private maintenance parent requires its deployment owner")
+    directory = parent / "maintenance"
+    if directory.is_symlink() or not directory.is_dir() or directory.stat().st_mode & 0o777 != 0o700:
+        raise ValueError("private maintenance directory is unsafe")
+    if directory.stat().st_uid not in (0, server.stat().st_uid):
+        raise ValueError("private maintenance directory requires its deployment owner")
+    path = directory / "update-verification.key"
     regular(path, 0o600)
     key = path.read_text().strip()
     if not HEX64.fullmatch(key):
@@ -237,11 +248,15 @@ def assert_stopped(server):
             or labels.get("com.docker.compose.project.working_dir") != str(docker_dir) \
             or status != ("running" if service == "mysql" else "exited"):
             raise ValueError("Compose container identity, working directory or state changed")
-        expected = {"php": (server, "/var/www/peanut-admin/server"),
+        expected = {"php": (server, "/run/peanut-owner/server"),
                     "nginx": (server / "public", "/var/www/peanut-admin/server/public"),
                     "mysql": (docker_dir / "mysql", "/var/lib/mysql")}[service]
         if sum(m.get("Type") == "bind" and m.get("Source") == str(expected[0]) and m.get("Destination") == expected[1] for m in mounts) != 1:
             raise ValueError("Compose container mount belongs to another instance")
+        if service == "php":
+            if sum(m.get("Type") == "bind" and m.get("Source") == str(server)
+                   and m.get("Destination") == "/var/www/peanut-http/server" and m.get("RW") is False for m in mounts) != 1:
+                raise ValueError("FPM readonly program mount belongs to another instance")
         image = details.get("Image", "")
         if not IMAGE_ID.fullmatch(image):
             raise ValueError("Compose image ID is invalid")

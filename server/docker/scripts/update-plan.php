@@ -38,7 +38,7 @@ final class PeanutServerUpdatePlan
             'plan',
             'files-apply', 'files-verify', 'files-recover', 'files-verify-recovery',
             'hold', 'health', 'publish', 'open',
-            'initialize-traffic',
+            'initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration',
         ], true)) {
             self::usage();
         }
@@ -53,7 +53,7 @@ final class PeanutServerUpdatePlan
         $command = $argv[1];
         $requiredOptions = $command === 'plan'
             ? ['instance-server', 'archive', 'expected-sha256', 'workspace']
-            : ($command === 'initialize-traffic' ? ['instance-server'] : ['instance-server', 'workspace']);
+            : (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration'], true) ? ['instance-server'] : ['instance-server', 'workspace']);
         foreach ($requiredOptions as $required) {
             if (!isset($options[$required])) {
                 self::usage();
@@ -62,7 +62,7 @@ final class PeanutServerUpdatePlan
         if ($command !== 'plan' && (isset($options['archive']) || isset($options['expected-sha256']))) {
             self::usage();
         }
-        if ($command === 'initialize-traffic' && isset($options['workspace'])) {
+        if (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration'], true) && isset($options['workspace'])) {
             self::usage();
         }
 
@@ -77,6 +77,9 @@ final class PeanutServerUpdatePlan
                 'files-apply', 'files-verify', 'files-recover', 'files-verify-recovery',
                 'hold', 'health', 'publish', 'open' => self::productPhase($options['instance-server'], $options['workspace'], $command),
                 'initialize-traffic' => self::initializeTraffic($options['instance-server']),
+                'initialize-owner-traffic' => self::initializeTraffic($options['instance-server'], true),
+                'close-startup-traffic' => self::closeStartupTraffic($options['instance-server']),
+                'publish-startup-configuration' => self::publishStartupConfiguration($options['instance-server']),
             };
             echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), PHP_EOL;
             return 0;
@@ -243,15 +246,55 @@ final class PeanutServerUpdatePlan
         });
     }
 
-    public static function initializeTraffic(string $serverRoot): array
+    public static function publishStartupConfiguration(string $serverRoot): array
+    {
+        $serverRoot = self::ordinaryDirectory($serverRoot, 'server root');
+        self::assertNoLegacyMaintenanceKey($serverRoot);
+        self::assertAdmissionBoundary($serverRoot);
+        return self::withInstanceLock($serverRoot, static function () use ($serverRoot): array {
+            if (file_exists(self::trafficReadyPath($serverRoot)) || is_link(self::trafficReadyPath($serverRoot))
+                || file_exists(self::maintenancePath($serverRoot)) || file_exists(self::currentPointerPath($serverRoot))) {
+                throw new RuntimeException('configuration owner requires closed initial traffic');
+            }
+            if ((lstat($serverRoot . '/docker/secrets/install-token')['mode'] & 0777) !== 0600) {
+                throw new RuntimeException('initial setup token is not protected');
+            }
+            $token = trim(self::regularBytes($serverRoot . '/docker/secrets/install-token', 'initial setup token'));
+            require_once $serverRoot . '/vendor/autoload.php';
+            $identity = \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+            $application = new \think\App($serverRoot);
+            $application->instance(\app\common\value\installation\ServerReleaseIdentity::class, $identity);
+            return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))->publishPending($token);
+        });
+    }
+
+    public static function closeStartupTraffic(string $serverRoot): array
+    {
+        $serverRoot = self::ordinaryDirectory($serverRoot, 'server root');
+        $owner = fileowner($serverRoot);
+        if (!is_int($owner) || !in_array(posix_geteuid(), [0, $owner], true)) {
+            throw new RuntimeException('startup traffic requires its deployment owner');
+        }
+        return self::withInstanceLock($serverRoot, static function () use ($serverRoot): array {
+            self::revokeTraffic($serverRoot);
+            return ['status' => 'closed'];
+        });
+    }
+
+    public static function initializeTraffic(string $serverRoot, bool $ownerStartup = false): array
     {
         $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot): array {
+        if ($ownerStartup && ($serverRoot !== '/run/peanut-owner/server' || posix_geteuid() !== 0)) {
+            throw new RuntimeException('readonly startup requires its native root owner');
+        }
+        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $ownerStartup): array {
             $maintenance = self::maintenancePath($serverRoot);
             $pointer = self::currentPointerPath($serverRoot);
             if (file_exists($maintenance) || is_link($maintenance)
                 || file_exists($pointer) || is_link($pointer)) {
                 self::revokeTraffic($serverRoot);
+                [, , $serverRelease] = self::startupIdentity($serverRoot);
+                self::prepareRuntimeAdmission($serverRoot, $serverRelease);
                 return ['status' => 'closed'];
             }
             try {
@@ -283,7 +326,14 @@ final class PeanutServerUpdatePlan
                     throw $exception;
                 }
                 if (!file_exists($ready) && !is_link($ready)) {
-                    return ['status' => 'closed'];
+                    if (!$ownerStartup || !$serverRelease
+                        || file_exists($serverRoot . '/private/resources/pending/configuration.json')
+                        || is_link($serverRoot . '/private/resources/pending/configuration.json')) {
+                        return ['status' => 'closed'];
+                    }
+                    self::prepareStartupAdmission($serverRoot, $serverRelease);
+                    self::grantTraffic($serverRoot);
+                    return ['status' => 'open'];
                 }
                 try {
                     self::assertTrafficReady($serverRoot);
@@ -292,7 +342,7 @@ final class PeanutServerUpdatePlan
                     throw $exception;
                 }
                 self::removeTrafficReady($serverRoot);
-                self::prepareRuntimeAdmission($serverRoot, $serverRelease);
+                self::prepareStartupAdmission($serverRoot, $serverRelease);
                 self::grantTraffic($serverRoot);
                 return ['status' => 'open'];
             }
@@ -301,7 +351,7 @@ final class PeanutServerUpdatePlan
                 throw new RuntimeException('unbound traffic permission exists before initialization');
             }
             self::durableFile($initialized, "peanut.server-traffic-initialized.v1\n", 0600);
-            self::prepareRuntimeAdmission($serverRoot, $serverRelease);
+            self::prepareStartupAdmission($serverRoot, $serverRelease);
             self::grantTraffic($serverRoot);
             return ['status' => 'open'];
         });
@@ -536,8 +586,19 @@ final class PeanutServerUpdatePlan
 
     private static function assertAdmissionBoundary(string $serverRoot): void
     {
+        self::assertNoLegacyMaintenanceKey($serverRoot);
+        require_once $serverRoot . '/app/common/infrastructure/installation/ReadonlyHttpMount.php';
         require_once $serverRoot . '/app/common/infrastructure/installation/VerifiedServerDeployment.php';
         \app\common\infrastructure\installation\VerifiedServerDeployment::assertImmutableProgram($serverRoot);
+    }
+
+    private static function prepareStartupAdmission(string $serverRoot, bool $serverRelease): void
+    {
+        if ($serverRelease && is_file($serverRoot . '/private/installation/installed.json')) {
+            self::nativeRuntimeHealth($serverRoot);
+        } else {
+            self::prepareRuntimeAdmission($serverRoot, $serverRelease);
+        }
     }
 
     private static function prepareRuntimeAdmission(string $serverRoot, bool $serverRelease): void
@@ -593,9 +654,31 @@ final class PeanutServerUpdatePlan
         }
     }
 
+    private static function assertNoLegacyMaintenanceKey(string $serverRoot): void
+    {
+        $legacy = $serverRoot . '/private/installation/update-verification.key';
+        if (file_exists($legacy) || is_link($legacy)) {
+            throw new RuntimeException('OWNER_MAINTENANCE_REQUIRED: finish the previous fixed-tool transaction before adopting readonly runtime; legacy verification key must be retired by its owner');
+        }
+    }
+
     private static function verificationKey(string $serverRoot, bool $create): string
     {
-        $path = $serverRoot . '/private/installation/update-verification.key';
+        self::assertNoLegacyMaintenanceKey($serverRoot);
+        $directory = $serverRoot . '/private/maintenance';
+        self::ensureDirectory($directory, 0700);
+        $owner = fileowner($serverRoot);
+        $stat = lstat($directory);
+        $parent = lstat($serverRoot . '/private');
+        if (is_link($serverRoot . '/private') || !is_dir($serverRoot . '/private')
+            || !in_array($parent['uid'], [0, $owner], true) || ($parent['mode'] & 0022) !== 0) {
+            throw new RuntimeException('private maintenance parent requires its deployment owner');
+        }
+        if (!is_int($owner) || !in_array(posix_geteuid(), [0, $owner], true)
+            || !in_array($stat['uid'], [0, $owner], true) || ($stat['mode'] & 0777) !== 0700) {
+            throw new RuntimeException('private maintenance directory requires its deployment owner');
+        }
+        $path = $directory . '/update-verification.key';
         if (!file_exists($path) && !is_link($path) && $create) {
             self::durableFile($path, bin2hex(random_bytes(32)) . "\n", 0600);
         }

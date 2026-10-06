@@ -14,5 +14,15 @@ RUN apt-get update \
     && php -r 'foreach (["curl","dom","mbstring","pdo_mysql","simplexml","sodium","zip"] as $extension) { if (!extension_loaded($extension)) {fwrite(STDERR, "missing PHP extension: $extension\n"); exit(1); }}' \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /var/www/peanut-admin/server
+# Native FPM chroot uses the prepared OS, PHP, CA and timezone files.
+# This image filesystem contains no application program or copied vendor tree.
+RUN mkdir -p /var/www/peanut-http/dev /var/www/peanut-http/run /var/www/peanut-http/tmp /var/www/peanut-http/var/tmp \
+    && cp -a /bin /etc /lib /lib64 /sbin /usr /var/www/peanut-http/ \
+    && mknod -m 0666 /var/www/peanut-http/dev/null c 1 3 \
+    && mknod -m 0666 /var/www/peanut-http/dev/random c 1 8 \
+    && mknod -m 0666 /var/www/peanut-http/dev/urandom c 1 9 \
+    && chmod 1777 /var/www/peanut-http/tmp /var/www/peanut-http/var/tmp \
+    && chmod 0755 /var/www/peanut-http /var/www/peanut-http/run
+
+WORKDIR /run/peanut-owner/server
 CMD ["php-fpm", "-F"]

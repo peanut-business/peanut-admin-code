@@ -253,7 +253,27 @@ try {
         );
     }
 
-    echo "SERVER-RELEASE-RUNTIME-IDENTITY passed assertions=12\n";
+    $mountParser = new ReflectionMethod(app\common\infrastructure\installation\ReadonlyHttpMount::class, 'mounts');
+    $mountSelection = new ReflectionMethod(app\common\infrastructure\installation\ReadonlyHttpMount::class, 'effective');
+    $mounts = $mountParser->invoke(null, "1 0 0:1 / / rw - overlay overlay rw\n"
+        . "2 1 0:2 / /var/www/peanut-http/server ro - virtiofs server rw\n"
+        . "3 2 0:2 /runtime/cache /var/www/peanut-http/server/runtime/cache rw - virtiofs server rw\n");
+    serverReleaseIdentityExpect(
+        $mountSelection->invoke(null, $mounts, '/var/www/peanut-http/server/app/AppService.php')['readonly'],
+        'kernel mount options must prove program readonly even when filesystem superblock is writable',
+    );
+    serverReleaseIdentityExpect(
+        !$mountSelection->invoke(null, $mounts, '/var/www/peanut-http/server/runtime/cache/data.php')['readonly'],
+        'the most specific mutable mount must override its readonly program parent',
+    );
+    try {
+        $mountParser->invoke(null, 'invalid mount table');
+        throw new RuntimeException('invalid kernel mount table was accepted');
+    } catch (RuntimeException $exception) {
+        serverReleaseIdentityExpect($exception->getMessage() === 'HTTP_MOUNT_TABLE_INVALID', 'invalid kernel mount evidence must fail closed');
+    }
+
+    echo "SERVER-RELEASE-RUNTIME-IDENTITY passed assertions=15\n";
 } finally {
     serverReleaseIdentityDelete($fixture);
 }

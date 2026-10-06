@@ -1,8 +1,11 @@
 #!/bin/sh
 # Run only as the root PHP container entrypoint, against its fixed server mount.
 set -eu
+case "${1:-}" in ""|--readonly-http) ;; *) exit 64 ;; esac
 
-root=/var/www/peanut-admin/server
+native_root=/var/www/peanut-admin/server
+if [ "${1:-}" = --readonly-http ]; then native_root=/run/peanut-owner/server; fi
+root=$native_root
 if [ "${PEANUT_PERMISSION_TEST:-0}" = 1 ]; then
     root=${PEANUT_SERVER_ROOT:-}
     case "$root" in /tmp/phase1-c-*/server|/tmp/*/phase1-c-*/server|/var/tmp/phase1-c-*/server|/var/tmp/*/phase1-c-*/server) ;; *)
@@ -12,7 +15,7 @@ fi
 [ "$(id -u)" -eq 0 ] || { echo 'permission preparation requires container root' >&2; exit 1; }
 [ -d "$root" ] && [ ! -L "$root" ] || { echo 'server root is unsafe' >&2; exit 1; }
 root=$(cd "$root" && pwd -P)
-[ "$root" = "${PEANUT_SERVER_ROOT:-/var/www/peanut-admin/server}" ] || { echo 'server root must be canonical' >&2; exit 1; }
+[ "$root" = "${PEANUT_SERVER_ROOT:-$native_root}" ] || { echo 'server root must be canonical' >&2; exit 1; }
 app_uid=$(id -u www-data)
 app_gid=$(id -g www-data)
 [ "$app_uid" -ne 0 ] && [ "$app_gid" -ne 0 ] || exit 1
@@ -139,8 +142,8 @@ elif [ "${blocked:-0}" -eq 1 ] || {
 fi
 
 # Change only named directories. Never traverse storage, uploads, or code.
-for path in private runtime public private/storage private/installation private/resources \
-    runtime/upgrade public/storage; do
+for path in private runtime public private/storage private/installation private/resources private/resources/pending \
+    runtime/upgrade public/storage runtime/cache runtime/log runtime/session runtime/temp runtime/storage runtime/generator runtime/file; do
     safe_dir "$path"
     owner=$(stat -c %u "$path")
     [ "$owner" -eq 0 ] || [ "$owner" -eq "$root_uid" ] || [ "$owner" -eq "$app_uid" ] || {
@@ -149,9 +152,9 @@ for path in private runtime public private/storage private/installation private/
 done
 # Sticky runtime protection requires both the parent and update guard to remain
 # owned by the deployment owner, never by the application process.
-chown "$root_uid" runtime runtime/upgrade
+chown "$root_uid" private runtime runtime/upgrade
 chmod 0755 runtime/upgrade
-for path in private private/storage private/installation private/resources runtime public/storage; do
+for path in private private/storage private/installation private/resources private/resources/pending runtime public/storage runtime/cache runtime/log runtime/session runtime/temp runtime/storage runtime/generator runtime/file; do
     chgrp "$app_gid" "$path"
     case "$path" in
         private) chmod 0750 "$path" ;;
@@ -178,9 +181,7 @@ if [ "${configured:-0}" -ne 1 ] && [ "${installed:-0}" -ne 1 ]; then
     [ -f docker/secrets/install-token ] && [ ! -L docker/secrets/install-token ] || {
         echo 'fresh installation token is unavailable' >&2; exit 1;
     }
-    [ ! -e private/resources/configuration.lock ] || {
-        echo 'pending configuration lock blocks a new permission window' >&2; exit 1;
-    }
+    if [ "${1:-}" != --readonly-http ]; then
     if [ ! -e "$state" ]; then
         read -r old_dev old_ino old_uid old_gid old_mode <<EOF
 $(stat_dir .)
@@ -195,5 +196,6 @@ EOF
         chgrp "$app_gid" .
         chmod 1775 .
         sync -f .
+    fi
     fi
 fi

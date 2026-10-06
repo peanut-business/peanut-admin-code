@@ -35,7 +35,8 @@ class RecoveryFilesTest(unittest.TestCase):
         self.server = root / "server"
         self.workspace = root / "update"
         self.server.mkdir()
-        write(self.server / "private/installation/update-verification.key", b"a" * 64 + b"\n")
+        write(self.server / "private/maintenance/update-verification.key", b"a" * 64 + b"\n")
+        (self.server / "private/maintenance").chmod(0o700)
         (self.workspace / "recovery").mkdir(parents=True)
         self.plan = {"update_id": "unit-update", "source": {}}
         snapshots = {}
@@ -58,7 +59,24 @@ class RecoveryFilesTest(unittest.TestCase):
         self.runtime = {"images": {name: "sha256:" + name[0] * 64 for name in ("php", "nginx", "mysql")},
                         "project": "peanut-unit"}
         self.identity = {"resource_id": "db-unit", "endpoint_id": "mysql-unit", "database": "peanut"}
-        self.record = {"protocol": "peanut.server-update-backup.v1", "update_id": "unit-update",
+        # Real canonical phase binding for the native file-recovery consumer.
+        # instance/service/database effects remain isolated by the existing test patchers.
+        canonical = lambda value: json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+        product_path = root / "product-plan.json"
+        state_path = root / "product-state.json"
+        product = {"protocol": "peanut.product-upgrade-plan.v2", "workspace": str(self.workspace),
+                   "candidate": "unit-candidate", "state_path": str(state_path)}
+        product["plan_sha256"] = "sha256:" + hashlib.sha256(canonical(product)).hexdigest()
+        write(product_path, json.dumps(product).encode())
+        state = {"protocol": "peanut.product-upgrade-state.v1", "candidate": product["candidate"],
+                 "plan_sha256": product["plan_sha256"]}
+        state["state_sha256"] = "sha256:" + hashlib.sha256(canonical(state)).hexdigest()
+        write(state_path, json.dumps(state).encode())
+        write(self.workspace / "product-binding.json", json.dumps({"plan_path": str(product_path),
+              "plan_sha256": product["plan_sha256"]}).encode())
+        self.record = {"product_plan_sha256": product["plan_sha256"],
+                       "storage": {name: None for name in recovery.STORAGE_NAMES},
+                       "protocol": "peanut.server-update-backup.v1", "update_id": "unit-update",
                        "plan_sha256": digest(self.workspace / "plan.json"), "database_identity": dict(self.identity),
                        "database_dump_sha256": digest(self.workspace / "recovery/database.sql.gz"),
                        "source_images": self.runtime["images"], "compose_project": self.runtime["project"],
@@ -222,7 +240,8 @@ class ActualInstanceBindingTest(unittest.TestCase):
             recovery.instance(self.args)
 
     def test_dump_failure_never_publishes_recovery_receipt(self):
-        write(self.server / "private/installation/update-verification.key", b"a" * 64 + b"\n")
+        write(self.server / "private/maintenance/update-verification.key", b"a" * 64 + b"\n")
+        (self.server / "private/maintenance").chmod(0o700)
         write(self.server / "docker/.env", b"COMPOSE_PROJECT_NAME=peanut-unit\n")
         journal = json.loads((self.workspace / "journal.json").read_text())
         journal.update({"status": "applying", "operations": [{"status": "pending"}]})
@@ -244,6 +263,7 @@ class ActualInstanceBindingTest(unittest.TestCase):
         ids = {name: name[0] * 64 for name in ("php", "nginx", "mysql")}
         images = {name: "sha256:" + digit * 64 for name, digit in (("php", "a"), ("nginx", "b"), ("mysql", "c"))}
         wrong_mount = False
+        writable_http = False
 
         def compose_stub(directory, *arguments, **unused):
             if arguments == ("ps", "--status", "running", "--services"):
@@ -253,7 +273,7 @@ class ActualInstanceBindingTest(unittest.TestCase):
             raise AssertionError(arguments)
 
         def docker_stub(*arguments, **unused):
-            nonlocal wrong_mount
+            nonlocal wrong_mount, writable_http
             if arguments[0] == "ps" and "--filter" in arguments:
                 if any("service=" in arg for arg in arguments):
                     name = next(name for name in ids if any(arg.endswith(f"service={name}") for arg in arguments))
@@ -262,7 +282,7 @@ class ActualInstanceBindingTest(unittest.TestCase):
             if arguments[0] == "inspect":
                 ident = arguments[-1]
                 name = next(name for name in ids if ids[name] == ident)
-                destinations = {"php": (self.server, "/var/www/peanut-admin/server"),
+                destinations = {"php": (self.server, "/run/peanut-owner/server"),
                                 "nginx": (self.server / "public", "/var/www/peanut-admin/server/public"),
                                 "mysql": (self.server / "docker/mysql", "/var/lib/mysql")}
                 source, target = destinations[name]
@@ -272,14 +292,23 @@ class ActualInstanceBindingTest(unittest.TestCase):
                                            "com.docker.compose.service": name,
                                            "com.docker.compose.project.working_dir": str(self.server / "docker")}},
                     "Mounts": [{"Type": "bind", "Source": str(self.server / "other" if wrong_mount and name == "php" else source),
-                                "Destination": target}]})
+                                "Destination": target}] + ([{"Type": "bind", "Source": str(source),
+                                    "Destination": "/var/www/peanut-http/server", "RW": writable_http}] if name == "php" else [])})
             raise AssertionError(arguments)
 
         with patch.object(recovery, "compose", side_effect=compose_stub), patch.object(recovery, "docker", side_effect=docker_stub):
             self.assertEqual(recovery.assert_stopped(self.server)["images"], images)
+            writable_http = True
+            with self.assertRaisesRegex(ValueError, "readonly program mount"):
+                recovery.assert_stopped(self.server)
+            writable_http = False
             wrong_mount = True
             with self.assertRaisesRegex(ValueError, "mount"):
                 recovery.assert_stopped(self.server)
+
+        write(self.server / "private/installation/update-verification.key", b"legacy-owner-input")
+        with self.assertRaisesRegex(ValueError, "OWNER_MAINTENANCE_REQUIRED"):
+            recovery.verification_key(self.server)
 
 
 if __name__ == "__main__":
