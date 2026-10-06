@@ -71,6 +71,8 @@ class PackagingFilesTest(unittest.TestCase):
         for legal in ('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json'):
             self.add(legal, 'fixture legal metadata\n')
         for file in ('server/database/install.php', 'server/public/index.php', 'scripts/upgrade',
+                     'scripts/product-upgrade-host', 'scripts/ops-backup-worker', 'scripts/ops-restore-worker',
+                     'scripts/scaffold-runtime/ScaffoldPathGuard.php',
                      'scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 'scripts/release-dependency-locks.mjs'):
             self.add(file, '<?php /* packaging fixture, not an application */\n' if file.endswith('.php') else '{}\n')
         self.add('plugins.lock', json.dumps({'schema_version': 1, 'plugins': []}))
@@ -310,6 +312,10 @@ class PackagingFilesTest(unittest.TestCase):
         identity=json.loads((self.out/'server/.peanut/release-identity.json').read_text())
         paths=[row['path'] for row in identity['files']]
         self.assertEqual(paths,sorted(paths))
+        version_projection=self.out/'server/.peanut/release-versions.json'
+        self.assertEqual(version_projection.read_bytes(),(self.source/'release-versions.json').read_bytes())
+        projected_row=next(row for row in identity['files'] if row['path']=='server/.peanut/release-versions.json')
+        self.assertEqual(projected_row['sha256'],hashlib.sha256(version_projection.read_bytes()).hexdigest())
         stage=self.root/'vendor-stage'
         result=subprocess.run(['python3',str(ROOT/'server/docker/scripts/vendor-state.py'),'stage',
                                '--server',str(self.out/'server'),'--destination',str(stage)],

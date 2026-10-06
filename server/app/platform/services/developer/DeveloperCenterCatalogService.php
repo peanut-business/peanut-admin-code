@@ -240,14 +240,30 @@ final readonly class DeveloperCenterCatalogService
             }
             $relative = $input['path'] ?? null;
             $expected = $input['sha256'] ?? null;
-            if (!is_string($relative) || !str_starts_with($relative, 'server/')
+            if (!is_string($relative)
+                || ($relative !== 'release-versions.json' && !str_starts_with($relative, 'server/'))
                 || str_starts_with($relative, '/') || str_contains($relative, '\\')
-                || preg_match('#(^|/)\.\.?(/|$)#', $relative) === 1
+                || array_intersect(explode('/', $relative), ['', '.', '..']) !== []
+                || preg_match('/[\x00-\x1f]/', $relative) === 1
                 || !is_string($expected) || preg_match('/^[0-9a-f]{64}$/D', $expected) !== 1
                 || ($previous !== null && strcmp($previous, $relative) >= 0)) {
                 return 'The generated catalog input registry is invalid or not canonically sorted. Regenerate it.';
             }
-            $source = $projectRoot . '/' . $relative;
+            $sourceRelative = $relative;
+            if ($relative === 'release-versions.json'
+                && (file_exists($this->serverRoot . '/.peanut/release-identity.json')
+                    || is_link($this->serverRoot . '/.peanut/release-identity.json'))) {
+                // Server releases carry the exact APP version-source bytes inside their canonical inventory.
+                $sourceRelative = 'server/.peanut/release-versions.json';
+            }
+            $cursor = $projectRoot;
+            foreach (explode('/', $sourceRelative) as $part) {
+                $cursor .= '/' . $part;
+                if (is_link($cursor)) {
+                    return 'A registered API source is linked: ' . $relative . '. Regenerate the catalog.';
+                }
+            }
+            $source = $projectRoot . '/' . $sourceRelative;
             $actual = is_file($source) && !is_link($source) ? hash_file('sha256', $source) : false;
             if (!is_string($actual) || !hash_equals($expected, $actual)) {
                 return 'A registered API source changed or disappeared: ' . $relative . '. Regenerate the catalog.';

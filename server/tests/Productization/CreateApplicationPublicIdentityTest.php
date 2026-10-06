@@ -49,6 +49,21 @@ function publicIdentityWriteJson(string $path, array $data): void
     file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
 }
 
+function publicIdentityCatalog(string $target): void
+{
+    $versions = json_decode((string) file_get_contents($target . '/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+    $openapi = json_decode((string) file_get_contents($target . '/server/generated/openapi.json'), true, 512, JSON_THROW_ON_ERROR);
+    $catalog = json_decode((string) file_get_contents($target . '/server/generated/api-catalog.json'), true, 512, JSON_THROW_ON_ERROR);
+    publicIdentityExpect(($openapi['info']['version'] ?? null) === $versions['source_product_version'], 'generated APP API version lost its source-product identity');
+    publicIdentityExpect(($catalog['inputs'][0]['path'] ?? null) === 'release-versions.json', 'generated APP catalog omitted its version authority');
+    foreach ($catalog['inputs'] as $input) {
+        publicIdentityExpect(hash_file('sha256', $target . '/' . $input['path']) === $input['sha256'], 'generated APP catalog retained a source-template hash: ' . $input['path']);
+    }
+    $manifest = json_decode((string) file_get_contents($target . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+    $catalogRow = array_values(array_filter($manifest['files'], static fn(array $entry): bool => $entry['path'] === 'server/generated/api-catalog.json'))[0] ?? [];
+    publicIdentityExpect(($catalogRow['sha256'] ?? null) === hash_file('sha256', $target . '/server/generated/api-catalog.json'), 'generated APP manifest omitted the materialized catalog bytes');
+}
+
 /** @param array<string,mixed> $inventory */
 function publicIdentitySource(string $root, string $target, array $inventory): void
 {
@@ -138,9 +153,12 @@ try {
     $output = json_decode(publicIdentityRun([
         'php', $source . '/scripts/create-app', '--name=Public Candidate', '--slug=public-candidate',
         '--package=fixture/public-candidate', '--target=' . $target, '--edition=multi-tenant', '--profile=full',
-        '--scaffold-manifest=' . $releasePath,
+        '--scaffold-manifest=' . $releasePath, '--application-version=1.2.3',
     ], $source), true, 512, JSON_THROW_ON_ERROR);
     $manifest = json_decode((string) file_get_contents($target . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+    publicIdentityCatalog($target);
+    $applicationVersions = json_decode((string) file_get_contents($target . '/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+    publicIdentityExpect(($applicationVersions['instance_version'] ?? null) === '1.2.3', 'APP instance version was conflated with the Peanut source-product version');
     publicIdentityExpect(
         ($output['generation_source_commit'] ?? null) === $generationCommit
             && ($manifest['generation_source']['commit'] ?? null) === $generationCommit
@@ -166,6 +184,7 @@ try {
             '--profile=full', '--scaffold-manifest=' . $editionRelease . '/scaffold-manifest.json',
         ];
         $created = json_decode(publicIdentityRun($arguments, $source), true, 512, JSON_THROW_ON_ERROR);
+        publicIdentityCatalog($editionTarget);
         publicIdentityExpect(($created['edition'] ?? null) === $edition, 'sealed edition was not adopted');
         $selector = (string) file_get_contents($editionTarget . '/deploy/docker/nginx-select-admin.sh');
         publicIdentityExpect(

@@ -134,6 +134,8 @@ final class ApplicationCreator
             if ($adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
             }
+            // Verify the adopted source first, then materialize derived metadata from final APP inputs.
+            $files = $this->materializeApiCatalog($stage, $files);
             $templateIdentity = $adoption === null
                 ? [
                     'version' => $inventory['template_version'],
@@ -326,7 +328,7 @@ final class ApplicationCreator
                 throw new RuntimeException('CREATE_APP_ADOPTION_ARTIFACT_DIGEST_MISMATCH: ' . $path);
             }
             $rendered = $this->renderAdoptionArtifact($adoption, $artifact, $tokens, $renderParameters);
-            if (!$this->isDerivedPluginArtifact($path)
+            if (!$this->isDerivedArtifact($path)
                 && !hash_equals($generatedDigest, hash('sha256', $rendered))) {
                 throw new RuntimeException('CREATE_APP_ADOPTION_RENDER_MISMATCH: ' . $path);
             }
@@ -343,9 +345,12 @@ final class ApplicationCreator
         }
     }
 
-    private function isDerivedPluginArtifact(string $path): bool
+    private function isDerivedArtifact(string $path): bool
     {
-        return $path === 'plugins.lock'
+        // Content digests cannot be rendered by replacing application identity tokens.
+        // These artifacts are rebuilt from the individually verified final managed inputs.
+        return $path === 'server/generated/api-catalog.json'
+            || $path === 'plugins.lock'
             || preg_match('#^plugins/[a-z][a-z0-9.-]*/plugin\.json$#D', $path) === 1;
     }
 
@@ -1104,6 +1109,51 @@ final class ApplicationCreator
         if ($rewritten !== []) {
             throw new RuntimeException('CREATE_APP_PLUGIN_ARTIFACT_UNDECLARED: ' . implode(',', array_keys($rewritten)));
         }
+        return $files;
+    }
+
+    /** @param list<array<string,mixed>> $files @return list<array<string,mixed>> */
+    private function materializeApiCatalog(string $stage, array $files): array
+    {
+        $catalogPath = 'server/generated/api-catalog.json';
+        $index = array_search($catalogPath, array_column($files, 'path'), true);
+        if ($index === false) {
+            return $files;
+        }
+        $generator = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_GENERATOR_INVALID');
+        $catalog = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, $catalogPath), 'CREATE_APP_API_CATALOG_INVALID');
+        $openapiPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'server/generated/openapi.json'), 'CREATE_APP_OPENAPI_INVALID');
+        $versionPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'release-versions.json'), 'CREATE_APP_VERSION_INPUT_INVALID');
+        $versions = json_decode((string) file_get_contents($versionPath), true, 512, JSON_THROW_ON_ERROR);
+        $openapi = json_decode((string) file_get_contents($openapiPath), true, 512, JSON_THROW_ON_ERROR);
+        $sourceVersion = $this->versionContract()->sourceProductVersion();
+        if (($versions['source_product_version'] ?? null) !== $sourceVersion
+            || ($openapi['info']['version'] ?? null) !== $sourceVersion) {
+            throw new RuntimeException('CREATE_APP_API_SOURCE_VERSION_MISMATCH');
+        }
+        // The native producer hashes every final APP input, including branded contract sources.
+        $pipes = [];
+        $process = proc_open(
+            [PHP_BINARY, $generator, '--check', '--catalog-output=' . $catalog],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $stage,
+        );
+        if (!is_resource($process)) {
+            throw new RuntimeException('CREATE_APP_API_GENERATOR_UNAVAILABLE');
+        }
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        if (proc_close($process) !== 0 || !is_string($stdout)) {
+            throw new RuntimeException('CREATE_APP_API_GENERATOR_FAILED: ' . trim((string) $stderr));
+        }
+        $content = file_get_contents($catalog);
+        if (!is_string($content) || (fileperms($catalog) & 0777) !== $files[$index]['mode']) {
+            throw new RuntimeException('CREATE_APP_API_CATALOG_WRITE_MISMATCH');
+        }
+        $files[$index]['sha256'] = hash('sha256', $content);
         return $files;
     }
 
