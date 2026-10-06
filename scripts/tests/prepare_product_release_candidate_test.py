@@ -48,6 +48,15 @@ def provenance_statement(name: str, version: str, statement: dict) -> dict:
 
 
 class PrepareProductReleaseCandidateTest(unittest.TestCase):
+    def test_mismatched_product_and_core_versions_fail_before_registry_or_writes(self) -> None:
+        args = ['prepare-product-release-candidate', '--version', '5.0.0',
+                '--core-php-version', '5.0.0', '--core-php-reference', '1' * 40,
+                '--core-web-version', '4.0.1', '--core-web-reference', '2' * 40]
+        with patch('sys.argv', args), patch.object(candidate, 'check_inputs') as inputs:
+            with self.assertRaisesRegex(SystemExit, 'release versions must be identical'):
+                candidate.main()
+            inputs.assert_not_called()
+
     def setUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

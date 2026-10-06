@@ -10,6 +10,7 @@ use PeanutAdmin\Kernel\Authorization\EffectivePermissionSet;
 use PeanutAdmin\Kernel\Authorization\RevisionPermissionCache;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationEvaluator;
 use PeanutAdmin\Kernel\Platform\Authorization\PlatformAuthorizationRepository;
 use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
@@ -82,7 +83,7 @@ final class OwnerInvitationBoundaryTest extends TestCase
             $this->provisioned[] = [$tenant,$account,$member,$role,$code,$name];
             return $member;
         });
-        $this->public = new TenantOwnerInvitationPublicService($bootstrap, $this->audit, new PasswordHasher());
+        $this->public = new TenantOwnerInvitationPublicService($bootstrap, $this->audit, new PasswordHasher(), new PasswordPolicy());
     }
 
     private function adminWith(OwnerInvitationDeliveryPort $delivery, OwnerInvitationRuntimePolicy $policy): TenantOwnerInvitationAdminService

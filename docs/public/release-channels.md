@@ -2,6 +2,8 @@
 
 当前源码身份由根目录 `release-versions.json` 的 `source_product_version` 定义。版本号本身不证明已公开发布；以对应固定 tag、Release、制品清单和摘要核对来源，取得源码分支不能替代取得固定发行包。
 
+Peanut 上游应用、PHP Core 和 Web Core 六包使用同一个发行版本；破坏性变化需要升主版本时一并升版。下游 APP 保留自己的版本，上游升级不会重置 APP 身份。
+
 ## 三种升级与独立版本
 
 `peanut upgrade` 在开发机上的 downstream APP 中吸收所选公开 Peanut/Scaffold 上游版本，调用经公开制品身份核验的固定 Code 来源原生 `scripts/scaffold-upgrade` 引擎，显式传入 APP project-root，保护 APP 身份及自有内容；它不是生产源码更新命令。`--check` 查询版本及来源，`--plan` 保存原生计划及同一引擎的仓库、tag、commit/tree、库存摘要绑定；resolve、apply 和 recover 重核该固定来源，不重新选择最新版。APP 只需已有 Composer 依赖，缺少独立入口的旧 APP 也使用这一标准路径；不依赖维护者工作树或私有 Project，也不向旧 APP 植入外部工具。明确审阅冲突后才应用。同版本不同 commit/tree 必须分别报告，不能仅凭版本相同宣称来源一致。

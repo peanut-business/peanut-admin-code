@@ -888,7 +888,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4c50e96c29b5ca4cd825bc50d0233bfd230e9d619f514207ea5ba02b2865b90"
+            "source_sha256": "9005dca3b1c5e6d557c9b6e35beebc3aecb162ede001835889b5ff5ad66a2682"
         },
         {
             "path": "docs/module-layout.md",
@@ -972,7 +972,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f8ad41b936a2f9d4563b5603ce7bd1de92f973a57c47e8fdd6d83de1e23b245"
+            "source_sha256": "9399adc33f1f7104668f1bbeacf8af4973c675bb563845e84d3eece999e900c5"
         },
         {
             "path": "pc/.env.example",
@@ -3599,7 +3599,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9e43b268c85b76841ca8be4c1fbf07cd90e5a118b8c86df467253b77c8dd51a0"
+            "source_sha256": "6e9d05c84fe9fcc46f64974f5ed02bc7c08c3909e26330f1931594fff95d83b5"
         },
         {
             "path": "scripts/run-with-environment-file",

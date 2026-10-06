@@ -663,6 +663,8 @@ def main() -> None:
     product_version = require_semver(args.version, "product version")
     core_php_version = require_semver(args.core_php_version, "Core PHP version")
     core_web_version = require_semver(args.core_web_version, "Core Web version")
+    if len({product_version, core_php_version, core_web_version}) != 1:
+        fail("Product, Core PHP and Core Web release versions must be identical")
     if any(re.search(r"(?:^|[.-])dev(?:[.-]|$)", version) for version in (core_php_version, core_web_version)):
         fail("Core versions must be fixed public releases, not development versions")
     if not re.fullmatch(r"[0-9a-f]{40}", args.core_php_reference):

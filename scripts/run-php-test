@@ -54,6 +54,25 @@ function peanutTestKind(string $source): string
     return 'script';
 }
 
+function peanutTestRunsInSeparateProcess(string $source): bool
+{
+    $nodes = (new ParserFactory())->createForHostVersion()->parse($source) ?? [];
+    $traverser = new NodeTraverser();
+    $traverser->addVisitor(new NameResolver());
+    $nodes = $traverser->traverse($nodes);
+    $isolationAttributes = [
+        PHPUnit\Framework\Attributes\RunInSeparateProcess::class,
+        PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses::class,
+        PHPUnit\Framework\Attributes\RunClassInSeparateProcess::class,
+    ];
+    foreach ((new NodeFinder())->findInstanceOf($nodes, Node\Attribute::class) as $attribute) {
+        if (in_array($attribute->name->toString(), $isolationAttributes, true)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function peanutRunTest(array $arguments): int
 {
     $root = dirname(__DIR__);
@@ -91,9 +110,13 @@ function peanutRunTest(array $arguments): int
     $relative = substr($path, strlen($root) + 1);
     fwrite(STDOUT, '[php-test] ' . $kind . ' ' . $relative . "\n");
     if ($kind === 'phpunit') {
-        // Requiring a class declaration is NOT a test run. Let PHPUnit discover and invoke its methods.
+        // PHPUnit starts isolated methods in child processes. Preloading the explicit backend
+        // environment in the parent would pass managed values to a child that loads it again.
+        $bootstrap = peanutTestRunsInSeparateProcess($source)
+            ? $root . '/server/vendor/autoload.php'
+            : $root . '/server/tests/Support/CiBootstrap.php';
         $command = [PHP_BINARY, $root . '/server/vendor/bin/phpunit', '--no-configuration',
-            '--bootstrap', $root . '/server/tests/Support/CiBootstrap.php',
+            '--bootstrap', $bootstrap,
             '--fail-on-empty-test-suite', '--fail-on-risky', $path];
     } else {
         $bootstrap = getenv('PEANUT_SERVER_ENV_FILE') !== false && getenv('PEANUT_SERVER_ENV_FILE') !== ''

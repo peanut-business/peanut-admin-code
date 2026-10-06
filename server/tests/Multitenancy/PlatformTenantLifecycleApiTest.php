@@ -28,6 +28,7 @@ use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Modules\Identity\Module\Persistence\ThinkPhpModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\TenantModuleConfigValidator;
@@ -147,7 +148,7 @@ SQL);
     lifecycleExpect($applicationSchema !== '', 'canonical application schema is missing');
     $pdo->exec($applicationSchema);
     ThinkPhpTestConnection::fromPdo($pdo);
-    $bootstrap = new BootstrapService(passwords: new PasswordHasher());
+    $bootstrap = new BootstrapService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
     $platform = $bootstrap->bootstrapPlatformOwner(
         'lifecycle@example.test',
         'LifecyclePassword2026',
@@ -166,7 +167,7 @@ SQL);
         },
     );
     $administration = new PlatformTenantAdminService($modules, new AuditService());
-    $owners = new TenantOwnerAdminService(new AuditService());
+    $owners = new TenantOwnerAdminService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
     $service = new TenantGovernanceService(
         new LifecycleIdentity(new PlatformOperatorIdentity($platform->operatorId, $platform->accountId)),
         $administration,

@@ -13,10 +13,60 @@ use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusService;
 use PHPUnit\Framework\TestCase;
 use think\App;
+use app\common\composition\ModuleComposition;
+use app\common\composition\ModuleExtensionService;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Kernel\Module\ManifestDocument;
+use PeanutAdmin\Kernel\Module\ModuleProvider;
+use PeanutAdmin\Kernel\Module\TenantModuleEnableHook;
 
 /** Synthetic trusted worker definitions and denied provider query; never executes handlers, IO or probes. */
 final class HostCompositionContractsTest extends TestCase
 {
+    public function testNativeServiceAndTenantHookShareTheRegisteredProviderInstance(): void
+    {
+        $app = $this->app();
+        $registry = $this->moduleRegistry();
+        $app->instance(CompiledModuleRegistry::class, $registry);
+        $composition = new ModuleComposition($app);
+        $composition->register($registry);
+        $provider = $app->make(CompositionFixtureModuleProvider::class);
+        self::assertSame(['fixture.lifecycle' => $provider], $composition->tenantHooks($registry));
+        self::assertSame([], $provider->events);
+        (new ModuleExtensionService($app))->register();
+        self::assertSame(['register'], $provider->events);
+        $app->boot();
+        self::assertSame(['register', 'boot'], $provider->events);
+        self::assertSame($provider, $app->make(CompositionFixtureModuleProvider::class));
+    }
+
+    public function testUnknownTenantHookConfigurationFailsBeforeExecutingIt(): void
+    {
+        $app = $this->app();
+        $registry = $this->moduleRegistry();
+        $composition = new ModuleComposition($app);
+        $composition->register($registry);
+        \think\facade\Config::set(['tenant_hooks' => ['fixture.unknown' => CompositionFixtureModuleProvider::class]], 'modules');
+        try {
+            $composition->tenantHooks($registry);
+            self::fail('Unknown hook owner was accepted.');
+        } catch (ModuleException $exception) {
+            self::assertSame('MODULE_HOOK_INVALID', $exception->errorCode);
+        } finally {
+            \think\facade\Config::set(['tenant_hooks' => []], 'modules');
+        }
+    }
+
+    private function moduleRegistry(): CompiledModuleRegistry
+    {
+        $manifest = ManifestDocument::fromArray('/fixture', [
+            'key' => 'fixture.lifecycle',
+            'backend' => ['provider' => CompositionFixtureModuleProvider::class],
+            'tenant' => ['enableable' => true],
+        ]);
+        return new CompiledModuleRegistry([$manifest], [], [], [], $manifest->digest);
+    }
+
     public function testExactReviewedCompositionTypesArePublishedNotTheirStores(): void
     {
         foreach (['task' => TaskWorkerDefinitionRegistry::class, 'ops' => PlatformPermissionChecker::class] as $module => $type) {
@@ -137,3 +187,32 @@ class CompositionFixtureWorker implements TaskWorkerDefinition
 }
 
 final class CompositionFixtureSecondWorker extends CompositionFixtureWorker {}
+
+final class CompositionFixtureModuleProvider extends \think\Service implements ModuleProvider, TenantModuleEnableHook
+{
+    public array $events = [];
+    public function moduleKey(): string
+    {
+        return 'fixture.lifecycle';
+    }
+    public function bindings(): array
+    {
+        return [];
+    }
+    public function register(): void
+    {
+        $this->events[] = 'register';
+    }
+    public function boot(): void
+    {
+        $this->events[] = 'boot';
+    }
+    public function enable(int $tenantId, array $config): void
+    {
+        throw new LogicException('Hook must not run during registration.');
+    }
+    public function disable(int $tenantId): void
+    {
+        throw new LogicException('Hook must not run during registration.');
+    }
+}

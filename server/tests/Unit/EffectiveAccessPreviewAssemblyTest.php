@@ -34,6 +34,9 @@ final class EffectiveAccessPreviewAssemblyTest extends TestCase
             ++$this->databaseAttempts;
             throw new \LogicException('FIXTURE_DATABASE_FORBIDDEN');
         });
+        foreach (require $root . '/server/app/provider.php' as $abstract => $concrete) {
+            $this->app->bind($abstract, $concrete);
+        }
         $host = new AppService($this->app);
         foreach (['registerExecutionContext', 'registerAuthorization'] as $method) {
             (new \ReflectionMethod($host, $method))->invoke($host);

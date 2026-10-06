@@ -1,7 +1,24 @@
 # Changelog
 
-All notable Peanut Admin application changes are recorded here. The application
-and the two public core packages have independent version histories.
+All notable Peanut Admin application changes are recorded here. The upstream
+application, PHP Core and all six Web Core packages share one release version.
+Downstream applications retain their own application versions.
+
+## [5.0.0] - 2026-10-06
+
+### Changed
+
+- Release the upstream application, PHP Core and all six Web Core packages as 5.0.0 with fixed public source and integrity identities.
+- Separate password acceptance policy from cryptographic hashing. Applications can override the native policy binding; existing credentials remain verifiable without applying new-password rules.
+- Register Module providers through the native ThinkPHP Service lifecycle and reuse their instances for bindings and tenant enable/disable hooks across platform, profile and installation entry points.
+- Preserve transaction failure propagation and idempotent repeated tenant module commands, including future effective dates.
+- Forward request cancellation to Nuxt fetch and UniApp RequestTask, with cleanup at the owning component or request scope.
+- Document Core/application ownership, supported overrides, native hooks and lifecycle boundaries against mature framework mechanisms.
+- Keep explicit backend environments isolated when the existing PHP test runner starts PHPUnit child processes.
+
+### Breaking
+
+- PHP Core PasswordHasher no longer accepts policy constructor arguments or exposes policy boundary getters and assertValid. Use PasswordPolicy for password acceptance rules; see PHP Core UPGRADING.md.
 
 ## [4.0.3] - 2026-10-05
 
