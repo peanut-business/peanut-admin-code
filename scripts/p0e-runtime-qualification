@@ -67,9 +67,13 @@ def fail(message: str) -> None:
 
 
 def operating_system_environment() -> dict[str, str]:
+    # Keep the host's existing network routing for package downloads. Application
+    # runtime configuration still comes only from the explicit group environment.
     return {
         key: value
-        for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "PEANUT_RESOURCE_REGISTRY", "SystemRoot", "COMSPEC", "PATHEXT")
+        for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "PEANUT_RESOURCE_REGISTRY", "SystemRoot", "COMSPEC", "PATHEXT",
+                    "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+                    "http_proxy", "https_proxy", "all_proxy", "no_proxy")
         if (value := os.environ.get(key))
     }
 
