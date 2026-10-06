@@ -37,6 +37,8 @@ php /srv/my-app/scripts/upgrade plan --scope=source \
 
 返回的绝对 `plan_path` 用于同一 `--scope=source`、`--instance-root`、`--package` 下的 `apply`、`verify` 或 `recover --plan=<plan_path>`。此范围沿用 Scaffold 的归属、三方差异、冲突及逐文件恢复合同，只吸收开发源码；APP 再从自己的固定提交发行部署制品。
 
+跨主版本源码吸收可能改变功能、API、依赖和迁移；须核对升级包的来源范围并在应用前取得明确人工确认，详见[源码升级合同](../development/current-code-lifecycle.md#9-应用生成安装与升级)。
+
 ## server-only 更新入口的当前开发范围
 
 宿主只运行已安装的可信 `server/docker/scripts/update.sh`。server 包随带的维护工具位于 `server/docker/scripts/`；目标归档中的未认证代码不能作为更新入口。宿主维护 PHP 入口由 `PEANUT_UPGRADE_PHP` 指定已登记的绝对可执行路径，版本须满足 PHP 8.3 及实际依赖锁。
