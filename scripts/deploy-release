@@ -11,8 +11,9 @@ Usage: scripts/deploy-release vAPP_VERSION --target production|production-candid
   (--install|--update) --server-package /absolute/server.tar.gz
   --expected-sha256 TRUSTED_ARCHIVE_SHA256 [--apply|--dry-run]
 
-Consume the independent APP's own server Release. Installation refuses any
-existing root; updates call the installed native plan/apply/verify entry.
+Consume the independent APP's own server Release. Installation accepts a
+missing root or an empty ordinary base directory owned by this deployment;
+updates call the installed native plan/apply/verify entry.
 Fixed PHP/Nginx/MySQL runtime images are reused without application builds.
 No fresh, source-checkout overlay, host/port guessing or deployment removal.
 USAGE
@@ -167,7 +168,6 @@ lock="$parent/.peanut-deploy-$(jq -r .resource_id "$plan").lock"
 mkdir -m 0700 "$lock" || fail 'deployment owner lock is held'
 trap 'rmdir -- "$lock"' EXIT
 if [[ "$mode" == install ]]; then
-  [[ ! -e "$root" && ! -L "$root" ]] || fail 'installation refuses an existing root; preserve its contents'
   stage="$parent/.peanut-stage-$digest"
   mkdir -m 0700 "$stage" || fail 'previous staging exists; explicit owner review required'
   # The trusted verifier has already rejected links, traversals, duplicates and
@@ -193,10 +193,56 @@ with tarfile.open(archive,"r:gz") as package:
     for directory in pathlib.Path(destination).rglob("*"):
         if directory.is_dir(): directory.chmod(0o755)
 PY
-  # Atomic publication never overlays a customer directory.
-  [[ ! -e "$root" && ! -L "$root" ]] || fail 'root appeared during staging'
-  mv -T -- "$stage" "$root"
-  chmod 0755 "$root"
+  # Publish only after the verified server subtree is complete. Linux
+  # RENAME_NOREPLACE prevents a concurrent entry from being overwritten.
+  # An existing empty base stays the same directory, owner and mode.
+  python3 - "$parent" "$root" "$stage" <<'PY'
+import contextlib,ctypes,os,stat,sys
+parent,root,stage=sys.argv[1:]
+name=os.path.basename(root)
+flags=os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW
+libc=ctypes.CDLL(None,use_errno=True)
+if sys.platform=="darwin":
+    native_rename=getattr(libc,"renameatx_np",None)
+    no_replace=0x4
+else:
+    native_rename=getattr(libc,"renameat2",None)
+    no_replace=1
+if native_rename is None: raise SystemExit("atomic no-replace publication is unavailable")
+native_rename.argtypes=(ctypes.c_int,ctypes.c_char_p,ctypes.c_int,ctypes.c_char_p,ctypes.c_uint)
+def publish(source_fd,source_name,target_fd,target_name):
+    if native_rename(source_fd,source_name.encode(),target_fd,target_name.encode(),no_replace)!=0:
+        error=ctypes.get_errno()
+        raise OSError(error,os.strerror(error),target_name)
+def same(left,right):
+    return (left.st_dev,left.st_ino,left.st_uid,left.st_gid,stat.S_IMODE(left.st_mode))==(right.st_dev,right.st_ino,right.st_uid,right.st_gid,stat.S_IMODE(right.st_mode))
+with contextlib.ExitStack() as opened:
+    parent_fd=os.open(parent,flags); opened.callback(os.close,parent_fd)
+    stage_fd=os.open(stage,flags); opened.callback(os.close,stage_fd)
+    source=os.stat("server",dir_fd=stage_fd,follow_symlinks=False)
+    if not stat.S_ISDIR(source.st_mode): raise SystemExit("staged server is not an ordinary directory")
+    try: before=os.stat(name,dir_fd=parent_fd,follow_symlinks=False)
+    except FileNotFoundError:
+        os.fchmod(stage_fd,0o755)
+        publish(parent_fd,os.path.basename(stage),parent_fd,name)
+        if not same(os.fstat(stage_fd),os.stat(name,dir_fd=parent_fd,follow_symlinks=False)):
+            raise SystemExit("installation root changed during publication")
+        print("created")
+    else:
+        if not stat.S_ISDIR(before.st_mode) or os.path.ismount(root):
+            raise SystemExit("installation root is not an ordinary base directory")
+        with contextlib.ExitStack() as root_opened:
+            root_fd=os.open(name,flags,dir_fd=parent_fd); root_opened.callback(os.close,root_fd)
+            if not same(before,os.fstat(root_fd)) or os.listdir(root_fd):
+                raise SystemExit("installation base changed or is not empty")
+            if not same(before,os.stat(name,dir_fd=parent_fd,follow_symlinks=False)):
+                raise SystemExit("installation base changed during staging")
+            publish(stage_fd,"server",root_fd,"server")
+            if not same(before,os.stat(name,dir_fd=parent_fd,follow_symlinks=False)):
+                raise SystemExit("installation base changed during publication")
+        os.rmdir(stage)
+        print("preserved")
+PY
   python3 "$root/server/docker/scripts/configure-runtime.py" --docker-root="$root/server/docker" \
     --project="$(jq -r .project "$plan")" --http-bind="$(jq -r .bind "$plan")" \
     --http-port="$(jq -r .port "$plan")" --php-image="$(jq -r .images.php "$plan")" >/dev/null
