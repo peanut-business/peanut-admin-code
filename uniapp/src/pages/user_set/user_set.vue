@@ -78,6 +78,8 @@
   }
 
   async function handleLogout() {
+    const expectedToken = userStore.token;
+    const expectedGeneration = userStore.sessionGeneration;
     const confirmed = await new Promise<boolean>((resolve) =>
       uni.showModal({
         title: '提示',
@@ -86,10 +88,12 @@
       })
     );
     if (!confirmed) return;
+    if (userStore.sessionGeneration !== expectedGeneration || userStore.token !== expectedToken) return;
     try {
       await logout();
     } catch (_) {}
-    userStore.logout();
+    if (userStore.sessionGeneration !== expectedGeneration || userStore.token !== expectedToken) return;
+    if (!userStore.clearIfToken(expectedToken || null)) return;
     uni.reLaunch({ url: '/pages/index/index' });
   }
 </script>

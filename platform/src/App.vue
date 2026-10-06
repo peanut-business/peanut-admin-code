@@ -930,6 +930,7 @@
     api,
     createPlatformOpsTransport,
     hasPlatformSession,
+    isPlatformSessionCurrent,
     onPlatformSessionChange,
     type AuditEvent,
     type EntryBinding,
@@ -996,7 +997,27 @@
   const providerQualificationsLoading = ref(false);
   const stopPlatformSessionSync = onPlatformSessionChange((present) => {
     authenticated.value = present;
-    if (!present) platformPermissions.value = [];
+    platformPermissions.value = [];
+    tenants.value = [];
+    invitations.value = [];
+    bindings.value = [];
+    modules.value = [];
+    operators.value = [];
+    roles.value = [];
+    permissions.value = [];
+    audits.value = [];
+    owner.value = null;
+    storage.value = { accounts: [], spaces: [], routes: [], purposes: [] };
+    permissionRole.value = null;
+    permissionSelection.value = [];
+    provisionDialog.value = false;
+    view.value = 'overview';
+    targetTenantId.value = null;
+    backupCenter.value = null;
+    upgradeReadiness.value = null;
+    upgradeCenter.value = null;
+    providerQualifications.value = null;
+    opsRuntime.dispose();
   });
   const can = (permission: string) =>
     platformPermissions.value.includes(permission);
@@ -1401,7 +1422,8 @@
     }, '登录成功');
   }
   async function logout() {
-    await api.logout();
+    const cleared = await api.logout();
+    if (!cleared || !isPlatformSessionCurrent(cleared)) return;
     opsRuntime.dispose();
     authenticated.value = false;
     platformPermissions.value = [];

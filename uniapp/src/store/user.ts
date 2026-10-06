@@ -11,6 +11,7 @@ export const useUserStore = defineStore('user', () => {
   const initial = saved ? JSON.parse(saved) : {};
 
   const token = ref<string>(initial.token || '');
+  const sessionGeneration = ref(0);
   const userInfo = ref<Partial<UserCenter & UserInfo>>(initial.userInfo || {});
 
   const isLoggedIn = computed(() => !!token.value);
@@ -23,12 +24,14 @@ export const useUserStore = defineStore('user', () => {
   );
 
   function setToken(newToken: string) {
+    sessionGeneration.value += 1;
     token.value = newToken;
   }
 
   function clearIfToken(expectedToken: string | null) {
     if ((token.value || null) !== expectedToken) return false;
     token.value = '';
+    sessionGeneration.value += 1;
     userInfo.value = {};
     uni.removeStorageSync(STORAGE_KEY);
     return true;
@@ -50,6 +53,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   function logout() {
+    sessionGeneration.value += 1;
     token.value = '';
     userInfo.value = {};
     uni.removeStorageSync(STORAGE_KEY);
@@ -57,6 +61,7 @@ export const useUserStore = defineStore('user', () => {
 
   return {
     token,
+    sessionGeneration,
     userInfo,
     isLoggedIn,
     setToken,

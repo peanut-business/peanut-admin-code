@@ -61,7 +61,8 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
   const retryConfig = response.config as SessionRequestConfig;
   const snapshot = retryConfig.tenantSession ?? getSessionSnapshot();
   retryConfig.tenantSession = snapshot;
-  if (snapshot.generation !== getSessionSnapshot().generation) {
+  const currentSession = getSessionSnapshot();
+  if (snapshot.generation !== currentSession.generation || snapshot.token !== currentSession.token) {
     return Promise.reject(new Error(res.msg || 'The request session has changed.'));
   }
   // 20000 is the normal success envelope; LikeAdmin uses code=2 for a

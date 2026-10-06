@@ -243,9 +243,12 @@
     changeLocale(value);
   };
   const beginTenantSwitch = async () => {
+    const snapshot = getSessionSnapshot();
     const token = getToken();
     if (!token) return;
     const selection = await tenantSwitch(token);
+    const current = getSessionSnapshot();
+    if (snapshot.generation !== current.generation || snapshot.token !== current.token) return;
     tenantChallenge.value = selection.challenge_token;
     tenantChoices.value = selection.tenants;
     selectedTenantId.value = selection.tenants[0]?.tenant_id;

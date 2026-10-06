@@ -10,6 +10,7 @@ import directive from './directive';
 import App from './App.vue';
 import '@/assets/style/global.less';
 import '@/api/interceptor';
+import { SESSION_KEY } from '@/utils/auth';
 
 const app = createApp(App);
 
@@ -22,3 +23,9 @@ app.use(globalComponents);
 app.use(directive);
 
 app.mount('#app');
+
+// A shared identity transition invalidates the entire tenant UI. Token-only
+// refreshes keep the current menu and page state.
+window.addEventListener('storage', (event) => {
+  if (event.key === SESSION_KEY || event.key === null) window.location.reload();
+});

@@ -101,25 +101,36 @@ const transport = createUniAppClientTransport({
   },
 });
 
-const client = createClient({
+const createSessionClient = (generation: number) => {
+  let clearedGeneration: number | null = null;
+  return createClient({
   transport,
   session: {
-    accessToken: () => useUserStore().token,
+    accessToken: () => useUserStore().sessionGeneration === generation ? useUserStore().token : null,
     clear: (expectedToken?: string | null) => {
       if (expectedToken === undefined) return;
-      useUserStore().clearIfToken(expectedToken);
+      const userStore = useUserStore();
+      if (userStore.sessionGeneration !== generation) return;
+      if (userStore.clearIfToken(expectedToken)) clearedGeneration = userStore.sessionGeneration;
     },
   },
   decoder: decodeResponse,
   hooks: {
-    unauthorized: () => uni.reLaunch({ url: '/pages/login/login' }),
+    unauthorized: () => {
+      const userStore = useUserStore();
+      if (clearedGeneration === userStore.sessionGeneration && !userStore.token) {
+        uni.reLaunch({ url: '/pages/login/login' });
+      }
+    },
     businessError: (error) =>
       uni.showToast({ title: error.message || '请求失败', icon: 'none' }),
   },
-});
+  });
+};
 
 async function request<T = unknown>(options: RequestOptions): Promise<T> {
   try {
+    const client = createSessionClient(useUserStore().sessionGeneration);
     return await client.request<T>({
       path: options.url,
       method: options.method,

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosResponse } from 'axios';
+import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import type {
   MaintenanceScheduleInput,
   OpsConsoleTransport,
@@ -480,16 +480,36 @@ export interface OpsUpgradeCenterSnapshot {
 }
 
 const tokenKey = 'peanut-platform-token';
+const sessionKey = 'peanut-platform-session';
+export interface PlatformSessionSnapshot {
+  generation: string;
+  token: string | null;
+}
+export function getPlatformSessionSnapshot(): PlatformSessionSnapshot {
+  const token = localStorage.getItem(tokenKey);
+  return { generation: localStorage.getItem(sessionKey) || token || '', token };
+}
+export function isPlatformSessionCurrent(snapshot: PlatformSessionSnapshot): boolean {
+  const current = getPlatformSessionSnapshot();
+  return snapshot.generation === current.generation && snapshot.token === current.token;
+}
+function isPlatformIdentityCurrent(snapshot: PlatformSessionSnapshot): boolean {
+  return snapshot.generation === getPlatformSessionSnapshot().generation;
+}
+function advancePlatformSession(): void {
+  localStorage.setItem(sessionKey, Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16)).join('-'));
+}
 type PlatformSessionListener = (authenticated: boolean) => void;
 const platformSessionListeners = new Set<PlatformSessionListener>();
 
 /** Persists the bearer token and notifies UI owners only when authentication presence changes. */
-function setPlatformSessionToken(token: string | null): void {
+function setPlatformSessionToken(token: string | null, transition = true): void {
   const wasAuthenticated = hasPlatformSession();
+  if (transition) advancePlatformSession();
   if (token === null) localStorage.removeItem(tokenKey);
   else localStorage.setItem(tokenKey, token);
   const authenticated = hasPlatformSession();
-  if (authenticated !== wasAuthenticated) {
+  if (transition || authenticated !== wasAuthenticated) {
     platformSessionListeners.forEach((listener) => listener(authenticated));
   }
 }
@@ -502,16 +522,41 @@ export function onPlatformSessionChange(
   return () => platformSessionListeners.delete(listener);
 }
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === sessionKey || event.key === null) {
+      window.location.reload();
+    }
+  });
+}
+
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
   withCredentials: true,
   timeout: 15_000,
 });
 
-let platformRefreshRequest: Promise<string> | null = null;
+type SessionRequestConfig = AxiosRequestConfig & {
+  platformRefreshRetried?: boolean;
+  platformSession?: PlatformSessionSnapshot;
+};
+const platformRefreshRequests = new Map<string, Promise<string>>();
+let sessionCookieQueue: Promise<void> = Promise.resolve();
+function queueSessionCookieRequest<T>(operation: () => Promise<T>, snapshot: PlatformSessionSnapshot): Promise<T> {
+  const pending = sessionCookieQueue.then(() => {
+    if (!isPlatformSessionCurrent(snapshot)) throw new Error('The platform session has changed.');
+    return operation();
+  });
+  sessionCookieQueue = pending.then(() => undefined, () => undefined);
+  return pending;
+}
 
 client.interceptors.request.use((config) => {
+  const request = config as SessionRequestConfig;
+  const snapshot = request.platformSession || getPlatformSessionSnapshot();
+  if (!isPlatformIdentityCurrent(snapshot)) throw new Error('The platform session has changed.');
   const token = localStorage.getItem(tokenKey);
+  request.platformSession = { ...snapshot, token };
   if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -521,9 +566,9 @@ client.interceptors.request.use((config) => {
 
 const handleResponse = async (response: AxiosResponse<Envelope<unknown>>) => {
   const envelope = response.data as Envelope<unknown>;
-  const config = response.config as typeof response.config & {
-    platformRefreshRetried?: boolean;
-  };
+  const config = response.config as SessionRequestConfig;
+  const snapshot = config.platformSession || getPlatformSessionSnapshot();
+  if (!isPlatformSessionCurrent(snapshot)) throw new Error('The platform session has changed.');
   if (
     envelope?.code === 40100 &&
     !config.platformRefreshRetried &&
@@ -533,23 +578,44 @@ const handleResponse = async (response: AxiosResponse<Envelope<unknown>>) => {
   ) {
     config.platformRefreshRetried = true;
     try {
-      platformRefreshRequest ||= client
-        .post<Envelope<Session>>('/platformapi/session/refresh')
+      let refreshedToken = localStorage.getItem(tokenKey);
+      if (refreshedToken === snapshot.token) {
+        const refreshKey = JSON.stringify([snapshot.generation, snapshot.token]);
+        let refreshRequest = platformRefreshRequests.get(refreshKey);
+        if (!refreshRequest) {
+          refreshRequest = queueSessionCookieRequest(() => client
+        .post<Envelope<Session>>('/platformapi/session/refresh', {}, { platformSession: snapshot } as SessionRequestConfig)
         .then((result) => {
           if (result.data.code !== 20000) throw new Error(result.data.msg);
-          setPlatformSessionToken(result.data.data.access_token);
-          return result.data.data.access_token;
-        })
+          if (!isPlatformSessionCurrent(snapshot)) throw new Error('The platform session has changed.');
+          const currentToken = localStorage.getItem(tokenKey);
+          if (currentToken === snapshot.token) {
+            setPlatformSessionToken(result.data.data.access_token, false);
+            return result.data.data.access_token;
+          }
+          if (currentToken) return currentToken;
+          throw new Error('The platform session has changed.');
+        }), snapshot)
         .finally(() => {
-          platformRefreshRequest = null;
+          platformRefreshRequests.delete(refreshKey);
         });
-      const refreshedToken = await platformRefreshRequest;
+          platformRefreshRequests.set(refreshKey, refreshRequest);
+        }
+        refreshedToken = await refreshRequest;
+      }
+      if (!isPlatformIdentityCurrent(snapshot) || !refreshedToken) throw new Error('The platform session has changed.');
+      config.platformSession = { generation: snapshot.generation, token: refreshedToken };
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${refreshedToken}`;
       return client.request(config);
     } catch {
-      setPlatformSessionToken(null);
+      if (!isPlatformSessionCurrent(snapshot)) throw new Error('The platform session has changed.');
     }
+  }
+  if (envelope?.code === 40100 && snapshot.token === localStorage.getItem(tokenKey) &&
+      config.url !== '/platformapi/session/login' && config.url !== '/platformapi/session/refresh' && config.url !== '/platformapi/session/logout') {
+    setPlatformSessionToken(null);
+    config.platformSession = getPlatformSessionSnapshot();
   }
   return response;
 };
@@ -563,12 +629,11 @@ client.interceptors.response.use(handleResponse, (error) => {
     : Promise.reject(error);
 });
 
-async function unwrap<T>(request: Promise<{ data: Envelope<T> }>): Promise<T> {
+async function unwrap<T>(request: Promise<AxiosResponse<Envelope<T>>>): Promise<T> {
   const result = await request;
+  const snapshot = (result.config as SessionRequestConfig).platformSession;
+  if (snapshot && !isPlatformSessionCurrent(snapshot)) throw new Error('The platform session has changed.');
   if (result.data.code !== 20000) {
-    if (result.data.code === 40100) {
-      setPlatformSessionToken(null);
-    }
     const details = result.data.data as { error_code?: string } | null;
     const errorCode = details?.error_code || '';
     const localizedErrors: Record<string, string> = {
@@ -600,18 +665,28 @@ export function hasPlatformSession(): boolean {
 
 export const api = {
   async login(email: string, password: string) {
+    advancePlatformSession();
+    const snapshot = getPlatformSessionSnapshot();
     const session = await unwrap<Session>(
-      client.post('/platformapi/session/login', { email, password })
+      queueSessionCookieRequest(() => client.post('/platformapi/session/login', { email, password }, { platformSession: snapshot } as SessionRequestConfig), snapshot)
     );
+    if (!isPlatformSessionCurrent(snapshot)) throw new Error('The platform session has changed.');
     setPlatformSessionToken(session.access_token);
     return session;
   },
   async logout() {
+    advancePlatformSession();
+    const snapshot = getPlatformSessionSnapshot();
+    let cleared: PlatformSessionSnapshot | null = null;
     try {
-      await unwrap(client.post('/platformapi/session/logout'));
+      await unwrap(queueSessionCookieRequest(() => client.post('/platformapi/session/logout', {}, { platformSession: snapshot } as SessionRequestConfig), snapshot));
     } finally {
-      setPlatformSessionToken(null);
+      if (isPlatformSessionCurrent(snapshot) && snapshot.token === localStorage.getItem(tokenKey)) {
+        setPlatformSessionToken(null);
+        cleared = getPlatformSessionSnapshot();
+      }
     }
+    return cleared;
   },
   sessionInfo: () =>
     unwrap<SessionInfo>(client.get('/platformapi/session/info')),
@@ -856,7 +931,7 @@ export const api = {
         {},
         {
           headers: {
-            'Idempotency-Key': `platform-upgrade-${crypto.randomUUID()}`,
+            'Idempotency-Key': `platform-upgrade-${Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16)).join('-')}`,
           },
         }
       )
@@ -924,7 +999,7 @@ function opsRequestId(headers: Record<string, unknown>): string {
   const value = headers['x-request-id'];
   return typeof value === 'string' && value.length > 0
     ? value
-    : `platform-${crypto.randomUUID()}`;
+    : `platform-${Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16)).join('-')}`;
 }
 
 async function opsRead(
