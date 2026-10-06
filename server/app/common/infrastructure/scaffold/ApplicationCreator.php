@@ -31,7 +31,15 @@ final class ApplicationCreator
     private const VARIABLES = ['APPLICATION_VERSION', 'PACKAGE_IDENTITY', 'PRODUCT_NAME', 'SLUG'];
     private const PROFILES = ['minimal', 'standard', 'full'];
     private const WRITABLE_DIRECTORIES = [
-        'server/runtime',
+        'server/runtime/cache',
+        'server/runtime/log',
+        'server/runtime/session',
+        'server/runtime/temp',
+        'server/runtime/storage',
+        'server/runtime/generator',
+        'server/runtime/file',
+        'server/private/installation',
+        'server/private/resources/pending',
         'server/public/storage',
         'server/private/storage',
     ];

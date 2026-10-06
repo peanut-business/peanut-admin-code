@@ -104,7 +104,7 @@ Server 发行的完整文件、Plugin canonical内容和模块声明校验由部
 
 原生 Docker 维护进程在 chroot 外使用同一程序目录的可写视图，FPM 在 `/server` 使用只读视图；仅已有缓存、日志、上传及安装数据目录挂载可写。隔离容器的 owner 使用 `SYS_PTRACE` 读取非 dumpable worker 的真实 `/proc` root、cwd 和描述符，不启用 privileged 或 host PID namespace。FPM 保持 `process.dumpable=no`；授流前验证 worker 的 UID/GID、effective/permitted/inheritable/ambient capability 全零、`NoNewPrivs=1`、chroot 与无维护视图描述符，再根据真实 mount 及目录保护发布原生 Linux 文件系统上的运行证明，绑定当前声明。FPM 不能访问维护视图、Docker 配置凭据与恢复密钥。非 Docker 入口使用真实请求 UID/GID/组、不可提权能力和部署 owner 的文件权限，不根据 `www-data` 账户名推断安全性；无法证明具体权限或能力时拒绝。外部 Host 未执行运行资格不能记为通过。
 
-网页安装配置写入 `private/resources/pending` 的纯数据。现有 owner 监控入口闭流并停止 bootstrap FPM，验证配置与实际资源后原子发布唯一 `server/.env`，完整校验、编译并进入 installing；安装完成再停止旧 FPM，重建绑定后进入 installed。更新/恢复同样复用原生维护入口。恢复密钥唯一位置为 owner 控制的 `private/maintenance`；发现旧位置的密钥时明确要求原 owner 先闭合原固定工具事务，不自动迁移或提供双源读取。
+网页安装配置写入 `private/resources/pending` 的纯数据。安装预检只检查实际可写子目录，与只读 HTTP 挂载的 11 个 mutable 路径一致；`runtime`、`private/resources` 父目录保持只读，应用创建器和 CLI 准备入口创建相同的子目录。现有 owner 监控入口闭流并停止 bootstrap FPM，验证配置与实际资源后原子发布唯一 `server/.env`，完整校验、编译并进入 installing；安装完成再停止旧 FPM，重建绑定后进入 installed。更新/恢复同样复用原生维护入口。恢复密钥唯一位置为 owner 控制的 `private/maintenance`；发现旧位置的密钥时明确要求原 owner 先闭合原固定工具事务，不自动迁移或提供双源读取。
 
 源码开发形态不冒充不可变发行，继续按实际源码装配。CLI、其他目标目录以及显式安装落盘、升级和模块治理的 `load()` 保留独立完整校验。安装宿主直接注入当前App已有的 `CompiledModuleRegistry`；安装完成锁、迁移状态、数据库健康及失败阻断检查保持执行。常驻HTTP运行方式仍须明确每次运行的App及执行上下文生命周期，不能把声明索引当跨请求业务状态容器。
 

@@ -2254,7 +2254,9 @@ class Runner:
             if (server / "private/installation").exists() and any((server / "private/installation").iterdir()):
                 fail("unbound native installation state; preserve it")
             self.write_json(instance_receipt, identity)
-        for relative in ("runtime", "public/storage", "private/storage", "private/resources", "private/installation"):
+        for relative in ("runtime/cache", "runtime/log", "runtime/session", "runtime/temp", "runtime/storage",
+                         "runtime/generator", "runtime/file", "public/storage", "private/storage",
+                         "private/resources/pending", "private/installation"):
             directory = server / relative
             if directory.is_symlink():
                 fail("native instance directory is a symlink")

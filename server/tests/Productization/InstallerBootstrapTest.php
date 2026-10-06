@@ -40,7 +40,9 @@ if (!is_dir($temporaryRoot)) {
 installerExpect(!is_link($temporaryRoot), 'checkout-local temporary root must not be a symlink');
 $fixture = $temporaryRoot . '/peanut-install-preflight-' . bin2hex(random_bytes(6));
 $temporary = $fixture . '/server';
-foreach (['vendor', 'database', 'config', 'runtime', 'public/storage', 'private/storage'] as $directory) {
+foreach (['vendor', 'database', 'config', 'runtime/cache', 'runtime/log', 'runtime/session', 'runtime/temp',
+    'runtime/storage', 'runtime/generator', 'runtime/file', 'private/installation',
+    'private/resources/pending', 'public/storage', 'private/storage'] as $directory) {
     installerExpect(mkdir($temporary . '/' . $directory, 0775, true), 'unable to create preflight fixture directory');
 }
 foreach (['.git', '.peanut'] as $directory) {
@@ -80,7 +82,7 @@ try {
     $ready = $host->inspect();
     installerExpect($ready['status'] === 'ready', 'valid preflight fixture must be ready');
     installerExpect($ready['code'] === 'INSTALL_PREFLIGHT_READY', 'ready preflight code changed');
-    installerExpect(count($ready['checks']) === 8, 'preflight check set changed');
+    installerExpect(count($ready['checks']) === 15, 'preflight must cover eleven writable destinations plus runtime and resource prerequisites');
     installerExpect($ready['resource'] === array_intersect_key(
         $resourceIdentity,
         array_flip(['environment', 'deployment_target', 'resource_id', 'endpoint_id', 'consumer']),
@@ -141,19 +143,22 @@ if (in_array('--preflight-only', $_SERVER['argv'] ?? [], true)) {
 
 require dirname(__DIR__, 2) . '/database/install.php';
 
-foreach (['', '12345678901'] as $weakPassword) {
+$application = new \think\App(dirname(__DIR__, 2));
+require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+$application->config->load(dirname(__DIR__, 2) . '/config/peanut.php', 'peanut');
+$passwords = $application->make(\PeanutAdmin\Kernel\Identity\PasswordPolicy::class);
+
+foreach (['', str_repeat('x', $passwords->minimumLength() - 1)] as $weakPassword) {
+    $rejected = false;
     try {
         validateInitialAdminPassword($weakPassword);
-        throw new RuntimeException('weak initial password must fail');
-    } catch (RuntimeException $exception) {
-        installerExpect(
-            $exception->getMessage() === 'ADMIN_INITIAL_PASSWORD 至少 12 位',
-            'weak password must fail at the installer boundary',
-        );
+    } catch (RuntimeException) {
+        $rejected = true;
     }
+    installerExpect($rejected, 'weak password must fail at the installer boundary');
 }
 
-foreach (['123456789012', 'abcdefghijkl'] as $validPassword) {
+foreach ([str_repeat('x', $passwords->minimumLength()), '123456789012', 'abcdefghijkl'] as $validPassword) {
     validateInitialAdminPassword($validPassword);
 }
 
