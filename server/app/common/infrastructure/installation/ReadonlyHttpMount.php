@@ -113,6 +113,11 @@ final readonly class ReadonlyHttpMount
         if (lstat($directory)['dev'] === $httpStat['dev']) {
             throw new RuntimeException('HTTP_IMAGE_AUTHORITY_ON_PROGRAM_MOUNT');
         }
+        // Bootstrap secrets keep umask 077; only this verified image-owned directory
+        // needs worker traversal to read the separately published 0444 context.
+        if (!chmod($directory, 0755)) {
+            throw new RuntimeException('HTTP_MOUNT_CONTEXT_UNAVAILABLE');
+        }
     }
 
     public static function publish(string $ownerRoot): void
