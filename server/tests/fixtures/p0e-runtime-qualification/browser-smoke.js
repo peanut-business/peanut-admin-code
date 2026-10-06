@@ -313,20 +313,41 @@ if (profile === 'baseline') {
     if (!Array.isArray(menu)) throw new Error('assignable menu tree is missing');
     const workbench = flatten(menu).find((item) => item.perms === 'workbench/index');
     if (typeof workbench?.menu_key !== 'string') throw new Error('workbench has no stable menu key');
-    assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/role/add', {
-      data: { name: marker, desc: 'P0E restricted business qualification', menu_keys: [workbench.menu_key] },
-    }), 'create restricted role');
-    const roles = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/all'), 'read restricted role');
-    const role = roles.find((item) => item.name === marker);
+    const restrictedName = `p0e-${runId}-restricted`;
+    let roles = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/all'), 'read restricted role');
+    if (!roles.some((item) => item.name === restrictedName)) {
+      assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/role/add', {
+        data: { name: restrictedName, desc: 'P0E restricted business qualification', menu_keys: [workbench.menu_key] },
+      }), 'create restricted role');
+      roles = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/all'), 'read created restricted role');
+    }
+    const matchingRoles = roles.filter((item) => item.name === restrictedName);
+    if (matchingRoles.length !== 1) throw new Error('restricted role identity is ambiguous');
+    const role = matchingRoles[0];
     if (!Number.isInteger(role?.id)) throw new Error('restricted role was not retained');
     const roleDetail = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/role/detail', { query: { id: role.id } }), 'read assigned role permission');
-    if (!roleDetail.menu_keys.includes(workbench.menu_key)) throw new Error('stable menu permission assignment was not retained');
+    if (!roleDetail.menu_keys.includes(workbench.menu_key)
+      || roleDetail.desc !== 'P0E restricted business qualification' || roleDetail.status !== 'active') throw new Error('stable restricted role identity or menu permission assignment changed');
     const restrictedEmail = required('P0E_TENANT_RESTRICTED_EMAIL');
     const restrictedPassword = required('P0E_TENANT_RESTRICTED_PASSWORD');
-    assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/admin/add', {
-      data: { account: restrictedEmail, name: marker, password: restrictedPassword, password_confirm: restrictedPassword,
-        avatar: '', dept_id: [], jobs_id: [], role_id: [role.id], disable: 0, multipoint_login: 1 },
-    }), 'create restricted administrator');
+    let administrators = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/admin/lists', {
+      query: { account: restrictedEmail, page_no: 1, page_size: 20 },
+    }), 'read restricted administrator'), 'restricted administrators');
+    if (!administrators.some((item) => item.account === restrictedEmail)) {
+      assertSuccess(await request(alpha, tenantAdminUrl, 'POST', '/adminapi/admin/add', {
+        data: { account: restrictedEmail, name: restrictedName, password: restrictedPassword, password_confirm: restrictedPassword,
+          avatar: '', dept_id: [], jobs_id: [], role_id: [role.id], disable: 0, multipoint_login: 1 },
+      }), 'create restricted administrator');
+      administrators = listItems(assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/admin/lists', {
+        query: { account: restrictedEmail, page_no: 1, page_size: 20 },
+      }), 'read created restricted administrator'), 'restricted administrators');
+    }
+    const matchingAdministrators = administrators.filter((item) => item.account === restrictedEmail);
+    if (matchingAdministrators.length !== 1) throw new Error('restricted administrator identity is ambiguous');
+    const restrictedAdministrator = matchingAdministrators[0];
+    if (restrictedAdministrator.name !== restrictedName || restrictedAdministrator.root !== 0
+      || restrictedAdministrator.disable !== 0 || restrictedAdministrator.role_id.length !== 1
+      || restrictedAdministrator.role_id[0] !== role.id) throw new Error('restricted administrator identity or grants changed');
     const restricted = await loginTenant(await isolatedPage(), tenantAdminUrl, restrictedEmail, restrictedPassword, 'restricted');
     if (restricted.token === alpha.token) throw new Error('restricted login shared the owner token');
     const restrictedRoutes = assertSuccess(await request(restricted, tenantAdminUrl, 'GET', '/adminapi/menu/route'), 'restricted navigation');
@@ -352,13 +373,21 @@ if (profile === 'baseline') {
     results.navigation = [];
     for (const [route, api] of [['/system/role', '/adminapi/role/lists'], ['/article/cate', '/adminapi/official.article.category.list'], ['/app-setting/website', '/adminapi/config/website']]) {
       const apiUrl = (await browserUrl(page, api, `${tenantAdminUrl}/`)).href;
-      // Match the pre-resolved endpoint without evaluating a navigating page inside the predicate.
-      const loaded = page.waitForResponse((response) => (response.url() === apiUrl
-        || response.url().startsWith(`${apiUrl}?`)) && response.request().method() === 'GET');
-      await page.goto(`${tenantAdminUrl}/admin${route}`, { waitUntil: 'networkidle' });
-      assertSuccess(await responseValue(await loaded), `navigate ${route}`);
-      if ((await browserUrl(page, page.url())).pathname !== `/admin${route}`) throw new Error(`navigation left ${route}`);
-      results.navigation.push(route);
+      // Retain responses during bounded navigation; the response wait starts after
+      // page bootstrap and still validates the actual page's exact GET endpoint.
+      const matches = (response) => (response.url() === apiUrl
+        || response.url().startsWith(`${apiUrl}?`)) && response.request().method() === 'GET';
+      let loaded = null;
+      const retain = (response) => { if (matches(response)) loaded = response; };
+      page.on('response', retain);
+      try {
+        await page.goto(`${tenantAdminUrl}/admin${route}`, { waitUntil: 'networkidle' });
+        assertSuccess(await responseValue(loaded || await page.waitForResponse(matches)), `navigate ${route}`);
+        if ((await browserUrl(page, page.url())).pathname !== `/admin${route}`) throw new Error(`navigation left ${route}`);
+        results.navigation.push(route);
+      } finally {
+        page.off('response', retain);
+      }
     }
     const before = assertSuccess(await request(alpha, tenantAdminUrl, 'GET', '/adminapi/config/website'), 'read original website');
     const betaBefore = beta ? assertSuccess(await request(beta, tenantBetaUrl, 'GET', '/adminapi/config/website'), 'read Beta website') : null;
