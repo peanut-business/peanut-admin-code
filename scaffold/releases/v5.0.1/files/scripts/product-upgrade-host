@@ -171,10 +171,13 @@ def main():
     elif phase == 'health': prepared_record(); payload = health(state['activation_started'])
     elif phase == 'activate':
         if not state['activation_started'] or 'health' not in state['evidence']: raise ValueError('healthy activation boundary must precede traffic')
-        native('health')
-        native('publish')
         try:
-            native('open'); compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx'); payload = health(True)
+            compose('stop', '--timeout', '60', 'php')
+            native('health')
+            native('publish')
+            native('open')
+            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'php')
+            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx'); payload = health(True)
         except Exception:
             try: native('hold')
             finally: compose('stop', '--timeout', '60', 'nginx', 'php')
@@ -188,7 +191,8 @@ def main():
         payload = {'recovery': 'paired-database-public-private-installation' if state['database_recovery_required'] else 'program-only', 'writers_stopped': True, 'resume_required': True}
     elif phase == 'resume-old':
         try:
-            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'php'); native('health'); native('open')
+            native('health'); native('open')
+            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'php')
             compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx'); payload = health(True); payload['resumed_old_runtime'] = True
         except Exception:
             try: native('hold')

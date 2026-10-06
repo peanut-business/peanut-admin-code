@@ -36,6 +36,7 @@ final class InstallationConfigurationHost
         private readonly string $serverRoot,
         private readonly ?Closure $identityLoader = null,
         private readonly ?Closure $secretGenerator = null,
+        private readonly bool $deferPublication = false,
     ) {}
 
     /** @return array<string,mixed> */
@@ -50,6 +51,15 @@ final class InstallationConfigurationHost
         $configured = is_file($env) && !is_link($env)
             && is_file($registry) && !is_link($registry)
             && is_file($record) && !is_link($record);
+
+        if (!$configured && (file_exists($this->pendingPath()) || is_link($this->pendingPath()))) {
+            if (is_link($this->pendingPath()) || !is_file($this->pendingPath())) {
+                return ['state' => 'blocked', 'code' => 'INSTALL_CONFIGURATION_PARTIAL', 'configured' => false,
+                    'application' => $this->publicIdentity($identity)];
+            }
+            return ['state' => 'pending', 'code' => 'INSTALL_CONFIGURATION_PENDING', 'configured' => false,
+                'application' => $this->publicIdentity($identity)];
+        }
 
         if (file_exists($installed) || is_link($installed)) {
             return [
@@ -137,6 +147,44 @@ final class InstallationConfigurationHost
                 '多租户部署必须登记 Platform 与 Tenant Admin Host。',
                 422,
             );
+        }
+
+        if ($this->deferPublication) {
+            $this->assertFreshConfigurationState();
+            if (file_exists($this->pendingPath()) || is_link($this->pendingPath())) {
+                throw new InstallationExecutionException('INSTALL_CONFIGURATION_IN_PROGRESS', '已有首次配置等待发布。', 409);
+            }
+            $directory = dirname($this->pendingPath());
+            if (is_link($directory) || !is_dir($directory)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_DIRECTORY_INVALID');
+            }
+            $lockPath = $directory . '/configuration.lock';
+            if (is_link($lockPath) || (file_exists($lockPath) && (!is_file($lockPath) || lstat($lockPath)['nlink'] !== 1))) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_LOCK_INVALID');
+            }
+            $lock = fopen($lockPath, 'c+');
+            if (!is_resource($lock) || !flock($lock, LOCK_EX | LOCK_NB)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_BUSY');
+            }
+            try {
+                $this->assertFreshConfigurationState();
+                if (file_exists($this->pendingPath()) || is_link($this->pendingPath())) {
+                    throw new InstallationExecutionException('INSTALL_CONFIGURATION_IN_PROGRESS', '已有首次配置等待发布。', 409);
+                }
+                $this->writeJsonAtomic($this->pendingPath(), [
+                    'protocol' => 'peanut.installation-configuration-input.v1',
+                    'identity_sha256' => hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR)),
+                    'setup_token_sha256' => hash('sha256', $token),
+                    'input' => ['deployment_target' => $target, 'database_name' => $database,
+                        'platform_hosts' => implode(',', $platformHosts), 'tenant_admin_hosts' => implode(',', $tenantAdminHosts)],
+                ]);
+            } finally {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
+            return ['state' => 'pending', 'code' => 'INSTALL_CONFIGURATION_PENDING', 'restart_required' => true,
+                'application' => $this->publicIdentity($identity), 'deployment_target' => $target,
+                'database_resource_id' => $application['slug'] . '-bundled-mysql84', 'database_name' => $database];
         }
 
         $stateDirectory = dirname($this->registryPath());
@@ -300,6 +348,48 @@ final class InstallationConfigurationHost
         }
     }
 
+    /** The native owner calls this only after revoking traffic and stopping the bootstrap writer. */
+    public function publishPending(string $expectedToken): array
+    {
+        $owner = fileowner($this->serverRoot);
+        if ($this->deferPublication || PHP_SAPI !== 'cli' || !is_int($owner)
+            || !in_array(posix_geteuid(), [0, $owner], true)
+            || file_exists($this->serverRoot . '/runtime/upgrade/.traffic-ready')
+            || is_link($this->serverRoot . '/runtime/upgrade/.traffic-ready')) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_REQUIRED');
+        }
+        foreach (['private', 'private/resources', 'private/resources/pending'] as $relative) {
+            if (is_link($this->serverRoot . '/' . $relative) || !is_dir($this->serverRoot . '/' . $relative)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_PATH_INVALID');
+            }
+        }
+        $path = $this->pendingPath();
+        $stat = @lstat($path);
+        if (!is_array($stat) || is_link($path) || !is_file($path) || $stat['nlink'] !== 1
+            || ($stat['mode'] & 0777) !== 0600) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_PATH_INVALID');
+        }
+        $pending = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($pending) || array_keys($pending) !== ['protocol', 'identity_sha256', 'setup_token_sha256', 'input']
+            || $pending['protocol'] !== 'peanut.installation-configuration-input.v1'
+            || $pending['identity_sha256'] !== hash('sha256', json_encode($this->identity(), JSON_THROW_ON_ERROR))
+            || $pending['setup_token_sha256'] !== hash('sha256', $expectedToken)
+            || !is_array($pending['input'])) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_BINDING_INVALID');
+        }
+        // Reuse the canonical validator and generate credentials only in the owner boundary.
+        $result = $this->configure($expectedToken, $expectedToken, $pending['input']);
+        if (!unlink($path)) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_REMOVE_FAILED');
+        }
+        return $result;
+    }
+
+    private function pendingPath(): string
+    {
+        return $this->serverRoot . '/private/resources/pending/configuration.json';
+    }
+
     private function assertFreshConfigurationState(): void
     {
         foreach ([
@@ -307,6 +397,7 @@ final class InstallationConfigurationHost
             $this->registryPath(),
             $this->serverRoot . '/private/resources/configuration.json',
             $this->serverRoot . '/private/installation/installed.json',
+            $this->serverRoot . '/private/installation/executing.json',
             $this->serverRoot . '/runtime/installation/installed.json',
             $this->serverRoot . '/runtime/installation/executing.json',
         ] as $path) {

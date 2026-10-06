@@ -46,7 +46,7 @@ async function refresh(){
    try{installation=await jsonRequest('/installapi/status')}catch(error){installation={state:'reloading',message:String(error)}}
   }
   status.textContent=JSON.stringify({configuration,installation},null,2)
-  $('configure').disabled=configuration.configured||configuration.state==='installed'
+  $('configure').disabled=configuration.configured||configuration.state==='installed'||configuration.state==='pending'
   $('install').disabled=installation?.state!=='uninstalled'
  }catch(error){status.textContent=String(error)}
 }
@@ -74,4 +74,5 @@ $('install').addEventListener('click',async()=>{
  }catch(error){status.textContent=String(error)}
 })
 refresh()
+setInterval(refresh,3000)
 </script></body></html>

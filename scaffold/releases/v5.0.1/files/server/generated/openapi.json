@@ -36418,6 +36418,7 @@
                         "type": "string",
                         "enum": [
                             "unconfigured",
+                            "pending",
                             "configured",
                             "blocked",
                             "installed"
@@ -36484,12 +36485,14 @@
                     "state": {
                         "type": "string",
                         "enum": [
+                            "pending",
                             "configured"
                         ]
                     },
                     "code": {
                         "type": "string",
                         "enum": [
+                            "INSTALL_CONFIGURATION_PENDING",
                             "INSTALL_CONFIGURATION_COMPLETED"
                         ]
                     },

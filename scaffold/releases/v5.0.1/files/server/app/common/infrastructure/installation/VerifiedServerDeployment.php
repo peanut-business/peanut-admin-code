@@ -21,7 +21,7 @@ final readonly class VerifiedServerDeployment
     private const FORMAT = 'peanut.verified-server-deployment.v1';
     private const DIRECTORY = '/runtime/upgrade/verified-deployment';
 
-    private function __construct(private string $serverRoot, private array $record) {}
+    private function __construct(private string $serverRoot, private array $record, private ?ReadonlyHttpMount $httpMount = null) {}
 
     public static function read(App $app): self
     {
@@ -32,11 +32,18 @@ final readonly class VerifiedServerDeployment
                 throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
             }
         }
-        self::assertProtectedPath($root, 'runtime/upgrade/.traffic-ready');
+        if (!is_file($root . '/runtime/upgrade/.traffic-ready')) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
+        }
+        $httpMount = ReadonlyHttpMount::active($root) ? ReadonlyHttpMount::read($root) : null;
+        if ($httpMount === null) {
+            ReadonlyHttpMount::assertUnprivilegedWorker($root);
+        }
+        self::assertProtectedPath($root, 'runtime/upgrade/.traffic-ready', $httpMount);
         if (self::bytes($root . '/runtime/upgrade/.traffic-ready') !== "peanut.server-traffic-ready.v1\n") {
             throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
         }
-        self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment/current.json');
+        self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment/current.json', $httpMount);
         $pointer = self::json(self::bytes($root . self::DIRECTORY . '/current.json'));
         if (($pointer['format'] ?? null) !== self::FORMAT
             || !is_string($pointer['key'] ?? null)
@@ -46,32 +53,32 @@ final readonly class VerifiedServerDeployment
         }
         $store = self::store($app);
         $file = $store->getCacheKey($pointer['key']);
-        self::assertProtectedPath($root, substr($file, strlen($root) + 1));
+        self::assertProtectedPath($root, substr($file, strlen($root) + 1), $httpMount);
         if (!hash_equals($pointer['sha256'], hash('sha256', self::bytes($file)))) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
         }
         $record = $store->get($pointer['key']);
         if (!is_array($record) || ($record['format'] ?? null) !== self::FORMAT
-            || ($record['binding'] ?? null) !== self::binding($root, $app->config->get('modules', []))
+            || ($record['binding'] ?? null) !== self::binding($root, $app->config->get('modules', []), $httpMount)
             || !is_array($record['identity'] ?? null) || !is_array($record['registry'] ?? null)) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
         }
-        return new self($root, $record);
+        return new self($root, $record, $httpMount);
     }
 
     /** Called only under the updater's exclusive instance lock, before granting traffic. */
     public static function publish(App $app, ServerReleaseIdentity $identity): void
     {
         $root = rtrim($app->getRootPath(), '/');
-        self::assertImmutableProgram($root);
+        $httpMount = self::assertImmutableProgram($root);
         $registry = $app->make(CompiledModuleRegistry::class);
         $modules = [];
         foreach ($registry->modules as $manifest) {
             $relative = self::relative($root, $manifest->root);
-            self::assertProtectedPath($root, $relative . '/module.json');
+            self::assertProtectedPath($root, $relative . '/module.json', $httpMount);
             $modules[] = ['root' => $relative, 'json' => json_encode($manifest->object, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)];
         }
-        $binding = self::binding($root, $app->config->get('modules', []));
+        $binding = self::binding($root, $app->config->get('modules', []), $httpMount);
         if (!hash_equals($identity->identitySha256(), $binding['identity'])) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
         }
@@ -83,7 +90,7 @@ final readonly class VerifiedServerDeployment
         if (!file_exists($directory) && !mkdir($directory, 0755)) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
         }
-        self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment');
+        self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment', $httpMount);
         $key = hash('sha256', json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $store = self::store($app);
         $path = $store->getCacheKey($key);
@@ -93,7 +100,7 @@ final readonly class VerifiedServerDeployment
             }
             self::sync($path);
         } else {
-            self::assertProtectedPath($root, substr($path, strlen($root) + 1));
+            self::assertProtectedPath($root, substr($path, strlen($root) + 1), $httpMount);
             if ($store->get($key) !== $record) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
             }
@@ -138,7 +145,7 @@ final readonly class VerifiedServerDeployment
             if (!is_array($item) || !is_string($item['root'] ?? null) || !is_string($item['json'] ?? null)) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
             }
-            self::assertProtectedPath($this->serverRoot, $item['root'] . '/module.json');
+            self::assertProtectedPath($this->serverRoot, $item['root'] . '/module.json', $this->httpMount);
             $data = self::json($item['json']);
             $object = json_decode($item['json'], false, 512, JSON_THROW_ON_ERROR);
             $modules[] = ManifestDocument::fromDecodedJson($this->serverRoot . '/' . $item['root'], $data, $object);
@@ -155,24 +162,24 @@ final readonly class VerifiedServerDeployment
     }
 
     /** Source and dependencies must be immutable to the application user before executing Composer. */
-    public static function assertImmutableProgram(string $root): void
+    public static function assertImmutableProgram(string $root): ?ReadonlyHttpMount
     {
+        $httpMount = ReadonlyHttpMount::ownerBoundary($root);
         $owner = fileowner($root);
-        $application = posix_getpwnam('www-data');
-        if (!is_int($owner) || !is_array($application) || $owner === $application['uid']
-            || !in_array(posix_geteuid(), [0, $owner], true)) {
+        if ($httpMount === null && (!is_int($owner)
+            || !in_array(posix_geteuid(), [0, $owner], true))) {
             throw new RuntimeException('SERVER_DEPLOYMENT_OWNER_REQUIRED');
         }
-        self::assertProtectedPath($root, '.peanut/release-identity.json');
+        self::assertProtectedPath($root, '.peanut/release-identity.json', $httpMount);
         $identity = self::json(self::bytes($root . '/.peanut/release-identity.json'));
         foreach ($identity['files'] ?? [] as $file) {
             if (!is_array($file) || !is_string($file['path'] ?? null) || !str_starts_with($file['path'], 'server/')) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
             }
-            self::assertProtectedPath($root, substr($file['path'], strlen('server/')));
+            self::assertProtectedPath($root, substr($file['path'], strlen('server/')), $httpMount);
         }
         foreach (['app', 'config', 'database', '.peanut', 'resources', 'vendor', 'route', 'bootstrap', 'extend'] as $directory) {
-            self::assertProtectedPath($root, $directory);
+            self::assertProtectedPath($root, $directory, $httpMount);
             $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(
                 $root . '/' . $directory,
                 \FilesystemIterator::SKIP_DOTS,
@@ -181,15 +188,16 @@ final readonly class VerifiedServerDeployment
                 if ($file->isLink()) {
                     throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: ' . $directory);
                 }
-                self::assertProtectedPath($root, self::relative($root, $file->getPathname()));
+                self::assertProtectedPath($root, self::relative($root, $file->getPathname()), $httpMount);
             }
         }
         foreach (['plugins.lock', 'composer.json', 'composer.lock', 'think', 'public/index.php'] as $file) {
-            self::assertProtectedPath($root, $file);
+            self::assertProtectedPath($root, $file, $httpMount);
         }
+        return $httpMount;
     }
 
-    private static function binding(string $root, mixed $config): array
+    private static function binding(string $root, mixed $config, ?ReadonlyHttpMount $httpMount = null): array
     {
         if (!is_array($config)) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
@@ -204,11 +212,20 @@ final readonly class VerifiedServerDeployment
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
         }
         $config['plugin_lock'] = 'plugins.lock';
-        $binding = ['modules' => hash('sha256', json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES))];
+        $binding = ['modules' => hash('sha256', json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+            'program_authority' => $httpMount !== null ? ['boundary' => 'native-readonly-http']
+                : ['boundary' => 'unix-dac', 'deployment_owner' => fileowner($root), 'root_mode' => fileperms($root) & 07777]];
         foreach (['identity' => '.peanut/release-identity.json', 'lock' => 'plugins.lock',
             'dependencies' => 'composer.lock', 'installed_dependencies' => 'vendor/composer/installed.json'] as $key => $path) {
-            self::assertProtectedPath($root, $path);
+            self::assertProtectedPath($root, $path, $httpMount);
             $binding[$key] = hash('sha256', self::bytes($root . '/' . $path));
+        }
+        foreach (['.env', 'private/resources/project-resources.json', 'private/resources/configuration.json'] as $file) {
+            $path = $root . '/' . $file;
+            if ($httpMount !== null && (file_exists($path) || is_link($path))) {
+                self::assertProtectedPath($root, $file, $httpMount);
+            }
+            $binding[$file] = file_exists($path) || is_link($path) ? hash('sha256', self::bytes($path)) : null;
         }
         foreach (['installed' => 'installed.json', 'baseline' => 'baseline.json', 'deployment' => 'deployment.json'] as $key => $file) {
             foreach (['private', 'private/installation'] as $directory) {
@@ -239,15 +256,18 @@ final readonly class VerifiedServerDeployment
         return substr($canonical, strlen(rtrim($root, '/')) + 1);
     }
 
-    private static function assertProtectedPath(string $root, string $relative): void
+    private static function assertProtectedPath(string $root, string $relative, ?ReadonlyHttpMount $httpMount = null): void
     {
         $parts = explode('/', $relative);
         if (array_intersect($parts, ['', '.', '..']) !== [] || str_contains($relative, '\\')) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_PATH_INVALID');
         }
+        if ($httpMount !== null) {
+            $httpMount->assertPath($relative);
+            return;
+        }
         $owner = fileowner($root);
-        $application = posix_getpwnam('www-data');
-        if (!is_int($owner) || !is_array($application) || $owner === $application['uid']) {
+        if (!is_int($owner)) {
             throw new RuntimeException('SERVER_DEPLOYMENT_OWNER_REQUIRED');
         }
         // A protected child is insufficient when the application can replace its mount parent.

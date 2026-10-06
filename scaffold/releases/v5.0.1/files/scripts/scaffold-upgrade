@@ -16,11 +16,13 @@ function usage(): never
 {
     fwrite(STDERR, "Usage:\n"
         . "  php scripts/scaffold-upgrade preflight --project-root=<path> --from-manifest=<path> --to-manifest=<path>\n"
-        . "  php scripts/scaffold-upgrade preflight --project-root=<path> --package=<extracted-package>\n"
+        . "  php scripts/scaffold-upgrade preflight --project-root=<path> --package=<extracted-package> [--source-repository=<owner/repo> --source-ref=<ref> --source-channel=prerelease|stable --source-commit=<published-commit> --source-tree=<published-tree> --release-lock=<downloaded-lock> --release-lock-sha256=<sha256:...>]\n"
         . "  php scripts/scaffold-upgrade resolve --project-root=<path> --plan=<path> --confirm-plan-sha256=<sha256:...> --preserve-paths=<comma-separated-paths|-> --replace-paths=<comma-separated-paths|->\n"
         . "  php scripts/scaffold-upgrade adoption-plan --project-root=<path> --package=<extracted-package>\n"
         . "  php scripts/scaffold-upgrade adoption-apply --project-root=<path> --plan=<path> --confirm-plan-sha256=<sha256:...> --confirm-paths=<comma-separated-exact-paths>\n"
         . "  php scripts/scaffold-upgrade adoption-recover --project-root=<path> --plan=<path>\n"
+        . "  php scripts/scaffold-upgrade release-adoption-plan --project-root=<path> --release-manifest=<published-scaffold-manifest> --source-repository=<owner/repo> --source-ref=<ref> --source-channel=prerelease|stable --release-version=<semver> --source-commit=<published-commit> --source-tree=<published-tree> --release-lock=<downloaded-lock> --release-lock-sha256=<sha256:...>\n"
+        . "  php scripts/scaffold-upgrade release-adoption-apply|release-adoption-verify|release-adoption-recover --project-root=<path> --plan=<path>\n"
         . "  php scripts/scaffold-upgrade apply|verify|recover|rollback --project-root=<path> --plan=<path>\n");
     exit(64);
 }
@@ -40,12 +42,12 @@ function upgradePathList(string $value): array
 }
 
 $command = $argv[1] ?? null;
-if (!in_array($command, ['preflight', 'resolve', 'adoption-plan', 'adoption-apply', 'adoption-recover', 'apply', 'verify', 'recover', 'rollback'], true)) {
+if (!in_array($command, ['preflight', 'resolve', 'adoption-plan', 'adoption-apply', 'adoption-recover', 'release-adoption-plan', 'release-adoption-apply', 'release-adoption-verify', 'release-adoption-recover', 'apply', 'verify', 'recover', 'rollback'], true)) {
     usage();
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(project-root|from-manifest|to-manifest|package|plan|confirm-plan-sha256|confirm-paths|preserve-paths|replace-paths)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(project-root|from-manifest|to-manifest|package|plan|confirm-plan-sha256|confirm-paths|preserve-paths|replace-paths|release-manifest|source-repository|source-ref|source-channel|release-version|source-commit|source-tree|release-lock|release-lock-sha256)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         usage();
     }
     $options[$matches[1]] = $matches[2];
@@ -56,14 +58,36 @@ $requiredOptions = match ($command) {
     'resolve' => ['project-root', 'plan', 'confirm-plan-sha256', 'preserve-paths', 'replace-paths'],
     'adoption-plan' => ['project-root', 'package'],
     'adoption-apply' => ['project-root', 'plan', 'confirm-plan-sha256', 'confirm-paths'],
+    'release-adoption-plan' => ['project-root', 'release-manifest', 'source-repository', 'source-ref', 'source-channel', 'release-version', 'source-commit', 'source-tree', 'release-lock', 'release-lock-sha256'],
     default => ['project-root', 'plan'],
 };
+$sourceSelectionFlags = ['source-repository', 'source-ref', 'source-channel', 'source-commit', 'source-tree', 'release-lock', 'release-lock-sha256'];
+$sourceSelection = null;
+if ($packagePreflight && array_intersect($sourceSelectionFlags, array_keys($options)) !== []) {
+    foreach ($sourceSelectionFlags as $flag) {
+        if (!isset($options[$flag])) {
+            usage();
+        }
+    }
+    $sourceSelection = [
+        'repository' => $options['source-repository'],
+        'requested_ref' => $options['source-ref'],
+        'channel' => $options['source-channel'],
+        'commit' => $options['source-commit'],
+        'tree' => $options['source-tree'],
+        'release_lock_path' => $options['release-lock'],
+        'release_lock_sha256' => $options['release-lock-sha256'],
+    ];
+}
 foreach ($requiredOptions as $required) {
     if (!isset($options[$required]) || !is_string($options[$required]) || $options[$required] === '') {
         usage();
     }
 }
 $allowedOptions = $requiredOptions;
+if ($sourceSelection !== null) {
+    $allowedOptions = array_merge($allowedOptions, $sourceSelectionFlags);
+}
 sort($allowedOptions, SORT_STRING);
 $actualOptions = array_keys($options);
 sort($actualOptions, SORT_STRING);
@@ -111,6 +135,7 @@ try {
             $options['project-root'],
             $manifests['from_manifest'] ?? $options['from-manifest'],
             $manifests['to_manifest'] ?? $options['to-manifest'],
+            $sourceSelection,
         ),
         'resolve' => $runner->resolve(
             $options['project-root'],
@@ -127,6 +152,14 @@ try {
             explode(',', $options['confirm-paths']),
         ),
         'adoption-recover' => $runner->adoptionRecover($options['project-root'], $options['plan']),
+        'release-adoption-plan' => $runner->releaseAdoptionPlan(
+            $options['project-root'], $options['release-manifest'], $options['source-repository'],
+            $options['source-ref'], $options['source-channel'], $options['release-version'],
+            $options['source-commit'], $options['source-tree'], $options['release-lock'], $options['release-lock-sha256'],
+        ),
+        'release-adoption-apply' => $runner->releaseAdoptionApply($options['project-root'], $options['plan']),
+        'release-adoption-verify' => $runner->releaseAdoptionVerify($options['project-root'], $options['plan']),
+        'release-adoption-recover' => $runner->releaseAdoptionRecover($options['project-root'], $options['plan']),
         'apply' => $runner->apply($options['project-root'], $options['plan']),
         'verify' => $runner->verify($options['project-root'], $options['plan']),
         'recover', 'rollback' => $runner->recover($options['project-root'], $options['plan']),

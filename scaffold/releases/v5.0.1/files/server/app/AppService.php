@@ -204,7 +204,7 @@ class AppService extends Service
         ));
         $this->app->bind(
             InstallationConfigurationHost::class,
-            fn(): InstallationConfigurationHost => new InstallationConfigurationHost(dirname(__DIR__)),
+            fn(): InstallationConfigurationHost => new InstallationConfigurationHost(dirname(__DIR__), deferPublication: \app\common\infrastructure\installation\ReadonlyHttpMount::active(dirname(__DIR__))),
         );
         $this->app->bind(
             InstallationExecutionHost::class,
