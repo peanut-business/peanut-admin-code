@@ -577,7 +577,16 @@ final class PeanutServerUpdatePlan
         if (($status['state'] ?? null) !== 'installed'
             || ($status['code'] ?? null) !== 'INSTALL_ALREADY_COMPLETED'
             || !is_array($status['health'] ?? null) || $status['health'] === []) {
-            throw new RuntimeException('native installed runtime health is not current');
+            $state = in_array($status['state'] ?? null, ['installed', 'uninstalled', 'blocked'], true)
+                ? $status['state'] : 'unknown';
+            $codes = ['INSTALL_PREFLIGHT_BLOCKED', 'INSTALL_STATE_MIGRATION_PENDING',
+                'INSTALL_STATE_MIGRATION_REQUIRED', 'INSTALL_COMPLETION_LOCK_INVALID',
+                'INSTALL_LOCKED_DATABASE_UNAVAILABLE', 'INSTALL_DATABASE_UNAVAILABLE',
+                'INSTALL_LOCKED_DATABASE_MISMATCH', 'INSTALL_ALREADY_COMPLETED',
+                'INSTALL_PARTIAL_STATE_REQUIRES_REBUILD', 'INSTALL_RETRY_READY', 'INSTALL_READY',
+                'INSTALL_COMPLETION_LOCK_MISSING'];
+            $code = in_array($status['code'] ?? null, $codes, true) ? $status['code'] : 'unknown';
+            throw new RuntimeException('native installed runtime health is not current: ' . $state . '/' . $code);
         }
         $healthy = hrtime(true);
         \app\common\infrastructure\installation\VerifiedServerDeployment::publish($application, $identity);

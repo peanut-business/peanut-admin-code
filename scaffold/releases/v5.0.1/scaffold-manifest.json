@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "5.0.1",
-        "source_commit": "0e80e389419ec82f9626dae28d776782b06c1537",
-        "source_tree": "54053464d76bde0eb5a0cb68309b46f29f1bdae6",
-        "inventory_sha256": "4ff1af5ec29dd6bde65a64741f50cdd965866ee61ad15db01a2d95118dcf2270",
+        "source_commit": "710a0c423986f10432158a412b8dc99962e09263",
+        "source_tree": "edf4150896969f12bf74ea06625b5be40852f9aa",
+        "inventory_sha256": "4d1036a42874c6c518ff47b7c9426ad65131ce8dd32cc8cef3a57ef58f77f539",
         "inventory_template_version": "5.0.1",
-        "managed_tree_sha256": "31c1d1f6813c5ca38b1f16214bca6eb82290045e4f3b2769e23e45806bb2ef00",
+        "managed_tree_sha256": "3671fd1673d9ac781d9e07caecf278992fb1d05ec63693ff6ef202c14c2c18a8",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -16452,7 +16452,7 @@
         {
             "path": "server/docker/compose.yaml",
             "source": "files/server/docker/compose.yaml",
-            "template_sha256": "679c407f2e24733c38f6c2a32c2423a8e14e5b347f9d0d8b500cddb9e7d5a429",
+            "template_sha256": "dfe8cff5fa8d6f08786acd636d4624d9e065f801ef1e819ce0697156079f7d70",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -16632,7 +16632,7 @@
         {
             "path": "server/docker/scripts/update-plan.php",
             "source": "files/server/docker/scripts/update-plan.php",
-            "template_sha256": "2fc0c650b6ea513c7436c3197a3c43f29dda14a1a964a9c992c8b049591fbcc2",
+            "template_sha256": "497aac3d2a5349809a9ea71c0e805bb7c6dc6ec919df6d3209f903e5b2d153be",
             "classification": "managed",
             "transform": "tokens",
             "mode": 493,
