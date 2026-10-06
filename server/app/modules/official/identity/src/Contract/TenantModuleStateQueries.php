@@ -60,8 +60,10 @@ final readonly class TenantModuleStateQueries
         }
         $rows = Db::name('tenant_module')->whereIn('module_key', $moduleKeys)
             ->order('module_key')->order('tenant_id')->lock(true)->field('module_key,status')->select()->toArray();
-        return array_values(array_map(static fn(array $row): string => (string) $row['module_key'],
-            array_filter($rows, static fn(array $row): bool => $row['status'] === 'enabled')));
+        return array_values(array_map(
+            static fn(array $row): string => (string) $row['module_key'],
+            array_filter($rows, static fn(array $row): bool => $row['status'] === 'enabled'),
+        ));
     }
 
     /**
@@ -105,6 +107,30 @@ final readonly class TenantModuleStateQueries
             $query->lock(true);
         }
         return $query->field('installed_version,manifest_schema_version,manifest_digest,status')->find();
+    }
+
+    /**
+     * Read current installation identities in module-key order for a deployment-wide qualification.
+     * Missing keys remain absent so the registry can reject them in the caller's original order.
+     * @param list<string> $moduleKeys
+     * @return array<string,array{installed_version:mixed,manifest_schema_version:mixed,manifest_digest:mixed,status:mixed}>
+     */
+    public function installationIdentities(array $moduleKeys, bool $lock = false): array
+    {
+        if ($moduleKeys === []) {
+            return [];
+        }
+        $query = Db::name('module_installation')->whereIn('module_key', $moduleKeys)
+            ->field('module_key,installed_version,manifest_schema_version,manifest_digest,status')
+            ->order('module_key');
+        if ($lock) {
+            $query->lock(true);
+        }
+        $identities = [];
+        foreach ($query->select()->toArray() as $row) {
+            $identities[(string) $row['module_key']] = $row;
+        }
+        return $identities;
     }
 
     /**

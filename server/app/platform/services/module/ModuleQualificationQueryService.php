@@ -9,7 +9,7 @@ use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
 use app\common\contract\module\ModuleQualification;
 use app\common\contract\module\ModuleQualificationQuery;
 use app\common\contract\module\TenantModuleState;
-use PeanutAdmin\Kernel\Module\ModuleException;
+use PeanutAdmin\Kernel\Module\ManifestDocument;
 use think\facade\Db;
 
 /** Read-only qualification projection over the verified deployment registry. */
@@ -24,18 +24,39 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
     {
         $manifest = $this->registry->requireInstalled($moduleKey);
         $pluginKey = Db::name('plugin_module')->where('module_key', $moduleKey)->value('plugin_key');
+        return $this->qualification($moduleKey, $manifest, $pluginKey);
+    }
+
+    public function installedModules(): array
+    {
+        $keys = $this->tenantStates->activeInstallationKeys();
+        if ($keys === []) {
+            return [];
+        }
+        $manifests = $this->registry->requireInstalledMany($keys);
+        $pluginRows = Db::name('plugin_module')->whereIn('module_key', $keys)
+            ->field('module_key,plugin_key')->select()->toArray();
+        // plugin_module.module_key is unique; a missing ownership row is an explicit deployment root.
+        $pluginKeys = array_column($pluginRows, 'plugin_key', 'module_key');
+        $modules = [];
+        foreach ($keys as $moduleKey) {
+            $modules[] = $this->qualification($moduleKey, $manifests[$moduleKey], $pluginKeys[$moduleKey] ?? null);
+        }
+        return $modules;
+    }
+
+    private function qualification(string $moduleKey, ManifestDocument $manifest, mixed $pluginKey): ModuleQualification
+    {
         if (!is_string($pluginKey) || $pluginKey === '') {
             // Explicit deployment roots are allowed to register a Module without a Plugin.
             $pluginKey = 'deployment';
         }
-
         $dependencies = [];
         foreach (($manifest->data['dependencies'] ?? []) as $dependency) {
             if (is_array($dependency) && is_string($dependency['module_key'] ?? null)) {
                 $dependencies[] = $dependency['module_key'];
             }
         }
-
         return new ModuleQualification(
             $moduleKey,
             $pluginKey,
@@ -43,15 +64,6 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
             (int) $manifest->data['schema_version'],
             $manifest->digest,
             array_values($dependencies),
-        );
-    }
-
-    public function installedModules(): array
-    {
-        $keys = $this->tenantStates->activeInstallationKeys();
-        return array_map(
-            fn(mixed $moduleKey): ModuleQualification => $this->installedModule((string) $moduleKey),
-            $keys,
         );
     }
 
@@ -125,9 +137,9 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
                 || !$this->registry->isRequiredTenantFoundation($moduleKey)) {
                 continue;
             }
-            $this->registry->requireInstalled($moduleKey);
             $foundations[$moduleKey] = $row;
         }
+        $this->registry->requireInstalledMany(array_keys($foundations));
 
         return $foundations;
     }

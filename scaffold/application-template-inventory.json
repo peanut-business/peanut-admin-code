@@ -11310,7 +11310,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "581fcd5dc975e23ef81b7c67973043e0d5162758afab6b73422edbfb003928d1"
+            "source_sha256": "745dea94f9b9757527042c56b3204ccaad64bdcf2c92ea34ccd56ba8c135b175"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantOwnerAdminProvisioner.php",
@@ -21763,7 +21763,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "261e2fe86ba318d67716a8479b78b02f6cde6bffa98405f3d26490b509bbdc53"
+            "source_sha256": "9d7723420f995d1be2ea2893fc8390b14d0c2854eda084ee2f47aa7c3e0cd5ef"
         },
         {
             "path": "server/app/platform/infrastructure/module/DeploymentModuleInstaller.php",
@@ -22197,7 +22197,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "244a4f515f0df34548f6d4385fc0437a612c29837c4839c97e702d58e78617d2"
+            "source_sha256": "c1dc99de6b5a96c88a73d02e1a8be1c79e22958fb366f8696a4cca55f65f124a"
         },
         {
             "path": "server/app/platform/services/module/PlatformTenantModuleService.php",
@@ -34727,7 +34727,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35759cff908af39a5b11040fe2b9ea74da70f2a1eba2b7dbe9c32d4a7e61e0b1"
+            "source_sha256": "17c9072a5f6e52c083123cdbf7f84568243070614dcd68d447142f51f012fb48"
         },
         {
             "path": "web/src/store/modules/user/types.ts",
