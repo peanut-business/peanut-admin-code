@@ -806,7 +806,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7f38de07eb3fbabf7547aca0ce73a0f33ba061d67a9431b198432f225902f309"
+            "source_sha256": "bc898240b411b6fddca366c7cb62157b73c7d7eafa80e4585610737a2aa1c639"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -972,7 +972,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9399adc33f1f7104668f1bbeacf8af4973c675bb563845e84d3eece999e900c5"
+            "source_sha256": "480a570cfcf6ed743cb86590ff44c51342d4d3ac87a81476f8270dd294444e45"
         },
         {
             "path": "pc/.env.example",
@@ -3641,7 +3641,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d3bfb927243af211cb4e7492e2c6a3239ee26165d6ecb12bfa219e1fbf1abd98"
+            "source_sha256": "9c2d6d8bd60c63a5cff00b37638d184a3b6cb8160c8dc95b6f3cd6ac9ad53271"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
