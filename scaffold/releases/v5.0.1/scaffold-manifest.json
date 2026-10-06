@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "5.0.1",
-        "source_commit": "b082e8ad71eb86ee00fd10101853a4af49f74751",
-        "source_tree": "d7b35ceadf69c8d3793b084388fc45b89cfe12e9",
-        "inventory_sha256": "3a70c939237dc8c92733b20b463a5aef25e89882dfef1424fd326ae7ffad6bd9",
+        "source_commit": "c08e5ea45b4a56b7e45b3223f0b14f6243a55da8",
+        "source_tree": "5f23f4cec996d7a26b9704397974fc19a32eed5b",
+        "inventory_sha256": "b4ec86ec59d9e28a9f3ab1883d7b85796ff57441367a12a4524237054f82dd77",
         "inventory_template_version": "5.0.1",
-        "managed_tree_sha256": "2651be957f7ae9a46790ab82f23a49d136e2d1f8a523560093ba05e3e8931ca0",
+        "managed_tree_sha256": "87e40aa2eab54d28ab88b162e16bee749ae0d5978ce025bd7f9183a2c02d266f",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -512,7 +512,7 @@
         {
             "path": "docs/architecture/identity-organization-access.md",
             "source": "files/docs/architecture/identity-organization-access.md",
-            "template_sha256": "9da7535f998557bd0fbd8a6200f515ddc9b4f153b2939d93aea7a86a9bc4fde3",
+            "template_sha256": "b718e1f0a5835131948d3849dcc8a238c3d5b88d44e2e664eaafc33811979a4d",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -1662,7 +1662,7 @@
         {
             "path": "plugins.lock",
             "source": "files/plugins.lock",
-            "template_sha256": "7099718bb015c418acd238199d2112bb7b7e7a1c99f102b06e19ad612424bf59",
+            "template_sha256": "4612281d9616f8aaf434807762111c6dd1a12bf24ff360ced7fc054fb5cb9ae7",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -1702,7 +1702,7 @@
         {
             "path": "plugins/official.identity/plugin.json",
             "source": "files/plugins/official.identity/plugin.json",
-            "template_sha256": "5b3c08b6cd9953d83b841e46986985be12180afdeb441753de9097df6bc6ff31",
+            "template_sha256": "14d9e576c815adc18aa5515c7230ae84c4f90efd2ed90f893fdac4e2d4738348",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -3022,7 +3022,7 @@
         {
             "path": "server/app/adminapi/controller/auth/LoginController.php",
             "source": "files/server/app/adminapi/controller/auth/LoginController.php",
-            "template_sha256": "c515663619a78dda8f6590d4cfbdc607748c6fa2b78d8953242ddc9d56b97ac5",
+            "template_sha256": "a3d6efee26786d548a762a1ccf3b2ff83db0d8e1556551b2b39226f671a836be",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -3062,7 +3062,7 @@
         {
             "path": "server/app/adminapi/controller/config/ConfigController.php",
             "source": "files/server/app/adminapi/controller/config/ConfigController.php",
-            "template_sha256": "59b8ad67ca03263b2c57863c4ca269d3f36aab1a21a79b50ed4fbbb9ee731a95",
+            "template_sha256": "0f95031ce7a604cb0d0130a86d5d33cc91dce88f756a6785e68da7609b734529",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -3592,7 +3592,7 @@
         {
             "path": "server/app/api/controller/IndexController.php",
             "source": "files/server/app/api/controller/IndexController.php",
-            "template_sha256": "7fe9585d4971f45abf2b49510811c861c892e4ea2b5fa5c26655994816bc2c60",
+            "template_sha256": "59579de3c157775ec6245c4e130b4f6caba45be45b79d7d40a8a5d384948064c",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -3642,7 +3642,7 @@
         {
             "path": "server/app/api/controller/PcController.php",
             "source": "files/server/app/api/controller/PcController.php",
-            "template_sha256": "2437ac98673b711d455dd59958b9fe70c5ba8eb7e5f35346974751a0119cf959",
+            "template_sha256": "3716f0383c90f013d213fe05f42e1a1dd195783b90225f91f8df3a1195972796",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -3722,7 +3722,7 @@
         {
             "path": "server/app/api/metadata/application/adminapi.php",
             "source": "files/server/app/api/metadata/application/adminapi.php",
-            "template_sha256": "2ddb58c70b9745a5c01af974ebf7251e33a255e81802c702b73a1311095bba75",
+            "template_sha256": "2156f8e7bc5e71feca1ef1265f0134daf4966a06a99e3d0be7473d70287869ee",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -3832,7 +3832,7 @@
         {
             "path": "server/app/api/services/IndexApplicationService.php",
             "source": "files/server/app/api/services/IndexApplicationService.php",
-            "template_sha256": "7be4b698e9619f3efbf029018b4ed525d79659272d7a1d65dfe947685cc68f5e",
+            "template_sha256": "385d0d33d0f44d9b7ee4409d432f03ad391dca7be42a9f8728a3fc34521231b1",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -8272,7 +8272,7 @@
         {
             "path": "server/app/modules/official/identity/src/Policy/DemoAccountPolicy.php",
             "source": "files/server/app/modules/official/identity/src/Policy/DemoAccountPolicy.php",
-            "template_sha256": "1c3034ee08b5170f968f125019df18ff6dc9757724c873b8b15219c33eb1ac94",
+            "template_sha256": "ae53867a3505b79069c2e6afad30054de1f384ccabde518f488d369b18b34b81",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -16732,7 +16732,7 @@
         {
             "path": "server/generated/api-catalog.json",
             "source": "files/server/generated/api-catalog.json",
-            "template_sha256": "688f9fd9464d072b6a694a23008acdece48d2e8cbea97ff853d8deb9867b9760",
+            "template_sha256": "b0a9dc1dae98fbb2d53641ed46a472e82551924f07e7c1cacea492677bcca98f",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -16742,7 +16742,7 @@
         {
             "path": "server/generated/openapi.json",
             "source": "files/server/generated/openapi.json",
-            "template_sha256": "cd5d20ee8e83e9191ede03e7fc3325c79221e01c747b41a85ffdf6a2de58edea",
+            "template_sha256": "40add191cf601335117ab5bef08e02194c141e94ca34461246b6a532519b95b2",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -17032,7 +17032,7 @@
         {
             "path": "server/route/admin.php",
             "source": "files/server/route/admin.php",
-            "template_sha256": "5fac40fdedf98f34dff9f77f9bd219c150f53b8af103478354834473e2797c2c",
+            "template_sha256": "4725d463512ab6e450e27c82660430459b0cbc0560c03173ba06cc1af58611b9",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -18452,7 +18452,7 @@
         {
             "path": "web/src/api/system/config.ts",
             "source": "files/web/src/api/system/config.ts",
-            "template_sha256": "41f71cbefdd673fafc0fbe96c41e6d6001a65299b32abf97d10d0b180fb80431",
+            "template_sha256": "dfdacaa9bf6a1d73db507caf79799df1dd6a9d13005b4eb00d0d19a03b4e7242",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -18552,7 +18552,7 @@
         {
             "path": "web/src/api/user.ts",
             "source": "files/web/src/api/user.ts",
-            "template_sha256": "b0cb25d0ce8cd407f65288e4f74f2947683b7c99e8e1ca368a87d9b5bb210de1",
+            "template_sha256": "96bb89b120a8dfa01955b6d1a9f4f72618f352a80457b289bbc1eb1734a11dc3",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -18832,7 +18832,7 @@
         {
             "path": "web/src/generated/openapi.d.ts",
             "source": "files/web/src/generated/openapi.d.ts",
-            "template_sha256": "aebd3f4470fdbca72cadf5ce38f2f8812f534fa6ea868a6d6a02f65db18c3724",
+            "template_sha256": "069e45c2d33188692d69928e3e4aeb48485f16fc3fc39b4f5459b8187cc12fec",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -20922,7 +20922,7 @@
         {
             "path": "web/src/store/modules/brand/index.ts",
             "source": "files/web/src/store/modules/brand/index.ts",
-            "template_sha256": "50dae81b8c10fabf93ca738283b060e88e391e8f82ca995548cda8d4611ca9e7",
+            "template_sha256": "cca703c665eaa027198360c38830e51d422876305205076dea57bbf31474e52e",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -20942,7 +20942,7 @@
         {
             "path": "web/src/store/modules/user/index.ts",
             "source": "files/web/src/store/modules/user/index.ts",
-            "template_sha256": "17c9072a5f6e52c083123cdbf7f84568243070614dcd68d447142f51f012fb48",
+            "template_sha256": "4359a94774185921bec135bf0f752ec6313e34a77886b00510b87bb14029ce8b",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,

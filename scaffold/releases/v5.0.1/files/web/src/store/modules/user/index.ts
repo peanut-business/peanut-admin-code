@@ -76,6 +76,7 @@ const useUserStore = defineStore('user', {
       appStore.setServerMenu(res.data.menu || []);
       this.setInfo(res.data);
       brandStore.setTenantName(res.data.tenantName);
+      brandStore.replace(res.data.website);
     },
 
     // Login

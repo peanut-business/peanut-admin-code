@@ -12,7 +12,7 @@ use PeanutAdmin\Modules\Settings\Contract\TenantApplicationSettings;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use app\common\enum\decoration\DecorationEnum;
 use app\common\services\decoration\DecorationReadService;
-use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use PeanutAdmin\Modules\Identity\Contract\TenantIdentityQuery;
 
 class IndexApplicationService
@@ -80,36 +80,7 @@ class IndexApplicationService
     /** @return array{enabled:bool,email:string,password:string} */
     private function demoLogin(string $host): array
     {
-        if (!($this->demoLoginConfig['enabled'] ?? false)) {
-            return ['enabled' => false, 'email' => '', 'password' => ''];
-        }
-        try {
-            $host = TenantEntryBindingResolver::normalizeHost($host);
-            $tenantAHost = TenantEntryBindingResolver::normalizeHost(
-                (string) ($this->demoLoginConfig['tenant_a_host'] ?? ''),
-            );
-            $tenantBHost = TenantEntryBindingResolver::normalizeHost(
-                (string) ($this->demoLoginConfig['tenant_b_host'] ?? ''),
-            );
-            $sharedHosts = array_filter(array_map(
-                static fn(string $value): string => TenantEntryBindingResolver::normalizeHost($value),
-                (array) ($this->demoLoginConfig['shared_hosts'] ?? []),
-            ));
-        } catch (\Throwable) {
-            return ['enabled' => false, 'email' => '', 'password' => ''];
-        }
-        if (hash_equals($tenantBHost, $host)) {
-            $email = (string) ($this->demoLoginConfig['tenant_b_email'] ?? '');
-        } elseif (hash_equals($tenantAHost, $host) || in_array($host, $sharedHosts, true)) {
-            $email = (string) ($this->demoLoginConfig['tenant_a_email'] ?? '');
-        } else {
-            return ['enabled' => false, 'email' => '', 'password' => ''];
-        }
-        return [
-            'enabled' => true,
-            'email' => trim($email),
-            'password' => (string) ($this->demoLoginConfig['password'] ?? ''),
-        ];
+        return DemoAccountPolicy::publicLoginConfiguration($host, $this->demoLoginConfig);
     }
 
     private function entryTenantName(?int $tenantId): string

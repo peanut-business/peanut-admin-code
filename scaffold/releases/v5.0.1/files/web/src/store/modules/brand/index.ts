@@ -16,13 +16,18 @@ const IMAGE_FIELDS: (keyof WebsiteConfig)[] = [
   'h5_favicon',
 ];
 
-const fallback = { ...defaultBrand.website } as WebsiteConfig;
-IMAGE_FIELDS.forEach((field) => {
-  const value = fallback[field];
-  if (value && !value.startsWith('/') && !value.startsWith('http')) {
-    fallback[field] = `/${value}`;
-  }
-});
+function normalizeWebsite(website: WebsiteConfig): WebsiteConfig {
+  const normalized = { ...defaultBrand.website, ...website } as WebsiteConfig;
+  IMAGE_FIELDS.forEach((field) => {
+    const value = normalized[field];
+    if (value && !value.startsWith('/') && !value.startsWith('http')) {
+      normalized[field] = `/${value}`;
+    }
+  });
+  return normalized;
+}
+
+const fallback = normalizeWebsite(defaultBrand.website as WebsiteConfig);
 
 function applyDocumentBrand(website: WebsiteConfig, tenantName: string) {
   document.title = tenantName
@@ -40,6 +45,7 @@ function applyDocumentBrand(website: WebsiteConfig, tenantName: string) {
 const useBrandStore = defineStore('brand', {
   state: () => ({
     website: { ...fallback } as WebsiteConfig,
+    entryWebsite: { ...fallback } as WebsiteConfig,
     entryTenantName: '',
     tenantName: '',
     demo: { enabled: false, email: '', password: '' } as DemoLoginConfig,
@@ -47,7 +53,7 @@ const useBrandStore = defineStore('brand', {
   }),
   actions: {
     replace(website: WebsiteConfig) {
-      this.website = { ...fallback, ...website };
+      this.website = normalizeWebsite(website);
       this.applyTitle();
     },
     applyTitle() {
@@ -59,6 +65,7 @@ const useBrandStore = defineStore('brand', {
     },
     setTenantName(tenantName?: string) {
       this.tenantName = tenantName?.trim() || '';
+      if (!this.tenantName) this.website = { ...this.entryWebsite };
       this.applyTitle();
     },
     async load() {
@@ -66,10 +73,11 @@ const useBrandStore = defineStore('brand', {
       try {
         const { data } = await getPublicBrandConfig();
         this.demo = data.demo || { enabled: false, email: '', password: '' };
+        this.entryWebsite = normalizeWebsite(data.website);
         this.setEntryTenantName(data.tenantName);
-        this.replace(data.website);
+        if (!this.tenantName) this.replace(this.entryWebsite);
       } catch {
-        this.replace(fallback);
+        if (!this.tenantName) this.replace(this.entryWebsite);
       } finally {
         this.loaded = true;
       }

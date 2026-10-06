@@ -13,6 +13,7 @@ use app\adminapi\validate\auth\LoginValidate;
 use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
 use app\common\exception\BusinessException;
 use think\App;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 
 class LoginController extends BaseAdminController
 {
@@ -21,6 +22,7 @@ class LoginController extends BaseAdminController
         private readonly AdminAuthorizationQuery $authorization,
         private readonly LoginApplicationService $loginApplication,
         private readonly DemoAccountPolicy $demoAccounts,
+        private readonly WebsiteConfigService $website,
     ) {
         parent::__construct($app);
     }
@@ -63,6 +65,7 @@ class LoginController extends BaseAdminController
             'menu'        => $accessData->menu,
             'permissions' => $accessData->permissions,
             'tenantName' => $admin['tenant_name'],
+            'website' => $this->website->get($this->tenantAdminContext()),
             'canSwitchTenant' => !$this->executionContext()->tenantEntryBound()
                 && ($admin['switchable_tenant_count'] ?? 0) > 1,
             'demoMode' => $this->demoAccounts->isDemoEmail((string) $admin['username']),

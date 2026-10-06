@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { UserState } from '@/store/modules/user/types';
 import type { ServerMenuRecord } from '@/store/modules/app/types';
+import type { WebsiteConfig } from '@/api/system/config';
 
 export interface LoginData {
   username: string;
@@ -21,7 +22,9 @@ export function logout() {
 }
 
 export function getUserInfo() {
-  return axios.post<UserState>('/adminapi/user/info');
+  return axios.post<UserState & { website: WebsiteConfig }>(
+    '/adminapi/user/info'
+  );
 }
 
 export function getMenuList() {

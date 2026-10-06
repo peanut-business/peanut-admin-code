@@ -109,7 +109,7 @@ $schemas = [
     ],
     'AdminInfo' => [
         'type' => 'object', 'additionalProperties' => false,
-        'required' => ['id', 'username', 'nickname', 'name', 'avatar', 'role', 'root', 'roles', 'menu', 'permissions', 'tenantName', 'canSwitchTenant', 'demoMode'],
+        'required' => ['id', 'username', 'nickname', 'name', 'avatar', 'role', 'root', 'roles', 'menu', 'permissions', 'tenantName', 'website', 'canSwitchTenant', 'demoMode'],
         'properties' => [
             'id' => ['oneOf' => [['type' => 'integer'], ['type' => 'string']]],
             'username' => ['type' => 'string'], 'nickname' => ['type' => 'string'],
@@ -120,6 +120,7 @@ $schemas = [
             'menu' => ['type' => 'array', 'items' => $ref('AdminMenuNode')],
             'permissions' => $ref('StringList'),
             'tenantName' => ['type' => 'string'],
+            'website' => $ref('WebsiteConfig'),
             'canSwitchTenant' => ['type' => 'boolean'],
             'demoMode' => ['type' => 'boolean'],
         ],
@@ -265,6 +266,19 @@ $schemas = [
             'name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'pc_logo', 'pc_title',
             'pc_ico', 'pc_desc', 'pc_keywords', 'h5_favicon', 'slogan', 'copyright', 'official_url', 'github_url',
         ], ['type' => 'string']),
+    ],
+    'AdminBrandConfig' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'required' => ['website', 'tenantName', 'demo'],
+        'properties' => [
+            'website' => $ref('WebsiteConfig'),
+            'tenantName' => ['type' => 'string'],
+            'demo' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['enabled', 'email', 'password'],
+                'properties' => ['enabled' => ['type' => 'boolean'], 'email' => ['type' => 'string'], 'password' => ['type' => 'string']],
+            ],
+        ],
     ],
     'CopyrightItemList' => [
         'type' => 'array', 'maxItems' => 20, 'items' => [
@@ -515,6 +529,10 @@ $paths = [];
 $add = static function (array &$paths, string $method, string $pathName, array $contract): void {
     $paths[$pathName][strtolower($method)] = $contract;
 };
+
+$add($paths, 'GET', '/adminapi/config/brand', $operation('getAdminEntryBrand', 'AdminAuth', [
+    '200' => $success($ref('AdminBrandConfig')), '403' => $error, '503' => $error,
+], description: 'Anonymous Admin Host branding. Shared unbound entries return application defaults; bound entries use only their admin-web Tenant.'));
 
 // 会话、当前身份与公开 Tenant owner 邀请。
 $add($paths, 'POST', '/adminapi/user/logout', $operation('adminLogout', 'AdminAuth', ['200' => $emptySuccess]));

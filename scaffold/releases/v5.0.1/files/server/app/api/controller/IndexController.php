@@ -6,14 +6,12 @@ namespace app\api\controller;
 
 use think\App;
 use app\api\services\IndexApplicationService;
-use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
 class IndexController extends BaseApiController
 {
     public function __construct(
         App $app,
         private readonly IndexApplicationService $index,
-        private readonly TenantEntryBindingResolver $entryBindings,
     ) {
         parent::__construct($app);
     }
@@ -29,15 +27,12 @@ class IndexController extends BaseApiController
     /** 全局配置 */
     public function config()
     {
-        $entryTenantId = $this->entryBindings->boundTenantId(
-            $this->request,
-            TenantEntryBindingResolver::ADMIN_CLIENT,
-        );
+        $context = $this->publicTenantContext('decoration.config');
         $result = $this->index->getConfigData(
-            $this->publicTenantContext('decoration.config'),
+            $context,
             (string) $this->request->domain(),
             (string) $this->request->host(),
-            $entryTenantId,
+            $context->tenantId,
         );
         return $this->data($result);
     }

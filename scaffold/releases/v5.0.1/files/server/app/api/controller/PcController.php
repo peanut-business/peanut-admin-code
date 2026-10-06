@@ -6,7 +6,6 @@ namespace app\api\controller;
 
 use think\App;
 use app\api\services\PcApplicationService;
-use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
 /**
  * PC 端聚合接口（部分端点返回更丰富的字段或不同格式）
@@ -16,7 +15,6 @@ class PcController extends BaseApiController
     public function __construct(
         App $app,
         private readonly PcApplicationService $pcApplication,
-        private readonly TenantEntryBindingResolver $entryBindings,
     ) {
         parent::__construct($app);
     }
@@ -25,17 +23,12 @@ class PcController extends BaseApiController
     /** PC 配置 */
     public function config()
     {
-        // Core 当前的可信 Host 绑定契约只接收 Request-like 对象，因此解析留在 HTTP 边界；
-        // 解析后的租户编号和规范请求字段再交给 PC 应用用例完成聚合查询。
-        $entryTenantId = $this->entryBindings->boundTenantId(
-            $this->request,
-            TenantEntryBindingResolver::ADMIN_CLIENT,
-        );
+        $context = $this->publicTenantContext('decoration.config');
         $result = $this->pcApplication->config(
-            $this->publicTenantContext('decoration.config'),
+            $context,
             (string) $this->request->domain(),
             (string) $this->request->host(),
-            $entryTenantId,
+            $context->tenantId,
         );
         return $this->data($result);
     }

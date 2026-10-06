@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Policy;
 
 use think\facade\Db;
+use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
 
 /** Keeps public demo credentials and password locking out of normal deployments. */
 final class DemoAccountPolicy
@@ -24,6 +25,34 @@ final class DemoAccountPolicy
     public function enabled(): bool
     {
         return $this->enabled;
+    }
+
+    /** @return array{enabled:bool,email:string,password:string} */
+    public static function publicLoginConfiguration(string $host, array $config): array
+    {
+        $disabled = ['enabled' => false, 'email' => '', 'password' => ''];
+        if (!($config['enabled'] ?? false)) {
+            return $disabled;
+        }
+        try {
+            $host = TenantEntryBindingResolver::normalizeHost($host);
+            $tenantAHost = TenantEntryBindingResolver::normalizeHost((string) ($config['tenant_a_host'] ?? ''));
+            $tenantBHost = TenantEntryBindingResolver::normalizeHost((string) ($config['tenant_b_host'] ?? ''));
+            $sharedHosts = array_map(
+                static fn(string $value): string => TenantEntryBindingResolver::normalizeHost($value),
+                (array) ($config['shared_hosts'] ?? []),
+            );
+        } catch (\Throwable) {
+            return $disabled;
+        }
+        if (hash_equals($tenantBHost, $host)) {
+            $email = (string) ($config['tenant_b_email'] ?? '');
+        } elseif (hash_equals($tenantAHost, $host) || in_array($host, $sharedHosts, true)) {
+            $email = (string) ($config['tenant_a_email'] ?? '');
+        } else {
+            return $disabled;
+        }
+        return ['enabled' => true, 'email' => trim($email), 'password' => (string) ($config['password'] ?? '')];
     }
 
     public function isDemoEmail(string $email): bool
