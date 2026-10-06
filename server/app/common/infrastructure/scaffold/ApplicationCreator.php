@@ -291,8 +291,11 @@ final class ApplicationCreator
     private function originRepository(): ?string
     {
         $pipes = [];
-        $process = proc_open(['git', '-C', $this->sourceRoot, 'config', '--get', 'remote.origin.url'],
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $process = proc_open(
+            ['git', '-C', $this->sourceRoot, 'config', '--get', 'remote.origin.url'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
         if (!is_resource($process)) {
             throw new RuntimeException('CREATE_APP_GIT_UNAVAILABLE');
         }
@@ -575,6 +578,11 @@ final class ApplicationCreator
     /** @return array{commit:string,tree:string} */
     private function gitIdentity(): array
     {
+        $source = realpath($this->sourceRoot);
+        $gitRoot = realpath($this->git(['rev-parse', '--show-toplevel']));
+        if ($source === false || $gitRoot !== $source) {
+            throw new RuntimeException('CREATE_APP_SOURCE_GIT_ROOT_MISMATCH');
+        }
         $status = $this->git(['status', '--porcelain=v1', '--untracked-files=all']);
         if ($status !== '') {
             throw new RuntimeException('CREATE_APP_SOURCE_NOT_CLEAN');

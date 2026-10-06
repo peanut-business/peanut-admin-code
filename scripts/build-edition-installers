@@ -93,11 +93,22 @@ if (!mkdir($temporary, 0700, true)) {
 }
 
 try {
-    $sourceArchive = $temporary . '/source.tar';
     $source = $temporary . '/source';
-    mkdir($source, 0700);
-    editionInstallerRun(['git', '-C', $root, 'archive', '--format=tar', '--output=' . $sourceArchive, $commit]);
-    (new PharData($sourceArchive))->extractTo($source);
+    $origin = trim(editionInstallerRun(['git', '-C', $root, 'remote', 'get-url', 'origin']));
+    if ($origin === '') {
+        throw new RuntimeException('EDITION_BUILD_SOURCE_ORIGIN_INVALID');
+    }
+    // Use an independent shallow repository for the exact fixed source commit.
+    editionInstallerRun(['git', 'init', '--quiet', $source]);
+    editionInstallerRun(['git', '-C', $source, 'fetch', '--quiet', '--no-tags', '--depth=1', $root, $commit]);
+    editionInstallerRun(['git', '-C', $source, 'remote', 'add', 'origin', $origin]);
+    editionInstallerRun(['git', '-C', $source, 'checkout', '--quiet', '--detach', $commit]);
+    if (realpath(trim(editionInstallerRun(['git', '-C', $source, 'rev-parse', '--show-toplevel']))) !== realpath($source)
+        || !hash_equals($commit, trim(editionInstallerRun(['git', '-C', $source, 'rev-parse', 'HEAD'])))
+        || !hash_equals($tree, trim(editionInstallerRun(['git', '-C', $source, 'rev-parse', 'HEAD^{tree}'])))
+        || trim(editionInstallerRun(['git', '-C', $source, 'status', '--porcelain=v1', '--untracked-files=all'])) !== '') {
+        throw new RuntimeException('EDITION_BUILD_SOURCE_IDENTITY_MISMATCH');
+    }
 
     require $source . '/server/app/common/value/scaffold/VersionContract.php';
     $versions = VersionContract::load($source . '/release-versions.json');
@@ -268,7 +279,7 @@ try {
     editionInstallerWrite($temporary . '/SHA256SUMS', $checksums);
 
     foreach ([...array_column($artifacts, 'archive'), ...array_column($artifacts, 'server_archive'),
-                 ...array_column($artifacts, 'manifest'), 'SHA256SUMS'] as $filename) {
+        ...array_column($artifacts, 'manifest'), 'SHA256SUMS'] as $filename) {
         $built = $temporary . '/' . $filename;
         $destination = rtrim($options['output'], '/') . '/' . $filename;
         if ($check) {
