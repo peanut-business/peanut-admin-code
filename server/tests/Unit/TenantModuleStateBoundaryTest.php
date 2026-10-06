@@ -115,11 +115,16 @@ final class TenantModuleStateBoundaryTest extends TestCase
     public function testInstallationStateProjectionIsBoundedAndPreservesMissingRows(): void
     {
         $this->database->exec("UPDATE pa_module_installation SET status='maintenance',last_error_code='RECOVERY_REQUIRED' WHERE module_key='fixture.current'");
+        $this->connection->observedSql = [];
         self::assertSame([
             'fixture.current' => ['status' => 'maintenance', 'last_error_code' => 'RECOVERY_REQUIRED'],
             'fixture.foundation' => ['status' => 'active', 'last_error_code' => null],
         ], $this->queries->installationStates(['fixture.foundation', 'fixture.missing', 'fixture.current']));
+        $reads = array_filter($this->connection->observedSql, static fn(string $sql): bool => str_starts_with($sql, 'SELECT '));
+        self::assertCount(1, $reads, 'The selected installation states must be read in one query; native schema discovery is separate.');
+        $this->connection->observedSql = [];
         self::assertSame([], $this->queries->installationStates([]));
+        self::assertSame([], $this->connection->observedSql, 'An empty selection must not read the installation ledger.');
     }
 
     public function testInactiveOrMissingTenantCannotReceiveEvenFoundationState(): void

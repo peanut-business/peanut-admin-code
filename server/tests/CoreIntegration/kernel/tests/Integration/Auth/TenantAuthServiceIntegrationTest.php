@@ -304,6 +304,7 @@ SQL)->fetchAll();
 
         $untrustedOrigin = $this->captureAuthError(fn() => (new TenantAuthEndpoint($this->auth))->refresh(
             $refresh,
+            $access,
             false,
             '127.0.0.1',
             'Test Agent',
@@ -396,6 +397,7 @@ SQL)->fetchAll();
 
         $singleRotated = $single->refresh(
             $singleAuth->tokens->refresh->expose(),
+            $singleAuth->tokens->access->expose(),
             '127.0.0.1',
             'Single Client',
             'request-single-refresh',
@@ -459,6 +461,7 @@ SQL)->fetchColumn());
 
         $rotated = $this->auth->refresh(
             $authentication->tokens->refresh->expose(),
+            $authentication->tokens->access->expose(),
             '127.0.0.1',
             'Test Agent',
             'request-refresh-after-access-expiry',
@@ -472,6 +475,29 @@ SQL)->fetchColumn());
         );
     }
 
+    public function testRefreshCannotRotateACookieFromAnotherSession(): void
+    {
+        $first = $this->selectAlpha($this->login());
+        $second = $this->selectAlpha($this->login());
+        $foreignRefresh = $second->tokens->refresh->expose();
+        $firstAccess = $first->tokens->access->expose();
+        $secondAccess = $second->tokens->access->expose();
+
+        $error = $this->captureAuthError(fn() => $this->auth->refresh(
+            $foreignRefresh,
+            $firstAccess,
+            '127.0.0.1',
+            'Test Agent',
+            'request-foreign-refresh-cookie',
+        ));
+        self::assertSame('AUTH_TOKEN_INVALID', $error->errorCode);
+        self::assertSame($first->context->sessionKey, $this->auth->context($firstAccess, 'request-first-unaffected')->sessionKey);
+        self::assertSame($second->context->sessionKey, $this->auth->context($secondAccess, 'request-second-unaffected')->sessionKey);
+
+        $rotated = $this->auth->refresh($foreignRefresh, $secondAccess, '127.0.0.1', 'Test Agent', 'request-matching-refresh');
+        self::assertSame($second->context->sessionKey, $rotated->context->sessionKey);
+    }
+
     public function testRefreshRotatesOnceAndReuseRevokesTheTokenFamily(): void
     {
         $authentication = $this->selectAlpha($this->login());
@@ -480,6 +506,7 @@ SQL)->fetchColumn());
 
         $rotated = $this->auth->refresh(
             $oldRefresh,
+            $oldAccess,
             '127.0.0.1',
             'Test Agent',
             'request-refresh',
@@ -501,6 +528,7 @@ SQL)->fetchColumn());
 
         $reuse = $this->captureAuthError(fn() => $this->auth->refresh(
             $oldRefresh,
+            $oldAccess,
             '127.0.0.1',
             'Test Agent',
             'request-reuse',
@@ -530,6 +558,7 @@ SQL)->fetchColumn());
             $outcome = $this->refreshOutcome(
                 $this->authServiceForNewConnection(),
                 $refresh,
+                $authentication->tokens->access->expose(),
                 'request-refresh-child',
             );
             fwrite($sockets[1], $outcome);
@@ -542,6 +571,7 @@ SQL)->fetchColumn());
         $parentOutcome = $this->refreshOutcome(
             $this->auth,
             $refresh,
+            $authentication->tokens->access->expose(),
             'request-refresh-parent',
         );
         $childOutcome = stream_get_contents($sockets[0]);
@@ -1256,10 +1286,11 @@ SQL);
     private function refreshOutcome(
         TenantAuthService $service,
         string $refreshToken,
+        string $accessToken,
         string $requestId,
     ): string {
         try {
-            $service->refresh($refreshToken, '127.0.0.1', null, $requestId);
+            $service->refresh($refreshToken, $accessToken, '127.0.0.1', null, $requestId);
 
             return 'success';
         } catch (AuthException $exception) {
