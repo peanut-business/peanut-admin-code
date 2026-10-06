@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "5.0.1",
-        "source_commit": "dc440f41cb06871585d0ce7ad8f5c10f989cfab6",
-        "source_tree": "0131fac5dc03ec71b9520e1dd7030ca3f827895b",
-        "inventory_sha256": "db705663d424d7d2ec42cbd7c7b77a994f6d652f5bbb7c40413866f3130e5465",
+        "source_commit": "a9a1e57e1b76af329a462208e1dcbe016f700e03",
+        "source_tree": "7e612837b2533783c08395507205aea9802da2f8",
+        "inventory_sha256": "5aae60f245529c5bda70a3a9e175fff2cf5105e9deb29ea2f714c0f5836ed4b4",
         "inventory_template_version": "5.0.1",
-        "managed_tree_sha256": "de6cea68fcb938b752f9380baec5b1d160e63e29b3874be0b4154d8ed66f20c9",
+        "managed_tree_sha256": "04807e6e51216b5c6a841e9397ada9da5bbebb2a4c5d737cbab3dbc935f9799c",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -1662,7 +1662,7 @@
         {
             "path": "plugins.lock",
             "source": "files/plugins.lock",
-            "template_sha256": "cdc6f2b70ee112b34966d05e997575beb8adcf1baa1af3c557bbf6e63b0a0174",
+            "template_sha256": "7099718bb015c418acd238199d2112bb7b7e7a1c99f102b06e19ad612424bf59",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -1702,7 +1702,7 @@
         {
             "path": "plugins/official.identity/plugin.json",
             "source": "files/plugins/official.identity/plugin.json",
-            "template_sha256": "6be7ea258d099107d11f79dee1114f11af40b30566f8346a80b7a2ec617dc55a",
+            "template_sha256": "5b3c08b6cd9953d83b841e46986985be12180afdeb441753de9097df6bc6ff31",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -7502,7 +7502,7 @@
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantModuleStateQueries.php",
             "source": "files/server/app/modules/official/identity/src/Contract/TenantModuleStateQueries.php",
-            "template_sha256": "581fcd5dc975e23ef81b7c67973043e0d5162758afab6b73422edbfb003928d1",
+            "template_sha256": "745dea94f9b9757527042c56b3204ccaad64bdcf2c92ea34ccd56ba8c135b175",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -14962,7 +14962,7 @@
         {
             "path": "server/app/platform/infrastructure/module/DeployedTenantModuleRegistry.php",
             "source": "files/server/app/platform/infrastructure/module/DeployedTenantModuleRegistry.php",
-            "template_sha256": "261e2fe86ba318d67716a8479b78b02f6cde6bffa98405f3d26490b509bbdc53",
+            "template_sha256": "9d7723420f995d1be2ea2893fc8390b14d0c2854eda084ee2f47aa7c3e0cd5ef",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15272,7 +15272,7 @@
         {
             "path": "server/app/platform/services/module/ModuleQualificationQueryService.php",
             "source": "files/server/app/platform/services/module/ModuleQualificationQueryService.php",
-            "template_sha256": "244a4f515f0df34548f6d4385fc0437a612c29837c4839c97e702d58e78617d2",
+            "template_sha256": "c1dc99de6b5a96c88a73d02e1a8be1c79e22958fb366f8696a4cca55f65f124a",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -20942,7 +20942,7 @@
         {
             "path": "web/src/store/modules/user/index.ts",
             "source": "files/web/src/store/modules/user/index.ts",
-            "template_sha256": "35759cff908af39a5b11040fe2b9ea74da70f2a1eba2b7dbe9c32d4a7e61e0b1",
+            "template_sha256": "17c9072a5f6e52c083123cdbf7f84568243070614dcd68d447142f51f012fb48",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,

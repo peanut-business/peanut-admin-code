@@ -81,7 +81,18 @@ const useUserStore = defineStore('user', {
     // Login
     async login(loginForm: LoginData) {
       let generation = advanceSessionGeneration();
+      const resetLoginState = () => {
+        this.resetInfo();
+        useBrandStore().setTenantName();
+        removeRouteListener();
+        useAppStore().clearServerMenu();
+      };
       try {
+        resetLoginState();
+        await disposeTenantState();
+        if (getSessionSnapshot().generation !== generation) {
+          throw new Error('The login session has changed.');
+        }
         if (isMultiTenantDeployment()) {
           if (loginForm.challengeToken && loginForm.tenantId) {
             const authenticated = await selectTenant(
@@ -92,6 +103,7 @@ const useUserStore = defineStore('user', {
             if (getSessionSnapshot().generation !== generation) {
               throw new Error('The login session has changed.');
             }
+            resetLoginState();
             generation = advanceSessionGeneration();
             setToken(authenticated.access_token);
             return authenticated;
@@ -117,10 +129,12 @@ const useUserStore = defineStore('user', {
             if (getSessionSnapshot().generation !== generation) {
               throw new Error('The login session has changed.');
             }
+            resetLoginState();
             generation = advanceSessionGeneration();
             setToken(authenticated.access_token);
             return authenticated;
           }
+          resetLoginState();
           generation = advanceSessionGeneration();
           setToken(outcome.access_token);
           return outcome;
@@ -129,11 +143,15 @@ const useUserStore = defineStore('user', {
         if (getSessionSnapshot().generation !== generation) {
           throw new Error('The login session has changed.');
         }
+        resetLoginState();
         generation = advanceSessionGeneration();
         setToken(res.data.token);
         return res.data;
       } catch (err) {
-        if (getSessionSnapshot().generation === generation) clearToken();
+        if (getSessionSnapshot().generation === generation) {
+          resetLoginState();
+          clearToken();
+        }
         throw err;
       }
     },

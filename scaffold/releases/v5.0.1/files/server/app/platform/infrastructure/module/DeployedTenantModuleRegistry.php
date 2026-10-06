@@ -87,9 +87,40 @@ final readonly class DeployedTenantModuleRegistry
 
     public function requireInstalled(string $moduleKey): ManifestDocument
     {
-        $manifest = $this->manifests[$moduleKey]
+        $manifest = $this->manifest($moduleKey);
+        $this->assertInstallation($moduleKey, $manifest, $this->installationStates->installationIdentity($moduleKey, true));
+        return $manifest;
+    }
+
+    /** @param list<string> $moduleKeys @return array<string, ManifestDocument> */
+    public function requireInstalledMany(array $moduleKeys): array
+    {
+        $knownKeys = [];
+        foreach ($moduleKeys as $moduleKey) {
+            if (!isset($this->manifests[$moduleKey])) {
+                break;
+            }
+            $knownKeys[] = $moduleKey;
+        }
+        $installations = $this->installationStates->installationIdentities($knownKeys, true);
+        $manifests = [];
+        foreach ($moduleKeys as $moduleKey) {
+            $manifest = $this->manifest($moduleKey);
+            $this->assertInstallation($moduleKey, $manifest, $installations[$moduleKey] ?? null);
+            $manifests[$moduleKey] = $manifest;
+        }
+        return $manifests;
+    }
+
+    private function manifest(string $moduleKey): ManifestDocument
+    {
+        return $this->manifests[$moduleKey]
             ?? throw new ModuleException('MODULE_NOT_INSTALLED', "Unknown module: {$moduleKey}");
-        $installation = $this->installationStates->installationIdentity($moduleKey, true);
+    }
+
+    /** @param array<string,mixed>|null $installation */
+    private function assertInstallation(string $moduleKey, ManifestDocument $manifest, ?array $installation): void
+    {
         if ($installation === null) {
             throw new ModuleException('MODULE_NOT_INSTALLED', "Module {$moduleKey} is not installed.");
         }
@@ -104,7 +135,5 @@ final readonly class DeployedTenantModuleRegistry
                 "Installed Module manifest does not match the deployment registry: {$moduleKey}",
             );
         }
-
-        return $manifest;
     }
 }
