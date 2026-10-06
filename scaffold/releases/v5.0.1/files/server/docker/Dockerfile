@@ -17,7 +17,8 @@ RUN apt-get update \
 # Native FPM chroot uses the prepared OS, PHP, CA and timezone files.
 # This image filesystem contains no application program or copied vendor tree.
 RUN mkdir -p /var/www/peanut-http/dev /var/www/peanut-http/run /var/www/peanut-http/tmp /var/www/peanut-http/var/tmp \
-    && cp -a /bin /etc /lib /lib64 /sbin /usr /var/www/peanut-http/ \
+    && cp -a /bin /etc /lib /sbin /usr /var/www/peanut-http/ \
+    && if [ -e /lib64 ]; then cp -a /lib64 /var/www/peanut-http/; fi \
     && mknod -m 0666 /var/www/peanut-http/dev/null c 1 3 \
     && mknod -m 0666 /var/www/peanut-http/dev/random c 1 8 \
     && mknod -m 0666 /var/www/peanut-http/dev/urandom c 1 9 \
