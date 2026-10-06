@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "5.0.1",
-        "source_commit": "edac8b92b9a5ae0416ad7f70f56cb0ea47eb3f27",
-        "source_tree": "f008a0ba3b7189f8e67e6a1d6ad42fb16d8a21ae",
-        "inventory_sha256": "e463b3be1a76efe7e2c34b77e3de434f348673fdd146bc87abc4508b7313dd33",
+        "source_commit": "8cbe52287515e1d510163c1b44bded2f17151b36",
+        "source_tree": "e34712142874e8a698fe7d905b3ad9d2be6bdb0a",
+        "inventory_sha256": "3d2b6df9108e1cd4075824ee6e74593ce03e59a10a15d483615bb6a0dbad1814",
         "inventory_template_version": "5.0.1",
-        "managed_tree_sha256": "3cf575cf96f946d45dcaf3c11cd8d63b61e1b3f784a8eb45ca4cdc54734ddbab",
+        "managed_tree_sha256": "45c38300d6ba6d25a078f67a7276780762244c2d312729547cc6d480a1ee34a9",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -5142,7 +5142,7 @@
         {
             "path": "server/app/common/infrastructure/installation/ReadonlyHttpMount.php",
             "source": "files/server/app/common/infrastructure/installation/ReadonlyHttpMount.php",
-            "template_sha256": "0e2a98d6196d796a3f11078bfe575c088de65cfd42cd38535c06ece537d468b6",
+            "template_sha256": "a6b2145d42528e665ad7ee19108e18e7aa4a8623a027e1e88600ea1573913c5e",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
