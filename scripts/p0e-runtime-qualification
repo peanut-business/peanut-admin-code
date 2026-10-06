@@ -1633,6 +1633,13 @@ class Runner:
 
     def install_current(self, database: str, mode: str, log: Path, project_root: Path | None = None) -> None:
         project_root = ROOT if project_root is None else project_root
+        if project_root in self.generated.values():
+            for relative in ("server/private", "server/private/installation", "server/private/resources"):
+                directory = project_root / relative
+                if directory.is_symlink():
+                    fail(f"generated application private directory must not be a symlink: {relative}")
+                directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+                directory.chmod(0o700)
         self.reset_generated_installation_state(project_root)
         with self.generated_install_bridge(project_root, database):
             with self.backend_process_environment(project_root, database, mode) as env:

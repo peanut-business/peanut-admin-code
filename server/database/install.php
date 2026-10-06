@@ -331,19 +331,7 @@ function expectedTables(array $files): array
 function executeSqlFiles(PDO $pdo, array $files): void
 {
     foreach ($files as $file) {
-        $sql = file_get_contents($file);
-        if ($sql === false) {
-            throw new RuntimeException('无法读取 SQL 文件：' . basename($file));
-        }
-        try {
-            $pdo->exec($sql);
-        } catch (Throwable $exception) {
-            throw new RuntimeException(
-                '执行 SQL 文件失败：' . basename($file) . '；' . $exception->getMessage(),
-                0,
-                $exception,
-            );
-        }
+        executeSqlFile($pdo, $file);
     }
 }
 
@@ -354,7 +342,23 @@ function executeSqlFile(PDO $pdo, string $file): void
         throw new RuntimeException('无法读取 SQL 文件：' . basename($file));
     }
     try {
-        $pdo->exec($sql);
+        // SQL documents use the text protocol and drain every result, as Module migrations do.
+        $emulatedPrepares = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
+        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
+        try {
+            $statement = $pdo->query($sql);
+            try {
+                do {
+                    if ($statement->columnCount() > 0) {
+                        $statement->fetchAll(PDO::FETCH_ASSOC);
+                    }
+                } while ($statement->nextRowset());
+            } finally {
+                $statement->closeCursor();
+            }
+        } finally {
+            $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, $emulatedPrepares);
+        }
     } catch (Throwable $exception) {
         throw new RuntimeException(
             '执行 SQL 文件失败：' . basename($file) . '；' . $exception->getMessage(),
@@ -793,7 +797,9 @@ function installFreshDatabase(string $serverDir, array $input): array
     $lockName = 'peanut_install_' . substr(hash('sha256', $database), 0, 48);
     $lockStatement = $pdo->prepare('SELECT GET_LOCK(?, 10)');
     $lockStatement->execute([$lockName]);
-    if ((int) $lockStatement->fetchColumn() !== 1) {
+    $lockAcquired = (int) $lockStatement->fetchColumn() === 1;
+    $lockStatement->closeCursor();
+    if (!$lockAcquired) {
         throw new RuntimeException('无法获取安装锁，请稍后重试');
     }
 
