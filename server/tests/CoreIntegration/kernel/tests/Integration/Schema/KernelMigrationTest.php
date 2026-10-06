@@ -31,6 +31,8 @@ final class KernelMigrationTest extends DatabaseTestCase
         'pa_platform_session',
         'pa_platform_session_token',
         'pa_auth_security_event',
+        'pa_ops_task',
+        'pa_ops_maintenance_window',
         'pa_protected_resource',
         'pa_target_type',
         'pa_resource_operation',
@@ -45,24 +47,24 @@ final class KernelMigrationTest extends DatabaseTestCase
         'pa_platform_idempotency_record',
     ];
 
-    public function testEmptyInstallUpgradeCopyAndRepeatInstall(): void
+    public function testNativeFreshInstallAndRepeatPreserveData(): void
     {
-        $this->runner->migrate(20260716010110);
-
-        self::assertTrue($this->tableExists('pa_tenant_member'));
-        self::assertFalse($this->tableExists('pa_role'));
-
         $this->runner->migrate();
+        $accountId = $this->insert('pa_account', [
+            'display_name' => 'Preserved native account',
+            'created_at' => '2026-07-16 12:00:00.000',
+            'updated_at' => '2026-07-16 12:00:00.000',
+        ]);
         $this->runner->migrate();
+
+        $account = $this->database->prepare('SELECT display_name FROM pa_account WHERE id = ?');
+        $account->execute([$accountId]);
+        self::assertSame('Preserved native account', $account->fetchColumn());
+        self::assertSame(1, (int) $this->query('SELECT COUNT(*) FROM pa_account')->fetchColumn());
 
         foreach (self::TABLES as $table) {
             self::assertTrue($this->tableExists($table), "Missing migrated table {$table}");
         }
-
-        $migrationCount = $this
-            ->query('SELECT COUNT(*) FROM `pa_kernel_migration`')
-            ->fetchColumn();
-        self::assertSame(40, (int) $migrationCount);
 
         $challengeClient = $this
             ->query("SHOW COLUMNS FROM `pa_login_challenge` WHERE Field = 'client_key'")
@@ -83,13 +85,31 @@ final class KernelMigrationTest extends DatabaseTestCase
     public function testControlledRollbackRemovesOnlyKernelSchema(): void
     {
         $this->runner->migrate();
+        $applicationSchema = file_get_contents(dirname(__DIR__, 6) . '/database/init.sql');
+        self::assertIsString($applicationSchema);
+        self::assertSame(1, preg_match(
+            '/CREATE TABLE `pa_config` \(.*?\) ENGINE=[^;]+;/s',
+            $applicationSchema,
+            $matches,
+        ));
+        $this->database->exec($matches[0]);
+        $this->insert('pa_config', [
+            'type' => 'website',
+            'name' => 'rollback-preserved',
+            'value' => 'Native application data',
+            'create_time' => 1784203200,
+        ]);
         $this->runner->rollbackAll();
 
         foreach (self::TABLES as $table) {
             self::assertFalse($this->tableExists($table), "Rollback retained table {$table}");
         }
 
-        self::assertTrue($this->tableExists('pa_kernel_migration'));
+        self::assertTrue($this->tableExists('pa_config'));
+        self::assertSame(
+            'Native application data',
+            $this->query("SELECT value FROM pa_config WHERE type = 'website' AND name = 'rollback-preserved'")->fetchColumn(),
+        );
     }
 
     private function tableExists(string $table): bool

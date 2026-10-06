@@ -420,7 +420,11 @@ CREATE TABLE `pa_tenant_session` (
   CONSTRAINT `fk_tenant_session_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `pa_tenant` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_tenant_session_account` FOREIGN KEY (`account_id`) REFERENCES `pa_account` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_tenant_session_member` FOREIGN KEY (`tenant_id`, `tenant_member_id`) REFERENCES `pa_tenant_member` (`tenant_id`, `id`) ON DELETE RESTRICT,
-  CONSTRAINT `chk_tenant_session_client` CHECK (`client_key` = 'admin-web'),
+  CONSTRAINT `chk_tenant_session_client` CHECK (
+    CHAR_LENGTH(`client_key`) BETWEEN 1 AND 64
+    AND REGEXP_LIKE(`client_key`, '^[a-z]', 'c')
+    AND NOT REGEXP_LIKE(`client_key`, '[^a-z0-9-]', 'c')
+  ),
   CONSTRAINT `chk_tenant_session_status` CHECK (`status` IN ('active', 'revoked', 'expired')),
   CONSTRAINT `chk_tenant_session_expiry` CHECK (`idle_expires_at` <= `absolute_expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -521,6 +525,7 @@ CREATE TABLE `pa_auth_security_event` (
   PRIMARY KEY (`id`),
   KEY `idx_auth_event_account` (`account_id`, `occurred_at`),
   KEY `idx_auth_event_identifier` (`identifier_hmac`, `occurred_at`),
+  KEY `idx_auth_event_ip` (`ip_address`, `occurred_at`),
   KEY `idx_auth_event_request` (`request_id`),
   KEY `idx_auth_event_time` (`occurred_at`, `id`),
   CONSTRAINT `chk_auth_event_audience` CHECK (`audience` IN ('tenant', 'platform')),
