@@ -45,8 +45,9 @@ final class InstallationDependencyAssemblyTest extends TestCase
         self::assertSame([$registry], $seen);
         $source = file_get_contents((new ReflectionClass($host))->getFileName());
         self::assertStringNotContainsString('ThinkPhpModuleRuntimeRepository', $source);
-        self::assertStringContainsString('$this->runtimeForProfile($this->definitionRegistry())', $source);
-        self::assertLessThan(strpos($source, '$this->runtimeForProfile($this->definitionRegistry())'), strpos($source, '$lifecycle->reconcile($moduleKey)'));
+        self::assertStringContainsString('$registry = $this->definitionRegistry();', $source);
+        self::assertStringContainsString('$this->runtimeForProfile($registry)', $source);
+        self::assertLessThan(strpos($source, '$this->runtimeForProfile($registry)'), strpos($source, '$lifecycle->reconcile($moduleKey)'));
     }
 
     public function testWrongFactoryResultIsRejectedInsteadOfFallingBackToARepository(): void

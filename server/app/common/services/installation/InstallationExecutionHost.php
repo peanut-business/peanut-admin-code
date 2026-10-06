@@ -601,7 +601,7 @@ final class InstallationExecutionHost
         $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
         $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
         if (file_exists($serverIdentity) || is_link($serverIdentity)) {
-            $identity = ServerReleaseIdentity::load($this->serverRoot);
+            $identity = ServerReleaseIdentity::resolve($this->serverRoot);
             $source = [
                 'kind' => 'server-release',
                 'server_release_identity_sha256' => $identity->identitySha256(),
